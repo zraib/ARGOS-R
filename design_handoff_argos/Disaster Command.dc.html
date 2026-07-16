@@ -1,0 +1,1902 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/amin-design-85e8a537-4756-46c7-b92f-d85ed7923190/styles.css">
+  <script src="_ds/amin-design-85e8a537-4756-46c7-b92f-d85ed7923190/_ds_bundle.js"></script>
+  <script>document.documentElement.classList.add('dark');</script>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <style>
+    html,body{margin:0;padding:0;height:100%;background:#0f1f14;}
+    .maplibregl-ctrl-attrib{font-size:9px;opacity:.7;}
+    a{color:#C9A84C;text-decoration:none;} a:hover{color:#b8963d;}
+    @media (max-width: 1180px){ .cgc-clock{display:none;} }
+    @media (max-width: 1040px){ .cgc-alert{display:none;} }
+    @media (max-width: 860px){ .cgc-ticker{display:none;} }
+    @keyframes cgc-ping{0%{transform:scale(1);opacity:.7}100%{transform:scale(3.2);opacity:0}}
+    @keyframes cgc-dash{to{stroke-dashoffset:-16}}
+  </style>
+</helmet>
+<div class="h-screen w-full flex bg-gray-100 dark:bg-rdia-900 font-sans text-gray-800 dark:text-rdia-50 overflow-hidden {{ fontCls }}" dir="{{ dir }}">
+
+  <sc-if value="{{ notAuthed }}" hint-placeholder-val="{{ false }}">
+    <section data-screen-label="Authentification" class="w-full h-full flex items-center justify-center p-6" style="background: radial-gradient(ellipse at 32% 45%, rgb(27 77 46 / 0.6), transparent 60%), rgb(15 31 20);">
+      <div class="w-full grid items-center gap-4 animate-fade-in-up" style="max-width: 880px; grid-template-columns: minmax(320px, 400px) minmax(320px, 400px); justify-content: center;">
+        <div class="flex flex-col items-center gap-6 min-w-0">
+          <img src="argos-logo.png" alt="ARGOS" class="w-full" style="object-fit: contain; max-width: 320px; max-height: 360px; filter: drop-shadow(0 24px 48px rgba(0,0,0,0.55));">
+          <div class="text-center">
+            <div class="text-3xl font-bold tracking-wide" style="color: #F5F0E8;">ARGOS</div>
+            <div class="text-xs uppercase tracking-wider mt-2" style="color: #C9A84C;">{{ t.appSub }}</div>
+          </div>
+        </div>
+      <div class="carte p-8 flex flex-col items-center gap-5 w-full">
+        <div class="text-center">
+          <div class="text-lg font-bold text-rdia-600 dark:text-rdia-50">{{ t.lg_welcome }}</div>
+        </div>
+        <div class="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-or-500/10">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-or-500"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M12 8v4 M12 15h.01"></path></svg>
+          <span class="text-[11px] font-semibold text-or-500">{{ t.lg_restricted }}</span>
+        </div>
+        <div class="w-full flex flex-col gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 dark:text-rdia-200 mb-1">{{ t.lg_user }}</label>
+            <input class="input-champ text-sm w-full" value="{{ loginUserV }}" onChange="{{ setLoginUser }}" onKeyDown="{{ loginKey }}">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 dark:text-rdia-200 mb-1">{{ t.lg_pass }}</label>
+            <input type="password" class="input-champ text-sm w-full" value="{{ loginPassV }}" onChange="{{ setLoginPass }}" onKeyDown="{{ loginKey }}">
+          </div>
+          <button class="btn-primaire text-sm w-full mt-2" onClick="{{ doLogin }}" disabled="{{ loginDisabled }}">{{ t.lg_btn }}</button>
+        </div>
+        <div class="w-full flex gap-1">
+          <sc-for list="{{ loginLangBtns }}" as="lb" hint-placeholder-count="3">
+            <button class="{{ lb.cls }}" onClick="{{ lb.pick }}">{{ lb.label }}</button>
+          </sc-for>
+        </div>
+        <div class="text-[10px] text-gray-400 dark:text-rdia-400 text-center">{{ t.lg_footer }}</div>
+      </div>
+      </div>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{ authed }}" hint-placeholder-val="{{ true }}">
+  <aside class="shrink-0 flex flex-col overflow-hidden {{ sbCls }}" style="{{ sbStyle }}">
+    <div class="{{ sbHdrCls }}" style="{{ sbDivStyle }}">
+      <img src="argos-logo.png" alt="ARGOS" class="{{ sbLogoCls }}" style="object-fit: contain;">
+      <sc-if value="{{ sbOpen }}" hint-placeholder-val="{{ true }}">
+        <div class="min-w-0">
+          <div class="text-lg font-bold leading-tight tracking-wide">{{ t.app }}</div>
+          <div class="text-[10px] uppercase tracking-wider mt-0.5 {{ sbSubCls }}">{{ t.appSub }}</div>
+        </div>
+      </sc-if>
+    </div>
+    <nav class="flex flex-col gap-0.5 p-3 flex-1 overflow-y-auto">
+      <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="8">
+        <button class="{{ n.cls }}" style="{{ n.style }}" title="{{ n.label }}" onClick="{{ n.go }}">
+          <sc-if value="{{ n.hasIcon }}" hint-placeholder-val="{{ true }}">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="{{ n.icon }}"></path></svg>
+          </sc-if>
+          <sc-if value="{{ sbOpen }}" hint-placeholder-val="{{ true }}">
+            <span class="flex-1 text-left truncate">{{ n.label }}</span>
+          </sc-if>
+          <sc-if value="{{ n.hasChip }}" hint-placeholder-val="{{ false }}">
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-danger-500 text-white">{{ n.chip }}</span>
+          </sc-if>
+          <sc-if value="{{ n.isGroup }}" hint-placeholder-val="{{ false }}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" style="{{ n.chevStyle }}"><path d="M9 18l6-6-6-6"></path></svg>
+          </sc-if>
+        </button>
+      </sc-for>
+    </nav>
+    <div class="p-3 border-t flex flex-col gap-3" style="{{ sbDivStyle }}">
+      <div class="{{ sbUserRowCls }}">
+        <div class="h-9 w-9 rounded-full bg-or-500 text-rdia-600 flex items-center justify-center text-xs font-bold shrink-0">KB</div>
+        <sc-if value="{{ sbOpen }}" hint-placeholder-val="{{ true }}">
+          <div class="min-w-0 flex-1">
+            <div class="text-xs font-semibold truncate">Col. K. Benjelloun</div>
+            <div class="text-[10px] truncate {{ sbSubCls }}">{{ t.role }}</div>
+          </div>
+          <button class="p-1.5 rounded-lg transition-colors {{ sbThemeCls }}" onClick="{{ toggleTheme }}" title="Mode">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="{{ themeIcon }}"></path></svg>
+          </button>
+          <button class="p-1.5 rounded-lg transition-colors {{ sbThemeCls }}" onClick="{{ doLogout }}" title="{{ t.logout }}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4 M16 17l5-5-5-5 M21 12H9"></path></svg>
+          </button>
+        </sc-if>
+      </div>
+      <sc-if value="{{ sbOpen }}" hint-placeholder-val="{{ true }}">
+        <div class="flex gap-1">
+          <sc-for list="{{ langBtns }}" as="lb" hint-placeholder-count="3">
+            <button class="{{ lb.cls }}" onClick="{{ lb.pick }}">{{ lb.label }}</button>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+  </aside>
+
+  <div class="flex-1 flex flex-col min-w-0">
+    <header class="h-16 shrink-0 flex items-center gap-4 px-6 bg-white dark:bg-rdia-800 border-b border-gray-200 dark:border-rdia-700">
+      <button class="p-1.5 rounded-lg text-gray-400 hover:text-or-500 hover:bg-gray-100 dark:hover:bg-rdia-600 transition-colors shrink-0" onClick="{{ toggleSb }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v14H3z M9 5v14"></path></svg>
+      </button>
+      <h1 class="text-lg font-bold text-rdia-600 dark:text-rdia-50 whitespace-nowrap truncate" style="min-width: 0;">{{ screenTitle }}</h1>
+      <div class="flex-1 min-w-0"></div>
+      <div class="cgc-ticker flex items-center gap-2 min-w-0 px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-rdia-900/40">
+        <span class="h-2 w-2 rounded-full bg-danger-500 shrink-0 animate-pulse"></span>
+        <span class="text-xs text-gray-600 dark:text-rdia-200 truncate font-mono">{{ tickerMsg }}</span>
+      </div>
+      <span class="cgc-alert {{ alertCls }}">{{ alertLabel }}</span>
+      <span class="cgc-clock text-sm font-mono tabular-nums text-gray-500 dark:text-rdia-200 whitespace-nowrap">{{ clock }}</span>
+      <button class="btn-primaire text-sm whitespace-nowrap" onClick="{{ openWiz }}">{{ t.report }}</button>
+    </header>
+    <main class="flex-1 overflow-y-auto p-6">
+      <sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
+  <section data-screen-label="Tableau de bord" class="flex flex-col gap-4 animate-fade-in">
+    <div class="flex items-center justify-end gap-2">
+      <sc-for list="{{ dashBtns }}" as="db" hint-placeholder-count="2">
+        <button class="{{ db.cls }}" onClick="{{ db.pick }}">{{ db.label }}</button>
+      </sc-for>
+    </div>
+    <div class="grid grid-cols-4 gap-4">
+      <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+        <div class="carte p-4 flex items-center gap-3">
+          <div class="{{ k.iconCls }}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="{{ k.icon }}"></path></svg>
+          </div>
+          <div class="min-w-0">
+            <div class="text-xs text-gray-500 dark:text-rdia-300 truncate">{{ k.label }}</div>
+            <div class="flex items-end gap-2">
+              <span class="text-2xl font-bold tabular-nums leading-none text-rdia-600 dark:text-rdia-50">{{ k.val }}</span>
+              <span class="{{ k.subCls }}">{{ k.sub }}</span>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{ isDashA }}" hint-placeholder-val="{{ true }}">
+      <div class="grid grid-cols-3 gap-4">
+        <div class="min-w-0"><x-import component-from-global-scope="DSW.Chart" from="./ds-widgets.jsx" titre="{{ t.chart_types }}" type="bars" data="{{ chartTypes }}" hint-size="100%,280px"></x-import></div>
+        <div class="min-w-0"><x-import component-from-global-scope="DSW.Chart" from="./ds-widgets.jsx" titre="{{ t.chart_regions }}" type="column3d" data="{{ chartRegions }}" hint-size="100%,280px"></x-import></div>
+        <div class="min-w-0"><x-import component-from-global-scope="DSW.Chart" from="./ds-widgets.jsx" titre="{{ t.chart_moyens }}" type="pie" data="{{ chartMoyens }}" hint-size="100%,280px"></x-import></div>
+      </div>
+      <div class="grid grid-cols-3 gap-4">
+        <div class="min-w-0"><x-import component-from-global-scope="DSW.ListCard" from="./ds-widgets.jsx" titre="{{ t.ops }}" afficher-progression="{{ true }}" items="{{ opsItems }}" hint-size="100%,260px"></x-import></div>
+        <div class="carte p-4 col-span-2">
+          <h3 class="text-sm font-semibold text-rdia-600 dark:text-rdia-50 mb-3">{{ t.feed }}</h3>
+          <div class="flex flex-col gap-2">
+            <sc-for list="{{ feedItems }}" as="f" hint-placeholder-count="5">
+              <div class="flex items-center gap-3 py-1 border-b border-gray-100 dark:border-rdia-700/50">
+                <span class="font-mono text-[10px] text-gray-400 dark:text-rdia-400 w-10 shrink-0">{{ f.time }}</span>
+                <span class="h-2 w-2 rounded-full shrink-0 {{ f.c }}"></span>
+                <span class="text-xs text-gray-700 dark:text-rdia-100 flex-1 min-w-0 truncate">{{ f.txt }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isDashB }}" hint-placeholder-val="{{ false }}">
+      <div class="grid grid-cols-3 gap-4">
+        <div class="carte p-4 col-span-2 flex flex-col">
+          <h3 class="text-sm font-semibold text-rdia-600 dark:text-rdia-50 mb-3">{{ t.overview }}</h3>
+          <div class="flex-1 rounded-lg overflow-hidden" style="background: #10202f; min-height: 420px;">
+            <svg viewBox="10 30 420 430" class="w-full h-full" style="display: block;">
+              <path d="M218,52 L196,148 L176,176 L156,196 L136,240 L120,278 L112,330 L96,368 L82,404 L52,436 L58,458 L30,516 L24,596 L38,678 L120,676 L128,600 L180,560 L190,500 L232,470 L262,448 L306,428 L338,398 L356,342 L398,286 L420,208 L396,150 L390,94 L354,98 L302,86 L245,62 Z" fill="#1B4D2E" stroke="#C9A84C" stroke-width="1" stroke-opacity="0.5"></path>
+              <path d="M150,300 L180,282 L210,272 L250,250 L290,230 L330,214 L360,200" fill="none" stroke="#0f3d22" stroke-width="7" stroke-linecap="round" opacity="0.8"></path>
+              <path d="M130,340 L170,320 L220,300 L270,278" fill="none" stroke="#0f3d22" stroke-width="5" stroke-linecap="round" opacity="0.6"></path>
+              <sc-for list="{{ mbUnits }}" as="m" hint-placeholder-count="3">
+                <rect x="-4" y="-4" width="8" height="8" fill="#C9A84C" stroke="#0f1f14" stroke-width="1" transform="translate({{ m.x }} {{ m.y }})"></rect>
+              </sc-for>
+              <sc-for list="{{ mbHosp }}" as="m" hint-placeholder-count="3">
+                <g transform="translate({{ m.x }} {{ m.y }})"><circle r="5" fill="#ffffff"></circle><path d="M-2.5,0 H2.5 M0,-2.5 V2.5" stroke="#EF4444" stroke-width="1.6"></path></g>
+              </sc-for>
+              <sc-for list="{{ mbInc }}" as="m" hint-placeholder-count="3">
+                <g transform="translate({{ m.x }} {{ m.y }})">
+                  <circle r="7" fill="{{ m.fill }}" opacity="0.6" style="animation: cgc-ping 1.8s ease-out infinite; transform-origin: center;"></circle>
+                  <path d="M0,-6 L6,5 L-6,5 Z" fill="{{ m.fill }}" stroke="#0f1f14" stroke-width="1"></path>
+                </g>
+              </sc-for>
+            </svg>
+          </div>
+        </div>
+        <div class="carte p-4 min-w-0">
+          <h3 class="text-sm font-semibold text-rdia-600 dark:text-rdia-50 mb-3">{{ t.feed }}</h3>
+          <div class="flex flex-col gap-2">
+            <sc-for list="{{ feedItems }}" as="f" hint-placeholder-count="5">
+              <div class="flex items-start gap-2 py-1 border-b border-gray-100 dark:border-rdia-700/50">
+                <span class="font-mono text-[10px] text-gray-400 dark:text-rdia-400 w-10 shrink-0">{{ f.time }}</span>
+                <span class="h-2 w-2 rounded-full shrink-0 mt-0.5 {{ f.c }}"></span>
+                <span class="text-xs text-gray-700 dark:text-rdia-100 flex-1 min-w-0">{{ f.txt }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+      <div class="grid grid-cols-3 gap-4">
+        <div class="min-w-0"><x-import component-from-global-scope="DSW.Chart" from="./ds-widgets.jsx" titre="{{ t.chart_types }}" type="bars" data="{{ chartTypes }}" hint-size="100%,280px"></x-import></div>
+        <div class="min-w-0"><x-import component-from-global-scope="DSW.Chart" from="./ds-widgets.jsx" titre="{{ t.chart_regions }}" type="column3d" data="{{ chartRegions }}" hint-size="100%,280px"></x-import></div>
+        <div class="min-w-0"><x-import component-from-global-scope="DSW.ListCard" from="./ds-widgets.jsx" titre="{{ t.ops }}" afficher-progression="{{ true }}" items="{{ opsItems }}" hint-size="100%,280px"></x-import></div>
+      </div>
+    </sc-if>
+  </section>
+</sc-if>
+      <sc-if value="{{ isMap }}" hint-placeholder-val="{{ false }}">
+  <section data-screen-label="Carte opérationnelle" class="grid gap-4 animate-fade-in" style="height: 100%; min-height: 560px; grid-template-columns: 280px 1fr;">
+    <div class="flex flex-col gap-4 min-w-0">
+      <div class="carte p-4">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400 mb-2">{{ t.layers }}</h3>
+        <sc-for list="{{ layers }}" as="ly" hint-placeholder-count="5">
+          <button class="{{ ly.rowCls }}" onClick="{{ ly.toggle }}">
+            <span class="truncate">{{ ly.label }}</span>
+            <span class="{{ ly.pillCls }}"><span style="{{ ly.dotStyle }}"></span></span>
+          </button>
+        </sc-for>
+      </div>
+      <div class="carte p-4">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400 mb-2">{{ t.legend }}</h3>
+        <div class="flex flex-col gap-2 text-xs text-gray-600 dark:text-rdia-200">
+          <div class="flex items-center gap-2"><svg width="14" height="14" viewBox="-7 -7 14 14"><rect x="-4" y="-4" width="8" height="8" fill="#C9A84C"></rect></svg><span>{{ t.lg_units }}</span></div>
+          <div class="flex items-center gap-2"><svg width="14" height="14" viewBox="-7 -7 14 14"><circle r="5" fill="#ffffff" stroke="#9CA3AF" stroke-width="0.5"></circle><path d="M-2.5,0 H2.5 M0,-2.5 V2.5" stroke="#EF4444" stroke-width="1.6"></path></svg><span>{{ t.lg_hosp }}</span></div>
+          <div class="flex items-center gap-2"><svg width="14" height="14" viewBox="-7 -7 14 14"><circle r="5" fill="none" stroke="#10B981" stroke-width="1.4" stroke-dasharray="2 2"></circle><path d="M-2,0 H2 M0,-2 V2" stroke="#10B981" stroke-width="1.4"></path></svg><span>{{ t.field }}</span></div>
+          <div class="flex items-center gap-2"><svg width="14" height="14" viewBox="-7 -7 14 14"><path d="M0,-6 L6,5 L-6,5 Z" fill="#EF4444"></path></svg><span>{{ t.nav_inc }}</span></div>
+          <div class="flex items-center gap-2"><svg width="14" height="14" viewBox="-7 -7 14 14"><path d="M0,-5 L5,0 L0,5 L-5,0 Z" fill="#3B82F6"></path></svg><span>{{ t.lg_veh }}</span></div>
+        </div>
+      </div>
+      <div class="carte p-4 flex-1 min-w-0">
+        <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+          <div class="flex flex-col gap-3">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <div class="text-sm font-bold text-rdia-600 dark:text-rdia-50 leading-snug">{{ selInfo.titre }}</div>
+                <div class="text-xs text-gray-500 dark:text-rdia-300 mt-0.5">{{ selInfo.sub }}</div>
+              </div>
+              <button class="p-1.5 rounded-lg text-gray-400 hover:text-or-500 hover:bg-gray-100 dark:hover:bg-rdia-600 transition-colors shrink-0" onClick="{{ clearSel }}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+              </button>
+            </div>
+            <x-import component-from-global-scope="DSW.Badge" from="./ds-widgets.jsx" type="{{ selInfo.badgeType }}" label="{{ selInfo.badgeLabel }}" hint-size="auto,22px"></x-import>
+            <div class="flex flex-col gap-1.5">
+              <sc-for list="{{ selInfo.lines }}" as="ln" hint-placeholder-count="3">
+                <div class="flex items-center justify-between gap-2 text-xs border-b border-gray-100 dark:border-rdia-700/50 py-1">
+                  <span class="text-gray-500 dark:text-rdia-300">{{ ln.k }}</span>
+                  <span class="font-semibold text-gray-800 dark:text-rdia-50 text-right">{{ ln.v }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ selInfo.hasAction }}" hint-placeholder-val="{{ false }}">
+              <button class="btn-secondaire text-xs w-full" onClick="{{ selInfo.action }}">{{ selInfo.actionLabel }}</button>
+            </sc-if>
+          </div>
+        </sc-if>
+        <sc-if value="{{ hasNoSel }}" hint-placeholder-val="{{ true }}">
+          <div class="text-xs text-gray-400 dark:text-rdia-400 text-center py-6">{{ t.sel_none }}</div>
+        </sc-if>
+      </div>
+    </div>
+    <div class="carte relative overflow-hidden min-w-0" style="background: #10202f; padding: 0; height: 100%; min-height: 560px;">
+      <div ref="{{ mapRef }}" style="position: absolute; inset: 0;"></div>
+      <div class="absolute z-10 flex gap-2" style="top: 12px; right: 12px;">
+        <div class="flex rounded-lg overflow-hidden shadow-md" style="background: rgba(15,31,20,0.85); backdrop-filter: blur(4px);">
+          <button class="{{ btn2dCls }}" onClick="{{ set2d }}">2D</button>
+          <button class="{{ btn3dCls }}" onClick="{{ set3d }}">3D</button>
+        </div>
+        <div class="flex rounded-lg overflow-hidden shadow-md" style="background: rgba(15,31,20,0.85); backdrop-filter: blur(4px);">
+          <button class="{{ btnSatCls }}" onClick="{{ setSat }}">{{ t.base_sat }}</button>
+          <button class="{{ btnPlanCls }}" onClick="{{ setPlan }}">{{ t.base_plan }}</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</sc-if>
+      <sc-if value="{{ isInc }}" hint-placeholder-val="{{ false }}">
+  <section data-screen-label="Incidents" class="flex flex-col gap-4 animate-fade-in">
+    <div class="flex items-center gap-3">
+      <input class="input-champ text-sm max-w-sm" placeholder="{{ t.search }}" value="{{ incQ }}" onChange="{{ setIncQ }}">
+      <span class="text-xs text-gray-400 dark:text-rdia-400 font-mono">{{ incCount }}</span>
+    </div>
+    <div class="carte overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-200 dark:border-rdia-600">
+            <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.col_id }}</th>
+            <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.col_incident }}</th>
+            <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_typev }}</th>
+            <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.col_region }}</th>
+            <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.col_sev }}</th>
+            <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.col_status }}</th>
+            <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.col_time }}</th>
+            <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.col_actions }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <sc-for list="{{ incRows }}" as="r" hint-placeholder-count="5">
+            <tr class="border-b border-gray-100 dark:border-rdia-700/50 hover:bg-gray-50 dark:hover:bg-rdia-700/30 transition-colors">
+              <td class="py-2.5 px-4 font-mono text-xs text-gray-500 dark:text-rdia-300">{{ r.id }}</td>
+              <td class="py-2.5 px-4 font-medium text-gray-800 dark:text-rdia-50">{{ r.titre }}</td>
+              <td class="py-2.5 px-4 text-xs text-gray-600 dark:text-rdia-200">{{ r.typeLabel }}</td>
+              <td class="py-2.5 px-4 text-xs text-gray-600 dark:text-rdia-200">{{ r.region }}</td>
+              <td class="py-2.5 px-4"><x-import component-from-global-scope="DSW.Badge" from="./ds-widgets.jsx" type="{{ r.sevType }}" label="{{ r.sevLabel }}" hint-size="60px,22px"></x-import></td>
+              <td class="py-2.5 px-4"><x-import component-from-global-scope="DSW.Badge" from="./ds-widgets.jsx" type="{{ r.stType }}" label="{{ r.stLabel }}" hint-size="60px,22px"></x-import></td>
+              <td class="py-2.5 px-4 font-mono text-xs text-gray-500 dark:text-rdia-300">{{ r.time }}</td>
+              <td class="py-2.5 px-4"><button class="btn-secondaire text-xs" onClick="{{ r.toMap }}">{{ t.to_map }}</button></td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</sc-if>
+      <sc-if value="{{ isUnits }}" hint-placeholder-val="{{ false }}">
+  <section data-screen-label="Unités" class="flex flex-col gap-4 animate-fade-in">
+    <sc-if value="{{ showUnitList }}" hint-placeholder-val="{{ true }}">
+      <div class="grid grid-cols-3 gap-4">
+        <sc-for list="{{ unitCards }}" as="c" hint-placeholder-count="6">
+          <div class="carte p-5 flex flex-col gap-3">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <h3 class="text-sm font-bold text-rdia-600 dark:text-rdia-50 leading-snug">{{ c.nom }}</h3>
+                <div class="text-xs text-gray-500 dark:text-rdia-300 mt-0.5">{{ c.ville }}</div>
+              </div>
+              <x-import component-from-global-scope="DSW.Badge" from="./ds-widgets.jsx" type="{{ c.badgeType }}" label="{{ c.badgeLabel }}" hint-size="70px,22px"></x-import>
+            </div>
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-gray-500 dark:text-rdia-300">{{ t.commander }}</span>
+              <span class="font-semibold text-gray-800 dark:text-rdia-50">{{ c.cmdt }}</span>
+            </div>
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-gray-500 dark:text-rdia-300">{{ t.effectif }}</span>
+              <span class="font-semibold tabular-nums text-gray-800 dark:text-rdia-50">{{ c.eff }}</span>
+            </div>
+            <div>
+              <div class="flex items-center justify-between text-[10px] text-gray-400 dark:text-rdia-400 mb-1">
+                <span>{{ t.readiness }}</span><span class="font-mono">{{ c.readiness }}</span>
+              </div>
+              <div class="w-full h-1.5 bg-gray-100 dark:bg-rdia-600 rounded-full overflow-hidden">
+                <div class="h-full bg-or-500 rounded-full" style="{{ c.rw }}"></div>
+              </div>
+            </div>
+            <button class="btn-secondaire text-xs w-full" onClick="{{ c.open }}">{{ t.view }}</button>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{ hasUnitSel }}" hint-placeholder-val="{{ false }}">
+      <div class="flex flex-col gap-4">
+        <div class="carte p-5 flex flex-col gap-4">
+          <div class="flex items-center gap-3">
+            <button class="p-1.5 rounded-lg text-gray-400 hover:text-or-500 hover:bg-gray-100 dark:hover:bg-rdia-600 transition-colors" onClick="{{ backUnits }}">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+            </button>
+            <div class="min-w-0 flex-1">
+              <h2 class="text-base font-bold text-rdia-600 dark:text-rdia-50 leading-tight">{{ u.nom }}</h2>
+              <div class="text-xs text-gray-500 dark:text-rdia-300">{{ u.ville }} · {{ u.cmdt }}</div>
+            </div>
+            <x-import component-from-global-scope="DSW.Badge" from="./ds-widgets.jsx" type="{{ u.badgeType }}" label="{{ u.badgeLabel }}" hint-size="70px,22px"></x-import>
+          </div>
+          <div class="flex items-center gap-6">
+            <div>
+              <div class="text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400">{{ t.effectif }}</div>
+              <div class="text-xl font-bold tabular-nums text-rdia-600 dark:text-rdia-50">{{ u.eff }}</div>
+            </div>
+            <div class="flex-1">
+              <div class="flex items-center justify-between text-[10px] text-gray-400 dark:text-rdia-400 mb-1">
+                <span>{{ t.readiness }}</span><span class="font-mono">{{ u.readiness }}</span>
+              </div>
+              <div class="w-full h-2 bg-gray-100 dark:bg-rdia-600 rounded-full overflow-hidden">
+                <div class="h-full bg-or-500 rounded-full" style="{{ u.rw }}"></div>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <sc-for list="{{ unitTabs }}" as="tb" hint-placeholder-count="3">
+                <button class="{{ tb.cls }}" onClick="{{ tb.pick }}">{{ tb.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <div class="carte overflow-x-auto">
+          <sc-if value="{{ utPers }}" hint-placeholder-val="{{ true }}">
+            <table class="w-full text-sm">
+              <thead><tr class="border-b border-gray-200 dark:border-rdia-600">
+                <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_grade }}</th>
+                <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_name }}</th>
+                <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_role }}</th>
+                <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_status }}</th>
+              </tr></thead>
+              <tbody>
+                <sc-for list="{{ u.pers }}" as="p" hint-placeholder-count="6">
+                  <tr class="border-b border-gray-100 dark:border-rdia-700/50">
+                    <td class="py-2.5 px-4 text-xs text-gray-500 dark:text-rdia-300">{{ p.grade }}</td>
+                    <td class="py-2.5 px-4 font-medium text-gray-800 dark:text-rdia-50">{{ p.nom }}</td>
+                    <td class="py-2.5 px-4 text-xs text-gray-600 dark:text-rdia-200">{{ p.fonction }}</td>
+                    <td class="py-2.5 px-4"><x-import component-from-global-scope="DSW.Badge" from="./ds-widgets.jsx" type="{{ p.stType }}" label="{{ p.stLabel }}" hint-size="70px,22px"></x-import></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </sc-if>
+          <sc-if value="{{ utEquip }}" hint-placeholder-val="{{ false }}">
+            <table class="w-full text-sm">
+              <thead><tr class="border-b border-gray-200 dark:border-rdia-600">
+                <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_desig }}</th>
+                <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_cat }}</th>
+                <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_qty }}</th>
+                <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_state }}</th>
+              </tr></thead>
+              <tbody>
+                <sc-for list="{{ u.equip }}" as="e" hint-placeholder-count="6">
+                  <tr class="border-b border-gray-100 dark:border-rdia-700/50">
+                    <td class="py-2.5 px-4 font-medium text-gray-800 dark:text-rdia-50">{{ e.desig }}</td>
+                    <td class="py-2.5 px-4 text-xs text-gray-600 dark:text-rdia-200">{{ e.cat }}</td>
+                    <td class="py-2.5 px-4 font-mono text-xs tabular-nums text-gray-600 dark:text-rdia-200">{{ e.qty }}</td>
+                    <td class="py-2.5 px-4"><span class="{{ e.etatCls }}">{{ e.etat }}</span></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </sc-if>
+          <sc-if value="{{ utVeh }}" hint-placeholder-val="{{ false }}">
+            <table class="w-full text-sm">
+              <thead><tr class="border-b border-gray-200 dark:border-rdia-600">
+                <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_typev }}</th>
+                <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_plate }}</th>
+                <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_assign }}</th>
+                <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_state }}</th>
+              </tr></thead>
+              <tbody>
+                <sc-for list="{{ u.vehs }}" as="v" hint-placeholder-count="6">
+                  <tr class="border-b border-gray-100 dark:border-rdia-700/50">
+                    <td class="py-2.5 px-4 font-medium text-gray-800 dark:text-rdia-50">{{ v.type }}</td>
+                    <td class="py-2.5 px-4 font-mono text-xs text-gray-500 dark:text-rdia-300">{{ v.plate }}</td>
+                    <td class="py-2.5 px-4 text-xs text-gray-600 dark:text-rdia-200">{{ v.assign }}</td>
+                    <td class="py-2.5 px-4"><span class="{{ v.etatCls }}">{{ v.etat }}</span></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+  </section>
+</sc-if>
+      <sc-if value="{{ isHosp }}" hint-placeholder-val="{{ false }}">
+  <section data-screen-label="Hôpitaux" class="flex flex-col gap-4 animate-fade-in">
+    <sc-if value="{{ showHospList }}" hint-placeholder-val="{{ true }}">
+      <div class="grid grid-cols-3 gap-4">
+        <sc-for list="{{ hospCards }}" as="c" hint-placeholder-count="5">
+          <div class="carte p-5 flex flex-col gap-3">
+            <div class="min-w-0">
+              <h3 class="text-sm font-bold text-rdia-600 dark:text-rdia-50 leading-snug">{{ c.nom }}</h3>
+              <div class="text-xs text-gray-500 dark:text-rdia-300 mt-0.5">{{ c.ville }}</div>
+            </div>
+            <div>
+              <div class="flex items-center justify-between text-[10px] text-gray-400 dark:text-rdia-400 mb-1">
+                <span>{{ t.occupancy }}</span><span class="font-mono">{{ c.occPct }}</span>
+              </div>
+              <div class="w-full h-1.5 bg-gray-100 dark:bg-rdia-600 rounded-full overflow-hidden">
+                <div class="{{ c.barCls }}" style="{{ c.ow }}"></div>
+              </div>
+            </div>
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-gray-500 dark:text-rdia-300">{{ t.beds_free }}</span>
+              <span class="font-semibold tabular-nums text-gray-800 dark:text-rdia-50">{{ c.free }}</span>
+            </div>
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-gray-500 dark:text-rdia-300">{{ t.icu }}</span>
+              <span class="font-semibold tabular-nums text-gray-800 dark:text-rdia-50">{{ c.rea }}</span>
+            </div>
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-gray-500 dark:text-rdia-300">{{ t.staff }}</span>
+              <span class="font-semibold tabular-nums text-gray-800 dark:text-rdia-50">{{ c.staff }}</span>
+            </div>
+            <button class="btn-secondaire text-xs w-full" onClick="{{ c.open }}">{{ t.view }}</button>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{ hasHospSel }}" hint-placeholder-val="{{ false }}">
+      <div class="flex flex-col gap-4">
+        <div class="carte p-5 flex flex-col gap-4">
+          <div class="flex items-center gap-3">
+            <button class="p-1.5 rounded-lg text-gray-400 hover:text-or-500 hover:bg-gray-100 dark:hover:bg-rdia-600 transition-colors" onClick="{{ backHosp }}">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+            </button>
+            <div class="min-w-0 flex-1">
+              <h2 class="text-base font-bold text-rdia-600 dark:text-rdia-50 leading-tight">{{ h.nom }}</h2>
+              <div class="text-xs text-gray-500 dark:text-rdia-300">{{ h.ville }}</div>
+            </div>
+            <div class="flex gap-2">
+              <sc-for list="{{ hospTabs }}" as="tb" hint-placeholder-count="4">
+                <button class="{{ tb.cls }}" onClick="{{ tb.pick }}">{{ tb.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+          <div class="grid grid-cols-4 gap-4">
+            <div class="rounded-lg bg-gray-50 dark:bg-rdia-800/50 p-3">
+              <div class="text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400">{{ t.beds_total }}</div>
+              <div class="text-xl font-bold tabular-nums text-rdia-600 dark:text-rdia-50">{{ h.litsTotal }}</div>
+            </div>
+            <div class="rounded-lg bg-gray-50 dark:bg-rdia-800/50 p-3">
+              <div class="text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400">{{ t.beds_occ }}</div>
+              <div class="text-xl font-bold tabular-nums text-or-500">{{ h.litsOcc }}</div>
+            </div>
+            <div class="rounded-lg bg-gray-50 dark:bg-rdia-800/50 p-3">
+              <div class="text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400">{{ t.beds_free }}</div>
+              <div class="text-xl font-bold tabular-nums text-green-600">{{ h.litsFree }}</div>
+            </div>
+            <div class="rounded-lg bg-gray-50 dark:bg-rdia-800/50 p-3">
+              <div class="text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400">{{ t.icu }}</div>
+              <div class="text-xl font-bold tabular-nums text-danger-500">{{ h.rea }}</div>
+            </div>
+          </div>
+        </div>
+
+        <sc-if value="{{ htStaff }}" hint-placeholder-val="{{ true }}">
+          <div class="carte overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead><tr class="border-b border-gray-200 dark:border-rdia-600">
+                <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_grade }}</th>
+                <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_name }}</th>
+                <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_spec }}</th>
+                <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_status }}</th>
+              </tr></thead>
+              <tbody>
+                <sc-for list="{{ h.staffRows }}" as="p" hint-placeholder-count="6">
+                  <tr class="border-b border-gray-100 dark:border-rdia-700/50">
+                    <td class="py-2.5 px-4 text-xs text-gray-500 dark:text-rdia-300">{{ p.grade }}</td>
+                    <td class="py-2.5 px-4 font-medium text-gray-800 dark:text-rdia-50">{{ p.nom }}</td>
+                    <td class="py-2.5 px-4 text-xs text-gray-600 dark:text-rdia-200">{{ p.spec }}</td>
+                    <td class="py-2.5 px-4"><x-import component-from-global-scope="DSW.Badge" from="./ds-widgets.jsx" type="{{ p.stType }}" label="{{ p.stLabel }}" hint-size="70px,22px"></x-import></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ htBeds }}" hint-placeholder-val="{{ false }}">
+          <div class="carte p-5 flex flex-col gap-4">
+            <sc-for list="{{ h.beds }}" as="b" hint-placeholder-count="5">
+              <div>
+                <div class="flex items-center justify-between text-xs mb-1">
+                  <span class="font-medium text-gray-700 dark:text-rdia-100">{{ b.name }}</span>
+                  <span class="font-mono text-[10px] text-gray-400 dark:text-rdia-400">{{ b.occ }} / {{ b.total }} · {{ b.pct }}</span>
+                </div>
+                <div class="w-full h-2 bg-gray-100 dark:bg-rdia-600 rounded-full overflow-hidden">
+                  <div class="{{ b.barCls }}" style="{{ b.w }}"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ htVeh }}" hint-placeholder-val="{{ false }}">
+          <div class="carte overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead><tr class="border-b border-gray-200 dark:border-rdia-600">
+                <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_typev }}</th>
+                <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_qty }}</th>
+                <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_assign }}</th>
+                <th class="text-left text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 font-semibold py-3 px-4">{{ t.h_state }}</th>
+              </tr></thead>
+              <tbody>
+                <sc-for list="{{ h.vehRows }}" as="v" hint-placeholder-count="3">
+                  <tr class="border-b border-gray-100 dark:border-rdia-700/50">
+                    <td class="py-2.5 px-4 font-medium text-gray-800 dark:text-rdia-50">{{ v.type }}</td>
+                    <td class="py-2.5 px-4 font-mono text-xs tabular-nums text-gray-600 dark:text-rdia-200">{{ v.qty }}</td>
+                    <td class="py-2.5 px-4 text-xs text-gray-600 dark:text-rdia-200">{{ v.assign }}</td>
+                    <td class="py-2.5 px-4"><span class="{{ v.etatCls }}">{{ v.etat }}</span></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ htField }}" hint-placeholder-val="{{ false }}">
+          <div class="flex flex-col gap-4">
+            <div class="flex justify-end">
+              <button class="btn-primaire text-sm" onClick="{{ h.deploy }}">{{ t.deploy_field }}</button>
+            </div>
+            <sc-if value="{{ h.hasFields }}" hint-placeholder-val="{{ true }}">
+              <div class="grid grid-cols-3 gap-4">
+                <sc-for list="{{ h.fields }}" as="f" hint-placeholder-count="2">
+                  <div class="carte p-5 flex flex-col gap-3">
+                    <div class="flex items-start justify-between gap-2">
+                      <h3 class="text-sm font-bold text-rdia-600 dark:text-rdia-50 leading-snug">{{ f.nom }}</h3>
+                      <x-import component-from-global-scope="DSW.Badge" from="./ds-widgets.jsx" type="{{ f.badgeType }}" label="{{ f.badgeLabel }}" hint-size="80px,22px"></x-import>
+                    </div>
+                    <div class="flex items-center justify-between text-xs">
+                      <span class="text-gray-500 dark:text-rdia-300">{{ t.capacity }}</span>
+                      <span class="font-semibold tabular-nums text-gray-800 dark:text-rdia-50">{{ f.cap }} {{ t.beds }}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs">
+                      <span class="text-gray-500 dark:text-rdia-300">{{ t.since }}</span>
+                      <span class="font-semibold text-gray-800 dark:text-rdia-50">{{ f.depuis }}</span>
+                    </div>
+                    <div>
+                      <div class="flex items-center justify-between text-[10px] text-gray-400 dark:text-rdia-400 mb-1">
+                        <span>{{ t.occupancy }}</span><span class="font-mono">{{ f.pct }}</span>
+                      </div>
+                      <div class="w-full h-1.5 bg-gray-100 dark:bg-rdia-600 rounded-full overflow-hidden">
+                        <div class="{{ f.barCls }}" style="{{ f.w }}"></div>
+                      </div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+  </section>
+</sc-if>
+      <sc-if value="{{ isComms }}" hint-placeholder-val="{{ false }}">
+        <section data-screen-label="Centre de communication" class="animate-fade-in grid gap-4" style="height: 100%; min-height: 560px; grid-template-columns: minmax(180px, 220px) minmax(320px, 1fr) minmax(0, 190px);">
+          <div class="carte p-3 flex flex-col min-w-0 overflow-y-auto">
+            <div class="flex items-center justify-between px-1 mb-1">
+              <span class="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{{ t.nav_comms }}</span>
+              <button class="p-1.5 rounded-lg text-gray-400 hover:text-or-500 hover:bg-gray-100 dark:hover:bg-rdia-600 transition-colors" title="{{ t.cm_new_cat }}" onClick="{{ openNewCat }}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+              </button>
+            </div>
+            <sc-if value="{{ comNewCatOpen }}" hint-placeholder-val="{{ false }}">
+              <input class="input-champ text-xs mb-2" placeholder="{{ t.cm_new_cat_ph }}" value="{{ comNewCatV }}" onChange="{{ setNewCat }}" onKeyDown="{{ newCatKey }}" autoFocus="{{ true }}">
+            </sc-if>
+            <sc-for list="{{ comCatRows }}" as="c" hint-placeholder-count="3">
+              <div class="flex items-center justify-between mt-3 px-1">
+                <button class="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400 hover:text-or-500 transition-colors" onClick="{{ c.toggle }}">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="{{ c.chevStyle }}"><path d="M9 18l6-6-6-6"></path></svg>
+                  <span class="truncate">{{ c.name }}</span>
+                </button>
+                <button class="p-1 rounded-md text-gray-400 hover:text-or-500 hover:bg-gray-100 dark:hover:bg-rdia-600 transition-colors" title="{{ t.cm_new_chan }}" onClick="{{ c.addChan }}">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+                </button>
+              </div>
+              <sc-if value="{{ c.open }}" hint-placeholder-val="{{ true }}">
+                <div class="flex flex-col gap-0.5 mt-1">
+                  <sc-for list="{{ c.chans }}" as="ch" hint-placeholder-count="3">
+                    <button class="{{ ch.cls }}" onClick="{{ ch.pick }}">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="{{ ch.icon }}"></path></svg>
+                      <span class="truncate">{{ ch.name }}</span>
+                    </button>
+                  </sc-for>
+                  <sc-if value="{{ c.inputOpen }}" hint-placeholder-val="{{ false }}">
+                    <input class="input-champ text-xs" placeholder="{{ t.cm_new_chan }}" value="{{ comNewChanV }}" onChange="{{ setNewChan }}" onKeyDown="{{ newChanKey }}" autoFocus="{{ true }}">
+                  </sc-if>
+                </div>
+              </sc-if>
+            </sc-for>
+          </div>
+
+          <div class="carte flex flex-col min-w-0 overflow-hidden" style="padding: 0;">
+            <div class="px-4 py-3 border-b border-gray-200 dark:border-rdia-600 flex items-center gap-3 shrink-0">
+              <h2 class="text-sm font-bold text-rdia-600 dark:text-rdia-50 whitespace-nowrap">{{ chanName }}</h2>
+              <span class="text-xs text-gray-400 dark:text-rdia-400 truncate min-w-0">{{ chanTopic }}</span>
+            </div>
+            <sc-if value="{{ chanIsText }}" hint-placeholder-val="{{ true }}">
+              <div class="flex-1 overflow-y-auto p-4 flex gap-4 min-h-0" style="flex-direction: column-reverse;">
+                <sc-for list="{{ comMsgsV }}" as="m" hint-placeholder-count="3">
+                  <div class="flex items-start gap-2.5">
+                    <div class="{{ m.avCls }}">{{ m.initials }}</div>
+                    <div class="min-w-0">
+                      <div class="flex items-baseline gap-2">
+                        <span class="{{ m.nameCls }}">{{ m.who }}</span>
+                        <span class="text-[10px] font-mono text-gray-400 dark:text-rdia-400">{{ m.time }}</span>
+                      </div>
+                      <div class="text-sm text-gray-700 dark:text-rdia-100 leading-snug">{{ m.txt }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+              <div class="p-3 border-t border-gray-200 dark:border-rdia-600 flex items-center gap-2 shrink-0">
+                <input class="input-champ text-sm flex-1" placeholder="{{ t.cm_msg_ph }}" value="{{ comInputV }}" onChange="{{ setComInput }}" onKeyDown="{{ comKey }}">
+                <button class="btn-primaire text-sm shrink-0" onClick="{{ comSend }}">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13 M22 2l-7 20-4-9-9-4z"></path></svg>
+                </button>
+              </div>
+            </sc-if>
+            <sc-if value="{{ chanIsVoice }}" hint-placeholder-val="{{ false }}">
+              <div class="flex-1 flex flex-col items-center justify-center gap-6 p-6">
+                <div class="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{{ t.cm_connected }}</div>
+                <div class="flex flex-wrap justify-center gap-6">
+                  <sc-for list="{{ voicePeople }}" as="vp" hint-placeholder-count="4">
+                    <div class="flex flex-col items-center gap-2">
+                      <div class="relative">
+                        <div class="h-14 w-14 rounded-full flex items-center justify-center text-sm font-bold {{ vp.av }}">{{ vp.initials }}</div>
+                        <sc-if value="{{ vp.speaking }}" hint-placeholder-val="{{ false }}">
+                          <span class="absolute rounded-full" style="inset: -3px; border: 2px solid #10B981;"></span>
+                        </sc-if>
+                      </div>
+                      <span class="text-xs text-gray-600 dark:text-rdia-200">{{ vp.n }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <button class="btn-primaire text-sm" onClick="{{ joinVoice }}">{{ t.cm_join }}</button>
+              </div>
+            </sc-if>
+          </div>
+
+          <div class="carte p-3 overflow-y-auto min-w-0">
+            <div class="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400 px-1 mb-2">{{ t.cm_online }}</div>
+            <sc-for list="{{ comMembersOn }}" as="mb" hint-placeholder-count="5">
+              <div class="flex items-center gap-2 px-1 py-1.5">
+                <div class="relative shrink-0">
+                  <div class="h-7 w-7 rounded-full flex items-center justify-center text-[9px] font-bold {{ mb.av }}">{{ mb.initials }}</div>
+                  <span class="absolute h-2 w-2 rounded-full bg-green-500" style="bottom: 0; right: 0; border: 1.5px solid #fff;"></span>
+                </div>
+                <div class="min-w-0">
+                  <div class="text-xs font-semibold text-gray-700 dark:text-rdia-100 truncate">{{ mb.n }}</div>
+                  <div class="text-[10px] text-gray-400 dark:text-rdia-400">{{ mb.g }}</div>
+                </div>
+              </div>
+            </sc-for>
+            <div class="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400 px-1 mb-2 mt-4">{{ t.cm_offline }}</div>
+            <sc-for list="{{ comMembersOff }}" as="mb" hint-placeholder-count="2">
+              <div class="flex items-center gap-2 px-1 py-1.5 opacity-60">
+                <div class="h-7 w-7 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 {{ mb.av }}">{{ mb.initials }}</div>
+                <div class="min-w-0">
+                  <div class="text-xs font-semibold text-gray-700 dark:text-rdia-100 truncate">{{ mb.n }}</div>
+                  <div class="text-[10px] text-gray-400 dark:text-rdia-400">{{ mb.g }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+      </sc-if>
+      <sc-if value="{{ isStub }}" hint-placeholder-val="{{ false }}">
+        <section data-screen-label="Module" class="animate-fade-in flex items-center justify-center" style="min-height: 60vh;">
+          <div class="carte p-8 flex flex-col items-center gap-3 text-center" style="max-width: 420px;">
+            <div class="h-12 w-12 rounded-full bg-or-500/15 text-or-500 flex items-center justify-center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a5 5 0 00-6.6 6.6L3 18v3h3l5.1-5.1a5 5 0 006.6-6.6L14 12l-2-2z"></path></svg>
+            </div>
+            <h2 class="text-base font-bold text-rdia-600 dark:text-rdia-50">{{ screenTitle }}</h2>
+            <p class="text-sm text-gray-500 dark:text-rdia-300">{{ t.stub_msg }}</p>
+          </div>
+        </section>
+      </sc-if>
+    </main>
+  </div>
+  </sc-if>
+  <x-import component-from-global-scope="DSW.Modal" from="./ds-widgets.jsx" ouverte="{{ wizOpen }}" titre="{{ wizModalTitle }}" taille="lg" on-fermer="{{ closeWiz }}" hint-size="0px,0px">
+    <div class="flex flex-col gap-5">
+      <div class="flex items-center justify-center gap-4">
+        <sc-for list="{{ steps }}" as="st" hint-placeholder-count="3">
+          <div class="flex items-center gap-2">
+            <span class="{{ st.circleCls }}">{{ st.num }}</span>
+            <span class="{{ st.labelCls }}">{{ st.label }}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{ wizS1 }}" hint-placeholder-val="{{ true }}">
+        <div class="grid grid-cols-3 gap-3">
+          <sc-for list="{{ wizTypes }}" as="ty" hint-placeholder-count="6">
+            <button class="{{ ty.cls }}" onClick="{{ ty.pick }}">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="{{ ty.icon }}"></path></svg>
+              <span class="text-center leading-tight">{{ ty.label }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ wizS2 }}" hint-placeholder-val="{{ false }}">
+        <div class="flex flex-col gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 dark:text-rdia-200 mb-1">{{ t.f_title }}</label>
+            <input class="input-champ text-sm w-full" value="{{ wizTitleV }}" onChange="{{ setWizTitle }}">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 dark:text-rdia-200 mb-1">{{ t.f_desc }}</label>
+            <textarea class="input-champ text-sm w-full" rows="4" value="{{ wizDescV }}" onChange="{{ setWizDesc }}"></textarea>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 dark:text-rdia-200 mb-1">{{ t.f_attach }}</label>
+            <label class="flex flex-col items-center justify-center gap-2 p-5 rounded-xl border-2 border-dashed border-gray-300 dark:border-rdia-600 text-gray-400 dark:text-rdia-400 hover:border-or-500/50 hover:text-or-500 transition-colors cursor-pointer">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4 M17 8l-5-5-5 5 M12 3v12"></path></svg>
+              <span class="text-xs">{{ t.f_attach_hint }}</span>
+              <input type="file" class="hidden" multiple onChange="{{ pickFile }}">
+            </label>
+            <sc-if value="{{ hasFiles }}" hint-placeholder-val="{{ false }}">
+              <div class="flex flex-wrap gap-2 mt-2">
+                <sc-for list="{{ wizFiles }}" as="wf" hint-placeholder-count="1">
+                  <span class="text-[10px] font-semibold px-2 py-1 rounded-md bg-or-500/15 text-or-500">{{ wf.name }}</span>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ wizS3 }}" hint-placeholder-val="{{ false }}">
+        <div class="flex flex-col gap-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 dark:text-rdia-200 mb-1">{{ t.f_prov }}</label>
+              <select class="input-champ text-sm w-full" value="{{ provSel }}" onChange="{{ setProv }}">
+                <option value="">—</option>
+                <sc-for list="{{ provinces }}" as="pv" hint-placeholder-count="5">
+                  <option value="{{ pv.v }}">{{ pv.v }}</option>
+                </sc-for>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 dark:text-rdia-200 mb-1">{{ t.f_coords }}</label>
+              <div class="input-champ text-sm w-full font-mono text-gray-500 dark:text-rdia-300">{{ coordsTxt }}</div>
+            </div>
+          </div>
+          <div>
+            <div class="text-[10px] text-gray-400 dark:text-rdia-400 mb-1">{{ t.pick_map }}</div>
+            <div class="rounded-xl overflow-hidden" style="background: #10202f; height: 300px;">
+              <svg viewBox="60 40 320 420" class="w-full h-full" style="display: block; cursor: crosshair;" onClick="{{ mapPick }}">
+                <path d="M218,52 L196,148 L176,176 L156,196 L136,240 L120,278 L112,330 L96,368 L82,404 L52,436 L58,458 L30,516 L24,596 L38,678 L120,676 L128,600 L180,560 L190,500 L232,470 L262,448 L306,428 L338,398 L356,342 L398,286 L420,208 L396,150 L390,94 L354,98 L302,86 L245,62 Z" fill="#1B4D2E" stroke="#C9A84C" stroke-width="1" stroke-opacity="0.5"></path>
+                <path d="M150,300 L180,282 L210,272 L250,250 L290,230 L330,214 L360,200" fill="none" stroke="#0f3d22" stroke-width="7" stroke-linecap="round" opacity="0.8"></path>
+                <g fill="rgba(255,255,255,0.45)" font-size="9" font-family="Inter, sans-serif">
+                  <circle cx="196" cy="148" r="1.5"></circle><text x="202" y="145">Rabat</text>
+                  <circle cx="180" cy="262" r="1.5"></circle><text x="186" y="258">Marrakech</text>
+                  <circle cx="112" cy="330" r="1.5"></circle><text x="118" y="327">Agadir</text>
+                  <circle cx="268" cy="140" r="1.5"></circle><text x="274" y="137">Fès</text>
+                  <circle cx="378" cy="120" r="1.5"></circle><text x="352" y="112">Oujda</text>
+                </g>
+                <sc-if value="{{ hasPt }}" hint-placeholder-val="{{ false }}">
+                  <g transform="translate({{ ptX }} {{ ptY }})">
+                    <circle r="10" fill="none" stroke="#C9A84C" stroke-width="1.5" style="animation: cgc-ping 1.8s ease-out infinite;"></circle>
+                    <path d="M0,-7 L7,6 L-7,6 Z" fill="#C9A84C" stroke="#0f1f14" stroke-width="1"></path>
+                  </g>
+                </sc-if>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <div class="flex items-center justify-between gap-2 pt-2 border-t border-gray-100 dark:border-rdia-700/50">
+        <button class="btn-secondaire text-sm" onClick="{{ closeWiz }}">{{ t.cancel }}</button>
+        <div class="flex gap-2">
+          <sc-if value="{{ notFirst }}" hint-placeholder-val="{{ false }}">
+            <button class="btn-secondaire text-sm" onClick="{{ prevW }}">{{ t.prev }}</button>
+          </sc-if>
+          <sc-if value="{{ notLast }}" hint-placeholder-val="{{ true }}">
+            <button class="btn-primaire text-sm" onClick="{{ nextW }}" disabled="{{ nextDisabled }}">{{ t.next }}</button>
+          </sc-if>
+          <sc-if value="{{ wizS3 }}" hint-placeholder-val="{{ false }}">
+            <button class="btn-primaire text-sm" onClick="{{ submitW }}" disabled="{{ submitDisabled }}">{{ t.submit }}</button>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </x-import>
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div class="fixed bottom-4 right-4 z-50 carte px-4 py-3 flex items-center gap-3 animate-fade-in-up shadow-lg">
+      <span class="h-2 w-2 rounded-full bg-green-500 shrink-0"></span>
+      <span class="text-sm font-medium text-gray-800 dark:text-rdia-50">{{ toastMsg }}</span>
+    </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;alertLevel&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [1, 2, 3, 4], &quot;default&quot;: 3, &quot;tsType&quot;: &quot;1 | 2 | 3 | 4&quot;, &quot;description&quot;: &quot;Niveau d'alerte national affiché dans l'en-tête&quot; },
+  &quot;defaultLang&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;fr&quot;, &quot;ar&quot;, &quot;en&quot;], &quot;default&quot;: &quot;fr&quot;, &quot;tsType&quot;: &quot;'fr' | 'ar' | 'en'&quot;, &quot;description&quot;: &quot;Langue au chargement&quot; },
+  &quot;liveSim&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;description&quot;: &quot;Simulation d'activité en direct (fil d'événements, convois)&quot; }
+}">
+class Component extends DCLogic {
+  state = {
+    authed: false, loginUser: '', loginPass: '', screen: 'dashboard', dash: 'a', lang: 'fr', dark: (localStorage.getItem('kanban_rdia_theme') || 'dark') !== 'light', sbOpen: true, navGroups: { res: true, dis: false, cmd: false },
+    selUnit: null, unitTab: 'pers', selHosp: null, hospTab: 'staff',
+    wizOpen: false, wizStep: 1, wizType: null, wizTitle: '', wizDesc: '', wizFiles: [], wizProv: '', wizPt: null,
+    selMarker: null, map3d: false, mapSat: true,
+    comSel: 'c1', comInput: '', comCollapsed: {}, comNewCatOpen: false, comNewCatName: '', comNewChanCat: null, comNewChanName: '',
+    comCats: [
+      { id: 'g1', name: 'OPÉRATIONS', chans: [
+        { id: 'c1', name: 'état-major', kind: 'text', topic: 'Coordination générale — Op. SALAMA' },
+        { id: 'c2', name: 'op-salama', kind: 'text', topic: 'Secours séisme Al Haouz' },
+        { id: 'c3', name: 'logistique', kind: 'text', topic: 'Convois & approvisionnement' }
+      ] },
+      { id: 'g2', name: 'RENSEIGNEMENT', chans: [
+        { id: 'c4', name: 'meteo-alertes', kind: 'text', topic: 'Bulletins & vigilance' },
+        { id: 'c5', name: 'situation-terrain', kind: 'text', topic: 'Remontées zone sinistrée' }
+      ] },
+      { id: 'g3', name: 'SALLES VOCALES', chans: [
+        { id: 'v1', name: 'PC Opérations', kind: 'voice' },
+        { id: 'v2', name: 'Coordination EVASAN', kind: 'voice' }
+      ] }
+    ],
+    comMsgs: {
+      c1: [
+        { id: 1, who: 'Gén. R. Alaoui', initials: 'RA', av: 'bg-rdia-600 text-white', time: '06:50', txt: 'Point de situation à 07h00. Toutes les cellules en ligne.' },
+        { id: 2, who: 'Col. M. El Fassi', initials: 'MF', av: 'bg-blue-500 text-white', time: '06:58', txt: "7e RA prêt. 120 personnels en attente d'héliportage à Agadir." },
+        { id: 3, who: 'Lt-Col. A. Tazi', initials: 'AT', av: 'bg-purple-500 text-white', time: '07:04', txt: 'Génie : axe RP2010 dégagé à 60 %. Estimation réouverture 14h00.' }
+      ],
+      c2: [
+        { id: 1, who: 'Cdt. H. Berrada', initials: 'HB', av: 'bg-green-500 text-white', time: '07:10', txt: 'Réplique M4.2 ressentie à Amizmiz. Pas de dégâts supplémentaires signalés.' },
+        { id: 2, who: 'Col. M. El Fassi', initials: 'MF', av: 'bg-blue-500 text-white', time: '07:12', txt: 'Bien reçu. Maintien du dispositif.' }
+      ],
+      c3: [{ id: 1, who: 'Lt-Col. S. Amrani', initials: 'SA', av: 'bg-or-500 text-rdia-600', time: '06:40', txt: 'Convoi LOG-1 parti de Rabat, 40 t de fret. ETA Marrakech 11h30.' }],
+      c4: [{ id: 1, who: 'Cellule Météo', initials: 'CM', av: 'bg-blue-500 text-white', time: '06:30', txt: 'Vigilance orange pluies fortes sur le Haut Atlas à partir de 18h00.' }],
+      c5: [{ id: 1, who: 'Sgt. N. Chraibi', initials: 'NC', av: 'bg-gray-500 text-white', time: '07:15', txt: "Village Tizi N'Test : 12 habitations effondrées, besoin équipe cynophile." }]
+    }, layers: { units: true, hospitals: true, incidents: true, vehicles: true, field: true },
+    incidents: [
+      { id: 'INC-2607', type: 'earthquake', titre: "Séisme M5.9 — Province d'Al Haouz", region: 'Marrakech-Safi', sev: 'high', st: 'prog', time: '06:42', x: 188, y: 286, ll: [-8.44, 31.06] },
+      { id: 'INC-2606', type: 'flood', titre: "Crues de l'oued Ourika", region: 'Marrakech-Safi', sev: 'high', st: 'prog', time: '05:10', x: 196, y: 276, ll: [-7.79, 31.32] },
+      { id: 'INC-2604', type: 'wildfire', titre: 'Feu de forêt — Chefchaouen', region: 'Tanger-Tétouan-Al Hoceïma', sev: 'medium', st: 'prog', time: 'J-1', x: 248, y: 82, ll: [-5.27, 35.17] },
+      { id: 'INC-2601', type: 'landslide', titre: 'Glissement de terrain — Al Hoceïma', region: 'Oriental', sev: 'medium', st: 'open', time: 'J-1', x: 300, y: 94, ll: [-3.93, 35.25] },
+      { id: 'INC-2598', type: 'industrial', titre: 'Fuite chimique — Port de Mohammedia', region: 'Casablanca-Settat', sev: 'low', st: 'closed', time: 'J-2', x: 182, y: 168, ll: [-7.38, 33.69] },
+      { id: 'INC-2595', type: 'epidemic', titre: 'Foyer choléra suspecté — Zagora', region: 'Drâa-Tafilalet', sev: 'medium', st: 'open', time: 'J-3', x: 300, y: 420, ll: [-5.84, 30.33] }
+    ],
+    fieldHosps: [
+      { hid: 'H2', nom: 'HMC Amizmiz', cap: 60, occ: 48, statut: 'op', depuis: 'J+2' },
+      { hid: 'H2', nom: "HMC Talat N'Yaaqoub", cap: 40, occ: 37, statut: 'op', depuis: 'J+1' },
+      { hid: 'H4', nom: 'HMC Taroudant', cap: 40, occ: 22, statut: 'partial', depuis: 'J+1' }
+    ],
+    feed: [
+      { time: '07:12', c: 'bg-danger-500', txt: 'Réplique M4.2 enregistrée — Al Haouz' },
+      { time: '07:02', c: 'bg-or-500', txt: '7e Régiment Aéroporté : 120 personnels héliportés vers Amizmiz' },
+      { time: '06:55', c: 'bg-blue-500', txt: 'EVASAN : 14 blessés graves transférés vers HM Avicenne' },
+      { time: '06:48', c: 'bg-green-500', txt: 'HMC Amizmiz opérationnel — capacité 60 lits' },
+      { time: '06:42', c: 'bg-danger-500', txt: "Séisme M5.9 détecté, épicentre province d'Al Haouz" }
+    ],
+    now: Date.now(), tick: 0, toast: null,
+    vehProg: [0.1, 0.45, 0.7]
+  };
+
+  componentDidMount() {
+    document.documentElement.classList.toggle('dark', this.state.dark);
+    this._clock = setInterval(() => this.setState({ now: Date.now() }), 1000);
+    if (this.props.liveSim ?? true) {
+      this._sim = setInterval(() => this.simTick(), 2500);
+    }
+    const lang = this.props.defaultLang;
+    if (lang && lang !== this.state.lang) this.setState({ lang });
+  }
+  componentWillUnmount() { clearInterval(this._clock); clearInterval(this._sim); clearTimeout(this._toastT); this.destroyMap(); }
+
+  simTick() {
+    this.setState(s => {
+      const vehProg = s.vehProg.map(p => (p + 0.018) % 1);
+      let feed = s.feed;
+      if (s.tick > 0 && s.tick % 6 === 0) {
+        const pool = this.FEEDPOOL;
+        const txt = pool[Math.floor(s.tick / 6) % pool.length];
+        const d = new Date();
+        const time = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        feed = [{ time, c: txt.c, txt: txt.t }, ...s.feed].slice(0, 8);
+      }
+      return { tick: s.tick + 1, vehProg, feed };
+    });
+  }
+
+  get FEEDPOOL() {
+    return [
+      { c: 'bg-or-500', t: 'Convoi logistique LOG-1 : passage du col du Tichka' },
+      { c: 'bg-blue-500', t: 'Hélicoptère EVASAN-1 en rotation vers HMC Amizmiz' },
+      { c: 'bg-green-500', t: 'Rétablissement de la piste RP2010 — accès dégagé' },
+      { c: 'bg-danger-500', t: 'Montée des eaux signalée — oued Rheraya' },
+      { c: 'bg-or-500', t: '2e Groupe Logistique : 40 t de fret humanitaire chargées' }
+    ];
+  }
+
+  toast(msg) {
+    clearTimeout(this._toastT);
+    this.setState({ toast: msg });
+    this._toastT = setTimeout(() => this.setState({ toast: null }), 4000);
+  }
+
+  get LANG() {
+    return {
+      fr: {
+        app: 'ARGOS', appSub: 'Gestion des Catastrophes · Forces Armées Royales', role: 'Chef de Division',
+        nav_dash: 'Tableau de bord', nav_map: 'Carte opérationnelle', nav_inc: 'Incidents', nav_units: 'Équipes', nav_hosp: 'Hospinet',
+        report: 'Signaler un incident', live: 'DIRECT',
+        lvl1: 'NIVEAU 1 · ROUTINE', lvl2: 'NIVEAU 2 · VIGILANCE', lvl3: 'NIVEAU 3 · VIGILANCE RENFORCÉE', lvl4: 'NIVEAU 4 · URGENCE NATIONALE',
+        kpi_inc: 'Incidents actifs', kpi_pers: 'Personnel déployé', kpi_beds: 'Lits disponibles', kpi_units: 'Unités en alerte',
+        layoutA: 'Disposition A', layoutB: 'Disposition B', overview: 'Situation générale',
+        chart_types: 'Incidents par type (30 j)', chart_regions: 'Incidents par région', chart_moyens: 'Moyens engagés',
+        ops: 'Opérations en cours', feed: 'Fil des événements',
+        col_id: 'Réf.', col_incident: 'Incident', col_region: 'Région', col_sev: 'Gravité', col_status: 'Statut', col_time: 'Heure', col_actions: 'Actions',
+        search: 'Rechercher un incident…', to_map: 'Carte',
+        sev_high: 'Critique', sev_med: 'Modérée', sev_low: 'Faible',
+        st_open: 'Ouvert', st_prog: 'En cours', st_closed: 'Clôturé',
+        ty_earthquake: 'Séisme', ty_flood: 'Inondation', ty_wildfire: 'Feu de forêt', ty_landslide: 'Glissement de terrain', ty_epidemic: 'Épidémie', ty_industrial: 'Accident industriel',
+        u_ready: 'Opérationnelle', u_deployed: 'Déployée', u_standby: 'En attente',
+        personnel: 'Personnel', equipment: 'Équipements', vehicles: 'Véhicules', commander: 'Commandant', readiness: 'Disponibilité opérationnelle', effectif: 'Effectif', view: 'Détails', back: 'Retour',
+        h_name: 'Nom', h_grade: 'Grade', h_role: 'Fonction', h_status: 'Statut', h_desig: 'Désignation', h_cat: 'Catégorie', h_qty: 'Qté', h_state: 'État', h_typev: 'Type', h_plate: 'Immatriculation', h_assign: 'Affectation', h_spec: 'Spécialité',
+        med_staff: 'Personnel médical', beds: 'Lits', field: 'Hôpitaux de campagne', deploy_field: 'Déployer un hôpital de campagne',
+        beds_total: 'Lits totaux', beds_occ: 'Occupés', beds_free: 'Disponibles', icu: 'Réanimation', occupancy: 'Occupation',
+        op_ok: 'Opérationnel', op_partial: 'Montée en charge', since: 'Déployé', capacity: 'Capacité', staff: 'Effectif médical',
+        wiz_title: "Signaler un incident", wz1: "Type d'incident", wz2: 'Détails', wz3: 'Localisation',
+        f_title: "Titre de l'incident", f_desc: 'Description', f_attach: 'Pièces jointes', f_attach_hint: 'Photo, vidéo ou document — cliquer pour joindre',
+        f_prov: 'Province', f_coords: 'Coordonnées', pick_map: 'Cliquer sur la carte pour positionner l\u2019incident',
+        prev: 'Précédent', next: 'Suivant', submit: 'Soumettre le rapport', cancel: 'Annuler',
+        toast_ok: 'Rapport transmis au centre des opérations', toast_field: 'Hôpital de campagne en cours de déploiement',
+        layers: 'Couches', legend: 'Légende', sel_none: 'Sélectionner un élément sur la carte', lg_veh: 'Véhicules / convois', now: 'Maintenant', base_sat: 'Satellite', base_plan: 'Plan', lg_units: 'Unités', lg_hosp: 'Hôpitaux', nav_triage: 'Triage de masse', nav_res: 'Ressources', nav_equip: 'Inventaire équipements', nav_pers: 'Personnel', nav_wo: 'Bons de travail', nav_dis: 'Gestion de désastres', nav_ics: 'Formulaire ICS', nav_damage: 'Évaluation des dommages', nav_shelters: 'Gestion des abris', nav_cmd: 'Commandement', nav_orsec: 'Tableau ORSEC', nav_plans: 'Plans', nav_comms: 'Centre de communication', nav_reports: "Rapports d'incidents", nav_analytics: 'Analytique', stub_msg: 'Module en préparation — son contenu sera conçu prochainement. Dites-nous ce qui doit y figurer en priorité.', cm_new_cat: 'Nouveau groupe', cm_new_chan: 'Nom du canal…', cm_new_cat_ph: 'Nom du groupe…', cm_msg_ph: 'Écrire un message…', cm_members: 'Membres', cm_online: 'En ligne', cm_offline: 'Hors ligne', cm_voice: 'Salle vocale', cm_join: 'Rejoindre', cm_connected: 'Connectés', cm_joined: 'Connexion à la salle vocale…', lg_welcome: 'Authentification requise', lg_user: 'Matricule', lg_pass: 'Mot de passe', lg_btn: 'Se connecter', lg_restricted: 'Accès restreint — Usage officiel uniquement', lg_footer: 'État-Major Général · Forces Armées Royales', lg_toast: 'Session ouverte — bienvenue Col. Benjelloun', logout: 'Se déconnecter'
+      },
+      en: {
+        app: 'ARGOS', appSub: 'Disaster Management · Royal Armed Forces', role: 'Division Chief',
+        nav_dash: 'Dashboard', nav_map: 'Operational map', nav_inc: 'Incidents', nav_units: 'Teams', nav_hosp: 'Hospinet',
+        report: 'Report an incident', live: 'LIVE',
+        lvl1: 'LEVEL 1 · ROUTINE', lvl2: 'LEVEL 2 · VIGILANCE', lvl3: 'LEVEL 3 · HIGH VIGILANCE', lvl4: 'LEVEL 4 · NATIONAL EMERGENCY',
+        kpi_inc: 'Active incidents', kpi_pers: 'Deployed personnel', kpi_beds: 'Available beds', kpi_units: 'Units on alert',
+        layoutA: 'Layout A', layoutB: 'Layout B', overview: 'Situation overview',
+        chart_types: 'Incidents by type (30 d)', chart_regions: 'Incidents by region', chart_moyens: 'Committed resources',
+        ops: 'Ongoing operations', feed: 'Event feed',
+        col_id: 'Ref.', col_incident: 'Incident', col_region: 'Region', col_sev: 'Severity', col_status: 'Status', col_time: 'Time', col_actions: 'Actions',
+        search: 'Search incidents…', to_map: 'Map',
+        sev_high: 'Critical', sev_med: 'Moderate', sev_low: 'Low',
+        st_open: 'Open', st_prog: 'Ongoing', st_closed: 'Closed',
+        ty_earthquake: 'Earthquake', ty_flood: 'Flood', ty_wildfire: 'Wildfire', ty_landslide: 'Landslide', ty_epidemic: 'Epidemic', ty_industrial: 'Industrial accident',
+        u_ready: 'Ready', u_deployed: 'Deployed', u_standby: 'Standby',
+        personnel: 'Personnel', equipment: 'Equipment', vehicles: 'Vehicles', commander: 'Commander', readiness: 'Operational readiness', effectif: 'Strength', view: 'Details', back: 'Back',
+        h_name: 'Name', h_grade: 'Rank', h_role: 'Role', h_status: 'Status', h_desig: 'Designation', h_cat: 'Category', h_qty: 'Qty', h_state: 'State', h_typev: 'Type', h_plate: 'Plate', h_assign: 'Assignment', h_spec: 'Specialty',
+        med_staff: 'Medical staff', beds: 'Beds', field: 'Field hospitals', deploy_field: 'Deploy a field hospital',
+        beds_total: 'Total beds', beds_occ: 'Occupied', beds_free: 'Available', icu: 'ICU', occupancy: 'Occupancy',
+        op_ok: 'Operational', op_partial: 'Ramping up', since: 'Deployed', capacity: 'Capacity', staff: 'Medical strength',
+        wiz_title: 'Report an incident', wz1: 'Incident type', wz2: 'Details', wz3: 'Location',
+        f_title: 'Incident title', f_desc: 'Description', f_attach: 'Attachments', f_attach_hint: 'Photo, video or document — click to attach',
+        f_prov: 'Province', f_coords: 'Coordinates', pick_map: 'Click the map to position the incident',
+        prev: 'Previous', next: 'Next', submit: 'Submit report', cancel: 'Cancel',
+        toast_ok: 'Report transmitted to the operations center', toast_field: 'Field hospital deployment initiated',
+        layers: 'Layers', legend: 'Legend', sel_none: 'Select an element on the map', lg_veh: 'Vehicles / convoys', now: 'Now', base_sat: 'Satellite', base_plan: 'Map', lg_units: 'Units', lg_hosp: 'Hospitals', nav_triage: 'Mass triage', nav_res: 'Resources', nav_equip: 'Equipment inventory', nav_pers: 'Personnel', nav_wo: 'Work orders', nav_dis: 'Disaster management', nav_ics: 'ICS form', nav_damage: 'Damage assessment', nav_shelters: 'Shelter management', nav_cmd: 'Command', nav_orsec: 'ORSEC board', nav_plans: 'Plans', nav_comms: 'Communication center', nav_reports: 'Incident reports', nav_analytics: 'Analytics', stub_msg: 'Module in preparation — its content will be designed shortly.', cm_new_cat: 'New group', cm_new_chan: 'Channel name…', cm_new_cat_ph: 'Group name…', cm_msg_ph: 'Write a message…', cm_members: 'Members', cm_online: 'Online', cm_offline: 'Offline', cm_voice: 'Voice room', cm_join: 'Join', cm_connected: 'Connected', cm_joined: 'Joining voice room…', lg_welcome: 'Authentication required', lg_user: 'Service ID', lg_pass: 'Password', lg_btn: 'Sign in', lg_restricted: 'Restricted access — Official use only', lg_footer: 'General Staff · Royal Armed Forces', lg_toast: 'Session opened — welcome Col. Benjelloun', logout: 'Sign out'
+      },
+      ar: {
+        app: 'ARGOS', appSub: 'تدبير الكوارث · القوات المسلحة الملكية', role: 'رئيس قسم',
+        nav_dash: 'لوحة القيادة', nav_map: 'الخريطة العملياتية', nav_inc: 'الحوادث', nav_units: 'الفرق', nav_hosp: 'هوسبينت',
+        report: 'التبليغ عن حادث', live: 'مباشر',
+        lvl1: 'المستوى 1 · عادي', lvl2: 'المستوى 2 · يقظة', lvl3: 'المستوى 3 · يقظة معززة', lvl4: 'المستوى 4 · طوارئ وطنية',
+        kpi_inc: 'الحوادث النشطة', kpi_pers: 'الأفراد المنتشرون', kpi_beds: 'الأسرّة المتاحة', kpi_units: 'وحدات في حالة تأهب',
+        layoutA: 'التنسيق أ', layoutB: 'التنسيق ب', overview: 'الوضع العام',
+        chart_types: 'الحوادث حسب النوع (30 يوما)', chart_regions: 'الحوادث حسب الجهة', chart_moyens: 'الموارد المعبأة',
+        ops: 'العمليات الجارية', feed: 'سجل الأحداث',
+        col_id: 'مرجع', col_incident: 'الحادث', col_region: 'الجهة', col_sev: 'الخطورة', col_status: 'الحالة', col_time: 'الوقت', col_actions: 'إجراءات',
+        search: 'البحث عن حادث…', to_map: 'الخريطة',
+        sev_high: 'حرجة', sev_med: 'متوسطة', sev_low: 'ضعيفة',
+        st_open: 'مفتوح', st_prog: 'جارٍ', st_closed: 'مغلق',
+        ty_earthquake: 'زلزال', ty_flood: 'فيضان', ty_wildfire: 'حريق غابة', ty_landslide: 'انزلاق تربة', ty_epidemic: 'وباء', ty_industrial: 'حادث صناعي',
+        u_ready: 'جاهزة', u_deployed: 'منتشرة', u_standby: 'في الانتظار',
+        personnel: 'الأفراد', equipment: 'المعدات', vehicles: 'المركبات', commander: 'القائد', readiness: 'الجاهزية العملياتية', effectif: 'التعداد', view: 'تفاصيل', back: 'رجوع',
+        h_name: 'الاسم', h_grade: 'الرتبة', h_role: 'المهمة', h_status: 'الحالة', h_desig: 'التسمية', h_cat: 'الفئة', h_qty: 'الكمية', h_state: 'الوضع', h_typev: 'النوع', h_plate: 'الترقيم', h_assign: 'التخصيص', h_spec: 'التخصص',
+        med_staff: 'الطاقم الطبي', beds: 'الأسرّة', field: 'المستشفيات الميدانية', deploy_field: 'نشر مستشفى ميداني',
+        beds_total: 'مجموع الأسرّة', beds_occ: 'مشغولة', beds_free: 'متاحة', icu: 'الإنعاش', occupancy: 'نسبة الإشغال',
+        op_ok: 'عملياتي', op_partial: 'قيد التجهيز', since: 'منتشر منذ', capacity: 'السعة', staff: 'الطاقم الطبي',
+        wiz_title: 'التبليغ عن حادث', wz1: 'نوع الحادث', wz2: 'التفاصيل', wz3: 'الموقع',
+        f_title: 'عنوان الحادث', f_desc: 'الوصف', f_attach: 'المرفقات', f_attach_hint: 'صورة أو فيديو أو وثيقة — انقر للإرفاق',
+        f_prov: 'الإقليم', f_coords: 'الإحداثيات', pick_map: 'انقر على الخريطة لتحديد موقع الحادث',
+        prev: 'السابق', next: 'التالي', submit: 'إرسال التقرير', cancel: 'إلغاء',
+        toast_ok: 'تم إرسال التقرير إلى مركز العمليات', toast_field: 'جارٍ نشر المستشفى الميداني',
+        layers: 'الطبقات', legend: 'مفتاح الخريطة', sel_none: 'اختر عنصرا على الخريطة', lg_veh: 'المركبات / القوافل', now: 'الآن', base_sat: 'قمر صناعي', base_plan: 'خريطة', lg_units: 'الوحدات', lg_hosp: 'المستشفيات', nav_triage: 'الفرز الجماعي', nav_res: 'الموارد', nav_equip: 'جرد المعدات', nav_pers: 'الأفراد', nav_wo: 'أوامر العمل', nav_dis: 'تدبير الكوارث', nav_ics: 'استمارة ICS', nav_damage: 'تقييم الأضرار', nav_shelters: 'تدبير الملاجئ', nav_cmd: 'القيادة', nav_orsec: 'جدول ORSEC', nav_plans: 'الخطط', nav_comms: 'مركز الاتصالات', nav_reports: 'تقارير الحوادث', nav_analytics: 'التحليلات', stub_msg: 'الوحدة قيد الإعداد — سيتم تصميم محتواها قريبا.', cm_new_cat: 'مجموعة جديدة', cm_new_chan: 'اسم القناة…', cm_new_cat_ph: 'اسم المجموعة…', cm_msg_ph: 'اكتب رسالة…', cm_members: 'الأعضاء', cm_online: 'متصل', cm_offline: 'غير متصل', cm_voice: 'غرفة صوتية', cm_join: 'انضمام', cm_connected: 'المتصلون', cm_joined: 'جارٍ الاتصال بالغرفة الصوتية…', lg_welcome: 'المصادقة مطلوبة', lg_user: 'رقم التسجيل', lg_pass: 'كلمة السر', lg_btn: 'تسجيل الدخول', lg_restricted: 'دخول مقيد — للاستعمال الرسمي فقط', lg_footer: 'الأركان العامة · القوات المسلحة الملكية', lg_toast: 'تم فتح الجلسة — مرحبا', logout: 'تسجيل الخروج'
+      }
+    };
+  }
+  tr() { return this.LANG[this.state.lang] || this.LANG.fr; }
+
+  get UNITS() {
+    return [
+      { id: 'U1', nom: "1er Groupement d'Intervention", ville: 'Rabat', cmdt: 'Col. Y. Benjelloun', eff: 420, dispo: 'ready', readiness: 92, x: 196, y: 148, ll: [-6.84, 34.02] },
+      { id: 'U2', nom: '3e Bataillon du Génie', ville: 'Marrakech', cmdt: 'Lt-Col. A. Tazi', eff: 365, dispo: 'deployed', readiness: 78, x: 180, y: 262, ll: [-8.01, 31.63] },
+      { id: 'U3', nom: '7e Régiment Aéroporté', ville: 'Agadir', cmdt: 'Col. M. El Fassi', eff: 510, dispo: 'deployed', readiness: 85, x: 112, y: 330, ll: [-9.60, 30.42] },
+      { id: 'U4', nom: '2e Groupe Logistique', ville: 'Fès', cmdt: 'Lt-Col. S. Amrani', eff: 290, dispo: 'standby', readiness: 70, x: 268, y: 140, ll: [-5.00, 34.03] },
+      { id: 'U5', nom: '5e Bataillon de Soutien', ville: 'Oujda', cmdt: 'Cdt. H. Berrada', eff: 245, dispo: 'ready', readiness: 88, x: 378, y: 120, ll: [-1.91, 34.68] },
+      { id: 'U6', nom: '4e Unité NRBC', ville: 'Kénitra', cmdt: 'Cdt. N. Chraibi', eff: 180, dispo: 'standby', readiness: 81, x: 205, y: 132, ll: [-6.58, 34.26] }
+    ];
+  }
+  get HOSPITALS() {
+    return [
+      { id: 'H1', nom: 'Hôpital Militaire Mohammed V', ville: 'Rabat', lits: 650, occ: 512, rea: 48, reaOcc: 39, staff: 820, amb: 24, heli: 3, x: 199, y: 152, ll: [-6.85, 34.01] },
+      { id: 'H2', nom: 'Hôpital Militaire Avicenne', ville: 'Marrakech', lits: 420, occ: 388, rea: 36, reaOcc: 34, staff: 560, amb: 18, heli: 2, x: 184, y: 266, ll: [-8.02, 31.64] },
+      { id: 'H3', nom: 'Hôpital Militaire Moulay Ismaïl', ville: 'Meknès', lits: 300, occ: 201, rea: 24, reaOcc: 12, staff: 410, amb: 12, heli: 1, x: 252, y: 146, ll: [-5.55, 33.89] },
+      { id: 'H4', nom: "Hôpital Militaire d'Agadir", ville: 'Agadir', lits: 280, occ: 246, rea: 20, reaOcc: 17, staff: 365, amb: 14, heli: 1, x: 116, y: 334, ll: [-9.58, 30.41] },
+      { id: 'H5', nom: 'Hôpital Militaire de Laâyoune', ville: 'Laâyoune', lits: 180, occ: 92, rea: 12, reaOcc: 5, staff: 210, amb: 8, heli: 1, x: 58, y: 458, ll: [-13.20, 27.15] }
+    ];
+  }
+  typeLabel(type) {
+    const t = this.tr();
+    return ({ earthquake: t.ty_earthquake, flood: t.ty_flood, wildfire: t.ty_wildfire, landslide: t.ty_landslide, epidemic: t.ty_epidemic, industrial: t.ty_industrial })[type] || type;
+  }
+  sevBadge(sev) {
+    const t = this.tr();
+    return { type: sev, label: sev === 'high' ? t.sev_high : sev === 'medium' ? t.sev_med : t.sev_low };
+  }
+  stBadge(st) {
+    const t = this.tr();
+    return st === 'prog' ? { type: 'active', label: t.st_prog } : st === 'open' ? { type: 'on_hold', label: t.st_open } : { type: 'completed', label: t.st_closed };
+  }
+
+  go(screen) { this.setState({ screen, selUnit: null, selHosp: null, selMarker: null }); }
+
+  chrome() {
+    const s = this.state, t = this.tr();
+    const icons = {
+      dashboard: 'M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z',
+      map: 'M9 20l-6 2V6l6-2m0 16l6-2m-6 2V4m6 14l6 2V6l-6-2m0 16V4',
+      incidents: 'M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z',
+      units: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+      hospitals: 'M3 21h18M5 21V7l7-4 7 4v14M12 9v6M9 12h6'
+    };
+    Object.assign(icons, {
+      triage: 'M22 12h-4l-3 9L9 3l-3 9H2',
+      res: 'M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z M3.3 7L12 12l8.7-5 M12 22V12',
+      dis: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2 M9 3h6v4H9z M12 11v4 M12 17.5h.01',
+      damage: 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z M9 21V12l3 3 3-3v9',
+      shelters: 'M12 3L2 21h20L12 3z M12 13l4 8h-8z',
+      cmd: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z',
+      plans: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M9 13h6 M9 17h6',
+      comms: 'M4.9 19.1C1 15.2 1 8.8 4.9 4.9 M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5 M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5 M19.1 4.9c3.9 3.9 3.9 10.2 0 14.2 M12 10a2 2 0 100 4 2 2 0 000-4z',
+      reports: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8',
+      analytics: 'M18 20V10 M12 20V4 M6 20v-6'
+    });
+    const labels = {
+      dashboard: t.nav_dash, map: t.nav_map, incidents: t.nav_inc, units: t.nav_units, hospitals: t.nav_hosp,
+      triage: t.nav_triage, equip: t.nav_equip, personnel: t.nav_pers, workorders: t.nav_wo,
+      ics: t.nav_ics, damage: t.nav_damage, shelters: t.nav_shelters, orsec: t.nav_orsec,
+      plans: t.nav_plans, comms: t.nav_comms, reports: t.nav_reports, analytics: t.nav_analytics,
+      res: t.nav_res, dis: t.nav_dis, cmd: t.nav_cmd
+    };
+    const activeInc = s.incidents.filter(i => i.st !== 'closed').length;
+    const baseCls = act => 'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ' + (act ? navAct : navInact);
+    const collapsed = !s.sbOpen;
+    const dk = s.dark;
+    const navInact = dk ? 'text-rdia-200 hover:text-or-300 hover:bg-or-500/5' : 'text-gray-500 hover:text-or-500 hover:bg-or-500/10';
+    const navAct = dk ? 'bg-or-500/15 text-or-400' : 'bg-or-500/15 text-or-500';
+    const colCls = act => 'w-full flex items-center justify-center py-2.5 rounded-lg transition-colors ' + (act ? navAct : navInact);
+    const item = (k, child) => ({
+      hasIcon: collapsed || !child, icon: icons[k], label: labels[k], go: () => this.go(k), isGroup: false,
+      hasChip: !collapsed && k === 'incidents' && activeInc > 0, chip: String(activeInc), chevStyle: '',
+      style: !collapsed && child ? 'padding-inline-start: 38px;' : '',
+      cls: collapsed
+        ? colCls(s.screen === k)
+        : child
+          ? 'w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ' + (s.screen === k ? (dk ? 'text-or-400' : 'text-or-500') : (dk ? 'text-rdia-200 hover:text-or-300' : 'text-gray-500 hover:text-or-500'))
+          : baseCls(s.screen === k)
+    });
+    const group = (g, childKeys) => {
+      if (collapsed) return [{
+        hasIcon: true, icon: icons[g], label: labels[g], isGroup: false, hasChip: false, style: '', chevStyle: '',
+        go: () => this.setState(st => ({ sbOpen: true, navGroups: { ...st.navGroups, [g]: true } })),
+        cls: colCls(childKeys.includes(s.screen))
+      }];
+      const open = s.navGroups[g];
+      const rows = [{
+        hasIcon: true, icon: icons[g], label: labels[g], isGroup: true, hasChip: false, style: '',
+        go: () => this.setState(st => ({ navGroups: { ...st.navGroups, [g]: !st.navGroups[g] } })),
+        chevStyle: 'transition: transform .15s;' + (open ? 'transform: rotate(90deg);' : ''),
+        cls: baseCls(!open && childKeys.includes(s.screen))
+      }];
+      if (open) childKeys.forEach(k => rows.push(item(k, true)));
+      return rows;
+    };
+    const navItems = [
+      item('dashboard'), item('incidents'), item('map'), item('triage'),
+      ...group('res', ['equip', 'units', 'personnel', 'workorders']),
+      item('hospitals'),
+      ...group('dis', ['ics']),
+      item('damage'), item('shelters'),
+      ...group('cmd', ['orsec']),
+      item('plans'), item('comms'), item('reports'), item('analytics')
+    ];
+    const STUBS = ['triage', 'equip', 'personnel', 'workorders', 'ics', 'damage', 'shelters', 'orsec', 'plans', 'reports', 'analytics'];
+    const d = new Date(s.now);
+    const p = n => String(n).padStart(2, '0');
+    const lv = this.props.alertLevel ?? 3;
+    const alertClsMap = {
+      1: 'text-[10px] font-bold px-2.5 py-1 rounded-md bg-green-500/10 text-green-600 whitespace-nowrap',
+      2: 'text-[10px] font-bold px-2.5 py-1 rounded-md bg-or-500/15 text-or-500 whitespace-nowrap',
+      3: 'text-[10px] font-bold px-2.5 py-1 rounded-md bg-or-500/20 text-or-500 whitespace-nowrap',
+      4: 'text-[10px] font-bold px-2.5 py-1 rounded-md bg-danger-500/15 text-danger-500 whitespace-nowrap'
+    };
+    const lvlLabels = { 1: t.lvl1, 2: t.lvl2, 3: t.lvl3, 4: t.lvl4 };
+    const ticker = this.state.feed[0];
+    return {
+      authed: s.authed, notAuthed: !s.authed,
+      loginUserV: s.loginUser, setLoginUser: e => this.setState({ loginUser: e.target.value }),
+      loginPassV: s.loginPass, setLoginPass: e => this.setState({ loginPass: e.target.value }),
+      loginDisabled: !(s.loginUser.trim() && s.loginPass),
+      doLogin: () => { if (s.loginUser.trim() && s.loginPass) { this.setState({ authed: true }); this.toast(t.lg_toast); } },
+      loginKey: e => { if (e.key === 'Enter' && s.loginUser.trim() && s.loginPass) { this.setState({ authed: true }); this.toast(t.lg_toast); } },
+      doLogout: () => this.setState({ authed: false, loginPass: '' }),
+      loginLangBtns: ['fr', 'ar', 'en'].map(l => ({
+        label: l.toUpperCase(), pick: () => this.setState({ lang: l }),
+        cls: 'flex-1 text-[10px] font-bold py-1.5 rounded-md transition-colors ' + (s.lang === l ? 'bg-or-500 text-rdia-600' : 'text-gray-400 hover:text-or-500 bg-gray-100 dark:bg-rdia-600 dark:text-rdia-200')
+      })),
+      sbOpen: s.sbOpen,
+      sbCls: s.dark ? 'text-rdia-50' : 'bg-white text-rdia-600',
+      sbStyle: 'width: ' + (s.sbOpen ? '256px' : '64px') + '; ' + (s.dark ? 'background-color: rgb(15 45 26); ' : '') + 'transition: width .2s ease, background-color .2s ease; border-right: 1px solid ' + (s.dark ? 'rgba(255,255,255,0.08)' : '#E5E7EB') + ';',
+      sbDivStyle: 'border-color: ' + (s.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)') + ';',
+      sbSubCls: s.dark ? 'text-rdia-300' : 'text-gray-400',
+      sbThemeCls: s.dark ? 'text-rdia-200 hover:text-or-400' : 'text-gray-400 hover:text-or-500',
+      sbHdrCls: s.sbOpen ? 'flex items-center gap-3 px-4 py-4 border-b' : 'flex items-center justify-center py-4 border-b',
+      sbLogoCls: s.sbOpen ? 'h-12 w-12 shrink-0' : 'h-9 w-9 shrink-0',
+      sbUserRowCls: s.sbOpen ? 'flex items-center gap-3' : 'flex items-center justify-center',
+      toggleSb: () => this.setState(st => ({ sbOpen: !st.sbOpen })),
+      dir: s.lang === 'ar' ? 'rtl' : 'ltr',
+      fontCls: s.lang === 'ar' ? 'font-arabe' : '',
+      t, navItems,
+      isDash: s.screen === 'dashboard', isMap: s.screen === 'map', isInc: s.screen === 'incidents', isStub: STUBS.includes(s.screen), isComms: s.screen === 'comms',
+      isUnits: s.screen === 'units', isHosp: s.screen === 'hospitals',
+      screenTitle: labels[s.screen],
+      clock: p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()),
+      tickerMsg: ticker.time + ' — ' + ticker.txt,
+      alertCls: alertClsMap[lv] || alertClsMap[3],
+      alertLabel: lvlLabels[lv] || t.lvl3,
+      openWiz: () => this.setState({ wizOpen: true, wizStep: 1 }),
+      toggleTheme: () => {
+        const dark = !this.state.dark;
+        localStorage.setItem('kanban_rdia_theme', dark ? 'dark' : 'light');
+        document.documentElement.classList.toggle('dark', dark);
+        this.setState({ dark });
+      },
+      themeIcon: s.dark ? 'M12 3v2m0 14v2M5.2 5.2l1.4 1.4m10.8 10.8l1.4 1.4M3 12h2m14 0h2M5.2 18.8l1.4-1.4M17.4 6.6l1.4-1.4M12 8a4 4 0 100 8 4 4 0 000-8z' : 'M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z',
+      langBtns: ['fr', 'ar', 'en'].map(l => ({
+        label: l.toUpperCase(), pick: () => this.setState({ lang: l }),
+        cls: 'flex-1 text-[10px] font-bold py-1.5 rounded-md transition-colors ' +
+          (s.lang === l ? 'bg-or-500 text-rdia-600' : (s.dark ? 'text-rdia-200 hover:text-or-300 bg-or-500/5' : 'text-gray-500 hover:text-or-500 bg-gray-100'))
+      })),
+      hasToast: !!s.toast, toastMsg: s.toast
+    };
+  }
+
+  dashVals() {
+    const s = this.state, t = this.tr();
+    const activeInc = s.incidents.filter(i => i.st !== 'closed').length;
+    const bedsFixed = this.HOSPITALS.reduce((a, h) => a + (h.lits - h.occ), 0);
+    const bedsField = s.fieldHosps.reduce((a, f) => a + (f.cap - f.occ), 0);
+    const kpis = [
+      { label: t.kpi_inc, val: String(activeInc), sub: '+2 · 24h', subCls: 'text-[10px] font-semibold text-danger-500', icon: 'M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z', iconCls: 'h-10 w-10 rounded-lg bg-danger-500/10 text-danger-500 flex items-center justify-center shrink-0' },
+      { label: t.kpi_pers, val: '1 043', sub: '+320 · 24h', subCls: 'text-[10px] font-semibold text-or-500', icon: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2 M9 11a4 4 0 100-8 4 4 0 000 8z M23 21v-2a4 4 0 00-3-3.87 M16 3.13a4 4 0 010 7.75', iconCls: 'h-10 w-10 rounded-lg bg-or-500/15 text-or-500 flex items-center justify-center shrink-0' },
+      { label: t.kpi_beds, val: String(bedsFixed + bedsField), sub: '+' + bedsField + ' HMC', subCls: 'text-[10px] font-semibold text-green-600', icon: 'M2 4v16 M2 8h18a2 2 0 012 2v10 M2 17h20 M6 8v9', iconCls: 'h-10 w-10 rounded-lg bg-green-500/10 text-green-600 flex items-center justify-center shrink-0' },
+      { label: t.kpi_units, val: '4', sub: '2 ' + t.u_deployed.toLowerCase(), subCls: 'text-[10px] font-semibold text-blue-500', icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z', iconCls: 'h-10 w-10 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0' }
+    ];
+    const dashBtns = [['a', t.layoutA], ['b', t.layoutB]].map(([k, label]) => ({
+      label, pick: () => this.setState({ dash: k }),
+      cls: 'text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ' +
+        (s.dash === k ? 'bg-or-500 text-rdia-600' : 'text-gray-500 dark:text-rdia-300 hover:text-or-500 bg-white dark:bg-rdia-800 border border-gray-200 dark:border-rdia-600')
+    }));
+    return {
+      isDashA: s.dash === 'a', isDashB: s.dash === 'b', dashBtns, kpis,
+      chartTypes: [
+        { label: t.ty_earthquake, value: 3, couleur: '#EF4444' },
+        { label: t.ty_flood, value: 5, couleur: '#3B82F6' },
+        { label: t.ty_wildfire, value: 4, couleur: '#C9A84C' },
+        { label: t.ty_landslide, value: 2, couleur: '#8B5CF6' },
+        { label: t.ty_epidemic, value: 1, couleur: '#10B981' },
+        { label: t.ty_industrial, value: 2, couleur: '#6B7280' }
+      ],
+      chartRegions: [
+        { label: 'Marrakech-Safi', value: 6, couleur: '#EF4444' },
+        { label: 'Tanger-Tétouan', value: 3, couleur: '#C9A84C' },
+        { label: 'Drâa-Tafilalet', value: 3, couleur: '#8B5CF6' },
+        { label: 'Oriental', value: 2, couleur: '#3B82F6' },
+        { label: 'Casa-Settat', value: 2, couleur: '#10B981' },
+        { label: 'Souss-Massa', value: 1, couleur: '#6B7280' }
+      ],
+      chartMoyens: [
+        { label: 'Véhicules terrestres', value: 86, couleur: '#C9A84C' },
+        { label: 'Ambulances', value: 76, couleur: '#EF4444' },
+        { label: 'Engins de génie', value: 24, couleur: '#3B82F6' },
+        { label: 'Hélicoptères', value: 12, couleur: '#10B981' }
+      ],
+      opsItems: [
+        { id: 1, title: 'Op. SALAMA — secours Al Haouz', color: '#C9A84C', progression: 65 },
+        { id: 2, title: 'Pont aérien Agadir–Amizmiz', color: '#3B82F6', progression: 40 },
+        { id: 3, title: "Évacuation vallée de l'Ourika", color: '#EF4444', progression: 82 },
+        { id: 4, title: 'Rétablissement axes RN7 / RP2010', color: '#10B981', progression: 30 }
+      ],
+      feedItems: s.feed,
+      mbInc: s.incidents.filter(i => i.st !== 'closed').map(i => ({ x: i.x, y: i.y, fill: i.sev === 'high' ? '#EF4444' : i.sev === 'medium' ? '#F59E0B' : '#9CA3AF' })),
+      mbUnits: this.UNITS.map(u => ({ x: u.x, y: u.y })),
+      mbHosp: this.HOSPITALS.map(h => ({ x: h.x, y: h.y }))
+    };
+  }
+  get VEHROUTES() {
+    // Real road itineraries (lng, lat waypoints)
+    return [
+      { id: 'LOG-1', label: 'Convoi LOG-1', kind: 'Convoi logistique · Rabat → Marrakech (A7)', speed: 0.010, route: [[-6.84, 34.02], [-7.10, 33.87], [-7.38, 33.69], [-7.59, 33.57], [-7.62, 33.42], [-7.63, 33.23], [-7.80, 32.88], [-7.94, 32.60], [-7.95, 32.23], [-8.00, 31.92], [-8.01, 31.63], [-8.13, 31.45], [-8.25, 31.22]] },
+      { id: 'SAR-2', label: 'Convoi SAR-2', kind: 'Recherche & sauvetage · Agadir → Amizmiz', speed: 0.012, route: [[-9.60, 30.42], [-9.35, 30.44], [-9.10, 30.46], [-8.88, 30.47], [-8.60, 30.62], [-8.44, 30.83], [-8.38, 31.00], [-8.30, 31.12], [-8.25, 31.22]] },
+      { id: 'EVASAN-1', label: 'EVASAN-1', kind: 'Hélicoptère médicalisé · rotation Marrakech ↔ zone sinistrée', speed: 0.030, route: [[-8.01, 31.63], [-8.15, 31.45], [-8.25, 31.22], [-8.26, 30.98], [-8.25, 31.22], [-8.15, 31.45], [-8.01, 31.63]] }
+    ];
+  }
+  get MAPSTYLE() {
+    return {
+      version: 8,
+      sources: {
+        sat: { type: 'raster', tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], tileSize: 256, attribution: 'Esri, Maxar' },
+        plan: { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256, attribution: '© OpenStreetMap' },
+        lbl: { type: 'raster', tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'], tileSize: 256 },
+        dem: { type: 'raster-dem', tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], encoding: 'terrarium', tileSize: 256, maxzoom: 13 }
+      },
+      layers: [
+        { id: 'sat', type: 'raster', source: 'sat' },
+        { id: 'plan', type: 'raster', source: 'plan', layout: { visibility: 'none' } },
+        { id: 'lbl', type: 'raster', source: 'lbl' }
+      ]
+    };
+  }
+
+  mapRef = (node) => {
+    if (node && node !== this._mapNode) { this._mapNode = node; this.initMap(node); }
+    if (!node && this._map) { this.destroyMap(); }
+  };
+
+  initMap(node) {
+    if (!window.maplibregl) { this._mapWait = setTimeout(() => this.initMap(node), 150); return; }
+    const map = new maplibregl.Map({
+      container: node, style: this.MAPSTYLE,
+      center: [-7.6, 31.9], zoom: 6.3, pitch: 0, attributionControl: { compact: true }
+    });
+    this._map = map;
+    this._markers = [];
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right');
+    map.on('load', () => {
+      map.addSource('routes', { type: 'geojson', data: this.routesGeojson() });
+      map.addLayer({
+        id: 'routes-line', type: 'line', source: 'routes',
+        paint: { 'line-color': '#C9A84C', 'line-width': 2.5, 'line-dasharray': [2, 2], 'line-opacity': 0.9 }
+      });
+      this.syncMarkers();
+      this.startVehAnim();
+      if (this.state.map3d) this.apply3d(true);
+    });
+  }
+
+  destroyMap() {
+    clearTimeout(this._mapWait);
+    cancelAnimationFrame(this._vehRaf);
+    if (this._map) { this._map.remove(); this._map = null; }
+    this._mapNode = null; this._markers = null; this._vehMarkers = null;
+  }
+
+  routesGeojson() {
+    return {
+      type: 'FeatureCollection',
+      features: this.VEHROUTES.map(v => ({ type: 'Feature', properties: { id: v.id }, geometry: { type: 'LineString', coordinates: v.route } }))
+    };
+  }
+
+  apply3d(on) {
+    const map = this._map;
+    if (!map || !map.isStyleLoaded()) return;
+    if (on) {
+      if (!map.getTerrain()) map.setTerrain({ source: 'dem', exaggeration: 1.4 });
+      map.easeTo({ pitch: 62, zoom: Math.max(map.getZoom(), 8.5), center: [-8.3, 31.15], bearing: -18, duration: 1600 });
+    } else {
+      map.setTerrain(null);
+      map.easeTo({ pitch: 0, bearing: 0, duration: 1200 });
+    }
+  }
+
+  setBase(sat) {
+    const map = this._map;
+    this.setState({ mapSat: sat });
+    if (!map || !map.isStyleLoaded()) return;
+    map.setLayoutProperty('sat', 'visibility', sat ? 'visible' : 'none');
+    map.setLayoutProperty('plan', 'visibility', sat ? 'none' : 'visible');
+    map.setLayoutProperty('lbl', 'visibility', sat ? 'visible' : 'none');
+  }
+
+  mkEl(html, kind, id) {
+    const el = document.createElement('div');
+    el.innerHTML = html;
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', (e) => { e.stopPropagation(); this.sel(kind, id); });
+    return el;
+  }
+  selRing(sel) {
+    return sel ? 'box-shadow: 0 0 0 3px #C9A84C, 0 0 12px rgba(201,168,76,0.8); border-radius: 9999px;' : '';
+  }
+
+  syncMarkers() {
+    const map = this._map;
+    if (!map) return;
+    (this._markers || []).forEach(m => m.remove());
+    this._markers = [];
+    this._vehMarkers = null;
+    const s = this.state, L = s.layers, sm = s.selMarker;
+    const isSel = (kind, id) => !!sm && sm.kind === kind && sm.id === id;
+    const add = (ll, el) => {
+      const mk = new maplibregl.Marker({ element: el }).setLngLat(ll).addTo(map);
+      this._markers.push(mk);
+      return mk;
+    };
+    if (L.units) this.UNITS.forEach(u => {
+      add(u.ll, this.mkEl(
+        '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">' +
+        '<div style="width:16px;height:16px;background:#C9A84C;border:2px solid #0f1f14;' + this.selRing(isSel('unit', u.id)) + '"></div>' +
+        '<span style="font:700 9px Inter,sans-serif;color:#fff;text-shadow:0 1px 2px #000;background:rgba(15,31,20,.7);padding:0 4px;border-radius:4px;">' + u.id + '</span></div>', 'unit', u.id));
+    });
+    if (L.hospitals) this.HOSPITALS.forEach(h => {
+      add(h.ll, this.mkEl(
+        '<div style="width:18px;height:18px;background:#fff;border-radius:9999px;border:2px solid #0f1f14;display:flex;align-items:center;justify-content:center;' + this.selRing(isSel('hosp', h.id)) + '">' +
+        '<span style="color:#EF4444;font:900 12px Inter,sans-serif;line-height:1;">+</span></div>', 'hosp', h.id));
+    });
+    if (L.field) s.fieldHosps.forEach(f => {
+      add(this.fieldLL(f), this.mkEl(
+        '<div style="width:20px;height:20px;border:2px dashed #10B981;border-radius:9999px;background:rgba(16,185,129,.25);display:flex;align-items:center;justify-content:center;' + this.selRing(isSel('field', f.nom)) + '">' +
+        '<span style="color:#6EE7B7;font:900 11px Inter,sans-serif;line-height:1;">+</span></div>', 'field', f.nom));
+    });
+    if (L.incidents) s.incidents.forEach(i => {
+      const fill = i.st === 'closed' ? '#6B7280' : i.sev === 'high' ? '#EF4444' : i.sev === 'medium' ? '#F59E0B' : '#9CA3AF';
+      const ping = i.st !== 'closed' ? '<div style="position:absolute;inset:-4px;border-radius:9999px;background:' + fill + ';opacity:.5;animation:cgc-ping 1.8s ease-out infinite;"></div>' : '';
+      add(i.ll || this.svgToLL(i.x, i.y), this.mkEl(
+        '<div style="position:relative;width:22px;height:20px;' + this.selRing(isSel('inc', i.id)) + '">' + ping +
+        '<svg width="22" height="20" viewBox="0 0 22 20" style="position:relative;"><path d="M11,1 L21,19 L1,19 Z" fill="' + fill + '" stroke="#0f1f14" stroke-width="1.5"></path><text x="11" y="16" text-anchor="middle" font-size="10" font-weight="900" fill="#0f1f14">!</text></svg></div>', 'inc', i.id));
+    });
+    if (L.vehicles) {
+      this._vehMarkers = this.VEHROUTES.map((v, idx) => {
+        const mk = add(v.route[0], this.mkEl(
+          '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">' +
+          '<div style="width:14px;height:14px;background:#3B82F6;border:2px solid #0f1f14;transform:rotate(45deg);' + this.selRing(isSel('veh', v.id)) + '"></div>' +
+          '<span style="font:700 8px Inter,sans-serif;color:#BFDBFE;text-shadow:0 1px 2px #000;background:rgba(15,31,20,.7);padding:0 3px;border-radius:3px;">' + v.id + '</span></div>', 'veh', v.id));
+        return { mk, v, idx };
+      });
+    }
+    if (map.getLayer('routes-line')) map.setLayoutProperty('routes-line', 'visibility', L.vehicles ? 'visible' : 'none');
+  }
+
+  startVehAnim() {
+    if (!this._vehProgLL) this._vehProgLL = this.VEHROUTES.map((v, i) => (this.state.vehProg[i] || 0));
+    let last = performance.now();
+    const step = (now) => {
+      const dt = (now - last) / 1000; last = now;
+      if (this._map && this._vehMarkers) {
+        this._vehMarkers.forEach(({ mk, v, idx }) => {
+          this._vehProgLL[idx] = (this._vehProgLL[idx] + v.speed * dt) % 1;
+          const p = this.vehPos(v.route, this._vehProgLL[idx]);
+          mk.setLngLat([p.x, p.y]);
+        });
+      }
+      this._vehRaf = requestAnimationFrame(step);
+    };
+    cancelAnimationFrame(this._vehRaf);
+    this._vehRaf = requestAnimationFrame(step);
+  }
+
+  svgToLL(x, y) { return [-17 + x / 430 * 16, 36 - (y - 40) / 650 * 15]; }
+  fieldLL(f) {
+    if (f.ll) return f.ll;
+    return ({ 'HMC Amizmiz': [-8.25, 31.22], "HMC Talat N'Yaaqoub": [-8.26, 30.98], 'HMC Taroudant': [-8.88, 30.47] })[f.nom] || [-8.3, 31.1];
+  }
+  vehPos(route, p) {
+    const n = route.length - 1;
+    const f = Math.min(p * n, n - 0.0001);
+    const i = Math.floor(f), r = f - i;
+    return { x: route[i][0] + (route[i + 1][0] - route[i][0]) * r, y: route[i][1] + (route[i + 1][1] - route[i][1]) * r };
+  }
+  fieldXY(f) { if (f.x) return [f.x, f.y]; return ({ 'HMC Amizmiz': [172, 280], "HMC Talat N'Yaaqoub": [184, 296], 'HMC Taroudant': [140, 332] })[f.nom] || [150, 300]; }
+
+  sel(kind, id) { this.setState({ selMarker: { kind, id } }, () => this.syncMarkers()); }
+
+  mapVals() {
+    const s = this.state, t = this.tr();
+    const L = s.layers;
+    const layers = [
+      ['units', t.lg_units], ['hospitals', t.lg_hosp], ['incidents', t.nav_inc], ['vehicles', t.lg_veh], ['field', t.field]
+    ].map(([k, label]) => ({
+      label,
+      toggle: () => this.setState(st => ({ layers: { ...st.layers, [k]: !st.layers[k] } }), () => this.syncMarkers()),
+      rowCls: 'w-full flex items-center justify-between gap-2 py-1.5 text-xs transition-colors ' + (L[k] ? 'text-gray-700 dark:text-rdia-100' : 'text-gray-400 dark:text-rdia-400'),
+      pillCls: 'w-8 h-4 rounded-full relative transition-colors shrink-0 ' + (L[k] ? 'bg-or-500' : 'bg-gray-300 dark:bg-rdia-600'),
+      dotStyle: 'position:absolute;top:2px;width:12px;height:12px;border-radius:9999px;background:#fff;transition:left .15s;' + (L[k] ? 'left:18px;' : 'left:2px;')
+    }));
+    const sm = s.selMarker;
+    let selInfo = null;
+    if (sm) {
+      if (sm.kind === 'unit') {
+        const u = this.UNITS.find(x => x.id === sm.id);
+        const b = { ready: { type: 'active', label: t.u_ready }, deployed: { type: 'medium', label: t.u_deployed }, standby: { type: 'on_hold', label: t.u_standby } }[u.dispo];
+        selInfo = {
+          titre: u.nom, sub: u.ville, badgeType: b.type, badgeLabel: b.label,
+          lines: [{ k: t.commander, v: u.cmdt }, { k: t.effectif, v: String(u.eff) }, { k: t.readiness, v: u.readiness + ' %' }],
+          hasAction: true, actionLabel: t.view, action: () => this.setState({ screen: 'units', selUnit: u.id, selMarker: null })
+        };
+      } else if (sm.kind === 'hosp') {
+        const h = this.HOSPITALS.find(x => x.id === sm.id);
+        selInfo = {
+          titre: h.nom, sub: h.ville, badgeType: 'active', badgeLabel: t.op_ok,
+          lines: [{ k: t.beds_free, v: String(h.lits - h.occ) + ' / ' + h.lits }, { k: t.icu, v: (h.rea - h.reaOcc) + ' / ' + h.rea }, { k: t.med_staff, v: String(h.staff) }],
+          hasAction: true, actionLabel: t.view, action: () => this.setState({ screen: 'hospitals', selHosp: h.id, selMarker: null })
+        };
+      } else if (sm.kind === 'inc') {
+        const i = s.incidents.find(x => x.id === sm.id);
+        const sb = this.sevBadge(i.sev);
+        selInfo = {
+          titre: i.titre, sub: i.region, badgeType: sb.type, badgeLabel: sb.label,
+          lines: [{ k: t.col_id, v: i.id }, { k: t.h_typev, v: this.typeLabel(i.type) }, { k: t.col_status, v: this.stBadge(i.st).label }, { k: t.col_time, v: i.time }],
+          hasAction: false
+        };
+      } else if (sm.kind === 'veh') {
+        const v = this.VEHROUTES.find(x => x.id === sm.id);
+        selInfo = {
+          titre: v.label, sub: v.kind, badgeType: 'active', badgeLabel: t.u_deployed,
+          lines: [{ k: t.col_status, v: 'En mouvement' }], hasAction: false
+        };
+      } else if (sm.kind === 'field') {
+        const f = s.fieldHosps.find(x => x.nom === sm.id);
+        selInfo = {
+          titre: f.nom, sub: t.field, badgeType: f.statut === 'op' ? 'active' : 'on_hold', badgeLabel: f.statut === 'op' ? t.op_ok : t.op_partial,
+          lines: [{ k: t.capacity, v: f.cap + ' ' + t.beds.toLowerCase() }, { k: t.occupancy, v: Math.round(f.occ / f.cap * 100) + ' %' }, { k: t.since, v: f.depuis }],
+          hasAction: false
+        };
+      }
+    }
+    const segBtn = (on) => 'px-3 py-1.5 text-[11px] font-bold transition-colors ' + (on ? 'bg-or-500 text-rdia-600' : 'text-rdia-100 hover:text-or-300');
+    return {
+      layers,
+      mapRef: this.mapRef,
+      btn2dCls: segBtn(!s.map3d), btn3dCls: segBtn(s.map3d),
+      btnSatCls: segBtn(s.mapSat), btnPlanCls: segBtn(!s.mapSat),
+      set2d: () => { this.setState({ map3d: false }); this.apply3d(false); },
+      set3d: () => { this.setState({ map3d: true }); this.apply3d(true); },
+      setSat: () => this.setBase(true),
+      setPlan: () => this.setBase(false),
+      hasSel: !!selInfo, hasNoSel: !selInfo, selInfo, clearSel: () => this.setState({ selMarker: null }, () => this.syncMarkers())
+    };
+  }
+  incVals() {
+    const s = this.state, t = this.tr();
+    const q = (s.incQ || '').toLowerCase();
+    const rows = s.incidents
+      .filter(i => !q || (i.titre + i.region + i.id).toLowerCase().includes(q))
+      .map(i => {
+        const sb = this.sevBadge(i.sev), st = this.stBadge(i.st);
+        return {
+          id: i.id, titre: i.titre, typeLabel: this.typeLabel(i.type), region: i.region, time: i.time,
+          sevType: sb.type, sevLabel: sb.label, stType: st.type, stLabel: st.label,
+          toMap: () => this.setState({ screen: 'map', selMarker: { kind: 'inc', id: i.id } })
+        };
+      });
+    return {
+      incRows: rows,
+      incCount: rows.length + ' / ' + s.incidents.length,
+      incQ: s.incQ || '',
+      setIncQ: (e) => this.setState({ incQ: e.target.value })
+    };
+  }
+
+  get POOLS() {
+    return {
+      names: ['El Amrani', 'Bouazza', 'Rahmouni', 'Sebti', 'Ouazzani', 'Idrissi', 'Kabbaj', 'Lamrani', 'Zeroual', 'Bennis', 'Haddadi', 'Mounir'],
+      grades: ['Cne.', 'Lt.', 'Adj.', 'Sgt.', 'Cpl.', '1re Cl.'],
+      fonctions: ['Chef de section', 'Opérateur radio', 'Sapeur sauveteur', 'Infirmier', 'Conducteur', 'Logisticien'],
+      equip: [['Groupe électrogène 20 kVA', 'Énergie'], ['Station de pompage mobile', 'Hydraulique'], ['Tente modulaire 12 places', 'Campement'], ['Kit de déblaiement hydraulique', 'Sauvetage'], ['Radio tactique PR4G', 'Transmissions'], ['Station de potabilisation', 'Eau']],
+      vehs: ['VLRA tout-terrain', 'Camion GBC 180', 'Ambulance tactique', 'Engin de levage', 'Bulldozer D7', 'VAB sanitaire']
+    };
+  }
+  persStatut(j) {
+    const t = this.tr();
+    const m = [['Déployé', 'medium'], ['Disponible', 'active'], ['Repos', 'on_hold']][j % 3];
+    return { label: m[0], type: m[1] };
+  }
+  dispoBadge(dispo) {
+    const t = this.tr();
+    return { ready: { type: 'active', label: t.u_ready }, deployed: { type: 'medium', label: t.u_deployed }, standby: { type: 'on_hold', label: t.u_standby } }[dispo];
+  }
+
+  unitVals() {
+    const s = this.state, t = this.tr(), P = this.POOLS;
+    const unitCards = this.UNITS.map(u => {
+      const b = this.dispoBadge(u.dispo);
+      return {
+        nom: u.nom, ville: u.ville, cmdt: u.cmdt, eff: String(u.eff), readiness: u.readiness + ' %',
+        rw: 'width:' + u.readiness + '%', badgeType: b.type, badgeLabel: b.label,
+        open: () => this.setState({ selUnit: u.id, unitTab: 'pers' })
+      };
+    });
+    let u = null;
+    if (s.selUnit) {
+      const raw = this.UNITS.find(x => x.id === s.selUnit);
+      const idx = this.UNITS.indexOf(raw);
+      const b = this.dispoBadge(raw.dispo);
+      const pers = Array.from({ length: 6 }, (_, j) => {
+        const st = this.persStatut(idx + j);
+        return {
+          grade: P.grades[(idx + j) % 6], nom: P.grades[(idx + j) % 6].startsWith('C') ? P.names[(idx * 2 + j) % 12] : P.names[(idx * 3 + j) % 12],
+          fonction: P.fonctions[(idx + j) % 6], stLabel: st.label, stType: st.type
+        };
+      });
+      const equip = P.equip.map((e, j) => ({
+        desig: e[0], cat: e[1], qty: String(((idx + 1) * 7 + j * 3) % 18 + 2),
+        etat: (idx + j) % 4 === 1 ? 'Maintenance' : 'Opérationnel',
+        etatCls: (idx + j) % 4 === 1 ? 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-or-500/15 text-or-500' : 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-green-500/10 text-green-600'
+      }));
+      const vehs = P.vehs.map((v, j) => ({
+        type: v, plate: 'FAR-' + (2140 + idx * 61 + j * 17),
+        assign: raw.dispo === 'deployed' && j % 2 === 0 ? 'Zone Al Haouz' : raw.ville,
+        etat: (idx + j) % 5 === 2 ? 'Maintenance' : 'Opérationnel',
+        etatCls: (idx + j) % 5 === 2 ? 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-or-500/15 text-or-500' : 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-green-500/10 text-green-600'
+      }));
+      u = {
+        nom: raw.nom, ville: raw.ville, cmdt: raw.cmdt, eff: String(raw.eff), readiness: raw.readiness + ' %',
+        rw: 'width:' + raw.readiness + '%', badgeType: b.type, badgeLabel: b.label, pers, equip, vehs
+      };
+    }
+    const tabDefs = [['pers', t.personnel], ['equip', t.equipment], ['veh', t.vehicles]];
+    return {
+      showUnitList: !s.selUnit, hasUnitSel: !!s.selUnit, unitCards, u,
+      backUnits: () => this.setState({ selUnit: null }),
+      unitTabs: tabDefs.map(([k, label]) => ({
+        label, pick: () => this.setState({ unitTab: k }),
+        cls: 'text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ' +
+          (s.unitTab === k ? 'bg-or-500 text-rdia-600' : 'text-gray-500 dark:text-rdia-300 hover:text-or-500 bg-gray-100 dark:bg-rdia-600')
+      })),
+      utPers: s.unitTab === 'pers', utEquip: s.unitTab === 'equip', utVeh: s.unitTab === 'veh'
+    };
+  }
+  hospVals() {
+    const s = this.state, t = this.tr();
+    const pctCls = p => p >= 90 ? 'bg-danger-500' : p >= 75 ? 'bg-or-500' : 'bg-green-500';
+    const hospCards = this.HOSPITALS.map(h => {
+      const pct = Math.round(h.occ / h.lits * 100);
+      return {
+        nom: h.nom, ville: h.ville, staff: String(h.staff), free: String(h.lits - h.occ),
+        rea: (h.rea - h.reaOcc) + ' / ' + h.rea, occPct: pct + ' %',
+        ow: 'width:' + pct + '%', barCls: 'h-full rounded-full ' + pctCls(pct),
+        open: () => this.setState({ selHosp: h.id, hospTab: 'staff' })
+      };
+    });
+    let h = null;
+    if (s.selHosp) {
+      const raw = this.HOSPITALS.find(x => x.id === s.selHosp);
+      const idx = this.HOSPITALS.indexOf(raw);
+      const MG = ['Méd. Col.', 'Méd. Lt-Col.', 'Méd. Cdt.', 'Inf. Maj.', 'Inf. Cne.', 'Inf. 1re Cl.'];
+      const SP = ['Chirurgie', 'Réanimation', 'Traumatologie', 'Urgences', 'Pédiatrie', 'Radiologie'];
+      const P = this.POOLS;
+      const staffRows = Array.from({ length: 6 }, (_, j) => {
+        const st = [['Garde', 'medium'], ['Disponible', 'active'], ['Repos', 'on_hold']][(idx + j) % 3];
+        return { grade: MG[(idx + j) % 6], nom: P.names[(idx * 5 + j * 2) % 12], spec: SP[(idx * 2 + j) % 6], stLabel: st[0], stType: st[1] };
+      });
+      const ratio = raw.occ / raw.lits;
+      const mkSvc = (name, share, r) => {
+        const total = Math.round(raw.lits * share);
+        const occ = Math.min(total, Math.round(total * r));
+        const pct = Math.round(occ / total * 100);
+        return { name, total: String(total), occ: String(occ), free: String(total - occ), pct: pct + ' %', w: 'width:' + pct + '%', barCls: 'h-full rounded-full ' + pctCls(pct) };
+      };
+      const beds = [
+        mkSvc(t.icu, raw.rea / raw.lits, raw.reaOcc / raw.rea),
+        mkSvc('Chirurgie', 0.28, ratio * 1.05),
+        mkSvc('Médecine interne', 0.32, ratio * 0.95),
+        mkSvc('Urgences', 0.18, ratio * 1.1),
+        mkSvc('Pédiatrie', 0.14, ratio * 0.8)
+      ];
+      const vehRows = [
+        { type: 'Ambulance médicalisée', qty: String(raw.amb), assign: raw.ville, etat: 'Opérationnel', etatCls: 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-green-500/10 text-green-600' },
+        { type: 'VAB sanitaire', qty: String(Math.max(2, Math.round(raw.amb / 3))), assign: idx === 1 ? 'Zone Al Haouz' : raw.ville, etat: 'Opérationnel', etatCls: 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-green-500/10 text-green-600' },
+        { type: 'Hélicoptère médicalisé', qty: String(raw.heli), assign: idx === 1 ? 'Rotations EVASAN' : raw.ville, etat: idx === 3 ? 'Maintenance' : 'Opérationnel', etatCls: idx === 3 ? 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-or-500/15 text-or-500' : 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-green-500/10 text-green-600' }
+      ];
+      const fields = s.fieldHosps.filter(f => f.hid === raw.id).map(f => {
+        const pct = Math.round(f.occ / f.cap * 100);
+        return {
+          nom: f.nom, cap: String(f.cap), depuis: f.depuis, pct: pct + ' %', w: 'width:' + pct + '%',
+          barCls: 'h-full rounded-full ' + pctCls(pct),
+          badgeType: f.statut === 'op' ? 'active' : 'on_hold',
+          badgeLabel: f.statut === 'op' ? t.op_ok : t.op_partial
+        };
+      });
+      h = {
+        nom: raw.nom, ville: raw.ville, staff: String(raw.staff),
+        litsTotal: String(raw.lits), litsOcc: String(raw.occ), litsFree: String(raw.lits - raw.occ),
+        rea: (raw.rea - raw.reaOcc) + ' / ' + raw.rea,
+        staffRows, beds, vehRows, fields, hasFields: fields.length > 0,
+        deploy: () => {
+          const n = s.fieldHosps.filter(f => f.hid === raw.id).length + 1;
+          const entry = { hid: raw.id, nom: 'HMC ' + raw.ville + ' — Détachement ' + n, cap: 40, occ: 0, statut: 'partial', depuis: 'J+0', x: raw.x + 8 + n * 4, y: raw.y + 10 + n * 3, ll: [raw.ll[0] + 0.05 * n, raw.ll[1] - 0.04 * n] };
+          this.setState(st => ({ fieldHosps: [...st.fieldHosps, entry] }), () => this.syncMarkers());
+          this.toast(t.toast_field);
+        }
+      };
+    }
+    const tabDefs = [['staff', t.med_staff], ['beds', t.beds], ['veh', t.vehicles], ['field', t.field]];
+    return {
+      showHospList: !s.selHosp, hasHospSel: !!s.selHosp, hospCards, h,
+      backHosp: () => this.setState({ selHosp: null }),
+      hospTabs: tabDefs.map(([k, label]) => ({
+        label, pick: () => this.setState({ hospTab: k }),
+        cls: 'text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ' +
+          (s.hospTab === k ? 'bg-or-500 text-rdia-600' : 'text-gray-500 dark:text-rdia-300 hover:text-or-500 bg-gray-100 dark:bg-rdia-600')
+      })),
+      htStaff: s.hospTab === 'staff', htBeds: s.hospTab === 'beds', htVeh: s.hospTab === 'veh', htField: s.hospTab === 'field'
+    };
+  }
+  get PROVINCES() {
+    return [
+      { v: 'Al Haouz', region: 'Marrakech-Safi', x: 188, y: 286 },
+      { v: 'Chichaoua', region: 'Marrakech-Safi', x: 160, y: 270 },
+      { v: 'Taroudant', region: 'Souss-Massa', x: 140, y: 332 },
+      { v: 'Ouarzazate', region: 'Drâa-Tafilalet', x: 230, y: 320 },
+      { v: 'Azilal', region: 'Béni Mellal-Khénifra', x: 215, y: 255 },
+      { v: 'Chefchaouen', region: 'Tanger-Tétouan-Al Hoceïma', x: 248, y: 82 },
+      { v: 'Al Hoceïma', region: 'Tanger-Tétouan-Al Hoceïma', x: 300, y: 94 },
+      { v: 'Errachidia', region: 'Drâa-Tafilalet', x: 310, y: 290 },
+      { v: 'Tata', region: 'Souss-Massa', x: 230, y: 390 },
+      { v: 'Guelmim', region: 'Guelmim-Oued Noun', x: 120, y: 400 }
+    ];
+  }
+  svgLatLon(x, y) {
+    const lat = 36 - (y - 40) / 650 * 15;
+    const lon = -17 + x / 430 * 16;
+    return lat.toFixed(3) + '° N · ' + Math.abs(lon).toFixed(3) + '° W';
+  }
+
+  commVals() {
+    const s = this.state, t = this.tr();
+    const slug = n => n.trim().toLowerCase().replace(/\s+/g, '-');
+    const catRows = s.comCats.map(cat => {
+      const open = !s.comCollapsed[cat.id];
+      return {
+        name: cat.name, open,
+        toggle: () => this.setState(st => ({ comCollapsed: { ...st.comCollapsed, [cat.id]: !st.comCollapsed[cat.id] } })),
+        chevStyle: 'transition: transform .15s;' + (open ? 'transform: rotate(90deg);' : ''),
+        addChan: () => this.setState({ comNewChanCat: cat.id, comNewChanName: '' }),
+        inputOpen: s.comNewChanCat === cat.id,
+        chans: cat.chans.map(ch => ({
+          name: ch.name,
+          icon: ch.kind === 'voice'
+            ? 'M11 5L6 9H2v6h4l5 4z M15.5 8.5a5 5 0 010 7 M19 5a9 9 0 010 14'
+            : 'M4 9h16 M4 15h16 M10 3L8 21 M16 3l-2 18',
+          pick: () => this.setState({ comSel: ch.id }),
+          cls: 'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[13px] transition-colors ' +
+            (s.comSel === ch.id ? 'bg-or-500/15 text-or-400 font-semibold' : 'text-gray-500 dark:text-rdia-300 hover:text-or-500 hover:bg-gray-100 dark:hover:bg-rdia-600/40')
+        }))
+      };
+    });
+    let selChan = null;
+    s.comCats.forEach(c => c.chans.forEach(ch => { if (ch.id === s.comSel) selChan = ch; }));
+    const isVoice = !!selChan && selChan.kind === 'voice';
+    const msgs = (s.comMsgs[s.comSel] || []).slice().reverse().map(m => ({
+      ...m,
+      nameCls: 'text-xs font-bold ' + (m.mine ? 'text-or-500' : 'text-rdia-600 dark:text-rdia-100'),
+      avCls: 'h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ' + m.av
+    }));
+    const send = () => {
+      const txt = s.comInput.trim();
+      if (!txt || !selChan || isVoice) return;
+      const d = new Date();
+      const time = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+      this.setState(st => ({
+        comMsgs: { ...st.comMsgs, [st.comSel]: [...(st.comMsgs[st.comSel] || []), { id: Date.now(), who: 'Col. K. Benjelloun', initials: 'KB', av: 'bg-or-500 text-rdia-600', time, txt, mine: true }] },
+        comInput: ''
+      }));
+    };
+    return {
+      isComms: s.screen === 'comms',
+      comCatRows: catRows,
+      chanName: selChan ? (isVoice ? selChan.name : '# ' + selChan.name) : '',
+      chanTopic: selChan && selChan.topic ? selChan.topic : (isVoice ? t.cm_voice : ''),
+      chanIsText: !!selChan && !isVoice, chanIsVoice: isVoice,
+      comMsgsV: msgs,
+      comInputV: s.comInput, setComInput: e => this.setState({ comInput: e.target.value }),
+      comKey: e => { if (e.key === 'Enter') send(); },
+      comSend: send,
+      voicePeople: [
+        { n: 'Gén. R. Alaoui', initials: 'RA', av: 'bg-rdia-600 text-white', speaking: true },
+        { n: 'Col. M. El Fassi', initials: 'MF', av: 'bg-blue-500 text-white', speaking: false },
+        { n: 'Cdt. H. Berrada', initials: 'HB', av: 'bg-green-500 text-white', speaking: true },
+        { n: 'Lt-Col. S. Amrani', initials: 'SA', av: 'bg-or-500 text-rdia-600', speaking: false }
+      ],
+      joinVoice: () => this.toast(t.cm_joined),
+      openNewCat: () => this.setState({ comNewCatOpen: true, comNewCatName: '' }),
+      comNewCatOpen: s.comNewCatOpen,
+      comNewCatV: s.comNewCatName, setNewCat: e => this.setState({ comNewCatName: e.target.value }),
+      newCatKey: e => {
+        if (e.key === 'Escape') this.setState({ comNewCatOpen: false });
+        if (e.key === 'Enter' && s.comNewCatName.trim()) {
+          this.setState(st => ({ comCats: [...st.comCats, { id: 'g' + Date.now(), name: st.comNewCatName.trim().toUpperCase(), chans: [] }], comNewCatOpen: false, comNewCatName: '' }));
+        }
+      },
+      comNewChanV: s.comNewChanName, setNewChan: e => this.setState({ comNewChanName: e.target.value }),
+      newChanKey: e => {
+        if (e.key === 'Escape') this.setState({ comNewChanCat: null });
+        if (e.key === 'Enter' && s.comNewChanName.trim()) {
+          const id = 'c' + Date.now();
+          this.setState(st => ({
+            comCats: st.comCats.map(c => c.id === st.comNewChanCat ? { ...c, chans: [...c.chans, { id, name: slug(st.comNewChanName), kind: 'text', topic: '' }] } : c),
+            comNewChanCat: null, comNewChanName: '', comSel: id
+          }));
+        }
+      },
+      comMembersOn: [
+        { n: 'Gén. R. Alaoui', g: 'EMG', av: 'bg-rdia-600 text-white', initials: 'RA' },
+        { n: 'Col. K. Benjelloun', g: 'RDIA', av: 'bg-or-500 text-rdia-600', initials: 'KB' },
+        { n: 'Col. M. El Fassi', g: '7e RA', av: 'bg-blue-500 text-white', initials: 'MF' },
+        { n: 'Lt-Col. A. Tazi', g: '3e BG', av: 'bg-purple-500 text-white', initials: 'AT' },
+        { n: 'Cdt. H. Berrada', g: '5e BS', av: 'bg-green-500 text-white', initials: 'HB' }
+      ],
+      comMembersOff: [
+        { n: 'Lt-Col. S. Amrani', g: '2e GL', av: 'bg-gray-400 text-white', initials: 'SA' },
+        { n: 'Cdt. N. Chraibi', g: '4e NRBC', av: 'bg-gray-400 text-white', initials: 'NC' }
+      ]
+    };
+  }
+
+  wizVals() {
+    const s = this.state, t = this.tr();
+    const TYPES = [
+      ['earthquake', 'M2 14h4l2-6 3 10 3-13 2 9h6'],
+      ['flood', 'M2 8c2-2 4-2 6 0s4 2 6 0 4-2 6 0 M2 13c2-2 4-2 6 0s4 2 6 0 4-2 6 0 M2 18c2-2 4-2 6 0s4 2 6 0 4-2 6 0'],
+      ['wildfire', 'M12 2c1 4 5 6 5 11a5 5 0 01-10 0c0-2 .5-3.5 2-5 0 2 1 3 2 3 0-3-1-6 1-9z'],
+      ['landslide', 'M3 20h18L14 6l-4 7-2-3z M7 8l2-4'],
+      ['epidemic', 'M12 8a4 4 0 100 8 4 4 0 000-8z M12 2v3 M12 19v3 M2 12h3 M19 12h3 M4.9 4.9L7 7 M17 17l2.1 2.1 M19.1 4.9L17 7 M7 17l-2.1 2.1'],
+      ['industrial', 'M2 20h20 M4 20V9l5 4V9l5 4V4h6v16']
+    ];
+    const wizTypes = TYPES.map(([k, icon]) => ({
+      icon, label: this.typeLabel(k), pick: () => this.setState({ wizType: k }),
+      cls: 'flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all text-xs font-semibold ' +
+        (s.wizType === k ? 'border-or-500 bg-or-500/10 text-or-500' : 'border-gray-200 dark:border-rdia-600 text-gray-500 dark:text-rdia-300 hover:border-or-500/40')
+    }));
+    const steps = [t.wz1, t.wz2, t.wz3].map((label, i) => ({
+      label, num: String(i + 1),
+      circleCls: 'h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ' +
+        (s.wizStep > i + 1 ? 'bg-green-500 text-white' : s.wizStep === i + 1 ? 'bg-or-500 text-rdia-600' : 'bg-gray-200 dark:bg-rdia-600 text-gray-500 dark:text-rdia-300'),
+      labelCls: 'text-xs ' + (s.wizStep === i + 1 ? 'font-bold text-or-500' : 'text-gray-400 dark:text-rdia-400')
+    }));
+    const prov = this.PROVINCES.find(p => p.v === s.wizProv);
+    const canNext = s.wizStep === 1 ? !!s.wizType : s.wizStep === 2 ? !!s.wizTitle.trim() : true;
+    const canSubmit = !!(s.wizPt || prov);
+    return {
+      wizOpen: s.wizOpen, wizModalTitle: t.wiz_title,
+      closeWiz: () => this.setState({ wizOpen: false, wizStep: 1, wizType: null, wizTitle: '', wizDesc: '', wizFiles: [], wizProv: '', wizPt: null }),
+      steps, wizS1: s.wizStep === 1, wizS2: s.wizStep === 2, wizS3: s.wizStep === 3, notFirst: s.wizStep > 1, notLast: s.wizStep < 3,
+      wizTypes,
+      wizTitleV: s.wizTitle, setWizTitle: e => this.setState({ wizTitle: e.target.value }),
+      wizDescV: s.wizDesc, setWizDesc: e => this.setState({ wizDesc: e.target.value }),
+      pickFile: e => {
+        const names = Array.from(e.target.files || []).map(f => ({ name: f.name }));
+        this.setState(st => ({ wizFiles: [...st.wizFiles, ...names] }));
+      },
+      wizFiles: s.wizFiles, hasFiles: s.wizFiles.length > 0,
+      provinces: this.PROVINCES.map(p => ({ v: p.v })),
+      provSel: s.wizProv, setProv: e => this.setState({ wizProv: e.target.value }),
+      hasPt: !!s.wizPt, ptX: s.wizPt ? s.wizPt.x : 0, ptY: s.wizPt ? s.wizPt.y : 0,
+      coordsTxt: s.wizPt ? this.svgLatLon(s.wizPt.x, s.wizPt.y) : (prov ? this.svgLatLon(prov.x, prov.y) : '—'),
+      mapPick: e => {
+        const el = e.currentTarget;
+        const r = el.getBoundingClientRect();
+        const vb = { x: 60, y: 40, w: 320, h: 420 };
+        const scale = Math.min(r.width / vb.w, r.height / vb.h);
+        const ox = (r.width - vb.w * scale) / 2, oy = (r.height - vb.h * scale) / 2;
+        const x = vb.x + (e.clientX - r.left - ox) / scale;
+        const y = vb.y + (e.clientY - r.top - oy) / scale;
+        this.setState({ wizPt: { x: Math.round(x), y: Math.round(y) } });
+      },
+      prevW: () => this.setState(st => ({ wizStep: Math.max(1, st.wizStep - 1) })),
+      nextW: () => { if (canNext) this.setState(st => ({ wizStep: Math.min(3, st.wizStep + 1) })); },
+      nextDisabled: !canNext, submitDisabled: !canSubmit,
+      submitW: () => {
+        if (!canSubmit) return;
+        const p = prov || this.PROVINCES[0];
+        const pt = s.wizPt || { x: p.x, y: p.y };
+        const num = 2608 + s.incidents.length - 6;
+        const inc = {
+          id: 'INC-' + num, type: s.wizType || 'earthquake',
+          titre: s.wizTitle.trim() || this.typeLabel(s.wizType || 'earthquake') + (s.wizProv ? ' — ' + s.wizProv : ''),
+          region: prov ? prov.region : '—', sev: 'medium', st: 'open', time: t.now, x: pt.x, y: pt.y, ll: this.svgToLL(pt.x, pt.y)
+        };
+        const d = new Date();
+        const time = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        this.setState(st => ({
+          incidents: [inc, ...st.incidents],
+          feed: [{ time, c: 'bg-danger-500', txt: inc.id + ' — ' + inc.titre }, ...st.feed].slice(0, 8),
+          wizOpen: false, wizStep: 1, wizType: null, wizTitle: '', wizDesc: '', wizFiles: [], wizProv: '', wizPt: null
+        }), () => this.syncMarkers());
+        this.toast(t.toast_ok);
+      }
+    };
+  }
+
+  renderVals() {
+    return Object.assign({}, this.chrome(), this.dashVals(), this.mapVals(), this.incVals(), this.unitVals(), this.hospVals(), this.commVals(), this.wizVals());
+  }
+}
+
+</script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+# ============================================================================
+# ARGOS — pile de développement / déploiement souverain (MASTER_PLAN §4.1)
+# Tous les services sont auto-hébergés (air-gap possible). Un seul fichier,
+# piloté par variables d'environnement (voir .env.example).
+#   docker compose --env-file .env up -d
+# ============================================================================
+name: argos
+
+services:
+  # --- Données : PostgreSQL 16 + PostGIS + TimescaleDB -----------------------
+  db:
+    image: timescale/timescaledb-ha:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-argos}
+      POSTGRES_USER: ${POSTGRES_USER:-argos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?mot de passe requis}
+    command: ["postgres", "-c", "shared_preload_libraries=timescaledb"]
+    volumes:
+      - db_data:/home/postgres/pgdata/data
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-argos}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # --- Cache / files / présence ---------------------------------------------
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redis_data:/data]
+    ports: ["6379:6379"]
+    restart: unless-stopped
+
+  # --- Identité : Keycloak (OIDC + MFA) -------------------------------------
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?mot de passe requis}
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+    volumes:
+      - ../keycloak:/opt/keycloak/data/import:ro
+    ports: ["8080:8080"]
+    restart: unless-stopped
+
+  # --- Stockage objets : MinIO (photos, documents) --------------------------
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-argos}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?mot de passe requis}
+    volumes: [minio_data:/data]
+    ports: ["9000:9000", "9001:9001"]
+    restart: unless-stopped
+
+  # --- Broker IoT / mobile : EMQX (MQTT) ------------------------------------
+  emqx:
+    image: emqx/emqx:5
+    ports: ["1883:1883", "8083:8083", "18083:18083"]
+    volumes: [emqx_data:/opt/emqx/data]
+    restart: unless-stopped
+
+  # --- Tuiles vectorielles : martin -----------------------------------------
+  # Sert les tuiles générées par le pipeline geo (infra/geo). Sans données, il
+  # démarre à vide — la carte du frontend utilise des tuiles externes en démo.
+  martin:
+    image: ghcr.io/maplibre/martin:latest
+    command: ["--listen-addresses", "0.0.0.0:3000"]
+    depends_on: [db]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-argos}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-argos}
+    ports: ["3005:3000"]
+    restart: unless-stopped
+
+  # --- Courriel de dev ------------------------------------------------------
+  mailpit:
+    image: axllent/mailpit:latest
+    ports: ["1025:1025", "8025:8025"]
+    restart: unless-stopped
+
+  # --- Edge : Traefik (TLS, WAF, rate limiting) -----------------------------
+  traefik:
+    image: traefik:v3.2
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports: ["80:80", "8081:8080"]
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  redis_data:
+  minio_data:
+  emqx_data:

@@ -1,0 +1,57 @@
+{
+  "realm": "argos",
+  "enabled": true,
+  "displayName": "ARGOS — État-Major Général",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": false,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "failureFactor": 5,
+  "accessTokenLifespan": 600,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "passwordPolicy": "length(12) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername and passwordHistory(5)",
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyDigits": 6,
+  "otpPolicyPeriod": 30,
+  "requiredActions": [
+    { "alias": "CONFIGURE_TOTP", "name": "Configurer l'authentification à deux facteurs", "providerId": "CONFIGURE_TOTP", "enabled": true, "defaultAction": true, "priority": 10 }
+  ],
+  "roles": {
+    "realm": [
+      { "name": "superadmin", "description": "Super Administrateur — MFA matériel obligatoire, non créable via l'UI" },
+      { "name": "admin", "description": "Administrateur — gestion des utilisateurs/rôles/référentiels dans son périmètre" },
+      { "name": "auditor", "description": "Auditeur — lecture seule + journal d'audit (séparation des pouvoirs)" },
+      { "name": "command", "description": "Commandement Stratégique" },
+      { "name": "dispatcher", "description": "Répartiteur / Officier de Dispatching" },
+      { "name": "unit_commander", "description": "Chef d'Unité" },
+      { "name": "field_agent", "description": "Agent de Terrain" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "argos-web",
+      "name": "ARGOS — Application de commandement (SPA)",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:3000/*", "http://localhost:3100/*"],
+      "webOrigins": ["http://localhost:3000", "http://localhost:3100"],
+      "attributes": { "pkce.code.challenge.method": "S256" }
+    },
+    {
+      "clientId": "argos-api",
+      "name": "ARGOS — API (resource server)",
+      "enabled": true,
+      "bearerOnly": true,
+      "publicClient": false
+    }
+  ],
+  "defaultDefaultClientScopes": ["roles", "profile", "email"]
+}

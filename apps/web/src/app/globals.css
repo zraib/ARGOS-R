@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   Base ARGOS
+   ========================================================================== */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: rgb(15 31 20);
+}
+
+/* Sélection crème pour coller à l'esthétique du poste de commandement */
+::selection {
+  background: rgb(201 168 76 / 0.35);
+}
+
+a {
+  color: #c9a84c;
+  text-decoration: none;
+}
+a:hover {
+  color: #b8963d;
+}
+
+/* ==========================================================================
+   Composants du design system (Amin Design / Kanban RDIA — recréés 1:1)
+   ========================================================================== */
+@layer components {
+  /* Carte / Panneau */
+  .carte {
+    @apply rounded-xl border border-gray-100 bg-white shadow-sm transition-colors duration-200;
+  }
+  .dark .carte {
+    @apply border-rdia-600 bg-rdia-700;
+  }
+
+  /* Bouton primaire — vert (clair) / or (sombre) */
+  .btn-primaire {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-rdia-600 px-4 py-2 font-medium text-white transition-colors duration-200 hover:bg-rdia-500 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .dark .btn-primaire {
+    @apply bg-or-500 text-rdia-900 hover:bg-or-300;
+  }
+
+  /* Bouton secondaire — bordure or */
+  .btn-secondaire {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-or-500 px-4 py-2 font-medium text-or-500 transition-colors duration-200 hover:bg-or-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  /* Champ de saisie */
+  .input-champ {
+    @apply w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-gray-800 transition-colors duration-200 placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-or-500;
+  }
+  .dark .input-champ {
+    @apply border-rdia-700 bg-rdia-800 text-rdia-50 placeholder:text-rdia-300;
+  }
+
+  /* Select natif thémé — même apparence que input-champ */
+  select.input-champ {
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    padding-right: 2.25rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 24 24'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+  }
+  .dark select.input-champ {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 24 24'%3E%3Cpath stroke='%23a89d7e' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+}
+
+/* ==========================================================================
+   Carte + animations
+   ========================================================================== */
+.maplibregl-ctrl-attrib {
+  font-size: 9px;
+  opacity: 0.7;
+}
+.maplibregl-ctrl-attrib a {
+  color: inherit;
+}
+
+@keyframes cgc-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+}
+@keyframes cgc-dash {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+/* Barres de défilement personnalisées pour la coquille sombre */
+.dark *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.dark *::-webkit-scrollbar-thumb {
+  background: rgb(27 77 46);
+  border-radius: 9999px;
+}
+.dark *::-webkit-scrollbar-track {
+  background: transparent;
+}

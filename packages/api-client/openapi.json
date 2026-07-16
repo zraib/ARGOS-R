@@ -1,0 +1,1407 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/audit": {
+      "get": {
+        "operationId": "AuditController_list",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Entrées les plus récentes (chaînées par hash)."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Lister les entrées du journal d'audit (rôle Auditeur/Super Admin)",
+        "tags": [
+          "audit"
+        ]
+      }
+    },
+    "/api/audit/verify": {
+      "get": {
+        "operationId": "AuditController_verify",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Vérifier l'intégrité de la chaîne d'audit (tamper-evidence)",
+        "tags": [
+          "audit"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "HealthController_check",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Sonde de vivacité (publique)",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/auth/dev-token": {
+      "post": {
+        "operationId": "AuthController_devToken",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Jeton de développement (mode dev uniquement)",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Connexion d'un compte géré (matricule + code/mot de passe)",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/select-role": {
+      "post": {
+        "operationId": "AuthController_selectRole",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Choisir le rôle actif (compte multi-rôles) — nouveau jeton",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/change-password": {
+      "post": {
+        "operationId": "AuthController_changePassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Changer son mot de passe (1er login) — active le compte",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/iam/me": {
+      "get": {
+        "operationId": "IamController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Profil de l'utilisateur courant + permissions résolues",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/iam/roles": {
+      "get": {
+        "operationId": "IamController_roles",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Catalogue des rôles et de leurs permissions",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/iam/permissions": {
+      "get": {
+        "operationId": "IamController_permissions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Catalogue des permissions",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/iam/users": {
+      "get": {
+        "operationId": "UsersController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Lister les utilisateurs (Admin/Super Admin)",
+        "tags": [
+          "iam"
+        ]
+      },
+      "post": {
+        "operationId": "UsersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Créer un utilisateur (règles d'attribution appliquées côté serveur)",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/iam/users/{id}": {
+      "patch": {
+        "operationId": "UsersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Modifier un utilisateur (nom, grade, rôles)",
+        "tags": [
+          "iam"
+        ]
+      },
+      "delete": {
+        "operationId": "UsersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Supprimer un utilisateur",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/iam/users/{id}/active": {
+      "post": {
+        "operationId": "UsersController_setActive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetActiveDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Activer/suspendre un compte (Super Admin) — activation forcée possible",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/iam/users/{id}/reset-code": {
+      "post": {
+        "operationId": "UsersController_resetCode",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Régénérer le code temporaire d'un compte",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/iam/users/{id}/temp-code": {
+      "get": {
+        "operationId": "UsersController_tempCode",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consulter le code temporaire (Admin/Super Admin)",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/iam/role-features": {
+      "get": {
+        "operationId": "UsersController_roleFeatures",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Matrice rôle → fonctionnalités",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/iam/role-features/{role}": {
+      "patch": {
+        "operationId": "UsersController_setRoleFeature",
+        "parameters": [
+          {
+            "name": "role",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToggleRoleFeatureDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Activer/désactiver une fonctionnalité pour un rôle (Super Admin)",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/flags": {
+      "get": {
+        "operationId": "FlagsController_all",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Lire la matrice des feature flags",
+        "tags": [
+          "flags"
+        ]
+      }
+    },
+    "/api/flags/{key}": {
+      "patch": {
+        "operationId": "FlagsController_toggle",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToggleFlagDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Activer/désactiver un module (Super Admin) — audité",
+        "tags": [
+          "flags"
+        ]
+      }
+    },
+    "/api/catalog": {
+      "get": {
+        "operationId": "DomainController_catalogAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Catalogue des modules opérationnels (inventaire, triage, ORSEC, …)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/incidents": {
+      "get": {
+        "operationId": "DomainController_incidents",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Liste des incidents",
+        "tags": [
+          "domain"
+        ]
+      },
+      "post": {
+        "operationId": "DomainController_createIncident",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateIncidentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Déclarer un incident (audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/units": {
+      "get": {
+        "operationId": "DomainController_units",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Liste des unités",
+        "tags": [
+          "domain"
+        ]
+      },
+      "post": {
+        "operationId": "DomainController_createUnit",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUnitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Créer une unité (audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/hospitals": {
+      "get": {
+        "operationId": "DomainController_hospitals",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Liste des hôpitaux",
+        "tags": [
+          "domain"
+        ]
+      },
+      "post": {
+        "operationId": "DomainController_createHospital",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHospitalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Créer un hôpital (audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/field-hospitals": {
+      "get": {
+        "operationId": "DomainController_fieldHospitals",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Hôpitaux de campagne déployés",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/feed": {
+      "get": {
+        "operationId": "DomainController_feed",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Fil des événements",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/dispatch/queue": {
+      "get": {
+        "operationId": "DomainController_queue",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "File de dispatching (besoins entrants)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/dispatch/movements": {
+      "get": {
+        "operationId": "DomainController_movements",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mouvements de transport en cours",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/comms": {
+      "get": {
+        "operationId": "DomainController_commsAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Centre de communication : canaux, messages, présence",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/comms/messages": {
+      "post": {
+        "operationId": "DomainController_sendMessage",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Envoyer un message dans un canal (audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/comms/categories": {
+      "post": {
+        "operationId": "DomainController_createCategory",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCategoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Créer un groupe de canaux (audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/comms/channels": {
+      "post": {
+        "operationId": "DomainController_createChannel",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateChannelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Créer un canal texte dans un groupe (audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/reference": {
+      "get": {
+        "operationId": "DomainController_reference",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Données de référence : provinces, routes d'animation carte",
+        "tags": [
+          "domain"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "ARGOS API",
+    "description": "API du poste de commandement ARGOS — Phase 0/1 : IAM/RBAC (default-deny), audit chaîné, feature flags.",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "health",
+      "description": "Sondes de disponibilité"
+    },
+    {
+      "name": "auth",
+      "description": "Authentification"
+    },
+    {
+      "name": "iam",
+      "description": "Identités, rôles et permissions"
+    },
+    {
+      "name": "audit",
+      "description": "Journal d'audit inviolable"
+    },
+    {
+      "name": "flags",
+      "description": "Feature flags"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "DevTokenDto": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "example": "k.benjelloun"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "superadmin",
+              "admin",
+              "auditor",
+              "command",
+              "dispatcher",
+              "unit_commander",
+              "field_agent"
+            ],
+            "example": "superadmin"
+          }
+        },
+        "required": [
+          "username",
+          "role"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "matricule": {
+            "type": "string",
+            "example": "n.fassi"
+          },
+          "password": {
+            "type": "string",
+            "example": "A7X2-K9D3"
+          }
+        },
+        "required": [
+          "matricule",
+          "password"
+        ]
+      },
+      "SelectRoleDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "superadmin",
+              "admin",
+              "auditor",
+              "command",
+              "dispatcher",
+              "unit_commander",
+              "field_agent"
+            ]
+          }
+        },
+        "required": [
+          "role"
+        ]
+      },
+      "ChangePasswordDto": {
+        "type": "object",
+        "properties": {
+          "newPassword": {
+            "type": "string",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "newPassword"
+        ]
+      },
+      "CreateUserDto": {
+        "type": "object",
+        "properties": {
+          "matricule": {
+            "type": "string",
+            "example": "a.saidi"
+          },
+          "nom": {
+            "type": "string",
+            "example": "Cne. A. Saidi"
+          },
+          "grade": {
+            "type": "string",
+            "example": "Capitaine"
+          },
+          "roles": {
+            "type": "array",
+            "example": [
+              "command",
+              "dispatcher"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "superadmin",
+                "admin",
+                "auditor",
+                "command",
+                "dispatcher",
+                "unit_commander",
+                "field_agent"
+              ]
+            }
+          }
+        },
+        "required": [
+          "matricule",
+          "nom",
+          "roles"
+        ]
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {
+          "nom": {
+            "type": "string",
+            "example": "Cne. A. Saidi"
+          },
+          "grade": {
+            "type": "string",
+            "example": "Capitaine"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "superadmin",
+                "admin",
+                "auditor",
+                "command",
+                "dispatcher",
+                "unit_commander",
+                "field_agent"
+              ]
+            }
+          }
+        }
+      },
+      "SetActiveDto": {
+        "type": "object",
+        "properties": {
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "active"
+        ]
+      },
+      "ToggleRoleFeatureDto": {
+        "type": "object",
+        "properties": {
+          "feature": {
+            "type": "string",
+            "enum": [
+              "dashboard",
+              "incidents",
+              "map",
+              "dispatch",
+              "triage",
+              "equip",
+              "units",
+              "personnel",
+              "workorders",
+              "hospitals",
+              "ics",
+              "damage",
+              "shelters",
+              "orsec",
+              "plans",
+              "comms",
+              "reports",
+              "analytics",
+              "assistant"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "feature",
+          "enabled"
+        ]
+      },
+      "ToggleFlagDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Nouvel état du flag"
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "CreateIncidentDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "earthquake",
+              "flood",
+              "wildfire",
+              "landslide",
+              "epidemic",
+              "industrial"
+            ]
+          },
+          "titre": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "sev": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "st": {
+            "type": "string",
+            "enum": [
+              "open",
+              "prog",
+              "closed"
+            ]
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "ll": {
+            "description": "[lng, lat]",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "titre",
+          "region",
+          "sev",
+          "st",
+          "x",
+          "y",
+          "ll"
+        ]
+      },
+      "CreateUnitDto": {
+        "type": "object",
+        "properties": {
+          "nom": {
+            "type": "string",
+            "example": "6e Bataillon Médical"
+          },
+          "ville": {
+            "type": "string",
+            "example": "Tanger"
+          },
+          "cmdt": {
+            "type": "string",
+            "example": "Col. A. Senhaji"
+          },
+          "eff": {
+            "type": "number",
+            "minimum": 1
+          },
+          "dispo": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "deployed",
+              "standby"
+            ]
+          },
+          "readiness": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "ll": {
+            "description": "[lng, lat]",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "nom",
+          "ville",
+          "cmdt",
+          "eff",
+          "dispo",
+          "readiness",
+          "x",
+          "y",
+          "ll"
+        ]
+      },
+      "CreateHospitalDto": {
+        "type": "object",
+        "properties": {
+          "nom": {
+            "type": "string",
+            "example": "Hôpital Militaire de Tanger"
+          },
+          "ville": {
+            "type": "string",
+            "example": "Tanger"
+          },
+          "lits": {
+            "type": "number",
+            "minimum": 1
+          },
+          "rea": {
+            "type": "number",
+            "minimum": 0
+          },
+          "staff": {
+            "type": "number",
+            "minimum": 0
+          },
+          "amb": {
+            "type": "number",
+            "minimum": 0
+          },
+          "heli": {
+            "type": "number",
+            "minimum": 0
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "ll": {
+            "description": "[lng, lat]",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "nom",
+          "ville",
+          "lits",
+          "rea",
+          "staff",
+          "amb",
+          "heli",
+          "x",
+          "y",
+          "ll"
+        ]
+      },
+      "SendMessageDto": {
+        "type": "object",
+        "properties": {
+          "channelId": {
+            "type": "string",
+            "example": "c1"
+          },
+          "txt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "channelId",
+          "txt"
+        ]
+      },
+      "CreateCategoryDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "COORDINATION CIVILE"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "CreateChannelDto": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "example": "g1"
+          },
+          "name": {
+            "type": "string",
+            "example": "point-logistique"
+          }
+        },
+        "required": [
+          "categoryId",
+          "name"
+        ]
+      }
+    }
+  }
+}

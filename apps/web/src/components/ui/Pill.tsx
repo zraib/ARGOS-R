@@ -1,0 +1,30 @@
+export type Tone = "red" | "amber" | "gold" | "green" | "blue" | "gray" | "purple";
+
+const TONES: Record<Tone, string> = {
+  red: "bg-danger-500/15 text-danger-500",
+  amber: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  gold: "bg-or-500/15 text-or-500",
+  green: "bg-green-500/15 text-green-600 dark:text-green-400",
+  blue: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+  gray: "bg-gray-400/20 text-gray-500 dark:text-rdia-200",
+  purple: "bg-purple-500/15 text-purple-600 dark:text-purple-400",
+};
+
+/** Petite pastille de statut colorée pour les statuts hors des six types de Badge. */
+export function Pill({ tone, label }: { tone: Tone; label: string }) {
+  return (
+    <span className={`inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${TONES[tone]}`}>
+      {label}
+    </span>
+  );
+}
+
+/** Petite pastille + libellé, utilisée dans les légendes et tableaux de flux. */
+export function Dot({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs">
+      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+      {label}
+    </span>
+  );
+}
