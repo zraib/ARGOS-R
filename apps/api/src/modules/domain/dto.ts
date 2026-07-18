@@ -1,16 +1,16 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsInt, IsNumber, IsString, Max, Min, MinLength } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsString, Max, Min, MinLength } from "class-validator";
 
-const TYPES = ["earthquake", "flood", "wildfire", "landslide", "epidemic", "industrial"] as const;
 const SEV = ["high", "medium", "low"] as const;
 const ST = ["open", "prog", "closed"] as const;
 const DISPO = ["ready", "deployed", "standby"] as const;
 
 /** Corps de création d'un incident (déclaré depuis le wizard frontend). */
 export class CreateIncidentDto {
-  @ApiProperty({ enum: TYPES })
-  @IsIn(TYPES as unknown as string[])
-  type!: (typeof TYPES)[number];
+  @ApiProperty({ example: "earthquake", description: "Identifiant d'un type du catalogue /incident-types (validé côté service)" })
+  @IsString()
+  @MinLength(1)
+  type!: string;
 
   @ApiProperty()
   @IsString()
@@ -44,6 +44,28 @@ export class CreateIncidentDto {
   @ArrayMaxSize(2)
   @IsNumber({}, { each: true })
   ll!: [number, number];
+
+  @ApiPropertyOptional({ description: "Adresse / lieu-dit (localisation fine)" })
+  @IsOptional()
+  @IsString()
+  adresse?: string;
+}
+
+/** Enregistrement d'un nouveau type d'incident (catalogue paramétrable). */
+export class RegisterIncidentTypeDto {
+  @ApiProperty({ example: "sandstorm", description: "Identifiant (slug)" })
+  @IsString()
+  @MinLength(2)
+  id!: string;
+
+  @ApiProperty({ example: { fr: "Tempête de sable", ar: "عاصفة رملية", en: "Sandstorm" } })
+  @IsObject()
+  labels!: { fr: string; ar: string; en: string };
+
+  @ApiPropertyOptional({ description: "Tracé SVG 24×24 (icône en trait)" })
+  @IsOptional()
+  @IsString()
+  icon?: string;
 }
 
 /** Envoi d'un message dans un canal. */

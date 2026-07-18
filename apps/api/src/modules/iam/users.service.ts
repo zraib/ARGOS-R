@@ -32,6 +32,8 @@ export interface ManagedUser {
   activatedByAdmin: boolean;
   disabled: boolean;
   online: boolean;
+  /** Photo de profil (data URL, redimensionnée côté client). */
+  photo?: string;
   builtin?: boolean;
   createdBy: string;
   createdAt: string;
@@ -49,6 +51,7 @@ export interface ManagedUserPublic {
   activatedByAdmin: boolean;
   hasTempCode: boolean;
   online: boolean;
+  photo?: string;
   builtin: boolean;
   createdBy: string;
   createdAt: string;
@@ -79,6 +82,7 @@ function toPublic(u: ManagedUser): ManagedUserPublic {
     activatedByAdmin: u.activatedByAdmin,
     hasTempCode: !u.passwordChanged && !!u.tempPassword,
     online: u.online,
+    photo: u.photo,
     builtin: !!u.builtin,
     createdBy: u.createdBy,
     createdAt: u.createdAt,
@@ -89,7 +93,9 @@ function toPublic(u: ManagedUser): ManagedUserPublic {
 @Injectable()
 export class UsersService {
   private readonly users: ManagedUser[] = [
-    { id: "u-benjelloun", matricule: "k.benjelloun", nom: "Col. K. Benjelloun", grade: "Colonel", roles: ["superadmin"], passwordChanged: true, tempPassword: null, activatedByAdmin: false, disabled: false, online: true, builtin: true, createdBy: "système", createdAt: "2026-01-04T08:00:00Z", lastLogin: "2026-07-14T00:52:00Z" },
+    // Compte fondateur : code initial « ARGOS-2026 » (remis hors-bande), mot de
+    // passe personnel OBLIGATOIRE au 1er login — aucun mot de passe passe-partout.
+    { id: "u-benjelloun", matricule: "k.benjelloun", nom: "Col. K. Benjelloun", grade: "Colonel", roles: ["superadmin"], passwordChanged: false, tempPassword: "ARGOS-2026", activatedByAdmin: true, disabled: false, online: false, builtin: true, createdBy: "système", createdAt: "2026-01-04T08:00:00Z", lastLogin: null },
     { id: "u-alami", matricule: "h.alami", nom: "Cdt. H. Alami", grade: "Commandant", roles: ["admin"], passwordChanged: true, password: "argos", tempPassword: null, activatedByAdmin: false, disabled: false, online: false, createdBy: "k.benjelloun", createdAt: "2026-02-11T09:20:00Z", lastLogin: "2026-07-13T18:40:00Z" },
     { id: "u-tazi", matricule: "y.tazi", nom: "Cne. Y. Tazi", grade: "Capitaine", roles: ["dispatcher"], passwordChanged: true, password: "argos", tempPassword: null, activatedByAdmin: false, disabled: false, online: true, createdBy: "h.alami", createdAt: "2026-03-02T14:05:00Z", lastLogin: "2026-07-14T00:10:00Z" },
     { id: "u-fassi", matricule: "n.fassi", nom: "Lt. N. Fassi", grade: "Lieutenant", roles: ["field_agent"], passwordChanged: false, tempPassword: "A7X2-K9D3", activatedByAdmin: false, disabled: false, online: false, createdBy: "h.alami", createdAt: "2026-07-12T11:30:00Z", lastLogin: null },
@@ -207,9 +213,17 @@ export class UsersService {
     return { tempPassword };
   }
 
-  /** Révèle le code temporaire (contrôleur : iam:users:read → Admin/Super Admin). */
-  revealCode(id: string): { tempPassword: string | null } {
+  /**
+   * Révèle le code temporaire (contrôleur : iam:users:read → Admin/Super Admin).
+   * Un Admin ne peut pas lire le code d'un compte privilégié ; le code du compte
+   * système n'est jamais révélé par l'API (remis hors-bande).
+   */
+  revealCode(actorRole: Role, id: string): { tempPassword: string | null } {
     const u = this.find(id);
+    if (u.builtin) throw new ForbiddenException("Code du compte système non consultable.");
+    if (actorRole !== "superadmin" && u.roles.some((r) => r === "superadmin" || r === "admin")) {
+      throw new ForbiddenException("Code d'un compte privilégié réservé au Super Admin.");
+    }
     return { tempPassword: !u.passwordChanged ? u.tempPassword : null };
   }
 
@@ -243,12 +257,30 @@ export class UsersService {
   authenticate(matricule: string, password: string): { user: ManagedUser; mustChangePassword: boolean; mustChooseRole: boolean } | null {
     const u = this.byMatricule(matricule);
     if (!u) return null;
+    if (u.disabled) return null; // compte suspendu : connexion refusée
+    // Strictement le code temporaire (avant 1er login) ou le mot de passe posé.
+    // Aucun passe-partout, y compris pour le compte système.
     const expected = u.passwordChanged ? u.password : u.tempPassword ?? undefined;
-    const ok = u.builtin ? !!password : password === expected;
-    if (!ok) return null;
+    if (expected === undefined || password !== expected) return null;
     u.online = true;
     u.lastLogin = new Date().toISOString();
     return { user: u, mustChangePassword: !u.passwordChanged, mustChooseRole: u.roles.length > 1 };
+  }
+
+  /** Profil du compte courant (identité + photo, pour la page profil). */
+  ownProfile(matricule: string): { matricule: string; nom: string; grade?: string; roles: Role[]; photo?: string } {
+    const u = this.byMatricule(matricule);
+    if (!u) throw new NotFoundException("Compte introuvable.");
+    return { matricule: u.matricule, nom: u.nom, grade: u.grade, roles: u.roles, photo: u.photo };
+  }
+
+  /** Mise à jour par l'utilisateur de son propre profil (nom affiché, photo). */
+  updateOwnProfile(matricule: string, patch: { nom?: string; photo?: string | null }): { nom: string; photo?: string } {
+    const u = this.byMatricule(matricule);
+    if (!u) throw new NotFoundException("Compte introuvable.");
+    if (patch.nom !== undefined && patch.nom.trim()) u.nom = patch.nom.trim();
+    if (patch.photo !== undefined) u.photo = patch.photo === null ? undefined : patch.photo;
+    return { nom: u.nom, photo: u.photo };
   }
 
   changePassword(matricule: string, newPassword: string): void {

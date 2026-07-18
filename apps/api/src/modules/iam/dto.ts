@@ -35,6 +35,20 @@ export class ChangePasswordDto {
   newPassword!: string;
 }
 
+/** Mise à jour du profil par l'utilisateur (nom affiché, photo). */
+export class UpdateProfileDto {
+  @ApiPropertyOptional({ type: String, description: "Nom affiché" })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  nom?: string;
+
+  @ApiPropertyOptional({ type: String, nullable: true, description: "Photo de profil (data URL) ; null pour retirer" })
+  @IsOptional()
+  @IsString()
+  photo?: string | null;
+}
+
 /** Sélection du rôle actif (compte multi-rôles). */
 export class SelectRoleDto {
   @ApiProperty({ enum: ROLES })

@@ -52,6 +52,8 @@ export function createArgosClient(opts: ArgosClientOptions) {
     // --- authentification / cycle de vie des comptes gérés ---
     login: (body: LoginBody) => client.POST("/api/auth/login", { body }),
     changePassword: (newPassword: string) => client.POST("/api/auth/change-password", { body: { newPassword } }),
+    getProfile: () => client.GET("/api/auth/profile"),
+    updateProfile: (patch: { nom?: string; photo?: string | null }) => client.PATCH("/api/auth/profile", { body: patch }),
     selectRole: (role: ArgosRole) => client.POST("/api/auth/select-role", { body: { role } }),
     // --- gestion des utilisateurs (Phase 2) ---
     listUsers: () => client.GET("/api/iam/users"),
@@ -68,6 +70,8 @@ export function createArgosClient(opts: ArgosClientOptions) {
       client.PATCH("/api/iam/role-features/{role}", { params: { path: { role } }, body: { feature, enabled } }),
     // --- domaine opérationnel (Phase 2) ---
     getIncidents: () => client.GET("/api/incidents"),
+    getIncidentTypes: () => client.GET("/api/incident-types"),
+    getDashboardStats: () => client.GET("/api/dashboard/stats"),
     createIncident: (body: CreateIncidentBody) => client.POST("/api/incidents", { body }),
     getUnits: () => client.GET("/api/units"),
     createUnit: (body: CreateUnitBody) => client.POST("/api/units", { body }),

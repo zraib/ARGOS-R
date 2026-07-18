@@ -104,14 +104,15 @@ export function ChartCard({
   titre,
   type,
   data,
+  bare = false,
 }: {
   titre: string;
   type: "bars" | "column3d";
   data: ChartDatum[];
+  /** Rend uniquement le corps (sans carte ni titre) — pour une tuile parente. */
+  bare?: boolean;
 }) {
-  return (
-    <CardShell titre={titre}>
-      {type === "bars" ? <Bars data={data} /> : <Column3D data={data} />}
-    </CardShell>
-  );
+  const body = type === "bars" ? <Bars data={data} /> : <Column3D data={data} />;
+  if (bare) return <div className="h-full">{body}</div>;
+  return <CardShell titre={titre}>{body}</CardShell>;
 }

@@ -4,7 +4,10 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useArgos, useDict } from "@/lib/store";
 import { Badge } from "@/components/ui/Badge";
+import { Icon } from "@/components/ui/Icon";
+import { UI_ICONS } from "@/lib/icons";
 import { sevBadge, stBadge, typeLabel } from "@/lib/helpers";
+import { canReportIncident } from "@/lib/roles";
 
 const TH = "px-4 py-3 text-start text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400";
 const TD = "px-4 py-2.5";
@@ -13,6 +16,10 @@ export default function IncidentsPage() {
   const t = useDict();
   const router = useRouter();
   const incidents = useArgos((s) => s.incidents);
+  const incidentTypes = useArgos((s) => s.incidentTypes);
+  const lang = useArgos((s) => s.lang);
+  const role = useArgos((s) => s.role);
+  const openWizard = useArgos((s) => s.openWizard);
   const select = useArgos((s) => s.select);
   const [q, setQ] = useState("");
 
@@ -33,6 +40,13 @@ export default function IncidentsPage() {
         <span className="font-mono text-xs text-gray-400 dark:text-rdia-400">
           {rows.length} / {incidents.length}
         </span>
+        <div className="flex-1" />
+        {canReportIncident(role) && (
+          <button className="btn-primaire flex items-center gap-1.5 whitespace-nowrap text-sm" onClick={() => openWizard()}>
+            <Icon path={UI_ICONS.plus} size={15} />
+            {t.report}
+          </button>
+        )}
       </div>
 
       <div className="carte overflow-x-auto">
@@ -57,7 +71,7 @@ export default function IncidentsPage() {
                 <tr key={i.id} className="border-b border-gray-100 transition-colors hover:bg-gray-50 dark:border-rdia-700/50 dark:hover:bg-rdia-700/30">
                   <td className={`${TD} font-mono text-xs text-gray-500 dark:text-rdia-300`}>{i.id}</td>
                   <td className={`${TD} font-medium text-gray-800 dark:text-rdia-50`}>{i.titre}</td>
-                  <td className={`${TD} text-xs text-gray-600 dark:text-rdia-200`}>{typeLabel(i.type, t)}</td>
+                  <td className={`${TD} text-xs text-gray-600 dark:text-rdia-200`}>{typeLabel(i.type, incidentTypes, lang)}</td>
                   <td className={`${TD} text-xs text-gray-600 dark:text-rdia-200`}>{i.region}</td>
                   <td className={TD}><Badge type={sb.type} label={sb.label} /></td>
                   <td className={TD}><Badge type={st.type} label={st.label} /></td>

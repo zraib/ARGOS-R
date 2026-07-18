@@ -18,12 +18,12 @@ Forces Armées Royales. Recréation haute-fidélité du prototype de design
 
 ```bash
 npm install
-npm run dev          # http://localhost:3000
+npm run dev          # http://localhost:3004
 npm run build        # build de production
 npm run typecheck    # tsc --noEmit (strict)
 ```
 
-Variable d'environnement : `NEXT_PUBLIC_API_URL` (défaut `http://localhost:4100`)
+Variable d'environnement : `NEXT_PUBLIC_API_URL` (défaut `http://127.0.0.1:3005`)
 pointe vers l'API ARGOS (`apps/api`).
 
 **Authentification.** Si l'API est joignable, la connexion appelle

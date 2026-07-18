@@ -9,7 +9,7 @@ prête à extraire en services (MASTER_PLAN §4.1).
 
 ```bash
 npm install
-npm run dev          # http://localhost:4000/api (docs: /api/docs)
+npm run dev          # http://localhost:3005/api (docs: /api/docs)
 npm run build && npm start
 npm run typecheck
 npm test             # gate de sécurité (default-deny)

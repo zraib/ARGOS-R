@@ -6,16 +6,14 @@ const R = 52;
 const STROKE = 20;
 const C = 2 * Math.PI * R;
 
-export function DonutChart({ titre, data }: { titre: string; data: ChartDatum[] }) {
+export function DonutChart({ titre, data, bare = false }: { titre: string; data: ChartDatum[]; bare?: boolean }) {
   const total = Math.max(1, data.reduce((a, d) => a + d.value, 0));
   let offset = 0;
 
-  return (
-    <div className="carte flex h-full flex-col p-4">
-      <h3 className="mb-4 text-sm font-semibold text-rdia-600 dark:text-rdia-50">{titre}</h3>
-      <div className="flex flex-1 items-center gap-4">
+  const body = (
+    <div className={`flex h-full flex-1 ${bare ? "flex-col items-center justify-center gap-2" : "items-center gap-4"}`}>
         <div className="relative shrink-0">
-          <svg width={140} height={140} viewBox="0 0 140 140">
+          <svg width={bare ? 108 : 140} height={bare ? 108 : 140} viewBox="0 0 140 140">
             <g transform="rotate(-90 70 70)">
               <circle cx={70} cy={70} r={R} fill="none" stroke="currentColor" strokeOpacity={0.1} strokeWidth={STROKE} />
               {data.map((d) => {
@@ -45,7 +43,7 @@ export function DonutChart({ titre, data }: { titre: string; data: ChartDatum[] 
             </text>
           </svg>
         </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <div className={`flex min-w-0 flex-col gap-2 ${bare ? "w-full" : "flex-1"}`}>
           {data.map((d) => (
             <div key={d.label} className="flex items-center gap-2 text-xs">
               <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: d.couleur }} />
@@ -58,7 +56,14 @@ export function DonutChart({ titre, data }: { titre: string; data: ChartDatum[] 
             </div>
           ))}
         </div>
-      </div>
+    </div>
+  );
+
+  if (bare) return body;
+  return (
+    <div className="carte flex h-full flex-col p-4">
+      <h3 className="mb-4 text-sm font-semibold text-rdia-600 dark:text-rdia-50">{titre}</h3>
+      {body}
     </div>
   );
 }

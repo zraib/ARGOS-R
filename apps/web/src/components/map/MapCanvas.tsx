@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useArgos } from "@/lib/store";
+import { canReportIncident } from "@/lib/roles";
 import { MAP_CENTER, MAP_STYLE, MAP_ZOOM } from "@/lib/map/style";
 import {
   fieldLL,
@@ -116,6 +117,16 @@ export function MapCanvas() {
     });
     mapRef.current = map;
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
+
+    // Shift + clic droit : déclarer un incident à l'endroit cliqué — le wizard
+    // s'ouvre pré-rempli avec les coordonnées (si le rôle y est autorisé).
+    map.on("contextmenu", (e) => {
+      if (!e.originalEvent.shiftKey) return;
+      e.preventDefault();
+      const st = useArgos.getState();
+      if (!canReportIncident(st.role)) return;
+      st.openWizard([e.lngLat.lng, e.lngLat.lat]);
+    });
 
     // Les marqueurs sont des surcouches DOM indépendantes du chargement des
     // tuiles : on les ajoute tout de suite — la carte reste utilisable même là où

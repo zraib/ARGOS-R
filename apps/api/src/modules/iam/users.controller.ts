@@ -65,8 +65,8 @@ export class UsersController {
   @Get("users/:id/temp-code")
   @RequirePermission("iam:users:read")
   @ApiOperation({ summary: "Consulter le code temporaire (Admin/Super Admin)" })
-  tempCode(@Param("id") id: string) {
-    return this.users.revealCode(id);
+  tempCode(@CurrentUser() actor: AuthUser, @Param("id") id: string) {
+    return this.users.revealCode(actor.role, id);
   }
 
   @Get("role-features")

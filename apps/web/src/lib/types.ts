@@ -7,13 +7,20 @@
 
 export type Lang = "fr" | "ar" | "en";
 
-export type IncidentType =
-  | "earthquake"
-  | "flood"
-  | "wildfire"
-  | "landslide"
-  | "epidemic"
-  | "industrial";
+/**
+ * Type d'incident : identifiant du catalogue PARAMÉTRABLE servi par l'API
+ * (/incident-types). Chaîne libre — la plateforme peut enregistrer de nouveaux
+ * types sans modifier le code.
+ */
+export type IncidentType = string;
+
+/** Définition d'un type d'incident (catalogue API : libellés trilingues + icône). */
+export interface IncidentTypeDef {
+  id: string;
+  labels: { fr: string; ar: string; en: string };
+  icon: string;
+  builtin?: boolean;
+}
 
 export type Severity = "high" | "medium" | "low";
 export type IncidentStatus = "open" | "prog" | "closed";
@@ -31,6 +38,8 @@ export interface Incident {
   y: number;
   /** Coordonnées géographiques [lng, lat] */
   ll: [number, number];
+  /** Adresse / lieu-dit saisi à la déclaration (optionnel) */
+  adresse?: string;
 }
 
 export type UnitReadiness = "ready" | "deployed" | "standby";
@@ -134,6 +143,25 @@ export interface Province {
   region: string;
   x: number;
   y: number;
+  /** Coordonnées géographiques du chef-lieu [lng, lat] */
+  ll?: [number, number];
+}
+
+/** Ville / commune (référentiel de localisation fine, API /reference). */
+export interface City {
+  v: string;
+  region: string;
+  ll: [number, number];
+}
+
+/** Statistiques de commandement servies par l'API (/dashboard/stats). */
+export interface DashStats {
+  evolution: { d: string; opened: number; closed: number }[];
+  severity: { high: number; medium: number; low: number };
+  status: { open: number; prog: number; closed: number };
+  casualties: { dead: number; injured: number; missing: number; rescued: number };
+  hospitals: { id: string; nom: string; ville: string; occPct: number; icuPct: number }[];
+  units: { total: number; deployed: number; ready: number; avgReadiness: number };
 }
 
 // --- Sélection sur la carte opérationnelle -------------------------------

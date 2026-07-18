@@ -32,7 +32,7 @@ npm install
 npm run dev
 ```
 
-The web app starts on `http://localhost:3000`.
+The web app starts on `http://localhost:3004`.
 
 Optional environment variable:
 
@@ -48,8 +48,8 @@ npm run dev
 
 The API runs in development mode without Docker and exposes:
 
-- API base URL: `http://localhost:4000/api`
-- OpenAPI docs: `http://localhost:4000/api/docs`
+- API base URL: `http://localhost:3005/api`
+- OpenAPI docs: `http://localhost:3005/api/docs`
 
 ## Validation Commands
 

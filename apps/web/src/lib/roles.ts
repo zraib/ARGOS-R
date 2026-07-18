@@ -69,3 +69,11 @@ export function canAssignMultipleRoles(creator: Role): boolean {
 export function isSuperAdmin(role: Role): boolean {
   return role === "superadmin";
 }
+
+/**
+ * Rôles autorisés à déclarer un incident — miroir de la permission serveur
+ * `incidents:create` (l'API reste l'autorité ; ceci ne fait que masquer l'UI).
+ */
+export function canReportIncident(role: Role): boolean {
+  return role === "superadmin" || role === "command" || role === "field_agent";
+}

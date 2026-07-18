@@ -21,7 +21,7 @@ async function bootstrap() {
   const doc = SwaggerModule.createDocument(app, buildOpenApiConfig());
   SwaggerModule.setup("api/docs", app, doc, { jsonDocumentUrl: "api/openapi.json" });
 
-  const port = config.get<number>("port") ?? 4000;
+  const port = config.get<number>("port") ?? 3005;
   await app.listen(port);
   app.get(Logger).log(`ARGOS API démarrée sur http://localhost:${port}/api (docs: /api/docs)`);
 }

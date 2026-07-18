@@ -130,6 +130,7 @@ export function navLabel(key: NavKey | GroupKey, t: Dict): string {
 
 /** Résout un chemin vers le libellé de l'écran courant (pour l'en-tête). */
 export function screenTitle(pathname: string, t: Dict): string {
+  if (pathname === "/profil" || pathname.startsWith("/profil/")) return t.pr_title;
   const entry = (Object.entries(HREF) as [NavKey, string][]).find(([, href]) => pathname === href || pathname.startsWith(href + "/"));
   return entry ? navLabel(entry[0], t) : t.nav_dash;
 }

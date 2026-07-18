@@ -115,6 +115,54 @@
         ]
       }
     },
+    "/api/auth/profile": {
+      "get": {
+        "operationId": "AuthController_profile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Profil du compte connecté (nom, grade, rôles, photo)",
+        "tags": [
+          "auth"
+        ]
+      },
+      "patch": {
+        "operationId": "AuthController_updateProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Modifier son profil : nom affiché et/ou photo (audité)",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/auth/select-role": {
       "post": {
         "operationId": "AuthController_selectRole",
@@ -584,6 +632,74 @@
         ]
       }
     },
+    "/api/incident-types": {
+      "get": {
+        "operationId": "DomainController_incidentTypesList",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Catalogue paramétrable des types d'incident (libellés FR/AR/EN + icônes)",
+        "tags": [
+          "domain"
+        ]
+      },
+      "post": {
+        "operationId": "DomainController_registerIncidentType",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterIncidentTypeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Enregistrer un nouveau type d'incident (Super Admin, audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/dashboard/stats": {
+      "get": {
+        "operationId": "DomainController_dashboardStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Statistiques de commandement : évolution 30 j, gravité, bilan humain, saturation hospitalière, posture des unités",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/incidents": {
       "get": {
         "operationId": "DomainController_incidents",
@@ -626,7 +742,7 @@
             "bearer": []
           }
         ],
-        "summary": "Déclarer un incident (audité)",
+        "summary": "Déclarer un incident (audité) — type validé contre le catalogue",
         "tags": [
           "domain"
         ]
@@ -1020,6 +1136,20 @@
           "password"
         ]
       },
+      "UpdateProfileDto": {
+        "type": "object",
+        "properties": {
+          "nom": {
+            "type": "string",
+            "description": "Nom affiché"
+          },
+          "photo": {
+            "type": "string",
+            "nullable": true,
+            "description": "Photo de profil (data URL) ; null pour retirer"
+          }
+        }
+      },
       "SelectRoleDto": {
         "type": "object",
         "properties": {
@@ -1180,19 +1310,39 @@
           "enabled"
         ]
       },
+      "RegisterIncidentTypeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "sandstorm",
+            "description": "Identifiant (slug)"
+          },
+          "labels": {
+            "type": "object",
+            "example": {
+              "fr": "Tempête de sable",
+              "ar": "عاصفة رملية",
+              "en": "Sandstorm"
+            }
+          },
+          "icon": {
+            "type": "string",
+            "description": "Tracé SVG 24×24 (icône en trait)"
+          }
+        },
+        "required": [
+          "id",
+          "labels"
+        ]
+      },
       "CreateIncidentDto": {
         "type": "object",
         "properties": {
           "type": {
             "type": "string",
-            "enum": [
-              "earthquake",
-              "flood",
-              "wildfire",
-              "landslide",
-              "epidemic",
-              "industrial"
-            ]
+            "example": "earthquake",
+            "description": "Identifiant d'un type du catalogue /incident-types (validé côté service)"
           },
           "titre": {
             "type": "string"
@@ -1228,6 +1378,10 @@
             "items": {
               "type": "number"
             }
+          },
+          "adresse": {
+            "type": "string",
+            "description": "Adresse / lieu-dit (localisation fine)"
           }
         },
         "required": [

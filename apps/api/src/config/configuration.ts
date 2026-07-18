@@ -20,7 +20,7 @@ export default function configuration(): AppConfig {
   const authMode = (process.env.AUTH_MODE as AuthMode) ?? (nodeEnv === "production" ? "keycloak" : "dev");
   const issuer = process.env.KEYCLOAK_ISSUER ?? "http://localhost:8080/realms/argos";
   return {
-    port: parseInt(process.env.PORT ?? "4000", 10),
+    port: parseInt(process.env.PORT ?? "3005", 10),
     nodeEnv,
     authMode,
     devSecret: process.env.AUTH_DEV_SECRET ?? "argos-dev-secret-change-me",
@@ -29,7 +29,7 @@ export default function configuration(): AppConfig {
       audience: process.env.KEYCLOAK_AUDIENCE ?? "argos-api",
       jwksUri: `${issuer}/protocol/openid-connect/certs`,
     },
-    corsOrigins: (process.env.CORS_ORIGINS ?? "http://localhost:3000,http://localhost:3100").split(","),
+    corsOrigins: (process.env.CORS_ORIGINS ?? "http://localhost:3004,http://127.0.0.1:3004,http://localhost:3100").split(","),
     // Persistance : in-memory par défaut (Phase 0, sans base) ; postgres pour la
     // couche Drizzle réelle (voir infra/compose + src/db/schema.ts).
     dbDriver: (process.env.DB_DRIVER as DbDriver) ?? "memory",

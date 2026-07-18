@@ -34,6 +34,8 @@ export default function MapPage() {
   const router = useRouter();
   const units = useArgos((s) => s.units);
   const vehRoutes = useArgos((s) => s.vehRoutes);
+  const incidentTypes = useArgos((s) => s.incidentTypes);
+  const lang = useArgos((s) => s.lang);
   const hospitals = useArgos((s) => s.hospitals);
   const layers = useArgos((s) => s.layers);
   const toggleLayer = useArgos((s) => s.toggleLayer);
@@ -89,7 +91,7 @@ export default function MapPage() {
         const sb = sevBadge(i.sev, t);
         selInfo = {
           titre: i.titre, sub: i.region, badgeType: sb.type, badgeLabel: sb.label,
-          lines: [{ k: t.col_id, v: i.id }, { k: t.h_typev, v: typeLabel(i.type, t) }, { k: t.col_status, v: stBadge(i.st, t).label }, { k: t.col_time, v: i.time }],
+          lines: [{ k: t.col_id, v: i.id }, { k: t.h_typev, v: typeLabel(i.type, incidentTypes, lang) }, { k: t.col_status, v: stBadge(i.st, t).label }, { k: t.col_time, v: i.time }],
         };
       }
     } else if (kind === "veh") {

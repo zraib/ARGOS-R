@@ -1,14 +1,16 @@
-import { Body, Controller, Get, Post } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Post } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { DomainService } from "@/modules/domain/domain.service";
 import { CatalogService } from "@/modules/domain/catalog.service";
 import { CommsService } from "@/modules/domain/comms.service";
+import { IncidentTypesService } from "@/modules/domain/incident-types.service";
 import {
   CreateCategoryDto,
   CreateChannelDto,
   CreateHospitalDto,
   CreateIncidentDto,
   CreateUnitDto,
+  RegisterIncidentTypeDto,
   SendMessageDto,
 } from "@/modules/domain/dto";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
@@ -27,6 +29,7 @@ export class DomainController {
     private readonly domain: DomainService,
     private readonly catalog: CatalogService,
     private readonly comms: CommsService,
+    private readonly incidentTypes: IncidentTypesService,
   ) {}
 
   @Get("catalog")
@@ -34,6 +37,27 @@ export class DomainController {
   @ApiOperation({ summary: "Catalogue des modules opérationnels (inventaire, triage, ORSEC, …)" })
   catalogAll() {
     return this.catalog.all();
+  }
+
+  @Get("incident-types")
+  @RequirePermission("incidents:read")
+  @ApiOperation({ summary: "Catalogue paramétrable des types d'incident (libellés FR/AR/EN + icônes)" })
+  incidentTypesList() {
+    return this.incidentTypes.list();
+  }
+
+  @Post("incident-types")
+  @RequirePermission("admin:settings:update")
+  @ApiOperation({ summary: "Enregistrer un nouveau type d'incident (Super Admin, audité)" })
+  registerIncidentType(@Body() dto: RegisterIncidentTypeDto) {
+    return this.incidentTypes.register(dto);
+  }
+
+  @Get("dashboard/stats")
+  @RequirePermission("incidents:read")
+  @ApiOperation({ summary: "Statistiques de commandement : évolution 30 j, gravité, bilan humain, saturation hospitalière, posture des unités" })
+  dashboardStats() {
+    return this.domain.stats();
   }
 
   @Get("incidents")
@@ -45,8 +69,11 @@ export class DomainController {
 
   @Post("incidents")
   @RequirePermission("incidents:create")
-  @ApiOperation({ summary: "Déclarer un incident (audité)" })
+  @ApiOperation({ summary: "Déclarer un incident (audité) — type validé contre le catalogue" })
   createIncident(@Body() dto: CreateIncidentDto) {
+    if (!this.incidentTypes.isValid(dto.type)) {
+      throw new BadRequestException(`Type d'incident inconnu : ${dto.type}`);
+    }
     return this.domain.createIncident(dto);
   }
 

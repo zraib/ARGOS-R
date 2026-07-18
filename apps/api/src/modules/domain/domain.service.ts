@@ -1,4 +1,7 @@
 import { Injectable } from "@nestjs/common";
+import { PROVINCES_MA, llToSvg } from "@/modules/domain/provinces.data";
+import { CITIES_MA } from "@/modules/domain/cities.data";
+import { ORSEC_BOARD } from "@/modules/domain/catalog.data";
 
 // ============================================================================
 // ARGOS — données de domaine (Phase 2, in-memory)
@@ -9,9 +12,12 @@ import { Injectable } from "@nestjs/common";
 
 export interface Incident {
   id: string;
-  type: "earthquake" | "flood" | "wildfire" | "landslide" | "epidemic" | "industrial";
+  /** Type d'incident : identifiant du catalogue paramétrable (IncidentTypesService). */
+  type: string;
   titre: string;
   region: string;
+  /** Adresse / lieu-dit saisi à la déclaration (optionnel). */
+  adresse?: string;
   sev: "high" | "medium" | "low";
   st: "open" | "prog" | "closed";
   time: string;
@@ -205,18 +211,9 @@ export class DomainService {
 
   // --- données de référence (géographie, routes d'animation de la carte) ----
 
-  private readonly provinces = [
-    { v: "Al Haouz", region: "Marrakech-Safi", x: 188, y: 286 },
-    { v: "Chichaoua", region: "Marrakech-Safi", x: 160, y: 270 },
-    { v: "Taroudant", region: "Souss-Massa", x: 140, y: 332 },
-    { v: "Ouarzazate", region: "Drâa-Tafilalet", x: 230, y: 320 },
-    { v: "Azilal", region: "Béni Mellal-Khénifra", x: 215, y: 255 },
-    { v: "Chefchaouen", region: "Tanger-Tétouan-Al Hoceïma", x: 248, y: 82 },
-    { v: "Al Hoceïma", region: "Tanger-Tétouan-Al Hoceïma", x: 300, y: 94 },
-    { v: "Errachidia", region: "Drâa-Tafilalet", x: 310, y: 290 },
-    { v: "Tata", region: "Souss-Massa", x: 230, y: 390 },
-    { v: "Guelmim", region: "Guelmim-Oued Noun", x: 120, y: 400 },
-  ];
+  // Les 75 provinces/préfectures du Royaume, coordonnées SVG dérivées des
+  // coordonnées géographiques (transformation partagée avec le frontend).
+  private readonly provinces = PROVINCES_MA.map((p) => ({ ...p, ...llToSvg(p.ll) }));
 
   private readonly vehRoutes = [
     { id: "LOG-1", label: "Convoi LOG-1", kind: "Convoi logistique · Rabat → Marrakech (A7)", speed: 0.01, route: [[-6.84, 34.02], [-7.1, 33.87], [-7.38, 33.69], [-7.59, 33.57], [-7.62, 33.42], [-7.63, 33.23], [-7.8, 32.88], [-7.94, 32.6], [-7.95, 32.23], [-8.0, 31.92], [-8.01, 31.63], [-8.13, 31.45], [-8.25, 31.22]] },
@@ -225,6 +222,65 @@ export class DomainService {
   ];
 
   reference() {
-    return { provinces: this.provinces, vehRoutes: this.vehRoutes };
+    return { provinces: this.provinces, cities: CITIES_MA, vehRoutes: this.vehRoutes };
+  }
+
+  // --- statistiques de commandement (tableau de bord état-major) -----------
+
+  /**
+   * Vue globale pour l'état-major : évolution des déclarations sur 30 jours,
+   * répartition par gravité, bilan humain (source unique : tableau ORSEC),
+   * saturation hospitalière et posture des unités. Série d'évolution
+   * déterministe (pseudo-aléatoire seedé) + comptes réels du registre.
+   */
+  stats() {
+    // Série 30 jours déterministe : même graphe à chaque appel (pas de flicker).
+    const evolution: { d: string; opened: number; closed: number }[] = [];
+    const today = new Date();
+    let seed = 42;
+    const rnd = () => {
+      // LCG simple — suffisant pour une série de démonstration stable.
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed / 2147483648;
+    };
+    for (let i = 29; i >= 0; i--) {
+      const day = new Date(today.getTime() - i * 86400000);
+      const label = `${String(day.getDate()).padStart(2, "0")}/${String(day.getMonth() + 1).padStart(2, "0")}`;
+      // Fond de bruit 0–3, pic sismique sur les 4 derniers jours (scénario Al Haouz).
+      const base = Math.floor(rnd() * 3);
+      const spike = i <= 3 ? Math.floor(rnd() * 5) + 3 : 0;
+      const opened = base + spike + (i === 0 ? this.incidents.filter((x) => x.st !== "closed").length % 3 : 0);
+      const closed = Math.max(0, Math.floor((base + spike) * (0.4 + rnd() * 0.3)));
+      evolution.push({ d: label, opened, closed });
+    }
+
+    const severity = {
+      high: this.incidents.filter((i) => i.sev === "high").length,
+      medium: this.incidents.filter((i) => i.sev === "medium").length,
+      low: this.incidents.filter((i) => i.sev === "low").length,
+    };
+
+    const status = {
+      open: this.incidents.filter((i) => i.st === "open").length,
+      prog: this.incidents.filter((i) => i.st === "prog").length,
+      closed: this.incidents.filter((i) => i.st === "closed").length,
+    };
+
+    const hospitals = this.hospitals.map((h) => ({
+      id: h.id,
+      nom: h.nom,
+      ville: h.ville,
+      occPct: Math.round((h.occ / h.lits) * 100),
+      icuPct: h.rea > 0 ? Math.round((h.reaOcc / h.rea) * 100) : 0,
+    }));
+
+    const units = {
+      total: this.units.length,
+      deployed: this.units.filter((u) => u.dispo === "deployed").length,
+      ready: this.units.filter((u) => u.dispo === "ready").length,
+      avgReadiness: Math.round(this.units.reduce((s, u) => s + u.readiness, 0) / Math.max(1, this.units.length)),
+    };
+
+    return { evolution, severity, status, casualties: ORSEC_BOARD.casualties, hospitals, units };
   }
 }

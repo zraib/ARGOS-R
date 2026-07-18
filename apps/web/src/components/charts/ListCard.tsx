@@ -13,15 +13,15 @@ export function ListCard({
   titre,
   items,
   showProgress = true,
+  bare = false,
 }: {
   titre: string;
   items: ListItem[];
   showProgress?: boolean;
+  bare?: boolean;
 }) {
-  return (
-    <div className="carte flex h-full flex-col p-4">
-      <h3 className="mb-3 text-sm font-semibold text-rdia-600 dark:text-rdia-50">{titre}</h3>
-      <div className="flex flex-col gap-3">
+  const body = (
+    <div className="flex flex-col gap-3">
         {items.map((it) => (
           <div key={it.id} className="flex flex-col gap-1.5">
             <div className="flex items-center gap-2">
@@ -42,7 +42,14 @@ export function ListCard({
             )}
           </div>
         ))}
-      </div>
+    </div>
+  );
+
+  if (bare) return body;
+  return (
+    <div className="carte flex h-full flex-col p-4">
+      <h3 className="mb-3 text-sm font-semibold text-rdia-600 dark:text-rdia-50">{titre}</h3>
+      {body}
     </div>
   );
 }

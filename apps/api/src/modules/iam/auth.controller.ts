@@ -1,10 +1,10 @@
-import { Body, Controller, ForbiddenException, Post, UnauthorizedException } from "@nestjs/common";
+import { Body, Controller, ForbiddenException, Get, Patch, Post, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { SignJWT } from "jose";
 import { Public } from "@/common/decorators/public.decorator";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
-import { ChangePasswordDto, DevTokenDto, LoginDto, SelectRoleDto } from "@/modules/iam/dto";
+import { ChangePasswordDto, DevTokenDto, LoginDto, SelectRoleDto, UpdateProfileDto } from "@/modules/iam/dto";
 import { UsersService } from "@/modules/iam/users.service";
 import type { AuthUser } from "@/common/types/auth-user";
 import type { Role } from "@/shared/permissions";
@@ -66,9 +66,26 @@ export class AuthController {
       roles: res.user.roles,
       nom: res.user.nom,
       matricule: res.user.matricule,
+      photo: res.user.photo,
       mustChangePassword: res.mustChangePassword,
       mustChooseRole: res.mustChooseRole,
     };
+  }
+
+  /** Profil du compte courant (identité + photo). */
+  @Get("profile")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Profil du compte connecté (nom, grade, rôles, photo)" })
+  profile(@CurrentUser() user: AuthUser) {
+    return this.users.ownProfile(user.username);
+  }
+
+  /** Mise à jour par l'utilisateur de son propre profil (nom affiché, photo). */
+  @Patch("profile")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Modifier son profil : nom affiché et/ou photo (audité)" })
+  updateProfile(@CurrentUser() user: AuthUser, @Body() dto: UpdateProfileDto) {
+    return this.users.updateOwnProfile(user.username, dto);
   }
 
   /** Sélection du rôle actif d'un compte multi-rôles → nouveau jeton. */

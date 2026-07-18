@@ -6,7 +6,7 @@
 // embarquée ici (copie) pour la compilation du bundle Next.
 import { createArgosClient } from "@/lib/api-client";
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4100";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3005";
 export const TOKEN_KEY = "argos_token";
 
 export function getStoredToken(): string | null {
@@ -26,6 +26,7 @@ export interface LoginResult {
   roles: string[];
   nom: string;
   matricule: string;
+  photo?: string;
   mustChangePassword: boolean;
   mustChooseRole: boolean;
 }

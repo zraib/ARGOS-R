@@ -89,6 +89,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Profil du compte connecté (nom, grade, rôles, photo) */
+        get: operations["AuthController_profile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Modifier son profil : nom affiché et/ou photo (audité) */
+        patch: operations["AuthController_updateProfile"];
+        trace?: never;
+    };
     "/api/auth/select-role": {
         parameters: {
             query?: never;
@@ -346,6 +364,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/incident-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalogue paramétrable des types d'incident (libellés FR/AR/EN + icônes) */
+        get: operations["DomainController_incidentTypesList"];
+        put?: never;
+        /** Enregistrer un nouveau type d'incident (Super Admin, audité) */
+        post: operations["DomainController_registerIncidentType"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dashboard/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Statistiques de commandement : évolution 30 j, gravité, bilan humain, saturation hospitalière, posture des unités */
+        get: operations["DomainController_dashboardStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/incidents": {
         parameters: {
             query?: never;
@@ -356,7 +409,7 @@ export interface paths {
         /** Liste des incidents */
         get: operations["DomainController_incidents"];
         put?: never;
-        /** Déclarer un incident (audité) */
+        /** Déclarer un incident (audité) — type validé contre le catalogue */
         post: operations["DomainController_createIncident"];
         delete?: never;
         options?: never;
@@ -572,6 +625,12 @@ export interface components {
             /** @example A7X2-K9D3 */
             password: string;
         };
+        UpdateProfileDto: {
+            /** @description Nom affiché */
+            nom?: string;
+            /** @description Photo de profil (data URL) ; null pour retirer */
+            photo?: string | null;
+        };
         SelectRoleDto: {
             /** @enum {string} */
             role: "superadmin" | "admin" | "auditor" | "command" | "dispatcher" | "unit_commander" | "field_agent";
@@ -613,9 +672,29 @@ export interface components {
             /** @description Nouvel état du flag */
             enabled: boolean;
         };
+        RegisterIncidentTypeDto: {
+            /**
+             * @description Identifiant (slug)
+             * @example sandstorm
+             */
+            id: string;
+            /**
+             * @example {
+             *       "fr": "Tempête de sable",
+             *       "ar": "عاصفة رملية",
+             *       "en": "Sandstorm"
+             *     }
+             */
+            labels: Record<string, never>;
+            /** @description Tracé SVG 24×24 (icône en trait) */
+            icon?: string;
+        };
         CreateIncidentDto: {
-            /** @enum {string} */
-            type: "earthquake" | "flood" | "wildfire" | "landslide" | "epidemic" | "industrial";
+            /**
+             * @description Identifiant d'un type du catalogue /incident-types (validé côté service)
+             * @example earthquake
+             */
+            type: string;
             titre: string;
             region: string;
             /** @enum {string} */
@@ -626,6 +705,8 @@ export interface components {
             y: number;
             /** @description [lng, lat] */
             ll: number[];
+            /** @description Adresse / lieu-dit (localisation fine) */
+            adresse?: string;
         };
         CreateUnitDto: {
             /** @example 6e Bataillon Médical */
@@ -771,6 +852,44 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthController_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthController_updateProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProfileDto"];
+            };
+        };
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1093,6 +1212,61 @@ export interface operations {
         };
     };
     DomainController_catalogAll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_incidentTypesList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_registerIncidentType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterIncidentTypeDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_dashboardStats: {
         parameters: {
             query?: never;
             header?: never;

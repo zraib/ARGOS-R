@@ -9,21 +9,28 @@ import type { Dict } from "@/lib/i18n/translations";
 import type {
   IncidentStatus,
   IncidentType,
+  IncidentTypeDef,
+  Lang,
   Severity,
   UnitReadiness,
 } from "@/lib/types";
 import type { BadgeType } from "@/components/ui/Badge";
 
-export function typeLabel(type: IncidentType, t: Dict): string {
-  const map: Record<IncidentType, string> = {
-    earthquake: t.ty_earthquake,
-    flood: t.ty_flood,
-    wildfire: t.ty_wildfire,
-    landslide: t.ty_landslide,
-    epidemic: t.ty_epidemic,
-    industrial: t.ty_industrial,
-  };
-  return map[type] ?? type;
+/** Icône de repli (triangle d'alerte) pour un type absent du catalogue. */
+export const TYPE_FALLBACK_ICON =
+  "M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z";
+
+/**
+ * Libellé d'un type d'incident dans la langue active, résolu depuis le
+ * catalogue paramétrable servi par l'API (/incident-types).
+ */
+export function typeLabel(type: IncidentType, types: IncidentTypeDef[], lang: Lang): string {
+  return types.find((x) => x.id === type)?.labels[lang] ?? type;
+}
+
+/** Icône (tracé SVG) d'un type d'incident depuis le catalogue. */
+export function typeIcon(type: IncidentType, types: IncidentTypeDef[]): string {
+  return types.find((x) => x.id === type)?.icon ?? TYPE_FALLBACK_ICON;
 }
 
 export function sevBadge(sev: Severity, t: Dict): { type: BadgeType; label: string } {
@@ -65,6 +72,11 @@ export function incidentFill(sev: Severity, closed: boolean): string {
 
 export function svgToLL(x: number, y: number): [number, number] {
   return [-17 + (x / 430) * 16, 36 - ((y - 40) / 650) * 15];
+}
+
+/** Transformation inverse : géographique [lng, lat] → coordonnées SVG. */
+export function llToSvg(ll: [number, number]): { x: number; y: number } {
+  return { x: Math.round(((ll[0] + 17) * 430) / 16), y: Math.round(40 + ((36 - ll[1]) * 650) / 15) };
 }
 
 export function svgLatLon(x: number, y: number): string {

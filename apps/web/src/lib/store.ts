@@ -13,10 +13,13 @@ import type {
   Channel,
   CommCategory,
   CommMessage,
+  DashStats,
   FieldHospital,
   FeedItem,
   Hospital,
+  City,
   Incident,
+  IncidentTypeDef,
   Lang,
   MapSelection,
   MarkerKind,
@@ -62,6 +65,8 @@ export interface SessionUser {
   matricule: string;
   nom: string;
   roles: Role[];
+  /** Photo de profil (data URL) ; initiales en repli */
+  photo?: string;
 }
 
 /** Charge utile d'ouverture de session (réponse de /auth/login résolue par l'API). */
@@ -132,6 +137,8 @@ interface ArgosState {
   navGroups: NavGroups;
   toast: string | null;
   wizOpen: boolean;
+  /** Coordonnées [lng, lat] pré-remplies quand le wizard est ouvert depuis la carte */
+  wizInitLL: [number, number] | null;
 
   // --- domaine (état serveur, chargé depuis l'API) ---
   incidents: Incident[];
@@ -143,6 +150,10 @@ interface ArgosState {
   catalog: Catalog;
   /** true une fois le domaine chargé depuis l'API (au moins une fois) */
   domainLoaded: boolean;
+  /** Catalogue paramétrable des types d'incident (API /incident-types) */
+  incidentTypes: IncidentTypeDef[];
+  /** Statistiques de commandement (API /dashboard/stats) */
+  dashStats: DashStats | null;
   tick: number;
 
   // --- sélection de détail ressource / hôpital (partagée avec la carte) ---
@@ -164,6 +175,7 @@ interface ArgosState {
 
   // --- données de référence (depuis l'API) ---
   provinces: Province[];
+  cities: City[];
   vehRoutes: VehRoute[];
 
   // --- dispatching (Répartiteur) ---
@@ -189,6 +201,8 @@ interface ArgosState {
   setSession: (token: string, role: Role) => void;
   setFlags: (flags: Record<string, boolean>) => void;
   setRoleFeatures: (rf: Record<Role, Record<string, boolean>>) => void;
+  /** Met à jour l'identité de session après édition du profil (nom, photo). */
+  setProfile: (patch: { nom?: string; photo?: string | null }) => void;
   /** Charge les entités de domaine depuis l'API (incidents, unités, hôpitaux, fil). */
   loadDomain: () => Promise<void>;
   logout: () => void;
@@ -204,7 +218,7 @@ interface ArgosState {
   toggleNavGroup: (g: keyof NavGroups) => void;
   openNavGroup: (g: keyof NavGroups) => void;
   showToast: (msg: string) => void;
-  openWizard: () => void;
+  openWizard: (initLL?: [number, number]) => void;
   closeWizard: () => void;
 
   toggleLayer: (k: keyof LayerState) => void;
@@ -256,6 +270,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
   navGroups: { res: true, dis: false, cmd: false },
   toast: null,
   wizOpen: false,
+  wizInitLL: null,
 
   incidents: [],
   units: [],
@@ -264,6 +279,8 @@ export const useArgos = create<ArgosState>((set, get) => ({
   feed: [],
   catalog: EMPTY_CATALOG,
   domainLoaded: false,
+  incidentTypes: [],
+  dashStats: null,
   tick: 0,
 
   selUnit: null,
@@ -281,6 +298,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
   comCollapsed: {},
 
   provinces: [],
+  cities: [],
   vehRoutes: [],
 
   engagements: [],
@@ -323,6 +341,17 @@ export const useArgos = create<ArgosState>((set, get) => ({
   },
   setFlags: (flags) => set({ flags }),
   setRoleFeatures: (rf) => set({ roleFeatures: rf }),
+  setProfile: (patch) =>
+    set((s) => {
+      if (!s.sessionUser) return {};
+      const sessionUser: SessionUser = {
+        ...s.sessionUser,
+        ...(patch.nom !== undefined ? { nom: patch.nom } : {}),
+        ...(patch.photo !== undefined ? { photo: patch.photo ?? undefined } : {}),
+      };
+      if (typeof window !== "undefined") sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(sessionUser));
+      return { sessionUser };
+    }),
 
   // Charge le domaine depuis l'API. Chaque entité dégrade proprement si le rôle
   // n'a pas la permission de lecture (tableau vide plutôt qu'erreur bloquante).
@@ -338,13 +367,15 @@ export const useArgos = create<ArgosState>((set, get) => ({
       api.getCatalog(),
       api.getComms(),
       api.getReference(),
+      api.getIncidentTypes(),
+      api.getDashboardStats(),
     ]);
     const data = <T,>(i: number): T | undefined =>
       results[i].status === "fulfilled"
         ? ((results[i] as PromiseFulfilledResult<{ data?: unknown }>).value.data as T | undefined)
         : undefined;
     const comms = data<{ categories: CommCategory[]; messages: Record<string, CommMessage[]>; members: CommMembers }>(8);
-    const reference = data<{ provinces: Province[]; vehRoutes: VehRoute[] }>(9);
+    const reference = data<{ provinces: Province[]; cities: City[]; vehRoutes: VehRoute[] }>(9);
     set((s) => ({
       incidents: data<Incident[]>(0) ?? s.incidents,
       units: data<Unit[]>(1) ?? s.units,
@@ -354,10 +385,13 @@ export const useArgos = create<ArgosState>((set, get) => ({
       queue: data<QueueItem[]>(5) ?? s.queue,
       movements: data<TransportMovement[]>(6) ?? s.movements,
       catalog: data<Catalog>(7) ?? s.catalog,
+      incidentTypes: data<IncidentTypeDef[]>(10) ?? s.incidentTypes,
+      dashStats: data<DashStats>(11) ?? s.dashStats,
       comCats: comms?.categories ?? s.comCats,
       comMsgs: comms?.messages ?? s.comMsgs,
       comMembers: comms?.members ?? s.comMembers,
       provinces: reference?.provinces ?? s.provinces,
+      cities: reference?.cities ?? s.cities,
       vehRoutes: reference?.vehRoutes ?? s.vehRoutes,
       domainLoaded: true,
     }));
@@ -468,8 +502,8 @@ export const useArgos = create<ArgosState>((set, get) => ({
     set({ toast: msg });
     toastTimer = setTimeout(() => set({ toast: null }), 4000);
   },
-  openWizard: () => set({ wizOpen: true }),
-  closeWizard: () => set({ wizOpen: false }),
+  openWizard: (initLL) => set({ wizOpen: true, wizInitLL: initLL ?? null }),
+  closeWizard: () => set({ wizOpen: false, wizInitLL: null }),
 
   toggleLayer: (k) => set((s) => ({ layers: { ...s.layers, [k]: !s.layers[k] } })),
   setMap3d: (v) => set({ map3d: v }),

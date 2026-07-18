@@ -5,9 +5,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useArgos, useDict, useModules } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
+import { Avatar } from "@/components/ui/Avatar";
 import { UI_ICONS } from "@/lib/icons";
 import { NAV, HREF, navLabel, type GroupKey, type NavGroup, type NavItem } from "@/lib/nav";
-import { initials } from "@/lib/data/users";
 import { LanguageSwitch } from "@/components/shell/LanguageSwitch";
 
 export function Sidebar() {
@@ -33,7 +33,6 @@ export function Sidebar() {
   const moduleVisible = (key: string) => flags[key] !== false && roleFeatures[role]?.[key] !== false;
 
   const displayName = sessionUser?.nom ?? "Col. K. Benjelloun";
-  const avatar = initials(displayName);
   const roleLabel = m.roles[role];
 
   const collapsed = !sbOpen;
@@ -170,7 +169,7 @@ export function Sidebar() {
       {/* User + prefs */}
       <div className="flex flex-col gap-3 border-t p-3" style={{ borderColor: dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)" }}>
         <div className={sbOpen ? "flex items-center gap-3" : "flex items-center justify-center"}>
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-or-500 text-xs font-bold text-rdia-600">{avatar}</div>
+          <Avatar nom={displayName} photo={sessionUser?.photo} size={36} />
           {sbOpen && (
             <>
               <div className="min-w-0 flex-1">

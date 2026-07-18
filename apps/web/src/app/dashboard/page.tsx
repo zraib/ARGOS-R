@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { useArgos, useDict } from "@/lib/store";
+import { useState, type ReactNode } from "react";
+import { useArgos, useDict, useModules } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
-import { KPI_ICONS } from "@/lib/icons";
+import { Modal } from "@/components/ui/Modal";
+import { KPI_ICONS, UI_ICONS } from "@/lib/icons";
 import { ChartCard, type ChartDatum } from "@/components/charts/ChartCard";
+import { LineAreaChart } from "@/components/charts/LineAreaChart";
 import { DonutChart } from "@/components/charts/DonutChart";
 import { ListCard } from "@/components/charts/ListCard";
-import { MoroccoSituation } from "@/components/dashboard/MoroccoSituation";
+import { ProgressBar } from "@/components/ui/ProgressBar";
+import { occBarClass } from "@/lib/helpers";
 
 interface Kpi {
   label: string;
@@ -18,27 +21,23 @@ interface Kpi {
   iconWrap: string;
 }
 
-function FeedList({ dense = false }: { dense?: boolean }) {
-  const feed = useArgos((s) => s.feed);
-  return (
-    <div className="flex flex-col gap-2">
-      {feed.map((f, i) => (
-        <div key={`${f.time}-${i}`} className={`flex gap-3 border-b border-gray-100 py-1 dark:border-rdia-700/50 ${dense ? "items-start" : "items-center"}`}>
-          <span className="w-10 shrink-0 font-mono text-[10px] text-gray-400 dark:text-rdia-400">{f.time}</span>
-          <span className={`h-2 w-2 shrink-0 rounded-full ${f.c} ${dense ? "mt-1" : ""}`} />
-          <span className={`min-w-0 flex-1 text-xs text-gray-700 dark:text-rdia-100 ${dense ? "" : "truncate"}`}>{f.txt}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
+type TileId = "evolution" | "casualties" | "moyens" | "hospitals" | "severity" | "feed";
 
+/**
+ * Tableau de bord état-major (disposition A) : grille compacte tenant sur un
+ * écran (sans défilement) ; chaque tuile porte en haut à droite un bouton
+ * « Agrandir » qui l'ouvre en grand dans une modale.
+ */
 export default function DashboardPage() {
   const t = useDict();
-  const [dash, setDash] = useState<"a" | "b">("a");
+  const m = useModules();
   const incidents = useArgos((s) => s.incidents);
   const hospitals = useArgos((s) => s.hospitals);
   const fieldHosps = useArgos((s) => s.fieldHosps);
+  const feed = useArgos((s) => s.feed);
+  const dashStats = useArgos((s) => s.dashStats);
+
+  const [expanded, setExpanded] = useState<TileId | null>(null);
 
   const activeInc = incidents.filter((i) => i.st !== "closed").length;
   const bedsFixed = hospitals.reduce((a, h) => a + (h.lits - h.occ), 0);
@@ -51,27 +50,11 @@ export default function DashboardPage() {
     { label: t.kpi_units, val: "4", sub: `2 ${t.u_deployed.toLowerCase()}`, subColor: "text-blue-500", icon: KPI_ICONS.units, iconWrap: "bg-blue-500/10 text-blue-500" },
   ];
 
-  const chartTypes: ChartDatum[] = [
-    { label: t.ty_earthquake, value: 3, couleur: "#EF4444" },
-    { label: t.ty_flood, value: 5, couleur: "#3B82F6" },
-    { label: t.ty_wildfire, value: 4, couleur: "#C9A84C" },
-    { label: t.ty_landslide, value: 2, couleur: "#8B5CF6" },
-    { label: t.ty_epidemic, value: 1, couleur: "#10B981" },
-    { label: t.ty_industrial, value: 2, couleur: "#6B7280" },
-  ];
-  const chartRegions: ChartDatum[] = [
-    { label: "Marrakech-Safi", value: 6, couleur: "#EF4444" },
-    { label: "Tanger-Tétouan", value: 3, couleur: "#C9A84C" },
-    { label: "Drâa-Tafilalet", value: 3, couleur: "#8B5CF6" },
-    { label: "Oriental", value: 2, couleur: "#3B82F6" },
-    { label: "Casa-Settat", value: 2, couleur: "#10B981" },
-    { label: "Souss-Massa", value: 1, couleur: "#6B7280" },
-  ];
   const chartMoyens: ChartDatum[] = [
-    { label: "Véhicules terrestres", value: 86, couleur: "#C9A84C" },
+    { label: "Véhicules", value: 86, couleur: "#C9A84C" },
     { label: "Ambulances", value: 76, couleur: "#EF4444" },
-    { label: "Engins de génie", value: 24, couleur: "#3B82F6" },
-    { label: "Hélicoptères", value: 12, couleur: "#10B981" },
+    { label: "Génie", value: 24, couleur: "#3B82F6" },
+    { label: "Hélicos", value: 12, couleur: "#10B981" },
   ];
   const ops = [
     { id: 1, title: "Op. SALAMA — secours Al Haouz", color: "#C9A84C", progression: 65 },
@@ -80,22 +63,86 @@ export default function DashboardPage() {
     { id: 4, title: "Rétablissement axes RN7 / RP2010", color: "#10B981", progression: 30 },
   ];
 
-  const btnCls = (active: boolean) =>
-    `rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-      active ? "bg-or-500 text-rdia-600" : "border border-gray-200 bg-white text-gray-500 hover:text-or-500 dark:border-rdia-600 dark:bg-rdia-800 dark:text-rdia-300"
-    }`;
+  const titleOf: Record<TileId, string> = {
+    evolution: t.dash_evolution,
+    casualties: m.orsec.casualties,
+    moyens: t.chart_moyens,
+    hospitals: t.dash_hosp,
+    severity: m.analytics.severity_dist,
+    feed: t.feed,
+  };
+
+  /** Corps (bare) d'une tuile, réutilisé dans la grille et dans la modale. */
+  const body = (id: TileId): ReactNode => {
+    switch (id) {
+      case "evolution":
+        return dashStats ? (
+          <LineAreaChart bare titre={t.dash_evolution} data={dashStats.evolution} labelOpened={t.dash_opened} labelClosed={t.dash_closed} />
+        ) : <Empty />;
+      case "casualties":
+        return dashStats ? (
+          <div className="grid h-full grid-cols-2 gap-2.5">
+            {[
+              { label: m.orsec.n_dead, val: dashStats.casualties.dead, cls: "text-danger-500" },
+              { label: m.orsec.n_injured, val: dashStats.casualties.injured, cls: "text-or-500" },
+              { label: m.orsec.n_missing, val: dashStats.casualties.missing, cls: "text-gray-500 dark:text-rdia-300" },
+              { label: m.orsec.n_rescued, val: dashStats.casualties.rescued, cls: "text-green-600 dark:text-green-400" },
+            ].map((c) => (
+              <div key={c.label} className="flex flex-col justify-center rounded-lg bg-gray-50 px-3 py-2 dark:bg-rdia-800/50">
+                <span className={`text-2xl font-bold leading-tight tabular-nums ${c.cls}`}>{c.val}</span>
+                <span className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400">{c.label}</span>
+              </div>
+            ))}
+          </div>
+        ) : <Empty />;
+      case "moyens":
+        return <DonutChart bare titre={t.chart_moyens} data={chartMoyens} />;
+      case "hospitals":
+        return dashStats ? (
+          <div className="flex h-full flex-col justify-center gap-2">
+            {dashStats.hospitals.map((h) => (
+              <div key={h.id} className="flex items-center gap-3">
+                <span className="w-40 shrink-0 truncate text-xs text-gray-600 dark:text-rdia-200">{h.nom}</span>
+                <div className="min-w-0 flex-1"><ProgressBar value={h.occPct} fill={occBarClass(h.occPct)} /></div>
+                <span className="w-10 shrink-0 text-end font-mono text-xs tabular-nums text-gray-500 dark:text-rdia-300">{h.occPct} %</span>
+              </div>
+            ))}
+          </div>
+        ) : <Empty />;
+      case "severity":
+        return dashStats ? (
+          <ChartCard
+            bare
+            titre={m.analytics.severity_dist}
+            type="bars"
+            data={[
+              { label: t.sev_high, value: dashStats.severity.high, couleur: "#EF4444" },
+              { label: t.sev_med, value: dashStats.severity.medium, couleur: "#C9A84C" },
+              { label: t.sev_low, value: dashStats.severity.low, couleur: "#10B981" },
+            ]}
+          />
+        ) : <Empty />;
+      case "feed":
+        return (
+          <div className="flex h-full flex-col gap-1.5 overflow-y-auto">
+            {feed.map((f, i) => (
+              <div key={`${f.time}-${i}`} className="flex items-center gap-2.5 border-b border-gray-100 py-1 dark:border-rdia-700/50">
+                <span className="w-9 shrink-0 font-mono text-[10px] text-gray-400 dark:text-rdia-400">{f.time}</span>
+                <span className={`h-2 w-2 shrink-0 rounded-full ${f.c}`} />
+                <span className="min-w-0 flex-1 truncate text-xs text-gray-700 dark:text-rdia-100">{f.txt}</span>
+              </div>
+            ))}
+          </div>
+        );
+    }
+  };
 
   return (
-    <section className="flex flex-col gap-4 animate-fade-in">
-      <div className="flex items-center justify-end gap-2">
-        <button className={btnCls(dash === "a")} onClick={() => setDash("a")}>{t.layoutA}</button>
-        <button className={btnCls(dash === "b")} onClick={() => setDash("b")}>{t.layoutB}</button>
-      </div>
-
-      {/* Rangée de KPI */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <section className="flex h-full flex-col gap-3 animate-fade-in">
+      {/* Rangée de KPI (compacte) */}
+      <div className="grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-4">
         {kpis.map((k) => (
-          <div key={k.label} className="carte flex items-center gap-3 p-4">
+          <div key={k.label} className="carte flex items-center gap-3 p-3">
             <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${k.iconWrap}`}>
               <Icon path={k.icon} size={20} />
             </div>
@@ -110,40 +157,58 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {dash === "a" ? (
-        <>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className="min-w-0"><ChartCard titre={t.chart_types} type="bars" data={chartTypes} /></div>
-            <div className="min-w-0"><ChartCard titre={t.chart_regions} type="column3d" data={chartRegions} /></div>
-            <div className="min-w-0"><DonutChart titre={t.chart_moyens} data={chartMoyens} /></div>
-          </div>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className="min-w-0"><ListCard titre={t.ops} items={ops} /></div>
-            <div className="carte col-span-1 p-4 lg:col-span-2">
-              <h3 className="mb-3 text-sm font-semibold text-rdia-600 dark:text-rdia-50">{t.feed}</h3>
-              <FeedList />
-            </div>
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className="carte col-span-1 flex flex-col p-4 lg:col-span-2">
-              <h3 className="mb-3 text-sm font-semibold text-rdia-600 dark:text-rdia-50">{t.overview}</h3>
-              <MoroccoSituation />
-            </div>
-            <div className="carte min-w-0 p-4">
-              <h3 className="mb-3 text-sm font-semibold text-rdia-600 dark:text-rdia-50">{t.feed}</h3>
-              <FeedList dense />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className="min-w-0"><ChartCard titre={t.chart_types} type="bars" data={chartTypes} /></div>
-            <div className="min-w-0"><ChartCard titre={t.chart_regions} type="column3d" data={chartRegions} /></div>
-            <div className="min-w-0"><ListCard titre={t.ops} items={ops} /></div>
-          </div>
-        </>
-      )}
+      {/* Grille de tuiles : remplit l'écran restant (4 col × 2 lignes en desktop) */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-4 lg:grid-rows-2">
+        <DashTile id="evolution" title={titleOf.evolution} className="lg:col-span-2" onExpand={setExpanded} label={t.dash_expand}>{body("evolution")}</DashTile>
+        <DashTile id="casualties" title={titleOf.casualties} onExpand={setExpanded} label={t.dash_expand}>{body("casualties")}</DashTile>
+        <DashTile id="moyens" title={titleOf.moyens} onExpand={setExpanded} label={t.dash_expand}>{body("moyens")}</DashTile>
+        <DashTile id="hospitals" title={titleOf.hospitals} className="lg:col-span-2" onExpand={setExpanded} label={t.dash_expand}>{body("hospitals")}</DashTile>
+        <DashTile id="severity" title={titleOf.severity} onExpand={setExpanded} label={t.dash_expand}>{body("severity")}</DashTile>
+        <DashTile id="feed" title={titleOf.feed} onExpand={setExpanded} label={t.dash_expand}>{body("feed")}</DashTile>
+      </div>
+
+      {/* Tuile agrandie */}
+      <Modal open={expanded !== null} size="xl" title={expanded ? titleOf[expanded] : ""} onClose={() => setExpanded(null)}>
+        <div className="h-[68vh]">{expanded && body(expanded)}</div>
+      </Modal>
     </section>
+  );
+}
+
+function Empty() {
+  return <div className="flex h-full items-center justify-center text-xs text-gray-400 dark:text-rdia-400">…</div>;
+}
+
+/** Cadre de tuile : carte + titre + bouton « Agrandir » en haut à droite. */
+function DashTile({
+  id,
+  title,
+  label,
+  className = "",
+  onExpand,
+  children,
+}: {
+  id: TileId;
+  title: string;
+  label: string;
+  className?: string;
+  onExpand: (id: TileId) => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`carte flex min-h-0 flex-col p-4 ${className}`}>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="truncate text-sm font-semibold text-rdia-600 dark:text-rdia-50">{title}</h3>
+        <button
+          onClick={() => onExpand(id)}
+          title={label}
+          aria-label={label}
+          className="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600 dark:hover:text-or-400"
+        >
+          <Icon path={UI_ICONS.expand} size={14} strokeWidth={2} />
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+    </div>
   );
 }
