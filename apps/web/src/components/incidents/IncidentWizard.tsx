@@ -1,21 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useArgos, useDict } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
-import { svgToLL, llToSvg, svgLatLon, typeLabel } from "@/lib/helpers";
+import { svgToLL, llToSvg, typeLabel } from "@/lib/helpers";
 import type { Province } from "@/lib/types";
 
-interface Pt {
-  x: number;
-  y: number;
-}
-
-/** Mode de localisation de l'étape 3 (six méthodes, un seul emplacement). */
-type LocMode = "prov" | "city" | "address" | "coords" | "map" | "geo";
+// Aperçu carte réel chargé côté client uniquement (MapLibre accède à window).
+const LocationPreviewMap = dynamic(
+  () => import("@/components/incidents/LocationPreviewMap").then((m) => m.LocationPreviewMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-[360px] w-full items-center justify-center rounded-xl border border-gray-200 text-xs text-gray-400 dark:border-rdia-600 dark:text-rdia-400">
+        …
+      </div>
+    ),
+  },
+);
 
 /** Province la plus proche d'un point géographique (rattachement région). */
 function nearestProvince(ll: [number, number], provinces: Province[]): Province | undefined {
@@ -32,10 +38,15 @@ function nearestProvince(ll: [number, number], provinces: Province[]): Province 
   return best;
 }
 
+/** Normalisation pour l'appariement local d'adresse (minuscules, sans accents). */
+const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+
 /**
  * Assistant « Signaler un incident » en 3 étapes (type → détails → localisation).
- * Les types viennent du catalogue paramétrable de l'API ; la localisation accepte
- * province/ville (référentiel complet), coordonnées, clic carte ou géolocalisation.
+ * Les types viennent du catalogue paramétrable de l'API. L'étape de localisation
+ * réunit en une seule vue : adresse, province, ville (en cascade), coordonnées et
+ * un aperçu cartographique réel (MapLibre) — chaque saisie pilote le marqueur, et
+ * un clic sur la carte pose le point.
  */
 export function IncidentWizard() {
   const t = useDict();
@@ -54,88 +65,119 @@ export function IncidentWizard() {
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [files, setFiles] = useState<string[]>([]);
-  const [mode, setMode] = useState<LocMode>("prov");
+  const [adresse, setAdresse] = useState("");
   const [prov, setProv] = useState("");
   const [city, setCity] = useState("");
-  const [adresse, setAdresse] = useState("");
   const [lat, setLat] = useState("");
   const [lng, setLng] = useState("");
-  const [pt, setPt] = useState<Pt | null>(null);
+  // Point résolu [lng, lat] — source de vérité unique de la localisation.
+  const [pt, setPt] = useState<[number, number] | null>(null);
   const [geoErr, setGeoErr] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  // Ouverture depuis la carte (Shift+clic droit) : coordonnées pré-remplies.
-  useEffect(() => {
-    if (open && initLL) {
-      setMode("coords");
-      setLng(initLL[0].toFixed(5));
-      setLat(initLL[1].toFixed(5));
-    }
-  }, [open, initLL]);
-
   const province = useMemo(() => provinces.find((p) => p.v === prov), [prov, provinces]);
   const selectedCity = useMemo(() => cities.find((c) => c.v === city), [city, cities]);
-  const coordsValid = useMemo(() => {
-    const la = parseFloat(lat);
-    const lo = parseFloat(lng);
-    return Number.isFinite(la) && Number.isFinite(lo) && la >= 20 && la <= 37 && lo >= -18 && lo <= 0;
-  }, [lat, lng]);
+  // Villes de la province sélectionnée (par région) ; sinon référentiel complet.
+  const cityOptions = useMemo(() => {
+    const reg = province?.region;
+    return reg ? cities.filter((c) => c.region === reg) : cities;
+  }, [province, cities]);
 
-  /** Position résolue [lng, lat] selon le mode actif. */
-  const resolvedLL = useMemo((): [number, number] | null => {
-    if ((mode === "coords" || mode === "geo") && coordsValid) return [parseFloat(lng), parseFloat(lat)];
-    if (mode === "map" && pt) return svgToLL(pt.x, pt.y);
-    if (mode === "prov" && province) return province.ll ?? svgToLL(province.x, province.y);
-    if (mode === "city" && selectedCity) return selectedCity.ll;
-    // Adresse : rattachée à une province (source des coordonnées).
-    if (mode === "address" && province) return province.ll ?? svgToLL(province.x, province.y);
+  // Pose le point et met à jour l'affichage des coordonnées.
+  const applyLL = (ll: [number, number]) => {
+    setPt(ll);
+    setLng(ll[0].toFixed(5));
+    setLat(ll[1].toFixed(5));
+  };
+
+  // Ouverture depuis la carte (Shift+clic droit) : point pré-rempli.
+  useEffect(() => {
+    if (open && initLL) {
+      setStep(1);
+      applyLL(initLL);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initLL]);
+
+  /** Appariement local d'une adresse saisie contre le référentiel villes/provinces. */
+  const matchPlace = (text: string): [number, number] | null => {
+    const q = norm(text);
+    if (q.length < 3) return null;
+    const c = cities.find((x) => norm(x.v) === q) ?? cities.find((x) => norm(x.v).startsWith(q));
+    if (c) return c.ll;
+    const p = provinces.find((x) => norm(x.v) === q) ?? provinces.find((x) => norm(x.v).startsWith(q));
+    if (p) return p.ll ?? svgToLL(p.x, p.y);
     return null;
-  }, [mode, coordsValid, lng, lat, pt, province, selectedCity]);
-
-  const reset = () => {
-    setStep(1); setType(null); setTitle(""); setDesc(""); setFiles([]);
-    setMode("prov"); setProv(""); setCity(""); setAdresse(""); setLat(""); setLng(""); setPt(null); setGeoErr(false);
   };
-  const onClose = () => { reset(); close(); };
 
-  const canNext = step === 1 ? !!type : step === 2 ? !!title.trim() : true;
-  const canSubmit = resolvedLL !== null;
-  const coordsTxt = resolvedLL ? svgLatLon(llToSvg(resolvedLL).x, llToSvg(resolvedLL).y) : "—";
-
-  const mapPick = (e: MouseEvent<SVGSVGElement>) => {
-    const el = e.currentTarget;
-    const r = el.getBoundingClientRect();
-    const vb = { x: 60, y: 40, w: 320, h: 420 };
-    const scale = Math.min(r.width / vb.w, r.height / vb.h);
-    const ox = (r.width - vb.w * scale) / 2;
-    const oy = (r.height - vb.h * scale) / 2;
-    const x = vb.x + (e.clientX - r.left - ox) / scale;
-    const y = vb.y + (e.clientY - r.top - oy) / scale;
-    setPt({ x: Math.round(x), y: Math.round(y) });
+  const onAddress = (v: string) => {
+    setAdresse(v);
+    const m = matchPlace(v);
+    if (m) applyLL(m);
   };
+  const onProv = (v: string) => {
+    setProv(v);
+    const p = provinces.find((x) => x.v === v);
+    if (p) {
+      applyLL(p.ll ?? svgToLL(p.x, p.y));
+      // Réinitialise la ville si elle n'appartient plus à la région de la province.
+      const c = cities.find((x) => x.v === city);
+      if (c && c.region !== p.region) setCity("");
+    }
+  };
+  const onCity = (v: string) => {
+    setCity(v);
+    const c = cities.find((x) => x.v === v);
+    if (c) applyLL(c.ll);
+  };
+  const onLat = (v: string) => {
+    setLat(v);
+    const la = parseFloat(v);
+    const lo = parseFloat(lng);
+    if (Number.isFinite(la) && Number.isFinite(lo)) setPt([lo, la]);
+  };
+  const onLng = (v: string) => {
+    setLng(v);
+    const la = parseFloat(lat);
+    const lo = parseFloat(v);
+    if (Number.isFinite(la) && Number.isFinite(lo)) setPt([lo, la]);
+  };
+  const onMapPick = (ll: [number, number]) => applyLL(ll);
 
   const useGeolocation = () => {
     setGeoErr(false);
-    if (!navigator.geolocation) { setGeoErr(true); return; }
+    if (!navigator.geolocation) {
+      setGeoErr(true);
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLat(pos.coords.latitude.toFixed(5));
-        setLng(pos.coords.longitude.toFixed(5));
-      },
+      (pos) => applyLL([pos.coords.longitude, pos.coords.latitude]),
       () => setGeoErr(true),
       { enableHighAccuracy: true, timeout: 8000 },
     );
   };
 
+  const reset = () => {
+    setStep(1); setType(null); setTitle(""); setDesc(""); setFiles([]);
+    setAdresse(""); setProv(""); setCity(""); setLat(""); setLng(""); setPt(null); setGeoErr(false);
+  };
+  const onClose = () => { reset(); close(); };
+
+  const canNext = step === 1 ? !!type : step === 2 ? !!title.trim() : true;
+  const canSubmit = pt !== null;
+  // Récapitulatif dérivé directement du point (cohérent avec les champs lat/lng).
+  const coordsTxt = pt
+    ? `${pt[1].toFixed(3)}° ${pt[1] >= 0 ? "N" : "S"} · ${Math.abs(pt[0]).toFixed(3)}° ${pt[0] >= 0 ? "E" : "W"}`
+    : "—";
+
   const submit = async () => {
-    if (!canSubmit || !resolvedLL || busy) return;
+    if (!canSubmit || !pt || busy) return;
     setBusy(true);
     try {
-      const { x, y } = llToSvg(resolvedLL);
-      const attachedProv = province ?? nearestProvince(resolvedLL, provinces);
-      // Lieu affiché : ville sélectionnée, sinon province de rattachement.
-      const place = mode === "city" ? selectedCity?.v : attachedProv?.v;
-      const region = mode === "city" ? selectedCity?.region ?? attachedProv?.region ?? "—" : attachedProv?.region ?? "—";
+      const { x, y } = llToSvg(pt);
+      const attachedProv = province ?? nearestProvince(pt, provinces);
+      const place = selectedCity?.v ?? attachedProv?.v;
+      const region = selectedCity?.region ?? attachedProv?.region ?? "—";
       // Déclaration via l'API (auditée côté serveur), puis rechargement du domaine.
       await api.createIncident({
         type: type ?? incidentTypes[0]?.id ?? "earthquake",
@@ -146,7 +188,7 @@ export function IncidentWizard() {
         st: "open",
         x,
         y,
-        ll: resolvedLL,
+        ll: pt,
       });
       await loadDomain();
       showToast(t.toast_ok);
@@ -157,14 +199,6 @@ export function IncidentWizard() {
   };
 
   const steps = [t.wz1, t.wz2, t.wz3];
-  const modes: [LocMode, string][] = [
-    ["prov", t.wz_mode_prov],
-    ["city", t.wz_mode_city],
-    ["address", t.wz_mode_address],
-    ["coords", t.wz_mode_coords],
-    ["map", t.wz_mode_map],
-    ["geo", t.wz_mode_geo],
-  ];
   const labelCls = "mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200";
 
   return (
@@ -247,133 +281,78 @@ export function IncidentWizard() {
           </div>
         )}
 
-        {/* Étape 3 — localisation : province/ville, coordonnées, carte ou géolocalisation */}
+        {/* Étape 3 — localisation : tout en une vue, piloté par l'aperçu carte réel */}
         {step === 3 && (
-          <div className="flex flex-col gap-4">
-            {/* Sélecteur de mode */}
-            <div className="flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1 dark:bg-rdia-800/60" style={{ width: "fit-content" }}>
-              {modes.map(([k, label]) => (
-                <button
-                  key={k}
-                  onClick={() => setMode(k)}
-                  className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    mode === k ? "bg-white text-or-600 shadow-sm dark:bg-rdia-600 dark:text-or-400" : "text-gray-500 hover:text-or-500 dark:text-rdia-300"
-                  }`}
-                >
-                  {label}
+          <div className="grid gap-4 md:grid-cols-[minmax(240px,300px)_1fr]">
+            {/* Saisies — adresse, province, ville (cascade), coordonnées, position */}
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className={labelCls}>{t.f_addr}</label>
+                <input
+                  list="loc-places"
+                  className="input-champ text-sm"
+                  value={adresse}
+                  onChange={(e) => onAddress(e.target.value)}
+                  placeholder={t.f_addr}
+                />
+                <datalist id="loc-places">
+                  {cities.map((c) => (
+                    <option key={c.v} value={c.v} />
+                  ))}
+                </datalist>
+              </div>
+
+              <div>
+                <label className={labelCls}>{t.f_prov}</label>
+                <select className="input-champ text-sm" value={prov} onChange={(e) => onProv(e.target.value)}>
+                  <option value="">—</option>
+                  {provinces.map((p) => (
+                    <option key={p.v} value={p.v}>{p.v} — {p.region}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className={labelCls}>{t.f_city}</label>
+                <select className="input-champ text-sm" value={city} onChange={(e) => onCity(e.target.value)}>
+                  <option value="">—</option>
+                  {cityOptions.map((c) => (
+                    <option key={c.v} value={c.v}>{prov ? c.v : `${c.v} — ${c.region}`}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className={labelCls}>{t.wz_lat}</label>
+                  <input className="input-champ font-mono text-sm" inputMode="decimal" placeholder="31.630" value={lat} onChange={(e) => onLat(e.target.value)} />
+                </div>
+                <div>
+                  <label className={labelCls}>{t.wz_lng}</label>
+                  <input className="input-champ font-mono text-sm" inputMode="decimal" placeholder="-8.010" value={lng} onChange={(e) => onLng(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button className="btn-secondaire flex items-center gap-2 text-xs" onClick={useGeolocation}>
+                  <Icon path={UI_ICONS.users} size={14} />
+                  {t.wz_geo_btn}
                 </button>
-              ))}
-            </div>
+                {geoErr && <span className="text-[11px] font-semibold text-danger-500">{t.wz_geo_err}</span>}
+              </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {/* Mode : province (chefs-lieux — référentiel complet du Royaume) */}
-              {mode === "prov" && (
-                <div>
-                  <label className={labelCls}>{t.f_prov}</label>
-                  <select className="input-champ text-sm" value={prov} onChange={(e) => setProv(e.target.value)}>
-                    <option value="">—</option>
-                    {provinces.map((p) => (
-                      <option key={p.v} value={p.v}>{p.v} — {p.region}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Mode : ville / commune (localisation fine) */}
-              {mode === "city" && (
-                <div>
-                  <label className={labelCls}>{t.f_city}</label>
-                  <select className="input-champ text-sm" value={city} onChange={(e) => setCity(e.target.value)}>
-                    <option value="">—</option>
-                    {cities.map((c) => (
-                      <option key={c.v} value={c.v}>{c.v} — {c.region}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Mode : adresse / lieu-dit rattachée à une province */}
-              {mode === "address" && (
-                <>
-                  <div className="sm:col-span-2">
-                    <label className={labelCls}>{t.f_addr}</label>
-                    <input className="input-champ text-sm" value={adresse} onChange={(e) => setAdresse(e.target.value)} placeholder={t.f_addr} />
-                  </div>
-                  <div>
-                    <label className={labelCls}>{t.wz_prov_anchor}</label>
-                    <select className="input-champ text-sm" value={prov} onChange={(e) => setProv(e.target.value)}>
-                      <option value="">—</option>
-                      {provinces.map((p) => (
-                        <option key={p.v} value={p.v}>{p.v} — {p.region}</option>
-                      ))}
-                    </select>
-                  </div>
-                </>
-              )}
-
-              {/* Mode : coordonnées manuelles ou position du poste */}
-              {(mode === "coords" || mode === "geo") && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelCls}>{t.wz_lat}</label>
-                    <input className="input-champ font-mono text-sm" inputMode="decimal" placeholder="31.630" value={lat} onChange={(e) => setLat(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className={labelCls}>{t.wz_lng}</label>
-                    <input className="input-champ font-mono text-sm" inputMode="decimal" placeholder="-8.010" value={lng} onChange={(e) => setLng(e.target.value)} />
-                  </div>
-                </div>
-              )}
-
-              {/* Coordonnées résolues — récapitulatif, tous modes */}
               <div>
                 <label className={labelCls}>{t.f_coords}</label>
                 <div className="input-champ font-mono text-sm text-gray-500 dark:text-rdia-300">{coordsTxt}</div>
               </div>
             </div>
 
-            {/* Mode : géolocalisation du poste (position réelle de l'appareil) */}
-            {mode === "geo" && (
-              <div className="flex items-center gap-3">
-                <button className="btn-secondaire flex items-center gap-2 text-sm" onClick={useGeolocation}>
-                  <Icon path={UI_ICONS.users} size={14} />
-                  {t.wz_geo_btn}
-                </button>
-                {geoErr && <span className="text-xs font-semibold text-danger-500">{t.wz_geo_err}</span>}
-              </div>
-            )}
-
-            {/* Mode : clic sur la carte */}
-            {mode === "map" && (
-              <div>
-                <div className="mb-1 text-[10px] text-gray-400 dark:text-rdia-400">{t.pick_map}</div>
-                <div className="overflow-hidden rounded-xl" style={{ background: "#10202f", height: 360 }}>
-                  <svg viewBox="60 40 320 420" className="h-full w-full" style={{ display: "block", cursor: "crosshair" }} onClick={mapPick}>
-                    <path
-                      d="M218,52 L196,148 L176,176 L156,196 L136,240 L120,278 L112,330 L96,368 L82,404 L52,436 L58,458 L30,516 L24,596 L38,678 L120,676 L128,600 L180,560 L190,500 L232,470 L262,448 L306,428 L338,398 L356,342 L398,286 L420,208 L396,150 L390,94 L354,98 L302,86 L245,62 Z"
-                      fill="#1B4D2E"
-                      stroke="#C9A84C"
-                      strokeWidth={1}
-                      strokeOpacity={0.5}
-                    />
-                    <path d="M150,300 L180,282 L210,272 L250,250 L290,230 L330,214 L360,200" fill="none" stroke="#0f3d22" strokeWidth={7} strokeLinecap="round" opacity={0.8} />
-                    <g fill="rgba(255,255,255,0.45)" fontSize={9} fontFamily="Inter, sans-serif">
-                      <circle cx={196} cy={148} r={1.5} /><text x={202} y={145}>Rabat</text>
-                      <circle cx={180} cy={262} r={1.5} /><text x={186} y={258}>Marrakech</text>
-                      <circle cx={112} cy={330} r={1.5} /><text x={118} y={327}>Agadir</text>
-                      <circle cx={268} cy={140} r={1.5} /><text x={274} y={137}>Fès</text>
-                      <circle cx={378} cy={120} r={1.5} /><text x={352} y={112}>Oujda</text>
-                    </g>
-                    {pt && (
-                      <g transform={`translate(${pt.x} ${pt.y})`}>
-                        <circle r={10} fill="none" stroke="#C9A84C" strokeWidth={1.5} style={{ animation: "cgc-ping 1.8s ease-out infinite", transformOrigin: "center" }} />
-                        <path d="M0,-7 L7,6 L-7,6 Z" fill="#C9A84C" stroke="#0f1f14" strokeWidth={1} />
-                      </g>
-                    )}
-                  </svg>
-                </div>
-              </div>
-            )}
+            {/* Aperçu carte réel — pilote le marqueur ; clic = pose le point */}
+            <LocationPreviewMap
+              value={pt}
+              onPick={onMapPick}
+              labels={{ hint: t.wz_map_hint, full: t.wz_fullscreen, exit: t.wz_exit_full }}
+            />
           </div>
         )}
 
