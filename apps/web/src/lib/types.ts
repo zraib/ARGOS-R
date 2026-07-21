@@ -40,6 +40,12 @@ export interface Incident {
   ll: [number, number];
   /** Adresse / lieu-dit saisi à la déclaration (optionnel) */
   adresse?: string;
+  /** Bilan humain saisi à la déclaration (optionnel) */
+  casualties?: { dead: number; injured: number; missing: number };
+  /** Premiers intervenants rattachés : identifiants d'unités / d'hôpitaux */
+  responders?: { units: string[]; hospitals: string[] };
+  /** Incident archivé (masqué de la liste active) */
+  archived?: boolean;
 }
 
 export type UnitReadiness = "ready" | "deployed" | "standby";

@@ -748,6 +748,45 @@
         ]
       }
     },
+    "/api/incidents/{id}": {
+      "patch": {
+        "operationId": "DomainController_updateIncident",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateIncidentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Modifier ou archiver un incident (audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/units": {
       "get": {
         "operationId": "DomainController_units",
@@ -1336,6 +1375,55 @@
           "labels"
         ]
       },
+      "CasualtiesDto": {
+        "type": "object",
+        "properties": {
+          "dead": {
+            "type": "number",
+            "minimum": 0
+          },
+          "injured": {
+            "type": "number",
+            "minimum": 0
+          },
+          "missing": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "dead",
+          "injured",
+          "missing"
+        ]
+      },
+      "RespondersDto": {
+        "type": "object",
+        "properties": {
+          "units": {
+            "example": [
+              "U2"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hospitals": {
+            "example": [
+              "H2"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "units",
+          "hospitals"
+        ]
+      },
       "CreateIncidentDto": {
         "type": "object",
         "properties": {
@@ -1382,6 +1470,22 @@
           "adresse": {
             "type": "string",
             "description": "Adresse / lieu-dit (localisation fine)"
+          },
+          "casualties": {
+            "description": "Bilan humain (décès, blessés, disparus)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CasualtiesDto"
+              }
+            ]
+          },
+          "responders": {
+            "description": "Premiers intervenants (IDs d'unités et d'hôpitaux)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RespondersDto"
+              }
+            ]
           }
         },
         "required": [
@@ -1394,6 +1498,61 @@
           "y",
           "ll"
         ]
+      },
+      "UpdateIncidentDto": {
+        "type": "object",
+        "properties": {
+          "titre": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "sev": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "st": {
+            "type": "string",
+            "enum": [
+              "open",
+              "prog",
+              "closed"
+            ]
+          },
+          "adresse": {
+            "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "ll": {
+            "description": "[lng, lat]",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "casualties": {
+            "$ref": "#/components/schemas/CasualtiesDto"
+          },
+          "responders": {
+            "$ref": "#/components/schemas/RespondersDto"
+          }
+        }
       },
       "CreateUnitDto": {
         "type": "object",

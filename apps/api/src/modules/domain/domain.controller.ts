@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Post } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, NotFoundException, Param, Patch, Post } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { DomainService } from "@/modules/domain/domain.service";
 import { CatalogService } from "@/modules/domain/catalog.service";
@@ -12,6 +12,7 @@ import {
   CreateUnitDto,
   RegisterIncidentTypeDto,
   SendMessageDto,
+  UpdateIncidentDto,
 } from "@/modules/domain/dto";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
@@ -75,6 +76,18 @@ export class DomainController {
       throw new BadRequestException(`Type d'incident inconnu : ${dto.type}`);
     }
     return this.domain.createIncident(dto);
+  }
+
+  @Patch("incidents/:id")
+  @RequirePermission("incidents:create")
+  @ApiOperation({ summary: "Modifier ou archiver un incident (audité)" })
+  updateIncident(@Param("id") id: string, @Body() dto: UpdateIncidentDto) {
+    if (dto.type && !this.incidentTypes.isValid(dto.type)) {
+      throw new BadRequestException(`Type d'incident inconnu : ${dto.type}`);
+    }
+    const inc = this.domain.updateIncident(id, dto);
+    if (!inc) throw new NotFoundException(`Incident inconnu : ${id}`);
+    return inc;
   }
 
   @Get("units")

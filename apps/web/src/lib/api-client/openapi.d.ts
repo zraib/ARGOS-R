@@ -417,6 +417,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/incidents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Modifier ou archiver un incident (audité) */
+        patch: operations["DomainController_updateIncident"];
+        trace?: never;
+    };
     "/api/units": {
         parameters: {
             query?: never;
@@ -689,6 +706,25 @@ export interface components {
             /** @description Tracé SVG 24×24 (icône en trait) */
             icon?: string;
         };
+        CasualtiesDto: {
+            dead: number;
+            injured: number;
+            missing: number;
+        };
+        RespondersDto: {
+            /**
+             * @example [
+             *       "U2"
+             *     ]
+             */
+            units: string[];
+            /**
+             * @example [
+             *       "H2"
+             *     ]
+             */
+            hospitals: string[];
+        };
         CreateIncidentDto: {
             /**
              * @description Identifiant d'un type du catalogue /incident-types (validé côté service)
@@ -707,6 +743,27 @@ export interface components {
             ll: number[];
             /** @description Adresse / lieu-dit (localisation fine) */
             adresse?: string;
+            /** @description Bilan humain (décès, blessés, disparus) */
+            casualties?: components["schemas"]["CasualtiesDto"];
+            /** @description Premiers intervenants (IDs d'unités et d'hôpitaux) */
+            responders?: components["schemas"]["RespondersDto"];
+        };
+        UpdateIncidentDto: {
+            titre?: string;
+            type?: string;
+            region?: string;
+            /** @enum {string} */
+            sev?: "high" | "medium" | "low";
+            /** @enum {string} */
+            st?: "open" | "prog" | "closed";
+            adresse?: string;
+            archived?: boolean;
+            x?: number;
+            y?: number;
+            /** @description [lng, lat] */
+            ll?: number[];
+            casualties?: components["schemas"]["CasualtiesDto"];
+            responders?: components["schemas"]["RespondersDto"];
         };
         CreateUnitDto: {
             /** @example 6e Bataillon Médical */
@@ -1314,6 +1371,29 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_updateIncident: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateIncidentDto"];
+            };
+        };
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

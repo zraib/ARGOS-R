@@ -24,6 +24,12 @@ export interface Incident {
   x: number;
   y: number;
   ll: [number, number];
+  /** Bilan humain saisi à la déclaration (optionnel). */
+  casualties?: { dead: number; injured: number; missing: number };
+  /** Premiers intervenants rattachés : identifiants d'unités / d'hôpitaux. */
+  responders?: { units: string[]; hospitals: string[] };
+  /** Incident archivé (masqué de la liste active). */
+  archived?: boolean;
 }
 
 export interface Unit {
@@ -145,6 +151,19 @@ export class DomainService {
     const inc: Incident = { ...input, id: `INC-${n}`, time };
     this.incidents.unshift(inc);
     this.feed.unshift({ time, c: "bg-danger-500", txt: `${inc.id} — ${inc.titre}` });
+    return inc;
+  }
+
+  /** Mise à jour partielle d'un incident (édition / archivage). */
+  updateIncident(id: string, patch: Partial<Omit<Incident, "id">>): Incident | undefined {
+    const inc = this.incidents.find((i) => i.id === id);
+    if (!inc) return undefined;
+    // N'écrase que les champs réellement fournis : les DTO exposent les champs
+    // optionnels absents comme `undefined`, et un Object.assign brut effacerait
+    // les valeurs existantes (titre, type, gravité…) lors d'une mise à jour partielle.
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) (inc as Record<string, unknown>)[k] = v;
+    }
     return inc;
   }
 

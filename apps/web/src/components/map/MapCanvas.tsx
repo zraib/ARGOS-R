@@ -187,6 +187,20 @@ export function MapCanvas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layers, selMarker, incidents, fieldHosps]);
 
+  // --- recentrage/zoom sur l'élément sélectionné (ex. « voir sur la carte ») ---
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !selMarker) return;
+    const st = useArgos.getState();
+    const ll =
+      selMarker.kind === "inc" ? st.incidents.find((i) => i.id === selMarker.id)?.ll
+      : selMarker.kind === "unit" ? st.units.find((u) => u.id === selMarker.id)?.ll
+      : selMarker.kind === "hosp" ? st.hospitals.find((h) => h.id === selMarker.id)?.ll
+      : undefined;
+    if (ll) map.flyTo({ center: ll, zoom: Math.max(map.getZoom(), 10.5), duration: 1200 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selMarker]);
+
   // --- bascule terrain 3D ---
   const apply3d = (on: boolean) => {
     const map = mapRef.current;

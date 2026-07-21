@@ -21,6 +21,7 @@ export type UpdateUserBody = Json<NonNullable<paths["/api/iam/users/{id}"]["patc
 export type RoleFeatureBody = Json<NonNullable<paths["/api/iam/role-features/{role}"]["patch"]["requestBody"]>>;
 export type ModuleFeature = RoleFeatureBody["feature"];
 export type CreateIncidentBody = Json<NonNullable<paths["/api/incidents"]["post"]["requestBody"]>>;
+export type UpdateIncidentBody = Json<NonNullable<paths["/api/incidents/{id}"]["patch"]["requestBody"]>>;
 export type CreateUnitBody = Json<NonNullable<paths["/api/units"]["post"]["requestBody"]>>;
 export type CreateHospitalBody = Json<NonNullable<paths["/api/hospitals"]["post"]["requestBody"]>>;
 
@@ -29,6 +30,12 @@ export interface ArgosClientOptions {
   baseUrl: string;
   /** Fournit le jeton porteur courant (ou null si non authentifié). */
   getToken?: () => string | null;
+  /**
+   * Appelé quand un endpoint authentifié répond 401 (jeton expiré/invalide,
+   * hors /auth/login). Permet de purger la session et de renvoyer vers l'écran
+   * de connexion au lieu de rester bloqué sur une coquille vide.
+   */
+  onUnauthorized?: () => void;
 }
 
 /** Instancie un client typé pour l'API ARGOS. */
@@ -40,6 +47,14 @@ export function createArgosClient(opts: ArgosClientOptions) {
       const token = opts.getToken?.();
       if (token) request.headers.set("Authorization", `Bearer ${token}`);
       return request;
+    },
+    onResponse({ request, response }) {
+      // 401 hors /auth/login (mauvais mot de passe) = jeton expiré/invalide :
+      // on purge la session pour éviter de rester bloqué sur une coquille vide.
+      if (response.status === 401 && !request.url.includes("/auth/login")) {
+        opts.onUnauthorized?.();
+      }
+      return response;
     },
   };
   client.use(authMiddleware);
@@ -73,6 +88,7 @@ export function createArgosClient(opts: ArgosClientOptions) {
     getIncidentTypes: () => client.GET("/api/incident-types"),
     getDashboardStats: () => client.GET("/api/dashboard/stats"),
     createIncident: (body: CreateIncidentBody) => client.POST("/api/incidents", { body }),
+    updateIncident: (id: string, body: UpdateIncidentBody) => client.PATCH("/api/incidents/{id}", { params: { path: { id } }, body }),
     getUnits: () => client.GET("/api/units"),
     createUnit: (body: CreateUnitBody) => client.POST("/api/units", { body }),
     getHospitals: () => client.GET("/api/hospitals"),

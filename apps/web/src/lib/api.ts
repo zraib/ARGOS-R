@@ -14,9 +14,22 @@ export function getStoredToken(): string | null {
   return sessionStorage.getItem(TOKEN_KEY);
 }
 
+// Purge de session sur 401 (jeton expiré/invalide) — évite de rester bloqué sur
+// une coquille vide : on efface la session et on revient à l'écran de connexion.
+let unauthorizedHandled = false;
+function handleUnauthorized() {
+  if (typeof window === "undefined" || unauthorizedHandled) return;
+  unauthorizedHandled = true;
+  for (const k of ["argos_auth", TOKEN_KEY, "argos_session_user", "argos_session_role"]) {
+    sessionStorage.removeItem(k);
+  }
+  window.location.assign("/");
+}
+
 export const api = createArgosClient({
   baseUrl: API_BASE,
   getToken: getStoredToken,
+  onUnauthorized: handleUnauthorized,
 });
 
 /** Réponse de POST /auth/login (compte géré) — jeton + état du cycle de vie. */

@@ -38,25 +38,41 @@ function nearestProvince(ll: [number, number], provinces: Province[]): Province 
   return best;
 }
 
+/** Distance approximative en km entre deux points [lng, lat] (équirectangulaire). */
+function distKm(a: [number, number], b: [number, number]): number {
+  const dLat = (a[1] - b[1]) * 111;
+  const dLng = (a[0] - b[0]) * 111 * Math.cos((((a[1] + b[1]) / 2) * Math.PI) / 180);
+  return Math.round(Math.sqrt(dLat * dLat + dLng * dLng));
+}
+
+/** Classe des moyens du plus proche au plus loin du point (sinon ordre d'origine). */
+function rankByDistance<T extends { ll: [number, number] }>(items: T[], pt: [number, number] | null): (T & { km: number | null })[] {
+  if (!pt) return items.map((i) => ({ ...i, km: null }));
+  return items.map((i) => ({ ...i, km: distKm(i.ll, pt) })).sort((a, b) => (a.km ?? 0) - (b.km ?? 0));
+}
+
 /** Normalisation pour l'appariement local d'adresse (minuscules, sans accents). */
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 
 /**
- * Assistant « Signaler un incident » en 3 étapes (type → détails → localisation).
- * Les types viennent du catalogue paramétrable de l'API. L'étape de localisation
- * réunit en une seule vue : adresse, province, ville (en cascade), coordonnées et
- * un aperçu cartographique réel (MapLibre) — chaque saisie pilote le marqueur, et
- * un clic sur la carte pose le point.
+ * Assistant « Signaler un incident » en 4 étapes (type → détails → localisation
+ * → victimes & moyens). Les types viennent du catalogue paramétrable de l'API.
+ * L'étape localisation réunit adresse / province / ville (cascade) / coordonnées
+ * et un aperçu carte réel (MapLibre). La dernière étape saisit le bilan humain et
+ * sélectionne les premiers intervenants (unités + hôpitaux) suggérés par proximité.
  */
 export function IncidentWizard() {
   const t = useDict();
   const lang = useArgos((s) => s.lang);
   const open = useArgos((s) => s.wizOpen);
   const initLL = useArgos((s) => s.wizInitLL);
+  const wizEdit = useArgos((s) => s.wizEdit);
   const close = useArgos((s) => s.closeWizard);
   const loadDomain = useArgos((s) => s.loadDomain);
   const provinces = useArgos((s) => s.provinces);
   const cities = useArgos((s) => s.cities);
+  const units = useArgos((s) => s.units);
+  const hospitals = useArgos((s) => s.hospitals);
   const incidentTypes = useArgos((s) => s.incidentTypes);
   const showToast = useArgos((s) => s.showToast);
 
@@ -73,6 +89,12 @@ export function IncidentWizard() {
   // Point résolu [lng, lat] — source de vérité unique de la localisation.
   const [pt, setPt] = useState<[number, number] | null>(null);
   const [geoErr, setGeoErr] = useState(false);
+  // Étape 4 — bilan humain + premiers intervenants.
+  const [dead, setDead] = useState("");
+  const [injured, setInjured] = useState("");
+  const [missing, setMissing] = useState("");
+  const [selUnits, setSelUnits] = useState<string[]>([]);
+  const [selHosps, setSelHosps] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
 
   const province = useMemo(() => provinces.find((p) => p.v === prov), [prov, provinces]);
@@ -82,6 +104,9 @@ export function IncidentWizard() {
     const reg = province?.region;
     return reg ? cities.filter((c) => c.region === reg) : cities;
   }, [province, cities]);
+  // Moyens classés par proximité au point de l'incident (suggestion = le plus proche).
+  const nearUnits = useMemo(() => rankByDistance(units, pt), [units, pt]);
+  const nearHosps = useMemo(() => rankByDistance(hospitals, pt), [hospitals, pt]);
 
   // Pose le point et met à jour l'affichage des coordonnées.
   const applyLL = (ll: [number, number]) => {
@@ -98,6 +123,23 @@ export function IncidentWizard() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initLL]);
+
+  // Ouverture en mode édition : pré-remplissage depuis l'incident existant.
+  useEffect(() => {
+    if (open && wizEdit) {
+      setStep(1);
+      setType(wizEdit.type);
+      setTitle(wizEdit.titre);
+      applyLL(wizEdit.ll);
+      setAdresse(wizEdit.adresse ?? "");
+      setDead(wizEdit.casualties ? String(wizEdit.casualties.dead) : "");
+      setInjured(wizEdit.casualties ? String(wizEdit.casualties.injured) : "");
+      setMissing(wizEdit.casualties ? String(wizEdit.casualties.missing) : "");
+      setSelUnits(wizEdit.responders?.units ?? []);
+      setSelHosps(wizEdit.responders?.hospitals ?? []);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, wizEdit]);
 
   /** Appariement local d'une adresse saisie contre le référentiel villes/provinces. */
   const matchPlace = (text: string): [number, number] | null => {
@@ -120,7 +162,6 @@ export function IncidentWizard() {
     const p = provinces.find((x) => x.v === v);
     if (p) {
       applyLL(p.ll ?? svgToLL(p.x, p.y));
-      // Réinitialise la ville si elle n'appartient plus à la région de la province.
       const c = cities.find((x) => x.v === city);
       if (c && c.region !== p.region) setCity("");
     }
@@ -144,6 +185,9 @@ export function IncidentWizard() {
   };
   const onMapPick = (ll: [number, number]) => applyLL(ll);
 
+  const toggleUnit = (id: string) => setSelUnits((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  const toggleHosp = (id: string) => setSelHosps((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+
   const useGeolocation = () => {
     setGeoErr(false);
     if (!navigator.geolocation) {
@@ -160,10 +204,11 @@ export function IncidentWizard() {
   const reset = () => {
     setStep(1); setType(null); setTitle(""); setDesc(""); setFiles([]);
     setAdresse(""); setProv(""); setCity(""); setLat(""); setLng(""); setPt(null); setGeoErr(false);
+    setDead(""); setInjured(""); setMissing(""); setSelUnits([]); setSelHosps([]);
   };
   const onClose = () => { reset(); close(); };
 
-  const canNext = step === 1 ? !!type : step === 2 ? !!title.trim() : true;
+  const canNext = step === 1 ? !!type : step === 2 ? !!title.trim() : step === 3 ? pt !== null : true;
   const canSubmit = pt !== null;
   // Récapitulatif dérivé directement du point (cohérent avec les champs lat/lng).
   const coordsTxt = pt
@@ -178,18 +223,28 @@ export function IncidentWizard() {
       const attachedProv = province ?? nearestProvince(pt, provinces);
       const place = selectedCity?.v ?? attachedProv?.v;
       const region = selectedCity?.region ?? attachedProv?.region ?? "—";
-      // Déclaration via l'API (auditée côté serveur), puis rechargement du domaine.
-      await api.createIncident({
+      const d = Math.max(0, parseInt(dead, 10) || 0);
+      const inj = Math.max(0, parseInt(injured, 10) || 0);
+      const mis = Math.max(0, parseInt(missing, 10) || 0);
+      const hasCasualties = d + inj + mis > 0;
+      const hasResponders = selUnits.length + selHosps.length > 0;
+      const body = {
         type: type ?? incidentTypes[0]?.id ?? "earthquake",
         titre: title.trim() || typeLabel(type ?? "", incidentTypes, lang) + (place ? ` — ${place}` : ""),
         region,
         adresse: adresse.trim() || undefined,
-        sev: "medium",
-        st: "open",
         x,
         y,
         ll: pt,
-      });
+        casualties: hasCasualties ? { dead: d, injured: inj, missing: mis } : undefined,
+        responders: hasResponders ? { units: selUnits, hospitals: selHosps } : undefined,
+      };
+      // Édition : PATCH (conserve gravité/statut). Sinon création (audité).
+      if (wizEdit) {
+        await api.updateIncident(wizEdit.id, body);
+      } else {
+        await api.createIncident({ ...body, sev: "medium", st: "open" });
+      }
       await loadDomain();
       showToast(t.toast_ok);
       onClose();
@@ -198,14 +253,54 @@ export function IncidentWizard() {
     }
   };
 
-  const steps = [t.wz1, t.wz2, t.wz3];
+  const steps = [t.wz1, t.wz2, t.wz3, t.wz4];
   const labelCls = "mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200";
+  const sectionCls = "mb-2 text-xs font-bold uppercase tracking-wide text-rdia-500 dark:text-rdia-300";
+
+  /** Ligne « moyen » sélectionnable (unité ou hôpital), ordonnée par proximité. */
+  const responderRow = (
+    item: { id: string; nom: string; ville: string; km: number | null },
+    selected: boolean,
+    suggested: boolean,
+    onToggle: (id: string) => void,
+  ) => (
+    <button
+      key={item.id}
+      type="button"
+      onClick={() => onToggle(item.id)}
+      className={`flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-left transition-colors ${
+        selected
+          ? "border-or-500 bg-or-500/10"
+          : "border-gray-200 hover:border-or-500/40 dark:border-rdia-600"
+      }`}
+    >
+      <span
+        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded ${
+          selected ? "bg-or-500 text-white" : "border border-gray-300 dark:border-rdia-500"
+        }`}
+      >
+        {selected && <Icon path={UI_ICONS.check} size={11} strokeWidth={3} />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-xs font-semibold text-gray-700 dark:text-rdia-100">{item.nom}</span>
+        <span className="block text-[10px] text-gray-400 dark:text-rdia-400">
+          {item.ville}
+          {item.km != null ? ` · ${item.km} km` : ""}
+        </span>
+      </span>
+      {suggested && (
+        <span className="shrink-0 rounded-md bg-green-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase text-green-600 dark:text-green-400">
+          {t.wz_suggested}
+        </span>
+      )}
+    </button>
+  );
 
   return (
-    <Modal open={open} title={t.wiz_title} onClose={onClose} size="xl">
+    <Modal open={open} title={wizEdit ? t.edit_title : t.wiz_title} onClose={onClose} size="xl">
       <div className="flex flex-col gap-5">
-        {/* Stepper — trois colonnes égales : espacement uniforme entre les étapes */}
-        <div className="grid grid-cols-3">
+        {/* Stepper — quatre colonnes égales : espacement uniforme entre les étapes */}
+        <div className="grid grid-cols-4">
           {steps.map((label, i) => {
             const num = i + 1;
             const done = step > num;
@@ -347,12 +442,70 @@ export function IncidentWizard() {
               </div>
             </div>
 
-            {/* Aperçu carte réel — pilote le marqueur ; clic = pose le point */}
-            <LocationPreviewMap
-              value={pt}
-              onPick={onMapPick}
-              labels={{ hint: t.wz_map_hint, full: t.wz_fullscreen, exit: t.wz_exit_full }}
-            />
+            {/* Colonne carte : haut aligné sur le champ adresse, bas sur la case
+                coordonnées. L'étiquette fantôme (invisible, même texte que « Adresse »)
+                décale le haut de la carte au niveau du champ ; la carte remplit ensuite
+                la hauteur restante jusqu'au bas de la colonne (= bas des coordonnées). */}
+            <div className="flex flex-col">
+              <label className={`${labelCls} invisible`} aria-hidden="true">{t.f_addr}</label>
+              <div className="min-h-[300px] flex-1">
+                {/* Aperçu carte réel — pilote le marqueur ; clic = pose le point */}
+                <LocationPreviewMap
+                  value={pt}
+                  onPick={onMapPick}
+                  labels={{ hint: t.wz_map_hint, full: t.wz_fullscreen, exit: t.wz_exit_full }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Étape 4 — victimes & moyens (premiers intervenants suggérés par proximité) */}
+        {step === 4 && (
+          <div className="flex flex-col gap-5">
+            {/* Bilan humain */}
+            <div>
+              <div className={sectionCls}>{t.wz_casualties}</div>
+              <div className="grid grid-cols-3 gap-3">
+                {([[t.wz_dead, dead, setDead], [t.wz_injured, injured, setInjured], [t.wz_missing, missing, setMissing]] as const).map(
+                  ([lbl, val, set]) => (
+                    <div key={lbl}>
+                      <label className={labelCls}>{lbl}</label>
+                      <input
+                        type="number"
+                        min={0}
+                        className="input-champ text-sm"
+                        placeholder="0"
+                        value={val}
+                        onChange={(e) => set(e.target.value)}
+                      />
+                    </div>
+                  ),
+                )}
+              </div>
+            </div>
+
+            {/* Premiers intervenants — suggérés selon la proximité du lieu de l'incident */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <div className={sectionCls}>
+                  {t.wz_units_near}
+                  {selUnits.length > 0 && <span className="ml-1 text-or-500">({selUnits.length})</span>}
+                </div>
+                <div className="flex max-h-[34vh] flex-col gap-2 overflow-y-auto pr-1">
+                  {nearUnits.map((u, i) => responderRow(u, selUnits.includes(u.id), pt !== null && i === 0, toggleUnit))}
+                </div>
+              </div>
+              <div>
+                <div className={sectionCls}>
+                  {t.wz_hospitals_near}
+                  {selHosps.length > 0 && <span className="ml-1 text-or-500">({selHosps.length})</span>}
+                </div>
+                <div className="flex max-h-[34vh] flex-col gap-2 overflow-y-auto pr-1">
+                  {nearHosps.map((h, i) => responderRow(h, selHosps.includes(h.id), pt !== null && i === 0, toggleHosp))}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -363,12 +516,12 @@ export function IncidentWizard() {
             {step > 1 && (
               <button className="btn-secondaire text-sm" onClick={() => setStep((s) => Math.max(1, s - 1))}>{t.prev}</button>
             )}
-            {step < 3 && (
-              <button className="btn-primaire text-sm" onClick={() => canNext && setStep((s) => Math.min(3, s + 1))} disabled={!canNext}>
+            {step < 4 && (
+              <button className="btn-primaire text-sm" onClick={() => canNext && setStep((s) => Math.min(4, s + 1))} disabled={!canNext}>
                 {t.next}
               </button>
             )}
-            {step === 3 && (
+            {step === 4 && (
               <button className="btn-primaire text-sm" onClick={() => void submit()} disabled={!canSubmit || busy}>
                 {busy ? "…" : t.submit}
               </button>

@@ -137,6 +137,8 @@ interface ArgosState {
   navGroups: NavGroups;
   toast: string | null;
   wizOpen: boolean;
+  /** Incident en cours d'édition dans l'assistant (null = création). */
+  wizEdit: Incident | null;
   /** Coordonnées [lng, lat] pré-remplies quand le wizard est ouvert depuis la carte */
   wizInitLL: [number, number] | null;
 
@@ -219,6 +221,8 @@ interface ArgosState {
   openNavGroup: (g: keyof NavGroups) => void;
   showToast: (msg: string) => void;
   openWizard: (initLL?: [number, number]) => void;
+  /** Ouvre l'assistant en mode édition (pré-rempli depuis un incident existant). */
+  openWizardEdit: (inc: Incident) => void;
   closeWizard: () => void;
 
   toggleLayer: (k: keyof LayerState) => void;
@@ -271,6 +275,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
   toast: null,
   wizOpen: false,
   wizInitLL: null,
+  wizEdit: null,
 
   incidents: [],
   units: [],
@@ -502,8 +507,9 @@ export const useArgos = create<ArgosState>((set, get) => ({
     set({ toast: msg });
     toastTimer = setTimeout(() => set({ toast: null }), 4000);
   },
-  openWizard: (initLL) => set({ wizOpen: true, wizInitLL: initLL ?? null }),
-  closeWizard: () => set({ wizOpen: false, wizInitLL: null }),
+  openWizard: (initLL) => set({ wizOpen: true, wizInitLL: initLL ?? null, wizEdit: null }),
+  openWizardEdit: (inc) => set({ wizOpen: true, wizInitLL: null, wizEdit: inc }),
+  closeWizard: () => set({ wizOpen: false, wizInitLL: null, wizEdit: null }),
 
   toggleLayer: (k) => set((s) => ({ layers: { ...s.layers, [k]: !s.layers[k] } })),
   setMap3d: (v) => set({ map3d: v }),

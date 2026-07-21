@@ -126,7 +126,7 @@ export function LocationPreviewMap({ value, onPick, labels }: Props) {
       className={
         full
           ? "fixed inset-0 z-[9999] bg-rdia-900"
-          : "relative h-[360px] w-full overflow-hidden rounded-xl border border-gray-200 dark:border-rdia-600"
+          : "relative h-full w-full overflow-hidden rounded-xl border border-gray-200 dark:border-rdia-600"
       }
     >
       {/* Style inline (position absolute) : bat la règle .maplibregl-map { position: relative }
