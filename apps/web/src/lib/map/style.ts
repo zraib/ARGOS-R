@@ -12,22 +12,28 @@ import type { StyleSpecification } from "maplibre-gl";
 export const MAP_STYLE: StyleSpecification = {
   version: 8,
   sources: {
+    // `maxzoom` = zoom natif maximal de la source. Sans lui, MapLibre n'a plus
+    // de tuiles au-delà et affiche « données cartographiques non disponibles » ;
+    // avec, il sur-zoome (mise à l'échelle des tuiles) et l'image reste affichée.
     sat: {
       type: "raster",
       tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
       tileSize: 256,
+      maxzoom: 19,
       attribution: "Esri, Maxar",
     },
     plan: {
       type: "raster",
       tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
       tileSize: 256,
+      maxzoom: 19,
       attribution: "© OpenStreetMap",
     },
     lbl: {
       type: "raster",
       tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"],
       tileSize: 256,
+      maxzoom: 19,
     },
     dem: {
       type: "raster-dem",

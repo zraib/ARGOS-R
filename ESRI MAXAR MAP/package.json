@@ -1,0 +1,50 @@
+{
+  "name": "esri-maxar-map",
+  "version": "1.0.0",
+  "description": "Composant React autonome — carte opérationnelle MapLibre (Esri World Imagery / Maxar), marqueurs animés, relief 3D, mesure d'itinéraire par le réseau routier. Développé par Mohammed Zraib.",
+  "author": "Mohammed Zraib",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./src": "./src/index.ts"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "AGENTS.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "maplibre-gl": ">=4.0.0",
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "maplibre-gl": "^4.7.1",
+    "typescript": "^5.7.0"
+  },
+  "keywords": [
+    "react",
+    "maplibre",
+    "map",
+    "esri",
+    "maxar",
+    "satellite",
+    "routing",
+    "valhalla",
+    "osrm"
+  ]
+}

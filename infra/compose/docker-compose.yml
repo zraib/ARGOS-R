@@ -77,6 +77,27 @@ services:
     ports: ["3005:3000"]
     restart: unless-stopped
 
+  # --- Routage : Valhalla (MASTER_PLAN §4.2) --------------------------------
+  # Moteur d'itinéraire auto-hébergé : le calcul de trajet par le réseau routier
+  # reste interne (souveraineté — aucun appel à un service public en production).
+  # Au premier démarrage, l'image télécharge l'extrait OSM du Maroc et construit
+  # les tuiles de routage dans le volume : compter plusieurs minutes. Ensuite le
+  # démarrage est immédiat (force_rebuild=False).
+  # Le frontend l'utilise via NEXT_PUBLIC_ROUTING_ENGINE=valhalla et
+  # NEXT_PUBLIC_ROUTING_URL=http://localhost:8002.
+  valhalla:
+    image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+    environment:
+      tile_urls: https://download.geofabrik.de/africa/morocco-latest.osm.pbf
+      server_threads: 2
+      build_elevation: "False"
+      build_admins: "True"
+      build_time_zones: "True"
+      force_rebuild: "False"
+    volumes: [valhalla_data:/custom_files]
+    ports: ["8002:8002"]
+    restart: unless-stopped
+
   # --- Courriel de dev ------------------------------------------------------
   mailpit:
     image: axllent/mailpit:latest
@@ -100,3 +121,4 @@ volumes:
   redis_data:
   minio_data:
   emqx_data:
+  valhalla_data:

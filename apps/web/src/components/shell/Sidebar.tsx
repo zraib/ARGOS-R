@@ -3,16 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useArgos, useDict, useModules } from "@/lib/store";
+import { useArgos, useDict } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
-import { Avatar } from "@/components/ui/Avatar";
 import { UI_ICONS } from "@/lib/icons";
 import { NAV, HREF, navLabel, type GroupKey, type NavGroup, type NavItem } from "@/lib/nav";
-import { LanguageSwitch } from "@/components/shell/LanguageSwitch";
 
 export function Sidebar() {
   const t = useDict();
-  const m = useModules();
   const pathname = usePathname();
   const router = useRouter();
   const sbOpen = useArgos((s) => s.sbOpen);
@@ -20,20 +17,14 @@ export function Sidebar() {
   const navGroups = useArgos((s) => s.navGroups);
   const toggleNavGroup = useArgos((s) => s.toggleNavGroup);
   const openNavGroup = useArgos((s) => s.openNavGroup);
-  const toggleTheme = useArgos((s) => s.toggleTheme);
-  const logout = useArgos((s) => s.logout);
   const incidents = useArgos((s) => s.incidents);
   const role = useArgos((s) => s.role);
   const flags = useArgos((s) => s.flags);
   const roleFeatures = useArgos((s) => s.roleFeatures);
-  const sessionUser = useArgos((s) => s.sessionUser);
 
   // Un module est visible s'il n'est pas coupé par un feature flag global et
   // s'il est autorisé pour le rôle actif (matrice rôle→fonctionnalités).
   const moduleVisible = (key: string) => flags[key] !== false && roleFeatures[role]?.[key] !== false;
-
-  const displayName = sessionUser?.nom ?? "Col. K. Benjelloun";
-  const roleLabel = m.roles[role];
 
   const collapsed = !sbOpen;
   const activeInc = incidents.filter((i) => i.st !== "closed").length;
@@ -165,36 +156,8 @@ export function Sidebar() {
           return renderGroup({ ...e, children });
         })}
       </nav>
-
-      {/* User + prefs */}
-      <div className="flex flex-col gap-3 border-t p-3" style={{ borderColor: dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)" }}>
-        <div className={sbOpen ? "flex items-center gap-3" : "flex items-center justify-center"}>
-          <Avatar nom={displayName} photo={sessionUser?.photo} size={36} />
-          {sbOpen && (
-            <>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-xs font-semibold">{displayName}</div>
-                <div className={`truncate text-[10px] ${dark ? "text-rdia-300" : "text-gray-400"}`}>{roleLabel}</div>
-              </div>
-              <button
-                onClick={toggleTheme}
-                title="Mode"
-                className={`rounded-lg p-1.5 transition-colors ${dark ? "text-rdia-200 hover:text-or-400" : "text-gray-400 hover:text-or-500"}`}
-              >
-                <Icon path={dark ? UI_ICONS.sun : UI_ICONS.moon} size={16} />
-              </button>
-              <button
-                onClick={logout}
-                title={t.logout}
-                className={`rounded-lg p-1.5 transition-colors ${dark ? "text-rdia-200 hover:text-or-400" : "text-gray-400 hover:text-or-500"}`}
-              >
-                <Icon path={UI_ICONS.logout} size={16} />
-              </button>
-            </>
-          )}
-        </div>
-        {sbOpen && <LanguageSwitch />}
-      </div>
+      {/* Identité, thème, langue et déconnexion vivent dans l'en-tête
+          (`Header`) — pas de doublon ici. */}
     </aside>
   );
 }

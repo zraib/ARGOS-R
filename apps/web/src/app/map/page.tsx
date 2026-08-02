@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useArgos, useDict } from "@/lib/store";
 import { Badge, type BadgeType } from "@/components/ui/Badge";
@@ -16,17 +17,144 @@ const MapCanvas = dynamic(() => import("@/components/map/MapCanvas").then((m) =>
   ),
 });
 
-interface SelLine {
-  k: string;
-  v: string;
-}
+import { OVERLAY_STYLE, SWITCH_OFF } from "@/lib/map/overlay";
+import type { MarkerKind } from "@/lib/types";
+
+// Surcouches neutres (ardoise sombre) : le vert du thème se confondait avec
+// l'imagerie satellite et rendait les panneaux illisibles.
+const GLASS = OVERLAY_STYLE;
+
+interface SelLine { k: string; v: string }
 interface SelInfo {
-  titre: string;
-  sub: string;
-  badgeType: BadgeType;
-  badgeLabel: string;
-  lines: SelLine[];
-  action?: () => void;
+  titre: string; sub: string; badgeType: BadgeType; badgeLabel: string;
+  lines: SelLine[]; action?: () => void;
+}
+
+/** Interrupteur on/off compact. */
+function Switch({ on }: { on: boolean }) {
+  return (
+    // inline-block obligatoire : un <span> inline ignore h-4/w-8 (largeur nulle).
+    <span className={`relative inline-block h-4 w-8 shrink-0 rounded-full transition-colors ${on ? "bg-or-500" : SWITCH_OFF}`}>
+      <span className="absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all" style={{ left: on ? 18 : 2 }} />
+    </span>
+  );
+}
+
+/** Panneau flottant repliable posé sur la carte. */
+function Panel({
+  title, children, defaultOpen = true, width, right,
+}: { title: ReactNode; children: ReactNode; defaultOpen?: boolean; width?: number; right?: ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="pointer-events-auto overflow-hidden rounded-xl shadow-lg" style={{ ...GLASS, width }}>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="flex min-w-0 flex-1 items-center justify-between gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-white/80 transition-colors hover:text-or-400"
+        >
+          <span className="truncate">{title}</span>
+          <Icon path={UI_ICONS.caretDown} size={12} strokeWidth={2.5} className={`shrink-0 transition-transform ${open ? "" : "-rotate-90"}`} />
+        </button>
+        {right}
+      </div>
+      {open && <div className="px-3 pb-3">{children}</div>}
+    </div>
+  );
+}
+
+/** Élément réel de la carte, listé sous sa couche. */
+interface TreeLeaf { id: string; label: string; kind: MarkerKind }
+/** Couche cartographique : interrupteur + éléments qu'elle contient. */
+interface TreeLayer { key: keyof LayerState; label: string; leaves: TreeLeaf[] }
+interface TreeFamily { label: string; layers: TreeLayer[] }
+
+/** Ligne d'un élément : cliquer sélectionne le marqueur et recentre la carte. */
+function LeafRow({ leaf, sel, select }: { leaf: TreeLeaf; sel: boolean; select: (k: MarkerKind, id: string) => void }) {
+  return (
+    <button
+      onClick={() => select(leaf.kind, leaf.id)}
+      className={`flex w-full items-center gap-1.5 truncate rounded px-1 py-0.5 text-start text-[10px] transition-colors ${
+        sel ? "bg-or-500/20 text-or-300" : "text-white/70 hover:bg-white/10 hover:text-white"
+      }`}
+    >
+      <span className={`h-1 w-1 shrink-0 rounded-full ${sel ? "bg-or-400" : "bg-white/40"}`} />
+      <span className="truncate">{leaf.label}</span>
+    </button>
+  );
+}
+
+/** Nœud « couche » : interrupteur d'affichage + liste repliable des éléments. */
+function LayerNode({
+  layer, on, toggle, selMarker, select,
+}: {
+  layer: TreeLayer; on: boolean; toggle: () => void;
+  selMarker: { kind: MarkerKind; id: string } | null; select: (k: MarkerKind, id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const has = layer.leaves.length > 0;
+  return (
+    <div>
+      <div className="flex items-center gap-1 py-0.5">
+        <button
+          onClick={() => setOpen((o) => !o)}
+          disabled={!has}
+          className="text-white/50 transition-colors hover:text-or-400 disabled:opacity-0"
+          aria-label={layer.label}
+        >
+          <Icon path={UI_ICONS.caretDown} size={10} strokeWidth={2.5} className={`transition-transform ${open ? "" : "-rotate-90"}`} />
+        </button>
+        <button onClick={toggle} className={`min-w-0 flex-1 truncate text-start text-[11px] transition-colors ${on ? "text-white/90" : "text-white/45"}`}>
+          {layer.label}
+          {has && <span className="ms-1 text-white/40">({layer.leaves.length})</span>}
+        </button>
+        <button onClick={toggle} aria-label={layer.label}><Switch on={on} /></button>
+      </div>
+      {open && has && (
+        <div className="ms-2 flex max-h-40 flex-col overflow-y-auto overflow-x-hidden border-s border-white/15 ps-1.5">
+          {layer.leaves.map((l) => (
+            <LeafRow key={`${l.kind}-${l.id}`} leaf={l} select={select} sel={selMarker?.kind === l.kind && selMarker.id === l.id} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Nœud « famille » de l'arbre des couches : repliable + interrupteur global. */
+function FamilyNode({
+  family, layers, toggleLayer, selMarker, select,
+}: {
+  family: TreeFamily; layers: LayerState; toggleLayer: (k: keyof LayerState) => void;
+  selMarker: { kind: MarkerKind; id: string } | null; select: (k: MarkerKind, id: string) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const anyOn = family.layers.some((l) => layers[l.key]);
+  const setAll = (v: boolean) => family.layers.forEach((l) => { if (layers[l.key] !== v) toggleLayer(l.key); });
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 py-1">
+        <button onClick={() => setOpen((o) => !o)} className="text-white/60 transition-colors hover:text-or-400" aria-label={family.label}>
+          <Icon path={UI_ICONS.caretDown} size={11} strokeWidth={2.5} className={`transition-transform ${open ? "" : "-rotate-90"}`} />
+        </button>
+        <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-white/90">{family.label}</span>
+        <button onClick={() => setAll(!anyOn)} aria-label={family.label}><Switch on={anyOn} /></button>
+      </div>
+      {open && (
+        <div className="ms-2 flex flex-col border-s border-white/15 ps-1.5">
+          {family.layers.map((l) => (
+            <LayerNode
+              key={l.key}
+              layer={l}
+              on={layers[l.key]}
+              toggle={() => toggleLayer(l.key)}
+              selMarker={selMarker}
+              select={select}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function MapPage() {
@@ -49,13 +177,43 @@ export default function MapPage() {
   const setSelHosp = useArgos((s) => s.setSelHosp);
   const incidents = useArgos((s) => s.incidents);
   const fieldHosps = useArgos((s) => s.fieldHosps);
+  const select = useArgos((s) => s.select);
+  const [full, setFull] = useState(false);
 
-  const layerDefs: [keyof LayerState, string][] = [
-    ["units", t.lg_units],
-    ["hospitals", t.lg_hosp],
-    ["incidents", t.nav_inc],
-    ["vehicles", t.lg_veh],
-    ["field", t.field],
+  // Échap quitte le plein écran.
+  useEffect(() => {
+    if (!full) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setFull(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [full]);
+
+  // Arbre : famille → couche (interrupteur) → éléments réellement créés.
+  const families: TreeFamily[] = [
+    {
+      label: t.fam_forces,
+      layers: [
+        { key: "units", label: t.lg_units, leaves: units.map((u) => ({ id: u.id, label: u.nom, kind: "unit" })) },
+        { key: "vehicles", label: t.lg_veh, leaves: vehRoutes.map((v) => ({ id: v.id, label: `${v.label} · ${v.kind}`, kind: "veh" })) },
+      ],
+    },
+    {
+      label: t.fam_health,
+      layers: [
+        { key: "hospitals", label: t.lg_hosp, leaves: hospitals.map((h) => ({ id: h.id, label: h.nom, kind: "hosp" })) },
+        { key: "field", label: t.field, leaves: fieldHosps.map((f) => ({ id: f.nom, label: f.nom, kind: "field" })) },
+      ],
+    },
+    {
+      label: t.nav_inc,
+      layers: [
+        {
+          key: "incidents",
+          label: t.nav_inc,
+          leaves: incidents.filter((i) => !i.archived).map((i) => ({ id: i.id, label: `${i.id} · ${i.titre}`, kind: "inc" })),
+        },
+      ],
+    },
   ];
 
   // ---- données du panneau de sélection ----
@@ -96,9 +254,7 @@ export default function MapPage() {
       }
     } else if (kind === "veh") {
       const v = vehRoutes.find((x) => x.id === id);
-      if (v) {
-        selInfo = { titre: v.label, sub: v.kind, badgeType: "active", badgeLabel: t.u_deployed, lines: [{ k: t.col_status, v: "En mouvement" }] };
-      }
+      if (v) selInfo = { titre: v.label, sub: v.kind, badgeType: "active", badgeLabel: t.u_deployed, lines: [{ k: t.col_status, v: "—" }] };
     } else if (kind === "field") {
       const f = fieldHosps.find((x) => x.nom === id);
       if (f) {
@@ -110,81 +266,99 @@ export default function MapPage() {
     }
   }
 
-  const seg = (on: boolean) => `px-3 py-1.5 text-[11px] font-bold transition-colors ${on ? "bg-or-500 text-rdia-600" : "text-rdia-100 hover:text-or-300"}`;
+  const seg = (on: boolean) => `px-3 py-1.5 text-[11px] font-bold transition-colors ${on ? "bg-or-500 text-rdia-600" : "text-white/90 hover:text-or-400"}`;
+  const legend: [ReactNode, string][] = [
+    [<rect key="u" x={-4} y={-4} width={8} height={8} fill="#C9A84C" />, t.lg_units],
+    [<g key="h"><circle r={5} fill="#fff" stroke="#9CA3AF" strokeWidth={0.5} /><path d="M-2.5,0 H2.5 M0,-2.5 V2.5" stroke="#EF4444" strokeWidth={1.6} /></g>, t.lg_hosp],
+    [<g key="f"><circle r={5} fill="none" stroke="#10B981" strokeWidth={1.4} strokeDasharray="2 2" /><path d="M-2,0 H2 M0,-2 V2" stroke="#10B981" strokeWidth={1.4} /></g>, t.field],
+    [<path key="i" d="M0,-6 L6,5 L-6,5 Z" fill="#EF4444" />, t.nav_inc],
+    [<path key="v" d="M0,-5 L5,0 L0,5 L-5,0 Z" fill="#3B82F6" />, t.lg_veh],
+  ];
 
   return (
-    <section className="grid gap-4 animate-fade-in" style={{ height: "100%", minHeight: 560, gridTemplateColumns: "280px 1fr" }}>
-      {/* Rail gauche */}
-      <div className="flex min-w-0 flex-col gap-4">
-        <div className="carte p-4">
-          <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{t.layers}</h3>
-          {layerDefs.map(([k, label]) => {
-            const on = layers[k];
-            return (
-              <button key={k} onClick={() => toggleLayer(k)} className={`flex w-full items-center justify-between gap-2 py-1.5 text-xs transition-colors ${on ? "text-gray-700 dark:text-rdia-100" : "text-gray-400 dark:text-rdia-400"}`}>
-                <span className="truncate">{label}</span>
-                <span className={`relative h-4 w-8 shrink-0 rounded-full transition-colors ${on ? "bg-or-500" : "bg-gray-300 dark:bg-rdia-600"}`}>
-                  <span className="absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all" style={{ left: on ? 18 : 2 }} />
-                </span>
-              </button>
-            );
-          })}
-        </div>
+    <section
+      className={full ? "fixed inset-0 z-[9999] bg-rdia-900" : "relative -m-6 h-[calc(100%+3rem)] animate-fade-in"}
+      style={{ background: "#10202f" }}
+    >
+      <MapCanvas />
 
-        <div className="carte p-4">
-          <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{t.legend}</h3>
-          <div className="flex flex-col gap-2 text-xs text-gray-600 dark:text-rdia-200">
-            <div className="flex items-center gap-2"><svg width={14} height={14} viewBox="-7 -7 14 14"><rect x={-4} y={-4} width={8} height={8} fill="#C9A84C" /></svg><span>{t.lg_units}</span></div>
-            <div className="flex items-center gap-2"><svg width={14} height={14} viewBox="-7 -7 14 14"><circle r={5} fill="#fff" stroke="#9CA3AF" strokeWidth={0.5} /><path d="M-2.5,0 H2.5 M0,-2.5 V2.5" stroke="#EF4444" strokeWidth={1.6} /></svg><span>{t.lg_hosp}</span></div>
-            <div className="flex items-center gap-2"><svg width={14} height={14} viewBox="-7 -7 14 14"><circle r={5} fill="none" stroke="#10B981" strokeWidth={1.4} strokeDasharray="2 2" /><path d="M-2,0 H2 M0,-2 V2" stroke="#10B981" strokeWidth={1.4} /></svg><span>{t.field}</span></div>
-            <div className="flex items-center gap-2"><svg width={14} height={14} viewBox="-7 -7 14 14"><path d="M0,-6 L6,5 L-6,5 Z" fill="#EF4444" /></svg><span>{t.nav_inc}</span></div>
-            <div className="flex items-center gap-2"><svg width={14} height={14} viewBox="-7 -7 14 14"><path d="M0,-5 L5,0 L0,5 L-5,0 Z" fill="#3B82F6" /></svg><span>{t.lg_veh}</span></div>
-          </div>
-        </div>
-
-        <div className="carte min-w-0 flex-1 p-4">
-          {selInfo ? (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{selInfo.titre}</div>
-                  <div className="mt-0.5 text-xs text-gray-500 dark:text-rdia-300">{selInfo.sub}</div>
-                </div>
-                <button className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600" onClick={clearSelection}>
-                  <Icon path={UI_ICONS.close} size={14} strokeWidth={2} />
-                </button>
-              </div>
-              <div><Badge type={selInfo.badgeType} label={selInfo.badgeLabel} /></div>
-              <div className="flex flex-col gap-1.5">
-                {selInfo.lines.map((ln, i) => (
-                  <div key={i} className="flex items-center justify-between gap-2 border-b border-gray-100 py-1 text-xs dark:border-rdia-700/50">
-                    <span className="text-gray-500 dark:text-rdia-300">{ln.k}</span>
-                    <span className="text-end font-semibold text-gray-800 dark:text-rdia-50">{ln.v}</span>
-                  </div>
-                ))}
-              </div>
-              {selInfo.action && (
-                <button className="btn-secondaire w-full text-xs" onClick={selInfo.action}>{t.view}</button>
-              )}
+      {/* Surcouches : tout est posé sur la carte, chaque panneau est repliable */}
+      <div className="pointer-events-none absolute inset-0 z-20">
+        {/* Colonne gauche : couches (arbre) + légende */}
+        <div className="absolute flex w-[230px] flex-col gap-2" style={{ top: 12, insetInlineStart: 12 }}>
+          <Panel title={t.layers} width={230}>
+            <div className="flex max-h-[52vh] flex-col overflow-y-auto overflow-x-hidden">
+              {families.map((f) => (
+                <FamilyNode
+                  key={f.label}
+                  family={f}
+                  layers={layers}
+                  toggleLayer={toggleLayer}
+                  selMarker={selMarker}
+                  select={select}
+                />
+              ))}
             </div>
-          ) : (
-            <div className="py-6 text-center text-xs text-gray-400 dark:text-rdia-400">{t.sel_none}</div>
-          )}
+          </Panel>
+          <Panel title={t.legend} width={230} defaultOpen={false}>
+            <div className="flex flex-col gap-2 text-[11px] text-white/80">
+              {legend.map(([shape, label]) => (
+                <div key={label} className="flex items-center gap-2">
+                  <svg width={14} height={14} viewBox="-7 -7 14 14">{shape}</svg>
+                  <span>{label}</span>
+                </div>
+              ))}
+            </div>
+          </Panel>
         </div>
-      </div>
 
-      {/* Carte */}
-      <div className="carte relative min-w-0 overflow-hidden" style={{ background: "#10202f", padding: 0, height: "100%", minHeight: 560 }}>
-        <MapCanvas />
-        <div className="absolute z-10 flex gap-2" style={{ top: 12, right: 12 }}>
-          <div className="flex overflow-hidden rounded-lg shadow-md" style={{ background: "rgba(15,31,20,0.85)", backdropFilter: "blur(4px)" }}>
-            <button className={seg(!map3d)} onClick={() => setMap3d(false)}>2D</button>
-            <button className={seg(map3d)} onClick={() => setMap3d(true)}>3D</button>
+        {/* Colonne droite : contrôles + sélection */}
+        <div className="absolute flex w-[240px] flex-col items-end gap-2" style={{ top: 12, insetInlineEnd: 12 }}>
+          <div className="pointer-events-auto flex flex-wrap justify-end gap-2">
+            <div className="flex overflow-hidden rounded-lg shadow-md" style={GLASS}>
+              <button className={seg(!map3d)} onClick={() => setMap3d(false)}>2D</button>
+              <button className={seg(map3d)} onClick={() => setMap3d(true)}>3D</button>
+            </div>
+            <div className="flex overflow-hidden rounded-lg shadow-md" style={GLASS}>
+              <button className={seg(mapSat)} onClick={() => setMapSat(true)}>{t.base_sat}</button>
+              <button className={seg(!mapSat)} onClick={() => setMapSat(false)}>{t.base_plan}</button>
+            </div>
+            <button
+              onClick={() => setFull((f) => !f)}
+              title={full ? t.wz_exit_full : t.wz_fullscreen}
+              aria-label={full ? t.wz_exit_full : t.wz_fullscreen}
+              className="flex h-[30px] w-[30px] items-center justify-center rounded-lg text-white/90 shadow-md transition-colors hover:text-or-400"
+              style={GLASS}
+            >
+              <Icon path={full ? UI_ICONS.close : UI_ICONS.expand} size={15} strokeWidth={2} />
+            </button>
           </div>
-          <div className="flex overflow-hidden rounded-lg shadow-md" style={{ background: "rgba(15,31,20,0.85)", backdropFilter: "blur(4px)" }}>
-            <button className={seg(mapSat)} onClick={() => setMapSat(true)}>{t.base_sat}</button>
-            <button className={seg(!mapSat)} onClick={() => setMapSat(false)}>{t.base_plan}</button>
-          </div>
+
+          {selInfo && (
+            <Panel
+              title={selInfo.titre}
+              width={240}
+              right={
+                <button className="me-2 rounded-lg p-1 text-white/60 transition-colors hover:text-or-400" onClick={clearSelection} aria-label={t.cancel}>
+                  <Icon path={UI_ICONS.close} size={13} strokeWidth={2} />
+                </button>
+              }
+            >
+              <div className="flex flex-col gap-2">
+                <div className="text-[11px] text-white/60">{selInfo.sub}</div>
+                <div><Badge type={selInfo.badgeType} label={selInfo.badgeLabel} /></div>
+                <div className="flex flex-col gap-1">
+                  {selInfo.lines.map((ln, i) => (
+                    <div key={i} className="flex items-center justify-between gap-2 border-b border-white/12 py-1 text-[11px]">
+                      <span className="text-white/60">{ln.k}</span>
+                      <span className="text-end font-semibold text-white">{ln.v}</span>
+                    </div>
+                  ))}
+                </div>
+                {selInfo.action && <button className="btn-secondaire w-full text-[11px]" onClick={selInfo.action}>{t.view}</button>}
+              </div>
+            </Panel>
+          )}
         </div>
       </div>
     </section>
