@@ -20,13 +20,16 @@ import type {
   City,
   Incident,
   IncidentTypeDef,
+  SubIncidentCatalog,
   Lang,
   MapSelection,
   MarkerKind,
   Member,
   Province,
+  SeismicEvent,
   Unit,
   VehRoute,
+  WeatherGridPoint,
 } from "@/lib/types";
 import { LANGS, type Dict } from "@/lib/i18n/translations";
 import { MODULES, type ModulesDict } from "@/lib/i18n/modules";
@@ -154,9 +157,28 @@ interface ArgosState {
   domainLoaded: boolean;
   /** Catalogue paramétrable des types d'incident (API /incident-types) */
   incidentTypes: IncidentTypeDef[];
+  subCatalog: SubIncidentCatalog;
   /** Statistiques de commandement (API /dashboard/stats) */
   dashStats: DashStats | null;
   tick: number;
+
+  // --- flux sismique (EMSC) : partagé par la page /seismologie, la carte et l'alerte globale ---
+  quakes: SeismicEvent[];
+  /** couche séismes active (carte) + surveillance de l'alerte */
+  quakesOn: boolean;
+  quakesMinMag: number;
+  quakesRegion: "morocco" | "world";
+  /** dernier nouveau séisme détecté (déclenche la pop-up d'alerte) ; null = aucune alerte */
+  quakeAlert: SeismicEvent | null;
+  /** séisme à centrer sur la carte (« voir sur la carte ») ; consommé puis remis à null */
+  quakeFocus: SeismicEvent | null;
+  /** séisme sélectionné (bandeau de détail flottant sur la carte) ; null = aucun */
+  quakeSelected: SeismicEvent | null;
+
+  // --- couches météo de la carte opérationnelle (grille de conditions) ---
+  wxGrid: WeatherGridPoint[];
+  /** couches météo actives sur la carte (indépendantes, superposables) */
+  wxLayers: { temp: boolean; wind: boolean; precip: boolean };
 
   // --- sélection de détail ressource / hôpital (partagée avec la carte) ---
   selUnit: string | null;
@@ -207,6 +229,19 @@ interface ArgosState {
   setProfile: (patch: { nom?: string; photo?: string | null }) => void;
   /** Charge les entités de domaine depuis l'API (incidents, unités, hôpitaux, fil). */
   loadDomain: () => Promise<void>;
+  /** Recharge les séismes (EMSC) et détecte les nouveaux (→ alerte). */
+  loadQuakes: () => Promise<void>;
+  setQuakesOn: (v: boolean) => void;
+  setQuakesFilter: (minmag: number, region: "morocco" | "world") => void;
+  dismissQuakeAlert: () => void;
+  /** Demande le centrage de la carte sur un séisme (active la couche) ; null pour purger. */
+  focusQuake: (ev: SeismicEvent | null) => void;
+  /** Sélectionne un séisme pour le bandeau de détail (clic sur la carte) ; null ferme. */
+  selectQuake: (ev: SeismicEvent | null) => void;
+  /** Bascule une couche météo de la carte (charge la grille à la 1re activation). */
+  toggleWxLayer: (k: "temp" | "wind" | "precip") => void;
+  /** Charge la grille météo (conditions actuelles) depuis l'API. */
+  loadWxGrid: () => Promise<void>;
   logout: () => void;
   /** 1er login finalisé (mot de passe posé côté API) → compte actif. */
   completePasswordChange: () => void;
@@ -271,7 +306,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
   lang: "fr",
   dark: true,
   sbOpen: true,
-  navGroups: { res: true, dis: false, cmd: false },
+  navGroups: { res: false, dis: false, cmd: false },
   toast: null,
   wizOpen: false,
   wizInitLL: null,
@@ -285,8 +320,20 @@ export const useArgos = create<ArgosState>((set, get) => ({
   catalog: EMPTY_CATALOG,
   domainLoaded: false,
   incidentTypes: [],
+  subCatalog: { types: [], byParent: {} },
   dashStats: null,
   tick: 0,
+
+  quakes: [],
+  quakesOn: true,
+  quakesMinMag: 2.5,
+  quakesRegion: "world",
+  quakeAlert: null,
+  quakeFocus: null,
+  quakeSelected: null,
+
+  wxGrid: [],
+  wxLayers: { temp: false, wind: false, precip: false },
 
   selUnit: null,
   selHosp: null,
@@ -374,6 +421,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
       api.getReference(),
       api.getIncidentTypes(),
       api.getDashboardStats(),
+      api.getSubIncidentTypes(),
     ]);
     const data = <T,>(i: number): T | undefined =>
       results[i].status === "fulfilled"
@@ -392,6 +440,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
       catalog: data<Catalog>(7) ?? s.catalog,
       incidentTypes: data<IncidentTypeDef[]>(10) ?? s.incidentTypes,
       dashStats: data<DashStats>(11) ?? s.dashStats,
+      subCatalog: data<SubIncidentCatalog>(12) ?? s.subCatalog,
       comCats: comms?.categories ?? s.comCats,
       comMsgs: comms?.messages ?? s.comMsgs,
       comMembers: comms?.members ?? s.comMembers,
@@ -400,6 +449,52 @@ export const useArgos = create<ArgosState>((set, get) => ({
       vehRoutes: reference?.vehRoutes ?? s.vehRoutes,
       domainLoaded: true,
     }));
+  },
+
+  // Recharge les séismes depuis l'API (proxy EMSC) et détecte les nouveaux
+  // événements pour déclencher l'alerte globale (hors 1er chargement / couche off).
+  loadQuakes: async () => {
+    const { quakesMinMag, quakesRegion, quakes: prev, quakesOn } = get();
+    const res = await api.getSeismicEvents(quakesMinMag, quakesRegion);
+    const list = ((res.data as SeismicEvent[] | undefined) ?? []).filter((q) => Number.isFinite(q.lat) && Number.isFinite(q.lon));
+    const firstLoad = prev.length === 0;
+    const prevIds = new Set(prev.map((q) => q.id));
+    const fresh = list.filter((q) => !prevIds.has(q.id));
+    set((s) => ({
+      quakes: list,
+      quakeAlert:
+        quakesOn && !firstLoad && fresh.length > 0
+          ? fresh.reduce((a, b) => (b.mag > a.mag ? b : a))
+          : s.quakeAlert,
+    }));
+  },
+
+  setQuakesOn: (v) => set((s) => ({ quakesOn: v, quakeAlert: v ? s.quakeAlert : null })),
+
+  // Changer de filtre repart d'une liste vide : le prochain chargement est traité
+  // comme un 1er chargement (pas de fausse alerte sur le changement de périmètre).
+  setQuakesFilter: (minmag, region) => set({ quakesMinMag: minmag, quakesRegion: region, quakes: [], quakeAlert: null }),
+
+  dismissQuakeAlert: () => set({ quakeAlert: null }),
+
+  // « Voir sur la carte » : centre (quakeFocus, consommé) + sélectionne pour le
+  // bandeau de détail (quakeSelected, persistant) + active la couche séismes.
+  focusQuake: (ev) => set((s) => ({ quakeFocus: ev, quakeSelected: ev ?? s.quakeSelected, quakesOn: ev ? true : s.quakesOn })),
+
+  selectQuake: (ev) => set({ quakeSelected: ev }),
+
+  // Grille météo : chargée paresseusement à la 1re activation d'une couche.
+  loadWxGrid: async () => {
+    const res = await api.getWeatherGrid();
+    const pts = (res.data as WeatherGridPoint[] | undefined) ?? [];
+    if (pts.length) set({ wxGrid: pts });
+  },
+
+  toggleWxLayer: (k) => {
+    const s = get();
+    const wxLayers = { ...s.wxLayers, [k]: !s.wxLayers[k] };
+    set({ wxLayers });
+    if (wxLayers[k] && s.wxGrid.length === 0) void get().loadWxGrid();
   },
 
   logout: () => {

@@ -12,6 +12,7 @@ import {
   MODULE_FEATURES,
   type Role,
 } from "@/shared/permissions";
+import { loadDevState, saveDevState } from "@/common/dev-store";
 
 /**
  * Compte utilisateur géré (registre serveur). En production, ces identités sont
@@ -105,6 +106,24 @@ export class UsersService {
 
   private roleFeatures = defaultRoleFeatures();
 
+  constructor() {
+    // Persistance dev : restaure le registre depuis l'instantané disque afin que
+    // le mot de passe fondateur (et tous les comptes) SURVIVE aux redémarrages —
+    // plus de « 1er login » à chaque lancement. Voir common/dev-store.
+    // (Réinitialiser : supprimer le dossier .dev-data.)
+    const snap = loadDevState<{ users?: ManagedUser[]; roleFeatures?: Record<Role, Record<string, boolean>> }>("iam", {});
+    if (snap.users && snap.users.length > 0) {
+      // `online` est un état de session : on repart déconnecté après un restart.
+      this.users.splice(0, this.users.length, ...snap.users.map((u) => ({ ...u, online: false })));
+    }
+    if (snap.roleFeatures) this.roleFeatures = snap.roleFeatures;
+  }
+
+  /** Écrit l'instantané du registre (débounce dans dev-store ; no-op hors dev). */
+  private persist(): void {
+    saveDevState("iam", { users: this.users, roleFeatures: this.roleFeatures });
+  }
+
   // --- lecture -------------------------------------------------------------
 
   list(): ManagedUserPublic[] {
@@ -166,6 +185,7 @@ export class UsersService {
       lastLogin: null,
     };
     this.users.unshift(user);
+    this.persist();
     return { user: toPublic(user), tempPassword };
   }
 
@@ -178,6 +198,7 @@ export class UsersService {
     }
     if (patch.nom !== undefined) u.nom = patch.nom.trim();
     if (patch.grade !== undefined) u.grade = patch.grade.trim() || undefined;
+    this.persist();
     return toPublic(u);
   }
 
@@ -187,6 +208,7 @@ export class UsersService {
     if (u.matricule === actorUsername) throw new ForbiddenException("Impossible de supprimer son propre compte.");
     const idx = this.users.findIndex((x) => x.id === id);
     this.users.splice(idx, 1);
+    this.persist();
   }
 
   /** Activation forcée / suspension (contrôleur réservé au Super Admin via permission). */
@@ -199,6 +221,7 @@ export class UsersService {
     } else {
       u.disabled = true;
     }
+    this.persist();
     return toPublic(u);
   }
 
@@ -210,6 +233,7 @@ export class UsersService {
     u.passwordChanged = false;
     u.password = undefined;
     u.disabled = false;
+    this.persist();
     return { tempPassword };
   }
 
@@ -241,6 +265,7 @@ export class UsersService {
       throw new ForbiddenException("Les rôles superadmin/admin ont un accès total verrouillé.");
     }
     this.roleFeatures[role] = { ...this.roleFeatures[role], [feature]: enabled };
+    this.persist();
     return this.roleFeatures[role];
   }
 
@@ -264,6 +289,7 @@ export class UsersService {
     if (expected === undefined || password !== expected) return null;
     u.online = true;
     u.lastLogin = new Date().toISOString();
+    this.persist();
     return { user: u, mustChangePassword: !u.passwordChanged, mustChooseRole: u.roles.length > 1 };
   }
 
@@ -280,6 +306,7 @@ export class UsersService {
     if (!u) throw new NotFoundException("Compte introuvable.");
     if (patch.nom !== undefined && patch.nom.trim()) u.nom = patch.nom.trim();
     if (patch.photo !== undefined) u.photo = patch.photo === null ? undefined : patch.photo;
+    this.persist();
     return { nom: u.nom, photo: u.photo };
   }
 
@@ -290,6 +317,7 @@ export class UsersService {
     u.password = newPassword;
     u.tempPassword = null;
     u.disabled = false;
+    this.persist();
   }
 
   /** Valide qu'un rôle appartient bien au compte (sélecteur de rôle multi-rôles). */
@@ -300,6 +328,6 @@ export class UsersService {
 
   markOffline(matricule: string): void {
     const u = this.byMatricule(matricule);
-    if (u) u.online = false;
+    if (u) { u.online = false; this.persist(); }
   }
 }

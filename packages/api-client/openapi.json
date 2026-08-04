@@ -787,6 +787,102 @@
         ]
       }
     },
+    "/api/sub-incident-types": {
+      "get": {
+        "operationId": "DomainController_subIncidentTypesList",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Catalogue des sous-types + mapping par type d'incident principal",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/incidents/{id}/sub-incidents": {
+      "post": {
+        "operationId": "DomainController_addSubIncident",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSubIncidentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Rattacher un sous-incident (aléa secondaire) à un incident (audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/incidents/{id}/sub-incidents/{subId}": {
+      "delete": {
+        "operationId": "DomainController_removeSubIncident",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Détacher un sous-incident (audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/units": {
       "get": {
         "operationId": "DomainController_units",
@@ -1092,6 +1188,120 @@
           "domain"
         ]
       }
+    },
+    "/api/seismic/events": {
+      "get": {
+        "operationId": "DomainController_seismicEvents",
+        "parameters": [
+          {
+            "name": "minmag",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "region",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Séismes récents (CSEM/EMSC, proxy souverain) — minmag & region (morocco|world)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/weather/cities": {
+      "get": {
+        "operationId": "DomainController_weatherCities",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Villes disponibles pour la météo",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/weather/grid": {
+      "get": {
+        "operationId": "DomainController_weatherGrid",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Grille de conditions actuelles (carte météo, proxy souverain)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/weather/forecast": {
+      "get": {
+        "operationId": "DomainController_weatherForecast",
+        "parameters": [
+          {
+            "name": "lat",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lon",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Prévisions météo (Open-Meteo, proxy souverain) pour lat/lon",
+        "tags": [
+          "domain"
+        ]
+      }
     }
   },
   "info": {
@@ -1349,6 +1559,28 @@
           "enabled"
         ]
       },
+      "IncidentTypeLabelsDto": {
+        "type": "object",
+        "properties": {
+          "fr": {
+            "type": "string",
+            "example": "Tempête de sable"
+          },
+          "ar": {
+            "type": "string",
+            "example": "عاصفة رملية"
+          },
+          "en": {
+            "type": "string",
+            "example": "Sandstorm"
+          }
+        },
+        "required": [
+          "fr",
+          "ar",
+          "en"
+        ]
+      },
       "RegisterIncidentTypeDto": {
         "type": "object",
         "properties": {
@@ -1358,12 +1590,7 @@
             "description": "Identifiant (slug)"
           },
           "labels": {
-            "type": "object",
-            "example": {
-              "fr": "Tempête de sable",
-              "ar": "عاصفة رملية",
-              "en": "Sandstorm"
-            }
+            "$ref": "#/components/schemas/IncidentTypeLabelsDto"
           },
           "icon": {
             "type": "string",
@@ -1553,6 +1780,55 @@
             "$ref": "#/components/schemas/RespondersDto"
           }
         }
+      },
+      "CreateSubIncidentDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "gas_leak",
+            "description": "Identifiant d'un sous-type (catalogue /sub-incident-types)"
+          },
+          "sev": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "description": "Précision libre"
+          },
+          "ll": {
+            "description": "[lng, lat] propre au sous-incident",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "casualties": {
+            "description": "Bilan humain du sous-incident",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CasualtiesDto"
+              }
+            ]
+          },
+          "responders": {
+            "description": "Intervenants (IDs d'unités et d'hôpitaux)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RespondersDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "sev"
+        ]
       },
       "CreateUnitDto": {
         "type": "object",

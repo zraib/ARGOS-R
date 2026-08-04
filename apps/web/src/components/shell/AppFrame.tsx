@@ -15,6 +15,7 @@ import { Sidebar } from "@/components/shell/Sidebar";
 import { Header } from "@/components/shell/Header";
 import { Toast } from "@/components/shell/Toast";
 import { IncidentWizard } from "@/components/incidents/IncidentWizard";
+import { QuakeAlert } from "@/components/flux/QuakeAlert";
 
 /** Écran de blocage quand un module est désactivé par un feature flag. */
 function DisabledNotice() {
@@ -131,6 +132,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
         <main className="flex-1 overflow-y-auto p-6">{moduleDisabled ? <DisabledNotice /> : children}</main>
       </div>
       <IncidentWizard />
+      <QuakeAlert />
       <Toast />
     </div>
   );

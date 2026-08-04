@@ -1,4 +1,5 @@
 import { ConflictException, Injectable } from "@nestjs/common";
+import { loadDevState, saveDevState } from "@/common/dev-store";
 
 // ============================================================================
 // ARGOS — catalogue des types d'incident (paramétrable)
@@ -38,6 +39,21 @@ const SEED_TYPES: IncidentTypeDef[] = [
 export class IncidentTypesService {
   private readonly types: IncidentTypeDef[] = [...SEED_TYPES];
 
+  constructor() {
+    // Persistance dev : réinjecte les types PERSONNALISÉS (non builtin) créés
+    // depuis les Paramètres, pour qu'ils survivent aux redémarrages. On fusionne
+    // sur le seed (les types fournis restent toujours présents). Voir common/dev-store.
+    const custom = loadDevState<IncidentTypeDef[]>("incident-types", []);
+    for (const t of custom) {
+      if (!this.types.some((x) => x.id === t.id)) this.types.push({ ...t, builtin: false });
+    }
+  }
+
+  /** Persiste uniquement les types personnalisés (le seed est reconstruit au boot). */
+  private persist(): void {
+    saveDevState("incident-types", this.types.filter((t) => !t.builtin));
+  }
+
   list(): IncidentTypeDef[] {
     return this.types;
   }
@@ -57,6 +73,7 @@ export class IncidentTypesService {
       icon: input.icon?.trim() || "M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z",
     };
     this.types.push(def);
+    this.persist();
     return def;
   }
 }

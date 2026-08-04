@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsString, Max, Min, MinLength, ValidateNested } from "class-validator";
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, Min, MinLength, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 
 const SEV = ["high", "medium", "low"] as const;
@@ -99,6 +99,42 @@ export class UpdateIncidentDto {
   responders?: RespondersDto;
 }
 
+/** Rattachement d'un sous-incident (aléa secondaire) à un incident. */
+export class CreateSubIncidentDto {
+  @ApiProperty({ example: "gas_leak", description: "Identifiant d'un sous-type (catalogue /sub-incident-types)" })
+  @IsString()
+  @MinLength(1)
+  type!: string;
+
+  @ApiProperty({ enum: SEV })
+  @IsIn(SEV as unknown as string[])
+  sev!: (typeof SEV)[number];
+
+  @ApiPropertyOptional({ description: "Précision libre" })
+  @IsOptional()
+  @IsString()
+  note?: string;
+
+  @ApiPropertyOptional({ type: [Number], description: "[lng, lat] propre au sous-incident" })
+  @IsOptional() @IsArray() @ArrayMinSize(2) @ArrayMaxSize(2) @IsNumber({}, { each: true })
+  ll?: [number, number];
+
+  @ApiPropertyOptional({ type: CasualtiesDto, description: "Bilan humain du sous-incident" })
+  @IsOptional() @ValidateNested() @Type(() => CasualtiesDto)
+  casualties?: CasualtiesDto;
+
+  @ApiPropertyOptional({ type: RespondersDto, description: "Intervenants (IDs d'unités et d'hôpitaux)" })
+  @IsOptional() @ValidateNested() @Type(() => RespondersDto)
+  responders?: RespondersDto;
+}
+
+/** Libellés trilingues d'un type d'incident. */
+export class IncidentTypeLabelsDto {
+  @ApiProperty({ example: "Tempête de sable" }) @IsString() @MinLength(1) fr!: string;
+  @ApiProperty({ example: "عاصفة رملية" }) @IsString() @MinLength(1) ar!: string;
+  @ApiProperty({ example: "Sandstorm" }) @IsString() @MinLength(1) en!: string;
+}
+
 /** Enregistrement d'un nouveau type d'incident (catalogue paramétrable). */
 export class RegisterIncidentTypeDto {
   @ApiProperty({ example: "sandstorm", description: "Identifiant (slug)" })
@@ -106,9 +142,10 @@ export class RegisterIncidentTypeDto {
   @MinLength(2)
   id!: string;
 
-  @ApiProperty({ example: { fr: "Tempête de sable", ar: "عاصفة رملية", en: "Sandstorm" } })
-  @IsObject()
-  labels!: { fr: string; ar: string; en: string };
+  @ApiProperty({ type: IncidentTypeLabelsDto })
+  @ValidateNested()
+  @Type(() => IncidentTypeLabelsDto)
+  labels!: IncidentTypeLabelsDto;
 
   @ApiPropertyOptional({ description: "Tracé SVG 24×24 (icône en trait)" })
   @IsOptional()

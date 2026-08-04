@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useArgos, useDict, useModules } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
+import { Modal } from "@/components/ui/Modal";
 import { Pill } from "@/components/ui/Pill";
-import { UI_ICONS, NAV_ICONS } from "@/lib/icons";
+import { UI_ICONS, NAV_ICONS, INCIDENT_ICON_CHOICES } from "@/lib/icons";
 import { FLAGGABLE_KEYS, navLabel } from "@/lib/nav";
 import { AI_PROVIDERS, AI_DEFAULT_SETTINGS, resolveProvider, type LlmProviderId } from "@/lib/ai/config";
 import { probeProvider, listModels } from "@/lib/ai/provider";
@@ -37,6 +38,9 @@ export default function ParametresPage() {
   const [models, setModels] = useState<string[]>([]);
   const [audit, setAudit] = useState<AuditRow[]>([]);
   const [chain, setChain] = useState<{ valid: boolean; count: number } | null>(null);
+  // Navigation par section (rail à gauche + panneau à droite) plutôt qu'un mur
+  // de cartes : on ne voit que la rubrique sélectionnée.
+  const [tab, setTab] = useState<"ai" | "types" | "flags" | "audit">("ai");
 
   // Synchronise les flags et le journal d'audit avec l'API (si session API).
   const loadAudit = useCallback(async () => {
@@ -127,9 +131,18 @@ export default function ParametresPage() {
   const inputCls = "input-champ text-sm";
   const labelCls = "mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200";
 
+  // Rubriques du rail de navigation (l'audit n'apparaît qu'avec une session API).
+  const sections: { id: typeof tab; label: string; icon: string; hidden?: boolean }[] = [
+    { id: "ai", label: m.settings.ai_title, icon: NAV_ICONS.assistant },
+    { id: "types", label: m.settings.types_title, icon: NAV_ICONS.incidents },
+    { id: "flags", label: m.settings.flags_title, icon: NAV_ICONS.dashboard },
+    { id: "audit", label: m.settings.audit_title, icon: NAV_ICONS.reports, hidden: !apiConnected },
+  ];
+  const activeTab = tab === "audit" && !apiConnected ? "ai" : tab;
+
   return (
-    <section className="mx-auto flex max-w-3xl flex-col gap-4 animate-fade-in">
-      {/* En-tête */}
+    <section className="flex flex-col gap-4 animate-fade-in">
+      {/* En-tête pleine largeur */}
       <div className="carte flex items-center gap-3 p-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-or-500/15 text-or-500">
           <Icon path={NAV_ICONS.settings} size={20} />
@@ -141,7 +154,36 @@ export default function ParametresPage() {
         <span className="rounded-md bg-or-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-or-500">Super Admin</span>
       </div>
 
+      {/* Disposition « réglages » : rail de rubriques à gauche, contenu à droite.
+          Sur mobile, le rail devient une barre horizontale défilante. */}
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[224px_1fr]">
+        {/* Rail de navigation des rubriques */}
+        <nav className="carte flex flex-row gap-1 overflow-x-auto p-2 lg:sticky lg:top-6 lg:flex-col">
+          {sections.filter((s) => !s.hidden).map((s) => {
+            const on = activeTab === s.id;
+            return (
+              <button
+                key={s.id}
+                onClick={() => setTab(s.id)}
+                aria-current={on}
+                className={`flex items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-start text-sm font-medium transition-colors ${
+                  on
+                    ? "bg-or-500/15 text-or-600 dark:text-or-400"
+                    : "text-gray-500 hover:bg-gray-100 hover:text-or-500 dark:text-rdia-300 dark:hover:bg-rdia-700/50"
+                }`}
+              >
+                <Icon path={s.icon} size={16} className="shrink-0" />
+                <span className="truncate">{s.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Panneau : seule la rubrique active est rendue */}
+        <div className="min-w-0">
+
       {/* Section : Assistant IA / LLM */}
+      {activeTab === "ai" && (
       <div className="carte flex flex-col gap-4 p-5">
         <div className="flex items-center justify-between gap-3">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-rdia-600 dark:text-rdia-50">
@@ -207,8 +249,13 @@ export default function ParametresPage() {
           </button>
         </div>
       </div>
+      )}
+
+      {/* Section : gestion des types d'incident (paramétrable) */}
+      {activeTab === "types" && <IncidentTypesPanel />}
 
       {/* Section : matrice de feature flags (§6.15) */}
+      {activeTab === "flags" && (
       <div className="carte flex flex-col gap-3 p-5">
         <div>
           <h3 className="flex items-center gap-2 text-sm font-semibold text-rdia-600 dark:text-rdia-50">
@@ -236,20 +283,21 @@ export default function ParametresPage() {
           })}
         </div>
       </div>
+      )}
 
       {/* Section : journal d'audit (depuis l'API, chaîné par hash) */}
-      {apiConnected && (
+      {activeTab === "audit" && apiConnected && (
         <div className="carte flex flex-col gap-3 p-5">
           <div className="flex items-center justify-between gap-2">
             <h3 className="flex items-center gap-2 text-sm font-semibold text-rdia-600 dark:text-rdia-50">
               <Icon path={NAV_ICONS.reports} size={16} className="text-or-500" />
-              Journal d'audit
-              {chain && <Pill tone={chain.valid ? "green" : "red"} label={chain.valid ? `chaîne intègre · ${chain.count}` : "chaîne rompue"} />}
+              {m.settings.audit_title}
+              {chain && <Pill tone={chain.valid ? "green" : "red"} label={chain.valid ? `${m.settings.audit_intact} · ${chain.count}` : m.settings.audit_broken} />}
             </h3>
-            <button className="text-[11px] font-semibold text-or-500 hover:underline" onClick={() => void loadAudit()}>Actualiser</button>
+            <button className="text-[11px] font-semibold text-or-500 hover:underline" onClick={() => void loadAudit()}>{m.settings.audit_refresh}</button>
           </div>
           {audit.length === 0 ? (
-            <p className="text-xs text-gray-400 dark:text-rdia-400">Aucune entrée — basculez un module ci-dessus pour générer une trace.</p>
+            <p className="text-xs text-gray-400 dark:text-rdia-400">{m.settings.audit_empty}</p>
           ) : (
             <div className="flex flex-col divide-y divide-gray-100 dark:divide-rdia-700/50">
               {audit.map((e) => (
@@ -266,14 +314,161 @@ export default function ParametresPage() {
         </div>
       )}
 
-      {/* Section : à venir (extensibilité) */}
-      <div className="carte flex flex-col gap-2 p-5 opacity-70">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-rdia-600 dark:text-rdia-50">
-          <Icon path={NAV_ICONS.settings} size={16} className="text-gray-400 dark:text-rdia-400" />
-          {m.settings.future_title}
-        </h3>
-        <p className="text-xs text-gray-500 dark:text-rdia-300">{m.settings.future_hint}</p>
+        </div>
       </div>
     </section>
+  );
+}
+
+/** Panneau de gestion des types d'incident : liste + ajout avec sélecteur d'icône. */
+function IncidentTypesPanel() {
+  const m = useModules();
+  const lang = useArgos((s) => s.lang);
+  const incidentTypes = useArgos((s) => s.incidentTypes);
+  const loadDomain = useArgos((s) => s.loadDomain);
+  const showToast = useArgos((s) => s.showToast);
+  const apiConnected = useArgos((s) => s.apiConnected);
+
+  const [open, setOpen] = useState(false);
+  const [id, setId] = useState("");
+  const [fr, setFr] = useState("");
+  const [ar, setAr] = useState("");
+  const [en, setEn] = useState("");
+  const [icon, setIcon] = useState(INCIDENT_ICON_CHOICES[0].path);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+
+  const needle = q.trim().toLowerCase();
+  const filtered = incidentTypes.filter(
+    (d) => !needle || d.id.includes(needle) || Object.values(d.labels).some((l) => l.toLowerCase().includes(needle)),
+  );
+
+  const slug = id.trim().toLowerCase().replace(/\s+/g, "_");
+  const exists = incidentTypes.some((x) => x.id === slug);
+  const canAdd = !!slug && !!fr.trim() && !!en.trim() && !exists && !busy;
+
+  const reset = () => { setId(""); setFr(""); setAr(""); setEn(""); setIcon(INCIDENT_ICON_CHOICES[0].path); setErr(null); };
+
+  const submit = async () => {
+    if (!canAdd) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await api.registerIncidentType({ id: slug, labels: { fr: fr.trim(), ar: ar.trim() || fr.trim(), en: en.trim() }, icon });
+      if (res.error) { setErr(m.settings.type_exists); return; }
+      await loadDomain(); // rafraîchit le catalogue → visible aussitôt dans l'assistant
+      showToast(m.settings.type_added);
+      reset();
+      setOpen(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const labelCls = "mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200";
+
+  return (
+    <div className="carte flex flex-col gap-3 p-5">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-rdia-600 dark:text-rdia-50">
+            <Icon path={NAV_ICONS.incidents} size={16} className="text-or-500" />
+            {m.settings.types_title}
+            <span className="rounded-md bg-gray-100 px-1.5 py-0.5 font-mono text-[10px] text-gray-500 dark:bg-rdia-600 dark:text-rdia-200">{incidentTypes.length}</span>
+          </h3>
+          <p className="mt-0.5 text-[11px] text-gray-400 dark:text-rdia-400">{m.settings.types_hint}</p>
+        </div>
+        {!open && (
+          <button className="btn-secondaire flex shrink-0 items-center gap-1.5 text-xs disabled:opacity-50" onClick={() => setOpen(true)} disabled={!apiConnected}>
+            <Icon path={UI_ICONS.plus} size={13} /> {m.settings.type_add}
+          </button>
+        )}
+      </div>
+
+      {/* Recherche */}
+      <input className="input-champ text-sm" placeholder={m.settings.types_search} value={q} onChange={(e) => setQ(e.target.value)} />
+
+      {/* Catalogue actuel : liste par lignes (icône · libellé · identifiant · badge) */}
+      <div className="max-h-80 overflow-y-auto rounded-lg border border-gray-100 dark:border-rdia-700/50">
+        {filtered.length === 0 ? (
+          <p className="px-3 py-6 text-center text-xs text-gray-400 dark:text-rdia-400">{m.settings.types_empty}</p>
+        ) : (
+          filtered.map((def) => (
+            <div key={def.id} className="flex items-center gap-3 border-b border-gray-100 px-3 py-2 last:border-0 dark:border-rdia-700/50">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-or-500/10 text-or-500">
+                <Icon path={def.icon} size={17} strokeWidth={1.6} />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-800 dark:text-rdia-50">{def.labels[lang]}</span>
+              <span className="hidden shrink-0 font-mono text-[10px] text-gray-400 dark:text-rdia-400 sm:block">{def.id}</span>
+              {def.builtin && (
+                <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-gray-400 dark:bg-rdia-600 dark:text-rdia-300">{m.settings.type_builtin}</span>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Formulaire d'ajout : modale dédiée */}
+      <Modal open={open} title={m.settings.type_add} onClose={() => { reset(); setOpen(false); }} size="lg">
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className={labelCls}>{m.settings.type_id}</label>
+              <input className="input-champ font-mono text-sm" value={id} onChange={(e) => setId(e.target.value)} placeholder={m.settings.type_id_ph} spellCheck={false} />
+            </div>
+            <div>
+              <label className={labelCls}>{m.settings.label_fr}</label>
+              <input className="input-champ text-sm" value={fr} onChange={(e) => setFr(e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls}>{m.settings.label_en}</label>
+              <input className="input-champ text-sm" value={en} onChange={(e) => setEn(e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls}>{m.settings.label_ar}</label>
+              <input className="input-champ text-sm" dir="rtl" value={ar} onChange={(e) => setAr(e.target.value)} />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>{m.settings.type_icon}</label>
+            <div className="grid max-h-56 grid-cols-8 gap-1.5 overflow-y-auto rounded-lg border border-gray-100 p-2 sm:grid-cols-10 dark:border-rdia-700/50">
+              {INCIDENT_ICON_CHOICES.map((c) => (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={() => setIcon(c.path)}
+                  aria-label={c.key}
+                  aria-pressed={icon === c.path}
+                  className={`flex aspect-square items-center justify-center rounded-lg border-2 transition-colors ${
+                    icon === c.path
+                      ? "border-or-500 bg-or-500/10 text-or-500"
+                      : "border-transparent text-gray-500 hover:border-or-500/40 hover:text-or-500 dark:text-rdia-300"
+                  }`}
+                >
+                  <Icon path={c.path} size={20} strokeWidth={1.6} />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {exists && <p className="text-xs text-danger-500">{m.settings.type_exists}</p>}
+          {err && <p className="text-xs text-danger-500">{err}</p>}
+
+          <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-4 dark:border-rdia-700/50">
+            {/* Aperçu de la tuile telle qu'elle apparaîtra dans l'assistant */}
+            <div className="flex items-center gap-2 rounded-lg border-2 border-or-500/40 px-3 py-1.5">
+              <Icon path={icon} size={20} strokeWidth={1.6} className="text-or-500" />
+              <span className="text-xs font-semibold text-gray-700 dark:text-rdia-100">{fr.trim() || m.settings.label_fr}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button className="btn-secondaire text-xs" onClick={() => { reset(); setOpen(false); }}>{m.settings.reset}</button>
+              <button className="btn-primaire text-xs disabled:opacity-50" onClick={submit} disabled={!canAdd}>{m.settings.type_add}</button>
+            </div>
+          </div>
+        </div>
+      </Modal>
+    </div>
   );
 }

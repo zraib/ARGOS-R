@@ -1,14 +1,18 @@
-import { BadRequestException, Body, Controller, Get, NotFoundException, Param, Patch, Post } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { DomainService } from "@/modules/domain/domain.service";
 import { CatalogService } from "@/modules/domain/catalog.service";
 import { CommsService } from "@/modules/domain/comms.service";
 import { IncidentTypesService } from "@/modules/domain/incident-types.service";
+import { SubIncidentTypesService } from "@/modules/domain/sub-incident-types.service";
+import { SeismicService } from "@/modules/domain/seismic.service";
+import { WeatherService } from "@/modules/domain/weather.service";
 import {
   CreateCategoryDto,
   CreateChannelDto,
   CreateHospitalDto,
   CreateIncidentDto,
+  CreateSubIncidentDto,
   CreateUnitDto,
   RegisterIncidentTypeDto,
   SendMessageDto,
@@ -31,6 +35,9 @@ export class DomainController {
     private readonly catalog: CatalogService,
     private readonly comms: CommsService,
     private readonly incidentTypes: IncidentTypesService,
+    private readonly subIncidentTypes: SubIncidentTypesService,
+    private readonly seismic: SeismicService,
+    private readonly weather: WeatherService,
   ) {}
 
   @Get("catalog")
@@ -86,6 +93,34 @@ export class DomainController {
       throw new BadRequestException(`Type d'incident inconnu : ${dto.type}`);
     }
     const inc = this.domain.updateIncident(id, dto);
+    if (!inc) throw new NotFoundException(`Incident inconnu : ${id}`);
+    return inc;
+  }
+
+  @Get("sub-incident-types")
+  @RequirePermission("incidents:read")
+  @ApiOperation({ summary: "Catalogue des sous-types + mapping par type d'incident principal" })
+  subIncidentTypesList() {
+    return this.subIncidentTypes.list();
+  }
+
+  @Post("incidents/:id/sub-incidents")
+  @RequirePermission("incidents:create")
+  @ApiOperation({ summary: "Rattacher un sous-incident (aléa secondaire) à un incident (audité)" })
+  addSubIncident(@Param("id") id: string, @Body() dto: CreateSubIncidentDto) {
+    if (!this.subIncidentTypes.isValid(dto.type)) {
+      throw new BadRequestException(`Sous-type inconnu : ${dto.type}`);
+    }
+    const inc = this.domain.addSubIncident(id, dto);
+    if (!inc) throw new NotFoundException(`Incident inconnu : ${id}`);
+    return inc;
+  }
+
+  @Delete("incidents/:id/sub-incidents/:subId")
+  @RequirePermission("incidents:create")
+  @ApiOperation({ summary: "Détacher un sous-incident (audité)" })
+  removeSubIncident(@Param("id") id: string, @Param("subId") subId: string) {
+    const inc = this.domain.removeSubIncident(id, subId);
     if (!inc) throw new NotFoundException(`Incident inconnu : ${id}`);
     return inc;
   }
@@ -180,5 +215,38 @@ export class DomainController {
   @ApiOperation({ summary: "Données de référence : provinces, routes d'animation carte" })
   reference() {
     return this.domain.reference();
+  }
+
+  @Get("seismic/events")
+  @RequirePermission("incidents:read")
+  @ApiOperation({ summary: "Séismes récents (CSEM/EMSC, proxy souverain) — minmag & region (morocco|world)" })
+  seismicEvents(@Query("minmag") minmag?: string, @Query("region") region?: string) {
+    const mag = minmag ? Number(minmag) : 2.5;
+    const reg = region === "morocco" ? "morocco" : "world";
+    return this.seismic.recent(Number.isFinite(mag) ? mag : 2.5, reg);
+  }
+
+  @Get("weather/cities")
+  @RequirePermission("incidents:read")
+  @ApiOperation({ summary: "Villes disponibles pour la météo" })
+  weatherCities() {
+    return this.weather.cities();
+  }
+
+  @Get("weather/grid")
+  @RequirePermission("incidents:read")
+  @ApiOperation({ summary: "Grille de conditions actuelles (carte météo, proxy souverain)" })
+  weatherGrid() {
+    return this.weather.grid();
+  }
+
+  @Get("weather/forecast")
+  @RequirePermission("incidents:read")
+  @ApiOperation({ summary: "Prévisions météo (Open-Meteo, proxy souverain) pour lat/lon" })
+  weatherForecast(@Query("lat") lat: string, @Query("lon") lon: string) {
+    const la = Number(lat);
+    const lo = Number(lon);
+    if (!Number.isFinite(la) || !Number.isFinite(lo)) throw new BadRequestException("lat/lon requis");
+    return this.weather.forecast(la, lo);
   }
 }

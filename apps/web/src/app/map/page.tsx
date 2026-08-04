@@ -8,6 +8,7 @@ import { Badge, type BadgeType } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import { sevBadge, stBadge, typeLabel } from "@/lib/helpers";
+import { FLUX } from "@/lib/i18n/flux";
 import type { LayerState } from "@/lib/store";
 
 const MapCanvas = dynamic(() => import("@/components/map/MapCanvas").then((m) => m.MapCanvas), {
@@ -34,8 +35,8 @@ interface SelInfo {
 function Switch({ on }: { on: boolean }) {
   return (
     // inline-block obligatoire : un <span> inline ignore h-4/w-8 (largeur nulle).
-    <span className={`relative inline-block h-4 w-8 shrink-0 rounded-full transition-colors ${on ? "bg-or-500" : SWITCH_OFF}`}>
-      <span className="absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all" style={{ left: on ? 18 : 2 }} />
+    <span className={`relative inline-block h-5 w-10 shrink-0 rounded-full transition-colors ${on ? "bg-or-500" : SWITCH_OFF}`}>
+      <span className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all" style={{ left: on ? 22 : 2 }} />
     </span>
   );
 }
@@ -50,7 +51,7 @@ function Panel({
       <div className="flex items-center gap-1">
         <button
           onClick={() => setOpen((o) => !o)}
-          className="flex min-w-0 flex-1 items-center justify-between gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-white/80 transition-colors hover:text-or-400"
+          className="flex min-w-0 flex-1 items-center justify-between gap-2 px-3 py-2 text-[13px] font-bold uppercase tracking-wider text-white/80 transition-colors hover:text-or-400"
         >
           <span className="truncate">{title}</span>
           <Icon path={UI_ICONS.caretDown} size={12} strokeWidth={2.5} className={`shrink-0 transition-transform ${open ? "" : "-rotate-90"}`} />
@@ -73,7 +74,7 @@ function LeafRow({ leaf, sel, select }: { leaf: TreeLeaf; sel: boolean; select: 
   return (
     <button
       onClick={() => select(leaf.kind, leaf.id)}
-      className={`flex w-full items-center gap-1.5 truncate rounded px-1 py-0.5 text-start text-[10px] transition-colors ${
+      className={`flex w-full items-center gap-1.5 truncate rounded px-1 py-0.5 text-start text-[13px] transition-colors ${
         sel ? "bg-or-500/20 text-or-300" : "text-white/70 hover:bg-white/10 hover:text-white"
       }`}
     >
@@ -103,7 +104,7 @@ function LayerNode({
         >
           <Icon path={UI_ICONS.caretDown} size={10} strokeWidth={2.5} className={`transition-transform ${open ? "" : "-rotate-90"}`} />
         </button>
-        <button onClick={toggle} className={`min-w-0 flex-1 truncate text-start text-[11px] transition-colors ${on ? "text-white/90" : "text-white/45"}`}>
+        <button onClick={toggle} className={`min-w-0 flex-1 truncate text-start text-[14px] transition-colors ${on ? "text-white/90" : "text-white/45"}`}>
           {layer.label}
           {has && <span className="ms-1 text-white/40">({layer.leaves.length})</span>}
         </button>
@@ -136,7 +137,7 @@ function FamilyNode({
         <button onClick={() => setOpen((o) => !o)} className="text-white/60 transition-colors hover:text-or-400" aria-label={family.label}>
           <Icon path={UI_ICONS.caretDown} size={11} strokeWidth={2.5} className={`transition-transform ${open ? "" : "-rotate-90"}`} />
         </button>
-        <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-white/90">{family.label}</span>
+        <span className="min-w-0 flex-1 truncate text-[14px] font-bold text-white/90">{family.label}</span>
         <button onClick={() => setAll(!anyOn)} aria-label={family.label}><Switch on={anyOn} /></button>
       </div>
       {open && (
@@ -173,6 +174,12 @@ export default function MapPage() {
   const mapSat = useArgos((s) => s.mapSat);
   const setMap3d = useArgos((s) => s.setMap3d);
   const setMapSat = useArgos((s) => s.setMapSat);
+  const quakes = useArgos((s) => s.quakes);
+  const quakesOn = useArgos((s) => s.quakesOn);
+  const setQuakesOn = useArgos((s) => s.setQuakesOn);
+  const wxLayers = useArgos((s) => s.wxLayers);
+  const toggleWxLayer = useArgos((s) => s.toggleWxLayer);
+  const fx = FLUX[lang];
   const setSelUnit = useArgos((s) => s.setSelUnit);
   const setSelHosp = useArgos((s) => s.setSelHosp);
   const incidents = useArgos((s) => s.incidents);
@@ -266,7 +273,7 @@ export default function MapPage() {
     }
   }
 
-  const seg = (on: boolean) => `px-3 py-1.5 text-[11px] font-bold transition-colors ${on ? "bg-or-500 text-rdia-600" : "text-white/90 hover:text-or-400"}`;
+  const seg = (on: boolean) => `px-4 py-2.5 text-[14px] font-bold transition-colors ${on ? "bg-or-500 text-rdia-600" : "text-white/90 hover:text-or-400"}`;
   const legend: [ReactNode, string][] = [
     [<rect key="u" x={-4} y={-4} width={8} height={8} fill="#C9A84C" />, t.lg_units],
     [<g key="h"><circle r={5} fill="#fff" stroke="#9CA3AF" strokeWidth={0.5} /><path d="M-2.5,0 H2.5 M0,-2.5 V2.5" stroke="#EF4444" strokeWidth={1.6} /></g>, t.lg_hosp],
@@ -285,8 +292,8 @@ export default function MapPage() {
       {/* Surcouches : tout est posé sur la carte, chaque panneau est repliable */}
       <div className="pointer-events-none absolute inset-0 z-20">
         {/* Colonne gauche : couches (arbre) + légende */}
-        <div className="absolute flex w-[230px] flex-col gap-2" style={{ top: 12, insetInlineStart: 12 }}>
-          <Panel title={t.layers} width={230}>
+        <div className="absolute flex w-[300px] flex-col gap-2" style={{ top: 12, insetInlineStart: 12 }}>
+          <Panel title={t.layers} width={300}>
             <div className="flex max-h-[52vh] flex-col overflow-y-auto overflow-x-hidden">
               {families.map((f) => (
                 <FamilyNode
@@ -298,10 +305,32 @@ export default function MapPage() {
                   select={select}
                 />
               ))}
+              {/* Couche sismique (EMSC) — indépendante de LayerState (flux externe) */}
+              <div className="mt-1 flex items-center gap-1.5 border-t border-white/10 py-0.5 pt-1.5">
+                <span className="w-[10px]" />
+                <button onClick={() => setQuakesOn(!quakesOn)} className={`min-w-0 flex-1 truncate text-start text-[14px] transition-colors ${quakesOn ? "text-white/90" : "text-white/45"}`}>
+                  {t.nav_seismic}
+                  <span className="ms-1 text-white/40">({quakes.length})</span>
+                </button>
+                <button onClick={() => setQuakesOn(!quakesOn)} aria-label={t.nav_seismic}><Switch on={quakesOn} /></button>
+              </div>
+
+              {/* Couches météo (grille de conditions actuelles) — superposables */}
+              <div className="mt-1 border-t border-white/10 pt-1.5">
+                <div className="py-0.5 text-[14px] font-bold text-white/90">{t.nav_weather}</div>
+                {([["temp", fx.wx_temp], ["wind", fx.wx_wind], ["precip", fx.wx_precip]] as const).map(([k, label]) => (
+                  <div key={k} className="flex items-center gap-1.5 py-0.5 ps-3">
+                    <button onClick={() => toggleWxLayer(k)} className={`min-w-0 flex-1 truncate text-start text-[14px] transition-colors ${wxLayers[k] ? "text-white/90" : "text-white/45"}`}>
+                      {label}
+                    </button>
+                    <button onClick={() => toggleWxLayer(k)} aria-label={label}><Switch on={wxLayers[k]} /></button>
+                  </div>
+                ))}
+              </div>
             </div>
           </Panel>
-          <Panel title={t.legend} width={230} defaultOpen={false}>
-            <div className="flex flex-col gap-2 text-[11px] text-white/80">
+          <Panel title={t.legend} width={300} defaultOpen={false}>
+            <div className="flex flex-col gap-2 text-[14px] text-white/80">
               {legend.map(([shape, label]) => (
                 <div key={label} className="flex items-center gap-2">
                   <svg width={14} height={14} viewBox="-7 -7 14 14">{shape}</svg>
@@ -313,7 +342,7 @@ export default function MapPage() {
         </div>
 
         {/* Colonne droite : contrôles + sélection */}
-        <div className="absolute flex w-[240px] flex-col items-end gap-2" style={{ top: 12, insetInlineEnd: 12 }}>
+        <div className="absolute flex w-[300px] flex-col items-end gap-2" style={{ top: 12, insetInlineEnd: 12 }}>
           <div className="pointer-events-auto flex flex-wrap justify-end gap-2">
             <div className="flex overflow-hidden rounded-lg shadow-md" style={GLASS}>
               <button className={seg(!map3d)} onClick={() => setMap3d(false)}>2D</button>
@@ -345,17 +374,17 @@ export default function MapPage() {
               }
             >
               <div className="flex flex-col gap-2">
-                <div className="text-[11px] text-white/60">{selInfo.sub}</div>
+                <div className="text-[14px] text-white/60">{selInfo.sub}</div>
                 <div><Badge type={selInfo.badgeType} label={selInfo.badgeLabel} /></div>
                 <div className="flex flex-col gap-1">
                   {selInfo.lines.map((ln, i) => (
-                    <div key={i} className="flex items-center justify-between gap-2 border-b border-white/12 py-1 text-[11px]">
+                    <div key={i} className="flex items-center justify-between gap-2 border-b border-white/12 py-1 text-[14px]">
                       <span className="text-white/60">{ln.k}</span>
                       <span className="text-end font-semibold text-white">{ln.v}</span>
                     </div>
                   ))}
                 </div>
-                {selInfo.action && <button className="btn-secondaire w-full text-[11px]" onClick={selInfo.action}>{t.view}</button>}
+                {selInfo.action && <button className="btn-secondaire w-full text-[14px]" onClick={selInfo.action}>{t.view}</button>}
               </div>
             </Panel>
           )}

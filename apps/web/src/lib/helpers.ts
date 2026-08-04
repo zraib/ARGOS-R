@@ -12,6 +12,7 @@ import type {
   IncidentTypeDef,
   Lang,
   Severity,
+  SubIncidentTypeDef,
   UnitReadiness,
 } from "@/lib/types";
 import type { BadgeType } from "@/components/ui/Badge";
@@ -25,6 +26,11 @@ export const TYPE_FALLBACK_ICON =
  * catalogue paramétrable servi par l'API (/incident-types).
  */
 export function typeLabel(type: IncidentType, types: IncidentTypeDef[], lang: Lang): string {
+  return types.find((x) => x.id === type)?.labels[lang] ?? type;
+}
+
+/** Libellé d'un sous-type d'incident dans la langue active (catalogue API). */
+export function subTypeLabel(type: string, types: SubIncidentTypeDef[], lang: Lang): string {
   return types.find((x) => x.id === type)?.labels[lang] ?? type;
 }
 

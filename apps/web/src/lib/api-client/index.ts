@@ -22,6 +22,8 @@ export type RoleFeatureBody = Json<NonNullable<paths["/api/iam/role-features/{ro
 export type ModuleFeature = RoleFeatureBody["feature"];
 export type CreateIncidentBody = Json<NonNullable<paths["/api/incidents"]["post"]["requestBody"]>>;
 export type UpdateIncidentBody = Json<NonNullable<paths["/api/incidents/{id}"]["patch"]["requestBody"]>>;
+export type CreateSubIncidentBody = Json<NonNullable<paths["/api/incidents/{id}/sub-incidents"]["post"]["requestBody"]>>;
+export type RegisterIncidentTypeBody = Json<NonNullable<paths["/api/incident-types"]["post"]["requestBody"]>>;
 export type CreateUnitBody = Json<NonNullable<paths["/api/units"]["post"]["requestBody"]>>;
 export type CreateHospitalBody = Json<NonNullable<paths["/api/hospitals"]["post"]["requestBody"]>>;
 
@@ -86,6 +88,12 @@ export function createArgosClient(opts: ArgosClientOptions) {
     // --- domaine opérationnel (Phase 2) ---
     getIncidents: () => client.GET("/api/incidents"),
     getIncidentTypes: () => client.GET("/api/incident-types"),
+    getSubIncidentTypes: () => client.GET("/api/sub-incident-types"),
+    registerIncidentType: (body: RegisterIncidentTypeBody) => client.POST("/api/incident-types", { body }),
+    addSubIncident: (id: string, body: CreateSubIncidentBody) =>
+      client.POST("/api/incidents/{id}/sub-incidents", { params: { path: { id } }, body }),
+    removeSubIncident: (id: string, subId: string) =>
+      client.DELETE("/api/incidents/{id}/sub-incidents/{subId}", { params: { path: { id, subId } } }),
     getDashboardStats: () => client.GET("/api/dashboard/stats"),
     createIncident: (body: CreateIncidentBody) => client.POST("/api/incidents", { body }),
     updateIncident: (id: string, body: UpdateIncidentBody) => client.PATCH("/api/incidents/{id}", { params: { path: { id } }, body }),
@@ -103,6 +111,12 @@ export function createArgosClient(opts: ArgosClientOptions) {
     createCommCategory: (name: string) => client.POST("/api/comms/categories", { body: { name } }),
     createCommChannel: (categoryId: string, name: string) => client.POST("/api/comms/channels", { body: { categoryId, name } }),
     getReference: () => client.GET("/api/reference"),
+    getSeismicEvents: (minmag = 2.5, region: "morocco" | "world" = "world") =>
+      client.GET("/api/seismic/events", { params: { query: { minmag: String(minmag), region } } }),
+    getWeatherCities: () => client.GET("/api/weather/cities"),
+    getWeatherGrid: () => client.GET("/api/weather/grid"),
+    getWeatherForecast: (lat: number, lon: number) =>
+      client.GET("/api/weather/forecast", { params: { query: { lat: String(lat), lon: String(lon) } } }),
     getFlags: () => client.GET("/api/flags"),
     setFlag: (key: string, enabled: boolean) => client.PATCH("/api/flags/{key}", { params: { path: { key } }, body: { enabled } }),
     getAudit: (limit = 100) => client.GET("/api/audit", { params: { query: { limit: String(limit) } } }),

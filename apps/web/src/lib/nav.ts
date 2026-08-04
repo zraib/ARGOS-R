@@ -11,7 +11,7 @@ import { AI_ENABLED } from "@/lib/ai/config";
 import type { Role } from "@/lib/roles";
 
 export type NavKey =
-  | "dashboard" | "incidents" | "map" | "dispatch" | "triage"
+  | "dashboard" | "incidents" | "map" | "seismic" | "weather" | "dispatch" | "triage"
   | "equip" | "units" | "personnel" | "workorders"
   | "hospitals" | "ics" | "damage" | "shelters"
   | "orsec" | "plans" | "comms" | "reports" | "analytics" | "assistant"
@@ -43,6 +43,8 @@ export const HREF: Record<NavKey, string> = {
   dashboard: "/dashboard",
   incidents: "/incidents",
   map: "/map",
+  seismic: "/seismologie",
+  weather: "/meteo",
   dispatch: "/repartition",
   triage: "/triage",
   equip: "/inventaire",
@@ -67,6 +69,8 @@ export const NAV: NavEntry[] = [
   item("dashboard", HREF.dashboard),
   item("incidents", HREF.incidents),
   item("map", HREF.map),
+  item("seismic", HREF.seismic),
+  item("weather", HREF.weather),
   item("dispatch", HREF.dispatch),
   item("triage", HREF.triage),
   {
@@ -100,7 +104,7 @@ export const STUB_KEYS: NavKey[] = [];
  * Paramètres restent toujours actifs. `assistant` suit le flag de build AI_ENABLED.
  */
 export const FLAGGABLE_KEYS: NavKey[] = [
-  "incidents", "map", "dispatch", "triage",
+  "incidents", "map", "seismic", "weather", "dispatch", "triage",
   "equip", "units", "personnel", "workorders",
   "hospitals", "ics", "damage", "shelters",
   "orsec", "plans", "comms", "reports", "analytics", "assistant",
@@ -117,7 +121,7 @@ export function keyForPath(pathname: string): NavKey | null {
 }
 
 const LABEL_KEYS: Record<NavKey | GroupKey, keyof Dict> = {
-  dashboard: "nav_dash", incidents: "nav_inc", map: "nav_map", dispatch: "nav_dispatch", triage: "nav_triage",
+  dashboard: "nav_dash", incidents: "nav_inc", map: "nav_map", seismic: "nav_seismic", weather: "nav_weather", dispatch: "nav_dispatch", triage: "nav_triage",
   equip: "nav_equip", units: "nav_units", personnel: "nav_pers", workorders: "nav_wo",
   hospitals: "nav_hosp", ics: "nav_ics", damage: "nav_damage", shelters: "nav_shelters",
   orsec: "nav_orsec", plans: "nav_plans", comms: "nav_comms", reports: "nav_reports", analytics: "nav_analytics", assistant: "nav_assistant", users: "nav_users", settings: "nav_settings",

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
 import { UI_ICONS } from "@/lib/icons";
-import { sevBadge, stBadge, typeLabel } from "@/lib/helpers";
+import { sevBadge, stBadge, subTypeLabel, typeLabel } from "@/lib/helpers";
 import { canReportIncident } from "@/lib/roles";
 import type { Incident, IncidentStatus, Severity } from "@/lib/types";
 
@@ -101,6 +101,8 @@ export default function IncidentsPage() {
   const [sortBy, setSortBy] = useState<"time" | "sev" | "type">("time");
   const [sortOpen, setSortOpen] = useState(false);
   const [viewInc, setViewInc] = useState<Incident | null>(null);
+  // Ajout d'un sous-incident : modale SÉPARÉE (pas imbriquée dans la modale de détails).
+  const [addSubFor, setAddSubFor] = useState<Incident | null>(null);
   const [busy, setBusy] = useState(false);
   // Changement de statut (confirmé par mot de passe) + proposition d'archivage.
   const [stChange, setStChange] = useState<{ inc: Incident; newSt: IncidentStatus } | null>(null);
@@ -254,7 +256,9 @@ export default function IncidentsPage() {
         </table>
       </div>
 
-      {viewInc && <DetailsModal incident={viewInc} onClose={() => setViewInc(null)} onMap={toMap} onEdit={(inc) => { openWizardEdit(inc); setViewInc(null); }} />}
+      {/* Détails masqués tant que la modale d'ajout de sous-incident est ouverte : une seule modale à la fois (pas d'imbrication). */}
+      {viewInc && !addSubFor && <DetailsModal incident={viewInc} onClose={() => setViewInc(null)} onMap={toMap} onEdit={(inc) => { openWizardEdit(inc); setViewInc(null); }} onAddSub={(inc) => setAddSubFor(inc)} />}
+      {addSubFor && <SubIncidentWizard incident={addSubFor} onClose={() => setAddSubFor(null)} />}
       {stChange && (
         <StatusConfirm
           inc={stChange.inc}
@@ -293,13 +297,16 @@ function Detail({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-/** Modale de détails enrichie (bilan humain, moyens, personnel, véhicules). */
-function DetailsModal({ incident, onClose, onMap, onEdit }: { incident: Incident; onClose: () => void; onMap: (id: string) => void; onEdit: (inc: Incident) => void }) {
+/** Modale de détails enrichie (bilan humain, moyens, personnel, véhicules, sous-incidents). */
+function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddSub }: { incident: Incident; onClose: () => void; onMap: (id: string) => void; onEdit: (inc: Incident) => void; onAddSub: (inc: Incident) => void }) {
   const t = useDict();
   const lang = useArgos((s) => s.lang);
   const incidentTypes = useArgos((s) => s.incidentTypes);
   const units = useArgos((s) => s.units);
   const hospitals = useArgos((s) => s.hospitals);
+  // Lecture de la version VIVE de l'incident (mise à jour après ajout/retrait
+  // d'un sous-incident) ; repli sur l'instantané passé en prop.
+  const incident = useArgos((s) => s.incidents.find((i) => i.id === initial.id)) ?? initial;
   const engUnits = units.filter((u) => incident.responders?.units.includes(u.id));
   const engHosps = hospitals.filter((h) => incident.responders?.hospitals.includes(h.id));
   const personnel = engUnits.reduce((n, u) => n + u.eff, 0);
@@ -341,6 +348,309 @@ function DetailsModal({ incident, onClose, onMap, onEdit }: { incident: Incident
             </div>
           </div>
         )}
+        <SubIncidentSection incident={incident} onAdd={() => onAddSub(incident)} />
+      </div>
+    </Modal>
+  );
+}
+
+/** Section « sous-incidents » de la modale de détails : liste en lecture seule + bouton d'ajout (ouvre une modale SÉPARÉE). */
+function SubIncidentSection({ incident, onAdd }: { incident: Incident; onAdd: () => void }) {
+  const t = useDict();
+  const lang = useArgos((s) => s.lang);
+  const role = useArgos((s) => s.role);
+  const subCatalog = useArgos((s) => s.subCatalog);
+  const units = useArgos((s) => s.units);
+  const hospitals = useArgos((s) => s.hospitals);
+  const loadDomain = useArgos((s) => s.loadDomain);
+  const showToast = useArgos((s) => s.showToast);
+  const canEdit = canReportIncident(role);
+  const [busy, setBusy] = useState(false);
+
+  const subs = incident.subIncidents ?? [];
+
+  const remove = async (subId: string) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await api.removeSubIncident(incident.id, subId);
+      await loadDomain();
+      showToast(t.si_removed);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="border-t border-gray-100 pt-3 dark:border-rdia-700/50">
+      <div className="mb-2 flex items-center justify-between">
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">
+          {t.si_title} ({subs.length})
+        </div>
+        {canEdit && (
+          <button className="btn-secondaire flex items-center gap-1.5 text-xs" onClick={onAdd}>
+            <Icon path={UI_ICONS.plus} size={13} /> {t.si_add}
+          </button>
+        )}
+      </div>
+
+      {subs.length === 0 && (
+        <div className="text-xs text-gray-400 dark:text-rdia-400">{t.si_none}</div>
+      )}
+
+      {subs.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          {subs.map((s) => {
+            const sb = sevBadge(s.sev, t);
+            const su = units.filter((u) => s.responders?.units.includes(u.id));
+            const sh = hospitals.filter((h) => s.responders?.hospitals.includes(h.id));
+            const meta: string[] = [];
+            if (s.casualties) meta.push(`${s.casualties.dead} ${t.wz_dead.toLowerCase()} · ${s.casualties.injured} ${t.wz_injured.toLowerCase()} · ${s.casualties.missing} ${t.wz_missing.toLowerCase()}`);
+            if (s.ll) meta.push(llTxt(s.ll));
+            return (
+              <div key={s.id} className="flex flex-col gap-1 rounded-lg bg-gray-50 px-2.5 py-1.5 dark:bg-rdia-700/40">
+                <div className="flex items-center gap-2">
+                  <Badge type={sb.type} label={sb.label} />
+                  <span className="text-sm font-medium text-gray-800 dark:text-rdia-50">{subTypeLabel(s.type, subCatalog.types, lang)}</span>
+                  {s.note && <span className="truncate text-xs text-gray-500 dark:text-rdia-300">· {s.note}</span>}
+                  <span className="ms-auto font-mono text-[11px] text-gray-400 dark:text-rdia-400">{s.time}</span>
+                  {canEdit && (
+                    <button
+                      onClick={() => remove(s.id)}
+                      disabled={busy}
+                      className="rounded-md p-1 text-gray-400 transition-colors hover:text-danger-500 disabled:opacity-40"
+                      aria-label={t.flt_clear}
+                    >
+                      <Icon path={UI_ICONS.close} size={13} strokeWidth={2.5} />
+                    </button>
+                  )}
+                </div>
+                {meta.length > 0 && (
+                  <div className="ps-1 font-mono text-[10px] text-gray-400 dark:text-rdia-400">{meta.join("   ")}</div>
+                )}
+                {(su.length > 0 || sh.length > 0) && (
+                  <div className="flex flex-wrap gap-1 ps-1">
+                    {su.map((u) => <span key={u.id} className="rounded bg-or-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-or-600 dark:text-or-400">{u.nom}</span>)}
+                    {sh.map((h) => <span key={h.id} className="rounded bg-blue-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400">{h.nom}</span>)}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Modale SÉPARÉE d'ajout d'un sous-incident : assistant en 3 étapes (mêmes
+ * rubriques qu'un incident principal). Rendue au niveau de la page, en frère de
+ * la modale de détails — jamais imbriquée dedans.
+ */
+function SubIncidentWizard({ incident, onClose }: { incident: Incident; onClose: () => void }) {
+  const t = useDict();
+  const lang = useArgos((s) => s.lang);
+  const subCatalog = useArgos((s) => s.subCatalog);
+  const units = useArgos((s) => s.units);
+  const hospitals = useArgos((s) => s.hospitals);
+  const loadDomain = useArgos((s) => s.loadDomain);
+  const showToast = useArgos((s) => s.showToast);
+
+  // Sous-types suggérés pour le type d'incident parent, « Autre » toujours en fin.
+  const suggested = subCatalog.byParent[incident.type] ?? [];
+  const options = useMemo(() => {
+    const ids = [...suggested, ...(suggested.includes("other") ? [] : ["other"])];
+    return ids
+      .map((id) => ({ value: id, label: subTypeLabel(id, subCatalog.types, lang) }))
+      .filter((o) => o.label);
+  }, [suggested, subCatalog.types, lang]);
+
+  const [type, setType] = useState("");
+  const [sev, setSev] = useState<Severity>("medium");
+  const [note, setNote] = useState("");
+  // Coordonnées pré-remplies avec celles de l'incident parent (modifiables).
+  const [lat, setLat] = useState(incident.ll[1].toFixed(4));
+  const [lng, setLng] = useState(incident.ll[0].toFixed(4));
+  const [dead, setDead] = useState("");
+  const [injured, setInjured] = useState("");
+  const [missing, setMissing] = useState("");
+  const [selUnits, setSelUnits] = useState<string[]>([]);
+  const [selHosps, setSelHosps] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [step, setStep] = useState(1); // 1 type/gravité · 2 localisation · 3 victimes & moyens
+
+  const toggle = (setter: (fn: (a: string[]) => string[]) => void, id: string) =>
+    setter((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]));
+
+  const submit = async () => {
+    if (!type || busy) return;
+    setBusy(true);
+    try {
+      const latN = parseFloat(lat), lngN = parseFloat(lng);
+      const d = parseInt(dead, 10) || 0, inj = parseInt(injured, 10) || 0, mis = parseInt(missing, 10) || 0;
+      const hasCasualties = d > 0 || inj > 0 || mis > 0;
+      const hasResp = selUnits.length > 0 || selHosps.length > 0;
+      await api.addSubIncident(incident.id, {
+        type,
+        sev,
+        note: note.trim() || undefined,
+        ll: Number.isFinite(latN) && Number.isFinite(lngN) ? [lngN, latN] : undefined,
+        casualties: hasCasualties ? { dead: d, injured: inj, missing: mis } : undefined,
+        responders: hasResp ? { units: selUnits, hospitals: selHosps } : undefined,
+      });
+      await loadDomain();
+      showToast(t.si_added);
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const numCls = "input-champ text-sm";
+  const lblCls = "mb-1 block text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400";
+  const chip = (on: boolean) =>
+    `rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${
+      on ? "bg-or-500/15 text-or-600 dark:text-or-400" : "bg-gray-100 text-gray-500 hover:text-or-500 dark:bg-rdia-700/50 dark:text-rdia-300"
+    }`;
+
+  return (
+    <Modal open title={`${t.si_add} — ${incident.id}`} onClose={onClose} size="lg">
+      <div className="flex flex-col gap-4">
+        {/* Stepper */}
+        <div className="flex items-center gap-2">
+          {[t.si_type, t.wz3, t.wz4].map((label, i) => {
+            const num = i + 1;
+            const done = step > num;
+            const cur = step === num;
+            return (
+              <div key={label} className="flex flex-1 items-center gap-2">
+                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold transition-colors ${cur ? "bg-or-500 text-rdia-600" : done ? "bg-or-500/20 text-or-500" : "bg-gray-100 text-gray-400 dark:bg-rdia-600 dark:text-rdia-300"}`}>
+                  {done ? <Icon path={UI_ICONS.check} size={12} strokeWidth={3} /> : num}
+                </span>
+                <span className={`hidden truncate text-xs font-medium sm:block ${cur ? "text-gray-800 dark:text-rdia-50" : "text-gray-400 dark:text-rdia-400"}`}>{label}</span>
+                {num < 3 && <span className="h-px flex-1 bg-gray-200 dark:bg-rdia-600" />}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Étape 1 — type & gravité + précision */}
+        {step === 1 && (
+          <div className="flex flex-col gap-3">
+            <div>
+              <label className={lblCls}>{t.si_type}</label>
+              <div className="grid max-h-[36vh] grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
+                {options.map((o) => (
+                  <button
+                    key={o.value}
+                    type="button"
+                    onClick={() => setType(o.value)}
+                    className={`rounded-xl border-2 p-3 text-start text-xs font-semibold leading-tight transition-all ${
+                      type === o.value
+                        ? "border-or-500 bg-or-500/10 text-or-500"
+                        : "border-gray-200 text-gray-600 hover:border-or-500/40 dark:border-rdia-600 dark:text-rdia-200"
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className={lblCls}>{t.col_sev}</label>
+              <div className="flex gap-2">
+                {SEVS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setSev(s)}
+                    className={`flex-1 rounded-lg border-2 py-2 text-xs font-semibold transition-colors ${
+                      sev === s ? "border-or-500 bg-or-500/10 text-or-500" : "border-gray-200 text-gray-500 hover:border-or-500/40 dark:border-rdia-600 dark:text-rdia-300"
+                    }`}
+                  >
+                    {sevBadge(s, t).label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className={lblCls}>{t.si_note}</label>
+              <input className="input-champ text-sm" placeholder={t.si_note} value={note} onChange={(e) => setNote(e.target.value)} />
+            </div>
+          </div>
+        )}
+
+        {/* Étape 2 — localisation (pré-remplie depuis l'incident parent) */}
+        {step === 2 && (
+          <div className="flex flex-col gap-3">
+            <p className="text-[11px] text-gray-400 dark:text-rdia-400">{t.si_loc_hint}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={lblCls}>{t.wz_lat}</label>
+                <input className={numCls} type="number" step="0.0001" value={lat} onChange={(e) => setLat(e.target.value)} />
+              </div>
+              <div>
+                <label className={lblCls}>{t.wz_lng}</label>
+                <input className={numCls} type="number" step="0.0001" value={lng} onChange={(e) => setLng(e.target.value)} />
+              </div>
+            </div>
+            <div className="rounded-lg bg-gray-50 px-3 py-2 font-mono text-[11px] text-gray-500 dark:bg-rdia-700/40 dark:text-rdia-300">
+              {t.f_coords} : {lat || "—"}, {lng || "—"}
+            </div>
+          </div>
+        )}
+
+        {/* Étape 3 — victimes & moyens */}
+        {step === 3 && (
+          <div className="flex flex-col gap-4">
+            <div>
+              <label className={lblCls}>{t.wz_casualties} <span className="normal-case text-gray-300 dark:text-rdia-500">({t.si_optional})</span></label>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className={lblCls}>{t.wz_dead}</label>
+                  <input className={numCls} type="number" min="0" value={dead} onChange={(e) => setDead(e.target.value)} />
+                </div>
+                <div>
+                  <label className={lblCls}>{t.wz_injured}</label>
+                  <input className={numCls} type="number" min="0" value={injured} onChange={(e) => setInjured(e.target.value)} />
+                </div>
+                <div>
+                  <label className={lblCls}>{t.wz_missing}</label>
+                  <input className={numCls} type="number" min="0" value={missing} onChange={(e) => setMissing(e.target.value)} />
+                </div>
+              </div>
+            </div>
+            <div>
+              <label className={lblCls}>{t.lg_units}</label>
+              <div className="flex flex-wrap gap-1.5">
+                {units.map((u) => (
+                  <button key={u.id} type="button" className={chip(selUnits.includes(u.id))} onClick={() => toggle(setSelUnits, u.id)}>{u.nom}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className={lblCls}>{t.lg_hosp}</label>
+              <div className="flex flex-wrap gap-1.5">
+                {hospitals.map((h) => (
+                  <button key={h.id} type="button" className={chip(selHosps.includes(h.id))} onClick={() => toggle(setSelHosps, h.id)}>{h.nom}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Navigation du wizard */}
+        <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-4 dark:border-rdia-700/50">
+          <button className="btn-secondaire text-xs" onClick={() => (step > 1 ? setStep(step - 1) : onClose())}>
+            {step > 1 ? t.prev : t.no}
+          </button>
+          {step < 3 ? (
+            <button className="btn-primaire text-xs disabled:opacity-50" onClick={() => setStep(step + 1)} disabled={step === 1 && !type}>{t.next}</button>
+          ) : (
+            <button className="btn-primaire text-xs disabled:opacity-50" onClick={submit} disabled={!type || busy}>{t.si_add}</button>
+          )}
+        </div>
       </div>
     </Modal>
   );

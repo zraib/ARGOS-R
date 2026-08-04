@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { PROVINCES_MA, llToSvg } from "@/modules/domain/provinces.data";
 import { CITIES_MA } from "@/modules/domain/cities.data";
 import { ORSEC_BOARD } from "@/modules/domain/catalog.data";
+import { loadDevState, saveDevState } from "@/common/dev-store";
 
 // ============================================================================
 // ARGOS — données de domaine (Phase 2, in-memory)
@@ -28,8 +29,26 @@ export interface Incident {
   casualties?: { dead: number; injured: number; missing: number };
   /** Premiers intervenants rattachés : identifiants d'unités / d'hôpitaux. */
   responders?: { units: string[]; hospitals: string[] };
+  /** Sous-incidents (aléas secondaires rattachés après la déclaration). */
+  subIncidents?: SubIncident[];
   /** Incident archivé (masqué de la liste active). */
   archived?: boolean;
+}
+
+/** Aléa secondaire rattaché à un incident principal (mêmes détails qu'un incident). */
+export interface SubIncident {
+  id: string;
+  /** Identifiant d'un sous-type (SubIncidentTypesService). */
+  type: string;
+  sev: "high" | "medium" | "low";
+  note?: string;
+  time: string;
+  /** Localisation propre du sous-incident [lng, lat] (optionnel). */
+  ll?: [number, number];
+  /** Bilan humain propre au sous-incident (optionnel). */
+  casualties?: { dead: number; injured: number; missing: number };
+  /** Intervenants rattachés au sous-incident (IDs d'unités / d'hôpitaux). */
+  responders?: { units: string[]; hospitals: string[] };
 }
 
 export interface Unit {
@@ -140,6 +159,36 @@ export class DomainService {
     { time: "06:42", c: "bg-danger-500", txt: "Séisme M5.9 détecté, épicentre province d'Al Haouz" },
   ];
 
+  constructor() {
+    // Persistance dev : restaure les collections mutables depuis l'instantané
+    // disque pour que les données NE SOIENT PAS effacées à chaque redémarrage.
+    // Les référentiels statiques (provinces, villes, routes, file, mouvements)
+    // ne sont pas persistés. Voir common/dev-store. (Réinitialiser : rm -rf .dev-data)
+    const snap = loadDevState<{
+      incidents?: Incident[];
+      units?: Unit[];
+      hospitals?: Hospital[];
+      fieldHospitals?: FieldHospital[];
+      feed?: FeedItem[];
+    }>("domain", {});
+    if (snap.incidents) this.incidents.splice(0, this.incidents.length, ...snap.incidents);
+    if (snap.units) this.units.splice(0, this.units.length, ...snap.units);
+    if (snap.hospitals) this.hospitals.splice(0, this.hospitals.length, ...snap.hospitals);
+    if (snap.fieldHospitals) this.fieldHospitals.splice(0, this.fieldHospitals.length, ...snap.fieldHospitals);
+    if (snap.feed) this.feed.splice(0, this.feed.length, ...snap.feed);
+  }
+
+  /** Écrit l'instantané des collections mutables (débounce ; no-op hors dev). */
+  private persist(): void {
+    saveDevState("domain", {
+      incidents: this.incidents,
+      units: this.units,
+      hospitals: this.hospitals,
+      fieldHospitals: this.fieldHospitals,
+      feed: this.feed,
+    });
+  }
+
   listIncidents(): Incident[] {
     return this.incidents;
   }
@@ -151,6 +200,7 @@ export class DomainService {
     const inc: Incident = { ...input, id: `INC-${n}`, time };
     this.incidents.unshift(inc);
     this.feed.unshift({ time, c: "bg-danger-500", txt: `${inc.id} — ${inc.titre}` });
+    this.persist();
     return inc;
   }
 
@@ -162,8 +212,41 @@ export class DomainService {
     // optionnels absents comme `undefined`, et un Object.assign brut effacerait
     // les valeurs existantes (titre, type, gravité…) lors d'une mise à jour partielle.
     for (const [k, v] of Object.entries(patch)) {
-      if (v !== undefined) (inc as Record<string, unknown>)[k] = v;
+      if (v !== undefined) (inc as unknown as Record<string, unknown>)[k] = v;
     }
+    this.persist();
+    return inc;
+  }
+
+  /** Rattache un sous-incident à un incident et trace l'événement. */
+  addSubIncident(id: string, input: Omit<SubIncident, "id" | "time"> & { time?: string }): Incident | undefined {
+    const inc = this.incidents.find((i) => i.id === id);
+    if (!inc) return undefined;
+    const d = new Date();
+    const time = input.time ?? `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const n = (inc.subIncidents?.length ?? 0) + 1;
+    const sub: SubIncident = {
+      id: `${inc.id}-S${n}`,
+      type: input.type,
+      sev: input.sev,
+      note: input.note,
+      time,
+      ll: input.ll,
+      casualties: input.casualties,
+      responders: input.responders,
+    };
+    inc.subIncidents = [...(inc.subIncidents ?? []), sub];
+    this.feed.unshift({ time, c: "bg-or-500", txt: `Sous-incident rattaché à ${inc.id}` });
+    this.persist();
+    return inc;
+  }
+
+  /** Détache un sous-incident d'un incident. */
+  removeSubIncident(id: string, subId: string): Incident | undefined {
+    const inc = this.incidents.find((i) => i.id === id);
+    if (!inc) return undefined;
+    inc.subIncidents = (inc.subIncidents ?? []).filter((s) => s.id !== subId);
+    this.persist();
     return inc;
   }
 
@@ -179,6 +262,7 @@ export class DomainService {
     const d = new Date();
     const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
     this.feed.unshift({ time, c: "bg-green-500", txt: `Nouvelle unité enregistrée : ${unit.nom} (${unit.ville})` });
+    this.persist();
     return unit;
   }
 
@@ -194,6 +278,7 @@ export class DomainService {
     const d = new Date();
     const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
     this.feed.unshift({ time, c: "bg-green-500", txt: `Nouvel hôpital intégré au réseau : ${hosp.nom}` });
+    this.persist();
     return hosp;
   }
 

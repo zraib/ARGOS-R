@@ -44,8 +44,34 @@ export interface Incident {
   casualties?: { dead: number; injured: number; missing: number };
   /** Premiers intervenants rattachés : identifiants d'unités / d'hôpitaux */
   responders?: { units: string[]; hospitals: string[] };
+  /** Sous-incidents (aléas secondaires rattachés après la déclaration) */
+  subIncidents?: SubIncident[];
   /** Incident archivé (masqué de la liste active) */
   archived?: boolean;
+}
+
+/** Aléa secondaire rattaché à un incident principal (mêmes détails qu'un incident). */
+export interface SubIncident {
+  id: string;
+  type: string;
+  sev: Severity;
+  note?: string;
+  time: string;
+  ll?: [number, number];
+  casualties?: { dead: number; injured: number; missing: number };
+  responders?: { units: string[]; hospitals: string[] };
+}
+
+/** Sous-type d'incident (libellés trilingues, servis par l'API). */
+export interface SubIncidentTypeDef {
+  id: string;
+  labels: { fr: string; ar: string; en: string };
+}
+
+/** Catalogue des sous-types + mapping par type d'incident principal. */
+export interface SubIncidentCatalog {
+  types: SubIncidentTypeDef[];
+  byParent: Record<string, string[]>;
 }
 
 export type UnitReadiness = "ready" | "deployed" | "standby";
@@ -168,6 +194,89 @@ export interface DashStats {
   casualties: { dead: number; injured: number; missing: number; rescued: number };
   hospitals: { id: string; nom: string; ville: string; occPct: number; icuPct: number }[];
   units: { total: number; deployed: number; ready: number; avgReadiness: number };
+}
+
+// --- Flux externes : sismologie (EMSC) & météo (Open-Meteo) --------------
+// Contrats stables servis par l'API (proxy souverain, voir docs/adr/0002).
+
+/** Séisme normalisé depuis le CSEM/EMSC (API /seismic/events). */
+export interface SeismicEvent {
+  id: string;
+  /** ISO 8601 UTC */
+  time: string;
+  mag: number;
+  magType: string;
+  depth: number;
+  region: string;
+  lat: number;
+  lon: number;
+  /** [lng, lat] pour la carte */
+  ll: [number, number];
+  /** Type d'événement (earthquake, quarry blast…). */
+  evtype: string;
+  /** Agence / réseau d'origine. */
+  agency: string;
+  /** Dernière mise à jour de la solution (ISO 8601). */
+  lastUpdate: string;
+  /** Identifiant source EMSC. */
+  sourceId: string;
+}
+
+/** Ville sélectionnable pour la météo (API /weather/cities). */
+export interface WeatherCity {
+  id: string;
+  nom: string;
+  lat: number;
+  lon: number;
+}
+
+/** Conditions actuelles (API /weather/forecast). */
+export interface WeatherNow {
+  temp: number;
+  feels: number;
+  humidity: number;
+  wind: number;
+  gust: number;
+  windDir: number;
+  precip: number;
+  pressure: number;
+  cloud: number;
+  code: number;
+}
+
+/** Prévision journalière (API /weather/forecast). */
+export interface WeatherDay {
+  date: string;
+  code: number;
+  tmax: number;
+  tmin: number;
+  precip: number;
+  precipProb: number;
+  feelMax: number;
+  feelMin: number;
+  windMax: number;
+  gustMax: number;
+  uvMax: number;
+  sunrise: string;
+  sunset: string;
+}
+
+/** Prévisions météo pour un point (API /weather/forecast). */
+export interface WeatherForecast {
+  lat: number;
+  lon: number;
+  current: WeatherNow;
+  daily: WeatherDay[];
+}
+
+/** Point de grille pour la carte météo (API /weather/grid). */
+export interface WeatherGridPoint {
+  lat: number;
+  lon: number;
+  temp: number;
+  wind: number;
+  precip: number;
+  code: number;
 }
 
 // --- Sélection sur la carte opérationnelle -------------------------------

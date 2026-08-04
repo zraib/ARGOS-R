@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useArgos, useDict } from "@/lib/store";
+import { FLUX } from "@/lib/i18n/flux";
 import { canReportIncident } from "@/lib/roles";
 import { MAP_CENTER, MAP_STYLE, MAP_ZOOM } from "@/lib/map/style";
 import { routeThrough, type RouteResult } from "@/lib/map/routing";
@@ -68,6 +69,44 @@ async function demElevation(lng: number, lat: number): Promise<number | null> {
   return data.data[i] * 256 + data.data[i + 1] + data.data[i + 2] / 256 - 32768;
 }
 
+/** Heure locale compacte pour le bandeau séisme. */
+function qLocalTime(iso: string, lang: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const locale = lang === "ar" ? "ar-MA" : lang === "en" ? "en-GB" : "fr-FR";
+  return d.toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
+}
+
+/** Échappe le texte externe (EMSC) avant injection HTML dans la popup. */
+function esc(s: string): string {
+  return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] ?? c));
+}
+
+/** Couleur hex du bandeau selon la magnitude. */
+function qMagHex(m: number): { bg: string; fg: string } {
+  if (m >= 5) return { bg: "#ef4444", fg: "#ffffff" };
+  if (m >= 4) return { bg: "#C9A84C", fg: "#12210f" };
+  if (m >= 3) return { bg: "#fbbf24", fg: "#3a2f0a" };
+  return { bg: "#9ca3af", fg: "#1f2937" };
+}
+
+// Style de la couche sismique (partagé setupStyle / animation de pulsation).
+const QUAKE_COLOR: maplibregl.DataDrivenPropertyValueSpecification<string> =
+  ["step", ["get", "mag"], "#94a3b8", 3, "#fbbf24", 4, "#f59e0b", 5, "#ef4444"];
+const QUAKE_HALO_R: maplibregl.DataDrivenPropertyValueSpecification<number> =
+  ["interpolate", ["linear"], ["get", "mag"], 3, 12, 5, 30, 7, 52];
+const QUAKE_DOT_R: maplibregl.DataDrivenPropertyValueSpecification<number> =
+  ["interpolate", ["linear"], ["get", "mag"], 2, 5, 5, 13, 7, 22];
+
+// --- couches météo (grille de conditions actuelles servie par l'API) --------
+// Trois couches superposables et lisibles ensemble : la température est un
+// champ coloré diffus, les précipitations des taches bleues (uniquement là où
+// il pleut), le vent des anneaux ajourés dont le rayon suit la vitesse.
+const WX_TEMP_COLOR: maplibregl.DataDrivenPropertyValueSpecification<string> =
+  ["interpolate", ["linear"], ["get", "temp"], 0, "#3b82f6", 12, "#22c55e", 24, "#f59e0b", 34, "#ef4444", 44, "#7f1d1d"];
+const WX_FIELD_R: maplibregl.DataDrivenPropertyValueSpecification<number> =
+  ["interpolate", ["linear"], ["zoom"], 4, 34, 8, 90];
+
 /** Carte opérationnelle MapLibre : marqueurs en direct, convois animés, bascule 2D/3D + fond. */
 export function MapCanvas() {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -77,6 +116,8 @@ export function MapCanvas() {
   const vehProgRef = useRef<number[]>([0.1, 0.45, 0.7]);
   const rafRef = useRef<number>(0);
   const readyRef = useRef(false);
+  const quakeBound = useRef(false); // handlers hover/clic de la couche séismes posés une fois
+  const quakePopupRef = useRef<maplibregl.Popup | null>(null); // bandeau collé au séisme
   // Lecture position curseur : écriture directe dans le DOM (pas de state →
   // pas de re-rendu React à chaque mouvement de souris).
   const latRef = useRef<HTMLSpanElement | null>(null);
@@ -97,12 +138,25 @@ export function MapCanvas() {
   const fieldHosps = useArgos((s) => s.fieldHosps);
   const map3d = useArgos((s) => s.map3d);
   const mapSat = useArgos((s) => s.mapSat);
+  // Couche sismique (EMSC) : points colorés/dimensionnés par magnitude.
+  const quakes = useArgos((s) => s.quakes);
+  const quakesOn = useArgos((s) => s.quakesOn);
+  const quakeFocus = useArgos((s) => s.quakeFocus);
+  const focusQuake = useArgos((s) => s.focusQuake);
+  const quakeSelected = useArgos((s) => s.quakeSelected);
+  const wxGrid = useArgos((s) => s.wxGrid);
+  const wxLayers = useArgos((s) => s.wxLayers);
+  const lang = useArgos((s) => s.lang);
   const t = useDict();
 
   const mkEl = (html: string, kind: MarkerKind, id: string) => {
     const el = document.createElement("div");
     el.innerHTML = html;
     el.style.cursor = "pointer";
+    // Marqueurs agrandis (lisibilité console/terrain) sans casser l'ancrage :
+    // on met à l'échelle le contenu, pas l'élément positionné par MapLibre.
+    const inner = el.firstElementChild as HTMLElement | null;
+    if (inner) inner.style.transform = "scale(1.4)";
     el.addEventListener("click", (e) => {
       e.stopPropagation();
       useArgos.getState().select(kind, id);
@@ -149,6 +203,7 @@ export function MapCanvas() {
 
   const startVehAnim = () => {
     let last = performance.now();
+    let lastPulse = 0;
     const step = (now: number) => {
       const dt = (now - last) / 1000;
       last = now;
@@ -157,6 +212,16 @@ export function MapCanvas() {
         vehProgRef.current[routeIndex] = (vehProgRef.current[routeIndex] + v.speed * dt) % 1;
         mk.setLngLat(vehPos(v.route, vehProgRef.current[routeIndex]));
       });
+      // Pulsation « ping sonar » de la couche sismique (throttle ~15 fps).
+      if (now - lastPulse > 66) {
+        lastPulse = now;
+        const map = mapRef.current;
+        if (map && map.getLayer("quakes-pulse")) {
+          const tt = (now % 1800) / 1800; // 0 → 1
+          map.setPaintProperty("quakes-pulse", "circle-radius", ["*", 1 + tt * 1.6, QUAKE_HALO_R]);
+          map.setPaintProperty("quakes-pulse", "circle-opacity", 0.4 * (1 - tt));
+        }
+      }
       rafRef.current = requestAnimationFrame(step);
     };
     cancelAnimationFrame(rafRef.current);
@@ -176,6 +241,24 @@ export function MapCanvas() {
     });
     mapRef.current = map;
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
+
+    // Bouton « recentrer » ajouté sous la boussole (revient au cadrage national).
+    const centerCtrl: maplibregl.IControl = {
+      onAdd() {
+        const div = document.createElement("div");
+        div.className = "maplibregl-ctrl maplibregl-ctrl-group";
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.title = "Recentrer";
+        btn.setAttribute("aria-label", "Recentrer");
+        btn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin:auto"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><path d="M12 1.5v3 M12 19.5v3 M1.5 12h3 M19.5 12h3"/></svg>`;
+        btn.addEventListener("click", () => map.easeTo({ center: MAP_CENTER, zoom: MAP_ZOOM, pitch: 0, bearing: 0, duration: 900 }));
+        div.appendChild(btn);
+        return div;
+      },
+      onRemove() {},
+    };
+    map.addControl(centerCtrl, "bottom-right");
 
     // Shift + clic droit : déclarer un incident à l'endroit cliqué — le wizard
     // s'ouvre pré-rempli avec les coordonnées (si le rôle y est autorisé).
@@ -199,10 +282,20 @@ export function MapCanvas() {
       });
     });
 
-    // Mesure : chaque clic ajoute un point à la polyligne.
+    // Clic sur la carte : en mode mesure → ajoute un point ; sinon → sélectionne
+    // un séisme si le clic tombe sur un marqueur (bandeau de détail).
     map.on("click", (e) => {
-      if (!measureOnRef.current) return;
-      setPts((prev) => [...prev, [e.lngLat.lng, e.lngLat.lat]]);
+      if (measureOnRef.current) {
+        setPts((prev) => [...prev, [e.lngLat.lng, e.lngLat.lat]]);
+        return;
+      }
+      if (!map.getLayer("quakes-circle")) return;
+      const hit = map.queryRenderedFeatures(e.point, { layers: ["quakes-circle"] })[0];
+      const id = hit?.properties?.id;
+      if (typeof id === "string") {
+        const q = useArgos.getState().quakes.find((x) => x.id === id);
+        if (q) useArgos.getState().selectQuake(q);
+      }
     });
 
     // Les marqueurs sont des surcouches DOM indépendantes du chargement des
@@ -233,7 +326,7 @@ export function MapCanvas() {
           id: "routes-line",
           type: "line",
           source: "routes",
-          paint: { "line-color": "#C9A84C", "line-width": 2.5, "line-dasharray": [2, 2], "line-opacity": 0.9 },
+          paint: { "line-color": "#C9A84C", "line-width": 4.5, "line-dasharray": [2, 2], "line-opacity": 0.95 },
         });
       }
       // Couche de mesure (polyligne + sommets).
@@ -244,15 +337,99 @@ export function MapCanvas() {
           type: "line",
           source: "measure",
           filter: ["==", "$type", "LineString"],
-          paint: { "line-color": "#38BDF8", "line-width": 2.5, "line-dasharray": [1.5, 1] },
+          paint: { "line-color": "#38BDF8", "line-width": 4, "line-dasharray": [1.5, 1] },
         });
         map.addLayer({
           id: "measure-pt",
           type: "circle",
           source: "measure",
           filter: ["==", "$type", "Point"],
-          paint: { "circle-radius": 4, "circle-color": "#38BDF8", "circle-stroke-color": "#0f1f14", "circle-stroke-width": 1.5 },
+          paint: { "circle-radius": 6, "circle-color": "#38BDF8", "circle-stroke-color": "#0f1f14", "circle-stroke-width": 2.5 },
         });
+      }
+      // Couches météo : posées AVANT la couche sismique pour rester en dessous.
+      if (!map.getSource("wx")) {
+        map.addSource("wx", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        // Température : champ coloré diffus.
+        map.addLayer({
+          id: "wx-temp",
+          type: "circle",
+          source: "wx",
+          layout: { visibility: "none" },
+          paint: { "circle-radius": WX_FIELD_R, "circle-color": WX_TEMP_COLOR, "circle-blur": 0.6, "circle-opacity": 0.7 },
+        });
+        // Précipitations : taches bleues uniquement là où il pleut.
+        map.addLayer({
+          id: "wx-precip",
+          type: "circle",
+          source: "wx",
+          filter: [">", ["get", "precip"], 0],
+          layout: { visibility: "none" },
+          paint: {
+            "circle-radius": WX_FIELD_R,
+            "circle-color": ["interpolate", ["linear"], ["get", "precip"], 0, "#93c5fd", 3, "#3b82f6", 12, "#1d4ed8"],
+            "circle-blur": 0.75,
+            "circle-opacity": ["interpolate", ["linear"], ["get", "precip"], 0, 0.25, 5, 0.7],
+          },
+        });
+        // Vent : anneaux ajourés (rayon = vitesse) lisibles par-dessus le champ.
+        map.addLayer({
+          id: "wx-wind",
+          type: "circle",
+          source: "wx",
+          layout: { visibility: "none" },
+          paint: {
+            "circle-radius": ["interpolate", ["linear"], ["get", "wind"], 0, 5, 30, 16, 70, 30],
+            "circle-color": "rgba(0,0,0,0)",
+            "circle-stroke-width": 2.5,
+            "circle-stroke-color": ["interpolate", ["linear"], ["get", "wind"], 0, "#a7f3d0", 20, "#34d399", 40, "#fbbf24", 65, "#ef4444"],
+            "circle-stroke-opacity": 0.95,
+          },
+        });
+      }
+      // Couche sismique (EMSC) : marqueur distinct — anneau pulsé (ping sonar)
+      // + point plein bordé, couleur/rayon pilotés par la magnitude.
+      if (!map.getSource("quakes")) {
+        map.addSource("quakes", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        // Anneau de pulsation (rayon/opacité animés dans la boucle rAF).
+        map.addLayer({
+          id: "quakes-pulse",
+          type: "circle",
+          source: "quakes",
+          paint: {
+            "circle-radius": QUAKE_HALO_R,
+            "circle-color": QUAKE_COLOR,
+            "circle-opacity": 0.3,
+          },
+        });
+        // Point plein bordé de blanc (plus gros qu'avant).
+        map.addLayer({
+          id: "quakes-circle",
+          type: "circle",
+          source: "quakes",
+          paint: {
+            "circle-radius": QUAKE_DOT_R,
+            "circle-color": QUAKE_COLOR,
+            "circle-opacity": 0.95,
+            "circle-stroke-color": "#ffffff",
+            "circle-stroke-width": 2,
+          },
+        });
+        // Alimentation initiale (les séismes peuvent déjà être chargés).
+        const qs = useArgos.getState();
+        (map.getSource("quakes") as maplibregl.GeoJSONSource).setData({
+          type: "FeatureCollection",
+          features: qs.quakes.map((q) => ({ type: "Feature" as const, properties: { mag: q.mag, id: q.id }, geometry: { type: "Point" as const, coordinates: q.ll } })),
+        });
+        const qvis = qs.quakesOn ? "visible" : "none";
+        map.setLayoutProperty("quakes-pulse", "visibility", qvis);
+        map.setLayoutProperty("quakes-circle", "visibility", qvis);
+        // Curseur main au survol d'un séisme (indique qu'il est cliquable).
+        if (!quakeBound.current) {
+          map.on("mouseenter", "quakes-circle", () => { map.getCanvas().style.cursor = "pointer"; });
+          map.on("mouseleave", "quakes-circle", () => { map.getCanvas().style.cursor = measureOnRef.current ? "crosshair" : ""; });
+          quakeBound.current = true;
+        }
       }
       const st = useArgos.getState();
       map.setLayoutProperty("routes-line", "visibility", st.layers.vehicles ? "visible" : "none");
@@ -308,12 +485,14 @@ export function MapCanvas() {
     if (!map || !map.isStyleLoaded()) return;
     // Relief 3D uniquement en mode 3D (l'altitude sous le curseur est lue
     // séparément via un échantillonnage direct du MNT, cf. demElevation).
+    // La bascule 2D/3D ne fait qu'INCLINER la vue : le centre, le zoom et le cap
+    // sont conservés, on reste donc exactement là où l'opérateur regardait.
     if (on) {
       if (!map.getTerrain()) map.setTerrain({ source: "dem", exaggeration: 1.4 });
-      map.easeTo({ pitch: 62, zoom: Math.max(map.getZoom(), 8.5), center: [-8.3, 31.15], bearing: -18, duration: 1600 });
+      map.easeTo({ pitch: 60, duration: 900 });
     } else {
       map.setTerrain(null);
-      map.easeTo({ pitch: 0, bearing: 0, duration: 1200 });
+      map.easeTo({ pitch: 0, duration: 700 });
     }
   };
   useEffect(() => {
@@ -333,6 +512,83 @@ export function MapCanvas() {
     if (readyRef.current) applyBase(mapSat);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapSat]);
+
+  // --- couche sismique : mise à jour des données + visibilité ---
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !readyRef.current) return;
+    const src = map.getSource("quakes") as maplibregl.GeoJSONSource | undefined;
+    if (!src) return; // source posée par setupStyle (populée à ce moment-là)
+    src.setData({
+      type: "FeatureCollection",
+      features: quakes.map((q) => ({ type: "Feature" as const, properties: { mag: q.mag, id: q.id }, geometry: { type: "Point" as const, coordinates: q.ll } })),
+    });
+    const vis = quakesOn ? "visible" : "none";
+    if (map.getLayer("quakes-circle")) map.setLayoutProperty("quakes-circle", "visibility", vis);
+    if (map.getLayer("quakes-pulse")) map.setLayoutProperty("quakes-pulse", "visibility", vis);
+  }, [quakes, quakesOn]);
+
+  // --- couches météo : alimentation de la grille + visibilité par couche ---
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !readyRef.current) return;
+    const src = map.getSource("wx") as maplibregl.GeoJSONSource | undefined;
+    if (!src) return; // source posée par setupStyle
+    src.setData({
+      type: "FeatureCollection",
+      features: wxGrid.map((p) => ({
+        type: "Feature" as const,
+        properties: { temp: p.temp, wind: p.wind, precip: p.precip },
+        geometry: { type: "Point" as const, coordinates: [p.lon, p.lat] },
+      })),
+    });
+    ([["wx-temp", wxLayers.temp], ["wx-wind", wxLayers.wind], ["wx-precip", wxLayers.precip]] as const)
+      .forEach(([id, on]) => {
+        if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+      });
+  }, [wxGrid, wxLayers]);
+
+  // --- centrage sur un séisme (« voir sur la carte ») puis purge du focus ---
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !quakeFocus) return;
+    map.flyTo({ center: quakeFocus.ll, zoom: Math.max(map.getZoom(), 6.5), duration: 1400 });
+    focusQuake(null);
+  }, [quakeFocus, focusQuake]);
+
+  // --- bandeau de détail COLLÉ au séisme sélectionné (popup ancrée au point) ---
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    quakePopupRef.current?.remove();
+    quakePopupRef.current = null;
+    if (!quakeSelected) return;
+    const q = quakeSelected;
+    const fx = FLUX[lang];
+    const mc = qMagHex(q.mag);
+    const el = document.createElement("div");
+    el.style.width = "300px";
+    el.innerHTML = `
+      <div style="display:flex;gap:10px;align-items:flex-start;padding:12px">
+        <span style="display:inline-flex;min-width:44px;justify-content:center;align-items:center;border-radius:8px;padding:4px 8px;font-weight:700;font-family:monospace;background:${mc.bg};color:${mc.fg}">${q.mag.toFixed(1)}</span>
+        <div style="min-width:0;flex:1;color:#fff">
+          <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(q.region)}</div>
+          <div style="margin-top:6px;font-family:monospace;font-size:11px;line-height:1.6;color:rgba(255,255,255,.72)">
+            ${fx.seis_col_depth}: ${Math.round(Math.abs(q.depth))} ${fx.seis_km} · ${fx.seis_agency}: ${esc(q.agency)}<br/>
+            ${fx.seis_local}: ${qLocalTime(q.time, lang)}<br/>
+            ${q.lat.toFixed(3)}, ${q.lon.toFixed(3)}
+          </div>
+        </div>
+        <button data-close aria-label="fermer" style="background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;padding:2px;font-size:15px;line-height:1">&#10005;</button>
+      </div>`;
+    el.querySelector("[data-close]")?.addEventListener("click", () => useArgos.getState().selectQuake(null));
+    const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 20, maxWidth: "320px", className: "quake-popup" })
+      .setLngLat(q.ll)
+      .setDOMContent(el)
+      .addTo(map);
+    quakePopupRef.current = popup;
+    return () => { popup.remove(); };
+  }, [quakeSelected, lang]);
 
   // --- calcul d'itinéraire (réseau routier) à chaque changement de points ---
   useEffect(() => {

@@ -114,3 +114,36 @@ a:hover {
 .dark *::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* ==========================================================================
+   Carte opérationnelle — contrôles agrandis + bandeaux (popups) sismiques/météo
+   ========================================================================== */
+
+/* Contrôles natifs MapLibre (zoom / boussole / recentrer) nettement plus grands */
+.maplibregl-ctrl-group button {
+  width: 44px !important;
+  height: 44px !important;
+}
+.maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  background-size: 26px 26px;
+}
+.maplibregl-ctrl-group button svg {
+  width: 26px;
+  height: 26px;
+}
+.maplibregl-ctrl-group { border-radius: 12px !important; }
+
+/* Bandeau de détail séisme collé au marqueur + valeur météo au survol */
+.maplibregl-popup.quake-popup .maplibregl-popup-content,
+.maplibregl-popup.wx-popup .maplibregl-popup-content {
+  background: rgb(15 31 20 / 0.94);
+  color: #fff;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 12px;
+  box-shadow: 0 12px 44px rgb(0 0 0 / 0.5);
+  backdrop-filter: blur(8px);
+}
+.maplibregl-popup.wx-popup .maplibregl-popup-content { padding: 5px 10px; }
+.maplibregl-popup.quake-popup .maplibregl-popup-tip,
+.maplibregl-popup.wx-popup .maplibregl-popup-tip { display: none; }

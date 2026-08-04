@@ -105,10 +105,26 @@ src/
     ├── health/  auth+iam/  audit/  flags/
 ```
 
+## Persistance dev (sans base ni Docker)
+
+En mode mémoire, l'état est normalement perdu à chaque redémarrage (le compte
+fondateur repasse en « 1er login », les données sont réinitialisées). Un
+**instantané JSON sur disque** (`src/common/dev-store.ts`) le fait **survivre aux
+redémarrages** sur le poste du développeur :
+
+- Dossier : `apps/api/.dev-data/` (git-ignoré) — comptes/mot de passe (`iam.json`),
+  domaine (`domain.json`), types d'incident personnalisés (`incident-types.json`).
+- **Réinitialiser** (repartir du seed, ex. oubli du mot de passe) : `rm -rf apps/api/.dev-data`.
+- **Désactiver** : `DEV_PERSIST=off`. Ignoré si `DB_DRIVER=postgres` ou en test/prod.
+- Dossier réglable via `DEV_DATA_DIR`.
+
+Ainsi, on **ne repose son mot de passe qu'une seule fois** ; les lancements
+suivants réutilisent l'état enregistré.
+
 ## Limites (Phase 0)
 
-- Persistance par défaut **in-memory** ; le chemin **Postgres/Drizzle est câblé**
-  (`DB_DRIVER=postgres`) et ses migrations générées, mais non exécuté ici
-  (Docker/Postgres absents du bac à sable).
+- Persistance par défaut **in-memory** (instantané dev sur disque ci-dessus) ;
+  le chemin **Postgres/Drizzle est câblé** (`DB_DRIVER=postgres`) et ses
+  migrations générées, mais non exécuté ici (Docker/Postgres absents du bac à sable).
 - IAM users/roles restent seedés (à synchroniser avec l'API Admin Keycloak).
 - Le jeton dev est réservé au mode dev ; interdit en production.
