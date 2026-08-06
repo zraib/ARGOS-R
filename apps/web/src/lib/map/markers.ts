@@ -17,9 +17,12 @@ export function unitMarkerHTML(u: Unit, sel: boolean): string {
 }
 
 export function hospMarkerHTML(h: Hospital, sel: boolean): string {
+  // Symbole croix + croissant (emblèmes humanitaires jumelés) sur pastille blanche.
   return (
-    `<div style="width:18px;height:18px;background:#fff;border-radius:9999px;border:2px solid #0f1f14;display:flex;align-items:center;justify-content:center;${selRing(sel)}">` +
-    '<span style="color:#EF4444;font:900 12px Inter,sans-serif;line-height:1;">+</span></div>'
+    `<div style="width:20px;height:20px;background:#fff;border-radius:9999px;border:2px solid #0f1f14;display:flex;align-items:center;justify-content:center;${selRing(sel)}">` +
+    '<svg width="14" height="11" viewBox="0 0 26 20" aria-hidden="true">' +
+    '<path fill-rule="evenodd" fill="#EF4444" d="M8,10 m-8,0 a8,8 0 1,0 16,0 a8,8 0 1,0 -16,0 M10.8,10 m-5.8,0 a5.8,5.8 0 1,0 11.6,0 a5.8,5.8 0 1,0 -11.6,0"/>' +
+    '<path fill="#EF4444" d="M19 5.5h4v3h3v4h-3v3h-4v-3h-3v-4h3z"/></svg></div>'
   );
 }
 

@@ -287,3 +287,43 @@ export class CreateHospitalDto {
   @IsNumber({}, { each: true })
   ll!: [number, number];
 }
+
+/** Autorité notifiée (SMS + e-mail) lors d'un séisme national ≥ seuil. */
+export class AuthorityContactDto {
+  @ApiProperty({ example: "Centre de Veille et de Coordination" })
+  @IsString()
+  @MinLength(1)
+  name!: string;
+
+  @ApiProperty({ example: "+212600000000" })
+  @IsString()
+  @MinLength(6)
+  phone!: string;
+
+  @ApiProperty({ example: "cvc@interieur.gov.ma" })
+  @IsString()
+  @MinLength(3)
+  email!: string;
+}
+
+/** Corps de mise à jour de la configuration des alertes sismiques. */
+export class UpdateSeismicAlertConfigDto {
+  @ApiProperty({ minimum: 1, maximum: 9, description: "Seuil national (SMS + e-mail aux autorités)" })
+  @IsNumber()
+  @Min(1)
+  @Max(9)
+  maMinMag!: number;
+
+  @ApiProperty({ minimum: 1, maximum: 9, description: "Seuil mondial (notification dans l'app uniquement)" })
+  @IsNumber()
+  @Min(1)
+  @Max(9)
+  globalMinMag!: number;
+
+  @ApiProperty({ type: [AuthorityContactDto] })
+  @IsArray()
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => AuthorityContactDto)
+  contacts!: AuthorityContactDto[];
+}

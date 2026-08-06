@@ -691,6 +691,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/seismic/alert-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Configuration des alertes sismiques (seuils national/mondial, autorités notifiées) */
+        get: operations["DomainController_seismicAlertConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mettre à jour la configuration des alertes sismiques (audité) */
+        patch: operations["DomainController_updateSeismicAlertConfig"];
+        trace?: never;
+    };
+    "/api/seismic/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Historique des notifications SMS/e-mail envoyées aux autorités */
+        get: operations["DomainController_seismicNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/weather/cities": {
         parameters: {
             query?: never;
@@ -717,6 +752,23 @@ export interface paths {
         };
         /** Grille de conditions actuelles (carte météo, proxy souverain) */
         get: operations["DomainController_weatherGrid"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/weather/grid-world": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Grille météo mondiale grossière (pas 10°, couverture planétaire de la carte) */
+        get: operations["DomainController_weatherGridWorld"];
         put?: never;
         post?: never;
         delete?: never;
@@ -947,6 +999,21 @@ export interface components {
             categoryId: string;
             /** @example point-logistique */
             name: string;
+        };
+        AuthorityContactDto: {
+            /** @example Centre de Veille et de Coordination */
+            name: string;
+            /** @example +212600000000 */
+            phone: string;
+            /** @example cvc@interieur.gov.ma */
+            email: string;
+        };
+        UpdateSeismicAlertConfigDto: {
+            /** @description Seuil national (SMS + e-mail aux autorités) */
+            maMinMag: number;
+            /** @description Seuil mondial (notification dans l'app uniquement) */
+            globalMinMag: number;
+            contacts: components["schemas"]["AuthorityContactDto"][];
         };
     };
     responses: never;
@@ -1859,6 +1926,61 @@ export interface operations {
             };
         };
     };
+    DomainController_seismicAlertConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_updateSeismicAlertConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSeismicAlertConfigDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_seismicNotifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     DomainController_weatherCities: {
         parameters: {
             query?: never;
@@ -1877,6 +1999,23 @@ export interface operations {
         };
     };
     DomainController_weatherGrid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_weatherGridWorld: {
         parameters: {
             query?: never;
             header?: never;

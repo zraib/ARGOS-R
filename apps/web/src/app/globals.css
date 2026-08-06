@@ -147,3 +147,41 @@ a:hover {
 .maplibregl-popup.wx-popup .maplibregl-popup-content { padding: 5px 10px; }
 .maplibregl-popup.quake-popup .maplibregl-popup-tip,
 .maplibregl-popup.wx-popup .maplibregl-popup-tip { display: none; }
+
+/* Curseur de la ligne de temps météo (piste = dégradé de température) */
+.wx-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 10px;
+  border-radius: 9999px;
+  outline: none;
+  cursor: pointer;
+}
+.wx-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 2.5px solid #C9A84C;
+  box-shadow: 0 1px 5px rgb(0 0 0 / 0.55);
+}
+.wx-range::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 2.5px solid #C9A84C;
+  box-shadow: 0 1px 5px rgb(0 0 0 / 0.55);
+}
+
+/* Alerte sismique nationale : halo rouge pulsant autour de la carte d'alerte
+   (danger-500). Distincte de la notification mondiale, statique et dorée. */
+@keyframes pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(239 68 68 / 0.45); }
+  50% { box-shadow: 0 0 0 12px rgb(239 68 68 / 0); }
+}
+.animate-pulse-ring {
+  animation: pulse-ring 1.6s ease-out infinite;
+}

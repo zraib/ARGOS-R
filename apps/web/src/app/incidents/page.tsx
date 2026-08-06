@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useArgos, useDict } from "@/lib/store";
 import { api } from "@/lib/api";
@@ -10,7 +10,7 @@ import { Modal } from "@/components/ui/Modal";
 import { UI_ICONS } from "@/lib/icons";
 import { sevBadge, stBadge, subTypeLabel, typeLabel } from "@/lib/helpers";
 import { canReportIncident } from "@/lib/roles";
-import type { Incident, IncidentStatus, Severity } from "@/lib/types";
+import type { Incident, IncidentStatus, Severity, SubIncident } from "@/lib/types";
 
 const TH = "px-4 py-3 text-start text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400";
 const TD = "px-4 py-2.5";
@@ -101,6 +101,8 @@ export default function IncidentsPage() {
   const [sortBy, setSortBy] = useState<"time" | "sev" | "type">("time");
   const [sortOpen, setSortOpen] = useState(false);
   const [viewInc, setViewInc] = useState<Incident | null>(null);
+  // Lignes dépliées : arborescence des sous-incidents sous l'incident parent.
+  const [expanded, setExpanded] = useState<string[]>([]);
   // Ajout d'un sous-incident : modale SÉPARÉE (pas imbriquée dans la modale de détails).
   const [addSubFor, setAddSubFor] = useState<Incident | null>(null);
   const [busy, setBusy] = useState(false);
@@ -145,6 +147,7 @@ export default function IncidentsPage() {
   };
 
   const toggleFilter = (k: "type" | "sev" | "region" | "st") => () => { setSortOpen(false); setOpenFilter((cur) => (cur === k ? null : k)); };
+  const toggleExpand = (id: string) => setExpanded((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]));
   const iconBtn = "rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600";
   const typeOptions = presentTypes.map((id) => ({ value: id, label: typeLabel(id, incidentTypes, lang) }));
   const sevOptions = SEVS.map((s) => ({ value: s, label: sevBadge(s, t).label }));
@@ -214,11 +217,40 @@ export default function IncidentsPage() {
             {rows.map((i) => {
               const sb = sevBadge(i.sev, t);
               const st = stBadge(i.st, t);
+              const subCount = i.subIncidents?.length ?? 0;
+              const isOpen = subCount > 0 && expanded.includes(i.id);
               return (
-                <tr key={i.id} className="border-b border-gray-100 transition-colors hover:bg-gray-50 dark:border-rdia-700/50 dark:hover:bg-rdia-700/30">
+                <Fragment key={i.id}>
+                <tr className={`border-b transition-colors dark:border-rdia-700/50 ${isOpen ? "border-transparent bg-gray-50 dark:bg-rdia-700/30" : "border-gray-100 hover:bg-gray-50 dark:hover:bg-rdia-700/30"}`}>
                   <td className={`${TD} font-mono text-xs text-gray-500 dark:text-rdia-300`}>{i.id}</td>
                   <td className={TD}>
-                    <button className="text-start font-medium text-gray-800 hover:text-or-600 hover:underline dark:text-rdia-50" onClick={() => setViewInc(i)}>{i.titre}</button>
+                    {/* Nom : avec sous-incidents → déplie l'arborescence ; sinon → fiche détaillée. */}
+                    <button
+                      className="flex items-center gap-1.5 text-start font-medium text-gray-800 hover:text-or-600 dark:text-rdia-50"
+                      aria-expanded={subCount > 0 ? isOpen : undefined}
+                      onClick={() => (subCount > 0 ? toggleExpand(i.id) : setViewInc(i))}
+                    >
+                      {subCount > 0 ? (
+                        <Icon
+                          path={UI_ICONS.caretDown}
+                          size={14}
+                          strokeWidth={2.5}
+                          className={`shrink-0 text-gray-400 transition-transform dark:text-rdia-400 ${isOpen ? "text-or-500 dark:text-or-400" : "-rotate-90 rtl:rotate-90"}`}
+                        />
+                      ) : (
+                        <span className="w-3.5 shrink-0" aria-hidden="true" />
+                      )}
+                      <span className={`hover:underline ${isOpen ? "text-or-600 dark:text-or-400" : ""}`}>{i.titre}</span>
+                      {subCount > 0 && (
+                        <span
+                          title={t.si_title}
+                          className="ms-0.5 inline-flex shrink-0 items-center gap-1 rounded-full bg-or-500/15 px-1.5 py-0.5 text-[10px] font-bold leading-none text-or-600 dark:text-or-400"
+                        >
+                          <Icon path={UI_ICONS.branch} size={10} strokeWidth={2.5} />
+                          {subCount}
+                        </span>
+                      )}
+                    </button>
                   </td>
                   <td className={`${TD} text-xs text-gray-600 dark:text-rdia-200`}>{typeLabel(i.type, incidentTypes, lang)}</td>
                   <td className={`${TD} text-xs text-gray-600 dark:text-rdia-200`}>{i.region}</td>
@@ -250,6 +282,15 @@ export default function IncidentsPage() {
                     </div>
                   </td>
                 </tr>
+                {/* Ligne dépliée : arborescence des sous-incidents (comme les détails sismiques). */}
+                {isOpen && (
+                  <tr className="border-b border-gray-100 bg-gray-50 dark:border-rdia-700/50 dark:bg-rdia-700/30">
+                    <td colSpan={8} className="px-4 pb-3 pt-0">
+                      <SubIncidentTree incident={i} onAddSub={() => setAddSubFor(i)} />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               );
             })}
           </tbody>
@@ -354,8 +395,11 @@ function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddSub }: {
   );
 }
 
-/** Section « sous-incidents » de la modale de détails : liste en lecture seule + bouton d'ajout (ouvre une modale SÉPARÉE). */
-function SubIncidentSection({ incident, onAdd }: { incident: Incident; onAdd: () => void }) {
+/**
+ * Carte d'un sous-incident (gravité, type, précision, heure, bilan, moyens,
+ * retrait). Partagée entre la modale de détails et l'arborescence de la liste.
+ */
+function SubIncidentCard({ incident, sub }: { incident: Incident; sub: SubIncident }) {
   const t = useDict();
   const lang = useArgos((s) => s.lang);
   const role = useArgos((s) => s.role);
@@ -367,19 +411,98 @@ function SubIncidentSection({ incident, onAdd }: { incident: Incident; onAdd: ()
   const canEdit = canReportIncident(role);
   const [busy, setBusy] = useState(false);
 
-  const subs = incident.subIncidents ?? [];
+  const sb = sevBadge(sub.sev, t);
+  const su = units.filter((u) => sub.responders?.units.includes(u.id));
+  const sh = hospitals.filter((h) => sub.responders?.hospitals.includes(h.id));
+  const meta: string[] = [];
+  if (sub.casualties) meta.push(`${sub.casualties.dead} ${t.wz_dead.toLowerCase()} · ${sub.casualties.injured} ${t.wz_injured.toLowerCase()} · ${sub.casualties.missing} ${t.wz_missing.toLowerCase()}`);
+  if (sub.ll) meta.push(llTxt(sub.ll));
 
-  const remove = async (subId: string) => {
+  const remove = async () => {
     if (busy) return;
     setBusy(true);
     try {
-      await api.removeSubIncident(incident.id, subId);
+      await api.removeSubIncident(incident.id, sub.id);
       await loadDomain();
       showToast(t.si_removed);
     } finally {
       setBusy(false);
     }
   };
+
+  return (
+    <div className="flex flex-col gap-1 rounded-lg border border-gray-100 bg-white px-2.5 py-1.5 dark:border-rdia-600/50 dark:bg-rdia-700/40">
+      <div className="flex items-center gap-2">
+        <Badge type={sb.type} label={sb.label} />
+        <span className="text-sm font-medium text-gray-800 dark:text-rdia-50">{subTypeLabel(sub.type, subCatalog.types, lang)}</span>
+        {sub.note && <span className="truncate text-xs text-gray-500 dark:text-rdia-300">· {sub.note}</span>}
+        <span className="ms-auto font-mono text-[11px] text-gray-400 dark:text-rdia-400">{sub.time}</span>
+        {canEdit && (
+          <button
+            onClick={() => void remove()}
+            disabled={busy}
+            className="rounded-md p-1 text-gray-400 transition-colors hover:text-danger-500 disabled:opacity-40"
+            aria-label={t.si_removed}
+          >
+            <Icon path={UI_ICONS.close} size={13} strokeWidth={2.5} />
+          </button>
+        )}
+      </div>
+      {meta.length > 0 && (
+        <div className="ps-1 font-mono text-[10px] text-gray-400 dark:text-rdia-400">{meta.join("   ")}</div>
+      )}
+      {(su.length > 0 || sh.length > 0) && (
+        <div className="flex flex-wrap gap-1 ps-1">
+          {su.map((u) => <span key={u.id} className="rounded bg-or-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-or-600 dark:text-or-400">{u.nom}</span>)}
+          {sh.map((h) => <span key={h.id} className="rounded bg-blue-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400">{h.nom}</span>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Arborescence des sous-incidents affichée sous la ligne de l'incident dans le
+ * tableau (guide vertical + connecteurs horizontaux, feuille « ajouter »).
+ */
+function SubIncidentTree({ incident, onAddSub }: { incident: Incident; onAddSub: () => void }) {
+  const t = useDict();
+  const role = useArgos((s) => s.role);
+  const canEdit = canReportIncident(role);
+  const subs = incident.subIncidents ?? [];
+
+  return (
+    <div className="ps-6 animate-fade-in">
+      <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">
+        <Icon path={UI_ICONS.branch} size={12} strokeWidth={2} />
+        {t.si_title} ({subs.length})
+      </div>
+      <div className="ms-1.5 flex flex-col gap-2 border-s-2 border-or-500/30 ps-4">
+        {subs.map((s) => (
+          <div key={s.id} className="relative max-w-3xl">
+            <span aria-hidden="true" className="absolute -start-4 top-4 h-px w-3.5 bg-or-500/30" />
+            <SubIncidentCard incident={incident} sub={s} />
+          </div>
+        ))}
+        {canEdit && (
+          <div className="relative">
+            <span aria-hidden="true" className="absolute -start-4 top-1/2 h-px w-3.5 bg-or-500/30" />
+            <button className="btn-secondaire flex items-center gap-1.5 text-xs" onClick={onAddSub}>
+              <Icon path={UI_ICONS.plus} size={13} /> {t.si_add}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Section « sous-incidents » de la modale de détails : liste en lecture seule + bouton d'ajout (ouvre une modale SÉPARÉE). */
+function SubIncidentSection({ incident, onAdd }: { incident: Incident; onAdd: () => void }) {
+  const t = useDict();
+  const role = useArgos((s) => s.role);
+  const canEdit = canReportIncident(role);
+  const subs = incident.subIncidents ?? [];
 
   return (
     <div className="border-t border-gray-100 pt-3 dark:border-rdia-700/50">
@@ -400,43 +523,7 @@ function SubIncidentSection({ incident, onAdd }: { incident: Incident; onAdd: ()
 
       {subs.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          {subs.map((s) => {
-            const sb = sevBadge(s.sev, t);
-            const su = units.filter((u) => s.responders?.units.includes(u.id));
-            const sh = hospitals.filter((h) => s.responders?.hospitals.includes(h.id));
-            const meta: string[] = [];
-            if (s.casualties) meta.push(`${s.casualties.dead} ${t.wz_dead.toLowerCase()} · ${s.casualties.injured} ${t.wz_injured.toLowerCase()} · ${s.casualties.missing} ${t.wz_missing.toLowerCase()}`);
-            if (s.ll) meta.push(llTxt(s.ll));
-            return (
-              <div key={s.id} className="flex flex-col gap-1 rounded-lg bg-gray-50 px-2.5 py-1.5 dark:bg-rdia-700/40">
-                <div className="flex items-center gap-2">
-                  <Badge type={sb.type} label={sb.label} />
-                  <span className="text-sm font-medium text-gray-800 dark:text-rdia-50">{subTypeLabel(s.type, subCatalog.types, lang)}</span>
-                  {s.note && <span className="truncate text-xs text-gray-500 dark:text-rdia-300">· {s.note}</span>}
-                  <span className="ms-auto font-mono text-[11px] text-gray-400 dark:text-rdia-400">{s.time}</span>
-                  {canEdit && (
-                    <button
-                      onClick={() => remove(s.id)}
-                      disabled={busy}
-                      className="rounded-md p-1 text-gray-400 transition-colors hover:text-danger-500 disabled:opacity-40"
-                      aria-label={t.flt_clear}
-                    >
-                      <Icon path={UI_ICONS.close} size={13} strokeWidth={2.5} />
-                    </button>
-                  )}
-                </div>
-                {meta.length > 0 && (
-                  <div className="ps-1 font-mono text-[10px] text-gray-400 dark:text-rdia-400">{meta.join("   ")}</div>
-                )}
-                {(su.length > 0 || sh.length > 0) && (
-                  <div className="flex flex-wrap gap-1 ps-1">
-                    {su.map((u) => <span key={u.id} className="rounded bg-or-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-or-600 dark:text-or-400">{u.nom}</span>)}
-                    {sh.map((h) => <span key={h.id} className="rounded bg-blue-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400">{h.nom}</span>)}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {subs.map((s) => <SubIncidentCard key={s.id} incident={incident} sub={s} />)}
         </div>
       )}
     </div>

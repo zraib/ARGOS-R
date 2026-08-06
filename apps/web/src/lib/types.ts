@@ -269,14 +269,52 @@ export interface WeatherForecast {
   daily: WeatherDay[];
 }
 
-/** Point de grille pour la carte météo (API /weather/grid). */
+/** Série horaire d'un point de la grille météo (API /weather/grid). */
 export interface WeatherGridPoint {
   lat: number;
   lon: number;
-  temp: number;
-  wind: number;
-  precip: number;
-  code: number;
+  temp: number[];
+  wind: number[];
+  /** Direction d'où vient le vent (degrés), par heure. */
+  windDir: number[];
+  /** Probabilité de précipitations (%), par heure. */
+  precipProb: number[];
+}
+
+/** Grille météo animée : heures de prévision partagées + points (row-major). */
+export interface WeatherGridSeries {
+  times: string[];
+  points: WeatherGridPoint[];
+}
+
+// --- Alertes sismiques (configuration serveur) ---------------------------
+
+/** Autorité notifiée (SMS + e-mail) lors d'un séisme national ≥ seuil. */
+export interface AuthorityContact {
+  name: string;
+  phone: string;
+  email: string;
+}
+
+/** Configuration des alertes sismiques (GET/PATCH /seismic/alert-config). */
+export interface SeismicAlertConfig {
+  /** Seuil national : SMS + e-mail aux autorités + alerte rouge dans l'app. */
+  maMinMag: number;
+  /** Seuil mondial : simple notification dans l'app. */
+  globalMinMag: number;
+  contacts: AuthorityContact[];
+}
+
+/** Trace d'un envoi SMS/e-mail aux autorités (historique serveur). */
+export interface SeismicNotification {
+  id: string;
+  quakeId: string;
+  mag: number;
+  region: string;
+  quakeTime: string;
+  sentAt: string;
+  contacts: number;
+  channels: ("sms" | "email")[];
 }
 
 // --- Sélection sur la carte opérationnelle -------------------------------

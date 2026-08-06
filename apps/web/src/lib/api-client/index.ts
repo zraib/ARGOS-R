@@ -113,8 +113,13 @@ export function createArgosClient(opts: ArgosClientOptions) {
     getReference: () => client.GET("/api/reference"),
     getSeismicEvents: (minmag = 2.5, region: "morocco" | "world" = "world") =>
       client.GET("/api/seismic/events", { params: { query: { minmag: String(minmag), region } } }),
+    getSeismicAlertConfig: () => client.GET("/api/seismic/alert-config"),
+    updateSeismicAlertConfig: (body: { maMinMag: number; globalMinMag: number; contacts: { name: string; phone: string; email: string }[] }) =>
+      client.PATCH("/api/seismic/alert-config", { body }),
+    getSeismicNotifications: () => client.GET("/api/seismic/notifications"),
     getWeatherCities: () => client.GET("/api/weather/cities"),
     getWeatherGrid: () => client.GET("/api/weather/grid"),
+    getWeatherGridWorld: () => client.GET("/api/weather/grid-world"),
     getWeatherForecast: (lat: number, lon: number) =>
       client.GET("/api/weather/forecast", { params: { query: { lat: String(lat), lon: String(lon) } } }),
     getFlags: () => client.GET("/api/flags"),

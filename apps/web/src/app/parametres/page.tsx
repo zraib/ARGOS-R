@@ -10,6 +10,7 @@ import { FLAGGABLE_KEYS, navLabel } from "@/lib/nav";
 import { AI_PROVIDERS, AI_DEFAULT_SETTINGS, resolveProvider, type LlmProviderId } from "@/lib/ai/config";
 import { probeProvider, listModels } from "@/lib/ai/provider";
 import { api } from "@/lib/api";
+import type { AuthorityContact, SeismicAlertConfig, SeismicNotification } from "@/lib/types";
 
 interface AuditRow {
   seq: number;
@@ -40,7 +41,7 @@ export default function ParametresPage() {
   const [chain, setChain] = useState<{ valid: boolean; count: number } | null>(null);
   // Navigation par section (rail à gauche + panneau à droite) plutôt qu'un mur
   // de cartes : on ne voit que la rubrique sélectionnée.
-  const [tab, setTab] = useState<"ai" | "types" | "flags" | "audit">("ai");
+  const [tab, setTab] = useState<"ai" | "types" | "flags" | "seis" | "audit">("ai");
 
   // Synchronise les flags et le journal d'audit avec l'API (si session API).
   const loadAudit = useCallback(async () => {
@@ -136,9 +137,10 @@ export default function ParametresPage() {
     { id: "ai", label: m.settings.ai_title, icon: NAV_ICONS.assistant },
     { id: "types", label: m.settings.types_title, icon: NAV_ICONS.incidents },
     { id: "flags", label: m.settings.flags_title, icon: NAV_ICONS.dashboard },
+    { id: "seis", label: m.settings.seis_title, icon: NAV_ICONS.seismic, hidden: !apiConnected },
     { id: "audit", label: m.settings.audit_title, icon: NAV_ICONS.reports, hidden: !apiConnected },
   ];
-  const activeTab = tab === "audit" && !apiConnected ? "ai" : tab;
+  const activeTab = (tab === "audit" || tab === "seis") && !apiConnected ? "ai" : tab;
 
   return (
     <section className="flex flex-col gap-4 animate-fade-in">
@@ -254,6 +256,9 @@ export default function ParametresPage() {
       {/* Section : gestion des types d'incident (paramétrable) */}
       {activeTab === "types" && <IncidentTypesPanel />}
 
+      {/* Section : alertes sismiques (seuils + autorités notifiées) */}
+      {activeTab === "seis" && <SeismicAlertsPanel />}
+
       {/* Section : matrice de feature flags (§6.15) */}
       {activeTab === "flags" && (
       <div className="carte flex flex-col gap-3 p-5">
@@ -321,6 +326,144 @@ export default function ParametresPage() {
 }
 
 /** Panneau de gestion des types d'incident : liste + ajout avec sélecteur d'icône. */
+/**
+ * Panneau « Alertes sismiques » : seuil national (SMS + e-mail aux autorités),
+ * seuil mondial (notification app), liste des autorités et derniers envois.
+ * La surveillance et l'envoi s'exécutent CÔTÉ SERVEUR (voir apps/api,
+ * SeismicAlertsService) — ce panneau ne fait que configurer.
+ */
+function SeismicAlertsPanel() {
+  const m = useModules();
+  const showToast = useArgos((s) => s.showToast);
+  const setSeisConfig = useArgos((s) => s.setSeisConfig);
+  const [maMin, setMaMin] = useState("4.0");
+  const [glMin, setGlMin] = useState("5.5");
+  const [contacts, setContacts] = useState<AuthorityContact[]>([]);
+  const [notifs, setNotifs] = useState<SeismicNotification[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void api.getSeismicAlertConfig().then((r) => {
+      const cfg = r.data as SeismicAlertConfig | undefined;
+      if (!cfg) return;
+      setMaMin(String(cfg.maMinMag));
+      setGlMin(String(cfg.globalMinMag));
+      setContacts(cfg.contacts);
+    }).catch(() => {});
+    void api.getSeismicNotifications()
+      .then((r) => setNotifs(((r.data as SeismicNotification[] | undefined) ?? []).slice(0, 5)))
+      .catch(() => {});
+  }, []);
+
+  const setC = (i: number, k: keyof AuthorityContact, v: string) =>
+    setContacts((a) => a.map((c, j) => (j === i ? { ...c, [k]: v } : c)));
+
+  const save = async () => {
+    const ma = parseFloat(maMin), gl = parseFloat(glMin);
+    if (!Number.isFinite(ma) || !Number.isFinite(gl) || busy) return;
+    setBusy(true);
+    try {
+      // Lignes vides ignorées ; le serveur valide le reste (DTO).
+      const body = {
+        maMinMag: ma,
+        globalMinMag: gl,
+        contacts: contacts.filter((c) => c.name.trim() && c.phone.trim() && c.email.trim()),
+      };
+      const res = await api.updateSeismicAlertConfig(body);
+      const saved = res.data as SeismicAlertConfig | undefined;
+      if (saved) {
+        setSeisConfig(saved); // les seuils s'appliquent aussitôt aux alertes de l'app
+        setContacts(saved.contacts);
+        showToast(m.settings.seis_saved);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const inputCls = "input-champ text-sm";
+  const lblCls = "mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200";
+  const microCls = "mt-1 text-[10px] text-gray-400 dark:text-rdia-400";
+  const fmtWhen = (iso: string) => (iso.length >= 16 ? `${iso.slice(0, 10)} ${iso.slice(11, 16)}` : iso);
+
+  return (
+    <div className="carte flex flex-col gap-4 p-5">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-rdia-600 dark:text-rdia-50">
+        <Icon path={NAV_ICONS.seismic} size={16} className="text-or-500" />
+        {m.settings.seis_title}
+      </h3>
+
+      <div className="flex items-start gap-2 rounded-lg bg-or-500/10 px-3 py-2">
+        <Icon path={UI_ICONS.shield} size={13} className="mt-0.5 shrink-0 text-or-500" />
+        <span className="text-[11px] leading-snug text-or-600 dark:text-or-300">{m.settings.seis_hint}</span>
+      </div>
+
+      {/* Seuils : national (rouge — déclenche les envois) / mondial (app) */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label className={lblCls}>{m.settings.seis_ma_lbl}</label>
+          <input className={`${inputCls} border-danger-500/40`} type="number" step="0.1" min="1" max="9" value={maMin} onChange={(e) => setMaMin(e.target.value)} />
+          <p className={microCls}>{m.settings.seis_ma_hint}</p>
+        </div>
+        <div>
+          <label className={lblCls}>{m.settings.seis_world_lbl}</label>
+          <input className={inputCls} type="number" step="0.1" min="1" max="9" value={glMin} onChange={(e) => setGlMin(e.target.value)} />
+          <p className={microCls}>{m.settings.seis_world_hint}</p>
+        </div>
+      </div>
+
+      {/* Autorités notifiées (SMS + e-mail) */}
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <label className="text-xs font-semibold text-gray-600 dark:text-rdia-200">{m.settings.seis_contacts} ({contacts.length})</label>
+          <button
+            className="btn-secondaire flex items-center gap-1.5 text-xs"
+            onClick={() => setContacts((a) => [...a, { name: "", phone: "", email: "" }])}
+          >
+            <Icon path={UI_ICONS.plus} size={13} /> {m.settings.seis_add}
+          </button>
+        </div>
+        <div className="flex flex-col gap-2">
+          {contacts.map((c, i) => (
+            <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] items-center gap-2">
+              <input className={inputCls} placeholder={m.settings.seis_c_name} value={c.name} onChange={(e) => setC(i, "name", e.target.value)} />
+              <input className={`${inputCls} font-mono`} placeholder={m.settings.seis_c_phone} value={c.phone} onChange={(e) => setC(i, "phone", e.target.value)} dir="ltr" />
+              <input className={`${inputCls} font-mono`} placeholder={m.settings.seis_c_email} value={c.email} onChange={(e) => setC(i, "email", e.target.value)} dir="ltr" />
+              <button
+                className="rounded-md p-1.5 text-gray-400 transition-colors hover:text-danger-500"
+                onClick={() => setContacts((a) => a.filter((_, j) => j !== i))}
+                aria-label={m.settings.seis_c_name}
+              >
+                <Icon path={UI_ICONS.close} size={14} strokeWidth={2.5} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <button className="btn-primaire text-sm disabled:opacity-50" onClick={() => void save()} disabled={busy}>
+          {m.settings.seis_save}
+        </button>
+      </div>
+
+      {/* Derniers envois SMS/e-mail (historique serveur) */}
+      <div className="border-t border-gray-100 pt-3 dark:border-rdia-700/50">
+        <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{m.settings.seis_log}</div>
+        {notifs.length === 0 && <div className="text-xs text-gray-400 dark:text-rdia-400">{m.settings.seis_log_empty}</div>}
+        {notifs.map((n) => (
+          <div key={n.id} className="flex items-center gap-2 py-1 text-xs text-gray-600 dark:text-rdia-200">
+            <span className="rounded bg-danger-500 px-1.5 py-0.5 text-[10px] font-bold text-white">M{n.mag.toFixed(1)}</span>
+            <span className="min-w-0 flex-1 truncate">{n.region}</span>
+            <span className="font-mono text-[10px] text-gray-400 dark:text-rdia-400">{fmtWhen(n.sentAt)}</span>
+            <span className="text-[10px] font-semibold text-or-500">{n.contacts} {m.settings.seis_sent_to}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function IncidentTypesPanel() {
   const m = useModules();
   const lang = useArgos((s) => s.lang);

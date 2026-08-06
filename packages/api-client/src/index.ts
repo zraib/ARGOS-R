@@ -21,6 +21,9 @@ export type UpdateUserBody = Json<NonNullable<paths["/api/iam/users/{id}"]["patc
 export type RoleFeatureBody = Json<NonNullable<paths["/api/iam/role-features/{role}"]["patch"]["requestBody"]>>;
 export type ModuleFeature = RoleFeatureBody["feature"];
 export type CreateIncidentBody = Json<NonNullable<paths["/api/incidents"]["post"]["requestBody"]>>;
+export type UpdateIncidentBody = Json<NonNullable<paths["/api/incidents/{id}"]["patch"]["requestBody"]>>;
+export type CreateSubIncidentBody = Json<NonNullable<paths["/api/incidents/{id}/sub-incidents"]["post"]["requestBody"]>>;
+export type RegisterIncidentTypeBody = Json<NonNullable<paths["/api/incident-types"]["post"]["requestBody"]>>;
 export type CreateUnitBody = Json<NonNullable<paths["/api/units"]["post"]["requestBody"]>>;
 export type CreateHospitalBody = Json<NonNullable<paths["/api/hospitals"]["post"]["requestBody"]>>;
 
@@ -29,6 +32,12 @@ export interface ArgosClientOptions {
   baseUrl: string;
   /** Fournit le jeton porteur courant (ou null si non authentifié). */
   getToken?: () => string | null;
+  /**
+   * Appelé quand un endpoint authentifié répond 401 (jeton expiré/invalide,
+   * hors /auth/login). Permet de purger la session et de renvoyer vers l'écran
+   * de connexion au lieu de rester bloqué sur une coquille vide.
+   */
+  onUnauthorized?: () => void;
 }
 
 /** Instancie un client typé pour l'API ARGOS. */
@@ -40,6 +49,14 @@ export function createArgosClient(opts: ArgosClientOptions) {
       const token = opts.getToken?.();
       if (token) request.headers.set("Authorization", `Bearer ${token}`);
       return request;
+    },
+    onResponse({ request, response }) {
+      // 401 hors /auth/login (mauvais mot de passe) = jeton expiré/invalide :
+      // on purge la session pour éviter de rester bloqué sur une coquille vide.
+      if (response.status === 401 && !request.url.includes("/auth/login")) {
+        opts.onUnauthorized?.();
+      }
+      return response;
     },
   };
   client.use(authMiddleware);
@@ -71,8 +88,15 @@ export function createArgosClient(opts: ArgosClientOptions) {
     // --- domaine opérationnel (Phase 2) ---
     getIncidents: () => client.GET("/api/incidents"),
     getIncidentTypes: () => client.GET("/api/incident-types"),
+    getSubIncidentTypes: () => client.GET("/api/sub-incident-types"),
+    registerIncidentType: (body: RegisterIncidentTypeBody) => client.POST("/api/incident-types", { body }),
+    addSubIncident: (id: string, body: CreateSubIncidentBody) =>
+      client.POST("/api/incidents/{id}/sub-incidents", { params: { path: { id } }, body }),
+    removeSubIncident: (id: string, subId: string) =>
+      client.DELETE("/api/incidents/{id}/sub-incidents/{subId}", { params: { path: { id, subId } } }),
     getDashboardStats: () => client.GET("/api/dashboard/stats"),
     createIncident: (body: CreateIncidentBody) => client.POST("/api/incidents", { body }),
+    updateIncident: (id: string, body: UpdateIncidentBody) => client.PATCH("/api/incidents/{id}", { params: { path: { id } }, body }),
     getUnits: () => client.GET("/api/units"),
     createUnit: (body: CreateUnitBody) => client.POST("/api/units", { body }),
     getHospitals: () => client.GET("/api/hospitals"),
@@ -87,6 +111,17 @@ export function createArgosClient(opts: ArgosClientOptions) {
     createCommCategory: (name: string) => client.POST("/api/comms/categories", { body: { name } }),
     createCommChannel: (categoryId: string, name: string) => client.POST("/api/comms/channels", { body: { categoryId, name } }),
     getReference: () => client.GET("/api/reference"),
+    getSeismicEvents: (minmag = 2.5, region: "morocco" | "world" = "world") =>
+      client.GET("/api/seismic/events", { params: { query: { minmag: String(minmag), region } } }),
+    getSeismicAlertConfig: () => client.GET("/api/seismic/alert-config"),
+    updateSeismicAlertConfig: (body: { maMinMag: number; globalMinMag: number; contacts: { name: string; phone: string; email: string }[] }) =>
+      client.PATCH("/api/seismic/alert-config", { body }),
+    getSeismicNotifications: () => client.GET("/api/seismic/notifications"),
+    getWeatherCities: () => client.GET("/api/weather/cities"),
+    getWeatherGrid: () => client.GET("/api/weather/grid"),
+    getWeatherGridWorld: () => client.GET("/api/weather/grid-world"),
+    getWeatherForecast: (lat: number, lon: number) =>
+      client.GET("/api/weather/forecast", { params: { query: { lat: String(lat), lon: String(lon) } } }),
     getFlags: () => client.GET("/api/flags"),
     setFlag: (key: string, enabled: boolean) => client.PATCH("/api/flags/{key}", { params: { path: { key } }, body: { enabled } }),
     getAudit: (limit = 100) => client.GET("/api/audit", { params: { query: { limit: String(limit) } } }),

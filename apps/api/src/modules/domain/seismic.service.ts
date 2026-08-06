@@ -37,8 +37,9 @@ export interface SeismicEvent {
 }
 
 const EMSC_URL = "https://www.seismicportal.eu/fdsnws/event/1/query";
-// Boîte englobante approximative du Maroc (min/max lat, min/max lon).
-const MOROCCO_BBOX = { minlatitude: 27, maxlatitude: 36.5, minlongitude: -14, maxlongitude: -1 };
+// Boîte englobante approximative du territoire national, provinces du Sud
+// incluses (min/max lat, min/max lon).
+const MOROCCO_BBOX = { minlatitude: 20.5, maxlatitude: 36.5, minlongitude: -17.5, maxlongitude: -1 };
 const TTL_MS = 30_000;
 
 interface EmscFeature {

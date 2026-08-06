@@ -10,7 +10,9 @@ import { MAP_CENTER, MAP_STYLE, MAP_ZOOM } from "@/lib/map/style";
 import { routeThrough, type RouteResult } from "@/lib/map/routing";
 import { OVERLAY_STYLE } from "@/lib/map/overlay";
 import { Icon } from "@/components/ui/Icon";
-import { UI_ICONS } from "@/lib/icons";
+import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
+import { WeatherPopup } from "@/components/flux/WeatherPopup";
+import { WX_CITIES, nearestCity } from "@/lib/map/cities";
 import {
   fieldLL,
   fieldMarkerHTML,
@@ -20,7 +22,7 @@ import {
   vehMarkerHTML,
   vehPos,
 } from "@/lib/map/markers";
-import type { MarkerKind } from "@/lib/types";
+import type { MarkerKind, WeatherGridSeries } from "@/lib/types";
 
 interface VehMarker {
   mk: maplibregl.Marker;
@@ -98,14 +100,181 @@ const QUAKE_HALO_R: maplibregl.DataDrivenPropertyValueSpecification<number> =
 const QUAKE_DOT_R: maplibregl.DataDrivenPropertyValueSpecification<number> =
   ["interpolate", ["linear"], ["get", "mag"], 2, 5, 5, 13, 7, 22];
 
-// --- couches météo (grille de conditions actuelles servie par l'API) --------
-// Trois couches superposables et lisibles ensemble : la température est un
-// champ coloré diffus, les précipitations des taches bleues (uniquement là où
-// il pleut), le vent des anneaux ajourés dont le rayon suit la vitesse.
-const WX_TEMP_COLOR: maplibregl.DataDrivenPropertyValueSpecification<string> =
-  ["interpolate", ["linear"], ["get", "temp"], 0, "#3b82f6", 12, "#22c55e", 24, "#f59e0b", 34, "#ef4444", 44, "#7f1d1d"];
-const WX_FIELD_R: maplibregl.DataDrivenPropertyValueSpecification<number> =
-  ["interpolate", ["linear"], ["zoom"], 4, 34, 8, 90];
+// --- carte météo : RASTER interpolé (style carte météo pro) + animation ------
+// La température est interpolée (IDW) depuis la grille API vers une vraie image
+// (source canvas MapLibre) → champ CONTINU comme une carte météo NWS, avec les
+// valeurs numériques posées par-dessus et une animation sur les 24 h de
+// prévision. Aucune tuile météo externe : uniquement notre grille (§4.3).
+const WX_B = { minLat: 20.5, maxLat: 36.5, minLon: -17.5, maxLon: -0.5 }; // = grille API
+/** Y de Mercator (le raster est étiré linéairement en Mercator par MapLibre). */
+const wxMercY = (lat: number) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
+const WX_K = 6; // voisins IDW par échantillon
+
+// Palette « carte météo » (bleu profond → cyan → vert → jaune → orange → rouge sombre).
+const WX_T_MIN = -10, WX_T_MAX = 46, WX_LUT_N = 512;
+const WX_STOPS: [number, string][] = [
+  [-10, "#312e81"], [0, "#1d4ed8"], [5, "#3b82f6"], [10, "#22d3ee"], [15, "#22c55e"],
+  [20, "#a3e635"], [24, "#fde047"], [28, "#fb923c"], [33, "#ef4444"], [40, "#b91c1c"], [46, "#7f1d1d"],
+];
+const WX_GRADIENT = `linear-gradient(90deg, ${WX_STOPS.map(([t, c]) => `${c} ${((((t - WX_T_MIN) / (WX_T_MAX - WX_T_MIN)) * 100)).toFixed(1)}%`).join(", ")})`;
+function wxHex(h: string): [number, number, number] {
+  const n = parseInt(h.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+/** Table de correspondance température → RGB (interpolation des arrêts). */
+function wxBuildLut(): Uint8ClampedArray {
+  const lut = new Uint8ClampedArray(WX_LUT_N * 3);
+  for (let i = 0; i < WX_LUT_N; i++) {
+    const t = WX_T_MIN + (i / (WX_LUT_N - 1)) * (WX_T_MAX - WX_T_MIN);
+    let j = 0;
+    while (j < WX_STOPS.length - 2 && t > WX_STOPS[j + 1][0]) j++;
+    const [t0, c0] = WX_STOPS[j];
+    const [t1, c1] = WX_STOPS[j + 1];
+    const f = Math.min(1, Math.max(0, (t - t0) / (t1 - t0)));
+    const a = wxHex(c0), b = wxHex(c1);
+    lut[i * 3] = a[0] + (b[0] - a[0]) * f;
+    lut[i * 3 + 1] = a[1] + (b[1] - a[1]) * f;
+    lut[i * 3 + 2] = a[2] + (b[2] - a[2]) * f;
+  }
+  return lut;
+}
+const WX_LUT = wxBuildLut();
+
+// Tableaux de travail partagés du balayage IDW (mono-thread).
+const NAT_BI = new Array<number>(WX_K).fill(0);
+const NAT_BD = new Array<number>(WX_K).fill(Infinity);
+
+/**
+ * IDW (WX_K voisins) des points de la grille nationale dense en un point
+ * [lon, lat] ARBITRAIRE. Balayage direct des ~168 points — assez rapide pour
+ * les pixels du rectangle national, les particules et les villes ; aucun
+ * maillage précalculé nécessaire.
+ */
+function natIdw(pts: { lat: number; lon: number }[], vals: Float32Array, lon: number, lat: number): number {
+  const cosl = Math.cos((lat * Math.PI) / 180);
+  for (let k = 0; k < WX_K; k++) NAT_BD[k] = Infinity;
+  for (let i = 0; i < pts.length; i++) {
+    const dla = pts[i].lat - lat;
+    const dlo = (pts[i].lon - lon) * cosl;
+    const d = dla * dla + dlo * dlo;
+    if (d < NAT_BD[WX_K - 1]) {
+      let k = WX_K - 1;
+      while (k > 0 && NAT_BD[k - 1] > d) { NAT_BD[k] = NAT_BD[k - 1]; NAT_BI[k] = NAT_BI[k - 1]; k--; }
+      NAT_BD[k] = d; NAT_BI[k] = i;
+    }
+  }
+  let sum = 0, acc = 0;
+  for (let k = 0; k < WX_K; k++) { const w = 1 / (NAT_BD[k] + 1e-6); sum += w; acc += w * vals[NAT_BI[k]]; }
+  return acc / sum;
+}
+
+/**
+ * Pondération du champ national dans le fondu : 1 au cœur du rectangle de la
+ * grille dense, 0 dehors, rampe de 1,5° le long des bords — l'échantillon
+ * glisse continûment du détail national au champ mondial, aucune couture.
+ */
+function natBlend(lon: number, lat: number): number {
+  const d = Math.min(lon - WX_B.minLon, WX_B.maxLon - lon, lat - WX_B.minLat, WX_B.maxLat - lat);
+  return d <= 0 ? 0 : Math.min(1, d / 1.5);
+}
+
+// Palette précipitations (probabilité 0–100 %) : bleu clair → indigo → violet,
+// transparence croissante — champ raster léger par-dessus la carte.
+const WXP_STOPS: [number, string, number][] = [
+  [0, "#60a5fa", 0], [18, "#60a5fa", 0.05], [30, "#3b82f6", 0.42],
+  [50, "#4f46e5", 0.62], [70, "#7c3aed", 0.78], [85, "#9333ea", 0.88],
+  [100, "#c084fc", 0.95],
+];
+const WXP_LUT = (() => {
+  const out = new Uint8ClampedArray(101 * 4);
+  for (let p = 0; p <= 100; p++) {
+    let j = 0;
+    while (j < WXP_STOPS.length - 2 && p > WXP_STOPS[j + 1][0]) j++;
+    const [p0, c0, a0] = WXP_STOPS[j];
+    const [p1, c1, a1] = WXP_STOPS[j + 1];
+    const f = Math.min(1, Math.max(0, (p - p0) / (p1 - p0)));
+    const A = wxHex(c0), B = wxHex(c1);
+    out[p * 4] = A[0] + (B[0] - A[0]) * f;
+    out[p * 4 + 1] = A[1] + (B[1] - A[1]) * f;
+    out[p * 4 + 2] = A[2] + (B[2] - A[2]) * f;
+    out[p * 4 + 3] = Math.round((a0 + (a1 - a0) * f) * 255);
+  }
+  return out;
+})();
+
+/** Jours de la ligne de temps : libellé localisé + index du pas de 12 h (saut). */
+function wxDays(times: string[], lang: string): { date: string; label: string; idx: number }[] {
+  const locale = lang === "ar" ? "ar-MA" : lang === "en" ? "en-GB" : "fr-FR";
+  const seen = new Map<string, number>();
+  times.forEach((t, i) => { const d = t.slice(0, 10); if (!seen.has(d)) seen.set(d, i); });
+  return [...seen.entries()].map(([d, firstIdx]) => {
+    const noon = times.findIndex((t) => t.startsWith(`${d}T12`));
+    return {
+      date: d,
+      label: new Date(`${d}T00:00:00Z`).toLocaleDateString(locale, { weekday: "short", day: "numeric" }),
+      idx: noon >= 0 ? noon : firstIdx,
+    };
+  });
+}
+
+/** Heure de prévision formatée (les heures de la grille sont en UTC). */
+function wxFmtTime(iso: string, lang: string): string {
+  const d = new Date(iso.length === 16 ? `${iso}:00Z` : iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const locale = lang === "ar" ? "ar-MA" : lang === "en" ? "en-GB" : "fr-FR";
+  return d.toLocaleString(locale, { weekday: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+// --- grille MONDIALE régulière (10°, 36×14, 70°N → 60°S) ---------------------
+const WXG_B = { minLat: -60, maxLat: 70, minLon: -180, maxLon: 180 };
+const WXG_COLS = 36, WXG_ROWS = 14, WXG_DLAT = 10, WXG_DLON = 10, WXG_LAT0 = 70, WXG_LON0 = -180;
+
+// --- rendu UNIFIÉ : un seul jeu de canvas planétaires ------------------------
+// Un champ HOMOGÈNE sur toute la carte (fini le rectangle national visible) :
+// chaque échantillon fond l'IDW de la grille dense nationale dans le bilinéaire
+// mondial via natBlend — mêmes données modèle des deux côtés. Température et
+// précipitations partagent une boucle de pixels redessinée au plus toutes les
+// WXU_RASTER_MS ; le vent est UN SEUL système de particules planétaire.
+const WXU_W = 1080; // 3 px/°
+const WXU_H = Math.round((WXU_W * (wxMercY(WXG_B.maxLat) - wxMercY(WXG_B.minLat))) / (((WXG_B.maxLon - WXG_B.minLon) * Math.PI) / 180));
+// Vent : particules en ESPACE ÉCRAN (façon Windy). Le canvas est superposé à
+// la carte (PAS géoréférencé) : les traits font toujours ~1 px écran quel que
+// soit le zoom (aucun flou d'agrandissement possible) et la densité est
+// constante par surface d'écran. Chaque particule est dé-projetée (unproject)
+// pour échantillonner le champ u/v géographique. Pendant un déplacement de la
+// carte, le canvas est effacé (les positions écran perdent leur ancrage) et le
+// champ se reforme en ~1 s.
+const WXS_MAX = 2600; // plafond de particules (l'effectif suit la surface d'écran)
+const WXS_PER_PX = 1 / 340; // particules par pixel CSS (densité écran constante)
+const WXU_RASTER_MS = 200; // redessin des rasters (~5 im/s : fluide pour 1 h/s)
+
+// Les villes étiquetées viennent de lib/map/cities (niveau de détail par zoom).
+
+/**
+ * Échantillonnage bilinéaire du champ mondial : la grille est RÉGULIÈRE (10°),
+ * les 4 voisins se déduisent des indices (pas de maillage IDW nécessaire).
+ * Enroulement en longitude (170°E → 180° → 180°W continu).
+ */
+function wxgSample(a: Float32Array, lon: number, lat: number): number {
+  const fc = (lon - WXG_LON0) / WXG_DLON;
+  let fr = (WXG_LAT0 - lat) / WXG_DLAT;
+  if (fr < 0) fr = 0; else if (fr > WXG_ROWS - 1) fr = WXG_ROWS - 1;
+  const c0 = Math.floor(fc), r0 = Math.min(WXG_ROWS - 1, Math.floor(fr));
+  const tc = fc - c0, tr = fr - r0;
+  const c0m = ((c0 % WXG_COLS) + WXG_COLS) % WXG_COLS;
+  const c1m = (c0m + 1) % WXG_COLS;
+  const r1 = Math.min(WXG_ROWS - 1, r0 + 1);
+  const top = a[r0 * WXG_COLS + c0m] + (a[r0 * WXG_COLS + c1m] - a[r0 * WXG_COLS + c0m]) * tc;
+  const bot = a[r1 * WXG_COLS + c0m] + (a[r1 * WXG_COLS + c1m] - a[r1 * WXG_COLS + c0m]) * tc;
+  return top + (bot - top) * tr;
+}
+
+/** Composante u/v du vent d'un point de grille au pas s (mélange sans saut de cap). */
+function wxToUV(pt: { wind: number[]; windDir: number[] }, s: number, comp: "u" | "v"): number {
+  const sp = pt.wind[s] ?? 0;
+  const rad = (((pt.windDir[s] ?? 0) + 180) * Math.PI) / 180;
+  return comp === "u" ? sp * Math.sin(rad) : sp * Math.cos(rad);
+}
 
 /** Carte opérationnelle MapLibre : marqueurs en direct, convois animés, bascule 2D/3D + fond. */
 export function MapCanvas() {
@@ -118,6 +287,44 @@ export function MapCanvas() {
   const readyRef = useRef(false);
   const quakeBound = useRef(false); // handlers hover/clic de la couche séismes posés une fois
   const quakePopupRef = useRef<maplibregl.Popup | null>(null); // bandeau collé au séisme
+  // --- météo UNIFIÉE : canvas planétaires + séries par pas + villes ---
+  const wxuTempCvRef = useRef<HTMLCanvasElement | null>(null);
+  const wxuTempCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const wxuTempImgRef = useRef<ImageData | null>(null);
+  const wxuPrecipCvRef = useRef<HTMLCanvasElement | null>(null);
+  const wxuPrecipCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const wxuPrecipImgRef = useRef<ImageData | null>(null);
+  // Vent écran : canvas DOM superposé (voir WXS_*), particules en px appareil.
+  const wxsCvRef = useRef<HTMLCanvasElement | null>(null);
+  const wxsCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const wxsPartsRef = useRef<Float32Array | null>(null);
+  const wxsCountRef = useRef(0);
+  const wxsDprRef = useRef(1);
+  const wxuLastRasterRef = useRef(0);
+  const wxGridRef = useRef<WeatherGridSeries | null>(null); // grille nationale dense (points pour l'IDW)
+  // Séries par pas horaire (une Float32Array par heure) : national / monde × T, u, v, précip.
+  const natTRef = useRef<Float32Array[]>([]);
+  const natURef = useRef<Float32Array[]>([]);
+  const natVRef = useRef<Float32Array[]>([]);
+  const natPRef = useRef<Float32Array[]>([]);
+  const wldTRef = useRef<Float32Array[]>([]);
+  const wldURef = useRef<Float32Array[]>([]);
+  const wldVRef = useRef<Float32Array[]>([]);
+  const wldPRef = useRef<Float32Array[]>([]);
+  // Tampons du pas courant (mélange temporel), réutilisés d'une image à l'autre.
+  const curRef = useRef<Record<"natT" | "natU" | "natV" | "natP" | "wldT" | "wldU" | "wldV" | "wldP", Float32Array | null>>({
+    natT: null, natU: null, natV: null, natP: null, wldT: null, wldU: null, wldV: null, wldP: null,
+  });
+  // Étiquettes de température aux villes (DOM, au-dessus du point).
+  const wxCityRef = useRef<{ mk: maplibregl.Marker; el: HTMLDivElement; lon: number; lat: number; minZoom: number }[]>([]);
+  const wxAnimRef = useRef({ playing: true, idx: 0, lastInt: -2 });
+  const [wxTimeIdx, setWxTimeIdx] = useState(0);
+  const [wxPlaying, setWxPlaying] = useState(true);
+  // --- menu contextuel (Maj + clic droit) + pop-up météo du point ---
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; ll: [number, number] } | null>(null);
+  const [wxPopup, setWxPopup] = useState<{ ll: [number, number]; place: string | null } | null>(null);
+  const role = useArgos((s) => s.role);
+  const openWizard = useArgos((s) => s.openWizard);
   // Lecture position curseur : écriture directe dans le DOM (pas de state →
   // pas de re-rendu React à chaque mouvement de souris).
   const latRef = useRef<HTMLSpanElement | null>(null);
@@ -145,6 +352,7 @@ export function MapCanvas() {
   const focusQuake = useArgos((s) => s.focusQuake);
   const quakeSelected = useArgos((s) => s.quakeSelected);
   const wxGrid = useArgos((s) => s.wxGrid);
+  const wxWorld = useArgos((s) => s.wxWorld);
   const wxLayers = useArgos((s) => s.wxLayers);
   const lang = useArgos((s) => s.lang);
   const t = useDict();
@@ -221,6 +429,28 @@ export function MapCanvas() {
           map.setPaintProperty("quakes-pulse", "circle-radius", ["*", 1 + tt * 1.6, QUAKE_HALO_R]);
           map.setPaintProperty("quakes-pulse", "circle-opacity", 0.4 * (1 - tt));
         }
+        // Étiquettes de villes : visibilité selon couche température + zoom.
+        if (map) syncCityVisibility();
+      }
+      // Animation météo : fait défiler la semaine de prévision (1 s par heure),
+      // raster interpolé en continu, particules de vent advectées en temps réel.
+      const wl = useArgos.getState().wxLayers;
+      const clock = natTRef.current.length > 1 ? natTRef.current : wldTRef.current;
+      if ((wl.temp || wl.wind || wl.precip) && clock.length > 1) {
+        const wa = wxAnimRef.current;
+        if (wa.playing) wa.idx = (wa.idx + dt / 1.0) % (clock.length - 1);
+        // Rasters throttlés (le mélange horaire n'a pas besoin de 60 im/s).
+        if ((wl.temp || wl.precip) && now - wxuLastRasterRef.current > WXU_RASTER_MS) {
+          wxuLastRasterRef.current = now;
+          drawWxuRasters(wl.temp, wl.precip);
+        }
+        if (wl.wind) stepWxsWind(Math.min(dt, 0.05)); // dt borné (retour d'onglet)
+        const it = Math.min(Math.floor(wa.idx), clock.length - 1);
+        if (it !== wa.lastInt) {
+          wa.lastInt = it;
+          applyWxStep(it);
+          setWxTimeIdx(it);
+        }
       }
       rafRef.current = requestAnimationFrame(step);
     };
@@ -228,18 +458,263 @@ export function MapCanvas() {
     rafRef.current = requestAnimationFrame(step);
   };
 
+  /** Mélange temporel du pas fractionnaire courant d'une série ; null si vide. */
+  const blendSteps = (steps: Float32Array[], buf: Float32Array | null): Float32Array | null => {
+    if (steps.length === 0) return null;
+    const last = steps.length - 1;
+    const a = Math.min(Math.floor(wxAnimRef.current.idx), last);
+    const f = Math.min(wxAnimRef.current.idx - a, 1);
+    const A = steps[a], B = steps[Math.min(a + 1, last)];
+    const out = buf && buf.length === A.length ? buf : new Float32Array(A.length);
+    for (let i = 0; i < A.length; i++) out[i] = A[i] + (B[i] - A[i]) * f;
+    return out;
+  };
+
+  /**
+   * Échantillon du champ au point [lon, lat] : bilinéaire mondial, fondu avec
+   * l'IDW de la grille dense nationale à l'approche du territoire (natBlend).
+   */
+  const sampleField = (nat: Float32Array | null, wld: Float32Array | null, lon: number, lat: number): number => {
+    const g = wxGridRef.current;
+    const w = wld ? wxgSample(wld, lon, lat) : 0;
+    if (!nat || !g || g.points.length === 0) return w;
+    const f = natBlend(lon, lat);
+    if (f <= 0) return w;
+    const n = natIdw(g.points, nat, lon, lat);
+    return wld ? n * f + w * (1 - f) : n;
+  };
+
+  // Rasters température + précipitations : UNE boucle de pixels planétaire
+  // (latitude par ligne en Mercator inverse), partagée par les deux champs.
+  // Redessinée au plus toutes les WXU_RASTER_MS (throttle dans la boucle rAF).
+  const drawWxuRasters = (tempOn: boolean, precipOn: boolean) => {
+    const cur = curRef.current;
+    const natT = tempOn ? (cur.natT = blendSteps(natTRef.current, cur.natT)) : null;
+    const wldT = tempOn ? (cur.wldT = blendSteps(wldTRef.current, cur.wldT)) : null;
+    const natP = precipOn ? (cur.natP = blendSteps(natPRef.current, cur.natP)) : null;
+    const wldP = precipOn ? (cur.wldP = blendSteps(wldPRef.current, cur.wldP)) : null;
+    const doTemp = tempOn && (natT !== null || wldT !== null);
+    const doPrecip = precipOn && (natP !== null || wldP !== null);
+    if (!doTemp && !doPrecip) return;
+    let tD: Uint8ClampedArray | null = null, pD: Uint8ClampedArray | null = null;
+    if (doTemp) {
+      const cv = wxuTempCvRef.current;
+      if (cv) {
+        if (!wxuTempCtxRef.current) wxuTempCtxRef.current = cv.getContext("2d");
+        if (wxuTempCtxRef.current && !wxuTempImgRef.current) wxuTempImgRef.current = wxuTempCtxRef.current.createImageData(WXU_W, WXU_H);
+        tD = wxuTempImgRef.current?.data ?? null;
+      }
+    }
+    if (doPrecip) {
+      const cv = wxuPrecipCvRef.current;
+      if (cv) {
+        if (!wxuPrecipCtxRef.current) wxuPrecipCtxRef.current = cv.getContext("2d");
+        if (wxuPrecipCtxRef.current && !wxuPrecipImgRef.current) wxuPrecipImgRef.current = wxuPrecipCtxRef.current.createImageData(WXU_W, WXU_H);
+        pD = wxuPrecipImgRef.current?.data ?? null;
+      }
+    }
+    if (!tD && !pD) return;
+    const scale = (WX_LUT_N - 1) / (WX_T_MAX - WX_T_MIN);
+    const yTop = wxMercY(WXG_B.maxLat), yBot = wxMercY(WXG_B.minLat);
+    let p = 0;
+    for (let r = 0; r < WXU_H; r++) {
+      const ym = yTop - ((r + 0.5) / WXU_H) * (yTop - yBot);
+      const lat = (Math.atan(Math.exp(ym)) * 2 - Math.PI / 2) * (180 / Math.PI);
+      for (let c = 0; c < WXU_W; c++, p++) {
+        const lon = WXG_B.minLon + ((c + 0.5) / WXU_W) * 360;
+        const q = p * 4;
+        if (tD) {
+          const v = sampleField(natT, wldT, lon, lat);
+          let li = ((v - WX_T_MIN) * scale) | 0;
+          if (li < 0) li = 0; else if (li > WX_LUT_N - 1) li = WX_LUT_N - 1;
+          const l3 = li * 3;
+          tD[q] = WX_LUT[l3]; tD[q + 1] = WX_LUT[l3 + 1]; tD[q + 2] = WX_LUT[l3 + 2]; tD[q + 3] = 255;
+        }
+        if (pD) {
+          let pr = Math.round(sampleField(natP, wldP, lon, lat));
+          if (pr < 0) pr = 0; else if (pr > 100) pr = 100;
+          const b = pr * 4;
+          pD[q] = WXP_LUT[b]; pD[q + 1] = WXP_LUT[b + 1]; pD[q + 2] = WXP_LUT[b + 2]; pD[q + 3] = WXP_LUT[b + 3];
+        }
+      }
+    }
+    if (tD && wxuTempCtxRef.current && wxuTempImgRef.current) wxuTempCtxRef.current.putImageData(wxuTempImgRef.current, 0, 0);
+    if (pD && wxuPrecipCtxRef.current && wxuPrecipImgRef.current) wxuPrecipCtxRef.current.putImageData(wxuPrecipImgRef.current, 0, 0);
+  };
+
+  /** (Re)dimensionne le canvas vent écran sur son conteneur + réamorce les particules. */
+  const sizeWxsCanvas = () => {
+    const cv = wxsCvRef.current, host = containerRef.current;
+    if (!cv || !host) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    wxsDprRef.current = dpr;
+    const w = Math.max(1, Math.round(host.clientWidth * dpr));
+    const h = Math.max(1, Math.round(host.clientHeight * dpr));
+    if (cv.width !== w || cv.height !== h) {
+      cv.width = w;
+      cv.height = h;
+      wxsCtxRef.current = null;
+      wxsPartsRef.current = null; // réamorçage à la nouvelle géométrie
+    }
+    wxsCountRef.current = Math.min(WXS_MAX, Math.round(host.clientWidth * host.clientHeight * WXS_PER_PX));
+  };
+
+  // Vent : particules en ESPACE ÉCRAN — traits nets (~1 px écran) et densité
+  // constante à TOUT zoom. Advection : dé-projection de chaque particule puis
+  // échantillonnage du champ u/v fondu (national dense ↔ mondial).
+  const stepWxsWind = (dt: number) => {
+    const map = mapRef.current, cv = wxsCvRef.current;
+    if (!map || !cv || cv.width === 0) return;
+    let ctx = wxsCtxRef.current;
+    if (!ctx) { ctx = cv.getContext("2d"); if (!ctx) return; wxsCtxRef.current = ctx; }
+    const W = cv.width, H = cv.height;
+    // Carte en mouvement : les positions écran perdent leur ancrage géographique
+    // → on efface et on laisse le champ se reformer (comportement Windy).
+    if (map.isMoving()) {
+      ctx.clearRect(0, 0, W, H);
+      return;
+    }
+    const cur = curRef.current;
+    const natU = (cur.natU = blendSteps(natURef.current, cur.natU));
+    const natV = (cur.natV = blendSteps(natVRef.current, cur.natV));
+    const wldU = (cur.wldU = blendSteps(wldURef.current, cur.wldU));
+    const wldV = (cur.wldV = blendSteps(wldVRef.current, cur.wldV));
+    if (!natU && !wldU) return;
+    const dpr = wxsDprRef.current;
+    const count = wxsCountRef.current;
+    let P = wxsPartsRef.current;
+    if (!P) {
+      P = new Float32Array(WXS_MAX * 4); // x, y, âge, durée de vie (px appareil)
+      for (let i = 0; i < WXS_MAX; i++) {
+        P[i * 4] = Math.random() * W;
+        P[i * 4 + 1] = Math.random() * H;
+        P[i * 4 + 2] = Math.random() * 4;
+        P[i * 4 + 3] = 2.5 + Math.random() * 3.5;
+      }
+      wxsPartsRef.current = P;
+    }
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.fillStyle = "rgba(0,0,0,0.02)";
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.lineCap = "round";
+    // Vitesse visuelle : suit le zoom (bornée) — vive au zoom national, posée
+    // à l'échelle planétaire. En px CSS par (km/h)·s.
+    const z = map.getZoom();
+    const S = Math.max(0.12, Math.min(4.5, 0.45 * Math.pow(2, z - 4))) * dpr;
+    // Rotation de la carte (boussole) : le nord n'est plus « écran vers le haut ».
+    const B = (-map.getBearing() * Math.PI) / 180;
+    const cosB = Math.cos(B), sinB = Math.sin(B);
+    for (let i = 0; i < count; i++) {
+      const o = i * 4;
+      const x = P[o], y = P[o + 1];
+      const ll = map.unproject([x / dpr, y / dpr]);
+      // Hors de l'emprise des données (lat > 70° / < -60°) : recyclage.
+      if (ll.lat > WXG_B.maxLat || ll.lat < WXG_B.minLat) {
+        P[o] = Math.random() * W; P[o + 1] = Math.random() * H; P[o + 2] = 0;
+        continue;
+      }
+      const u = sampleField(natU, wldU, ll.lng, ll.lat);
+      const v = sampleField(natV, wldV, ll.lng, ll.lat);
+      const nx = x + (u * cosB - v * sinB) * S * dt;
+      const ny = y - (v * cosB + u * sinB) * S * dt;
+      P[o + 2] += dt;
+      if (P[o + 2] > P[o + 3] || nx < 0 || nx >= W || ny < 0 || ny >= H) {
+        P[o] = Math.random() * W; P[o + 1] = Math.random() * H; P[o + 2] = 0;
+        continue;
+      }
+      const sp = Math.sqrt(u * u + v * v);
+      // Vent quasi nul : recyclage (pas d'amas de points immobiles).
+      if (sp < 0.6 && Math.random() < 0.02) {
+        P[o] = Math.random() * W; P[o + 1] = Math.random() * H; P[o + 2] = 0;
+        continue;
+      }
+      // Trait TOUJOURS fin à l'écran (px CSS × dpr) — jamais agrandi par le zoom.
+      ctx.lineWidth = (0.9 + Math.min(0.6, sp / 70)) * dpr;
+      ctx.strokeStyle = `rgba(255,255,255,${Math.min(0.6, 0.14 + sp / 85)})`;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(nx, ny);
+      ctx.stroke();
+      P[o] = nx; P[o + 1] = ny;
+    }
+  };
+
+  // Étiquettes de température AUX VILLES (au-dessus du point) — remplace
+  // l'ancienne matrice de chiffres de la grille. Villes nationales visibles au
+  // zoom ≥ 4 ; grandes villes mondiales toujours (elles sont clairsemées).
+  const buildCityLabels = () => {
+    const map = mapRef.current;
+    if (!map || wxCityRef.current.length > 0) return;
+    const mkCity = (name: string, lon: number, lat: number, minZoom: number) => {
+      const root = document.createElement("div");
+      root.style.cssText = "display:flex;flex-direction:column;align-items:center;pointer-events:none;";
+      const t = document.createElement("div");
+      t.style.cssText = "font:700 13px/1 -apple-system,system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px rgba(8,18,11,.95),0 0 2px rgba(8,18,11,.95);";
+      const n = document.createElement("div");
+      n.style.cssText = "font:600 9px/1.4 -apple-system,system-ui,sans-serif;color:rgba(255,255,255,.85);text-shadow:0 1px 2px rgba(8,18,11,.95);";
+      n.textContent = name;
+      root.append(t, n);
+      const m = new maplibregl.Marker({ element: root, anchor: "bottom", offset: [0, -2] }).setLngLat([lon, lat]).addTo(map);
+      wxCityRef.current.push({ mk: m, el: t, lon, lat, minZoom });
+    };
+    for (const city of WX_CITIES) mkCity(city.name, city.lon, city.lat, city.minZoom);
+    applyWxStep(Math.max(0, wxAnimRef.current.lastInt));
+    syncCityVisibility();
+  };
+
+  /** Visibilité des étiquettes de villes : couche température + zoom (nationales ≥ 4). */
+  const syncCityVisibility = () => {
+    const on = useArgos.getState().wxLayers.temp;
+    const z = mapRef.current?.getZoom() ?? 2;
+    for (const c of wxCityRef.current) {
+      c.mk.getElement().style.display = on && z >= c.minZoom ? "" : "none";
+    }
+  };
+
+  /** Applique un pas horaire : met à jour la température affichée sur chaque ville. */
+  const applyWxStep = (s: number) => {
+    const natT = natTRef.current, wldT = wldTRef.current;
+    const nat = natT.length ? natT[Math.min(Math.max(0, s), natT.length - 1)] : null;
+    const wld = wldT.length ? wldT[Math.min(Math.max(0, s), wldT.length - 1)] : null;
+    if (!nat && !wld) return;
+    for (const c of wxCityRef.current) {
+      c.el.textContent = `${Math.round(sampleField(nat, wld, c.lon, c.lat))}°`;
+    }
+  };
+
   // --- initialisation de la carte (une fois) ---
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: MAP_STYLE,
+      // Clone profond : MapLibre MUTE l'objet style qu'on lui passe — réutiliser
+      // le module MAP_STYLE tel quel casse toute reconstruction de la carte
+      // (remontage React/Fast Refresh → carte sans style).
+      style: structuredClone(MAP_STYLE),
       center: MAP_CENTER,
       zoom: MAP_ZOOM,
       pitch: 0,
       attributionControl: { compact: true },
     });
     mapRef.current = map;
+    // Canvas vent en espace écran : inséré dans le conteneur de canvas MapLibre
+    // juste APRÈS le canvas WebGL (les marqueurs DOM, ajoutés ensuite, restent
+    // au-dessus). Aucune interception de la souris.
+    const wxsCv = document.createElement("canvas");
+    wxsCv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;";
+    const ccont = map.getCanvasContainer();
+    ccont.insertBefore(wxsCv, ccont.children[1] ?? null);
+    wxsCvRef.current = wxsCv;
+    wxsCtxRef.current = null;
+    wxsPartsRef.current = null;
+    wxsCv.style.display = useArgos.getState().wxLayers.wind ? "" : "none";
+    sizeWxsCanvas();
+    // Diagnostic dev : trace les erreurs internes MapLibre (style, sources) —
+    // les 403 de tuiles sont attendus sous étranglement CDN, le reste non.
+    if (process.env.NODE_ENV !== "production") {
+      map.on("error", (e) => console.error("[MapLibre]", (e as { error?: Error }).error?.message ?? e));
+    }
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
 
     // Bouton « recentrer » ajouté sous la boussole (revient au cadrage national).
@@ -260,15 +735,8 @@ export function MapCanvas() {
     };
     map.addControl(centerCtrl, "bottom-right");
 
-    // Shift + clic droit : déclarer un incident à l'endroit cliqué — le wizard
-    // s'ouvre pré-rempli avec les coordonnées (si le rôle y est autorisé).
-    map.on("contextmenu", (e) => {
-      if (!e.originalEvent.shiftKey) return;
-      e.preventDefault();
-      const st = useArgos.getState();
-      if (!canReportIncident(st.role)) return;
-      st.openWizard([e.lngLat.lng, e.lngLat.lat]);
-    });
+    // (Maj + clic droit : géré par onContextMenu sur le conteneur React —
+    // indépendant du pipeline d'événements interne de MapLibre.)
 
     // Lecture continue de la position du curseur (+ altitude via le MNT).
     map.on("mousemove", (e) => {
@@ -309,7 +777,17 @@ export function MapCanvas() {
     // analysé. On s'accroche au premier signal de disponibilité (`styledata` se
     // déclenche sans tuiles).
     const setupStyle = () => {
-      if (!map.getStyle() || !map.isStyleLoaded()) return;
+      // Seul le style JSON doit être prêt (getStyle) — PAS les tuiles
+      // (isStyleLoaded) : sous étranglement du CDN, isStyleLoaded peut rester
+      // faux très longtemps alors qu'addSource fonctionne déjà. Un appel trop
+      // précoce lève « Style is not done loading » : attrapé par trySetup,
+      // retenté par le filet.
+      if (!map.getStyle()) return;
+      // Accès console dev : seule l'instance VIVANTE arrive ici (les doubles
+      // montages StrictMode sont retirés avant que leur style ne charge).
+      if (process.env.NODE_ENV !== "production") {
+        (window as unknown as { __map?: maplibregl.Map }).__map = map;
+      }
       if (!map.getSource("routes")) {
         map.addSource("routes", {
           type: "geojson",
@@ -347,45 +825,65 @@ export function MapCanvas() {
           paint: { "circle-radius": 6, "circle-color": "#38BDF8", "circle-stroke-color": "#0f1f14", "circle-stroke-width": 2.5 },
         });
       }
-      // Couches météo : posées AVANT la couche sismique pour rester en dessous.
-      if (!map.getSource("wx")) {
-        map.addSource("wx", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-        // Température : champ coloré diffus.
-        map.addLayer({
-          id: "wx-temp",
-          type: "circle",
-          source: "wx",
-          layout: { visibility: "none" },
-          paint: { "circle-radius": WX_FIELD_R, "circle-color": WX_TEMP_COLOR, "circle-blur": 0.6, "circle-opacity": 0.7 },
-        });
-        // Précipitations : taches bleues uniquement là où il pleut.
-        map.addLayer({
-          id: "wx-precip",
-          type: "circle",
-          source: "wx",
-          filter: [">", ["get", "precip"], 0],
-          layout: { visibility: "none" },
-          paint: {
-            "circle-radius": WX_FIELD_R,
-            "circle-color": ["interpolate", ["linear"], ["get", "precip"], 0, "#93c5fd", 3, "#3b82f6", 12, "#1d4ed8"],
-            "circle-blur": 0.75,
-            "circle-opacity": ["interpolate", ["linear"], ["get", "precip"], 0, 0.25, 5, 0.7],
+      // Couches météo UNIFIÉES : 3 canvas planétaires — température et
+      // précipitations SOUS les repères (« lbl »), vent au-dessus. Un seul
+      // style homogène sur toute la carte (posées avant la couche sismique).
+      if (!map.getSource("wxu-temp-src")) {
+        const wxuCoords = [
+          [WXG_B.minLon, WXG_B.maxLat],
+          [WXG_B.maxLon, WXG_B.maxLat],
+          [WXG_B.maxLon, WXG_B.minLat],
+          [WXG_B.minLon, WXG_B.minLat],
+        ];
+        const mkCv = (w = WXU_W, h = WXU_H) => {
+          const cv = document.createElement("canvas");
+          cv.width = w;
+          cv.height = h;
+          return cv;
+        };
+        const under = map.getLayer("lbl") ? "lbl" : map.getLayer("routes-line") ? "routes-line" : undefined;
+        const tcv = mkCv();
+        wxuTempCvRef.current = tcv;
+        wxuTempCtxRef.current = null;
+        wxuTempImgRef.current = null;
+        map.addSource("wxu-temp-src", { type: "canvas", canvas: tcv, animate: true, coordinates: wxuCoords } as unknown as maplibregl.SourceSpecification);
+        map.addLayer(
+          {
+            id: "wx-temp",
+            type: "raster",
+            source: "wxu-temp-src",
+            layout: { visibility: "none" },
+            // Opacité modérée : le champ se lit SANS masquer terrain et toponymes.
+            paint: { "raster-opacity": 0.52, "raster-fade-duration": 0 },
           },
-        });
-        // Vent : anneaux ajourés (rayon = vitesse) lisibles par-dessus le champ.
-        map.addLayer({
-          id: "wx-wind",
-          type: "circle",
-          source: "wx",
-          layout: { visibility: "none" },
-          paint: {
-            "circle-radius": ["interpolate", ["linear"], ["get", "wind"], 0, 5, 30, 16, 70, 30],
-            "circle-color": "rgba(0,0,0,0)",
-            "circle-stroke-width": 2.5,
-            "circle-stroke-color": ["interpolate", ["linear"], ["get", "wind"], 0, "#a7f3d0", 20, "#34d399", 40, "#fbbf24", 65, "#ef4444"],
-            "circle-stroke-opacity": 0.95,
+          under,
+        );
+        const pcv = mkCv();
+        wxuPrecipCvRef.current = pcv;
+        wxuPrecipCtxRef.current = null;
+        wxuPrecipImgRef.current = null;
+        map.addSource("wxu-precip-src", { type: "canvas", canvas: pcv, animate: true, coordinates: wxuCoords } as unknown as maplibregl.SourceSpecification);
+        map.addLayer(
+          {
+            id: "wx-precip",
+            type: "raster",
+            source: "wxu-precip-src",
+            layout: { visibility: "none" },
+            // L'alpha est déjà porté par la palette (0 % → transparent).
+            paint: { "raster-opacity": 1, "raster-fade-duration": 0 },
           },
-        });
+          under,
+        );
+        // (Le vent est un canvas DOM en espace écran — voir stepWxsWind.)
+        // Visibilité initiale + étiquettes de villes + premier rendu si les
+        // grilles étaient déjà chargées (le style peut arriver APRÈS les données).
+        const wl = useArgos.getState().wxLayers;
+        for (const [id, on] of [["wx-temp", wl.temp], ["wx-precip", wl.precip]] as const) {
+          map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+        }
+        if (wxsCvRef.current) wxsCvRef.current.style.display = wl.wind ? "" : "none";
+        buildCityLabels();
+        wxuLastRasterRef.current = 0; // force un premier redessin des rasters
       }
       // Couche sismique (EMSC) : marqueur distinct — anneau pulsé (ping sonar)
       // + point plein bordé, couleur/rayon pilotés par la magnitude.
@@ -437,21 +935,41 @@ export function MapCanvas() {
       // Terrain toujours posé (exagération nulle en 2D) → altitude interrogeable.
       apply3d(st.map3d);
     };
-    if (map.isStyleLoaded()) setupStyle();
+    // isStyleLoaded peut basculer entre la garde et un addSource (tuiles en
+    // re-tentative) : toute exécution est enveloppée, le filet retente.
+    const trySetup = () => { try { setupStyle(); } catch { /* style pas prêt — retenté par le filet */ } };
+    if (map.isStyleLoaded()) trySetup();
     else {
-      map.on("styledata", setupStyle);
-      map.once("load", setupStyle);
+      map.on("styledata", trySetup);
+      map.once("load", trySetup);
     }
+    // Filet : quand le CDN de tuiles étrangle (403 en re-tentative), « load »
+    // peut ne jamais venir alors que le style est prêt et que « styledata » est
+    // passé trop tôt (garde isStyleLoaded fausse). On retente jusqu'à ce que
+    // les sources soient réellement posées.
+    const setupTimer = setInterval(() => {
+      if (map.getSource("wxu-temp-src")) { clearInterval(setupTimer); return; }
+      trySetup();
+    }, 600);
 
     // Le conteneur change de taille (plein écran, repli du rail) → resize du canvas.
-    const ro = new ResizeObserver(() => mapRef.current?.resize());
+    const ro = new ResizeObserver(() => { mapRef.current?.resize(); sizeWxsCanvas(); });
     if (containerRef.current) ro.observe(containerRef.current);
 
     return () => {
       ro.disconnect();
+      clearInterval(setupTimer);
       cancelAnimationFrame(rafRef.current);
       readyRef.current = false;
+      wxCityRef.current.forEach((c) => c.mk.remove());
+      wxCityRef.current = [];
+      wxsCvRef.current?.remove();
+      wxsCvRef.current = null;
       map.remove();
+      // Ne pas laisser l'accès console dev pointer sur une instance retirée
+      // (double-montage StrictMode).
+      const w = window as unknown as { __map?: maplibregl.Map };
+      if (w.__map === map) delete w.__map;
       mapRef.current = null;
       markersRef.current = [];
       vehMarkersRef.current = [];
@@ -528,25 +1046,64 @@ export function MapCanvas() {
     if (map.getLayer("quakes-pulse")) map.setLayoutProperty("quakes-pulse", "visibility", vis);
   }, [quakes, quakesOn]);
 
-  // --- couches météo : alimentation de la grille + visibilité par couche ---
+  // --- grille NATIONALE dense chargée : séries par pas + villes + rendu ---
+  useEffect(() => {
+    wxGridRef.current = wxGrid;
+    natTRef.current = [];
+    natURef.current = [];
+    natVRef.current = [];
+    natPRef.current = [];
+    if (wxGrid && wxGrid.times.length > 0 && wxGrid.points.length > 0) {
+      // Une Float32Array par heure (mélange temporel rapide dans la boucle rAF) ;
+      // u/v plutôt que des caps (pas de saut 350°→10° à l'interpolation).
+      natTRef.current = wxGrid.times.map((_, s) => Float32Array.from(wxGrid.points, (pt) => pt.temp[s] ?? 0));
+      natURef.current = wxGrid.times.map((_, s) => Float32Array.from(wxGrid.points, (pt) => wxToUV(pt, s, "u")));
+      natVRef.current = wxGrid.times.map((_, s) => Float32Array.from(wxGrid.points, (pt) => wxToUV(pt, s, "v")));
+      natPRef.current = wxGrid.times.map((_, s) => Float32Array.from(wxGrid.points, (pt) => pt.precipProb[s] ?? 0));
+    }
+    const wa = wxAnimRef.current;
+    wa.idx = 0;
+    wa.lastInt = -2;
+    buildCityLabels();
+    applyWxStep(0);
+    setWxTimeIdx(0);
+    wxuLastRasterRef.current = 0;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wxGrid]);
+
+  // --- grille MONDIALE chargée : séries par pas + rendu ---
+  useEffect(() => {
+    wldTRef.current = [];
+    wldURef.current = [];
+    wldVRef.current = [];
+    wldPRef.current = [];
+    if (wxWorld && wxWorld.times.length > 0 && wxWorld.points.length > 0) {
+      wldTRef.current = wxWorld.times.map((_, s) => Float32Array.from(wxWorld.points, (pt) => pt.temp[s] ?? 0));
+      wldURef.current = wxWorld.times.map((_, s) => Float32Array.from(wxWorld.points, (pt) => wxToUV(pt, s, "u")));
+      wldVRef.current = wxWorld.times.map((_, s) => Float32Array.from(wxWorld.points, (pt) => wxToUV(pt, s, "v")));
+      wldPRef.current = wxWorld.times.map((_, s) => Float32Array.from(wxWorld.points, (pt) => pt.precipProb[s] ?? 0));
+    }
+    buildCityLabels();
+    applyWxStep(Math.max(0, wxAnimRef.current.lastInt));
+    wxuLastRasterRef.current = 0;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wxWorld]);
+
+  // --- visibilité des couches météo (raster, flèches, précip, étiquettes) ---
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !readyRef.current) return;
-    const src = map.getSource("wx") as maplibregl.GeoJSONSource | undefined;
-    if (!src) return; // source posée par setupStyle
-    src.setData({
-      type: "FeatureCollection",
-      features: wxGrid.map((p) => ({
-        type: "Feature" as const,
-        properties: { temp: p.temp, wind: p.wind, precip: p.precip },
-        geometry: { type: "Point" as const, coordinates: [p.lon, p.lat] },
-      })),
-    });
-    ([["wx-temp", wxLayers.temp], ["wx-wind", wxLayers.wind], ["wx-precip", wxLayers.precip]] as const)
+    ([["wx-temp", wxLayers.temp], ["wx-precip", wxLayers.precip]] as const)
       .forEach(([id, on]) => {
         if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
       });
-  }, [wxGrid, wxLayers]);
+    const wcv = wxsCvRef.current;
+    if (wcv) {
+      wcv.style.display = wxLayers.wind ? "" : "none";
+      if (!wxLayers.wind) wxsCtxRef.current?.clearRect(0, 0, wcv.width, wcv.height);
+    }
+    syncCityVisibility();
+  }, [wxLayers]);
 
   // --- centrage sur un séisme (« voir sur la carte ») puis purge du focus ---
   useEffect(() => {
@@ -633,8 +1190,157 @@ export function MapCanvas() {
   const stepBtn = "rounded p-0.5 text-white/60 transition-colors hover:text-or-400 disabled:opacity-25";
 
   return (
-    <div className="absolute inset-0">
+    <div
+      className="absolute inset-0"
+      onContextMenu={(e) => {
+        // Maj + clic droit : menu contextuel du point visé.
+        if (!e.shiftKey) return;
+        e.preventDefault();
+        const map = mapRef.current, host = containerRef.current;
+        if (!map || !host) return;
+        const rect = host.getBoundingClientRect();
+        const x = e.clientX - rect.left, y = e.clientY - rect.top;
+        const ll = map.unproject([x, y]);
+        setCtxMenu({ x, y, ll: [ll.lng, ll.lat] });
+      }}
+    >
       <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />
+
+      {/* Ligne de temps météo façon Windy : étirée, centrée en bas de la carte,
+          jours cliquables + curseur sur le dégradé de température. Position
+          centrale = aucun chevauchement avec les contrôles (droite) ni les
+          panneaux de mesure/coordonnées (gauche). */}
+      {(wxLayers.temp || wxLayers.precip || wxLayers.wind) && wxGrid && wxGrid.times.length > 1 && (
+        <div
+          className="pointer-events-auto absolute z-20 rounded-xl px-3 py-2"
+          style={{ ...OVERLAY_STYLE, bottom: 10, left: "50%", transform: "translateX(-50%)", width: "min(680px, 58%)", minWidth: 340 }}
+        >
+          {/* Jours (cliquer saute à la mi-journée) */}
+          <div className="mb-1.5 flex items-stretch gap-1">
+            {wxDays(wxGrid.times, lang).map((d) => {
+              const active = (wxGrid.times[wxTimeIdx] ?? "").startsWith(d.date);
+              return (
+                <button
+                  key={d.date}
+                  type="button"
+                  onClick={() => { wxAnimRef.current.idx = d.idx; wxAnimRef.current.lastInt = -2; setWxTimeIdx(d.idx); }}
+                  className={`min-w-0 flex-1 truncate rounded-md px-1 py-0.5 text-[12px] font-semibold transition-colors ${
+                    active ? "bg-or-500 text-rdia-600" : "text-white/70 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  {d.label}
+                </button>
+              );
+            })}
+          </div>
+          {/* Lecture + curseur (piste = dégradé de température) + horodatage */}
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => { const p = !wxPlaying; setWxPlaying(p); wxAnimRef.current.playing = p; }}
+              className="shrink-0 rounded-md bg-white/10 px-2.5 py-1 text-[13px] font-bold text-white/90 transition-colors hover:bg-white/20"
+              aria-label={wxPlaying ? FLUX[lang].wx_pause : FLUX[lang].wx_play}
+              title={wxPlaying ? FLUX[lang].wx_pause : FLUX[lang].wx_play}
+            >
+              {wxPlaying ? "❚❚" : "▶"}
+            </button>
+            <div className="min-w-0 flex-1">
+              <input
+                type="range"
+                min={0}
+                max={wxGrid.times.length - 1}
+                step={1}
+                value={wxTimeIdx}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  wxAnimRef.current.idx = v;
+                  wxAnimRef.current.lastInt = -2; // force la ré-application du pas
+                  setWxTimeIdx(v);
+                }}
+                className="wx-range w-full"
+                style={{ background: wxLayers.temp ? WX_GRADIENT : "rgba(255,255,255,.22)" }}
+                aria-label={FLUX[lang].wx_forecast}
+              />
+              {/* Graduation : chaque couleur de la piste ↔ sa température */}
+              {wxLayers.temp && (
+                <div className="relative mt-0.5 h-3 font-mono text-[9px] leading-none text-white/65">
+                  {[-10, 0, 10, 20, 30, 40, 46].map((tp) => {
+                    const pc = ((tp - WX_T_MIN) / (WX_T_MAX - WX_T_MIN)) * 100;
+                    return (
+                      <span
+                        key={tp}
+                        className="absolute"
+                        style={pc < 3 ? { left: 0 } : pc > 97 ? { right: 0 } : { left: `${pc}%`, transform: "translateX(-50%)" }}
+                      >
+                        {tp}°
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <span className="shrink-0 whitespace-nowrap font-mono text-[12px] text-white/85">
+              {wxFmtTime(wxGrid.times[wxTimeIdx] ?? "", lang)}
+            </span>
+          </div>
+          {/* Échelles compactes des couches actives */}
+          {(wxLayers.wind || wxLayers.precip) && (
+            <div className="mt-1 flex items-center justify-center gap-4 font-mono text-[10px] text-white/60">
+              {wxLayers.wind && <span>{FLUX[lang].wx_wind}</span>}
+              {wxLayers.precip && <span>{FLUX[lang].wx_precip_prob} 0-100 %</span>}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Menu contextuel (Maj + clic droit) : actions sur le point visé */}
+      {ctxMenu && (
+        <>
+          <div
+            className="absolute inset-0 z-40"
+            onClick={() => setCtxMenu(null)}
+            onContextMenu={(e) => { e.preventDefault(); setCtxMenu(null); }}
+          />
+          <div
+            className="absolute z-50 w-[250px] overflow-hidden rounded-xl py-1.5 shadow-2xl"
+            style={{
+              ...OVERLAY_STYLE,
+              left: Math.min(ctxMenu.x, (containerRef.current?.clientWidth ?? 9999) - 264),
+              top: Math.min(ctxMenu.y, (containerRef.current?.clientHeight ?? 9999) - 140),
+            }}
+          >
+            {canReportIncident(role) && (
+              <button
+                type="button"
+                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-start text-[14px] font-semibold text-white/90 transition-colors hover:bg-white/10"
+                onClick={() => { openWizard(ctxMenu.ll); setCtxMenu(null); }}
+              >
+                <Icon path={UI_ICONS.plus} size={16} className="shrink-0 text-or-400" />
+                {t.report}
+              </button>
+            )}
+            <button
+              type="button"
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-start text-[14px] font-semibold text-white/90 transition-colors hover:bg-white/10"
+              onClick={() => {
+                // Si le clic tombe dans la zone d'une ville (≤ 35 km), la
+                // pop-up est titrée de son nom plutôt que des coordonnées.
+                setWxPopup({ ll: ctxMenu.ll, place: nearestCity(ctxMenu.ll[0], ctxMenu.ll[1])?.name ?? null });
+                setCtxMenu(null);
+              }}
+            >
+              <Icon path={NAV_ICONS.weather} size={16} className="shrink-0 text-or-400" />
+              {FLUX[lang].wx_here}
+            </button>
+            <div className="border-t border-white/10 px-3.5 pb-1 pt-1.5 font-mono text-[11px] text-white/50">
+              {ctxMenu.ll[1].toFixed(4)}, {ctxMenu.ll[0].toFixed(4)}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Pop-up de prévisions météo du point sélectionné */}
+      {wxPopup && <WeatherPopup ll={wxPopup.ll} place={wxPopup.place} onClose={() => setWxPopup(null)} />}
 
       {/* Points de mesure : réordonner (↑/↓) et supprimer (✕) */}
       {pts.length > 0 && (

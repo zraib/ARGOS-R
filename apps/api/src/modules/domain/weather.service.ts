@@ -61,14 +61,22 @@ export interface WeatherForecast {
   daily: WeatherDay[];
 }
 
-/** Point de grille (carte météo) : conditions actuelles échantillonnées. */
-export interface WeatherGridPoint {
+/** Série horaire d'un point de la grille météo (carte animée). */
+export interface WeatherGridPointSeries {
   lat: number;
   lon: number;
-  temp: number;
-  wind: number;
-  precip: number;
-  code: number;
+  temp: number[];
+  wind: number[];
+  /** Direction d'où vient le vent (degrés), par heure. */
+  windDir: number[];
+  /** Probabilité de précipitations (%), par heure. */
+  precipProb: number[];
+}
+
+/** Grille météo animée : heures de prévision partagées + points (row-major). */
+export interface WeatherGridSeries {
+  times: string[];
+  points: WeatherGridPointSeries[];
 }
 
 // Villes de référence pour la sélection (préfectures / grandes villes).
@@ -97,22 +105,96 @@ export class WeatherService {
   private readonly logger = new Logger(WeatherService.name);
   private readonly cache = new Map<string, { at: number; data: WeatherForecast }>();
   private gridAt = 0;
-  private gridData: WeatherGridPoint[] = [];
+  private gridData: WeatherGridSeries | null = null;
+  private gridWorldAt = 0;
+  private gridWorldData: WeatherGridSeries | null = null;
 
   cities(): WeatherCity[] {
     return CITIES;
   }
 
   /**
-   * Grille de conditions actuelles couvrant le territoire (carte météo). Une
-   * seule requête Open-Meteo multi-localisations. Cache 10 min ; dégradation sur
-   * le dernier cache connu, sinon tableau vide.
+   * Récupère les séries horaires (7 j) pour une liste de points, en LOTS de
+   * 150 localisations (limite de longueur d'URL Open-Meteo), puis fusionne.
    */
-  async grid(): Promise<WeatherGridPoint[]> {
-    if (this.gridData.length && Date.now() - this.gridAt < TTL_MS) return this.gridData;
+  private async fetchHourlySeries(pts: [number, number][]): Promise<WeatherGridSeries> {
+    interface Hourly {
+      time?: string[];
+      temperature_2m?: (number | null)[];
+      wind_speed_10m?: (number | null)[];
+      wind_direction_10m?: (number | null)[];
+      precipitation_probability?: (number | null)[];
+    }
+    const CHUNK = 150;
+    let times: string[] = [];
+    const points: WeatherGridPointSeries[] = [];
+    for (let off = 0; off < pts.length; off += CHUNK) {
+      const part = pts.slice(off, off + CHUNK);
+      const params = new URLSearchParams({
+        latitude: part.map((p) => p[0]).join(","),
+        longitude: part.map((p) => p[1]).join(","),
+        hourly: "temperature_2m,wind_speed_10m,wind_direction_10m,precipitation_probability",
+        forecast_days: "7",
+      });
+      const res = await fetch(`${OM_URL}?${params.toString()}`, { headers: { Accept: "application/json" } });
+      if (!res.ok) throw new Error(`Open-Meteo ${res.status}`);
+      const raw = (await res.json()) as unknown;
+      const arr = Array.isArray(raw) ? raw : [raw];
+      const first = arr[0] as { hourly?: Hourly } | undefined;
+      // Les heures (UTC) sont identiques pour tous les points et tous les lots.
+      if (times.length === 0) times = first?.hourly?.time ?? [];
+      const pick = (a: (number | null)[] | undefined, f: (v: number | null | undefined) => number) =>
+        times.map((_, i) => f(a ? a[i] : 0));
+      for (const o of arr) {
+        const p = o as { latitude?: number; longitude?: number; hourly?: Hourly };
+        const h = p.hourly ?? {};
+        points.push({
+          lat: p.latitude ?? 0,
+          lon: p.longitude ?? 0,
+          temp: pick(h.temperature_2m, (v) => Math.round((v ?? 0) * 10) / 10),
+          wind: pick(h.wind_speed_10m, (v) => Math.round(v ?? 0)),
+          windDir: pick(h.wind_direction_10m, (v) => Math.round(v ?? 0)),
+          precipProb: pick(h.precipitation_probability, (v) => Math.round(v ?? 0)),
+        });
+      }
+    }
+    return { times, points };
+  }
 
-    const COLS = 7, ROWS = 8;
-    const B = { minLat: 21, maxLat: 36, minLon: -17, maxLon: -1 };
+  /**
+   * Grille MONDIALE grossière (pas de 10°, 36×14 = 504 points, 70°N → 60°S) :
+   * les couches météo de la carte couvrent le monde entier, la grille nationale
+   * dense gardant le détail sur le territoire. Cache 60 min (échelle planétaire,
+   * rafraîchissement lent suffisant + respect des quotas Open-Meteo).
+   */
+  async gridWorld(): Promise<WeatherGridSeries> {
+    if (this.gridWorldData && Date.now() - this.gridWorldAt < 3_600_000) return this.gridWorldData;
+    const pts: [number, number][] = [];
+    for (let r = 0; r < 14; r++) {
+      for (let c = 0; c < 36; c++) pts.push([70 - r * 10, -180 + c * 10]);
+    }
+    try {
+      const data = await this.fetchHourlySeries(pts);
+      this.gridWorldAt = Date.now();
+      this.gridWorldData = data;
+      return data;
+    } catch (e) {
+      this.logger.warn(`Open-Meteo (grille monde) injoignable : ${(e as Error).message}`);
+      return this.gridWorldData ?? { times: [], points: [] };
+    }
+  }
+
+  /**
+   * Grille de PRÉVISIONS HORAIRES (24 h) couvrant le territoire — alimente la
+   * carte météo ANIMÉE. Une seule requête Open-Meteo multi-localisations ;
+   * cache 10 min ; dégradation sur le dernier cache connu, sinon grille vide.
+   */
+  async grid(): Promise<WeatherGridSeries> {
+    if (this.gridData && Date.now() - this.gridAt < TTL_MS) return this.gridData;
+
+    // Grille assez dense pour interpoler un champ continu côté client.
+    const COLS = 12, ROWS = 14;
+    const B = { minLat: 20.5, maxLat: 36.5, minLon: -17.5, maxLon: -0.5 };
     const pts: [number, number][] = [];
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
@@ -121,33 +203,16 @@ export class WeatherService {
         pts.push([lat, lon]);
       }
     }
-    const params = new URLSearchParams({
-      latitude: pts.map((p) => p[0]).join(","),
-      longitude: pts.map((p) => p[1]).join(","),
-      current: "temperature_2m,wind_speed_10m,precipitation,weather_code",
-    });
     try {
-      const res = await fetch(`${OM_URL}?${params.toString()}`, { headers: { Accept: "application/json" } });
-      if (!res.ok) throw new Error(`Open-Meteo ${res.status}`);
-      const raw = (await res.json()) as unknown;
-      const arr = Array.isArray(raw) ? raw : [raw];
-      const data: WeatherGridPoint[] = arr.map((o) => {
-        const p = o as { latitude?: number; longitude?: number; current?: { temperature_2m?: number; wind_speed_10m?: number; precipitation?: number; weather_code?: number } };
-        return {
-          lat: p.latitude ?? 0,
-          lon: p.longitude ?? 0,
-          temp: Math.round(p.current?.temperature_2m ?? 0),
-          wind: Math.round(p.current?.wind_speed_10m ?? 0),
-          precip: Math.round((p.current?.precipitation ?? 0) * 10) / 10,
-          code: p.current?.weather_code ?? 0,
-        };
-      });
+      // Pas HORAIRE sur 7 jours (168 pas) — l'animation cliente interpole entre
+      // les pas ; la réponse est mise en cache 10 min côté API.
+      const data = await this.fetchHourlySeries(pts);
       this.gridAt = Date.now();
       this.gridData = data;
       return data;
     } catch (e) {
       this.logger.warn(`Open-Meteo (grille) injoignable : ${(e as Error).message}`);
-      return this.gridData; // dernier cache connu, sinon vide
+      return this.gridData ?? { times: [], points: [] }; // dernier cache, sinon vide
     }
   }
 

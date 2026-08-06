@@ -31,6 +31,10 @@ export interface FluxDict {
   // --- alerte séisme (pop-up globale) ---
   alert_title: string;
   alert_body: string;
+  alert_ma_title: string;
+  alert_ma_body: string;
+  alert_ma_sent: string;
+  alert_ma_none: string;
   alert_view: string;
   alert_dismiss: string;
   // --- météo ---
@@ -70,6 +74,11 @@ export interface FluxDict {
   wx_uv: string;
   wx_sunrise: string;
   wx_sunset: string;
+  // --- animation de la carte météo ---
+  wx_play: string;
+  wx_pause: string;
+  /** Menu contextuel : prévisions du point visé. */
+  wx_here: string;
 }
 
 const fr: FluxDict = {
@@ -95,6 +104,10 @@ const fr: FluxDict = {
   seis_source: "Source : CSEM/EMSC (proxy souverain ARGOS)",
   alert_title: "Nouveau séisme détecté",
   alert_body: "Un séisme vient d'être enregistré par le CSEM/EMSC.",
+  alert_ma_title: "ALERTE SISMIQUE NATIONALE",
+  alert_ma_body: "Séisme enregistré sur le territoire national.",
+  alert_ma_sent: "Autorités notifiées par SMS et e-mail :",
+  alert_ma_none: "Aucune autorité configurée — voir Paramètres.",
   alert_view: "Afficher sur la carte",
   alert_dismiss: "Ignorer",
   wx_title: "Météo",
@@ -131,6 +144,9 @@ const fr: FluxDict = {
   wx_uv: "Indice UV",
   wx_sunrise: "Lever du soleil",
   wx_sunset: "Coucher du soleil",
+  wx_play: "Lecture",
+  wx_pause: "Pause",
+  wx_here: "Prévisions météo ici",
 };
 
 const en: FluxDict = {
@@ -156,6 +172,10 @@ const en: FluxDict = {
   seis_source: "Source: EMSC (ARGOS sovereign proxy)",
   alert_title: "New earthquake detected",
   alert_body: "An earthquake has just been recorded by the EMSC.",
+  alert_ma_title: "NATIONAL SEISMIC ALERT",
+  alert_ma_body: "Earthquake recorded on national territory.",
+  alert_ma_sent: "Authorities notified by SMS and e-mail:",
+  alert_ma_none: "No authority configured — see Settings.",
   alert_view: "Show on map",
   alert_dismiss: "Dismiss",
   wx_title: "Weather",
@@ -192,6 +212,9 @@ const en: FluxDict = {
   wx_uv: "UV index",
   wx_sunrise: "Sunrise",
   wx_sunset: "Sunset",
+  wx_play: "Play",
+  wx_pause: "Pause",
+  wx_here: "Weather forecast here",
 };
 
 const ar: FluxDict = {
@@ -217,6 +240,10 @@ const ar: FluxDict = {
   seis_source: "المصدر: CSEM/EMSC (وسيط سيادي ARGOS)",
   alert_title: "رُصد زلزال جديد",
   alert_body: "سُجِّل زلزال للتو من طرف CSEM/EMSC.",
+  alert_ma_title: "إنذار زلزالي وطني",
+  alert_ma_body: "سُجِّل زلزال على التراب الوطني.",
+  alert_ma_sent: "تم إشعار السلطات عبر رسائل نصية وبريد إلكتروني:",
+  alert_ma_none: "لا توجد سلطة مُعدَّة — راجع الإعدادات.",
   alert_view: "عرض على الخريطة",
   alert_dismiss: "تجاهل",
   wx_title: "الطقس",
@@ -253,6 +280,9 @@ const ar: FluxDict = {
   wx_uv: "مؤشر UV",
   wx_sunrise: "الشروق",
   wx_sunset: "الغروب",
+  wx_play: "تشغيل",
+  wx_pause: "إيقاف",
+  wx_here: "توقعات الطقس هنا",
 };
 
 export const FLUX: Record<Lang, FluxDict> = { fr, ar, en };

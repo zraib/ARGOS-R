@@ -6,6 +6,7 @@ import { CommsService } from "@/modules/domain/comms.service";
 import { IncidentTypesService } from "@/modules/domain/incident-types.service";
 import { SubIncidentTypesService } from "@/modules/domain/sub-incident-types.service";
 import { SeismicService } from "@/modules/domain/seismic.service";
+import { SeismicAlertsService } from "@/modules/domain/seismic-alerts.service";
 import { WeatherService } from "@/modules/domain/weather.service";
 import {
   CreateCategoryDto,
@@ -17,6 +18,7 @@ import {
   RegisterIncidentTypeDto,
   SendMessageDto,
   UpdateIncidentDto,
+  UpdateSeismicAlertConfigDto,
 } from "@/modules/domain/dto";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
@@ -37,6 +39,7 @@ export class DomainController {
     private readonly incidentTypes: IncidentTypesService,
     private readonly subIncidentTypes: SubIncidentTypesService,
     private readonly seismic: SeismicService,
+    private readonly seismicAlerts: SeismicAlertsService,
     private readonly weather: WeatherService,
   ) {}
 
@@ -226,6 +229,27 @@ export class DomainController {
     return this.seismic.recent(Number.isFinite(mag) ? mag : 2.5, reg);
   }
 
+  @Get("seismic/alert-config")
+  @RequirePermission("incidents:read")
+  @ApiOperation({ summary: "Configuration des alertes sismiques (seuils national/mondial, autorités notifiées)" })
+  seismicAlertConfig() {
+    return this.seismicAlerts.getConfig();
+  }
+
+  @Patch("seismic/alert-config")
+  @RequirePermission("admin:settings:update")
+  @ApiOperation({ summary: "Mettre à jour la configuration des alertes sismiques (audité)" })
+  updateSeismicAlertConfig(@Body() dto: UpdateSeismicAlertConfigDto) {
+    return this.seismicAlerts.updateConfig(dto);
+  }
+
+  @Get("seismic/notifications")
+  @RequirePermission("incidents:read")
+  @ApiOperation({ summary: "Historique des notifications SMS/e-mail envoyées aux autorités" })
+  seismicNotifications() {
+    return this.seismicAlerts.listNotifications();
+  }
+
   @Get("weather/cities")
   @RequirePermission("incidents:read")
   @ApiOperation({ summary: "Villes disponibles pour la météo" })
@@ -238,6 +262,13 @@ export class DomainController {
   @ApiOperation({ summary: "Grille de conditions actuelles (carte météo, proxy souverain)" })
   weatherGrid() {
     return this.weather.grid();
+  }
+
+  @Get("weather/grid-world")
+  @RequirePermission("incidents:read")
+  @ApiOperation({ summary: "Grille météo mondiale grossière (pas 10°, couverture planétaire de la carte)" })
+  weatherGridWorld() {
+    return this.weather.gridWorld();
   }
 
   @Get("weather/forecast")

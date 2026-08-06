@@ -1226,6 +1226,74 @@
         ]
       }
     },
+    "/api/seismic/alert-config": {
+      "get": {
+        "operationId": "DomainController_seismicAlertConfig",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Configuration des alertes sismiques (seuils national/mondial, autorités notifiées)",
+        "tags": [
+          "domain"
+        ]
+      },
+      "patch": {
+        "operationId": "DomainController_updateSeismicAlertConfig",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSeismicAlertConfigDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mettre à jour la configuration des alertes sismiques (audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/seismic/notifications": {
+      "get": {
+        "operationId": "DomainController_seismicNotifications",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Historique des notifications SMS/e-mail envoyées aux autorités",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/weather/cities": {
       "get": {
         "operationId": "DomainController_weatherCities",
@@ -1261,6 +1329,26 @@
           }
         ],
         "summary": "Grille de conditions actuelles (carte météo, proxy souverain)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/weather/grid-world": {
+      "get": {
+        "operationId": "DomainController_weatherGridWorld",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Grille météo mondiale grossière (pas 10°, couverture planétaire de la carte)",
         "tags": [
           "domain"
         ]
@@ -1989,6 +2077,56 @@
         "required": [
           "categoryId",
           "name"
+        ]
+      },
+      "AuthorityContactDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Centre de Veille et de Coordination"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+212600000000"
+          },
+          "email": {
+            "type": "string",
+            "example": "cvc@interieur.gov.ma"
+          }
+        },
+        "required": [
+          "name",
+          "phone",
+          "email"
+        ]
+      },
+      "UpdateSeismicAlertConfigDto": {
+        "type": "object",
+        "properties": {
+          "maMinMag": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 9,
+            "description": "Seuil national (SMS + e-mail aux autorités)"
+          },
+          "globalMinMag": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 9,
+            "description": "Seuil mondial (notification dans l'app uniquement)"
+          },
+          "contacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuthorityContactDto"
+            }
+          }
+        },
+        "required": [
+          "maMinMag",
+          "globalMinMag",
+          "contacts"
         ]
       }
     }
