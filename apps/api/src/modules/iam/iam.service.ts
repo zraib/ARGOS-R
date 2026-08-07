@@ -18,11 +18,11 @@ export class IamService {
   private readonly users: UserRecord[] = [
     { id: "u-001", username: "k.benjelloun", name: "Col. K. Benjelloun", role: "superadmin" },
     { id: "u-002", username: "admin", name: "Administrateur", role: "admin" },
-    { id: "u-003", username: "auditeur", name: "Auditeur", role: "auditor" },
-    { id: "u-004", username: "r.alaoui", name: "Gén. R. Alaoui", role: "command" },
-    { id: "u-005", username: "repartiteur", name: "Officier de Dispatching", role: "dispatcher" },
-    { id: "u-006", username: "chef.unite", name: "Chef d'Unité", role: "unit_commander" },
-    { id: "u-007", username: "agent", name: "Agent de Terrain", role: "field_agent" },
+    { id: "u-003", username: "strategique", name: "Utilisateur Stratégique", role: "strategic" },
+    { id: "u-004", username: "tacom", name: "TACOM", role: "tacom" },
+    { id: "u-005", username: "cellule.bleue", name: "Cellule Bleue (Opérations)", role: "bluecell" },
+    { id: "u-006", username: "cellule.verte", name: "Cellule Verte (Logistique)", role: "greencell" },
+    { id: "u-007", username: "cellule.orange", name: "Cellule Orange (Sécurité)", role: "orangecell" },
   ];
 
   listUsers(): UserRecord[] {

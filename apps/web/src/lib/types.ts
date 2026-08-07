@@ -93,6 +93,10 @@ export interface Hospital {
   id: string;
   nom: string;
   ville: string;
+  /** Région administrative de rattachement. */
+  region?: string;
+  /** Nature de la structure (CHU militaire, hôpital général, régional…). */
+  type?: string;
   lits: number;
   occ: number;
   rea: number;

@@ -45,24 +45,46 @@ export type Permission = (typeof PERMISSIONS)[number];
 export const ROLES = [
   "superadmin",
   "admin",
-  "auditor",
-  "command",
-  "dispatcher",
-  "unit_commander",
-  "field_agent",
+  "strategic",
+  "tacom",
+  "bluecell",
+  "greencell",
+  "orangecell",
+  "resp_hospital",
+  "resp_shelter",
+  "resp_morgue",
+  "resp_unit",
+  "resp_equipment",
 ] as const;
 
 export type Role = (typeof ROLES)[number];
 
-/** Libellés français des rôles (MASTER_PLAN §3). */
+/**
+ * Anciens rôles (avant la refonte) → rôle de reprise. Utilisé pour MIGRER les
+ * comptes persistés en dev sans invalider les sessions/données existantes.
+ */
+export const LEGACY_ROLE_MAP: Record<string, Role> = {
+  auditor: "strategic",
+  command: "tacom",
+  dispatcher: "bluecell",
+  unit_commander: "resp_unit",
+  field_agent: "resp_unit",
+};
+
+/** Libellés français des rôles (organisation cible). */
 export const ROLE_LABELS: Record<Role, string> = {
   superadmin: "Super Administrateur",
   admin: "Administrateur",
-  auditor: "Auditeur",
-  command: "Commandement Stratégique",
-  dispatcher: "Répartiteur",
-  unit_commander: "Chef d'Unité",
-  field_agent: "Agent de Terrain",
+  strategic: "Utilisateur Stratégique",
+  tacom: "TACOM",
+  bluecell: "Cellule Bleue — Opérations",
+  greencell: "Cellule Verte — Logistique",
+  orangecell: "Cellule Orange — Sécurité",
+  resp_hospital: "Responsable Hôpital",
+  resp_shelter: "Responsable Abri",
+  resp_morgue: "Responsable Morgue",
+  resp_unit: "Responsable Unité",
+  resp_equipment: "Responsable Équipement",
 };
 
 /**
@@ -78,21 +100,29 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[] | "*"> = {
     "org:zones:read", "org:zones:manage", "org:units:read", "org:units:manage", "org:hospitals:read", "org:hospitals:manage",
     "incidents:read", "map:tracking:view_all",
   ],
-  auditor: [
-    "iam:users:read", "iam:roles:read", "iam:permissions:read",
-    "admin:feature_flags:read", "admin:settings:read",
-    "audit:log:read", "audit:log:verify",
+  // NB : dotations PROVISOIRES — l'attribution fine se fera via la matrice
+  // rôles × fonctionnalités (voir docs/matrice-roles-fonctionnalites.xlsx).
+  strategic: [
     "org:zones:read", "org:units:read", "org:hospitals:read",
-    "incidents:read",
+    "incidents:read", "map:tracking:view_all", "audit:log:read",
   ],
-  command: [
+  tacom: [
     "org:zones:read", "org:units:read", "org:hospitals:read",
     "incidents:read", "incidents:create", "incidents:update",
     "map:tracking:view_all", "dispatch:assign",
   ],
-  dispatcher: ["org:units:read", "org:hospitals:read", "incidents:read", "map:tracking:view_all", "dispatch:assign"],
-  unit_commander: ["org:units:read", "org:units:manage", "incidents:read"],
-  field_agent: ["incidents:read", "incidents:create"],
+  bluecell: [
+    "org:units:read", "org:hospitals:read",
+    "incidents:read", "incidents:create", "incidents:update",
+    "map:tracking:view_all", "dispatch:assign",
+  ],
+  greencell: ["org:units:read", "incidents:read", "map:tracking:view_all"],
+  orangecell: ["org:zones:read", "incidents:read", "map:tracking:view_all"],
+  resp_hospital: ["org:hospitals:read", "org:hospitals:manage", "hospinet:beds:update", "incidents:read"],
+  resp_shelter: ["org:zones:read", "incidents:read"],
+  resp_morgue: ["incidents:read"],
+  resp_unit: ["org:units:read", "org:units:manage", "incidents:read"],
+  resp_equipment: ["org:units:read", "incidents:read"],
 };
 
 /** Résout la liste effective des permissions d'un rôle. */
@@ -157,11 +187,16 @@ const featuresFrom = (allowed: readonly ModuleFeature[]): Record<string, boolean
 export const DEFAULT_ROLE_FEATURES: Record<Role, Record<string, boolean>> = {
   superadmin: allOn(),
   admin: allOn(),
-  auditor: featuresFrom(["dashboard", "incidents", "map", "orsec", "reports", "analytics"]),
-  command: featuresFrom(["dashboard", "incidents", "map", "dispatch", "hospitals", "orsec", "plans", "comms", "reports", "analytics", "damage", "shelters"]),
-  dispatcher: featuresFrom(["dashboard", "incidents", "map", "dispatch", "triage", "equip", "units", "personnel", "workorders", "comms"]),
-  unit_commander: featuresFrom(["dashboard", "incidents", "map", "units", "personnel", "workorders", "comms"]),
-  field_agent: featuresFrom(["dashboard", "incidents", "triage", "damage", "shelters", "comms"]),
+  strategic: featuresFrom(["dashboard", "incidents", "map", "orsec", "plans", "reports", "analytics"]),
+  tacom: featuresFrom(["dashboard", "incidents", "map", "dispatch", "hospitals", "orsec", "plans", "comms", "reports"]),
+  bluecell: featuresFrom(["dashboard", "incidents", "map", "dispatch", "triage", "ics", "comms"]),
+  greencell: featuresFrom(["dashboard", "incidents", "map", "equip", "units", "personnel", "workorders", "comms"]),
+  orangecell: featuresFrom(["dashboard", "incidents", "map", "comms", "reports"]),
+  resp_hospital: featuresFrom(["dashboard", "incidents", "map", "hospitals", "comms"]),
+  resp_shelter: featuresFrom(["dashboard", "incidents", "map", "shelters", "comms"]),
+  resp_morgue: featuresFrom(["dashboard", "incidents", "map", "triage", "comms"]),
+  resp_unit: featuresFrom(["dashboard", "incidents", "map", "units", "personnel", "comms"]),
+  resp_equipment: featuresFrom(["dashboard", "incidents", "map", "equip", "workorders", "comms"]),
 };
 
 /** Copie profonde des défauts (état initial modifiable). */

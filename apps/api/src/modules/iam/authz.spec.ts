@@ -39,15 +39,15 @@ describe("Authz — default-deny (gate de sécurité Phase 0)", () => {
     await base().get("/api/iam/me").expect(401);
   });
 
-  it("résout les permissions depuis le rôle (field_agent)", async () => {
-    const tok = await devToken("agent", "field_agent");
+  it("résout les permissions depuis le rôle (resp_unit)", async () => {
+    const tok = await devToken("agent", "resp_unit");
     const res = await base().get("/api/iam/me").set("Authorization", `Bearer ${tok}`).expect(200);
-    expect(res.body.role).toBe("field_agent");
-    expect(res.body.permissions).toEqual(["incidents:read", "incidents:create"]);
+    expect(res.body.role).toBe("resp_unit");
+    expect(res.body.permissions).toEqual(["org:units:read", "org:units:manage", "incidents:read"]);
   });
 
-  it("DEFAULT-DENY : field_agent ne peut pas lister les utilisateurs (403)", async () => {
-    const tok = await devToken("agent", "field_agent");
+  it("DEFAULT-DENY : resp_unit ne peut pas lister les utilisateurs (403)", async () => {
+    const tok = await devToken("agent", "resp_unit");
     await base().get("/api/iam/users").set("Authorization", `Bearer ${tok}`).expect(403);
   });
 
@@ -57,7 +57,7 @@ describe("Authz — default-deny (gate de sécurité Phase 0)", () => {
   });
 
   it("DEFAULT-DENY : l'auditeur ne peut pas basculer un flag (403) mais peut lire l'audit (200)", async () => {
-    const tok = await devToken("auditeur", "auditor");
+    const tok = await devToken("auditeur", "strategic");
     await base().patch("/api/flags/map").set("Authorization", `Bearer ${tok}`).send({ enabled: false }).expect(403);
     await base().get("/api/audit").set("Authorization", `Bearer ${tok}`).expect(200);
   });

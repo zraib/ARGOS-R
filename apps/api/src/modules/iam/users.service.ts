@@ -9,7 +9,10 @@ import {
   assignableRoles,
   canAssignMultipleRoles,
   defaultRoleFeatures,
+  isRole,
+  LEGACY_ROLE_MAP,
   MODULE_FEATURES,
+  ROLES,
   type Role,
 } from "@/shared/permissions";
 import { loadDevState, saveDevState } from "@/common/dev-store";
@@ -21,8 +24,12 @@ import { loadDevState, saveDevState } from "@/common/dev-store";
  */
 export interface ManagedUser {
   id: string;
+  /** Identifiant de connexion (libellé d'interface : « nom d'utilisateur »). */
   matricule: string;
   nom: string;
+  prenom?: string;
+  /** Téléphone de contact (SMS d'astreinte, annuaire). */
+  phone?: string;
   grade?: string;
   roles: Role[];
   passwordChanged: boolean;
@@ -46,6 +53,8 @@ export interface ManagedUserPublic {
   id: string;
   matricule: string;
   nom: string;
+  prenom?: string;
+  phone?: string;
   grade?: string;
   roles: Role[];
   status: "active" | "inactive";
@@ -67,6 +76,11 @@ function generateTempPassword(): string {
   return `${group()}-${group()}`;
 }
 
+/** Nom affiché d'un compte : « Prénom Nom » si le prénom est renseigné. */
+export function displayName(u: { nom: string; prenom?: string }): string {
+  return u.prenom ? `${u.prenom} ${u.nom}` : u.nom;
+}
+
 function userActive(u: ManagedUser): boolean {
   if (u.disabled) return false;
   return u.passwordChanged || u.activatedByAdmin;
@@ -77,6 +91,8 @@ function toPublic(u: ManagedUser): ManagedUserPublic {
     id: u.id,
     matricule: u.matricule,
     nom: u.nom,
+    prenom: u.prenom,
+    phone: u.phone,
     grade: u.grade,
     roles: u.roles,
     status: userActive(u) ? "active" : "inactive",
@@ -96,12 +112,12 @@ export class UsersService {
   private readonly users: ManagedUser[] = [
     // Compte fondateur : code initial « ARGOS-2026 » (remis hors-bande), mot de
     // passe personnel OBLIGATOIRE au 1er login — aucun mot de passe passe-partout.
-    { id: "u-benjelloun", matricule: "k.benjelloun", nom: "Col. K. Benjelloun", grade: "Colonel", roles: ["superadmin"], passwordChanged: false, tempPassword: "ARGOS-2026", activatedByAdmin: true, disabled: false, online: false, builtin: true, createdBy: "système", createdAt: "2026-01-04T08:00:00Z", lastLogin: null },
+    { id: "u-benjelloun", matricule: "m.zraib", nom: "Zraib", prenom: "Mohammed", phone: "+212663002950", grade: "Commandant", roles: ["superadmin"], passwordChanged: false, tempPassword: "ARGOS-2026", activatedByAdmin: true, disabled: false, online: false, builtin: true, createdBy: "système", createdAt: "2026-01-04T08:00:00Z", lastLogin: null },
     { id: "u-alami", matricule: "h.alami", nom: "Cdt. H. Alami", grade: "Commandant", roles: ["admin"], passwordChanged: true, password: "argos", tempPassword: null, activatedByAdmin: false, disabled: false, online: false, createdBy: "k.benjelloun", createdAt: "2026-02-11T09:20:00Z", lastLogin: "2026-07-13T18:40:00Z" },
-    { id: "u-tazi", matricule: "y.tazi", nom: "Cne. Y. Tazi", grade: "Capitaine", roles: ["dispatcher"], passwordChanged: true, password: "argos", tempPassword: null, activatedByAdmin: false, disabled: false, online: true, createdBy: "h.alami", createdAt: "2026-03-02T14:05:00Z", lastLogin: "2026-07-14T00:10:00Z" },
-    { id: "u-fassi", matricule: "n.fassi", nom: "Lt. N. Fassi", grade: "Lieutenant", roles: ["field_agent"], passwordChanged: false, tempPassword: "A7X2-K9D3", activatedByAdmin: false, disabled: false, online: false, createdBy: "h.alami", createdAt: "2026-07-12T11:30:00Z", lastLogin: null },
-    { id: "u-bennani", matricule: "s.bennani", nom: "Cdt. S. Bennani", grade: "Commandant", roles: ["command", "dispatcher", "unit_commander"], passwordChanged: false, tempPassword: "Q4M8-P2L6", activatedByAdmin: false, disabled: false, online: false, createdBy: "k.benjelloun", createdAt: "2026-07-13T16:45:00Z", lastLogin: null },
-    { id: "u-idrissi", matricule: "r.idrissi", nom: "Cne. R. Idrissi", grade: "Capitaine", roles: ["auditor"], passwordChanged: false, tempPassword: "Z9C1-H5R7", activatedByAdmin: true, disabled: false, online: false, createdBy: "k.benjelloun", createdAt: "2026-07-10T10:15:00Z", lastLogin: null },
+    { id: "u-tazi", matricule: "y.tazi", nom: "Cne. Y. Tazi", grade: "Capitaine", roles: ["bluecell"], passwordChanged: true, password: "argos", tempPassword: null, activatedByAdmin: false, disabled: false, online: true, createdBy: "h.alami", createdAt: "2026-03-02T14:05:00Z", lastLogin: "2026-07-14T00:10:00Z" },
+    { id: "u-fassi", matricule: "n.fassi", nom: "Lt. N. Fassi", grade: "Lieutenant", roles: ["resp_unit"], passwordChanged: false, tempPassword: "A7X2-K9D3", activatedByAdmin: false, disabled: false, online: false, createdBy: "h.alami", createdAt: "2026-07-12T11:30:00Z", lastLogin: null },
+    { id: "u-bennani", matricule: "s.bennani", nom: "Cdt. S. Bennani", grade: "Commandant", roles: ["tacom", "bluecell", "resp_unit"], passwordChanged: false, tempPassword: "Q4M8-P2L6", activatedByAdmin: false, disabled: false, online: false, createdBy: "k.benjelloun", createdAt: "2026-07-13T16:45:00Z", lastLogin: null },
+    { id: "u-idrissi", matricule: "r.idrissi", nom: "Cne. R. Idrissi", grade: "Capitaine", roles: ["strategic"], passwordChanged: false, tempPassword: "Z9C1-H5R7", activatedByAdmin: true, disabled: false, online: false, createdBy: "k.benjelloun", createdAt: "2026-07-10T10:15:00Z", lastLogin: null },
   ];
 
   private roleFeatures = defaultRoleFeatures();
@@ -114,9 +130,30 @@ export class UsersService {
     const snap = loadDevState<{ users?: ManagedUser[]; roleFeatures?: Record<Role, Record<string, boolean>> }>("iam", {});
     if (snap.users && snap.users.length > 0) {
       // `online` est un état de session : on repart déconnecté après un restart.
-      this.users.splice(0, this.users.length, ...snap.users.map((u) => ({ ...u, online: false })));
+      // Les rôles HÉRITÉS (avant la refonte de l'organisation) sont migrés vers
+      // leur rôle de reprise (LEGACY_ROLE_MAP) — aucun compte n'est invalidé.
+      const migrate = (roles: string[]): Role[] => {
+        const out = roles.map((r) => (isRole(r) ? r : LEGACY_ROLE_MAP[r] ?? "resp_unit"));
+        return [...new Set(out)];
+      };
+      this.users.splice(0, this.users.length, ...snap.users.map((u) => ({ ...u, roles: migrate(u.roles), online: false })));
+      // Le compte fondateur reprend l'identité par défaut si elle n'a jamais été
+      // renseignée (registre créé avant l'ajout prénom/téléphone). Le mot de
+      // passe et l'historique du compte sont conservés.
+      const founder = this.users.find((u) => u.id === "u-benjelloun");
+      if (founder && !founder.phone) {
+        founder.matricule = "m.zraib";
+        founder.nom = "Zraib";
+        founder.prenom = "Mohammed";
+        founder.grade = "Commandant";
+        founder.phone = "+212663002950";
+      }
     }
-    if (snap.roleFeatures) this.roleFeatures = snap.roleFeatures;
+    // La matrice persistée peut porter d'anciens rôles : on repart des défauts
+    // de la nouvelle organisation si elle ne couvre pas les rôles actuels.
+    if (snap.roleFeatures && ROLES.every((r) => r in snap.roleFeatures!)) {
+      this.roleFeatures = snap.roleFeatures;
+    }
   }
 
   /** Écrit l'instantané du registre (débounce dans dev-store ; no-op hors dev). */
@@ -162,7 +199,11 @@ export class UsersService {
 
   // --- écriture ------------------------------------------------------------
 
-  create(creator: Role, actorUsername: string, input: { matricule: string; nom: string; grade?: string; roles: Role[] }): { user: ManagedUserPublic; tempPassword: string } {
+  create(
+    creator: Role,
+    actorUsername: string,
+    input: { matricule: string; nom: string; prenom?: string; phone?: string; grade?: string; roles: Role[] },
+  ): { user: ManagedUserPublic; tempPassword: string } {
     this.validateRoles(creator, input.roles);
     const matricule = input.matricule.trim();
     if (this.users.some((u) => u.matricule.toLowerCase() === matricule.toLowerCase())) {
@@ -173,6 +214,8 @@ export class UsersService {
       id: `u-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       matricule,
       nom: input.nom.trim(),
+      prenom: input.prenom?.trim() || undefined,
+      phone: input.phone?.trim() || undefined,
       grade: input.grade?.trim() || undefined,
       roles: input.roles,
       passwordChanged: false,
@@ -189,14 +232,31 @@ export class UsersService {
     return { user: toPublic(user), tempPassword };
   }
 
-  update(actorRole: Role, id: string, patch: { nom?: string; grade?: string; roles?: Role[] }): ManagedUserPublic {
+  update(
+    actorRole: Role,
+    id: string,
+    patch: { matricule?: string; nom?: string; prenom?: string; phone?: string; grade?: string; roles?: Role[] },
+  ): ManagedUserPublic {
     const u = this.find(id);
     this.assertManageable(actorRole, u);
     if (patch.roles !== undefined) {
       this.validateRoles(actorRole, patch.roles);
       u.roles = patch.roles;
     }
+    // Le nom d'utilisateur (identifiant de connexion) n'est modifiable que par
+    // le Super Administrateur, et doit rester unique.
+    if (patch.matricule !== undefined && patch.matricule.trim() !== u.matricule) {
+      if (actorRole !== "superadmin") throw new ForbiddenException("Seul le Super Administrateur peut modifier le nom d'utilisateur.");
+      const next = patch.matricule.trim();
+      if (!next) throw new BadRequestException("Nom d'utilisateur requis.");
+      if (this.users.some((x) => x.id !== u.id && x.matricule.toLowerCase() === next.toLowerCase())) {
+        throw new ConflictException("Ce nom d'utilisateur existe déjà.");
+      }
+      u.matricule = next;
+    }
     if (patch.nom !== undefined) u.nom = patch.nom.trim();
+    if (patch.prenom !== undefined) u.prenom = patch.prenom.trim() || undefined;
+    if (patch.phone !== undefined) u.phone = patch.phone.trim() || undefined;
     if (patch.grade !== undefined) u.grade = patch.grade.trim() || undefined;
     this.persist();
     return toPublic(u);
@@ -297,7 +357,7 @@ export class UsersService {
   ownProfile(matricule: string): { matricule: string; nom: string; grade?: string; roles: Role[]; photo?: string } {
     const u = this.byMatricule(matricule);
     if (!u) throw new NotFoundException("Compte introuvable.");
-    return { matricule: u.matricule, nom: u.nom, grade: u.grade, roles: u.roles, photo: u.photo };
+    return { matricule: u.matricule, nom: displayName(u), grade: u.grade, roles: u.roles, photo: u.photo };
   }
 
   /** Mise à jour par l'utilisateur de son propre profil (nom affiché, photo). */

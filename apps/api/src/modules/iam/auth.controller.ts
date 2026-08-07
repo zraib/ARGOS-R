@@ -5,7 +5,7 @@ import { SignJWT } from "jose";
 import { Public } from "@/common/decorators/public.decorator";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import { ChangePasswordDto, DevTokenDto, LoginDto, SelectRoleDto, UpdateProfileDto } from "@/modules/iam/dto";
-import { UsersService } from "@/modules/iam/users.service";
+import { displayName, UsersService } from "@/modules/iam/users.service";
 import type { AuthUser } from "@/common/types/auth-user";
 import type { Role } from "@/shared/permissions";
 import type { AppConfig } from "@/config/configuration";
@@ -64,7 +64,7 @@ export class AuthController {
       expires_in: 28800,
       role: activeRole,
       roles: res.user.roles,
-      nom: res.user.nom,
+      nom: displayName(res.user),
       matricule: res.user.matricule,
       photo: res.user.photo,
       mustChangePassword: res.mustChangePassword,

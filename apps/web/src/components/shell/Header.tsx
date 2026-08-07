@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Avatar } from "@/components/ui/Avatar";
 import { LanguageMenu } from "@/components/shell/LanguageMenu";
 import { UI_ICONS } from "@/lib/icons";
+import { ROLE_ICONS, type Role } from "@/lib/roles";
 import { ALERT_LEVEL } from "@/lib/config";
 import { screenTitle } from "@/lib/nav";
 import type { Dict } from "@/lib/i18n/translations";
@@ -52,6 +53,9 @@ function UserMenu() {
   const sessionUser = useArgos((s) => s.sessionUser);
   const role = useArgos((s) => s.role);
   const logout = useArgos((s) => s.logout);
+  const switchRole = useArgos((s) => s.switchRole);
+  const showToast = useArgos((s) => s.showToast);
+  const [switching, setSwitching] = useState(false);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -72,6 +76,23 @@ function UserMenu() {
   }, [open]);
 
   const nom = sessionUser?.nom ?? "—";
+  const roles = sessionUser?.roles ?? [];
+
+  // Bascule de rôle À CHAUD (comptes multi-rôles) : nouveau jeton via l'API,
+  // contexte rechargé — sans déconnexion.
+  const doSwitch = async (r: Role) => {
+    if (switching || r === role) return;
+    setSwitching(true);
+    try {
+      const ok = await switchRole(r);
+      if (ok) {
+        showToast(m.users.role_switched + m.roles[r]);
+        setOpen(false);
+      }
+    } finally {
+      setSwitching(false);
+    }
+  };
 
   return (
     <div ref={ref} className="relative shrink-0">
@@ -105,6 +126,31 @@ function UserMenu() {
             <div className="truncate text-xs font-semibold text-rdia-600 dark:text-rdia-50">{nom}</div>
             <div className="truncate font-mono text-[10px] text-gray-400 dark:text-rdia-300">{sessionUser?.matricule}</div>
           </div>
+          {/* Bascule de rôle (uniquement pour les comptes multi-rôles) */}
+          {roles.length > 1 && (
+            <div className="border-b border-gray-100 py-1 dark:border-rdia-600">
+              <div className="px-4 pb-0.5 pt-1 text-[9px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">
+                {m.users.switch_role}
+              </div>
+              {roles.map((r) => (
+                <button
+                  key={r}
+                  role="menuitem"
+                  disabled={switching || r === role}
+                  onClick={() => void doSwitch(r)}
+                  className={`flex w-full items-center gap-2.5 px-4 py-1.5 text-xs font-medium transition-colors ${
+                    r === role
+                      ? "cursor-default text-or-600 dark:text-or-400"
+                      : "text-gray-600 hover:bg-or-500/10 hover:text-or-600 disabled:opacity-50 dark:text-rdia-100 dark:hover:text-or-400"
+                  }`}
+                >
+                  <Icon path={ROLE_ICONS[r]} size={14} className={r === role ? "text-or-500" : "text-gray-400 dark:text-rdia-300"} />
+                  <span className="flex-1 truncate text-start">{m.roles[r]}</span>
+                  {r === role && <Icon path={UI_ICONS.check} size={12} strokeWidth={3} className="text-or-500" />}
+                </button>
+              ))}
+            </div>
+          )}
           <button
             role="menuitem"
             className="flex w-full items-center gap-2.5 px-4 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-or-500/10 hover:text-or-600 dark:text-rdia-100 dark:hover:text-or-400"

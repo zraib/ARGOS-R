@@ -96,21 +96,16 @@ function featuresFrom(allowed: NavKey[]): Record<string, boolean> {
 export const DEFAULT_ROLE_FEATURES: Record<Role, Record<string, boolean>> = {
   superadmin: ALL_ON(),
   admin: ALL_ON(),
-  auditor: featuresFrom(["dashboard", "incidents", "map", "orsec", "reports", "analytics"]),
-  command: featuresFrom([
-    "dashboard", "incidents", "map", "dispatch", "hospitals",
-    "orsec", "plans", "comms", "reports", "analytics", "damage", "shelters",
-  ]),
-  dispatcher: featuresFrom([
-    "dashboard", "incidents", "map", "dispatch", "triage",
-    "equip", "units", "personnel", "workorders", "comms",
-  ]),
-  unit_commander: featuresFrom([
-    "dashboard", "incidents", "map", "units", "personnel", "workorders", "comms",
-  ]),
-  field_agent: featuresFrom([
-    "dashboard", "incidents", "triage", "damage", "shelters", "comms",
-  ]),
+  strategic: featuresFrom(["dashboard", "incidents", "map", "orsec", "plans", "reports", "analytics"]),
+  tacom: featuresFrom(["dashboard", "incidents", "map", "dispatch", "hospitals", "orsec", "plans", "comms", "reports"]),
+  bluecell: featuresFrom(["dashboard", "incidents", "map", "dispatch", "triage", "ics", "comms"]),
+  greencell: featuresFrom(["dashboard", "incidents", "map", "equip", "units", "personnel", "workorders", "comms"]),
+  orangecell: featuresFrom(["dashboard", "incidents", "map", "comms", "reports"]),
+  resp_hospital: featuresFrom(["dashboard", "incidents", "map", "hospitals", "comms"]),
+  resp_shelter: featuresFrom(["dashboard", "incidents", "map", "shelters", "comms"]),
+  resp_morgue: featuresFrom(["dashboard", "incidents", "map", "triage", "comms"]),
+  resp_unit: featuresFrom(["dashboard", "incidents", "map", "units", "personnel", "comms"]),
+  resp_equipment: featuresFrom(["dashboard", "incidents", "map", "equip", "workorders", "comms"]),
 };
 
 /** Copie profonde des défauts (état initial modifiable dans le store). */
@@ -160,7 +155,7 @@ export const SEED_USERS: ManagedUser[] = [
     matricule: "y.tazi",
     nom: "Cne. Y. Tazi",
     grade: "Capitaine",
-    roles: ["dispatcher"],
+    roles: ["bluecell"],
     passwordChanged: true,
     password: "argos",
     tempPassword: null,
@@ -175,7 +170,7 @@ export const SEED_USERS: ManagedUser[] = [
     matricule: "n.fassi",
     nom: "Lt. N. Fassi",
     grade: "Lieutenant",
-    roles: ["field_agent"],
+    roles: ["resp_unit"],
     // Créé récemment, jamais connecté → inactif, code temporaire visible.
     passwordChanged: false,
     tempPassword: "A7X2-K9D3",
@@ -191,7 +186,7 @@ export const SEED_USERS: ManagedUser[] = [
     nom: "Cdt. S. Bennani",
     grade: "Commandant",
     // Multi-rôles (créé par le Super Admin) → sélecteur de rôle après login.
-    roles: ["command", "dispatcher", "unit_commander"],
+    roles: ["tacom", "bluecell", "resp_unit"],
     passwordChanged: false,
     tempPassword: "Q4M8-P2L6",
     activatedByAdmin: false,
@@ -205,7 +200,7 @@ export const SEED_USERS: ManagedUser[] = [
     matricule: "r.idrissi",
     nom: "Cne. R. Idrissi",
     grade: "Capitaine",
-    roles: ["auditor"],
+    roles: ["strategic"],
     // Activé par le Super Admin malgré un code temporaire encore en vigueur.
     passwordChanged: false,
     tempPassword: "Z9C1-H5R7",

@@ -12,7 +12,7 @@ export function MoroccoSituation() {
 
   return (
     <div className="flex-1 overflow-hidden rounded-lg" style={{ background: "#10202f", minHeight: 420 }}>
-      <svg viewBox="10 30 420 430" className="h-full w-full" style={{ display: "block" }}>
+      <svg viewBox="10 40 420 660" className="h-full w-full" style={{ display: "block" }}>
         <path
           d="M218,52 L196,148 L176,176 L156,196 L136,240 L120,278 L112,330 L96,368 L82,404 L52,436 L58,458 L30,516 L24,596 L38,678 L120,676 L128,600 L180,560 L190,500 L232,470 L262,448 L306,428 L338,398 L356,342 L398,286 L420,208 L396,150 L390,94 L354,98 L302,86 L245,62 Z"
           fill="#1B4D2E"

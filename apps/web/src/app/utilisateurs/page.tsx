@@ -19,12 +19,16 @@ import {
   type Role,
 } from "@/lib/roles";
 import { MODULE_FEATURES, DEFAULT_ROLE_FEATURES, initials } from "@/lib/data/users";
+import { GRADES } from "@/lib/data/grades";
 
 /** Projection publique d'un compte, telle que renvoyée par l'API (/iam/users). */
 interface ApiUser {
   id: string;
+  /** Identifiant de connexion — libellé d'interface : « nom d'utilisateur ». */
   matricule: string;
   nom: string;
+  prenom?: string;
+  phone?: string;
   grade?: string;
   roles: Role[];
   status: "active" | "inactive";
@@ -38,6 +42,9 @@ interface ApiUser {
 }
 
 type Tab = "users" | "roles";
+
+/** Nom affiché d'un compte : « Prénom Nom » si le prénom est renseigné. */
+const fullName = (u: { nom: string; prenom?: string }) => (u.prenom ? `${u.prenom} ${u.nom}` : u.nom);
 
 export default function UtilisateursPage() {
   const m = useModules();
@@ -62,7 +69,7 @@ export default function UtilisateursPage() {
   }
 
   return (
-    <section className="mx-auto flex max-w-5xl flex-col gap-4 animate-fade-in">
+    <section className="flex h-full w-full flex-col gap-4 animate-fade-in">
       <div className="carte flex items-center gap-3 p-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-or-500/15 text-or-500">
           <Icon path={UI_ICONS.users} size={20} />
@@ -117,7 +124,8 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [codes, setCodes] = useState<Record<string, string>>({});
-  const [lastCreated, setLastCreated] = useState<{ nom: string; code: string } | null>(null);
+  // Pop-up récapitulatif du compte qui vient d'être créé (identifiants à remettre).
+  const [created, setCreated] = useState<{ user: ApiUser; code: string } | null>(null);
   const [form, setForm] = useState<{ mode: "create" } | { mode: "edit"; user: ApiUser } | null>(null);
   const [confirmDel, setConfirmDel] = useState<ApiUser | null>(null);
 
@@ -157,6 +165,30 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
     if (code) setCodes((s) => ({ ...s, [u.id]: code }));
   };
 
+  /** Copie un texte dans le presse-papiers (confirmation par toast). */
+  const copyText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast(m.users.copied_toast);
+    } catch {
+      /* presse-papiers indisponible (permissions navigateur) */
+    }
+  };
+
+  /**
+   * Copie le mot de passe provisoire d'un compte SANS l'afficher : s'il n'a pas
+   * encore été révélé, il est demandé à l'API à la volée.
+   */
+  const copyUserCode = async (u: ApiUser) => {
+    let code = codes[u.id];
+    if (!code) {
+      const res = await api.revealUserCode(u.id);
+      code = (res.data as { tempPassword?: string | null } | undefined)?.tempPassword ?? "";
+      if (!code) return;
+    }
+    await copyText(code);
+  };
+
   const toggleActive = async (u: ApiUser, active: boolean) => {
     await api.setUserActive(u.id, active);
     showToast(m.users.activated_toast);
@@ -171,35 +203,23 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-0 flex-1" style={{ maxWidth: 320 }}>
           <input className="input-champ text-sm" placeholder={m.users.search} value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
-        <button className="btn-primaire flex items-center gap-1.5 text-sm" onClick={() => setForm({ mode: "create" })}>
+        <button className="btn-primaire ms-auto flex items-center gap-1.5 text-sm" onClick={() => setForm({ mode: "create" })}>
           <Icon path={UI_ICONS.plus} size={15} />
           {m.users.new_user}
         </button>
       </div>
 
-      {lastCreated && (
-        <div className="carte flex items-center gap-3 border-l-4 border-or-500 p-4">
-          <Icon path={UI_ICONS.key} size={18} className="shrink-0 text-or-500" />
-          <div className="min-w-0 flex-1 text-sm">
-            <span className="text-gray-600 dark:text-rdia-200">{lastCreated.nom} — {m.users.col_code} : </span>
-            <span className="font-mono font-bold text-or-600 dark:text-or-400">{lastCreated.code}</span>
-          </div>
-          <button className="text-gray-400 hover:text-or-500" onClick={() => setLastCreated(null)}>
-            <Icon path={UI_ICONS.close} size={16} />
-          </button>
-        </div>
-      )}
-
-      <div className="carte overflow-x-auto p-0">
+      <div className="carte min-h-0 flex-1 overflow-auto p-0">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 text-left text-[11px] uppercase tracking-wide text-gray-400 dark:border-rdia-700/50 dark:text-rdia-400">
               <th className="px-4 py-3 font-semibold">{m.users.col_user}</th>
+              <th className="px-4 py-3 font-semibold">{m.users.col_phone}</th>
               <th className="px-4 py-3 font-semibold">{m.users.col_roles}</th>
               <th className="px-4 py-3 font-semibold">{m.users.col_status}</th>
               <th className="px-4 py-3 font-semibold">{m.users.col_code}</th>
@@ -208,9 +228,9 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400 dark:text-rdia-400">…</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400 dark:text-rdia-400">…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400 dark:text-rdia-400">{m.users.empty}</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400 dark:text-rdia-400">{m.users.empty}</td></tr>
             ) : (
               filtered.map((u) => {
                 const active = u.status === "active";
@@ -226,12 +246,19 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
                         </span>
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 font-semibold text-rdia-600 dark:text-rdia-50">
-                            <span className="truncate">{u.nom}</span>
+                            <span className="truncate">{fullName(u)}</span>
                             {isSelf && <span className="text-[10px] font-normal text-gray-400 dark:text-rdia-400">({m.users.you})</span>}
                           </div>
                           <div className="truncate font-mono text-[11px] text-gray-400 dark:text-rdia-400">{u.matricule}{u.grade ? ` · ${u.grade}` : ""}</div>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {u.phone ? (
+                        <span className="font-mono text-xs text-gray-600 dark:text-rdia-200" dir="ltr">{u.phone}</span>
+                      ) : (
+                        <span className="text-gray-300 dark:text-rdia-500">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
@@ -255,8 +282,11 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
                       {u.hasTempCode ? (
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-xs text-or-600 dark:text-or-400">{codes[u.id] ?? "••••-••••"}</span>
-                          <button title={codes[u.id] ? m.users.hide : m.users.reveal} className="text-gray-400 hover:text-or-500" onClick={() => void reveal(u)}>
+                          <button title={codes[u.id] ? m.users.hide : m.users.reveal} aria-label={codes[u.id] ? m.users.hide : m.users.reveal} className="text-gray-400 transition-colors hover:text-or-500" onClick={() => void reveal(u)}>
                             <Icon path={codes[u.id] ? UI_ICONS.eyeOff : UI_ICONS.eye} size={15} />
+                          </button>
+                          <button title={m.users.copy_code} aria-label={m.users.copy_code} className="text-gray-400 transition-colors hover:text-or-500" onClick={() => void copyUserCode(u)}>
+                            <Icon path={UI_ICONS.copy} size={14} />
                           </button>
                         </div>
                       ) : (
@@ -304,8 +334,67 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
             user={form.mode === "edit" ? form.user : undefined}
             onClose={() => setForm(null)}
             onDone={() => { setForm(null); void load(); }}
-            onCreated={(nom, code) => { setForm(null); setLastCreated({ nom, code }); void load(); }}
+            onCreated={(user, code) => { setForm(null); setCreated({ user, code }); void load(); }}
           />
+        )}
+      </Modal>
+
+      {/* Récapitulatif du compte créé : identités + identifiants à remettre. */}
+      <Modal open={created !== null} size="md" title={m.users.created_title} onClose={() => setCreated(null)}>
+        {created && (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3 rounded-lg bg-gray-50 p-3 dark:bg-rdia-900/40">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-or-500/15 text-xs font-bold text-or-600 dark:text-or-400">
+                {initials(fullName(created.user))}
+              </span>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-bold text-rdia-600 dark:text-rdia-50">{fullName(created.user)}</div>
+                <div className="truncate text-[11px] text-gray-400 dark:text-rdia-400">
+                  {created.user.grade ?? "—"}
+                </div>
+              </div>
+              <div className="ms-auto flex flex-wrap justify-end gap-1">
+                {created.user.roles.map((r) => (
+                  <span key={r} className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 dark:bg-rdia-700/60 dark:text-rdia-100">
+                    <Icon path={ROLE_ICONS[r]} size={11} className="text-or-500" />
+                    {m.roles[r]}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+              <SummaryRow label={m.users.matricule} value={created.user.matricule} mono onCopy={() => void copyText(created.user.matricule)} copyLabel={m.users.copy_code} />
+              <SummaryRow label={m.users.phone} value={created.user.phone ?? "—"} mono />
+              <SummaryRow label={m.users.name} value={created.user.nom} />
+              <SummaryRow label={m.users.firstname} value={created.user.prenom ?? "—"} />
+              {/* Mot de passe provisoire — mis en avant, copiable en un clic. */}
+              <div className="sm:col-span-2">
+                <dt className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{m.users.col_code}</dt>
+                <dd className="flex items-center gap-2 rounded-lg border border-or-500/40 bg-or-500/10 px-3 py-2">
+                  <Icon path={UI_ICONS.key} size={15} className="shrink-0 text-or-500" />
+                  <span className="flex-1 font-mono text-base font-bold tracking-wider text-or-600 dark:text-or-400">{created.code}</span>
+                  <button
+                    title={m.users.copy_code}
+                    aria-label={m.users.copy_code}
+                    className="rounded-md p-1.5 text-or-500 transition-colors hover:bg-or-500/20"
+                    onClick={() => void copyText(created.code)}
+                  >
+                    <Icon path={UI_ICONS.copy} size={16} />
+                  </button>
+                </dd>
+              </div>
+            </dl>
+
+            <p className="flex items-start gap-2 text-[11px] leading-snug text-gray-400 dark:text-rdia-400">
+              <Icon path={UI_ICONS.shield} size={13} className="mt-0.5 shrink-0 text-or-500" />
+              {m.users.created_hint}
+            </p>
+
+            <div className="flex justify-end">
+              <button className="btn-primaire text-sm" onClick={() => setCreated(null)}>{m.users.created_close}</button>
+            </div>
+          </div>
         )}
       </Modal>
 
@@ -313,9 +402,9 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
         {confirmDel && (
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-3 rounded-lg bg-gray-50 p-3 dark:bg-rdia-900/40">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-danger-500/15 text-[11px] font-bold text-danger-500">{initials(confirmDel.nom)}</span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-danger-500/15 text-[11px] font-bold text-danger-500">{initials(fullName(confirmDel))}</span>
               <div className="min-w-0">
-                <div className="truncate font-semibold text-rdia-600 dark:text-rdia-50">{confirmDel.nom}</div>
+                <div className="truncate font-semibold text-rdia-600 dark:text-rdia-50">{fullName(confirmDel)}</div>
                 <div className="truncate font-mono text-[11px] text-gray-400 dark:text-rdia-400">{confirmDel.matricule}</div>
               </div>
             </div>
@@ -329,6 +418,31 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
           </div>
         )}
       </Modal>
+    </div>
+  );
+}
+
+/** Ligne « libellé / valeur » du récapitulatif, avec copie optionnelle. */
+function SummaryRow({
+  label, value, mono, onCopy, copyLabel,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  onCopy?: () => void;
+  copyLabel?: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{label}</dt>
+      <dd className="flex items-center gap-1.5">
+        <span className={`truncate text-sm text-gray-800 dark:text-rdia-50 ${mono ? "font-mono" : ""}`} dir={mono ? "ltr" : undefined}>{value}</span>
+        {onCopy && (
+          <button title={copyLabel} aria-label={copyLabel} className="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:text-or-500" onClick={onCopy}>
+            <Icon path={UI_ICONS.copy} size={13} />
+          </button>
+        )}
+      </dd>
     </div>
   );
 }
@@ -348,17 +462,20 @@ function UserForm({
   user?: ApiUser;
   onClose: () => void;
   onDone: () => void;
-  onCreated: (nom: string, code: string) => void;
+  onCreated: (user: ApiUser, code: string) => void;
 }) {
   const m = useModules();
   const showToast = useArgos((s) => s.showToast);
 
   const editing = !!user;
+  const superAdmin = isSuperAdmin(creatorRole);
   const options = assignableRoles(creatorRole);
   const multiple = canAssignMultipleRoles(creatorRole);
 
   const [matricule, setMatricule] = useState(user?.matricule ?? "");
   const [nom, setNom] = useState(user?.nom ?? "");
+  const [prenom, setPrenom] = useState(user?.prenom ?? "");
+  const [phone, setPhone] = useState(user?.phone ?? "");
   const [grade, setGrade] = useState(user?.grade ?? "");
   const [roles, setRoles] = useState<Role[]>(() => {
     if (!user) return [];
@@ -367,6 +484,10 @@ function UserForm({
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Le nom d'utilisateur (identifiant de connexion) n'est modifiable que par le
+  // Super Administrateur ; l'API applique la même règle (frontière de sécurité).
+  const usernameLocked = editing && !superAdmin;
 
   const toggleRole = (r: Role) => {
     setError(null);
@@ -380,21 +501,39 @@ function UserForm({
     setBusy(true);
     try {
       if (editing && user) {
-        const res = await api.updateUser(user.id, { nom: nom.trim(), grade: grade.trim() || undefined, roles });
-        if (res.error) { setError(m.users.need_role); return; }
+        const res = await api.updateUser(user.id, {
+          ...(superAdmin && matricule.trim() !== user.matricule ? { matricule: matricule.trim() } : {}),
+          nom: nom.trim(),
+          prenom: prenom.trim(),
+          phone: phone.trim(),
+          grade: grade.trim(),
+          roles,
+        });
+        const status = res.response?.status;
+        if (res.error || (status !== undefined && status >= 400)) {
+          setError(status === 409 ? m.users.dup_matricule : m.users.need_role);
+          return;
+        }
         showToast(m.users.saved_toast);
         onDone();
         return;
       }
-      const res = await api.createUser({ matricule: matricule.trim(), nom: nom.trim(), grade: grade.trim() || undefined, roles });
+      const res = await api.createUser({
+        matricule: matricule.trim(),
+        nom: nom.trim(),
+        prenom: prenom.trim() || undefined,
+        phone: phone.trim() || undefined,
+        grade: grade.trim() || undefined,
+        roles,
+      });
       if (res.error || !res.data) {
         const status = (res.response as Response | undefined)?.status;
         setError(status === 409 ? m.users.dup_matricule : m.users.need_role);
         return;
       }
-      const data = res.data as unknown as { tempPassword: string };
+      const data = res.data as unknown as { user: ApiUser; tempPassword: string };
       showToast(m.users.created_toast + data.tempPassword);
-      onCreated(nom.trim(), data.tempPassword);
+      onCreated(data.user, data.tempPassword);
     } finally {
       setBusy(false);
     }
@@ -404,19 +543,41 @@ function UserForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div>
-          <label className={labelCls}>{m.users.matricule}</label>
-          <input className="input-champ font-mono text-sm disabled:opacity-60" placeholder={m.users.matricule_ph} value={matricule} disabled={editing} onChange={(e) => { setMatricule(e.target.value); setError(null); }} spellCheck={false} />
-          {editing && <p className="mt-1 text-[10px] text-gray-400 dark:text-rdia-400">{m.users.matricule_locked}</p>}
-        </div>
-        <div>
-          <label className={labelCls}>{m.users.name}</label>
-          <input className="input-champ text-sm" placeholder={m.users.name_ph} value={nom} onChange={(e) => { setNom(e.target.value); setError(null); }} />
-        </div>
-        <div>
-          <label className={labelCls}>{m.users.grade}</label>
-          <input className="input-champ text-sm" placeholder={m.users.grade_ph} value={grade} onChange={(e) => setGrade(e.target.value)} />
+      {/* Identité : nom d'utilisateur, nom, prénom, téléphone, grade */}
+      <div>
+        <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{m.users.identity}</div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className={labelCls}>{m.users.matricule}</label>
+            <input
+              className="input-champ font-mono text-sm disabled:opacity-60"
+              placeholder={m.users.matricule_ph}
+              value={matricule}
+              disabled={usernameLocked}
+              onChange={(e) => { setMatricule(e.target.value); setError(null); }}
+              spellCheck={false}
+            />
+            {usernameLocked && <p className="mt-1 text-[10px] text-gray-400 dark:text-rdia-400">{m.users.matricule_locked}</p>}
+          </div>
+          <div>
+            <label className={labelCls}>{m.users.grade}</label>
+            <select className="input-champ text-sm" value={grade} onChange={(e) => setGrade(e.target.value)}>
+              <option value="">{m.users.grade_none}</option>
+              {GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>{m.users.name}</label>
+            <input className="input-champ text-sm" placeholder={m.users.name_ph} value={nom} onChange={(e) => { setNom(e.target.value); setError(null); }} />
+          </div>
+          <div>
+            <label className={labelCls}>{m.users.firstname}</label>
+            <input className="input-champ text-sm" placeholder={m.users.firstname_ph} value={prenom} onChange={(e) => setPrenom(e.target.value)} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={labelCls}>{m.users.phone}</label>
+            <input className="input-champ font-mono text-sm" placeholder={m.users.phone_ph} value={phone} onChange={(e) => setPhone(e.target.value)} dir="ltr" inputMode="tel" />
+          </div>
         </div>
       </div>
 
@@ -459,7 +620,7 @@ function RolesTab() {
   const roleFeatures = useArgos((s) => s.roleFeatures);
   const setRoleFeatures = useArgos((s) => s.setRoleFeatures);
 
-  const [selected, setSelected] = useState<Role>("command");
+  const [selected, setSelected] = useState<Role>("strategic");
 
   const refresh = useCallback(async () => {
     const res = await api.getRoleFeatures();
@@ -486,8 +647,8 @@ function RolesTab() {
   };
 
   return (
-    <div className="flex flex-col gap-4 lg:flex-row">
-      <div className="carte flex shrink-0 flex-col gap-1 p-3 lg:w-64">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+      <div className="carte flex shrink-0 flex-col gap-1 overflow-auto p-3 lg:w-64">
         <p className="px-2 py-1 text-[11px] uppercase tracking-wide text-gray-400 dark:text-rdia-400">{m.users.select_role}</p>
         {ROLES.map((r) => {
           const on = r === selected;
@@ -502,7 +663,7 @@ function RolesTab() {
         })}
       </div>
 
-      <div className="carte flex min-w-0 flex-1 flex-col gap-3 p-5">
+      <div className="carte flex min-w-0 flex-1 flex-col gap-3 overflow-auto p-5">
         <div className="flex items-center justify-between gap-2">
           <div>
             <h3 className="flex items-center gap-2 text-sm font-semibold text-rdia-600 dark:text-rdia-50">

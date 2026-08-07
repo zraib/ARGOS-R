@@ -244,8 +244,8 @@ const WXU_H = Math.round((WXU_W * (wxMercY(WXG_B.maxLat) - wxMercY(WXG_B.minLat)
 // pour échantillonner le champ u/v géographique. Pendant un déplacement de la
 // carte, le canvas est effacé (les positions écran perdent leur ancrage) et le
 // champ se reforme en ~1 s.
-const WXS_MAX = 2600; // plafond de particules (l'effectif suit la surface d'écran)
-const WXS_PER_PX = 1 / 340; // particules par pixel CSS (densité écran constante)
+const WXS_MAX = 4000; // plafond de particules (l'effectif suit la surface d'écran)
+const WXS_PER_PX = 1 / 200; // particules par pixel CSS (densité écran constante, élevée)
 const WXU_RASTER_MS = 200; // redessin des rasters (~5 im/s : fluide pour 1 h/s)
 
 // Les villes étiquetées viennent de lib/map/cities (niveau de détail par zoom).
@@ -476,11 +476,12 @@ export function MapCanvas() {
    */
   const sampleField = (nat: Float32Array | null, wld: Float32Array | null, lon: number, lat: number): number => {
     const g = wxGridRef.current;
-    const w = wld ? wxgSample(wld, lon, lat) : 0;
-    if (!nat || !g || g.points.length === 0) return w;
-    const f = natBlend(lon, lat);
+    const f = nat && g && g.points.length > 0 ? natBlend(lon, lat) : 0;
+    // NaN si aucune donnée ne couvre le point : le pixel reste transparent et
+    // la particule est recyclée (pas de faux 0 °C / vent nul).
+    const w = wld ? wxgSample(wld, lon, lat) : NaN;
     if (f <= 0) return w;
-    const n = natIdw(g.points, nat, lon, lat);
+    const n = natIdw(g!.points, nat!, lon, lat);
     return wld ? n * f + w * (1 - f) : n;
   };
 
@@ -525,16 +526,23 @@ export function MapCanvas() {
         const q = p * 4;
         if (tD) {
           const v = sampleField(natT, wldT, lon, lat);
+          if (Number.isNaN(v)) { tD[q + 3] = 0; }
+          else {
           let li = ((v - WX_T_MIN) * scale) | 0;
           if (li < 0) li = 0; else if (li > WX_LUT_N - 1) li = WX_LUT_N - 1;
           const l3 = li * 3;
           tD[q] = WX_LUT[l3]; tD[q + 1] = WX_LUT[l3 + 1]; tD[q + 2] = WX_LUT[l3 + 2]; tD[q + 3] = 255;
+          }
         }
         if (pD) {
-          let pr = Math.round(sampleField(natP, wldP, lon, lat));
+          const pv = sampleField(natP, wldP, lon, lat);
+          if (Number.isNaN(pv)) { pD[q + 3] = 0; }
+          else {
+          let pr = Math.round(pv);
           if (pr < 0) pr = 0; else if (pr > 100) pr = 100;
           const b = pr * 4;
           pD[q] = WXP_LUT[b]; pD[q + 1] = WXP_LUT[b + 1]; pD[q + 2] = WXP_LUT[b + 2]; pD[q + 3] = WXP_LUT[b + 3];
+          }
         }
       }
     }
@@ -616,6 +624,10 @@ export function MapCanvas() {
       }
       const u = sampleField(natU, wldU, ll.lng, ll.lat);
       const v = sampleField(natV, wldV, ll.lng, ll.lat);
+      if (Number.isNaN(u) || Number.isNaN(v)) {
+        P[o] = Math.random() * W; P[o + 1] = Math.random() * H; P[o + 2] = 0;
+        continue;
+      }
       const nx = x + (u * cosB - v * sinB) * S * dt;
       const ny = y - (v * cosB + u * sinB) * S * dt;
       P[o + 2] += dt;
@@ -1070,6 +1082,17 @@ export function MapCanvas() {
     wxuLastRasterRef.current = 0;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wxGrid]);
+
+  // --- re-tentative des grilles météo : si une couche est active alors qu'une
+  // grille manque (API/Open-Meteo indisponible au moment de l'activation), on
+  // recharge toutes les 30 s jusqu'à couverture complète du globe. ---
+  useEffect(() => {
+    const anyOn = wxLayers.temp || wxLayers.wind || wxLayers.precip;
+    if (!anyOn || (wxGrid && wxWorld)) return;
+    void useArgos.getState().loadWxGrid();
+    const id = setInterval(() => void useArgos.getState().loadWxGrid(), 30_000);
+    return () => clearInterval(id);
+  }, [wxLayers, wxGrid, wxWorld]);
 
   // --- grille MONDIALE chargée : séries par pas + rendu ---
   useEffect(() => {

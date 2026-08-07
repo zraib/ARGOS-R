@@ -1442,11 +1442,16 @@
             "enum": [
               "superadmin",
               "admin",
-              "auditor",
-              "command",
-              "dispatcher",
-              "unit_commander",
-              "field_agent"
+              "strategic",
+              "tacom",
+              "bluecell",
+              "greencell",
+              "orangecell",
+              "resp_hospital",
+              "resp_shelter",
+              "resp_morgue",
+              "resp_unit",
+              "resp_equipment"
             ],
             "example": "superadmin"
           }
@@ -1495,11 +1500,16 @@
             "enum": [
               "superadmin",
               "admin",
-              "auditor",
-              "command",
-              "dispatcher",
-              "unit_commander",
-              "field_agent"
+              "strategic",
+              "tacom",
+              "bluecell",
+              "greencell",
+              "orangecell",
+              "resp_hospital",
+              "resp_shelter",
+              "resp_morgue",
+              "resp_unit",
+              "resp_equipment"
             ]
           }
         },
@@ -1528,7 +1538,18 @@
           },
           "nom": {
             "type": "string",
-            "example": "Cne. A. Saidi"
+            "example": "Saidi",
+            "description": "Nom de famille"
+          },
+          "prenom": {
+            "type": "string",
+            "example": "Ahmed",
+            "description": "Prénom"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+212600000000",
+            "description": "Téléphone de contact"
           },
           "grade": {
             "type": "string",
@@ -1545,11 +1566,16 @@
               "enum": [
                 "superadmin",
                 "admin",
-                "auditor",
-                "command",
-                "dispatcher",
-                "unit_commander",
-                "field_agent"
+                "strategic",
+                "tacom",
+                "bluecell",
+                "greencell",
+                "orangecell",
+                "resp_hospital",
+                "resp_shelter",
+                "resp_morgue",
+                "resp_unit",
+                "resp_equipment"
               ]
             }
           }
@@ -1563,9 +1589,22 @@
       "UpdateUserDto": {
         "type": "object",
         "properties": {
+          "matricule": {
+            "type": "string",
+            "example": "a.saidi",
+            "description": "Nom d'utilisateur — Super Administrateur uniquement"
+          },
           "nom": {
             "type": "string",
-            "example": "Cne. A. Saidi"
+            "example": "Saidi"
+          },
+          "prenom": {
+            "type": "string",
+            "example": "Ahmed"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+212600000000"
           },
           "grade": {
             "type": "string",
@@ -1578,11 +1617,16 @@
               "enum": [
                 "superadmin",
                 "admin",
-                "auditor",
-                "command",
-                "dispatcher",
-                "unit_commander",
-                "field_agent"
+                "strategic",
+                "tacom",
+                "bluecell",
+                "greencell",
+                "orangecell",
+                "resp_hospital",
+                "resp_shelter",
+                "resp_morgue",
+                "resp_unit",
+                "resp_equipment"
               ]
             }
           }

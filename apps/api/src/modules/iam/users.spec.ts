@@ -32,9 +32,9 @@ describe("IAM users — RBAC + règles d'attribution (Phase 2)", () => {
     await app.close();
   });
 
-  it("DEFAULT-DENY : un field_agent ne peut pas créer d'utilisateur (403)", async () => {
-    const t = await token("agent", "field_agent");
-    await base().post("/api/iam/users").set(auth(t)).send({ matricule: "x.test", nom: "X", roles: ["field_agent"] }).expect(403);
+  it("DEFAULT-DENY : un resp_unit ne peut pas créer d'utilisateur (403)", async () => {
+    const t = await token("agent", "resp_unit");
+    await base().post("/api/iam/users").set(auth(t)).send({ matricule: "x.test", nom: "X", roles: ["resp_unit"] }).expect(403);
   });
 
   it("un Admin ne peut PAS créer un Administrateur (403 — règle serveur)", async () => {
@@ -49,25 +49,25 @@ describe("IAM users — RBAC + règles d'attribution (Phase 2)", () => {
 
   it("un Admin ne peut attribuer qu'UN SEUL rôle (400 si plusieurs)", async () => {
     const t = await token("h.alami", "admin");
-    await base().post("/api/iam/users").set(auth(t)).send({ matricule: "multi.by.admin", nom: "Multi", roles: ["command", "dispatcher"] }).expect(400);
+    await base().post("/api/iam/users").set(auth(t)).send({ matricule: "multi.by.admin", nom: "Multi", roles: ["tacom", "bluecell"] }).expect(400);
   });
 
   it("un Admin peut créer un rôle non privilégié → code temporaire généré (201)", async () => {
     const t = await token("h.alami", "admin");
-    const res = await base().post("/api/iam/users").set(auth(t)).send({ matricule: "agent.admin", nom: "Agent Admin", roles: ["field_agent"] }).expect(201);
+    const res = await base().post("/api/iam/users").set(auth(t)).send({ matricule: "agent.admin", nom: "Agent Admin", roles: ["resp_unit"] }).expect(201);
     expect(res.body.tempPassword).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
     expect(res.body.user.status).toBe("inactive");
   });
 
   it("un Super Admin peut créer un compte MULTI-RÔLES (201)", async () => {
     const t = await token("k.benjelloun", "superadmin");
-    const res = await base().post("/api/iam/users").set(auth(t)).send({ matricule: "s.multi", nom: "S Multi", roles: ["command", "dispatcher", "unit_commander"] }).expect(201);
-    expect(res.body.user.roles).toEqual(["command", "dispatcher", "unit_commander"]);
+    const res = await base().post("/api/iam/users").set(auth(t)).send({ matricule: "s.multi", nom: "S Multi", roles: ["tacom", "bluecell", "resp_unit"] }).expect(201);
+    expect(res.body.user.roles).toEqual(["tacom", "bluecell", "resp_unit"]);
   });
 
   it("activation forcée : réservée au Super Admin (Admin 403, Super Admin 201)", async () => {
     const su = await token("k.benjelloun", "superadmin");
-    const created = await base().post("/api/iam/users").set(auth(su)).send({ matricule: "to.activate", nom: "To Activate", roles: ["auditor"] }).expect(201);
+    const created = await base().post("/api/iam/users").set(auth(su)).send({ matricule: "to.activate", nom: "To Activate", roles: ["strategic"] }).expect(201);
     const id = created.body.user.id as string;
 
     const adminTok = await token("h.alami", "admin");
@@ -79,10 +79,10 @@ describe("IAM users — RBAC + règles d'attribution (Phase 2)", () => {
 
   it("matrice rôle→fonctionnalités : Admin 403, Super Admin 200", async () => {
     const adminTok = await token("h.alami", "admin");
-    await base().patch("/api/iam/role-features/command").set(auth(adminTok)).send({ feature: "triage", enabled: true }).expect(403);
+    await base().patch("/api/iam/role-features/tacom").set(auth(adminTok)).send({ feature: "triage", enabled: true }).expect(403);
 
     const su = await token("k.benjelloun", "superadmin");
-    const res = await base().patch("/api/iam/role-features/command").set(auth(su)).send({ feature: "triage", enabled: true }).expect(200);
+    const res = await base().patch("/api/iam/role-features/tacom").set(auth(su)).send({ feature: "triage", enabled: true }).expect(200);
     expect(res.body.triage).toBe(true);
   });
 
@@ -99,7 +99,7 @@ describe("IAM users — RBAC + règles d'attribution (Phase 2)", () => {
     // 1er login avec le code temporaire.
     const login1 = await base().post("/api/auth/login").send({ matricule: "n.fassi", password: "A7X2-K9D3" }).expect(201);
     expect(login1.body.mustChangePassword).toBe(true);
-    expect(login1.body.role).toBe("field_agent");
+    expect(login1.body.role).toBe("resp_unit");
 
     // Changement de mot de passe (authentifié avec le jeton du login).
     await base().post("/api/auth/change-password").set(auth(login1.body.access_token)).send({ newPassword: "motdepasse1" }).expect(201);
@@ -118,7 +118,7 @@ describe("IAM users — RBAC + règles d'attribution (Phase 2)", () => {
     // Rôle non attribué → refusé.
     await base().post("/api/auth/select-role").set(auth(login.body.access_token)).send({ role: "superadmin" }).expect(403);
     // Rôle attribué → nouveau jeton.
-    const sel = await base().post("/api/auth/select-role").set(auth(login.body.access_token)).send({ role: "dispatcher" }).expect(201);
-    expect(sel.body.role).toBe("dispatcher");
+    const sel = await base().post("/api/auth/select-role").set(auth(login.body.access_token)).send({ role: "bluecell" }).expect(201);
+    expect(sel.body.role).toBe("bluecell");
   });
 });

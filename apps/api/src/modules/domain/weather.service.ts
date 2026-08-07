@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { loadDevState, saveDevState } from "@/common/dev-store";
 
 // ============================================================================
 // ARGOS — proxy météo (Open-Meteo)
@@ -108,6 +109,25 @@ export class WeatherService {
   private gridData: WeatherGridSeries | null = null;
   private gridWorldAt = 0;
   private gridWorldData: WeatherGridSeries | null = null;
+  /** Refroidissement après échec Open-Meteo (429…) : pas de re-appel avant. */
+  private gridCoolUntil = 0;
+  private gridWorldCoolUntil = 0;
+
+  constructor() {
+    // Persistance dev : les grilles survivent aux redémarrages de l'API — on ne
+    // re-consomme pas le quota Open-Meteo à chaque relance (le 429 en chaîne
+    // venait de là). Servies même périmées en cas d'échec du rafraîchissement.
+    const g = loadDevState<{ at: number; data: WeatherGridSeries } | null>("weather-grid", null);
+    if (g && g.data && Array.isArray(g.data.points) && g.data.points.length > 0) {
+      this.gridAt = g.at;
+      this.gridData = g.data;
+    }
+    const w = loadDevState<{ at: number; data: WeatherGridSeries } | null>("weather-grid-world", null);
+    if (w && w.data && Array.isArray(w.data.points) && w.data.points.length > 0) {
+      this.gridWorldAt = w.at;
+      this.gridWorldData = w.data;
+    }
+  }
 
   cities(): WeatherCity[] {
     return CITIES;
@@ -117,7 +137,7 @@ export class WeatherService {
    * Récupère les séries horaires (7 j) pour une liste de points, en LOTS de
    * 150 localisations (limite de longueur d'URL Open-Meteo), puis fusionne.
    */
-  private async fetchHourlySeries(pts: [number, number][]): Promise<WeatherGridSeries> {
+  private async fetchHourlySeries(pts: [number, number][], pauseMs = 0): Promise<WeatherGridSeries> {
     interface Hourly {
       time?: string[];
       temperature_2m?: (number | null)[];
@@ -129,6 +149,10 @@ export class WeatherService {
     let times: string[] = [];
     const points: WeatherGridPointSeries[] = [];
     for (let off = 0; off < pts.length; off += CHUNK) {
+      // Étalement des lots : Open-Meteo compte CHAQUE localisation dans son
+      // plafond PAR MINUTE — enchaîner 500+ localisations en une seconde
+      // déclenche un 429. Une pause entre lots reste sous le plafond.
+      if (off > 0 && pauseMs > 0) await new Promise((r) => setTimeout(r, pauseMs));
       const part = pts.slice(off, off + CHUNK);
       const params = new URLSearchParams({
         latitude: part.map((p) => p[0]).join(","),
@@ -169,17 +193,22 @@ export class WeatherService {
    */
   async gridWorld(): Promise<WeatherGridSeries> {
     if (this.gridWorldData && Date.now() - this.gridWorldAt < 3_600_000) return this.gridWorldData;
+    // Échec récent : dernier état connu, sans re-appel (quota Open-Meteo).
+    if (Date.now() < this.gridWorldCoolUntil) return this.gridWorldData ?? { times: [], points: [] };
     const pts: [number, number][] = [];
     for (let r = 0; r < 14; r++) {
       for (let c = 0; c < 36; c++) pts.push([70 - r * 10, -180 + c * 10]);
     }
     try {
-      const data = await this.fetchHourlySeries(pts);
+      // 4 lots de ~130-150 localisations, espacés de 25 s (~60 s au total).
+      const data = await this.fetchHourlySeries(pts, 25_000);
       this.gridWorldAt = Date.now();
       this.gridWorldData = data;
+      saveDevState("weather-grid-world", { at: this.gridWorldAt, data });
       return data;
     } catch (e) {
       this.logger.warn(`Open-Meteo (grille monde) injoignable : ${(e as Error).message}`);
+      this.gridWorldCoolUntil = Date.now() + 300_000; // 5 min : laisse le quota horaire se reconstituer
       return this.gridWorldData ?? { times: [], points: [] };
     }
   }
@@ -191,6 +220,8 @@ export class WeatherService {
    */
   async grid(): Promise<WeatherGridSeries> {
     if (this.gridData && Date.now() - this.gridAt < TTL_MS) return this.gridData;
+    // Échec récent : on sert le dernier état connu sans re-marteler Open-Meteo.
+    if (Date.now() < this.gridCoolUntil) return this.gridData ?? { times: [], points: [] };
 
     // Grille assez dense pour interpoler un champ continu côté client.
     const COLS = 12, ROWS = 14;
@@ -209,9 +240,11 @@ export class WeatherService {
       const data = await this.fetchHourlySeries(pts);
       this.gridAt = Date.now();
       this.gridData = data;
+      saveDevState("weather-grid", { at: this.gridAt, data });
       return data;
     } catch (e) {
       this.logger.warn(`Open-Meteo (grille) injoignable : ${(e as Error).message}`);
+      this.gridCoolUntil = Date.now() + 60_000;
       return this.gridData ?? { times: [], points: [] }; // dernier cache, sinon vide
     }
   }

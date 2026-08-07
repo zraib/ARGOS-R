@@ -139,6 +139,7 @@ export const UI_ICONS = {
   map: "M9 20l-6 2V6l6-2m0 16l6-2m-6 2V4m6 14l6 2V6l-6-2m0 16V4",
   archive: "M2 4h20v4H2z M4 8v11a2 2 0 002 2h12a2 2 0 002-2V8 M10 12h4",
   caretDown: "M6 9l6 6 6-6",
+  copy: "M20 9h-9a2 2 0 00-2 2v9a2 2 0 002 2h9a2 2 0 002-2v-9a2 2 0 00-2-2z M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1",
   sliders: "M4 6h16 M4 12h16 M4 18h16 M9 4v4 M15 10v4 M7 16v4",
   // Ramification (sous-incidents rattachés à un incident principal).
   branch: "M6 3a3 3 0 100 6 3 3 0 000-6z M6 9v6 M6 15a3 3 0 100 6 3 3 0 000-6z M18 4a3 3 0 100 6 3 3 0 000-6z M18 10c0 5-4 6-9 6.6",

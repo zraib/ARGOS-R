@@ -63,10 +63,20 @@ export class CreateUserDto {
   @MinLength(1)
   matricule!: string;
 
-  @ApiProperty({ example: "Cne. A. Saidi" })
+  @ApiProperty({ example: "Saidi", description: "Nom de famille" })
   @IsString()
   @MinLength(1)
   nom!: string;
+
+  @ApiPropertyOptional({ example: "Ahmed", description: "Prénom" })
+  @IsOptional()
+  @IsString()
+  prenom?: string;
+
+  @ApiPropertyOptional({ example: "+212600000000", description: "Téléphone de contact" })
+  @IsOptional()
+  @IsString()
+  phone?: string;
 
   @ApiPropertyOptional({ example: "Capitaine" })
   @IsOptional()
@@ -82,11 +92,27 @@ export class CreateUserDto {
 
 /** Modification d'un utilisateur (champs optionnels). */
 export class UpdateUserDto {
-  @ApiPropertyOptional({ example: "Cne. A. Saidi" })
+  @ApiPropertyOptional({ example: "a.saidi", description: "Nom d'utilisateur — Super Administrateur uniquement" })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  matricule?: string;
+
+  @ApiPropertyOptional({ example: "Saidi" })
   @IsOptional()
   @IsString()
   @MinLength(1)
   nom?: string;
+
+  @ApiPropertyOptional({ example: "Ahmed" })
+  @IsOptional()
+  @IsString()
+  prenom?: string;
+
+  @ApiPropertyOptional({ example: "+212600000000" })
+  @IsOptional()
+  @IsString()
+  phone?: string;
 
   @ApiPropertyOptional({ example: "Capitaine" })
   @IsOptional()

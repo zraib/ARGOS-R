@@ -805,7 +805,7 @@ export interface components {
              * @example superadmin
              * @enum {string}
              */
-            role: "superadmin" | "admin" | "auditor" | "command" | "dispatcher" | "unit_commander" | "field_agent";
+            role: "superadmin" | "admin" | "strategic" | "tacom" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment";
         };
         LoginDto: {
             /** @example n.fassi */
@@ -821,7 +821,7 @@ export interface components {
         };
         SelectRoleDto: {
             /** @enum {string} */
-            role: "superadmin" | "admin" | "auditor" | "command" | "dispatcher" | "unit_commander" | "field_agent";
+            role: "superadmin" | "admin" | "strategic" | "tacom" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment";
         };
         ChangePasswordDto: {
             newPassword: string;
@@ -829,8 +829,21 @@ export interface components {
         CreateUserDto: {
             /** @example a.saidi */
             matricule: string;
-            /** @example Cne. A. Saidi */
+            /**
+             * @description Nom de famille
+             * @example Saidi
+             */
             nom: string;
+            /**
+             * @description Prénom
+             * @example Ahmed
+             */
+            prenom?: string;
+            /**
+             * @description Téléphone de contact
+             * @example +212600000000
+             */
+            phone?: string;
             /** @example Capitaine */
             grade?: string;
             /**
@@ -839,14 +852,23 @@ export interface components {
              *       "dispatcher"
              *     ]
              */
-            roles: ("superadmin" | "admin" | "auditor" | "command" | "dispatcher" | "unit_commander" | "field_agent")[];
+            roles: ("superadmin" | "admin" | "strategic" | "tacom" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment")[];
         };
         UpdateUserDto: {
-            /** @example Cne. A. Saidi */
+            /**
+             * @description Nom d'utilisateur — Super Administrateur uniquement
+             * @example a.saidi
+             */
+            matricule?: string;
+            /** @example Saidi */
             nom?: string;
+            /** @example Ahmed */
+            prenom?: string;
+            /** @example +212600000000 */
+            phone?: string;
             /** @example Capitaine */
             grade?: string;
-            roles?: ("superadmin" | "admin" | "auditor" | "command" | "dispatcher" | "unit_commander" | "field_agent")[];
+            roles?: ("superadmin" | "admin" | "strategic" | "tacom" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment")[];
         };
         SetActiveDto: {
             active: boolean;

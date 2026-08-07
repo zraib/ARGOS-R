@@ -22,7 +22,7 @@ export function LoginScreen() {
   const setFlags = useArgos((s) => s.setFlags);
   const setRoleFeatures = useArgos((s) => s.setRoleFeatures);
   const showToast = useArgos((s) => s.showToast);
-  const [user, setUser] = useState("k.benjelloun");
+  const [user, setUser] = useState("m.zraib");
   const [pass, setPass] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

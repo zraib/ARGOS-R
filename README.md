@@ -24,32 +24,36 @@ ARGOS-R is a secure command-and-control platform for disaster management. The re
 
 ## Quick Start
 
-### Web App
+Depuis la RACINE du dépôt, une seule commande lance toute la plateforme
+(API + application web). Les dépendances manquantes sont installées au premier
+lancement.
 
 ```bash
-cd apps/web
-npm install
 npm run dev
 ```
 
-The web app starts on `http://localhost:3004`.
+- Application web : `http://localhost:3004`
+- API : `http://localhost:3005/api` (documentation : `/api/docs`)
+- `Ctrl+C` arrête l'ensemble.
 
-Optional environment variable:
+Compte Super Administrateur par défaut : `m.zraib` / `ARGOS-2026`
+(mot de passe personnel obligatoire à la première connexion).
 
-- `NEXT_PUBLIC_API_URL` — backend base URL, default `http://localhost:4100`
-
-### API
+### Lancer un seul service
 
 ```bash
-cd apps/api
-npm install
-npm run dev
+npm run dev:api    # API seule (port 3005)
+npm run dev:web    # Application web seule (port 3004)
 ```
 
-The API runs in development mode without Docker and exposes:
+L'application web appelle l'API via `NEXT_PUBLIC_API_URL`
+(défaut : `http://127.0.0.1:3005`).
 
-- API base URL: `http://localhost:3005/api`
-- OpenAPI docs: `http://localhost:3005/api/docs`
+### Installation explicite (optionnel)
+
+```bash
+npm run setup      # npm install dans packages/api-client, apps/api, apps/web
+```
 
 ## Validation Commands
 

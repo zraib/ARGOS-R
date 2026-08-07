@@ -44,7 +44,7 @@ export interface CommMembers {
   voice: { n: string; initials: string; av: string; speaking: boolean }[];
 }
 const EMPTY_MEMBERS: CommMembers = { online: [], offline: [], voice: [] };
-import { api } from "@/lib/api";
+import { api, loadSessionContext } from "@/lib/api";
 import type { QueueItem, TransportMovement } from "@/lib/data/dispatch";
 import { EMPTY_CATALOG, type Catalog } from "@/lib/data/modules";
 import type { AiUnitResult } from "@/lib/ai/assistant";
@@ -256,6 +256,8 @@ interface ArgosState {
   skipPasswordChange: () => void;
   /** Rôle actif choisi (compte multi-rôles) : nouveau jeton émis par l'API. */
   chooseRole: (token: string, role: Role) => void;
+  /** Bascule le rôle actif d'une session multi-rôles SANS déconnexion (nouveau jeton). */
+  switchRole: (role: Role) => Promise<boolean>;
   hydratePrefs: () => void;
   setLang: (lang: Lang) => void;
   toggleTheme: () => void;
@@ -518,20 +520,27 @@ export const useArgos = create<ArgosState>((set, get) => ({
   selectQuake: (ev) => set({ quakeSelected: ev }),
 
   // Grilles météo (nationale dense + mondiale grossière) : chargées
-  // paresseusement, en parallèle, à la première activation d'une couche.
+  // paresseusement à la première activation d'une couche. Les deux appels sont
+  // INDÉPENDANTS (allSettled) : l'échec de l'un ne prive pas de l'autre, et la
+  // carte re-tente périodiquement tant qu'une grille manque.
   loadWxGrid: async () => {
-    const [res, resW] = await Promise.all([api.getWeatherGrid(), api.getWeatherGridWorld()]);
-    const g = res.data as WeatherGridSeries | undefined;
-    if (g && Array.isArray(g.points) && g.points.length > 0) set({ wxGrid: g });
-    const w = resW.data as WeatherGridSeries | undefined;
-    if (w && Array.isArray(w.points) && w.points.length > 0) set({ wxWorld: w });
+    const [res, resW] = await Promise.allSettled([api.getWeatherGrid(), api.getWeatherGridWorld()]);
+    if (res.status === "fulfilled") {
+      const g = res.value.data as WeatherGridSeries | undefined;
+      if (g && Array.isArray(g.points) && g.points.length > 0) set({ wxGrid: g });
+    }
+    if (resW.status === "fulfilled") {
+      const w = resW.value.data as WeatherGridSeries | undefined;
+      if (w && Array.isArray(w.points) && w.points.length > 0) set({ wxWorld: w });
+    }
   },
 
   toggleWxLayer: (k) => {
     const s = get();
     const wxLayers = { ...s.wxLayers, [k]: !s.wxLayers[k] };
     set({ wxLayers });
-    if (wxLayers[k] && !s.wxGrid) void get().loadWxGrid();
+    // Recharge si L'UNE des deux grilles manque (échec précédent inclus).
+    if (wxLayers[k] && (!s.wxGrid || !s.wxWorld)) void get().loadWxGrid();
   },
 
   logout: () => {
@@ -549,6 +558,24 @@ export const useArgos = create<ArgosState>((set, get) => ({
   skipPasswordChange: () => set({ mustChangePassword: false }),
 
   // Rôle actif choisi (compte multi-rôles) : l'API a émis un nouveau jeton.
+  // Changement de rôle À CHAUD : l'API ré-émet un jeton portant le rôle choisi
+  // (POST /auth/select-role), puis le contexte (flags, fonctionnalités par
+  // rôle) est rechargé — aucune déconnexion nécessaire.
+  switchRole: async (role) => {
+    try {
+      const res = await api.selectRole(role);
+      const token = (res.data as { access_token?: string } | undefined)?.access_token;
+      if (!token) return false;
+      get().chooseRole(token, role);
+      const ctx = await loadSessionContext();
+      if (ctx.flags) get().setFlags(ctx.flags);
+      if (ctx.roleFeatures) get().setRoleFeatures(ctx.roleFeatures as Record<Role, Record<string, boolean>>);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
   chooseRole: (token, role) => {
     if (typeof window !== "undefined") {
       sessionStorage.setItem(TOKEN_KEY, token);

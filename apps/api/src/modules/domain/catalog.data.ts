@@ -319,6 +319,7 @@ export const ANALYTICS = {
   hospitalSat: [
     { label: "HM Mohammed V", value: 79, couleur: "#C9A84C" },
     { label: "HM Avicenne", value: 92, couleur: "#EF4444" },
+    { label: "HM Moulay Youssef", value: 77, couleur: "#F59E0B" },
     { label: "HM Moulay Ismaïl", value: 67, couleur: "#10B981" },
     { label: "HM Agadir", value: 88, couleur: "#F59E0B" },
     { label: "HM Laâyoune", value: 51, couleur: "#3B82F6" },

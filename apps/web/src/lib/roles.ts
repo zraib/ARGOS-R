@@ -6,38 +6,53 @@
 // rôles proviennent des claims OIDC.
 // ============================================================================
 
-import { NAV_ICONS, KPI_ICONS, UI_ICONS } from "@/lib/icons";
+import { NAV_ICONS, FLUX_ICONS, KPI_ICONS, UI_ICONS } from "@/lib/icons";
 
-/** Rôle de session (identique à ROLE_PERMISSIONS côté API). */
+/** Rôle de session (identique à ROLE_PERMISSIONS côté API — organisation cible). */
 export type Role =
   | "superadmin"
   | "admin"
-  | "auditor"
-  | "command"
-  | "dispatcher"
-  | "unit_commander"
-  | "field_agent";
+  | "strategic"
+  | "tacom"
+  | "bluecell"
+  | "greencell"
+  | "orangecell"
+  | "resp_hospital"
+  | "resp_shelter"
+  | "resp_morgue"
+  | "resp_unit"
+  | "resp_equipment";
 
 /** Ordre hiérarchique d'affichage (du plus privilégié au moins privilégié). */
 export const ROLES: Role[] = [
   "superadmin",
   "admin",
-  "auditor",
-  "command",
-  "dispatcher",
-  "unit_commander",
-  "field_agent",
+  "strategic",
+  "tacom",
+  "bluecell",
+  "greencell",
+  "orangecell",
+  "resp_hospital",
+  "resp_shelter",
+  "resp_morgue",
+  "resp_unit",
+  "resp_equipment",
 ];
 
 /** Icône (tracé SVG) associée à chaque rôle — sert au sélecteur en tuiles. */
 export const ROLE_ICONS: Record<Role, string> = {
   superadmin: UI_ICONS.shield,
   admin: NAV_ICONS.settings,
-  auditor: NAV_ICONS.reports,
-  command: NAV_ICONS.cmd,
-  dispatcher: NAV_ICONS.dispatch,
-  unit_commander: NAV_ICONS.units,
-  field_agent: KPI_ICONS.personnel,
+  strategic: NAV_ICONS.cmd,
+  tacom: NAV_ICONS.dispatch,
+  bluecell: FLUX_ICONS.activity,
+  greencell: NAV_ICONS.res,
+  orangecell: UI_ICONS.key,
+  resp_hospital: NAV_ICONS.hospitals,
+  resp_shelter: NAV_ICONS.shelters,
+  resp_morgue: KPI_ICONS.beds,
+  resp_unit: NAV_ICONS.units,
+  resp_equipment: NAV_ICONS.dis,
 };
 
 /**
@@ -75,5 +90,5 @@ export function isSuperAdmin(role: Role): boolean {
  * `incidents:create` (l'API reste l'autorité ; ceci ne fait que masquer l'UI).
  */
 export function canReportIncident(role: Role): boolean {
-  return role === "superadmin" || role === "command" || role === "field_agent";
+  return role === "superadmin" || role === "tacom" || role === "bluecell";
 }

@@ -329,7 +329,8 @@ export interface ModulesDict {
     seis_sent_to: string;
   };
   roles: Record<
-    "superadmin" | "admin" | "auditor" | "command" | "dispatcher" | "unit_commander" | "field_agent",
+    | "superadmin" | "admin" | "strategic" | "tacom" | "bluecell" | "greencell" | "orangecell"
+    | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment",
     string
   >;
   users: {
@@ -349,8 +350,18 @@ export interface ModulesDict {
     matricule_ph: string;
     name: string;
     name_ph: string;
+    firstname: string;
+    firstname_ph: string;
+    phone: string;
+    phone_ph: string;
     grade: string;
     grade_ph: string;
+    grade_none: string;
+    created_title: string;
+    created_hint: string;
+    created_close: string;
+    col_phone: string;
+    identity: string;
     roles_multi: string;
     roles_single: string;
     multi_hint: string;
@@ -407,6 +418,10 @@ export interface ModulesDict {
     cp_weak: string;
     cp_done: string;
     rc_title: string;
+    switch_role: string;
+    role_switched: string;
+    copy_code: string;
+    copied_toast: string;
     rc_hint: string;
     rc_enter: string;
   };
@@ -428,15 +443,15 @@ const fr: ModulesDict = {
   dispatch: { strip_ops: "Opérations actives", strip_units: "Unités engagées", strip_movements: "Mouvements en cours", strip_queue: "File de dispatching", strip_available: "Unités disponibles", need: "Besoin à traiter", select_need: "Sélectionner une opération ou une demande", units_board: "Unités", eta: "ETA", score: "Score", match: "Adéquation", engage: "Engager", relieve: "Relever", engaged: "Engagée", reco_title: "Recommandations", reco_hint: "Moteur de recommandation — proximité × capacités × disponibilité", apply: "Appliquer", best: "Meilleure option", excluded: "Écartée", b_travel: "Temps de trajet", b_cap: "Capacités", b_readiness: "Dispo. opér.", b_avail: "Disponibilité", caps_required: "Capacités requises", mv_mission: "Mission", mv_vehicles: "Véhicules", mv_origin: "Origine", mv_dest: "Destination", mv_cargo: "Chargement", mv_progress: "Progression", mv_delay: "Retard", mv_ontime: "À l'heure", queue_title: "File de dispatching", treat: "Traiter", urg_urgent: "Urgent", urg_high: "Prioritaire", urg_medium: "Normal", confirm_engage: "Confirmer l'engagement", reason: "Motif (obligatoire)", reason_ph: "Justification de la décision…", confirm: "Confirmer l'engagement", audit_note: "Chaque décision est confirmée, motivée et auditée.", min: "min", sim: "Simulation « et si ? »", sim_hint: "Ajustez les poids du score pour comparer des scénarios, sans engager", sim_reset: "Réinitialiser", sim_active: "Simulation active", weights_title: "Poids du score" },
   ai: { subtitle: "Assistant opérationnel — requêtes en langage naturel", guardrail: "Lecture seule : l'assistant interroge le moteur Couche 1 et rédige ; il n'exécute aucune action et chaque échange est journalisé.", provider_local: "LLM local", provider_online: "connecté", provider_offline: "hors ligne — réponses déterministes", mode_llm: "reformulé par le LLM local", mode_det: "réponse déterministe (Couche 1)", layer1: "Requête Couche 1", placeholder: "Poser une question opérationnelle…", send: "Envoyer", clear: "Effacer", examples: "Exemples", ex_reach: "Quelles unités peuvent atteindre Al Haouz en moins d'une heure avec des groupes électrogènes ?", ex_reach2: "Unités de génie mobilisables pour le glissement d'Al Hoceïma en moins de 3 heures", ex_sitrep: "Génère un brouillon de SITREP pour l'opération SALAMA", ex_anomaly: "Résume les anomalies des mouvements en cours", thinking: "Analyse en cours…", empty: "Posez une question ou choisissez un exemple.", model: "Modèle", no_models: "aucun modèle détecté", configure: "Configurer" },
   settings: { reserved: "Réservé au Super Administrateur", ai_title: "Assistant IA — Modèle de langage (LLM)", provider: "Fournisseur", endpoint: "Point d'accès (URL)", model: "Modèle", model_ph: "nom du modèle (ex. llama3.1:8b)", detect: "Détecter / Tester", detected: "modèle(s) détecté(s)", status_connected: "Connecté", status_offline: "Hors ligne", status_checking: "Test…", note: "En production, ces réglages sont pilotés par le Super Admin et propagés à tous les postes via l'API ARGOS ; l'appel LLM s'exécute côté serveur.", future_title: "Autres paramètres", future_hint: "Registre des appareils, image de marque, rétention des journaux… (à venir)", reset: "Valeurs par défaut", flags_title: "Modules (feature flags)", flags_hint: "Activez ou désactivez les modules globalement. Un module désactivé disparaît de la navigation et sa page est verrouillée.", module_disabled: "Module désactivé par l'administrateur.", types_title: "Types d'incident", types_hint: "Ajoutez de nouveaux types ; ils apparaissent aussitôt dans l'assistant de déclaration avec l'icône choisie.", type_id: "Identifiant", type_id_ph: "ex. tempete_sable", type_icon: "Icône", label_fr: "Libellé FR", label_ar: "Libellé AR", label_en: "Libellé EN", type_add: "Ajouter le type", type_added: "Type d'incident ajouté", type_exists: "Ce type existe déjà.", type_builtin: "Fourni", types_search: "Rechercher un type…", types_empty: "Aucun type ne correspond.", audit_title: "Journal d'audit", audit_intact: "chaîne intègre", audit_broken: "chaîne rompue", audit_refresh: "Actualiser", audit_empty: "Aucune entrée — basculez un module pour générer une trace.", seis_title: "Alertes sismiques", seis_hint: "Un séisme sur le territoire national ≥ seuil national déclenche une alerte rouge dans l'app ET l'envoi SMS + e-mail aux autorités ci-dessous (surveillance côté serveur). Un séisme mondial ≥ seuil mondial ne déclenche qu'une notification dans l'app.", seis_ma_lbl: "Seuil national (SMS + e-mail)", seis_ma_hint: "magnitude min. d'un séisme au Maroc", seis_world_lbl: "Seuil mondial (notification app)", seis_world_hint: "magnitude min. d'un séisme hors Maroc", seis_contacts: "Autorités notifiées", seis_c_name: "Nom / fonction", seis_c_phone: "Téléphone (SMS)", seis_c_email: "E-mail", seis_add: "Ajouter une autorité", seis_save: "Enregistrer", seis_saved: "Configuration des alertes enregistrée", seis_log: "Derniers envois", seis_log_empty: "Aucun envoi pour l'instant.", seis_sent_to: "autorité(s)" },
-  roles: { superadmin: "Super Administrateur", admin: "Administrateur", auditor: "Auditeur", command: "Commandement", dispatcher: "Répartiteur", unit_commander: "Chef d'Unité", field_agent: "Agent de Terrain" },
+  roles: { superadmin: "Super Administrateur", admin: "Administrateur", strategic: "Utilisateur Stratégique", tacom: "TACOM", bluecell: "Cellule Bleue — Opérations", greencell: "Cellule Verte — Logistique", orangecell: "Cellule Orange — Sécurité", resp_hospital: "Responsable Hôpital", resp_shelter: "Responsable Abri", resp_morgue: "Responsable Morgue", resp_unit: "Responsable Unité", resp_equipment: "Responsable Équipement" },
   users: {
     title: "Gestion des utilisateurs", subtitle: "Création, rôles et cycle de vie des comptes",
     tab_users: "Utilisateurs", tab_roles: "Rôles & fonctionnalités",
     new_user: "Nouvel utilisateur", edit_user: "Modifier l'utilisateur", edit: "Modifier", save: "Enregistrer", saved_toast: "Utilisateur mis à jour",
     delete_title: "Supprimer l'utilisateur", delete_body: "Cette action est irréversible : le compte et son accès à la plateforme seront supprimés.",
-    matricule_locked: "L'identifiant de connexion n'est pas modifiable.",
-    matricule: "Matricule", matricule_ph: "ex. y.tazi",
-    name: "Nom complet", name_ph: "ex. Cne. Y. Tazi", grade: "Grade", grade_ph: "ex. Capitaine",
+    matricule_locked: "Seul le Super Administrateur peut modifier le nom d'utilisateur.",
+    matricule: "Nom d'utilisateur", matricule_ph: "ex. y.tazi",
+firstname: "Prénom", firstname_ph: "ex. Ahmed", phone: "Numéro de téléphone", phone_ph: "+212 6 00 00 00 00", grade_none: "— Sélectionner un grade —", created_title: "Utilisateur créé", created_hint: "Transmettez ces identifiants à l'utilisateur par un canal sûr. Le mot de passe provisoire doit être changé à la première connexion.", created_close: "Terminé", col_phone: "Téléphone", identity: "Identité",     name: "Nom", name_ph: "ex. Tazi", grade: "Grade", grade_ph: "ex. Capitaine",
     roles_multi: "Rôles (plusieurs possibles)", roles_single: "Rôle",
     multi_hint: "Super Administrateur : vous pouvez cocher plusieurs rôles.",
     single_hint: "Administrateur : un seul rôle par utilisateur (hors Admin/Super Admin).",
@@ -451,14 +466,14 @@ const fr: ModulesDict = {
     admin_activated: "Activé par le Super Admin",
     you: "vous", builtin: "compte système", created_by: "Créé par", last_login: "Dernière connexion", never: "jamais",
     created_toast: "Compte créé — code temporaire : ", deleted_toast: "Utilisateur supprimé", activated_toast: "Statut mis à jour",
-    need_role: "Sélectionnez au moins un rôle.", need_fields: "Renseignez le matricule et le nom.", dup_matricule: "Ce matricule existe déjà.",
+    need_role: "Sélectionnez au moins un rôle.", need_fields: "Renseignez le matricule et le nom.", dup_matricule: "Ce nom d'utilisateur existe déjà.",
     role_features_title: "Fonctionnalités par rôle", role_features_hint: "Activez ou désactivez les modules autorisés pour chaque rôle. Ces droits complètent l'application côté API.",
     feature: "Fonctionnalité", allowed: "autorisé(s)", reset_role: "Réinitialiser", locked_all: "Accès total (verrouillé)",
     select_role: "Choisir un rôle", modules_count: "modules autorisés", empty: "Aucun utilisateur.",
     cp_title: "Changer le mot de passe", cp_hint: "Premier login : définissez votre mot de passe personnel pour activer le compte.",
     cp_new: "Nouveau mot de passe", cp_confirm: "Confirmer le mot de passe", cp_submit: "Définir et continuer", cp_skip: "Ignorer pour l'instant",
     cp_mismatch: "Les mots de passe ne correspondent pas.", cp_weak: "8 caractères minimum.", cp_done: "Mot de passe défini — compte activé",
-    rc_title: "Sélection du rôle", rc_hint: "Vous disposez de plusieurs rôles. Choisissez celui à activer pour cette session.", rc_enter: "Accéder à la plateforme",
+    rc_title: "Sélection du rôle", switch_role: "Changer de rôle", role_switched: "Rôle actif : ", copy_code: "Copier le code", copied_toast: "Code copié dans le presse-papiers", rc_hint: "Vous disposez de plusieurs rôles. Choisissez celui à activer pour cette session.", rc_enter: "Accéder à la plateforme",
   },
 };
 
@@ -478,15 +493,15 @@ const en: ModulesDict = {
   dispatch: { strip_ops: "Active operations", strip_units: "Engaged units", strip_movements: "Movements in transit", strip_queue: "Dispatch queue", strip_available: "Available units", need: "Need to handle", select_need: "Select an operation or request", units_board: "Units", eta: "ETA", score: "Score", match: "Match", engage: "Engage", relieve: "Relieve", engaged: "Engaged", reco_title: "Recommendations", reco_hint: "Recommendation engine — proximity × capability × availability", apply: "Apply", best: "Best option", excluded: "Excluded", b_travel: "Travel time", b_cap: "Capabilities", b_readiness: "Op. readiness", b_avail: "Availability", caps_required: "Required capabilities", mv_mission: "Mission", mv_vehicles: "Vehicles", mv_origin: "Origin", mv_dest: "Destination", mv_cargo: "Cargo", mv_progress: "Progress", mv_delay: "Delay", mv_ontime: "On time", queue_title: "Dispatch queue", treat: "Handle", urg_urgent: "Urgent", urg_high: "Priority", urg_medium: "Normal", confirm_engage: "Confirm engagement", reason: "Reason (required)", reason_ph: "Justify the decision…", confirm: "Confirm engagement", audit_note: "Every decision is confirmed, reasoned and audited.", min: "min", sim: "Simulation « what if? »", sim_hint: "Adjust score weights to compare scenarios, without engaging", sim_reset: "Reset", sim_active: "Simulation active", weights_title: "Score weights" },
   ai: { subtitle: "Operational assistant — natural-language queries", guardrail: "Read-only: the assistant queries the Layer 1 engine and drafts; it executes no action and every exchange is logged.", provider_local: "Local LLM", provider_online: "connected", provider_offline: "offline — deterministic answers", mode_llm: "rephrased by the local LLM", mode_det: "deterministic answer (Layer 1)", layer1: "Layer 1 query", placeholder: "Ask an operational question…", send: "Send", clear: "Clear", examples: "Examples", ex_reach: "Which units can reach Al Haouz in under an hour with generators?", ex_reach2: "Engineering units available for the Al Hoceïma landslide within 3 hours", ex_sitrep: "Draft a SITREP for Operation SALAMA", ex_anomaly: "Summarize anomalies in current movements", thinking: "Analyzing…", empty: "Ask a question or pick an example.", model: "Model", no_models: "no model detected", configure: "Configure" },
   settings: { reserved: "Super Administrator only", ai_title: "AI assistant — Language model (LLM)", provider: "Provider", endpoint: "Endpoint (URL)", model: "Model", model_ph: "model name (e.g. llama3.1:8b)", detect: "Detect / Test", detected: "model(s) detected", status_connected: "Connected", status_offline: "Offline", status_checking: "Testing…", note: "In production these settings are managed by the Super Admin and propagated to all stations via the ARGOS API; the LLM call runs server-side.", future_title: "Other settings", future_hint: "Device registry, branding, log retention… (coming soon)", reset: "Defaults", flags_title: "Modules (feature flags)", flags_hint: "Enable or disable modules globally. A disabled module disappears from navigation and its page is locked.", module_disabled: "Module disabled by the administrator.", types_title: "Incident types", types_hint: "Add new types; they appear immediately in the report wizard with the chosen icon.", type_id: "Identifier", type_id_ph: "e.g. sandstorm", type_icon: "Icon", label_fr: "FR label", label_ar: "AR label", label_en: "EN label", type_add: "Add type", type_added: "Incident type added", type_exists: "This type already exists.", type_builtin: "Built-in", types_search: "Search a type…", types_empty: "No type matches.", audit_title: "Audit log", audit_intact: "chain intact", audit_broken: "chain broken", audit_refresh: "Refresh", audit_empty: "No entry — toggle a module to generate a trace.", seis_title: "Seismic alerts", seis_hint: "An earthquake on national territory ≥ the national threshold triggers a red in-app alert AND SMS + e-mail to the authorities below (server-side watch). A worldwide earthquake ≥ the global threshold only triggers an in-app notification.", seis_ma_lbl: "National threshold (SMS + e-mail)", seis_ma_hint: "min. magnitude of a quake in Morocco", seis_world_lbl: "Global threshold (app notification)", seis_world_hint: "min. magnitude of a quake outside Morocco", seis_contacts: "Notified authorities", seis_c_name: "Name / role", seis_c_phone: "Phone (SMS)", seis_c_email: "E-mail", seis_add: "Add an authority", seis_save: "Save", seis_saved: "Alert configuration saved", seis_log: "Recent dispatches", seis_log_empty: "No dispatch yet.", seis_sent_to: "authority(ies)" },
-  roles: { superadmin: "Super Administrator", admin: "Administrator", auditor: "Auditor", command: "Command", dispatcher: "Dispatcher", unit_commander: "Unit commander", field_agent: "Field agent" },
+  roles: { superadmin: "Super Administrator", admin: "Administrator", strategic: "Strategic User", tacom: "TACOM", bluecell: "Blue Cell — Operations", greencell: "Green Cell — Logistics", orangecell: "Orange Cell — Security", resp_hospital: "Hospital Manager", resp_shelter: "Shelter Manager", resp_morgue: "Morgue Manager", resp_unit: "Unit Manager", resp_equipment: "Equipment Manager" },
   users: {
     title: "User management", subtitle: "Account creation, roles and lifecycle",
     tab_users: "Users", tab_roles: "Roles & features",
     new_user: "New user", edit_user: "Edit user", edit: "Edit", save: "Save", saved_toast: "User updated",
     delete_title: "Delete user", delete_body: "This action is irreversible: the account and its platform access will be removed.",
-    matricule_locked: "The login ID cannot be changed.",
-    matricule: "Service ID", matricule_ph: "e.g. y.tazi",
-    name: "Full name", name_ph: "e.g. Cpt. Y. Tazi", grade: "Rank", grade_ph: "e.g. Captain",
+    matricule_locked: "Only the Super Administrator can change the username.",
+    matricule: "Username", matricule_ph: "e.g. y.tazi",
+firstname: "First name", firstname_ph: "e.g. Ahmed", phone: "Phone number", phone_ph: "+212 6 00 00 00 00", grade_none: "— Select a rank —", created_title: "User created", created_hint: "Hand these credentials to the user over a secure channel. The temporary password must be changed at first sign-in.", created_close: "Done", col_phone: "Phone", identity: "Identity",     name: "Last name", name_ph: "e.g. Tazi", grade: "Rank", grade_ph: "e.g. Captain",
     roles_multi: "Roles (multiple allowed)", roles_single: "Role",
     multi_hint: "Super Administrator: you may tick several roles.",
     single_hint: "Administrator: one role per user (excluding Admin/Super Admin).",
@@ -501,14 +516,14 @@ const en: ModulesDict = {
     admin_activated: "Activated by Super Admin",
     you: "you", builtin: "system account", created_by: "Created by", last_login: "Last login", never: "never",
     created_toast: "Account created — temporary code: ", deleted_toast: "User deleted", activated_toast: "Status updated",
-    need_role: "Select at least one role.", need_fields: "Enter the service ID and name.", dup_matricule: "This service ID already exists.",
+    need_role: "Select at least one role.", need_fields: "Enter the service ID and name.", dup_matricule: "This username already exists.",
     role_features_title: "Features per role", role_features_hint: "Enable or disable the modules allowed for each role. These rights complement API-side enforcement.",
     feature: "Feature", allowed: "allowed", reset_role: "Reset", locked_all: "Full access (locked)",
     select_role: "Pick a role", modules_count: "allowed modules", empty: "No users.",
     cp_title: "Change password", cp_hint: "First login: set your personal password to activate the account.",
     cp_new: "New password", cp_confirm: "Confirm password", cp_submit: "Set and continue", cp_skip: "Skip for now",
     cp_mismatch: "Passwords do not match.", cp_weak: "8 characters minimum.", cp_done: "Password set — account activated",
-    rc_title: "Role selection", rc_hint: "You hold several roles. Pick the one to activate for this session.", rc_enter: "Enter the platform",
+    rc_title: "Role selection", switch_role: "Switch role", role_switched: "Active role: ", copy_code: "Copy code", copied_toast: "Code copied to clipboard", rc_hint: "You hold several roles. Pick the one to activate for this session.", rc_enter: "Enter the platform",
   },
 };
 
@@ -528,15 +543,15 @@ const ar: ModulesDict = {
   dispatch: { strip_ops: "العمليات النشطة", strip_units: "الوحدات المعبأة", strip_movements: "التنقلات الجارية", strip_queue: "قائمة التوزيع", strip_available: "الوحدات المتاحة", need: "الحاجة المطلوب معالجتها", select_need: "اختر عملية أو طلبا", units_board: "الوحدات", eta: "الوصول المقدر", score: "النقطة", match: "الملاءمة", engage: "تعبئة", relieve: "سحب", engaged: "معبأة", reco_title: "التوصيات", reco_hint: "محرك التوصية — القرب × القدرات × التوفر", apply: "تطبيق", best: "الخيار الأفضل", excluded: "مستبعدة", b_travel: "زمن التنقل", b_cap: "القدرات", b_readiness: "الجاهزية العملياتية", b_avail: "التوفر", caps_required: "القدرات المطلوبة", mv_mission: "المهمة", mv_vehicles: "المركبات", mv_origin: "المصدر", mv_dest: "الوجهة", mv_cargo: "الحمولة", mv_progress: "التقدم", mv_delay: "التأخير", mv_ontime: "في الوقت", queue_title: "قائمة التوزيع", treat: "معالجة", urg_urgent: "عاجل", urg_high: "ذو أولوية", urg_medium: "عادي", confirm_engage: "تأكيد التعبئة", reason: "المبرر (إلزامي)", reason_ph: "مبرر القرار…", confirm: "تأكيد التعبئة", audit_note: "كل قرار مؤكد ومبرر ومدقق.", min: "دقيقة", sim: "محاكاة « ماذا لو؟ »", sim_hint: "اضبط أوزان النقطة لمقارنة السيناريوهات دون تعبئة", sim_reset: "إعادة تعيين", sim_active: "محاكاة نشطة", weights_title: "أوزان النقطة" },
   ai: { subtitle: "مساعد عملياتي — استعلامات باللغة الطبيعية", guardrail: "قراءة فقط: يستعلم المساعد محرك الطبقة 1 ويحرر ؛ لا ينفذ أي إجراء وكل تبادل مُسجَّل.", provider_local: "نموذج محلي", provider_online: "متصل", provider_offline: "غير متصل — إجابات حتمية", mode_llm: "أعاد صياغته النموذج المحلي", mode_det: "إجابة حتمية (الطبقة 1)", layer1: "استعلام الطبقة 1", placeholder: "اطرح سؤالا عملياتيا…", send: "إرسال", clear: "مسح", examples: "أمثلة", ex_reach: "ما الوحدات التي يمكنها بلوغ الحوز في أقل من ساعة بمولدات كهربائية؟", ex_reach2: "وحدات الهندسة القابلة للتعبئة لانزلاق الحسيمة في أقل من 3 ساعات", ex_sitrep: "أنشئ مسودة تقرير وضع لعملية سلامة", ex_anomaly: "لخّص شذوذات التنقلات الجارية", thinking: "جارٍ التحليل…", empty: "اطرح سؤالا أو اختر مثالا.", model: "النموذج", no_models: "لا نموذج مكتشف", configure: "إعداد" },
   settings: { reserved: "مخصص للمدير الأعلى", ai_title: "المساعد الذكي — نموذج اللغة (LLM)", provider: "المزود", endpoint: "نقطة الوصول (URL)", model: "النموذج", model_ph: "اسم النموذج (مثال llama3.1:8b)", detect: "كشف / اختبار", detected: "نموذج مكتشف", status_connected: "متصل", status_offline: "غير متصل", status_checking: "اختبار…", note: "في الإنتاج، يدير المدير الأعلى هذه الإعدادات وتُنشر إلى جميع المحطات عبر واجهة ARGOS ؛ يُنفَّذ نداء LLM من جهة الخادم.", future_title: "إعدادات أخرى", future_hint: "سجل الأجهزة، الهوية البصرية، مدة حفظ السجلات… (قريبا)", reset: "القيم الافتراضية", flags_title: "الوحدات (أعلام الميزات)", flags_hint: "فعّل أو عطّل الوحدات عالميا. الوحدة المعطّلة تختفي من التنقل وتُقفل صفحتها.", module_disabled: "وحدة معطّلة من طرف المدير.", types_title: "أنواع الحوادث", types_hint: "أضف أنواعا جديدة ؛ تظهر فورا في مساعد التبليغ بالأيقونة المختارة.", type_id: "المعرّف", type_id_ph: "مثال: aasifa_ramliya", type_icon: "الأيقونة", label_fr: "التسمية بالفرنسية", label_ar: "التسمية بالعربية", label_en: "التسمية بالإنجليزية", type_add: "إضافة النوع", type_added: "تمت إضافة نوع الحادث", type_exists: "هذا النوع موجود بالفعل.", type_builtin: "أصلي", types_search: "ابحث عن نوع…", types_empty: "لا يوجد نوع مطابق.", audit_title: "سجل التدقيق", audit_intact: "السلسلة سليمة", audit_broken: "السلسلة مكسورة", audit_refresh: "تحديث", audit_empty: "لا يوجد سجل — بدّل وحدة لإنشاء أثر.", seis_title: "الإنذارات الزلزالية", seis_hint: "زلزال على التراب الوطني ≥ العتبة الوطنية يطلق إنذارا أحمر في التطبيق وإرسال رسائل نصية وبريد إلكتروني إلى السلطات أدناه (مراقبة من جهة الخادم). زلزال عالمي ≥ العتبة العالمية يطلق إشعارا في التطبيق فقط.", seis_ma_lbl: "العتبة الوطنية (رسائل + بريد)", seis_ma_hint: "أدنى قوة لزلزال في المغرب", seis_world_lbl: "العتبة العالمية (إشعار التطبيق)", seis_world_hint: "أدنى قوة لزلزال خارج المغرب", seis_contacts: "السلطات المُشعَرة", seis_c_name: "الاسم / الصفة", seis_c_phone: "الهاتف (SMS)", seis_c_email: "البريد الإلكتروني", seis_add: "إضافة سلطة", seis_save: "حفظ", seis_saved: "تم حفظ إعدادات الإنذار", seis_log: "آخر الإرسالات", seis_log_empty: "لا إرسال حتى الآن.", seis_sent_to: "سلطة" },
-  roles: { superadmin: "المدير الأعلى", admin: "المدير", auditor: "المدقق", command: "القيادة", dispatcher: "الموزع", unit_commander: "قائد الوحدة", field_agent: "عون ميداني" },
+  roles: { superadmin: "المدير الأعلى", admin: "المدير", strategic: "المستخدم الاستراتيجي", tacom: "تاكوم TACOM", bluecell: "الخلية الزرقاء — العمليات", greencell: "الخلية الخضراء — اللوجستيك", orangecell: "الخلية البرتقالية — الأمن", resp_hospital: "مسؤول المستشفى", resp_shelter: "مسؤول الملجأ", resp_morgue: "مسؤول المشرحة", resp_unit: "مسؤول الوحدة", resp_equipment: "مسؤول المعدات" },
   users: {
     title: "إدارة المستخدمين", subtitle: "إنشاء الحسابات والأدوار ودورة الحياة",
     tab_users: "المستخدمون", tab_roles: "الأدوار والوظائف",
     new_user: "مستخدم جديد", edit_user: "تعديل المستخدم", edit: "تعديل", save: "حفظ", saved_toast: "تم تحديث المستخدم",
     delete_title: "حذف المستخدم", delete_body: "هذا الإجراء لا رجعة فيه: سيُحذف الحساب وحق ولوجه إلى المنصة.",
-    matricule_locked: "لا يمكن تغيير معرّف الدخول.",
-    matricule: "رقم التسجيل", matricule_ph: "مثال y.tazi",
-    name: "الاسم الكامل", name_ph: "مثال نقيب ي. التازي", grade: "الرتبة", grade_ph: "مثال نقيب",
+    matricule_locked: "المدير الأعلى وحده يمكنه تغيير اسم المستخدم.",
+    matricule: "اسم المستخدم", matricule_ph: "مثال y.tazi",
+firstname: "الاسم الشخصي", firstname_ph: "مثال: أحمد", phone: "رقم الهاتف", phone_ph: "+212 6 00 00 00 00", grade_none: "— اختر رتبة —", created_title: "تم إنشاء المستخدم", created_hint: "سلّم هذه البيانات للمستخدم عبر قناة آمنة. يجب تغيير كلمة السر المؤقتة عند أول اتصال.", created_close: "تم", col_phone: "الهاتف", identity: "الهوية",     name: "الاسم العائلي", name_ph: "مثال: التازي", grade: "الرتبة", grade_ph: "مثال نقيب",
     roles_multi: "الأدوار (يمكن تعدُّدها)", roles_single: "الدور",
     multi_hint: "المدير الأعلى: يمكنك تحديد عدة أدوار.",
     single_hint: "المدير: دور واحد لكل مستخدم (باستثناء المدير/المدير الأعلى).",
@@ -551,14 +566,14 @@ const ar: ModulesDict = {
     admin_activated: "مُفعّل من المدير الأعلى",
     you: "أنت", builtin: "حساب النظام", created_by: "أنشأه", last_login: "آخر اتصال", never: "أبدا",
     created_toast: "تم إنشاء الحساب — الرمز المؤقت: ", deleted_toast: "تم حذف المستخدم", activated_toast: "تم تحديث الحالة",
-    need_role: "اختر دورا واحدا على الأقل.", need_fields: "أدخل رقم التسجيل والاسم.", dup_matricule: "رقم التسجيل موجود مسبقا.",
+    need_role: "اختر دورا واحدا على الأقل.", need_fields: "أدخل رقم التسجيل والاسم.", dup_matricule: "اسم المستخدم موجود مسبقا.",
     role_features_title: "الوظائف حسب الدور", role_features_hint: "فعّل أو عطّل الوحدات المسموح بها لكل دور. تكمّل هذه الحقوق التطبيق من جهة الواجهة.",
     feature: "الوظيفة", allowed: "مسموح", reset_role: "إعادة تعيين", locked_all: "وصول كامل (مقفل)",
     select_role: "اختر دورا", modules_count: "وحدات مسموحة", empty: "لا مستخدمون.",
     cp_title: "تغيير كلمة السر", cp_hint: "أول اتصال: عيّن كلمة سرك الشخصية لتفعيل الحساب.",
     cp_new: "كلمة سر جديدة", cp_confirm: "تأكيد كلمة السر", cp_submit: "تعيين ومتابعة", cp_skip: "تجاهل الآن",
     cp_mismatch: "كلمتا السر غير متطابقتين.", cp_weak: "8 أحرف على الأقل.", cp_done: "تم تعيين كلمة السر — الحساب مفعّل",
-    rc_title: "اختيار الدور", rc_hint: "لديك عدة أدوار. اختر الدور المراد تفعيله لهذه الجلسة.", rc_enter: "الدخول إلى المنصة",
+    rc_title: "اختيار الدور", switch_role: "تغيير الدور", role_switched: "الدور النشط: ", copy_code: "نسخ الرمز", copied_toast: "تم نسخ الرمز إلى الحافظة", rc_hint: "لديك عدة أدوار. اختر الدور المراد تفعيله لهذه الجلسة.", rc_enter: "الدخول إلى المنصة",
   },
 };
 

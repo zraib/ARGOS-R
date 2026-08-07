@@ -49,7 +49,7 @@ export function RoleChooserScreen() {
           : "radial-gradient(ellipse at 32% 45%, rgb(27 77 46 / 0.14), transparent 60%), rgb(243 244 246)",
       }}
     >
-      <div className="flex w-full max-w-lg animate-fade-in-up flex-col items-center gap-6">
+      <div className="flex w-full max-w-3xl animate-fade-in-up flex-col items-center gap-8">
         <div className="text-center">
           <div className="text-2xl font-bold text-rdia-600 dark:text-rdia-50">{m.users.rc_title}</div>
           <p className="mt-1.5 text-sm text-or-600 dark:text-or-500">{m.users.rc_hint}</p>
@@ -58,7 +58,9 @@ export function RoleChooserScreen() {
           )}
         </div>
 
-        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3">
+        {/* Tuiles GRANDES et prononcées, centrées quelle que soit leur quantité
+            (justify-center) — double-clic = accès direct. */}
+        <div className="flex w-full flex-wrap justify-center gap-5">
           {roles.map((r) => {
             const on = picked === r;
             return (
@@ -66,14 +68,16 @@ export function RoleChooserScreen() {
                 key={r}
                 onClick={() => setPicked(r)}
                 onDoubleClick={() => void confirm(r)}
-                className={`carte flex flex-col items-center gap-2 p-5 transition-all ${
-                  on ? "ring-2 ring-or-500" : "opacity-80 hover:opacity-100"
+                className={`carte flex w-52 flex-col items-center gap-4 p-8 transition-all duration-150 ${
+                  on
+                    ? "scale-105 shadow-2xl ring-2 ring-or-500 shadow-or-500/20"
+                    : "opacity-75 hover:scale-[1.02] hover:opacity-100 hover:shadow-xl"
                 }`}
               >
-                <span className={`flex h-12 w-12 items-center justify-center rounded-full ${on ? "bg-or-500 text-rdia-600" : "bg-or-500/15 text-or-500"}`}>
-                  <Icon path={ROLE_ICONS[r]} size={24} />
+                <span className={`flex h-20 w-20 items-center justify-center rounded-full transition-colors ${on ? "bg-or-500 text-rdia-600 shadow-lg shadow-or-500/40" : "bg-or-500/15 text-or-500"}`}>
+                  <Icon path={ROLE_ICONS[r]} size={38} />
                 </span>
-                <span className="text-center text-xs font-semibold text-rdia-600 dark:text-rdia-50">{m.roles[r]}</span>
+                <span className="text-center text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{m.roles[r]}</span>
               </button>
             );
           })}

@@ -129,7 +129,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6">{moduleDisabled ? <DisabledNotice /> : children}</main>
+        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">{moduleDisabled ? <DisabledNotice /> : children}</main>
       </div>
       <IncidentWizard />
       <QuakeAlert />
