@@ -38,6 +38,11 @@ export const PERMISSIONS = [
   "map:tracking:view_all",
   "dispatch:assign",
   "hospinet:beds:update",
+  // Bons de travail (module orders — logistique / maintenance)
+  "workorders:read",
+  "workorders:create",
+  "workorders:update",
+  "workorders:assign",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -99,6 +104,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[] | "*"> = {
     "admin:feature_flags:read", "admin:feature_flags:toggle", "admin:settings:read", "admin:settings:update",
     "org:zones:read", "org:zones:manage", "org:units:read", "org:units:manage", "org:hospitals:read", "org:hospitals:manage",
     "incidents:read", "map:tracking:view_all",
+    "workorders:read",
   ],
   // NB : dotations PROVISOIRES — l'attribution fine se fera via la matrice
   // rôles × fonctionnalités (voir docs/matrice-roles-fonctionnalites.xlsx).
@@ -116,13 +122,20 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[] | "*"> = {
     "incidents:read", "incidents:create", "incidents:update",
     "map:tracking:view_all", "dispatch:assign",
   ],
-  greencell: ["org:units:read", "incidents:read", "map:tracking:view_all"],
+  // Cellule Verte (logistique) : pilote la file des bons de travail.
+  greencell: [
+    "org:units:read", "incidents:read", "map:tracking:view_all",
+    "workorders:read", "workorders:create", "workorders:update", "workorders:assign",
+  ],
   orangecell: ["org:zones:read", "incidents:read", "map:tracking:view_all"],
   resp_hospital: ["org:hospitals:read", "org:hospitals:manage", "hospinet:beds:update", "incidents:read"],
   resp_shelter: ["org:zones:read", "incidents:read"],
   resp_morgue: ["incidents:read"],
   resp_unit: ["org:units:read", "org:units:manage", "incidents:read"],
-  resp_equipment: ["org:units:read", "incidents:read"],
+  resp_equipment: [
+    "org:units:read", "incidents:read",
+    "workorders:read", "workorders:create", "workorders:update", "workorders:assign",
+  ],
 };
 
 /** Résout la liste effective des permissions d'un rôle. */

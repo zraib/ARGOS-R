@@ -12,6 +12,7 @@ import { HealthModule } from "@/modules/health/health.module";
 import { IamModule } from "@/modules/iam/iam.module";
 import { FlagsModule } from "@/modules/flags/flags.module";
 import { DomainModule } from "@/modules/domain/domain.module";
+import { OrdersModule } from "@/modules/orders/orders.module";
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { DomainModule } from "@/modules/domain/domain.module";
     IamModule,
     FlagsModule,
     DomainModule,
+    OrdersModule,
   ],
   providers: [
     // Ordre : authentification (JWT) puis autorisation (RBAC). Global = default-deny.

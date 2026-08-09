@@ -2,6 +2,7 @@
 
 import { useArgos } from "@/lib/store";
 import { incidentFill } from "@/lib/helpers";
+import { hospKind, kindDef } from "@/lib/hospitals";
 
 /** Silhouette stylisée du Maroc avec marqueurs unités/hôpitaux/incidents en direct (Disposition B). */
 export function MoroccoSituation() {
@@ -26,12 +27,27 @@ export function MoroccoSituation() {
         {units.map((u) => (
           <rect key={u.id} x={-4} y={-4} width={8} height={8} fill="#C9A84C" stroke="#0f1f14" strokeWidth={1} transform={`translate(${u.x} ${u.y})`} />
         ))}
-        {hospitals.map((h) => (
-          <g key={h.id} transform={`translate(${h.x} ${h.y})`}>
-            <circle r={5} fill="#ffffff" />
-            <path d="M-2.5,0 H2.5 M0,-2.5 V2.5" stroke="#EF4444" strokeWidth={1.6} />
-          </g>
-        ))}
+        {/* Établissements de santé : hexagone or = militaire, pastille
+            colorée = civil (violet CHU, bleu CHR, rouge CHP / local). */}
+        {hospitals.map((h) => {
+          const d = kindDef(hospKind(h));
+          const mil = d.reseau === "militaire";
+          return (
+            <g key={h.id} transform={`translate(${h.x} ${h.y})`}>
+              {mil ? (
+                <>
+                  <path d="M0,-6 L5.2,-3 L5.2,3 L0,6 L-5.2,3 L-5.2,-3 Z" fill="#1B4D2E" stroke={d.color} strokeWidth={1.6} strokeLinejoin="round" />
+                  <path d="M-2.2,0 H2.2 M0,-2.2 V2.2" stroke="#F5DE9B" strokeWidth={1.5} />
+                </>
+              ) : (
+                <>
+                  <circle r={4.4} fill="#ffffff" stroke={d.color} strokeWidth={1.4} />
+                  <path d="M-2,0 H2 M0,-2 V2" stroke={d.color} strokeWidth={1.5} />
+                </>
+              )}
+            </g>
+          );
+        })}
         {activeInc.map((i) => {
           const fill = incidentFill(i.sev, false);
           return (

@@ -19,6 +19,8 @@ const MapCanvas = dynamic(() => import("@/components/map/MapCanvas").then((m) =>
 });
 
 import { OVERLAY_STYLE, SWITCH_OFF } from "@/lib/map/overlay";
+import { HOSPITAL_KINDS, hospKind, kindDef } from "@/lib/hospitals";
+import { HealthGlyph } from "@/components/health/HealthGlyph";
 import type { MarkerKind } from "@/lib/types";
 
 // Surcouches neutres (ardoise sombre) : le vert du thème se confondait avec
@@ -207,7 +209,18 @@ export default function MapPage() {
     {
       label: t.fam_health,
       layers: [
-        { key: "hospitals", label: t.lg_hosp, leaves: hospitals.map((h) => ({ id: h.id, label: h.nom, kind: "hosp" })) },
+        {
+          key: "hospitals",
+          label: t.lg_hosp_mil,
+          leaves: hospitals.filter((h) => hospKind(h) === "mil").map((h) => ({ id: h.id, label: h.nom, kind: "hosp" })),
+        },
+        {
+          key: "hospitalsCiv",
+          label: t.lg_hosp_civ,
+          leaves: hospitals
+            .filter((h) => hospKind(h) !== "mil")
+            .map((h) => ({ id: h.id, label: `${h.nom} · ${h.ville}`, kind: "hosp" })),
+        },
         { key: "field", label: t.field, leaves: fieldHosps.map((f) => ({ id: f.nom, label: f.nom, kind: "field" })) },
       ],
     },
@@ -245,8 +258,13 @@ export default function MapPage() {
       const h = hospitals.find((x) => x.id === id);
       if (h) {
         selInfo = {
-          titre: h.nom, sub: h.ville, badgeType: "active", badgeLabel: t.op_ok,
-          lines: [{ k: t.beds_free, v: `${h.lits - h.occ} / ${h.lits}` }, { k: t.icu, v: `${h.rea - h.reaOcc} / ${h.rea}` }, { k: t.med_staff, v: String(h.staff) }],
+          titre: h.nom, sub: h.region ? `${h.ville} · ${h.region}` : h.ville, badgeType: "active", badgeLabel: t.op_ok,
+          lines: [
+            { k: t.lg_health_kind, v: h.type ?? kindDef(hospKind(h)).long },
+            { k: t.beds_free, v: `${h.lits - h.occ} / ${h.lits}` },
+            { k: t.icu, v: `${h.rea - h.reaOcc} / ${h.rea}` },
+            { k: t.med_staff, v: String(h.staff) },
+          ],
           action: () => { setSelHosp(h.id); clearSelection(); router.push("/hospinet"); },
         };
       }
@@ -276,8 +294,6 @@ export default function MapPage() {
   const seg = (on: boolean) => `px-4 py-2.5 text-[14px] font-bold transition-colors ${on ? "bg-or-500 text-rdia-600" : "text-white/90 hover:text-or-400"}`;
   const legend: [ReactNode, string][] = [
     [<rect key="u" x={-4} y={-4} width={8} height={8} fill="#C9A84C" />, t.lg_units],
-    [<g key="h"><circle r={5} fill="#fff" stroke="#9CA3AF" strokeWidth={0.5} /><path d="M-2.5,0 H2.5 M0,-2.5 V2.5" stroke="#EF4444" strokeWidth={1.6} /></g>, t.lg_hosp],
-    [<g key="f"><circle r={5} fill="none" stroke="#10B981" strokeWidth={1.4} strokeDasharray="2 2" /><path d="M-2,0 H2 M0,-2 V2" stroke="#10B981" strokeWidth={1.4} /></g>, t.field],
     [<path key="i" d="M0,-6 L6,5 L-6,5 Z" fill="#EF4444" />, t.nav_inc],
     [<path key="v" d="M0,-5 L5,0 L0,5 L-5,0 Z" fill="#3B82F6" />, t.lg_veh],
   ];
@@ -294,7 +310,7 @@ export default function MapPage() {
         {/* Colonne gauche : couches (arbre) + légende */}
         <div className="absolute flex w-[300px] flex-col gap-2" style={{ top: 12, insetInlineStart: 12 }}>
           <Panel title={t.layers} width={300}>
-            <div className="flex max-h-[52vh] flex-col overflow-y-auto overflow-x-hidden">
+            <div className="flex max-h-[36vh] flex-col overflow-y-auto overflow-x-hidden">
               {families.map((f) => (
                 <FamilyNode
                   key={f.label}
@@ -330,13 +346,26 @@ export default function MapPage() {
             </div>
           </Panel>
           <Panel title={t.legend} width={300} defaultOpen={false}>
-            <div className="flex flex-col gap-2 text-[14px] text-white/80">
+            <div className="flex max-h-[46vh] flex-col gap-2 overflow-y-auto overflow-x-hidden text-[14px] text-white/80">
               {legend.map(([shape, label]) => (
                 <div key={label} className="flex items-center gap-2">
                   <svg width={14} height={14} viewBox="-7 -7 14 14">{shape}</svg>
                   <span>{label}</span>
                 </div>
               ))}
+              {/* Établissements de santé : six symboles distincts —
+                  hexagone = militaire, cercle = civil, pointillé = campagne. */}
+              <div className="mt-1 border-t border-white/12 pt-2">
+                <div className="mb-1.5 text-[12px] font-bold uppercase tracking-wider text-white/50">{t.lg_health_net}</div>
+                <div className="flex flex-col gap-1.5">
+                  {HOSPITAL_KINDS.map((k) => (
+                    <div key={k.kind} className="flex items-center gap-2">
+                      <HealthGlyph kind={k.kind} size={17} />
+                      <span>{k.long}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </Panel>
         </div>

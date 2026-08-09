@@ -794,6 +794,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Liste des bons de travail (filtrable) */
+        get: operations["OrdersController_list"];
+        put?: never;
+        /** Ouvrir un bon de travail (état « demandé ») */
+        post: operations["OrdersController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/orders/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Indicateurs des bons de travail (ouverts, en cours, urgents) */
+        get: operations["OrdersController_summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Détail d'un bon de travail */
+        get: operations["OrdersController_getOne"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Corriger les données descriptives d'un bon */
+        patch: operations["OrdersController_amend"];
+        trace?: never;
+    };
+    "/api/orders/{id}/assignee": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Désigner l'exécutant d'un bon */
+        patch: operations["OrdersController_assign"];
+        trace?: never;
+    };
+    "/api/orders/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Faire avancer un bon dans son cycle de vie */
+        patch: operations["OrdersController_changeStatus"];
+        trace?: never;
+    };
+    "/api/orders/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Annuler un bon de travail (motif obligatoire) */
+        patch: operations["OrdersController_cancel"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -997,6 +1101,21 @@ export interface components {
             nom: string;
             /** @example Tanger */
             ville: string;
+            /**
+             * @description Réseau et échelon — détermine le symbole cartographique
+             * @default mil
+             * @enum {string}
+             */
+            kind: "mil" | "mil_field" | "civ" | "civ_reg" | "civ_univ" | "civ_field";
+            /**
+             * @description Libellé de l'échelon
+             * @example Hôpital militaire général
+             */
+            type?: string;
+            /** @example Tanger-Tétouan-Al Hoceïma */
+            region?: string;
+            /** @example Tanger-Assilah */
+            province?: string;
             lits: number;
             rea: number;
             staff: number;
@@ -1036,6 +1155,55 @@ export interface components {
             /** @description Seuil mondial (notification dans l'app uniquement) */
             globalMinMag: number;
             contacts: components["schemas"]["AuthorityContactDto"][];
+        };
+        CreateOrderDto: {
+            /** @example Rétablir l'accès RP2010 (déblaiement) */
+            subject: string;
+            /**
+             * @description Unité responsable de l'exécution
+             * @example 3e BG
+             */
+            unit: string;
+            /**
+             * @example high
+             * @enum {string}
+             */
+            priority: "low" | "medium" | "high" | "urgent";
+            /**
+             * @description Échéance affichable
+             * @example Aujourd'hui 14:00
+             */
+            sla: string;
+            /** @example Adj. R. Rahmouni */
+            assignee?: string;
+            /**
+             * @description Incident de rattachement
+             * @example INC-2607
+             */
+            incidentId?: string;
+        };
+        AmendOrderDto: {
+            subject?: string;
+            unit?: string;
+            /** @enum {string} */
+            priority?: "low" | "medium" | "high" | "urgent";
+            sla?: string;
+            incidentId?: string;
+        };
+        AssignOrderDto: {
+            /** @example Cne. A. Kabbaj */
+            assignee: string;
+        };
+        ChangeOrderStatusDto: {
+            /**
+             * @example inprogress
+             * @enum {string}
+             */
+            status: "requested" | "approved" | "assigned" | "inprogress" | "done" | "verified" | "cancelled";
+        };
+        CancelOrderDto: {
+            /** @example Doublon du BT-3388 */
+            reason: string;
         };
     };
     responses: never;
@@ -2065,6 +2233,178 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrdersController_list: {
+        parameters: {
+            query?: {
+                status?: "requested" | "approved" | "assigned" | "inprogress" | "done" | "verified" | "cancelled";
+                priority?: "low" | "medium" | "high" | "urgent";
+                unit?: string;
+                assignee?: string;
+                incidentId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrdersController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOrderDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrdersController_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrdersController_getOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrdersController_amend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AmendOrderDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrdersController_assign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignOrderDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrdersController_changeStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeOrderStatusDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrdersController_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelOrderDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {

@@ -1390,6 +1390,313 @@
           "domain"
         ]
       }
+    },
+    "/api/orders": {
+      "get": {
+        "operationId": "OrdersController_list",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "requested",
+                "approved",
+                "assigned",
+                "inprogress",
+                "done",
+                "verified",
+                "cancelled"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "priority",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "urgent"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "unit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assignee",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "incidentId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Liste des bons de travail (filtrable)",
+        "tags": [
+          "orders"
+        ]
+      },
+      "post": {
+        "operationId": "OrdersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ouvrir un bon de travail (état « demandé »)",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/orders/summary": {
+      "get": {
+        "operationId": "OrdersController_summary",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Indicateurs des bons de travail (ouverts, en cours, urgents)",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/orders/{id}": {
+      "get": {
+        "operationId": "OrdersController_getOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Détail d'un bon de travail",
+        "tags": [
+          "orders"
+        ]
+      },
+      "patch": {
+        "operationId": "OrdersController_amend",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AmendOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Corriger les données descriptives d'un bon",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/orders/{id}/assignee": {
+      "patch": {
+        "operationId": "OrdersController_assign",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Désigner l'exécutant d'un bon",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/orders/{id}/status": {
+      "patch": {
+        "operationId": "OrdersController_changeStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeOrderStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Faire avancer un bon dans son cycle de vie",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/orders/{id}/cancel": {
+      "patch": {
+        "operationId": "OrdersController_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Annuler un bon de travail (motif obligatoire)",
+        "tags": [
+          "orders"
+        ]
+      }
     }
   },
   "info": {
@@ -2031,6 +2338,32 @@
             "type": "string",
             "example": "Tanger"
           },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "mil",
+              "mil_field",
+              "civ",
+              "civ_reg",
+              "civ_univ",
+              "civ_field"
+            ],
+            "default": "mil",
+            "description": "Réseau et échelon — détermine le symbole cartographique"
+          },
+          "type": {
+            "type": "string",
+            "example": "Hôpital militaire général",
+            "description": "Libellé de l'échelon"
+          },
+          "region": {
+            "type": "string",
+            "example": "Tanger-Tétouan-Al Hoceïma"
+          },
+          "province": {
+            "type": "string",
+            "example": "Tanger-Assilah"
+          },
           "lits": {
             "type": "number",
             "minimum": 1
@@ -2171,6 +2504,122 @@
           "maMinMag",
           "globalMinMag",
           "contacts"
+        ]
+      },
+      "CreateOrderDto": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "example": "Rétablir l'accès RP2010 (déblaiement)"
+          },
+          "unit": {
+            "type": "string",
+            "example": "3e BG",
+            "description": "Unité responsable de l'exécution"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "urgent"
+            ],
+            "example": "high"
+          },
+          "sla": {
+            "type": "string",
+            "example": "Aujourd'hui 14:00",
+            "description": "Échéance affichable"
+          },
+          "assignee": {
+            "type": "string",
+            "example": "Adj. R. Rahmouni"
+          },
+          "incidentId": {
+            "type": "string",
+            "example": "INC-2607",
+            "description": "Incident de rattachement"
+          }
+        },
+        "required": [
+          "subject",
+          "unit",
+          "priority",
+          "sla"
+        ]
+      },
+      "AmendOrderDto": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "unit": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "urgent"
+            ]
+          },
+          "sla": {
+            "type": "string"
+          },
+          "incidentId": {
+            "type": "string"
+          }
+        }
+      },
+      "AssignOrderDto": {
+        "type": "object",
+        "properties": {
+          "assignee": {
+            "type": "string",
+            "example": "Cne. A. Kabbaj"
+          }
+        },
+        "required": [
+          "assignee"
+        ]
+      },
+      "ChangeOrderStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "approved",
+              "assigned",
+              "inprogress",
+              "done",
+              "verified",
+              "cancelled"
+            ],
+            "example": "inprogress"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "CancelOrderDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "example": "Doublon du BT-3388"
+          }
+        },
+        "required": [
+          "reason"
         ]
       }
     }

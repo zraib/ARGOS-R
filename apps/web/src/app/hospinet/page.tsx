@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useArgos, useDict } from "@/lib/store";
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
@@ -9,6 +9,9 @@ import { UI_ICONS } from "@/lib/icons";
 import { occBarClass } from "@/lib/helpers";
 import { hospitalDetail } from "@/lib/derive";
 import { AddHospitalModal } from "@/components/org/AddEntityModals";
+import { HealthGlyph } from "@/components/health/HealthGlyph";
+import { HOSPITAL_KINDS, hospKind, kindDef } from "@/lib/hospitals";
+import type { HospitalKind } from "@/lib/types";
 
 const TH = "px-4 py-3 text-start text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400";
 const TD = "px-4 py-2.5";
@@ -26,30 +29,94 @@ export default function HospinetPage() {
   const showToast = useArgos((s) => s.showToast);
   const [tab, setTab] = useState<"staff" | "beds" | "veh" | "field">("staff");
   const [adding, setAdding] = useState(false);
+  // Filtres de la vue liste : le référentiel compte plus de cent
+  // établissements — catégorie et recherche libre les rendent exploitables.
+  const [kindFilter, setKindFilter] = useState<HospitalKind | "all">("all");
+  const [query, setQuery] = useState("");
 
   const canManage = role === "superadmin" || role === "admin";
   const hosp = selHosp ? hospitals.find((h) => h.id === selHosp) : null;
 
+  // Nombre d'établissements par catégorie (puces de filtre).
+  const counts = useMemo(() => {
+    const c: Partial<Record<HospitalKind, number>> = {};
+    for (const h of hospitals) {
+      const k = hospKind(h);
+      c[k] = (c[k] ?? 0) + 1;
+    }
+    return c;
+  }, [hospitals]);
+
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return hospitals.filter((h) => {
+      if (kindFilter !== "all" && hospKind(h) !== kindFilter) return false;
+      if (!q) return true;
+      return [h.nom, h.ville, h.region, h.province, h.type].some((v) => v?.toLowerCase().includes(q));
+    });
+  }, [hospitals, kindFilter, query]);
+
   // ---- vue liste ----
   if (!hosp) {
+    const chip = (active: boolean) =>
+      `flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+        active
+          ? "border-or-500 bg-or-500/15 text-or-600 dark:text-or-400"
+          : "border-gray-200 bg-white text-gray-600 hover:border-or-400 dark:border-rdia-600 dark:bg-rdia-700 dark:text-rdia-200"
+      }`;
+
     return (
       <section className="flex flex-col gap-4 animate-fade-in">
-        {canManage && (
-          <div className="flex justify-end">
-            <button className="btn-primaire flex items-center gap-1.5 text-sm" onClick={() => setAdding(true)}>
-              <Icon path={UI_ICONS.plus} size={15} />
-              {t.add_hosp}
-            </button>
+        <div className="carte flex flex-col gap-3 p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              className="input-champ min-w-[240px] flex-1 text-sm"
+              placeholder={t.hn_search}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <span className="text-xs font-semibold tabular-nums text-gray-500 dark:text-rdia-300">
+              {shown.length} / {hospitals.length} {t.hn_count}
+            </span>
+            {canManage && (
+              <button className="btn-primaire ms-auto flex items-center gap-1.5 text-sm" onClick={() => setAdding(true)}>
+                <Icon path={UI_ICONS.plus} size={15} />
+                {t.add_hosp}
+              </button>
+            )}
           </div>
-        )}
+          <div className="flex flex-wrap items-center gap-2">
+            <button className={chip(kindFilter === "all")} onClick={() => setKindFilter("all")}>
+              {t.flt_all}
+              <span className="tabular-nums opacity-60">{hospitals.length}</span>
+            </button>
+            {HOSPITAL_KINDS.filter((k) => (counts[k.kind] ?? 0) > 0).map((k) => (
+              <button key={k.kind} className={chip(kindFilter === k.kind)} onClick={() => setKindFilter(k.kind)}>
+                <HealthGlyph kind={k.kind} size={16} />
+                {k.label}
+                <span className="tabular-nums opacity-60">{counts[k.kind]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {hospitals.map((h) => {
+          {shown.map((h) => {
             const pct = Math.round((h.occ / h.lits) * 100);
+            const kd = kindDef(hospKind(h));
             return (
               <div key={h.id} className="carte flex flex-col gap-3 p-5">
-                <div className="min-w-0">
-                  <h3 className="text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{h.nom}</h3>
-                  <div className="mt-0.5 text-xs text-gray-500 dark:text-rdia-300">{h.ville}</div>
+                <div className="flex items-start gap-2.5">
+                  <HealthGlyph kind={hospKind(h)} size={22} />
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{h.nom}</h3>
+                    <div className="mt-0.5 text-xs text-gray-500 dark:text-rdia-300">
+                      {h.ville}
+                      {h.region ? ` · ${h.region}` : ""}
+                    </div>
+                    <div className="mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ color: kd.color, background: `${kd.color}1f` }}>
+                      {h.type ?? kd.long}
+                    </div>
+                  </div>
                 </div>
                 <div>
                   <div className="mb-1 flex items-center justify-between text-[10px] text-gray-400 dark:text-rdia-400">
@@ -101,9 +168,13 @@ export default function HospinetPage() {
           <button className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600" onClick={() => setSelHosp(null)}>
             <Icon path={UI_ICONS.arrowLeft} size={16} strokeWidth={2} />
           </button>
+          <HealthGlyph kind={hospKind(hosp)} size={26} />
           <div className="min-w-0 flex-1">
             <h2 className="text-base font-bold leading-tight text-rdia-600 dark:text-rdia-50">{hosp.nom}</h2>
-            <div className="text-xs text-gray-500 dark:text-rdia-300">{hosp.ville}</div>
+            <div className="text-xs text-gray-500 dark:text-rdia-300">
+              {hosp.type ?? kindDef(hospKind(hosp)).long} · {hosp.ville}
+              {hosp.region ? ` · ${hosp.region}` : ""}
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             {tabs.map(([k, label]) => (
@@ -179,7 +250,10 @@ export default function HospinetPage() {
               {fields.map((f, i) => (
                 <div key={i} className="carte flex flex-col gap-3 p-5">
                   <div className="flex items-start justify-between gap-2">
-                    <h3 className="text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{f.nom}</h3>
+                    <div className="flex min-w-0 items-start gap-2">
+                      <HealthGlyph kind={f.kind} size={20} />
+                      <h3 className="text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{f.nom}</h3>
+                    </div>
                     <Badge type={f.badgeType} label={f.badgeLabel} />
                   </div>
                   <div className="flex items-center justify-between text-xs">

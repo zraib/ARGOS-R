@@ -8,9 +8,10 @@
 
 import type { Dict } from "@/lib/i18n/translations";
 import type { BadgeType } from "@/components/ui/Badge";
-import type { FieldHospital, Hospital, Unit } from "@/lib/types";
-import { MED_GRADES, MED_SPECS, POOLS } from "@/lib/data/seed";
+import type { FieldHospital, Hospital, HospitalKind, Unit } from "@/lib/types";
+import { MED_GRADES, MED_GRADES_CIV, MED_SPECS, POOLS } from "@/lib/data/seed";
 import { occBarClass, persStatut } from "@/lib/helpers";
+import { fieldKind, hospKind } from "@/lib/hospitals";
 
 /**
  * Index déterministe dérivé de l'identifiant (ex. « U3 » → 2), pour reproduire à
@@ -102,6 +103,8 @@ export interface HospVehRow {
 }
 export interface FieldCard {
   nom: string;
+  /** Catégorie (campagne militaire / campagne civile) pour le symbole. */
+  kind: HospitalKind;
   cap: string;
   depuis: string;
   pct: string;
@@ -114,10 +117,13 @@ export interface FieldCard {
 export function hospitalDetail(h: Hospital, fieldHosps: FieldHospital[], t: Dict) {
   const idx = idIndex(h.id);
 
+  // Le vocabulaire des grades suit le réseau : grades militaires pour le
+  // Service de Santé des FAR, qualifications hospitalières pour le civil.
+  const grades = hospKind(h) === "mil" ? MED_GRADES : MED_GRADES_CIV;
   const staffRows: StaffRow[] = Array.from({ length: 6 }, (_, j) => {
     const st: [string, BadgeType][] = [["Garde", "medium"], ["Disponible", "active"], ["Repos", "on_hold"]];
     const s = st[(idx + j) % 3];
-    return { grade: MED_GRADES[(idx + j) % 6], nom: POOLS.names[(idx * 5 + j * 2) % 12], spec: MED_SPECS[(idx * 2 + j) % 6], stType: s[1], stLabel: s[0] };
+    return { grade: grades[(idx + j) % 6], nom: POOLS.names[(idx * 5 + j * 2) % 12], spec: MED_SPECS[(idx * 2 + j) % 6], stType: s[1], stLabel: s[0] };
   });
 
   const ratio = h.occ / h.lits;
@@ -147,6 +153,7 @@ export function hospitalDetail(h: Hospital, fieldHosps: FieldHospital[], t: Dict
       const pct = Math.round((f.occ / f.cap) * 100);
       return {
         nom: f.nom,
+        kind: fieldKind(f),
         cap: String(f.cap),
         depuis: f.depuis,
         pct: `${pct} %`,

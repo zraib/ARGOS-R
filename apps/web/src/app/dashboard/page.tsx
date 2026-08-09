@@ -11,6 +11,8 @@ import { DonutChart } from "@/components/charts/DonutChart";
 import { ListCard } from "@/components/charts/ListCard";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { occBarClass } from "@/lib/helpers";
+import { HealthGlyph } from "@/components/health/HealthGlyph";
+import type { HospitalKind } from "@/lib/types";
 
 interface Kpi {
   label: string;
@@ -99,10 +101,13 @@ export default function DashboardPage() {
         return <DonutChart bare titre={t.chart_moyens} data={chartMoyens} />;
       case "hospitals":
         return dashStats ? (
-          <div className="flex h-full flex-col justify-center gap-2">
+          // Réseau militaire en tête, puis le civil trié par saturation
+          // décroissante (tri effectué par l'API) — la liste défile.
+          <div className="flex h-full flex-col gap-2 overflow-y-auto pe-1">
             {dashStats.hospitals.map((h) => (
-              <div key={h.id} className="flex items-center gap-3">
-                <span className="w-40 shrink-0 truncate text-xs text-gray-600 dark:text-rdia-200">{h.nom}</span>
+              <div key={h.id} className="flex items-center gap-2.5">
+                <HealthGlyph kind={(h.kind ?? "civ") as HospitalKind} size={15} />
+                <span className="w-36 shrink-0 truncate text-xs text-gray-600 dark:text-rdia-200" title={`${h.nom} · ${h.ville}`}>{h.nom}</span>
                 <div className="min-w-0 flex-1"><ProgressBar value={h.occPct} fill={occBarClass(h.occPct)} /></div>
                 <span className="w-10 shrink-0 text-end font-mono text-xs tabular-nums text-gray-500 dark:text-rdia-300">{h.occPct} %</span>
               </div>

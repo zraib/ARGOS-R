@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { PROVINCES_MA, llToSvg } from "@/modules/domain/provinces.data";
 import { CITIES_MA } from "@/modules/domain/cities.data";
 import { ORSEC_BOARD } from "@/modules/domain/catalog.data";
+import { HOSPITALS_MA, type HospitalKind } from "@/modules/domain/hospitals.data";
 import { loadDevState, saveDevState } from "@/common/dev-store";
 
 // ============================================================================
@@ -70,6 +71,14 @@ export interface Hospital {
   ville: string;
   /** Région administrative de rattachement. */
   region?: string;
+  /** Province / préfecture de rattachement. */
+  province?: string;
+  /**
+   * Réseau et échelon de l'établissement — pilote le symbole cartographique.
+   * Absent sur les données créées avant l'introduction du champ : le frontend
+   * retombe alors sur « civil » (voir lib/hospitals.ts, hospKind).
+   */
+  kind?: HospitalKind;
   /** Nature de la structure (CHU militaire, hôpital général, régional…). */
   type?: string;
   lits: number;
@@ -91,6 +100,8 @@ export interface FieldHospital {
   occ: number;
   statut: "op" | "partial";
   depuis: string;
+  /** Réseau de rattachement : campagne militaire ou campagne civile. */
+  kind?: "mil_field" | "civ_field";
 }
 
 export interface FeedItem {
@@ -126,8 +137,10 @@ export interface TransportMovement {
  * À INCRÉMENTER à chaque mise à jour du réseau : l'instantané dev écrit avec une
  * version antérieure est alors ignoré pour ces collections.
  * v2 — réseau hospitalier militaire officiel (7 établissements).
+ * v3 — ajout du réseau hospitalier public civil (106 établissements) et du
+ *      champ `kind` différenciant les symboles cartographiques.
  */
-const DOMAIN_SEED_VERSION = 2;
+const DOMAIN_SEED_VERSION = 3;
 
 @Injectable()
 export class DomainService {
@@ -149,22 +162,19 @@ export class DomainService {
     { id: "U6", nom: "4e Unité NRBC", ville: "Kénitra", cmdt: "Cdt. N. Chraibi", eff: 180, dispo: "standby", readiness: 81, x: 205, y: 132, ll: [-6.58, 34.26] },
   ];
 
-  // Réseau hospitalier militaire (source : état-major du Service de Santé).
-  // x/y positionnent le marqueur sur la silhouette du tableau de bord.
-  private readonly hospitals: Hospital[] = [
-    { id: "H1", nom: "Hôpital Militaire d'Instruction Mohammed V", ville: "Rabat", region: "Rabat-Salé-Kénitra", type: "Hôpital militaire d'instruction (CHU)", lits: 650, occ: 512, rea: 48, reaOcc: 39, staff: 820, amb: 24, heli: 3, x: 199, y: 152, ll: [-6.85, 34.01] },
-    { id: "H2", nom: "Hôpital Militaire Moulay Youssef", ville: "Casablanca", region: "Casablanca-Settat", type: "Hôpital militaire général", lits: 380, occ: 291, rea: 30, reaOcc: 21, staff: 490, amb: 16, heli: 1, x: 178, y: 172, ll: [-7.62, 33.59] },
-    { id: "H3", nom: "Hôpital Militaire Moulay Ismaïl", ville: "Meknès", region: "Fès-Meknès", type: "Hôpital militaire général", lits: 300, occ: 201, rea: 24, reaOcc: 12, staff: 410, amb: 12, heli: 1, x: 252, y: 146, ll: [-5.55, 33.89] },
-    { id: "H4", nom: "Hôpital Militaire Avicenne", ville: "Marrakech", region: "Marrakech-Safi", type: "Hôpital militaire général", lits: 420, occ: 388, rea: 36, reaOcc: 34, staff: 560, amb: 18, heli: 2, x: 184, y: 266, ll: [-8.02, 31.64] },
-    { id: "H5", nom: "Hôpital Militaire Ben Sergao (Dcheira)", ville: "Agadir", region: "Souss-Massa", type: "Hôpital militaire général", lits: 280, occ: 246, rea: 20, reaOcc: 17, staff: 365, amb: 14, heli: 1, x: 118, y: 338, ll: [-9.56, 30.37] },
-    { id: "H6", nom: "Hôpital Militaire Hassan II", ville: "Laâyoune", region: "Laâyoune-Sakia El Hamra", type: "Hôpital militaire régional", lits: 180, occ: 92, rea: 12, reaOcc: 5, staff: 210, amb: 8, heli: 1, x: 58, y: 458, ll: [-13.2, 27.15] },
-    { id: "H7", nom: "Hôpital Militaire de Dakhla", ville: "Dakhla", region: "Dakhla-Oued Ed-Dahab", type: "Hôpital militaire", lits: 120, occ: 61, rea: 8, reaOcc: 3, staff: 145, amb: 6, heli: 1, x: 42, y: 620, ll: [-15.93, 23.72] },
-  ];
+  // Référentiel hospitalier national : réseau militaire (7) + réseau public
+  // civil (106). Voir hospitals.data.ts. x/y positionnent le marqueur sur la
+  // silhouette du tableau de bord.
+  private readonly hospitals: Hospital[] = HOSPITALS_MA.map((h) => ({ ...h }));
 
   private readonly fieldHospitals: FieldHospital[] = [
-    { hid: "H4", nom: "HMC Amizmiz", cap: 60, occ: 48, statut: "op", depuis: "J+2" },
-    { hid: "H4", nom: "HMC Talat N'Yaaqoub", cap: 40, occ: 37, statut: "op", depuis: "J+1" },
-    { hid: "H5", nom: "HMC Taroudant", cap: 40, occ: 22, statut: "partial", depuis: "J+1" },
+    { hid: "H4", nom: "HMC Amizmiz", cap: 60, occ: 48, statut: "op", depuis: "J+2", kind: "mil_field" },
+    { hid: "H4", nom: "HMC Talat N'Yaaqoub", cap: 40, occ: 37, statut: "op", depuis: "J+1", kind: "mil_field" },
+    { hid: "H5", nom: "HMC Taroudant", cap: 40, occ: 22, statut: "partial", depuis: "J+1", kind: "mil_field" },
+    // Structures de campagne civiles déployées par le ministère de la Santé
+    // en appui du CHU Mohammed VI (Marrakech) et du CHP d'Al Haouz.
+    { hid: "HC072", nom: "HCC Asni", cap: 50, occ: 41, statut: "op", depuis: "J+2", kind: "civ_field" },
+    { hid: "HC076", nom: "HCC Ouirgane", cap: 30, occ: 14, statut: "partial", depuis: "J+1", kind: "civ_field" },
   ];
 
   private readonly feed: FeedItem[] = [
@@ -297,7 +307,8 @@ export class DomainService {
   /** Crée un hôpital (id séquentiel H<n>) — occupation initiale à zéro. */
   createHospital(input: Omit<Hospital, "id" | "occ" | "reaOcc">): Hospital {
     const n = Math.max(0, ...this.hospitals.map((h) => parseInt(h.id.replace(/\D/g, ""), 10) || 0)) + 1;
-    const hosp: Hospital = { ...input, id: `H${n}`, occ: 0, reaOcc: 0 };
+    // `kind` par défaut : militaire — le réseau de commandement historique.
+    const hosp: Hospital = { ...input, kind: input.kind ?? "mil", id: `H${n}`, occ: 0, reaOcc: 0 };
     this.hospitals.push(hosp);
     const d = new Date();
     const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -394,13 +405,23 @@ export class DomainService {
       closed: this.incidents.filter((i) => i.st === "closed").length,
     };
 
-    const hospitals = this.hospitals.map((h) => ({
-      id: h.id,
-      nom: h.nom,
-      ville: h.ville,
-      occPct: Math.round((h.occ / h.lits) * 100),
-      icuPct: h.rea > 0 ? Math.round((h.reaOcc / h.rea) * 100) : 0,
-    }));
+    // Saturation hospitalière : réseau militaire en tête (chaîne de
+    // commandement), puis le réseau civil trié par taux d'occupation
+    // décroissant — les établissements les plus tendus remontent en premier.
+    const hospitals = this.hospitals
+      .map((h) => ({
+        id: h.id,
+        nom: h.nom,
+        ville: h.ville,
+        kind: h.kind ?? "civ",
+        occPct: Math.round((h.occ / h.lits) * 100),
+        icuPct: h.rea > 0 ? Math.round((h.reaOcc / h.rea) * 100) : 0,
+      }))
+      .sort((a, b) => {
+        const ma = a.kind === "mil" ? 0 : 1;
+        const mb = b.kind === "mil" ? 0 : 1;
+        return ma !== mb ? ma - mb : b.occPct - a.occPct;
+      });
 
     const units = {
       total: this.units.length,

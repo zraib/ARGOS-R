@@ -5,7 +5,9 @@ import { useArgos, useDict } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { svgToLL } from "@/lib/helpers";
-import type { UnitReadiness } from "@/lib/types";
+import { HOSPITAL_KINDS, kindDef } from "@/lib/hospitals";
+import { HealthGlyph } from "@/components/health/HealthGlyph";
+import type { HospitalKind, UnitReadiness } from "@/lib/types";
 
 // ============================================================================
 // ARGOS — modales de création d'entités organisationnelles (unité, hôpital)
@@ -135,6 +137,9 @@ export function AddHospitalModal({ open, onClose }: { open: boolean; onClose: ()
 
   const [nom, setNom] = useState("");
   const [ville, setVille] = useState("");
+  // Catégorie de l'établissement — détermine le symbole cartographique.
+  // Les hôpitaux de campagne se déclarent depuis la fiche Hospinet, pas ici.
+  const [kind, setKind] = useState<HospitalKind>("mil");
   const [lits, setLits] = useState(200);
   const [rea, setRea] = useState(16);
   const [staff, setStaff] = useState(250);
@@ -153,6 +158,10 @@ export function AddHospitalModal({ open, onClose }: { open: boolean; onClose: ()
       const res = await api.createHospital({
         nom: nom.trim(),
         ville: ville.trim(),
+        kind,
+        type: kindDef(kind).long,
+        region: p.region,
+        province: p.v,
         lits,
         rea,
         staff,
@@ -180,6 +189,25 @@ export function AddHospitalModal({ open, onClose }: { open: boolean; onClose: ()
         <div>
           <label className={labelCls}>{t.h_name}</label>
           <input className={inputCls} value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Hôpital Militaire de Tanger" />
+        </div>
+        <div>
+          <label className={labelCls}>{t.hn_filter_kind}</label>
+          <div className="flex flex-wrap gap-2">
+            {HOSPITAL_KINDS.filter((k) => !k.campagne).map((k) => (
+              <button
+                key={k.kind}
+                onClick={() => setKind(k.kind)}
+                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                  kind === k.kind
+                    ? "border-or-500 bg-or-500/15 text-or-600 dark:text-or-400"
+                    : "border-gray-200 text-gray-600 hover:border-or-400 dark:border-rdia-600 dark:text-rdia-200"
+                }`}
+              >
+                <HealthGlyph kind={k.kind} size={16} />
+                {k.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>

@@ -13,6 +13,7 @@ import { Icon } from "@/components/ui/Icon";
 import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
 import { WeatherPopup } from "@/components/flux/WeatherPopup";
 import { WX_CITIES, nearestCity } from "@/lib/map/cities";
+import { hospKind } from "@/lib/hospitals";
 import {
   fieldLL,
   fieldMarkerHTML,
@@ -391,8 +392,15 @@ export function MapCanvas() {
     };
 
     if (L.units) useArgos.getState().units.forEach((u) => add(u.ll, mkEl(unitMarkerHTML(u, isSel("unit", u.id)), "unit", u.id)));
-    if (L.hospitals) useArgos.getState().hospitals.forEach((h) => add(h.ll, mkEl(hospMarkerHTML(h, isSel("hosp", h.id)), "hosp", h.id)));
-    if (L.field) state.fieldHosps.forEach((f) => add(fieldLL(f), mkEl(fieldMarkerHTML(isSel("field", f.nom)), "field", f.nom)));
+    // Santé : deux couches distinctes (militaire / civil) — le réseau civil
+    // compte plus de cent établissements et se masque d'un seul interrupteur.
+    // Le civil est posé d'abord pour que les hôpitaux militaires, réseau de
+    // commandement, restent au-dessus dans les villes où les deux coexistent.
+    const hosps = useArgos.getState().hospitals;
+    const addHosp = (h: (typeof hosps)[number]) => add(h.ll, mkEl(hospMarkerHTML(h, isSel("hosp", h.id)), "hosp", h.id));
+    if (L.hospitalsCiv) hosps.filter((h) => hospKind(h) !== "mil").forEach(addHosp);
+    if (L.hospitals) hosps.filter((h) => hospKind(h) === "mil").forEach(addHosp);
+    if (L.field) state.fieldHosps.forEach((f) => add(fieldLL(f), mkEl(fieldMarkerHTML(f, isSel("field", f.nom)), "field", f.nom)));
     if (L.incidents) state.incidents.forEach((i) => add(i.ll, mkEl(incMarkerHTML(i, isSel("inc", i.id)), "inc", i.id)));
 
     if (L.vehicles) {

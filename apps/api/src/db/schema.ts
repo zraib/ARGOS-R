@@ -112,3 +112,23 @@ export const orgHospitals = pgTable("org_hospitals", {
   lat: doublePrecision("lat"),
   location: geometryPoint("location"),
 });
+
+// --- Bons de travail (module orders) ---------------------------------------
+// Support de `DrizzleOrderRepository`. Le statut et la priorité restent des
+// `text` : l'énumération fait autorité dans le domaine (modules/orders/domain),
+// pas dans le schéma — un type ENUM Postgres imposerait une migration à chaque
+// évolution du cycle de vie.
+
+export const workOrders = pgTable("work_orders", {
+  id: text("id").primaryKey(),
+  subject: text("subject").notNull(),
+  unit: text("unit").notNull(),
+  assignee: text("assignee").notNull().default(""),
+  priority: text("priority").notNull(),
+  status: text("status").notNull(),
+  sla: text("sla").notNull(),
+  createdLabel: text("created_label").notNull(),
+  incidentId: text("incident_id"),
+  cancelReason: text("cancel_reason"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

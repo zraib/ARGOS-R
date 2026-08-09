@@ -33,6 +33,7 @@ import type {
   WeatherGridSeries,
 } from "@/lib/types";
 import { pointInMorocco } from "@/lib/map/morocco";
+import { hospKind } from "@/lib/hospitals";
 import { LANGS, type Dict } from "@/lib/i18n/translations";
 import { MODULES, type ModulesDict } from "@/lib/i18n/modules";
 import { FEED_POOL } from "@/lib/data/seed";
@@ -85,7 +86,10 @@ export interface SessionInit {
 
 export interface LayerState {
   units: boolean;
+  /** Réseau hospitalier militaire (Service de Santé des FAR). */
   hospitals: boolean;
+  /** Réseau hospitalier public civil (CHU / CHR / CHP / locaux). */
+  hospitalsCiv: boolean;
   incidents: boolean;
   vehicles: boolean;
   field: boolean;
@@ -350,7 +354,9 @@ export const useArgos = create<ArgosState>((set, get) => ({
   selUnit: null,
   selHosp: null,
 
-  layers: { units: true, hospitals: true, incidents: true, vehicles: true, field: true },
+  // Le réseau civil (106 établissements) est masqué par défaut : il se
+  // rallume d'un clic quand l'opérateur cherche une capacité d'accueil.
+  layers: { units: true, hospitals: true, hospitalsCiv: false, incidents: true, vehicles: true, field: true },
   map3d: false,
   mapSat: true,
   selMarker: null,
@@ -691,9 +697,13 @@ export const useArgos = create<ArgosState>((set, get) => ({
   deployFieldHospital: (h) =>
     set((s) => {
       const n = s.fieldHosps.filter((f) => f.hid === h.id).length + 1;
+      // Le détachement hérite du réseau de son hôpital de rattachement :
+      // HMC = hôpital militaire de campagne, HCC = hôpital civil de campagne.
+      const mil = hospKind(h) === "mil";
       const entry: FieldHospital = {
         hid: h.id,
-        nom: `HMC ${h.ville} — Détachement ${n}`,
+        kind: mil ? "mil_field" : "civ_field",
+        nom: `${mil ? "HMC" : "HCC"} ${h.ville} — Détachement ${n}`,
         cap: 40,
         occ: 0,
         statut: "partial",

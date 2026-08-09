@@ -89,12 +89,24 @@ export interface Unit {
   ll: [number, number];
 }
 
+/**
+ * Réseau et échelon d'un établissement de santé — pilote le symbole
+ * cartographique et les filtres Hospinet (voir lib/hospitals.ts) :
+ * militaire, campagne militaire, civil (CHP/local/psy), régional civil (CHR),
+ * universitaire civil (CHU), campagne civil.
+ */
+export type HospitalKind = "mil" | "mil_field" | "civ" | "civ_reg" | "civ_univ" | "civ_field";
+
 export interface Hospital {
   id: string;
   nom: string;
   ville: string;
   /** Région administrative de rattachement. */
   region?: string;
+  /** Province / préfecture de rattachement. */
+  province?: string;
+  /** Réseau et échelon (absent sur les données antérieures : voir hospKind). */
+  kind?: HospitalKind;
   /** Nature de la structure (CHU militaire, hôpital général, régional…). */
   type?: string;
   lits: number;
@@ -118,6 +130,8 @@ export interface FieldHospital {
   occ: number;
   statut: FieldHospStatus;
   depuis: string;
+  /** Réseau de rattachement : campagne militaire ou campagne civile. */
+  kind?: "mil_field" | "civ_field";
   x?: number;
   y?: number;
   ll?: [number, number];
@@ -196,7 +210,7 @@ export interface DashStats {
   severity: { high: number; medium: number; low: number };
   status: { open: number; prog: number; closed: number };
   casualties: { dead: number; injured: number; missing: number; rescued: number };
-  hospitals: { id: string; nom: string; ville: string; occPct: number; icuPct: number }[];
+  hospitals: { id: string; nom: string; ville: string; kind?: HospitalKind; occPct: number; icuPct: number }[];
   units: { total: number; deployed: number; ready: number; avgReadiness: number };
 }
 

@@ -1,133 +1,110 @@
-# ARGOS — Command Web App (`apps/web`)
+# ARGOS — Poste de commandement (`apps/web`)
 
-Poste de commandement (vue nationale) pour la gestion des catastrophes par les
-Forces Armées Royales. Recréation haute-fidélité du prototype de design
-(`design_handoff_argos/`) dans l'environnement de production cible défini par le
-`MASTER_PLAN.md` : **Next.js 15 (App Router) + TypeScript strict + Tailwind CSS**.
+Application web de commandement (vue nationale) pour la gestion des
+catastrophes par les Forces Armées Royales.
 
-> État : **frontend entièrement câblé sur l'API ARGOS (contract-first)**.
-> L'authentification (login/mdp/rôle), l'IAM (utilisateurs, rôles,
-> fonctionnalités), les feature flags, l'audit **et toutes les données du
-> domaine** (incidents, unités, hôpitaux, fil, dispatching, et le catalogue des
-> modules : inventaire, triage, ORSEC, plans, ICS, rapports, analytique…) sont
-> servis par le backend NestJS et chargés dans le store via le client généré.
-> `src/lib/data/` ne conserve que des types + des données de
-> référence/présentation (géographie, animation carte, générateurs de détail).
+**Next.js 15 (App Router) · React 19 · TypeScript strict · Tailwind CSS ·
+Zustand · MapLibre GL.** Port **3004**.
+
+Recréation haute-fidélité de la référence de design `design_handoff_argos/`,
+à lire comme une **spécification** (son runtime de prototype `support.js`
+n'est pas réutilisé).
+
+> Documentation détaillée — écrans, store, i18n, carte, conventions :
+> [docs/05-frontend.md](../../docs/05-frontend.md).
+
+---
 
 ## Démarrage
+
+Depuis la racine du dépôt, `npm run dev` lance le web et l'API ensemble.
+Pour le web seul :
 
 ```bash
 npm install
 npm run dev          # http://localhost:3004
-npm run build        # build de production
+npm run build
 npm run typecheck    # tsc --noEmit (strict)
 ```
 
-Variable d'environnement : `NEXT_PUBLIC_API_URL` (défaut `http://127.0.0.1:3005`)
-pointe vers l'API ARGOS (`apps/api`).
+Variable d'environnement : `NEXT_PUBLIC_API_URL`
+(défaut `http://127.0.0.1:3005`).
 
-**Authentification.** Si l'API est joignable, la connexion appelle
-`POST /auth/dev-token` (jeton de développement HS256) puis `GET /iam/me` pour
-résoudre le **rôle réel et les permissions côté serveur** ; le jeton porteur est
-conservé en `sessionStorage`. Un **sélecteur de rôle** (7 rôles) permet de tester
-la matrice RBAC. Si l'API est injoignable, un **repli démo** ouvre la session
-localement (n'importe quel couple *matricule / mot de passe* non vide). En
-production, `dev-token` est remplacé par Keycloak/OIDC (déjà supporté côté API
-via `AUTH_MODE=keycloak`).
+## État
 
-## Écrans livrés
+Frontend **entièrement câblé sur l'API ARGOS**, en contract-first.
+L'authentification, l'IAM, les feature flags, l'audit **et toutes les données
+du domaine** (incidents, unités, hôpitaux, fil d'événements, dispatching,
+catalogue des modules, sismologie, météo) sont servis par l'API NestJS et
+chargés dans le store via le client généré.
 
-| Route | Écran | État |
-|---|---|---|
-| `/` → `/dashboard` | Tableau de bord (dispositions A/B) | ✅ |
-| `/incidents` | Table + recherche | ✅ |
-| `/map` | Carte opérationnelle MapLibre (couches, 2D/3D, satellite/plan, convois animés, panneau de sélection) | ✅ |
-| `/repartition` | Répartiteur (§6.16) : cockpit de dispatching + moteur de recommandation explicable (§6.17 L1) + mode simulation « et si ? » (poids configurables) | ✅ |
-| `/equipes` | Unités : cartes + détail (Personnel / Équipements / Véhicules) | ✅ |
-| `/hospinet` | Hôpitaux : cartes + détail (Personnel / Lits / Véhicules / Hôpitaux de campagne) | ✅ |
-| `/communication` | Centre de communication type Discord | ✅ |
-| Wizard « Signaler un incident » | Modal 3 étapes (type → détails → localisation) | ✅ |
-| `/triage` | Triage de masse : compteurs START/SALT, flux victimes, zones | ✅ |
-| `/inventaire` | Inventaire équipements : catalogue + mouvements, alertes stock | ✅ |
-| `/personnel` | Roster personnel : filtres de disponibilité | ✅ |
-| `/bons-de-travail` | Bons de travail : tableau kanban de workflow | ✅ |
-| `/ics` | Formulaires ICS (201–214) | ✅ |
-| `/dommages` | Évaluation des dommages : histogramme par grade + table EMS-98 | ✅ |
-| `/abris` | Gestion des abris : occupation, démographie, besoins | ✅ |
-| `/orsec` | Tableau ORSEC : bilan, moyens, décisions, permanence | ✅ |
-| `/plans` | Dépôt de plans + activation | ✅ |
-| `/rapports` | Rapports SITREP | ✅ |
-| `/analytique` | Analytique : 4 KPI + 6 graphiques | ✅ |
-| `/assistant` | Assistant IA (§6.17 Couche 2) : requêtes NL → Couche 1, LLM local (Ollama/vLLM) favorisé, lecture seule + journalisé, flag-gated | ✅ |
-| `/utilisateurs` | Gestion des utilisateurs (Super Admin + Admin) : **création/modification en modale** avec règles de rôles (Super Admin = multi-rôles ; Admin = mono-rôle, hors Admin/Super Admin), **code temporaire** + cycle de vie (inactif → 1er login + changement de mot de passe → actif ; activation forcée par le Super Admin), indicateur de connexion (vert/rouge), **suppression avec confirmation** ; comptes **persistés localement** (localStorage) ; onglet **Rôles & fonctionnalités** (Super Admin) : autorisations de modules par rôle, appliquées à la navigation | ✅ |
-| `/parametres` | Paramètres (Super Admin, §6.15) : configuration LLM (fournisseur, URL, modèle détecté, statut) + **matrice de feature flags synchronisée avec l'API** (GET au montage, PATCH au basculement, repli local) + **journal d'audit** (entrées récentes + intégrité de chaîne) ; extensible | ✅ |
+`src/lib/data/` ne conserve que des types et des données de
+référence/présentation : géographie, routes d'animation de la carte,
+générateurs de rosters de détail.
 
-Fonctionnalités transverses : thème clair/sombre persisté, i18n **FR / AR / EN**
-avec **RTL** complet en arabe (police Amiri), simulation temps réel (fil
-d'événements + convois), toasts.
+## Règles
+
+1. **Contrat d'abord** — consommer uniquement le client généré
+   (`src/lib/api-client/`). **Aucun `fetch` écrit à la main** vers l'API.
+   Ces fichiers sont générés : ne pas les éditer.
+2. **i18n obligatoire** — toute chaîne affichée passe par `lib/i18n/`,
+   déclarée dans les **trois** langues. Jamais de texte en dur.
+3. **Tokens de design uniquement** — palettes `rdia` / `or` / `danger`
+   (`tailwind.config.ts`), classes `.carte`, `.btn-primaire`, `.btn-secondaire`,
+   `.input-champ` (`globals.css`). **Ne pas inventer de couleurs.**
+4. **Le masquage n'est pas de la sécurité** — le frontend cache ce que l'API
+   refuse déjà. Voir [docs/04-securite.md](../../docs/04-securite.md).
+5. **Souveraineté** — ressources auto-hébergées uniquement (polices dans
+   `public/fonts`). Aucun CDN, aucune analytics, aucune nouvelle dépendance
+   runtime sans ADR.
+6. `strict: true`, pas de `any` ni de `any` implicite, énumérations traitées
+   exhaustivement.
 
 ## Structure
 
 ```
 src/
-├── app/                    # routes App Router (une page par écran)
-│   ├── layout.tsx          # <html>, bootstrap du thème, AppFrame
-│   └── <route>/page.tsx
+├── app/            24 routes (App Router)
 ├── components/
-│   ├── ui/                 # Carte, Button, Input (globals.css), Badge, Modal, ProgressBar, Icon
-│   ├── charts/             # ChartCard (bars/column3d), DonutChart, ListCard — SVG pur
-│   ├── shell/              # AppFrame, Sidebar, Header, LoginScreen, ChangePasswordScreen, RoleChooserScreen, Toast, LanguageSwitch, StubScreen
-│   ├── dashboard/          # MoroccoSituation (SVG)
-│   ├── incidents/          # IncidentWizard (modal 3 étapes)
-│   └── map/                # MapCanvas (MapLibre GL, chargé en dynamic ssr:false)
+│   ├── shell/      cadre applicatif, sidebar, header, écrans de connexion
+│   ├── ui/         système de composants (Badge, Modal, Table, StatTile…)
+│   ├── charts/     graphiques
+│   ├── map/        MapCanvas — carte opérationnelle + couches météo
+│   ├── flux/       fil d'événements, alerte sismique, pop-up météo
+│   ├── incidents/  wizard de déclaration, aperçu de localisation
+│   ├── dashboard/  situation nationale (silhouette SVG)
+│   ├── health/     symboles hospitaliers
+│   └── org/        modales d'ajout (unité, hôpital)
 └── lib/
-    ├── api.ts             # client API ARGOS (jeton sessionStorage, base NEXT_PUBLIC_API_URL)
-    ├── api-client/        # copie embarquée du client typé généré (source : packages/api-client)
-    ├── roles.ts           # source unique du type Role + catalogue + règles de création
-    ├── store.ts            # Zustand — état global (auth+token+apiConnected+session, users, roleFeatures, thème, langue, incidents, carte, comms, flags)
-    ├── data/users.ts       # comptes gérés (cycle de vie, code temp) + matrice rôle→fonctionnalités
-    ├── types.ts            # types du domaine
-    ├── i18n/translations.ts# dictionnaires FR/AR/EN
-    ├── data/seed.ts        # données simulées (unités, hôpitaux, incidents, routes, comms)
-    ├── derive.ts           # génération déterministe des rosters de détail
-    ├── helpers.ts          # libellés, badges, transformations SVG⇄lng/lat
-    ├── icons.ts            # chemins SVG
-    ├── nav.ts              # modèle de navigation (menu + groupes)
-    ├── config.ts           # niveau d'alerte, simulation
-    ├── reco.ts             # moteur de recommandation Couche 1 (scoring explicable)
-    ├── ai/                 # assistant Couche 2 : config (LLM local d'abord), adaptateurs, orchestrateur NL→Couche 1
-    └── map/                # style MapLibre, constructeurs de marqueurs
+    ├── store.ts    store Zustand — source de vérité côté client
+    ├── api-client/ types générés depuis l'OpenAPI (NE PAS ÉDITER)
+    ├── i18n/       translations · modules · flux
+    ├── data/       types + référence (seed, dispatch, grades, users)
+    ├── map/        style, markers, cities, morocco, overlay, routing
+    ├── ai/         assistant IA (LLM local)
+    └── types.ts    types du domaine
 ```
 
-## Correspondance avec le MASTER_PLAN
+## Écrans
 
-- **Tokens de design** importés 1:1 depuis l'export « Amin Design / Kanban RDIA »
-  (palettes `rdia` / `or` / `danger`, classes `.carte` / `.btn-primaire` /
-  `.btn-secondaire` / `.input-champ`) → `tailwind.config.ts` + `globals.css`.
-- **Souveraineté** : polices auto-hébergées (`public/fonts`), aucune dépendance
-  runtime hors les tuiles cartographiques de démonstration (Esri/OSM), à
-  remplacer par des tuiles vectorielles `martin` auto-hébergées (MASTER_PLAN §5.1).
-- **Refactorabilité** : le domaine restant a pour seule source `lib/data/` ;
-  brancher les endpoints générés n'impacte pas les écrans. L'auth, les
-  permissions et les flags passent déjà par le client généré (`lib/api.ts`).
-- **Contract-first** : `packages/api-client` est généré depuis l'`openapi.json`
-  de l'API (types openapi-typescript + client openapi-fetch) ; le frontend
-  n'écrit jamais de `fetch` à la main.
+24 routes : tableau de bord, incidents, carte opérationnelle, sismologie,
+répartiteur, triage, inventaire, unités, personnel, bons de travail, hôpitaux,
+ICS, dommages, abris, ORSEC, plans, communication, rapports, analytique,
+assistant IA, utilisateurs, paramètres, profil.
 
-## Limites connues (prototype)
+Tableau détaillé : [docs/05-frontend.md § 3](../../docs/05-frontend.md#3-écrans).
 
-- Domaine (unités, hôpitaux, incidents) encore en données simulées ; l'auth, les
-  permissions et les flags sont servis par l'API réelle (repli démo si injoignable).
-- Session conservée en `sessionStorage` (elle survit au rafraîchissement et se
-  vide à la fermeture de l'onglet). Le jeton `dev-token` est un jeton de
-  développement — la production utilisera des sessions Keycloak/OIDC (`AUTH_MODE=keycloak`).
-- Tuiles satellite/plan servies par des CDN externes en démo ; hors-ligne /
-  air-gap prévu via tuiles auto-hébergées.
-- **Assistant IA :** le cœur (traduction NL → Couche 1 + exécution + réponses)
-  fonctionne **sans LLM** (réponses déterministes). Le LLM local ne fait que
-  reformuler, **en streaming**. Les modèles installés sont **détectés
-  automatiquement** (Ollama `/api/tags`) et sélectionnables dans l'écran ; le
-  fournisseur par défaut est dans `src/lib/ai/config.ts` (Ollama
-  `http://localhost:11434`). En production, l'appel passe par l'API ARGOS (les
-  outils s'exécutent sous les permissions de l'utilisateur), pas directement
-  depuis le navigateur.
+Transverse : thème clair/sombre persisté, i18n **FR / AR / EN** avec **RTL**
+complet en arabe (police Amiri auto-hébergée), simulation temps réel (fil
+d'événements et convois), toasts, changement de rôle en session pour les
+comptes multi-rôles.
+
+## Ajouter un écran
+
+1. `src/app/<route>/page.tsx`
+2. Déclarer la route dans `lib/nav.ts` (`HREF` + `NAV`)
+3. Ajouter les chaînes dans les trois langues (`lib/i18n/`)
+4. Si l'écran est pilotable par rôle : ajouter la fonctionnalité à
+   `MODULE_FEATURES` côté API et à la matrice rôle→fonctionnalités
+5. Consommer les données via le store, jamais par un `fetch` direct
+6. **Vérifier dans le navigateur** — le typecheck ne suffit pas

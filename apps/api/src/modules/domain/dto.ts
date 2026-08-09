@@ -5,6 +5,8 @@ import { Type } from "class-transformer";
 const SEV = ["high", "medium", "low"] as const;
 const ST = ["open", "prog", "closed"] as const;
 const DISPO = ["ready", "deployed", "standby"] as const;
+/** Réseau et échelon d'un établissement de santé (pilote le symbole carte). */
+const HOSP_KIND = ["mil", "mil_field", "civ", "civ_reg", "civ_univ", "civ_field"] as const;
 
 /** Bilan humain d'un incident (compteurs). */
 export class CasualtiesDto {
@@ -235,7 +237,7 @@ export class CreateUnitDto {
   ll!: [number, number];
 }
 
-/** Création d'un hôpital militaire. */
+/** Création d'un établissement de santé (réseau militaire ou civil). */
 export class CreateHospitalDto {
   @ApiProperty({ example: "Hôpital Militaire de Tanger" })
   @IsString()
@@ -246,6 +248,26 @@ export class CreateHospitalDto {
   @IsString()
   @MinLength(1)
   ville!: string;
+
+  @ApiPropertyOptional({ enum: HOSP_KIND, default: "mil", description: "Réseau et échelon — détermine le symbole cartographique" })
+  @IsOptional()
+  @IsIn(HOSP_KIND)
+  kind?: (typeof HOSP_KIND)[number];
+
+  @ApiPropertyOptional({ example: "Hôpital militaire général", description: "Libellé de l'échelon" })
+  @IsOptional()
+  @IsString()
+  type?: string;
+
+  @ApiPropertyOptional({ example: "Tanger-Tétouan-Al Hoceïma" })
+  @IsOptional()
+  @IsString()
+  region?: string;
+
+  @ApiPropertyOptional({ example: "Tanger-Assilah" })
+  @IsOptional()
+  @IsString()
+  province?: string;
 
   @ApiProperty({ minimum: 1 })
   @IsInt()
