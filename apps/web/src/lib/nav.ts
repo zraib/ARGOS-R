@@ -15,7 +15,8 @@ export type NavKey =
   | "equip" | "units" | "personnel" | "workorders"
   | "hospitals" | "ics" | "damage" | "shelters"
   | "orsec" | "plans" | "comms" | "reports" | "analytics" | "assistant"
-  | "users" | "settings";
+  | "users" | "settings"
+  | "myresp" | "myrespManage";
 
 export type GroupKey = "res" | "dis" | "cmd";
 
@@ -62,10 +63,15 @@ export const HREF: Record<NavKey, string> = {
   assistant: "/assistant",
   users: "/utilisateurs",
   settings: "/parametres",
+  myresp: "/ma-responsabilite",
+  myrespManage: "/ma-responsabilite/gestion",
 };
 
 export const NAV: NavEntry[] = [
   item("dashboard", HREF.dashboard),
+  // « Ma responsabilité » — visible des seuls rôles rattachés à une entité.
+  { kind: "item", key: "myresp", href: HREF.myresp, icon: UI_ICONS.shield, roles: ["resp_hospital", "resp_unit", "resp_shelter", "resp_morgue", "resp_equipment"] },
+  { kind: "item", key: "myrespManage", href: HREF.myrespManage, icon: UI_ICONS.edit, roles: ["resp_hospital", "resp_unit", "resp_shelter", "resp_morgue", "resp_equipment"] },
   item("incidents", HREF.incidents),
   item("map", HREF.map),
   item("seismic", HREF.seismic),
@@ -122,7 +128,7 @@ const LABEL_KEYS: Record<NavKey | GroupKey, keyof Dict> = {
   dashboard: "nav_dash", incidents: "nav_inc", map: "nav_map", seismic: "nav_seismic", dispatch: "nav_dispatch", triage: "nav_triage",
   equip: "nav_equip", units: "nav_units", personnel: "nav_pers", workorders: "nav_wo",
   hospitals: "nav_hosp", ics: "nav_ics", damage: "nav_damage", shelters: "nav_shelters",
-  orsec: "nav_orsec", plans: "nav_plans", comms: "nav_comms", reports: "nav_reports", analytics: "nav_analytics", assistant: "nav_assistant", users: "nav_users", settings: "nav_settings",
+  orsec: "nav_orsec", plans: "nav_plans", comms: "nav_comms", reports: "nav_reports", analytics: "nav_analytics", assistant: "nav_assistant", users: "nav_users", settings: "nav_settings", myresp: "nav_myresp", myrespManage: "nav_myresp_manage",
   res: "nav_res", dis: "nav_dis", cmd: "nav_cmd",
 };
 

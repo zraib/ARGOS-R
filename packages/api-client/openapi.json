@@ -931,6 +931,424 @@
         ]
       }
     },
+    "/api/units/{id}": {
+      "patch": {
+        "operationId": "DomainController_updateUnit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUnitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mettre à jour une unité — un responsable ne peut agir que sur la sienne",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/shelters": {
+      "get": {
+        "operationId": "DomainController_shelters",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Liste des abris d'hébergement",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/shelters/{id}": {
+      "patch": {
+        "operationId": "DomainController_updateShelter",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateShelterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mettre à jour un abri — un responsable ne peut agir que sur le sien",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/equipment-parks/{id}/items": {
+      "get": {
+        "operationId": "DomainController_parkItems",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Parc d'équipement d'une unité",
+        "tags": [
+          "domain"
+        ]
+      },
+      "post": {
+        "operationId": "DomainController_addParkItem",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEquipDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ajouter un article — dans SON parc uniquement",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/equipment-parks/{id}/items/{eid}": {
+      "patch": {
+        "operationId": "DomainController_updateParkItem",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "eid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEquipDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Modifier un article — dans SON parc uniquement",
+        "tags": [
+          "domain"
+        ]
+      },
+      "delete": {
+        "operationId": "DomainController_removeParkItem",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "eid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Sortir un article du parc — dans SON parc uniquement",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/morgues": {
+      "get": {
+        "operationId": "DomainController_morgues",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Sites mortuaires",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/morgues/{id}": {
+      "patch": {
+        "operationId": "DomainController_updateMorgue",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMorgueDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mettre à jour un site mortuaire — le sien uniquement",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/morgues/{id}/records": {
+      "get": {
+        "operationId": "DomainController_mortuaryRecords",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Registre d'identification d'un site mortuaire",
+        "tags": [
+          "domain"
+        ]
+      },
+      "post": {
+        "operationId": "DomainController_admitBody",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdmitBodyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Admettre un corps sous référence provisoire — dans SON site uniquement",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/morgues/{id}/records/{rid}": {
+      "patch": {
+        "operationId": "DomainController_updateMortuaryRecord",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "rid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMortuaryRecordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Faire évoluer un dossier d'identification — dans SON site uniquement",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/hospitals": {
       "get": {
         "operationId": "DomainController_hospitals",
@@ -974,6 +1392,193 @@
           }
         ],
         "summary": "Créer un hôpital (audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/hospitals/{id}": {
+      "patch": {
+        "operationId": "DomainController_updateHospital",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateHospitalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mettre à jour un établissement — un responsable ne peut agir que sur le sien",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/hospitals/{id}/wards": {
+      "get": {
+        "operationId": "DomainController_listWards",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Services de soins d'un établissement",
+        "tags": [
+          "domain"
+        ]
+      },
+      "post": {
+        "operationId": "DomainController_createWard",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWardDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ouvrir un service de soins — dans SON établissement uniquement",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/hospitals/{id}/wards/{wid}": {
+      "patch": {
+        "operationId": "DomainController_updateWard",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "wid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWardDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Modifier un service de soins — dans SON établissement uniquement",
+        "tags": [
+          "domain"
+        ]
+      },
+      "delete": {
+        "operationId": "DomainController_deleteWard",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "wid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Fermer un service de soins — dans SON établissement uniquement",
         "tags": [
           "domain"
         ]
@@ -1836,6 +2441,36 @@
           "newPassword"
         ]
       },
+      "AssignmentsDto": {
+        "type": "object",
+        "properties": {
+          "hospital": {
+            "type": "string",
+            "example": "H4",
+            "description": "Hôpital militaire (Responsable Hôpital)"
+          },
+          "unit": {
+            "type": "string",
+            "example": "U2",
+            "description": "Unité (Responsable Unité)"
+          },
+          "shelter": {
+            "type": "string",
+            "example": "AB-04",
+            "description": "Abri (Responsable Abri)"
+          },
+          "morgue": {
+            "type": "string",
+            "example": "M1",
+            "description": "Site mortuaire (Responsable Morgue)"
+          },
+          "equipment": {
+            "type": "string",
+            "example": "U2",
+            "description": "Parc d'équipement (Responsable Équipement)"
+          }
+        }
+      },
       "CreateUserDto": {
         "type": "object",
         "properties": {
@@ -1865,8 +2500,8 @@
           "roles": {
             "type": "array",
             "example": [
-              "command",
-              "dispatcher"
+              "tacom",
+              "bluecell"
             ],
             "items": {
               "type": "string",
@@ -1885,6 +2520,14 @@
                 "resp_equipment"
               ]
             }
+          },
+          "assignments": {
+            "description": "Entité affectée par nature de responsabilité (portée ABAC). Obligatoire pour tout rôle « resp_* ».",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AssignmentsDto"
+              }
+            ]
           }
         },
         "required": [
@@ -1936,6 +2579,14 @@
                 "resp_equipment"
               ]
             }
+          },
+          "assignments": {
+            "description": "Entité affectée par nature de responsabilité (portée ABAC).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AssignmentsDto"
+              }
+            ]
           }
         }
       },
@@ -2327,6 +2978,268 @@
           "ll"
         ]
       },
+      "UpdateUnitDto": {
+        "type": "object",
+        "properties": {
+          "cmdt": {
+            "type": "string",
+            "description": "Commandant de l'unité"
+          },
+          "eff": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Effectif"
+          },
+          "dispo": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "deployed",
+              "standby"
+            ],
+            "description": "Posture"
+          },
+          "readiness": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Taux de préparation (%)"
+          }
+        }
+      },
+      "UpdateShelterDto": {
+        "type": "object",
+        "properties": {
+          "capacity": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Capacité d'accueil"
+          },
+          "occupants": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Personnes hébergées"
+          },
+          "staff": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Encadrement"
+          },
+          "supplies": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "low",
+              "critical"
+            ],
+            "description": "Niveau d'approvisionnement"
+          },
+          "needs": {
+            "type": "string",
+            "description": "Besoins exprimés"
+          },
+          "adults": {
+            "type": "number",
+            "minimum": 0
+          },
+          "children": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elderly": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      },
+      "CreateEquipDto": {
+        "type": "object",
+        "properties": {
+          "desig": {
+            "type": "string",
+            "example": "Groupe électrogène 20 kVA"
+          },
+          "cat": {
+            "type": "string",
+            "example": "Énergie",
+            "description": "Catégorie"
+          },
+          "stock": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Quantité en parc"
+          },
+          "threshold": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Seuil d'alerte"
+          },
+          "cond": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "repair",
+              "oos"
+            ],
+            "example": "ok"
+          }
+        },
+        "required": [
+          "desig",
+          "cat",
+          "stock",
+          "threshold",
+          "cond"
+        ]
+      },
+      "UpdateEquipDto": {
+        "type": "object",
+        "properties": {
+          "desig": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "cat": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "stock": {
+            "type": "number",
+            "minimum": 0
+          },
+          "threshold": {
+            "type": "number",
+            "minimum": 0
+          },
+          "cond": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "repair",
+              "oos"
+            ]
+          }
+        }
+      },
+      "UpdateMorgueDto": {
+        "type": "object",
+        "properties": {
+          "capacity": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Emplacements réfrigérés"
+          },
+          "staff": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Effectif du site"
+          },
+          "statut": {
+            "type": "string",
+            "enum": [
+              "op",
+              "partial",
+              "closed"
+            ]
+          }
+        }
+      },
+      "AdmitBodyDto": {
+        "type": "object",
+        "properties": {
+          "reference": {
+            "type": "string",
+            "example": "AH-2026-004",
+            "description": "Référence provisoire attribuée à l'admission"
+          },
+          "incidentId": {
+            "type": "string",
+            "example": "INC-2607",
+            "description": "Incident d'origine"
+          },
+          "foundAt": {
+            "type": "string",
+            "example": "Douar Tinzert",
+            "description": "Lieu de découverte"
+          },
+          "sex": {
+            "type": "string",
+            "enum": [
+              "m",
+              "f",
+              "unknown"
+            ]
+          },
+          "ageRange": {
+            "type": "string",
+            "example": "40-55",
+            "description": "Tranche d'âge estimée"
+          },
+          "samples": {
+            "type": "array",
+            "description": "Prélèvements déjà réalisés",
+            "items": {
+              "type": "string",
+              "enum": [
+                "dna",
+                "dental",
+                "fingerprint"
+              ]
+            }
+          }
+        },
+        "required": [
+          "reference"
+        ]
+      },
+      "UpdateMortuaryRecordDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "unidentified",
+              "in_progress",
+              "identified",
+              "released"
+            ],
+            "description": "Étape du parcours d'identification"
+          },
+          "samples": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "dna",
+                "dental",
+                "fingerprint"
+              ]
+            }
+          },
+          "identifiedAs": {
+            "type": "string",
+            "description": "Identité confirmée — obligatoire dès « identifié »"
+          },
+          "releasedTo": {
+            "type": "string",
+            "description": "Personne à qui le corps est remis — obligatoire à la restitution"
+          },
+          "foundAt": {
+            "type": "string"
+          },
+          "sex": {
+            "type": "string",
+            "enum": [
+              "m",
+              "f",
+              "unknown"
+            ]
+          },
+          "ageRange": {
+            "type": "string"
+          }
+        }
+      },
       "CreateHospitalDto": {
         "type": "object",
         "properties": {
@@ -2410,6 +3323,113 @@
           "y",
           "ll"
         ]
+      },
+      "UpdateHospitalDto": {
+        "type": "object",
+        "properties": {
+          "lits": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Lits armés"
+          },
+          "occ": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Lits occupés"
+          },
+          "rea": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Lits de réanimation"
+          },
+          "reaOcc": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Lits de réanimation occupés"
+          },
+          "staff": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Effectif médical"
+          },
+          "amb": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Ambulances"
+          },
+          "heli": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Hélicoptères sanitaires"
+          }
+        }
+      },
+      "CreateWardDto": {
+        "type": "object",
+        "properties": {
+          "nom": {
+            "type": "string",
+            "example": "Réanimation polyvalente"
+          },
+          "lits": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Lits armés du service"
+          },
+          "occ": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Lits occupés"
+          },
+          "statut": {
+            "type": "string",
+            "enum": [
+              "open",
+              "saturated",
+              "closed"
+            ],
+            "example": "open"
+          },
+          "chef": {
+            "type": "string",
+            "example": "Pr. A. Benkirane",
+            "description": "Médecin-chef"
+          }
+        },
+        "required": [
+          "nom",
+          "lits",
+          "occ",
+          "statut"
+        ]
+      },
+      "UpdateWardDto": {
+        "type": "object",
+        "properties": {
+          "nom": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "lits": {
+            "type": "number",
+            "minimum": 0
+          },
+          "occ": {
+            "type": "number",
+            "minimum": 0
+          },
+          "statut": {
+            "type": "string",
+            "enum": [
+              "open",
+              "saturated",
+              "closed"
+            ]
+          },
+          "chef": {
+            "type": "string"
+          }
+        }
       },
       "SendMessageDto": {
         "type": "object",

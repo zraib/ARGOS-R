@@ -54,14 +54,14 @@ describe("IAM users — RBAC + règles d'attribution (Phase 2)", () => {
 
   it("un Admin peut créer un rôle non privilégié → code temporaire généré (201)", async () => {
     const t = await token("h.alami", "admin");
-    const res = await base().post("/api/iam/users").set(auth(t)).send({ matricule: "agent.admin", nom: "Agent Admin", roles: ["resp_unit"] }).expect(201);
+    const res = await base().post("/api/iam/users").set(auth(t)).send({ matricule: "agent.admin", nom: "Agent Admin", roles: ["resp_unit"], assignments: { unit: "U1" } }).expect(201);
     expect(res.body.tempPassword).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
     expect(res.body.user.status).toBe("inactive");
   });
 
   it("un Super Admin peut créer un compte MULTI-RÔLES (201)", async () => {
     const t = await token("k.benjelloun", "superadmin");
-    const res = await base().post("/api/iam/users").set(auth(t)).send({ matricule: "s.multi", nom: "S Multi", roles: ["tacom", "bluecell", "resp_unit"] }).expect(201);
+    const res = await base().post("/api/iam/users").set(auth(t)).send({ matricule: "s.multi", nom: "S Multi", roles: ["tacom", "bluecell", "resp_unit"], assignments: { unit: "U2" } }).expect(201);
     expect(res.body.user.roles).toEqual(["tacom", "bluecell", "resp_unit"]);
   });
 

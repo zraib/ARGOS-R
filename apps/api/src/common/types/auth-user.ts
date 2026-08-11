@@ -1,4 +1,5 @@
 import type { Permission, Role } from "@/shared/permissions";
+import type { Assignments } from "@/shared/responsibilities";
 
 /** Identité authentifiée résolue depuis le jeton (claims Keycloak ou dev). */
 export interface AuthUser {
@@ -7,6 +8,13 @@ export interface AuthUser {
   role: Role;
   /** Permissions effectives, résolues côté serveur depuis le rôle (RBAC). */
   permissions: Permission[] | "*";
-  /** Portée ABAC (unité/hôpital/incident) — étendue aux phases suivantes. */
-  scope?: { unitId?: string; hospitalId?: string; incidentId?: string };
+  /**
+   * Portée ABAC : entité affectée par nature de responsabilité
+   * (ex. `{ hospital: "H4" }`). Résolue côté serveur depuis le registre des
+   * comptes à CHAQUE requête — jamais lue dans le jeton, pour qu'une
+   * réaffectation prenne effet immédiatement et qu'aucune portée ne puisse
+   * être revendiquée par le client. Absente pour les rôles non rattachés
+   * (superadmin, admin, TACOM, cellules).
+   */
+  scope?: Assignments;
 }

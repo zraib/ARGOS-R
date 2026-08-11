@@ -10,12 +10,12 @@ Référence des mécanismes de sécurité. Le principe qui gouverne tout le rest
 
 ## 1. Chaîne d'autorisation
 
-Deux gardes globales, dans cet ordre, sur **toutes** les routes :
+Trois gardes globales, dans cet ordre, sur **toutes** les routes :
 
 ```
-requête ──▶ JwtAuthGuard ──▶ PermissionsGuard ──▶ contrôleur
-            (401 si absent    (403 si permission
-             ou invalide)      manquante)
+requête ─▶ JwtAuthGuard ─▶ PermissionsGuard ─▶ ScopeGuard ─▶ contrôleur
+           401 si absent   403 si permission   403 si hors
+           ou invalide      manquante (RBAC)   périmètre (ABAC, §5)
 ```
 
 - Le **rôle** est lu dans le jeton.
@@ -63,6 +63,12 @@ Format `module:action:qualifier`. Défini dans `apps/api/src/shared/permissions.
 **Bons de travail**
 `workorders:read` · `workorders:create` · `workorders:update` · `workorders:assign`
 
+**Morgue / identification des victimes**
+`morgue:read` · `morgue:manage`
+
+**Parc d'équipement**
+`equip:read` · `equip:manage`
+
 ## 4. Les 12 rôles
 
 | Rôle | Libellé | Portée |
@@ -75,10 +81,10 @@ Format `module:action:qualifier`. Défini dans `apps/api/src/shared/permissions.
 | `greencell` | Cellule Verte — Logistique | unités, incidents, **pilotage des bons de travail** |
 | `orangecell` | Cellule Orange — Sécurité | zones, incidents, carte |
 | `resp_hospital` | Responsable Hôpital | hôpitaux (gestion), lits, incidents |
-| `resp_shelter` | Responsable Abri | zones, incidents |
-| `resp_morgue` | Responsable Morgue | incidents |
+| `resp_shelter` | Responsable Abri | zones (gestion), incidents |
+| `resp_morgue` | Responsable Morgue | incidents, **registre DVI de son site** |
 | `resp_unit` | Responsable Unité | unités (gestion), incidents |
-| `resp_equipment` | Responsable Équipement | unités, incidents, **bons de travail** |
+| `resp_equipment` | Responsable Équipement | incidents, bons de travail, **parc de son unité** |
 
 > **Dotations provisoires.** Hors `superadmin` et `admin`, les attributions
 > par rôle sont marquées PROVISOIRES dans le code. L'attribution définitive
@@ -105,7 +111,80 @@ Les comptes persistés avec l'ancien modèle sont migrés au démarrage :
 `auditor → strategic`, `command → tacom`, `dispatcher → bluecell`,
 `unit_commander → resp_unit`, `field_agent → resp_unit`.
 
-## 5. Matrice rôle → fonctionnalités
+## 5. Rattachement ABAC — le périmètre d'un responsable
+
+Le RBAC répond à « ce rôle peut-il modifier un hôpital ? ». Il ne répond pas à
+« **lequel** ? ». C'est l'objet du rattachement.
+
+Cinq rôles sont **responsables d'une entité précise**, affectée par
+l'administrateur à la création du compte :
+
+| Rôle | Nature d'entité | Référentiel |
+| --- | --- | --- |
+| `resp_hospital` | hôpital militaire | 7 HM servis par l'API |
+| `resp_unit` | unité | 6 unités servies par l'API |
+| `resp_shelter` | abri | 6 abris servis par l'API |
+| `resp_morgue` | site mortuaire | 3 sites + registre DVI |
+| `resp_equipment` | parc d'équipement | parc de l'unité détentrice (`unitId`) |
+
+Les autres rôles (superadmin, admin, TACOM, cellules) ne sont rattachés à rien :
+leur accès est gouverné par le seul RBAC.
+
+### Chaîne complète
+
+```
+requête ─▶ JwtAuthGuard ─▶ PermissionsGuard ─▶ ScopeGuard ─▶ contrôleur
+           401 si absent   403 si permission   403 si l'entité
+                            manquante           n'est pas la sienne
+```
+
+Une route se cantonne en ajoutant `@RequireScope` à côté de `@RequirePermission` :
+
+```ts
+@Patch("hospitals/:id")
+@RequirePermission("org:hospitals:manage")   // RBAC : a-t-il le droit ?
+@RequireScope("hospital")                    // ABAC : est-ce bien le sien ?
+```
+
+### Règles appliquées côté serveur
+
+- **Affectation obligatoire** — créer ou promouvoir un compte à un rôle `resp_*`
+  sans lui affecter d'entité est refusé (`400`).
+- **Pas de portée orpheline** — affecter une entité d'une nature qu'aucun rôle
+  du compte ne couvre est refusé (`400`). Retirer le rôle **purge** l'affectation.
+- **Default-deny** — un responsable sans affectation est refusé (`403`) : un
+  compte mal configuré ne vaut jamais passe-partout.
+- **Réaffectation immédiate** — la portée est relue dans le registre **à chaque
+  requête**, jamais lue dans le jeton. Déplacer un responsable d'un
+  établissement à un autre prend effet sans reconnexion, et le client ne peut
+  revendiquer aucun périmètre.
+
+La portée effective est visible dans `GET /api/iam/me` (champ `scope`).
+
+### Routes cantonnées
+
+| Route | Permission | Portée |
+| --- | --- | --- |
+| `PATCH /hospitals/:id` | `org:hospitals:manage` | `hospital` |
+| `POST` · `PATCH` · `DELETE /hospitals/:id/wards[/:wid]` | `org:hospitals:manage` | `hospital` |
+| `PATCH /units/:id` | `org:units:manage` | `unit` |
+| `PATCH /shelters/:id` | `org:zones:manage` | `shelter` |
+| `PATCH /morgues/:id` | `morgue:manage` | `morgue` |
+| `POST` · `PATCH /morgues/:id/records[/:rid]` | `morgue:manage` | `morgue` |
+| `POST` · `PATCH` · `DELETE /equipment-parks/:id/items[/:eid]` | `equip:manage` | `equipment` |
+
+**Convention de route** : quand la ressource est un enfant (service de soins,
+dossier DVI, article de parc), l'identifiant porté par le chemin est celui de
+l'**entité affectée** — l'hôpital, le site, l'unité détentrice. Le `ScopeGuard`
+peut ainsi cantonner sans avoir à charger la ressource.
+
+La **lecture** (`GET /hospitals/:id/wards`) reste ouverte à qui peut lire le
+réseau : le cantonnement porte sur l'écriture.
+
+Implémentation : `shared/responsibilities.ts`, `common/guards/scope.guard.ts`,
+`common/ports/scope-resolver.port.ts`. Tests : `modules/iam/scope.spec.ts`.
+
+## 6. Matrice rôle → fonctionnalités
 
 Second niveau, distinct du RBAC : quels **modules** (écrans) un rôle voit.
 Pilotable par le Super Administrateur, il filtre la navigation du frontend.
@@ -117,7 +196,7 @@ Pilotable par le Super Administrateur, il filtre la navigation du frontend.
 C'est un **confort d'ergonomie, pas une barrière** : masquer un écran ne
 protège rien. La protection reste l'`@RequirePermission` côté API.
 
-## 6. Journal d'audit chaîné
+## 7. Journal d'audit chaîné
 
 Toutes les mutations sont journalisées par un intercepteur global. Le journal
 est **append-only** et **chaîné** : chaque entrée intègre l'empreinte de la
@@ -127,7 +206,7 @@ précédente, ce qui rend toute altération détectable.
 - Vérification d'intégrité : `GET /api/audit/verify` (`audit:log:verify`)
 - Consultable dans l'écran `/parametres` (Super Administrateur).
 
-## 7. Alertes sismiques et notification des autorités
+## 8. Alertes sismiques et notification des autorités
 
 Deux seuils distincts, configurables dans `/parametres` :
 
@@ -140,7 +219,7 @@ En développement, l'envoi SMS/e-mail est **simulé** et journalisé côté serv
 Le point de branchement de la passerelle de production est isolé dans
 `apps/api/src/modules/domain/seismic-alerts.service.ts`.
 
-## 8. Souveraineté et fuite de données
+## 9. Souveraineté et fuite de données
 
 Exigences du `MASTER_PLAN.md` §4.3 :
 
@@ -153,15 +232,18 @@ Exigences du `MASTER_PLAN.md` §4.3 :
   développement (`AUTH_DEV_SECRET`) doit être remplacé en production.
 - Aucune nouvelle dépendance runtime sans [ADR](adr/README.md).
 
-## 9. Tests de sécurité
+## 10. Tests de sécurité
 
-La gate default-deny est automatisée (`npm test`, 50 tests) :
+La gate default-deny est automatisée (`npm test`, 79 tests) :
 
 - `modules/iam/authz.spec.ts` — 401 sans jeton, résolution des permissions
   depuis le rôle, 403 sur accès non autorisé, intégrité de la chaîne d'audit ;
 - `modules/iam/users.spec.ts` — cycle de vie des comptes, règles d'attribution ;
-- `modules/orders/http/orders.authz.spec.ts` — 401/403 sur les nouvelles routes,
-  cycle de vie complet via HTTP.
+- `modules/orders/http/orders.authz.spec.ts` — 401/403 sur les routes de bons
+  de travail, cycle de vie complet via HTTP ;
+- `modules/iam/scope.spec.ts` — **cantonnement ABAC** : un responsable agit sur
+  son entité, est refusé sur toute autre, et un compte sans affectation est
+  refusé.
 
 **Ajouter une route sensible sans `@RequirePermission` est une régression de
 sécurité** : la route devient accessible à tout utilisateur authentifié.

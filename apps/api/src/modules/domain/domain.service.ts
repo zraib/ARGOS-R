@@ -1,8 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import { PROVINCES_MA, llToSvg } from "@/modules/domain/provinces.data";
 import { CITIES_MA } from "@/modules/domain/cities.data";
-import { ORSEC_BOARD } from "@/modules/domain/catalog.data";
+import { EQUIPMENT, ORSEC_BOARD, SHELTERS, type EquipItem } from "@/modules/domain/catalog.data";
 import { HOSPITALS_MA, type HospitalKind } from "@/modules/domain/hospitals.data";
+import { checkRecordUpdate } from "@/modules/domain/dvi.rules";
 import { loadDevState, saveDevState } from "@/common/dev-store";
 
 // ============================================================================
@@ -104,6 +105,96 @@ export interface FieldHospital {
   kind?: "mil_field" | "civ_field";
 }
 
+/**
+ * Service de soins d'un établissement (réanimation, chirurgie, urgences…).
+ * Piloté par le responsable de SON hôpital — le cantonnement est appliqué par
+ * le `ScopeGuard`, ce service ne connaît pas la notion de responsable.
+ * Identifiant anglais `Ward` pour ne pas confondre avec les « services » NestJS.
+ */
+export interface HospitalWard {
+  id: string;
+  /** Hôpital de rattachement. */
+  hid: string;
+  nom: string;
+  lits: number;
+  occ: number;
+  statut: "open" | "saturated" | "closed";
+  /** Médecin-chef du service. */
+  chef?: string;
+}
+
+/**
+ * Abri d'hébergement, piloté par son responsable. Repris du catalogue statique
+ * (`catalog.data.ts`) mais désormais MUTABLE : c'est `DomainService` qui fait
+ * autorité, et `CatalogService` sert cette liste vivante à l'écran /abris.
+ */
+export interface Shelter {
+  id: string;
+  nom: string;
+  ville: string;
+  capacity: number;
+  occupants: number;
+  staff: number;
+  supplies: "ok" | "low" | "critical";
+  needs: string;
+  adults: number;
+  children: number;
+  elderly: number;
+}
+
+// --- Morgue / identification des victimes (DVI) -----------------------------
+// Modélisé sur les pratiques d'identification des victimes de catastrophe :
+// un site mortuaire accueille des corps sous référence provisoire, qui suivent
+// un parcours d'identification jalonné de prélèvements, puis sont restitués aux
+// familles. Le registre est horodaté à chaque étape.
+
+/** Site mortuaire (permanent ou de circonstance). */
+export interface MorgueSite {
+  id: string;
+  nom: string;
+  ville: string;
+  /** Emplacements réfrigérés. */
+  capacity: number;
+  /** Effectif affecté au site (médecins légistes, techniciens). */
+  staff: number;
+  statut: "op" | "partial" | "closed";
+}
+
+/** Étapes du parcours d'identification. */
+export const DVI_STATUSES = ["unidentified", "in_progress", "identified", "released"] as const;
+export type DviStatus = (typeof DVI_STATUSES)[number];
+
+/** Prélèvements post-mortem servant à l'identification. */
+export const DVI_SAMPLES = ["dna", "dental", "fingerprint"] as const;
+export type DviSample = (typeof DVI_SAMPLES)[number];
+
+/**
+ * Enregistrement d'un corps admis dans un site mortuaire.
+ * `reference` est la référence PROVISOIRE attribuée à l'admission : elle reste
+ * l'identifiant opérationnel tant que l'identité n'est pas confirmée.
+ */
+export interface MortuaryRecord {
+  id: string;
+  /** Site mortuaire de rattachement. */
+  mid: string;
+  reference: string;
+  /** Incident d'origine, s'il est connu. */
+  incidentId?: string;
+  /** Lieu de découverte. */
+  foundAt?: string;
+  sex?: "m" | "f" | "unknown";
+  ageRange?: string;
+  status: DviStatus;
+  samples: DviSample[];
+  /** Identité confirmée — exigée dès le statut « identifié ». */
+  identifiedAs?: string;
+  /** Personne à qui le corps a été restitué — exigée au statut « restitué ». */
+  releasedTo?: string;
+  /** Horodatages ISO 8601 : admission et dernière évolution. */
+  admittedAt: string;
+  updatedAt: string;
+}
+
 export interface FeedItem {
   time: string;
   c: string;
@@ -136,11 +227,11 @@ export interface TransportMovement {
  * Version des données de référence embarquées (hôpitaux, hôpitaux de campagne).
  * À INCRÉMENTER à chaque mise à jour du réseau : l'instantané dev écrit avec une
  * version antérieure est alors ignoré pour ces collections.
- * v2 — réseau hospitalier militaire officiel (7 établissements).
+ * v4 — services de soins par établissement (wards).
  * v3 — ajout du réseau hospitalier public civil (106 établissements) et du
  *      champ `kind` différenciant les symboles cartographiques.
  */
-const DOMAIN_SEED_VERSION = 3;
+const DOMAIN_SEED_VERSION = 4;
 
 @Injectable()
 export class DomainService {
@@ -177,6 +268,51 @@ export class DomainService {
     { hid: "HC076", nom: "HCC Ouirgane", cap: 30, occ: 14, statut: "partial", depuis: "J+1", kind: "civ_field" },
   ];
 
+  // Services de soins du réseau militaire — pilotés par le responsable de
+  // chaque établissement depuis « Ma responsabilité › Gestion ».
+  private readonly wards: HospitalWard[] = [
+    { id: "W-101", hid: "H1", nom: "Réanimation polyvalente", lits: 48, occ: 39, statut: "saturated", chef: "Pr. A. Benkirane" },
+    { id: "W-102", hid: "H1", nom: "Chirurgie de guerre", lits: 120, occ: 88, statut: "open", chef: "Col. M. Sabri" },
+    { id: "W-103", hid: "H1", nom: "Urgences", lits: 60, occ: 51, statut: "open", chef: "Cdt. L. Ouazzani" },
+    { id: "W-104", hid: "H1", nom: "Brûlés", lits: 24, occ: 14, statut: "open", chef: "Cdt. S. Alaoui" },
+    { id: "W-201", hid: "H2", nom: "Réanimation", lits: 30, occ: 21, statut: "open", chef: "Cdt. K. Tahiri" },
+    { id: "W-202", hid: "H2", nom: "Traumatologie", lits: 90, occ: 74, statut: "open", chef: "Cne. R. Belkadi" },
+    { id: "W-301", hid: "H3", nom: "Réanimation", lits: 24, occ: 12, statut: "open", chef: "Cne. H. Mansouri" },
+    { id: "W-302", hid: "H3", nom: "Médecine interne", lits: 80, occ: 53, statut: "open" },
+    { id: "W-401", hid: "H4", nom: "Réanimation", lits: 36, occ: 34, statut: "saturated", chef: "Cdt. N. Berrada" },
+    { id: "W-402", hid: "H4", nom: "Chirurgie orthopédique", lits: 110, occ: 101, statut: "saturated", chef: "Cne. Y. Fadili" },
+    { id: "W-403", hid: "H4", nom: "Urgences séisme", lits: 70, occ: 62, statut: "open", chef: "Cne. I. Charki" },
+    { id: "W-501", hid: "H5", nom: "Réanimation", lits: 20, occ: 17, statut: "saturated", chef: "Cne. O. Rachidi" },
+    { id: "W-502", hid: "H5", nom: "Chirurgie", lits: 85, occ: 68, statut: "open" },
+    { id: "W-601", hid: "H6", nom: "Réanimation", lits: 12, occ: 5, statut: "open", chef: "Lt. F. Naciri" },
+    { id: "W-602", hid: "H6", nom: "Médecine générale", lits: 60, occ: 31, statut: "open" },
+    { id: "W-701", hid: "H7", nom: "Réanimation", lits: 8, occ: 3, statut: "open" },
+    { id: "W-702", hid: "H7", nom: "Médecine générale", lits: 45, occ: 22, statut: "open" },
+  ];
+
+  // Abris d'hébergement — seedés depuis le catalogue puis pilotés par leur
+  // responsable. `structuredClone` : ne jamais muter le tableau du catalogue.
+  private readonly shelters: Shelter[] = structuredClone(SHELTERS) as Shelter[];
+
+  // Sites mortuaires engagés sur le séisme d'Al Haouz.
+  private readonly morgues: MorgueSite[] = [
+    { id: "M1", nom: "Institut médico-légal — HMI Mohammed V", ville: "Rabat", capacity: 60, staff: 18, statut: "op" },
+    { id: "M2", nom: "Chambre mortuaire — HM Avicenne", ville: "Marrakech", capacity: 45, staff: 14, statut: "op" },
+    { id: "M3", nom: "Site mortuaire de circonstance — Amizmiz", ville: "Amizmiz", capacity: 80, staff: 11, statut: "partial" },
+  ];
+
+  private readonly mortuaryRecords: MortuaryRecord[] = [
+    { id: "DVI-1", mid: "M3", reference: "AH-2026-001", incidentId: "INC-2607", foundAt: "Douar Tinzert", sex: "m", ageRange: "40-55", status: "identified", samples: ["dental", "fingerprint"], identifiedAs: "M. Brahim Ait Oussaid", admittedAt: "2026-08-08T07:20:00Z", updatedAt: "2026-08-09T09:10:00Z" },
+    { id: "DVI-2", mid: "M3", reference: "AH-2026-002", incidentId: "INC-2607", foundAt: "Douar Tinzert", sex: "f", ageRange: "20-35", status: "in_progress", samples: ["dna"], admittedAt: "2026-08-08T07:35:00Z", updatedAt: "2026-08-08T18:00:00Z" },
+    { id: "DVI-3", mid: "M3", reference: "AH-2026-003", incidentId: "INC-2607", foundAt: "Piste RP2010", sex: "unknown", status: "unidentified", samples: [], admittedAt: "2026-08-08T11:05:00Z", updatedAt: "2026-08-08T11:05:00Z" },
+    { id: "DVI-4", mid: "M2", reference: "MK-2026-014", incidentId: "INC-2606", foundAt: "Oued Ourika", sex: "m", ageRange: "10-18", status: "released", samples: ["dna", "dental"], identifiedAs: "Youssef El Alaoui", releasedTo: "Famille El Alaoui (père)", admittedAt: "2026-08-07T16:40:00Z", updatedAt: "2026-08-09T08:00:00Z" },
+    { id: "DVI-5", mid: "M2", reference: "MK-2026-015", incidentId: "INC-2606", foundAt: "Oued Ourika", sex: "f", ageRange: "55-70", status: "identified", samples: ["fingerprint"], identifiedAs: "Mme Fatima Benhima", admittedAt: "2026-08-07T17:10:00Z", updatedAt: "2026-08-09T07:30:00Z" },
+  ];
+
+  // Parc d'équipement — seedé depuis le catalogue puis piloté par le
+  // responsable de CHAQUE unité détentrice (cantonnement sur `unitId`).
+  private readonly equipment: EquipItem[] = structuredClone(EQUIPMENT) as EquipItem[];
+
   private readonly feed: FeedItem[] = [
     { time: "07:12", c: "bg-danger-500", txt: "Réplique M4.2 enregistrée — Al Haouz" },
     { time: "07:02", c: "bg-or-500", txt: "7e Régiment Aéroporté : 120 personnels héliportés vers Amizmiz" },
@@ -196,6 +332,11 @@ export class DomainService {
       units?: Unit[];
       hospitals?: Hospital[];
       fieldHospitals?: FieldHospital[];
+      wards?: HospitalWard[];
+      shelters?: Shelter[];
+      morgues?: MorgueSite[];
+      mortuaryRecords?: MortuaryRecord[];
+      equipment?: EquipItem[];
       feed?: FeedItem[];
     }>("domain", {});
     if (snap.incidents) this.incidents.splice(0, this.incidents.length, ...snap.incidents);
@@ -207,6 +348,11 @@ export class DomainService {
     const sameSeed = snap.seedVersion === DOMAIN_SEED_VERSION;
     if (sameSeed && snap.hospitals) this.hospitals.splice(0, this.hospitals.length, ...snap.hospitals);
     if (sameSeed && snap.fieldHospitals) this.fieldHospitals.splice(0, this.fieldHospitals.length, ...snap.fieldHospitals);
+    if (sameSeed && snap.wards) this.wards.splice(0, this.wards.length, ...snap.wards);
+    if (sameSeed && snap.shelters) this.shelters.splice(0, this.shelters.length, ...snap.shelters);
+    if (sameSeed && snap.morgues) this.morgues.splice(0, this.morgues.length, ...snap.morgues);
+    if (sameSeed && snap.mortuaryRecords) this.mortuaryRecords.splice(0, this.mortuaryRecords.length, ...snap.mortuaryRecords);
+    if (sameSeed && snap.equipment) this.equipment.splice(0, this.equipment.length, ...snap.equipment);
     if (snap.feed) this.feed.splice(0, this.feed.length, ...snap.feed);
     if (!sameSeed) this.persist();
   }
@@ -219,6 +365,11 @@ export class DomainService {
       units: this.units,
       hospitals: this.hospitals,
       fieldHospitals: this.fieldHospitals,
+      wards: this.wards,
+      shelters: this.shelters,
+      morgues: this.morgues,
+      mortuaryRecords: this.mortuaryRecords,
+      equipment: this.equipment,
       feed: this.feed,
     });
   }
@@ -304,6 +455,27 @@ export class DomainService {
     return this.hospitals;
   }
 
+  findHospital(id: string): Hospital | undefined {
+    return this.hospitals.find((h) => h.id === id);
+  }
+
+  /**
+   * Mise à jour partielle d'un hôpital (pilotage par son responsable).
+   * Le cantonnement au périmètre affecté est appliqué en amont par le
+   * `ScopeGuard` — ce service ne connaît pas la notion de responsable.
+   */
+  updateHospital(id: string, patch: Partial<Omit<Hospital, "id">>): Hospital | undefined {
+    const h = this.hospitals.find((x) => x.id === id);
+    if (!h) return undefined;
+    // N'écrase que les champs réellement fournis (les DTO exposent les champs
+    // optionnels absents comme `undefined`).
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) (h as unknown as Record<string, unknown>)[k] = v;
+    }
+    this.persist();
+    return h;
+  }
+
   /** Crée un hôpital (id séquentiel H<n>) — occupation initiale à zéro. */
   createHospital(input: Omit<Hospital, "id" | "occ" | "reaOcc">): Hospital {
     const n = Math.max(0, ...this.hospitals.map((h) => parseInt(h.id.replace(/\D/g, ""), 10) || 0)) + 1;
@@ -319,6 +491,190 @@ export class DomainService {
 
   listFieldHospitals(): FieldHospital[] {
     return this.fieldHospitals;
+  }
+
+  // --- services de soins (wards) -------------------------------------------
+
+  /** Services d'un établissement, ou tous si `hid` est omis. */
+  listWards(hid?: string): HospitalWard[] {
+    return hid ? this.wards.filter((w) => w.hid === hid) : this.wards;
+  }
+
+  /** Ouvre un service dans un établissement (id séquentiel W-<n>). */
+  createWard(hid: string, input: Omit<HospitalWard, "id" | "hid">): HospitalWard {
+    const n = Math.max(0, ...this.wards.map((w) => parseInt(w.id.replace(/\D/g, ""), 10) || 0)) + 1;
+    const ward: HospitalWard = { ...input, id: `W-${n}`, hid };
+    this.wards.push(ward);
+    this.persist();
+    return ward;
+  }
+
+  /** Mise à jour partielle d'un service — restreinte à l'établissement `hid`. */
+  updateWard(hid: string, wid: string, patch: Partial<Omit<HospitalWard, "id" | "hid">>): HospitalWard | undefined {
+    const w = this.wards.find((x) => x.id === wid && x.hid === hid);
+    if (!w) return undefined;
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) (w as unknown as Record<string, unknown>)[k] = v;
+    }
+    this.persist();
+    return w;
+  }
+
+  /** Ferme définitivement un service — restreint à l'établissement `hid`. */
+  deleteWard(hid: string, wid: string): boolean {
+    const i = this.wards.findIndex((x) => x.id === wid && x.hid === hid);
+    if (i < 0) return false;
+    this.wards.splice(i, 1);
+    this.persist();
+    return true;
+  }
+
+  // --- abris ----------------------------------------------------------------
+
+  listShelters(): Shelter[] {
+    return this.shelters;
+  }
+
+  findShelter(id: string): Shelter | undefined {
+    return this.shelters.find((s) => s.id === id);
+  }
+
+  /** Mise à jour d'un abri par son responsable (cantonnement : ScopeGuard). */
+  updateShelter(id: string, patch: Partial<Omit<Shelter, "id">>): Shelter | undefined {
+    const sh = this.shelters.find((x) => x.id === id);
+    if (!sh) return undefined;
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) (sh as unknown as Record<string, unknown>)[k] = v;
+    }
+    this.persist();
+    return sh;
+  }
+
+  // --- unités -----------------------------------------------------------------
+
+  findUnit(id: string): Unit | undefined {
+    return this.units.find((u) => u.id === id);
+  }
+
+  /** Mise à jour d'une unité par son responsable (cantonnement : ScopeGuard). */
+  updateUnit(id: string, patch: Partial<Omit<Unit, "id">>): Unit | undefined {
+    const u = this.units.find((x) => x.id === id);
+    if (!u) return undefined;
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) (u as unknown as Record<string, unknown>)[k] = v;
+    }
+    this.persist();
+    return u;
+  }
+
+  // --- morgue / registre DVI ---------------------------------------------
+
+  listMorgues(): MorgueSite[] {
+    return this.morgues;
+  }
+
+  findMorgue(id: string): MorgueSite | undefined {
+    return this.morgues.find((m) => m.id === id);
+  }
+
+  updateMorgue(id: string, patch: Partial<Omit<MorgueSite, "id">>): MorgueSite | undefined {
+    const m = this.morgues.find((x) => x.id === id);
+    if (!m) return undefined;
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) (m as unknown as Record<string, unknown>)[k] = v;
+    }
+    this.persist();
+    return m;
+  }
+
+  /** Registre d'un site mortuaire, du plus récemment modifié au plus ancien. */
+  listMortuaryRecords(mid: string): MortuaryRecord[] {
+    return this.mortuaryRecords
+      .filter((r) => r.mid === mid)
+      .slice()
+      .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
+  }
+
+  /** Admission d'un corps sous référence provisoire (statut « non identifié »). */
+  admitBody(
+    mid: string,
+    input: Omit<MortuaryRecord, "id" | "mid" | "status" | "samples" | "admittedAt" | "updatedAt"> & { samples?: DviSample[] },
+  ): MortuaryRecord {
+    const n = Math.max(0, ...this.mortuaryRecords.map((r) => parseInt(r.id.replace(/\D/g, ""), 10) || 0)) + 1;
+    const now = new Date().toISOString();
+    const rec: MortuaryRecord = {
+      ...input,
+      id: `DVI-${n}`,
+      mid,
+      status: "unidentified",
+      samples: input.samples ?? [],
+      admittedAt: now,
+      updatedAt: now,
+    };
+    this.mortuaryRecords.push(rec);
+    this.persist();
+    return rec;
+  }
+
+  /**
+   * Fait évoluer un dossier. Les invariants du parcours DVI sont vérifiés par
+   * `dvi.rules` ; une violation renvoie le message métier, jamais une exception
+   * HTTP (la traduction est faite par le contrôleur).
+   */
+  updateMortuaryRecord(
+    mid: string,
+    rid: string,
+    patch: Partial<Omit<MortuaryRecord, "id" | "mid" | "admittedAt" | "updatedAt">>,
+  ): { record?: MortuaryRecord; error?: string; missing?: boolean } {
+    const rec = this.mortuaryRecords.find((r) => r.id === rid && r.mid === mid);
+    if (!rec) return { missing: true };
+    const error = checkRecordUpdate(rec, patch);
+    if (error) return { error };
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) (rec as unknown as Record<string, unknown>)[k] = v;
+    }
+    rec.updatedAt = new Date().toISOString();
+    this.persist();
+    return { record: rec };
+  }
+
+  // --- parc d'équipement ----------------------------------------------------
+  // Le « parc » d'une unité est l'ensemble de ses équipements. La route porte
+  // l'identifiant d'UNITÉ (et non celui de l'article) pour que le ScopeGuard
+  // puisse cantonner sans connaître la ressource — même schéma que les services
+  // de soins d'un hôpital.
+
+  listEquipment(unitId?: string): EquipItem[] {
+    return unitId ? this.equipment.filter((e) => e.unitId === unitId) : this.equipment;
+  }
+
+  /** Ajoute un article au parc d'une unité (id séquentiel EQ-<n>). */
+  addEquipment(unitId: string, unitLabel: string, input: Omit<EquipItem, "id" | "unit" | "unitId">): EquipItem {
+    const n = Math.max(0, ...this.equipment.map((e) => parseInt(e.id.replace(/\D/g, ""), 10) || 0)) + 1;
+    const item: EquipItem = { ...input, id: `EQ-${n}`, unit: unitLabel, unitId };
+    this.equipment.push(item);
+    this.persist();
+    return item;
+  }
+
+  /** Mise à jour d'un article — restreinte au parc de l'unité `unitId`. */
+  updateEquipment(unitId: string, eid: string, patch: Partial<Omit<EquipItem, "id" | "unit" | "unitId">>): EquipItem | undefined {
+    const e = this.equipment.find((x) => x.id === eid && x.unitId === unitId);
+    if (!e) return undefined;
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) (e as unknown as Record<string, unknown>)[k] = v;
+    }
+    this.persist();
+    return e;
+  }
+
+  /** Sort un article du parc — restreint au parc de l'unité `unitId`. */
+  removeEquipment(unitId: string, eid: string): boolean {
+    const i = this.equipment.findIndex((x) => x.id === eid && x.unitId === unitId);
+    if (i < 0) return false;
+    this.equipment.splice(i, 1);
+    this.persist();
+    return true;
   }
 
   listFeed(): FeedItem[] {

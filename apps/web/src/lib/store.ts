@@ -51,7 +51,7 @@ import { EMPTY_CATALOG, type Catalog } from "@/lib/data/modules";
 import type { AiUnitResult } from "@/lib/ai/assistant";
 import { AI_DEFAULT_SETTINGS, type AiSettings } from "@/lib/ai/config";
 import { DEFAULT_FLAGS } from "@/lib/nav";
-import type { Role } from "@/lib/roles";
+import type { Assignments, Role } from "@/lib/roles";
 import { defaultRoleFeatures } from "@/lib/data/users";
 
 const THEME_KEY = "kanban_rdia_theme";
@@ -71,6 +71,12 @@ export interface SessionUser {
   matricule: string;
   nom: string;
   roles: Role[];
+  /**
+   * Entités affectées (portée ABAC), servies par l'API à la connexion.
+   * Sert UNIQUEMENT à orienter l'interface vers la bonne responsabilité ; le
+   * cantonnement réel est appliqué par l'API (ScopeGuard).
+   */
+  assignments?: Assignments;
   /** Photo de profil (data URL) ; initiales en repli */
   photo?: string;
 }

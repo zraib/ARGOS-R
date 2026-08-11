@@ -4,6 +4,7 @@
 // (posé à la connexion). Base réglable via NEXT_PUBLIC_API_URL.
 // Client généré depuis l'OpenAPI ; source canonique dans packages/api-client,
 // embarquée ici (copie) pour la compilation du bundle Next.
+import type { Assignments } from "@/lib/roles";
 import { createArgosClient } from "@/lib/api-client";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3005";
@@ -40,6 +41,8 @@ export interface LoginResult {
   nom: string;
   matricule: string;
   photo?: string;
+  /** Entités affectées (portée ABAC) — oriente l'interface vers sa responsabilité. */
+  assignments?: Assignments;
   mustChangePassword: boolean;
   mustChooseRole: boolean;
 }

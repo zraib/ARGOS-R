@@ -9,7 +9,13 @@ export interface EquipItem {
   id: string;
   desig: string;
   cat: string;
+  /** Libellé court de l'unité détentrice (affichage). */
   unit: string;
+  /**
+   * Unité détentrice — identifiant du référentiel (U1…U6). C'est LUI qui porte
+   * le cantonnement ABAC du parc ; `unit` reste un libellé d'affichage.
+   */
+  unitId: string;
   stock: number;
   threshold: number;
   cond: EquipCondition;
@@ -27,18 +33,18 @@ export interface Movement {
 }
 
 export const EQUIPMENT: EquipItem[] = [
-  { id: "EQ-1012", desig: "Groupe électrogène 20 kVA", cat: "Énergie", unit: "1er GI", stock: 14, threshold: 6, cond: "ok" },
-  { id: "EQ-1027", desig: "Station de pompage mobile", cat: "Hydraulique", unit: "3e BG", stock: 5, threshold: 8, cond: "ok" },
-  { id: "EQ-1031", desig: "Tente modulaire 12 places", cat: "Campement", unit: "2e GL", stock: 46, threshold: 20, cond: "ok" },
-  { id: "EQ-1044", desig: "Kit de déblaiement hydraulique", cat: "Sauvetage", unit: "3e BG", stock: 3, threshold: 5, cond: "repair" },
-  { id: "EQ-1058", desig: "Radio tactique PR4G", cat: "Transmissions", unit: "1er GI", stock: 62, threshold: 30, cond: "ok" },
-  { id: "EQ-1063", desig: "Station de potabilisation", cat: "Eau", unit: "5e BS", stock: 4, threshold: 4, cond: "ok" },
-  { id: "EQ-1071", desig: "Lot de brancards pliants", cat: "Médical", unit: "7e RA", stock: 28, threshold: 15, cond: "ok" },
-  { id: "EQ-1088", desig: "Ballon d'éclairage 2 kW", cat: "Énergie", unit: "2e GL", stock: 2, threshold: 6, cond: "repair" },
-  { id: "EQ-1094", desig: "Motopompe thermique", cat: "Hydraulique", unit: "3e BG", stock: 9, threshold: 5, cond: "ok" },
-  { id: "EQ-1102", desig: "Détecteur multigaz NRBC", cat: "NRBC", unit: "4e NRBC", stock: 7, threshold: 4, cond: "ok" },
-  { id: "EQ-1119", desig: "Citerne souple 5 000 L", cat: "Eau", unit: "5e BS", stock: 1, threshold: 3, cond: "oos" },
-  { id: "EQ-1126", desig: "Groupe froid mortuaire", cat: "Logistique", unit: "2e GL", stock: 2, threshold: 2, cond: "ok" },
+  { id: "EQ-1012", desig: "Groupe électrogène 20 kVA", cat: "Énergie", unit: "1er GI", unitId: "U1", stock: 14, threshold: 6, cond: "ok" },
+  { id: "EQ-1027", desig: "Station de pompage mobile", cat: "Hydraulique", unit: "3e BG", unitId: "U2", stock: 5, threshold: 8, cond: "ok" },
+  { id: "EQ-1031", desig: "Tente modulaire 12 places", cat: "Campement", unit: "2e GL", unitId: "U4", stock: 46, threshold: 20, cond: "ok" },
+  { id: "EQ-1044", desig: "Kit de déblaiement hydraulique", cat: "Sauvetage", unit: "3e BG", unitId: "U2", stock: 3, threshold: 5, cond: "repair" },
+  { id: "EQ-1058", desig: "Radio tactique PR4G", cat: "Transmissions", unit: "1er GI", unitId: "U1", stock: 62, threshold: 30, cond: "ok" },
+  { id: "EQ-1063", desig: "Station de potabilisation", cat: "Eau", unit: "5e BS", unitId: "U5", stock: 4, threshold: 4, cond: "ok" },
+  { id: "EQ-1071", desig: "Lot de brancards pliants", cat: "Médical", unit: "7e RA", unitId: "U3", stock: 28, threshold: 15, cond: "ok" },
+  { id: "EQ-1088", desig: "Ballon d'éclairage 2 kW", cat: "Énergie", unit: "2e GL", unitId: "U4", stock: 2, threshold: 6, cond: "repair" },
+  { id: "EQ-1094", desig: "Motopompe thermique", cat: "Hydraulique", unit: "3e BG", unitId: "U2", stock: 9, threshold: 5, cond: "ok" },
+  { id: "EQ-1102", desig: "Détecteur multigaz NRBC", cat: "NRBC", unit: "4e NRBC", unitId: "U6", stock: 7, threshold: 4, cond: "ok" },
+  { id: "EQ-1119", desig: "Citerne souple 5 000 L", cat: "Eau", unit: "5e BS", unitId: "U5", stock: 1, threshold: 3, cond: "oos" },
+  { id: "EQ-1126", desig: "Groupe froid mortuaire", cat: "Logistique", unit: "2e GL", unitId: "U4", stock: 2, threshold: 2, cond: "ok" },
 ];
 
 export const MOVEMENTS: Movement[] = [

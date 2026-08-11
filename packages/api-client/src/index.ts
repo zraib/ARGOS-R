@@ -26,6 +26,16 @@ export type CreateSubIncidentBody = Json<NonNullable<paths["/api/incidents/{id}/
 export type RegisterIncidentTypeBody = Json<NonNullable<paths["/api/incident-types"]["post"]["requestBody"]>>;
 export type CreateUnitBody = Json<NonNullable<paths["/api/units"]["post"]["requestBody"]>>;
 export type CreateHospitalBody = Json<NonNullable<paths["/api/hospitals"]["post"]["requestBody"]>>;
+export type UpdateHospitalBody = Json<NonNullable<paths["/api/hospitals/{id}"]["patch"]["requestBody"]>>;
+export type UpdateUnitBody = Json<NonNullable<paths["/api/units/{id}"]["patch"]["requestBody"]>>;
+export type UpdateShelterBody = Json<NonNullable<paths["/api/shelters/{id}"]["patch"]["requestBody"]>>;
+export type UpdateMorgueBody = Json<NonNullable<paths["/api/morgues/{id}"]["patch"]["requestBody"]>>;
+export type AdmitBodyBody = Json<NonNullable<paths["/api/morgues/{id}/records"]["post"]["requestBody"]>>;
+export type UpdateRecordBody = Json<NonNullable<paths["/api/morgues/{id}/records/{rid}"]["patch"]["requestBody"]>>;
+export type CreateEquipBody = Json<NonNullable<paths["/api/equipment-parks/{id}/items"]["post"]["requestBody"]>>;
+export type UpdateEquipBody = Json<NonNullable<paths["/api/equipment-parks/{id}/items/{eid}"]["patch"]["requestBody"]>>;
+export type CreateWardBody = Json<NonNullable<paths["/api/hospitals/{id}/wards"]["post"]["requestBody"]>>;
+export type UpdateWardBody = Json<NonNullable<paths["/api/hospitals/{id}/wards/{wid}"]["patch"]["requestBody"]>>;
 
 export interface ArgosClientOptions {
   /** Origine de l'API, SANS le préfixe /api (ex. http://localhost:4000). */
@@ -101,6 +111,35 @@ export function createArgosClient(opts: ArgosClientOptions) {
     createUnit: (body: CreateUnitBody) => client.POST("/api/units", { body }),
     getHospitals: () => client.GET("/api/hospitals"),
     createHospital: (body: CreateHospitalBody) => client.POST("/api/hospitals", { body }),
+    updateHospital: (id: string, body: UpdateHospitalBody) =>
+      client.PATCH("/api/hospitals/{id}", { params: { path: { id } }, body }),
+    getWards: (id: string) => client.GET("/api/hospitals/{id}/wards", { params: { path: { id } } }),
+    createWard: (id: string, body: CreateWardBody) =>
+      client.POST("/api/hospitals/{id}/wards", { params: { path: { id } }, body }),
+    updateWard: (id: string, wid: string, body: UpdateWardBody) =>
+      client.PATCH("/api/hospitals/{id}/wards/{wid}", { params: { path: { id, wid } }, body }),
+    deleteWard: (id: string, wid: string) =>
+      client.DELETE("/api/hospitals/{id}/wards/{wid}", { params: { path: { id, wid } } }),
+    updateUnit: (id: string, body: UpdateUnitBody) =>
+      client.PATCH("/api/units/{id}", { params: { path: { id } }, body }),
+    getShelters: () => client.GET("/api/shelters"),
+    updateShelter: (id: string, body: UpdateShelterBody) =>
+      client.PATCH("/api/shelters/{id}", { params: { path: { id } }, body }),
+    getMorgues: () => client.GET("/api/morgues"),
+    updateMorgue: (id: string, body: UpdateMorgueBody) =>
+      client.PATCH("/api/morgues/{id}", { params: { path: { id } }, body }),
+    getMortuaryRecords: (id: string) => client.GET("/api/morgues/{id}/records", { params: { path: { id } } }),
+    admitBody: (id: string, body: AdmitBodyBody) =>
+      client.POST("/api/morgues/{id}/records", { params: { path: { id } }, body }),
+    updateMortuaryRecord: (id: string, rid: string, body: UpdateRecordBody) =>
+      client.PATCH("/api/morgues/{id}/records/{rid}", { params: { path: { id, rid } }, body }),
+    getParkItems: (id: string) => client.GET("/api/equipment-parks/{id}/items", { params: { path: { id } } }),
+    addParkItem: (id: string, body: CreateEquipBody) =>
+      client.POST("/api/equipment-parks/{id}/items", { params: { path: { id } }, body }),
+    updateParkItem: (id: string, eid: string, body: UpdateEquipBody) =>
+      client.PATCH("/api/equipment-parks/{id}/items/{eid}", { params: { path: { id, eid } }, body }),
+    removeParkItem: (id: string, eid: string) =>
+      client.DELETE("/api/equipment-parks/{id}/items/{eid}", { params: { path: { id, eid } } }),
     getFieldHospitals: () => client.GET("/api/field-hospitals"),
     getFeed: () => client.GET("/api/feed"),
     getDispatchQueue: () => client.GET("/api/dispatch/queue"),

@@ -44,7 +44,7 @@ export function LoginScreen() {
       beginSession({
         token: d.access_token,
         role: d.role as Role,
-        sessionUser: { matricule: d.matricule, nom: d.nom, roles: d.roles as Role[], photo: d.photo },
+        sessionUser: { matricule: d.matricule, nom: d.nom, roles: d.roles as Role[], photo: d.photo, assignments: d.assignments },
         mustChangePassword: d.mustChangePassword,
         mustChooseRole: d.mustChooseRole,
       });

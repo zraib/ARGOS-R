@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, Min, MinLength, ValidateNested } from "class-validator";
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 
 const SEV = ["high", "medium", "low"] as const;
@@ -348,4 +348,271 @@ export class UpdateSeismicAlertConfigDto {
   @ValidateNested({ each: true })
   @Type(() => AuthorityContactDto)
   contacts!: AuthorityContactDto[];
+}
+
+/**
+ * Mise à jour d'un établissement par son responsable.
+ * Champs opérationnels uniquement : le responsable pilote la capacité et les
+ * moyens de SON établissement, pas son identité ni sa position sur la carte
+ * (réservées à l'administration du réseau).
+ */
+export class UpdateHospitalDto {
+  @ApiPropertyOptional({ minimum: 1, description: "Lits armés" })
+  @IsOptional() @IsInt() @Min(1)
+  lits?: number;
+
+  @ApiPropertyOptional({ minimum: 0, description: "Lits occupés" })
+  @IsOptional() @IsInt() @Min(0)
+  occ?: number;
+
+  @ApiPropertyOptional({ minimum: 0, description: "Lits de réanimation" })
+  @IsOptional() @IsInt() @Min(0)
+  rea?: number;
+
+  @ApiPropertyOptional({ minimum: 0, description: "Lits de réanimation occupés" })
+  @IsOptional() @IsInt() @Min(0)
+  reaOcc?: number;
+
+  @ApiPropertyOptional({ minimum: 0, description: "Effectif médical" })
+  @IsOptional() @IsInt() @Min(0)
+  staff?: number;
+
+  @ApiPropertyOptional({ minimum: 0, description: "Ambulances" })
+  @IsOptional() @IsInt() @Min(0)
+  amb?: number;
+
+  @ApiPropertyOptional({ minimum: 0, description: "Hélicoptères sanitaires" })
+  @IsOptional() @IsInt() @Min(0)
+  heli?: number;
+}
+
+/** Statuts d'un service de soins. */
+export const WARD_STATUSES = ["open", "saturated", "closed"] as const;
+
+/** Ouverture d'un service de soins dans un établissement. */
+export class CreateWardDto {
+  @ApiProperty({ example: "Réanimation polyvalente" })
+  @IsString() @MinLength(1) @MaxLength(120)
+  nom!: string;
+
+  @ApiProperty({ minimum: 0, description: "Lits armés du service" })
+  @IsInt() @Min(0)
+  lits!: number;
+
+  @ApiProperty({ minimum: 0, description: "Lits occupés" })
+  @IsInt() @Min(0)
+  occ!: number;
+
+  @ApiProperty({ enum: WARD_STATUSES, example: "open" })
+  @IsIn(WARD_STATUSES as unknown as string[])
+  statut!: (typeof WARD_STATUSES)[number];
+
+  @ApiPropertyOptional({ example: "Pr. A. Benkirane", description: "Médecin-chef" })
+  @IsOptional() @IsString()
+  chef?: string;
+}
+
+/** Mise à jour d'un service de soins (champs optionnels). */
+export class UpdateWardDto {
+  @ApiPropertyOptional({ maxLength: 120 })
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(120)
+  nom?: string;
+
+  @ApiPropertyOptional({ minimum: 0 })
+  @IsOptional() @IsInt() @Min(0)
+  lits?: number;
+
+  @ApiPropertyOptional({ minimum: 0 })
+  @IsOptional() @IsInt() @Min(0)
+  occ?: number;
+
+  @ApiPropertyOptional({ enum: WARD_STATUSES })
+  @IsOptional() @IsIn(WARD_STATUSES as unknown as string[])
+  statut?: (typeof WARD_STATUSES)[number];
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsString()
+  chef?: string;
+}
+
+/** Mise à jour d'une unité par son responsable (champs opérationnels). */
+export class UpdateUnitDto {
+  @ApiPropertyOptional({ description: "Commandant de l'unité" })
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(120)
+  cmdt?: string;
+
+  @ApiPropertyOptional({ minimum: 0, description: "Effectif" })
+  @IsOptional() @IsInt() @Min(0)
+  eff?: number;
+
+  @ApiPropertyOptional({ enum: ["ready", "deployed", "standby"], description: "Posture" })
+  @IsOptional() @IsIn(["ready", "deployed", "standby"])
+  dispo?: "ready" | "deployed" | "standby";
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 100, description: "Taux de préparation (%)" })
+  @IsOptional() @IsInt() @Min(0) @Max(100)
+  readiness?: number;
+}
+
+/** Niveaux d'approvisionnement d'un abri. */
+export const SUPPLY_LEVELS = ["ok", "low", "critical"] as const;
+
+/** Mise à jour d'un abri par son responsable. */
+export class UpdateShelterDto {
+  @ApiPropertyOptional({ minimum: 0, description: "Capacité d'accueil" })
+  @IsOptional() @IsInt() @Min(0)
+  capacity?: number;
+
+  @ApiPropertyOptional({ minimum: 0, description: "Personnes hébergées" })
+  @IsOptional() @IsInt() @Min(0)
+  occupants?: number;
+
+  @ApiPropertyOptional({ minimum: 0, description: "Encadrement" })
+  @IsOptional() @IsInt() @Min(0)
+  staff?: number;
+
+  @ApiPropertyOptional({ enum: SUPPLY_LEVELS, description: "Niveau d'approvisionnement" })
+  @IsOptional() @IsIn(SUPPLY_LEVELS as unknown as string[])
+  supplies?: (typeof SUPPLY_LEVELS)[number];
+
+  @ApiPropertyOptional({ description: "Besoins exprimés" })
+  @IsOptional() @IsString() @MaxLength(200)
+  needs?: string;
+
+  @ApiPropertyOptional({ minimum: 0 }) @IsOptional() @IsInt() @Min(0)
+  adults?: number;
+
+  @ApiPropertyOptional({ minimum: 0 }) @IsOptional() @IsInt() @Min(0)
+  children?: number;
+
+  @ApiPropertyOptional({ minimum: 0 }) @IsOptional() @IsInt() @Min(0)
+  elderly?: number;
+}
+
+// --- Morgue / registre DVI --------------------------------------------------
+
+export const MORGUE_STATUSES = ["op", "partial", "closed"] as const;
+export const DVI_STATUS_VALUES = ["unidentified", "in_progress", "identified", "released"] as const;
+export const DVI_SAMPLE_VALUES = ["dna", "dental", "fingerprint"] as const;
+export const DVI_SEX_VALUES = ["m", "f", "unknown"] as const;
+
+/** Mise à jour d'un site mortuaire par son responsable. */
+export class UpdateMorgueDto {
+  @ApiPropertyOptional({ minimum: 0, description: "Emplacements réfrigérés" })
+  @IsOptional() @IsInt() @Min(0)
+  capacity?: number;
+
+  @ApiPropertyOptional({ minimum: 0, description: "Effectif du site" })
+  @IsOptional() @IsInt() @Min(0)
+  staff?: number;
+
+  @ApiPropertyOptional({ enum: MORGUE_STATUSES })
+  @IsOptional() @IsIn(MORGUE_STATUSES as unknown as string[])
+  statut?: (typeof MORGUE_STATUSES)[number];
+}
+
+/** Admission d'un corps sous référence provisoire. */
+export class AdmitBodyDto {
+  @ApiProperty({ example: "AH-2026-004", description: "Référence provisoire attribuée à l'admission" })
+  @IsString() @MinLength(1) @MaxLength(40)
+  reference!: string;
+
+  @ApiPropertyOptional({ example: "INC-2607", description: "Incident d'origine" })
+  @IsOptional() @IsString()
+  incidentId?: string;
+
+  @ApiPropertyOptional({ example: "Douar Tinzert", description: "Lieu de découverte" })
+  @IsOptional() @IsString() @MaxLength(160)
+  foundAt?: string;
+
+  @ApiPropertyOptional({ enum: DVI_SEX_VALUES })
+  @IsOptional() @IsIn(DVI_SEX_VALUES as unknown as string[])
+  sex?: (typeof DVI_SEX_VALUES)[number];
+
+  @ApiPropertyOptional({ example: "40-55", description: "Tranche d'âge estimée" })
+  @IsOptional() @IsString() @MaxLength(20)
+  ageRange?: string;
+
+  @ApiPropertyOptional({ enum: DVI_SAMPLE_VALUES, isArray: true, description: "Prélèvements déjà réalisés" })
+  @IsOptional() @IsArray() @IsIn(DVI_SAMPLE_VALUES as unknown as string[], { each: true })
+  samples?: (typeof DVI_SAMPLE_VALUES)[number][];
+}
+
+/** Évolution d'un dossier d'identification. */
+export class UpdateMortuaryRecordDto {
+  @ApiPropertyOptional({ enum: DVI_STATUS_VALUES, description: "Étape du parcours d'identification" })
+  @IsOptional() @IsIn(DVI_STATUS_VALUES as unknown as string[])
+  status?: (typeof DVI_STATUS_VALUES)[number];
+
+  @ApiPropertyOptional({ enum: DVI_SAMPLE_VALUES, isArray: true })
+  @IsOptional() @IsArray() @IsIn(DVI_SAMPLE_VALUES as unknown as string[], { each: true })
+  samples?: (typeof DVI_SAMPLE_VALUES)[number][];
+
+  @ApiPropertyOptional({ description: "Identité confirmée — obligatoire dès « identifié »" })
+  @IsOptional() @IsString() @MaxLength(160)
+  identifiedAs?: string;
+
+  @ApiPropertyOptional({ description: "Personne à qui le corps est remis — obligatoire à la restitution" })
+  @IsOptional() @IsString() @MaxLength(160)
+  releasedTo?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(160)
+  foundAt?: string;
+
+  @ApiPropertyOptional({ enum: DVI_SEX_VALUES })
+  @IsOptional() @IsIn(DVI_SEX_VALUES as unknown as string[])
+  sex?: (typeof DVI_SEX_VALUES)[number];
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(20)
+  ageRange?: string;
+}
+
+// --- Parc d'équipement ------------------------------------------------------
+
+export const EQUIP_CONDITIONS = ["ok", "repair", "oos"] as const;
+
+/** Ajout d'un article au parc d'une unité. */
+export class CreateEquipDto {
+  @ApiProperty({ example: "Groupe électrogène 20 kVA" })
+  @IsString() @MinLength(1) @MaxLength(120)
+  desig!: string;
+
+  @ApiProperty({ example: "Énergie", description: "Catégorie" })
+  @IsString() @MinLength(1) @MaxLength(60)
+  cat!: string;
+
+  @ApiProperty({ minimum: 0, description: "Quantité en parc" })
+  @IsInt() @Min(0)
+  stock!: number;
+
+  @ApiProperty({ minimum: 0, description: "Seuil d'alerte" })
+  @IsInt() @Min(0)
+  threshold!: number;
+
+  @ApiProperty({ enum: EQUIP_CONDITIONS, example: "ok" })
+  @IsIn(EQUIP_CONDITIONS as unknown as string[])
+  cond!: (typeof EQUIP_CONDITIONS)[number];
+}
+
+/** Mise à jour d'un article du parc. */
+export class UpdateEquipDto {
+  @ApiPropertyOptional({ maxLength: 120 })
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(120)
+  desig?: string;
+
+  @ApiPropertyOptional({ maxLength: 60 })
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(60)
+  cat?: string;
+
+  @ApiPropertyOptional({ minimum: 0 })
+  @IsOptional() @IsInt() @Min(0)
+  stock?: number;
+
+  @ApiPropertyOptional({ minimum: 0 })
+  @IsOptional() @IsInt() @Min(0)
+  threshold?: number;
+
+  @ApiPropertyOptional({ enum: EQUIP_CONDITIONS })
+  @IsOptional() @IsIn(EQUIP_CONDITIONS as unknown as string[])
+  cond?: (typeof EQUIP_CONDITIONS)[number];
 }

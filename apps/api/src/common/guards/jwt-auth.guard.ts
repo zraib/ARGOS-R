@@ -1,8 +1,9 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common";
+import { CanActivate, ExecutionContext, Inject, Injectable, Optional, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Reflector } from "@nestjs/core";
 import { createRemoteJWKSet, jwtVerify, type JWTPayload, type JWTVerifyGetKey } from "jose";
 import { IS_PUBLIC_KEY } from "@/common/decorators/public.decorator";
+import { SCOPE_RESOLVER, type ScopeResolver } from "@/common/ports/scope-resolver.port";
 import type { AppConfig } from "@/config/configuration";
 import { ROLES, isRole, permissionsForRole, type Role } from "@/shared/permissions";
 import type { AuthUser } from "@/common/types/auth-user";
@@ -30,6 +31,9 @@ export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly config: ConfigService<AppConfig, true>,
+    // Optionnel : la garde reste fonctionnelle si aucun résolveur n'est fourni
+    // (la portée est alors absente, donc le ScopeGuard refuse — default-deny).
+    @Optional() @Inject(SCOPE_RESOLVER) private readonly scopes?: ScopeResolver,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -45,11 +49,16 @@ export class JwtAuthGuard implements CanActivate {
     const role = this.resolveRole(claims);
     if (!role) throw new UnauthorizedException("Aucun rôle ARGOS dans le jeton");
 
+    const username = claims.preferred_username ?? String(claims.sub ?? "inconnu");
     req.user = {
       sub: String(claims.sub ?? ""),
-      username: claims.preferred_username ?? String(claims.sub ?? "inconnu"),
+      username,
       role,
       permissions: permissionsForRole(role),
+      // Portée ABAC relue à chaque requête depuis le registre des comptes —
+      // jamais depuis le jeton : une réaffectation prend effet immédiatement et
+      // le client ne peut revendiquer aucun périmètre.
+      scope: this.scopes?.resolveScope(username),
     };
     return true;
   }

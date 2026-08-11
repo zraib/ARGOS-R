@@ -92,3 +92,35 @@ export function isSuperAdmin(role: Role): boolean {
 export function canReportIncident(role: Role): boolean {
   return role === "superadmin" || role === "tacom" || role === "bluecell";
 }
+
+// ---------------------------------------------------------------------------
+// Responsabilités opérationnelles (miroir de shared/responsibilities.ts côté API)
+// Sert UNIQUEMENT à composer l'interface d'affectation. Le cantonnement réel
+// est appliqué par l'API (ScopeGuard) — jamais par le frontend.
+// ---------------------------------------------------------------------------
+
+export const RESPONSIBILITY_KINDS = ["hospital", "unit", "shelter", "morgue", "equipment"] as const;
+
+export type ResponsibilityKind = (typeof RESPONSIBILITY_KINDS)[number];
+
+/** Entités affectées à un compte, une par nature de responsabilité. */
+export type Assignments = Partial<Record<ResponsibilityKind, string>>;
+
+/** Rôle → nature d'entité dont il répond. Absent = rôle non rattaché. */
+export const RESPONSIBILITY_OF_ROLE: Partial<Record<Role, ResponsibilityKind>> = {
+  resp_hospital: "hospital",
+  resp_unit: "unit",
+  resp_shelter: "shelter",
+  resp_morgue: "morgue",
+  resp_equipment: "equipment",
+};
+
+/** Natures d'entité à affecter pour cet ensemble de rôles (sans doublon). */
+export function requiredAssignments(roles: readonly Role[]): ResponsibilityKind[] {
+  const kinds: ResponsibilityKind[] = [];
+  for (const r of roles) {
+    const kind = RESPONSIBILITY_OF_ROLE[r];
+    if (kind && !kinds.includes(kind)) kinds.push(kind);
+  }
+  return kinds;
+}

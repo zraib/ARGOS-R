@@ -503,6 +503,162 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/units/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mettre à jour une unité — un responsable ne peut agir que sur la sienne */
+        patch: operations["DomainController_updateUnit"];
+        trace?: never;
+    };
+    "/api/shelters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Liste des abris d'hébergement */
+        get: operations["DomainController_shelters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shelters/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mettre à jour un abri — un responsable ne peut agir que sur le sien */
+        patch: operations["DomainController_updateShelter"];
+        trace?: never;
+    };
+    "/api/equipment-parks/{id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Parc d'équipement d'une unité */
+        get: operations["DomainController_parkItems"];
+        put?: never;
+        /** Ajouter un article — dans SON parc uniquement */
+        post: operations["DomainController_addParkItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/equipment-parks/{id}/items/{eid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Sortir un article du parc — dans SON parc uniquement */
+        delete: operations["DomainController_removeParkItem"];
+        options?: never;
+        head?: never;
+        /** Modifier un article — dans SON parc uniquement */
+        patch: operations["DomainController_updateParkItem"];
+        trace?: never;
+    };
+    "/api/morgues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sites mortuaires */
+        get: operations["DomainController_morgues"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/morgues/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mettre à jour un site mortuaire — le sien uniquement */
+        patch: operations["DomainController_updateMorgue"];
+        trace?: never;
+    };
+    "/api/morgues/{id}/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Registre d'identification d'un site mortuaire */
+        get: operations["DomainController_mortuaryRecords"];
+        put?: never;
+        /** Admettre un corps sous référence provisoire — dans SON site uniquement */
+        post: operations["DomainController_admitBody"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/morgues/{id}/records/{rid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Faire évoluer un dossier d'identification — dans SON site uniquement */
+        patch: operations["DomainController_updateMortuaryRecord"];
+        trace?: never;
+    };
     "/api/hospitals": {
         parameters: {
             query?: never;
@@ -519,6 +675,59 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/hospitals/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mettre à jour un établissement — un responsable ne peut agir que sur le sien */
+        patch: operations["DomainController_updateHospital"];
+        trace?: never;
+    };
+    "/api/hospitals/{id}/wards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Services de soins d'un établissement */
+        get: operations["DomainController_listWards"];
+        put?: never;
+        /** Ouvrir un service de soins — dans SON établissement uniquement */
+        post: operations["DomainController_createWard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hospitals/{id}/wards/{wid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Fermer un service de soins — dans SON établissement uniquement */
+        delete: operations["DomainController_deleteWard"];
+        options?: never;
+        head?: never;
+        /** Modifier un service de soins — dans SON établissement uniquement */
+        patch: operations["DomainController_updateWard"];
         trace?: never;
     };
     "/api/field-hospitals": {
@@ -930,6 +1139,33 @@ export interface components {
         ChangePasswordDto: {
             newPassword: string;
         };
+        AssignmentsDto: {
+            /**
+             * @description Hôpital militaire (Responsable Hôpital)
+             * @example H4
+             */
+            hospital?: string;
+            /**
+             * @description Unité (Responsable Unité)
+             * @example U2
+             */
+            unit?: string;
+            /**
+             * @description Abri (Responsable Abri)
+             * @example AB-04
+             */
+            shelter?: string;
+            /**
+             * @description Site mortuaire (Responsable Morgue)
+             * @example M1
+             */
+            morgue?: string;
+            /**
+             * @description Parc d'équipement (Responsable Équipement)
+             * @example U2
+             */
+            equipment?: string;
+        };
         CreateUserDto: {
             /** @example a.saidi */
             matricule: string;
@@ -952,11 +1188,13 @@ export interface components {
             grade?: string;
             /**
              * @example [
-             *       "command",
-             *       "dispatcher"
+             *       "tacom",
+             *       "bluecell"
              *     ]
              */
             roles: ("superadmin" | "admin" | "strategic" | "tacom" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment")[];
+            /** @description Entité affectée par nature de responsabilité (portée ABAC). Obligatoire pour tout rôle « resp_* ». */
+            assignments?: components["schemas"]["AssignmentsDto"];
         };
         UpdateUserDto: {
             /**
@@ -973,6 +1211,8 @@ export interface components {
             /** @example Capitaine */
             grade?: string;
             roles?: ("superadmin" | "admin" | "strategic" | "tacom" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment")[];
+            /** @description Entité affectée par nature de responsabilité (portée ABAC). */
+            assignments?: components["schemas"]["AssignmentsDto"];
         };
         SetActiveDto: {
             active: boolean;
@@ -1096,6 +1336,113 @@ export interface components {
             /** @description [lng, lat] */
             ll: number[];
         };
+        UpdateUnitDto: {
+            /** @description Commandant de l'unité */
+            cmdt?: string;
+            /** @description Effectif */
+            eff?: number;
+            /**
+             * @description Posture
+             * @enum {string}
+             */
+            dispo?: "ready" | "deployed" | "standby";
+            /** @description Taux de préparation (%) */
+            readiness?: number;
+        };
+        UpdateShelterDto: {
+            /** @description Capacité d'accueil */
+            capacity?: number;
+            /** @description Personnes hébergées */
+            occupants?: number;
+            /** @description Encadrement */
+            staff?: number;
+            /**
+             * @description Niveau d'approvisionnement
+             * @enum {string}
+             */
+            supplies?: "ok" | "low" | "critical";
+            /** @description Besoins exprimés */
+            needs?: string;
+            adults?: number;
+            children?: number;
+            elderly?: number;
+        };
+        CreateEquipDto: {
+            /** @example Groupe électrogène 20 kVA */
+            desig: string;
+            /**
+             * @description Catégorie
+             * @example Énergie
+             */
+            cat: string;
+            /** @description Quantité en parc */
+            stock: number;
+            /** @description Seuil d'alerte */
+            threshold: number;
+            /**
+             * @example ok
+             * @enum {string}
+             */
+            cond: "ok" | "repair" | "oos";
+        };
+        UpdateEquipDto: {
+            desig?: string;
+            cat?: string;
+            stock?: number;
+            threshold?: number;
+            /** @enum {string} */
+            cond?: "ok" | "repair" | "oos";
+        };
+        UpdateMorgueDto: {
+            /** @description Emplacements réfrigérés */
+            capacity?: number;
+            /** @description Effectif du site */
+            staff?: number;
+            /** @enum {string} */
+            statut?: "op" | "partial" | "closed";
+        };
+        AdmitBodyDto: {
+            /**
+             * @description Référence provisoire attribuée à l'admission
+             * @example AH-2026-004
+             */
+            reference: string;
+            /**
+             * @description Incident d'origine
+             * @example INC-2607
+             */
+            incidentId?: string;
+            /**
+             * @description Lieu de découverte
+             * @example Douar Tinzert
+             */
+            foundAt?: string;
+            /** @enum {string} */
+            sex?: "m" | "f" | "unknown";
+            /**
+             * @description Tranche d'âge estimée
+             * @example 40-55
+             */
+            ageRange?: string;
+            /** @description Prélèvements déjà réalisés */
+            samples?: ("dna" | "dental" | "fingerprint")[];
+        };
+        UpdateMortuaryRecordDto: {
+            /**
+             * @description Étape du parcours d'identification
+             * @enum {string}
+             */
+            status?: "unidentified" | "in_progress" | "identified" | "released";
+            samples?: ("dna" | "dental" | "fingerprint")[];
+            /** @description Identité confirmée — obligatoire dès « identifié » */
+            identifiedAs?: string;
+            /** @description Personne à qui le corps est remis — obligatoire à la restitution */
+            releasedTo?: string;
+            foundAt?: string;
+            /** @enum {string} */
+            sex?: "m" | "f" | "unknown";
+            ageRange?: string;
+        };
         CreateHospitalDto: {
             /** @example Hôpital Militaire de Tanger */
             nom: string;
@@ -1125,6 +1472,48 @@ export interface components {
             y: number;
             /** @description [lng, lat] */
             ll: number[];
+        };
+        UpdateHospitalDto: {
+            /** @description Lits armés */
+            lits?: number;
+            /** @description Lits occupés */
+            occ?: number;
+            /** @description Lits de réanimation */
+            rea?: number;
+            /** @description Lits de réanimation occupés */
+            reaOcc?: number;
+            /** @description Effectif médical */
+            staff?: number;
+            /** @description Ambulances */
+            amb?: number;
+            /** @description Hélicoptères sanitaires */
+            heli?: number;
+        };
+        CreateWardDto: {
+            /** @example Réanimation polyvalente */
+            nom: string;
+            /** @description Lits armés du service */
+            lits: number;
+            /** @description Lits occupés */
+            occ: number;
+            /**
+             * @example open
+             * @enum {string}
+             */
+            statut: "open" | "saturated" | "closed";
+            /**
+             * @description Médecin-chef
+             * @example Pr. A. Benkirane
+             */
+            chef?: string;
+        };
+        UpdateWardDto: {
+            nom?: string;
+            lits?: number;
+            occ?: number;
+            /** @enum {string} */
+            statut?: "open" | "saturated" | "closed";
+            chef?: string;
         };
         SendMessageDto: {
             /** @example c1 */
@@ -1893,6 +2282,261 @@ export interface operations {
             };
         };
     };
+    DomainController_updateUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUnitDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_shelters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_updateShelter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateShelterDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_parkItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_addParkItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEquipDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_removeParkItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                eid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_updateParkItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                eid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateEquipDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_morgues: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_updateMorgue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMorgueDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_mortuaryRecords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_admitBody: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdmitBodyDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_updateMortuaryRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMortuaryRecordDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     DomainController_hospitals: {
         parameters: {
             query?: never;
@@ -1924,6 +2568,115 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_updateHospital: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateHospitalDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_listWards: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_createWard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWardDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_deleteWard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_updateWard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWardDto"];
+            };
+        };
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

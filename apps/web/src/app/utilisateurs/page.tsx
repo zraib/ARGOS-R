@@ -16,6 +16,9 @@ import {
   canManageUsers,
   canAssignMultipleRoles,
   isSuperAdmin,
+  requiredAssignments,
+  type Assignments,
+  type ResponsibilityKind,
   type Role,
 } from "@/lib/roles";
 import { MODULE_FEATURES, DEFAULT_ROLE_FEATURES, initials } from "@/lib/data/users";
@@ -31,6 +34,8 @@ interface ApiUser {
   phone?: string;
   grade?: string;
   roles: Role[];
+  /** Entités affectées (portée ABAC) — une par nature de responsabilité. */
+  assignments?: Assignments;
   status: "active" | "inactive";
   activatedByAdmin: boolean;
   hasTempCode: boolean;
@@ -482,6 +487,19 @@ function UserForm({
     const kept = user.roles.filter((r) => options.includes(r));
     return multiple ? kept : kept.slice(0, 1);
   });
+  const [assignments, setAssignments] = useState<Assignments>(() => user?.assignments ?? {});
+
+  // Référentiels servant de choix d'affectation. Le parc d'équipement et la
+  // morgue n'ont pas encore de référentiel dédié : saisie libre en attendant.
+  const hospitals = useArgos((s) => s.hospitals);
+  const units = useArgos((s) => s.units);
+  const milHospitals = hospitals.filter((h) => (h.kind ?? "mil") === "mil");
+  const neededKinds = requiredAssignments(roles);
+  const entityOptions = (kind: ResponsibilityKind): { id: string; label: string }[] => {
+    if (kind === "hospital") return milHospitals.map((h) => ({ id: h.id, label: `${h.nom} — ${h.ville}` }));
+    if (kind === "unit") return units.map((u) => ({ id: u.id, label: `${u.nom} — ${u.ville}` }));
+    return [];
+  };
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -498,6 +516,13 @@ function UserForm({
   const submit = async () => {
     if (!matricule.trim() || !nom.trim()) { setError(m.users.need_fields); return; }
     if (roles.length === 0) { setError(m.users.need_role); return; }
+    // Un rôle « responsable » sans entité affectée est refusé par l'API ; on le
+    // signale ici pour éviter un aller-retour, sans que ce soit le contrôle.
+    const missing = neededKinds.filter((k) => !assignments[k]?.trim());
+    if (missing.length > 0) { setError(m.users.need_assignment); return; }
+    // N'envoyer que les affectations réellement exigées par les rôles retenus.
+    const payload: Assignments = {};
+    for (const k of neededKinds) payload[k] = assignments[k]!.trim();
     setBusy(true);
     try {
       if (editing && user) {
@@ -508,6 +533,7 @@ function UserForm({
           phone: phone.trim(),
           grade: grade.trim(),
           roles,
+          assignments: payload,
         });
         const status = res.response?.status;
         if (res.error || (status !== undefined && status >= 400)) {
@@ -525,6 +551,7 @@ function UserForm({
         phone: phone.trim() || undefined,
         grade: grade.trim() || undefined,
         roles,
+        assignments: payload,
       });
       if (res.error || !res.data) {
         const status = (res.response as Response | undefined)?.status;
@@ -599,6 +626,48 @@ function UserForm({
         </div>
         <p className="mt-1.5 text-[11px] text-gray-400 dark:text-rdia-400">{multiple ? m.users.multi_hint : m.users.single_hint}</p>
       </div>
+
+      {/* Rattachement : chaque rôle « responsable » exige l'entité dont il répond.
+          L'API refuse la création sans, et cantonne ensuite toutes ses actions. */}
+      {neededKinds.length > 0 && (
+        <div className="rounded-lg border border-or-500/30 bg-or-500/5 p-4">
+          <div className="mb-1 flex items-center gap-2">
+            <Icon path={UI_ICONS.shield} size={14} />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-or-600 dark:text-or-400">
+              {m.users.assignment}
+            </span>
+          </div>
+          <p className="mb-3 text-[11px] text-gray-500 dark:text-rdia-300">{m.users.assignment_hint}</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {neededKinds.map((kind) => {
+              const opts = entityOptions(kind);
+              const value = assignments[kind] ?? "";
+              const set = (v: string) => { setAssignments((a) => ({ ...a, [kind]: v })); setError(null); };
+              return (
+                <div key={kind}>
+                  <label className={labelCls}>{m.users.responsibility[kind]}</label>
+                  {opts.length > 0 ? (
+                    <select className="input-champ text-sm" value={value} onChange={(e) => set(e.target.value)}>
+                      <option value="">{m.users.assignment_none}</option>
+                      {opts.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+                    </select>
+                  ) : (
+                    // Morgue et parc d'équipement : référentiel pas encore livré,
+                    // saisie libre de l'identifiant en attendant.
+                    <input
+                      className="input-champ font-mono text-sm"
+                      placeholder={m.users.assignment_id_ph}
+                      value={value}
+                      onChange={(e) => set(e.target.value)}
+                      spellCheck={false}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {error && <p className="text-xs font-semibold text-danger-500">{error}</p>}
 

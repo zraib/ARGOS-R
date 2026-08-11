@@ -64,6 +64,9 @@ export class AuthController {
       expires_in: 28800,
       role: activeRole,
       roles: res.user.roles,
+      // Entités affectées : permettent au frontend d'orienter le responsable
+      // vers SA page de gestion. Le cantonnement réel reste appliqué par l'API.
+      assignments: res.user.assignments,
       nom: displayName(res.user),
       matricule: res.user.matricule,
       photo: res.user.photo,

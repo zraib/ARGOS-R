@@ -15,6 +15,14 @@ import {
   ROLES,
   type Role,
 } from "@/shared/permissions";
+import {
+  isResponsibilityKind,
+  requiredAssignments,
+  RESPONSIBILITY_LABELS,
+  type Assignments,
+  type ResponsibilityKind,
+} from "@/shared/responsibilities";
+import type { ScopeResolver } from "@/common/ports/scope-resolver.port";
 import { loadDevState, saveDevState } from "@/common/dev-store";
 
 /**
@@ -32,6 +40,12 @@ export interface ManagedUser {
   phone?: string;
   grade?: string;
   roles: Role[];
+  /**
+   * Entités affectées (portée ABAC), une par nature de responsabilité :
+   * `{ hospital: "H4" }` pour un Responsable Hôpital. Obligatoire pour tout
+   * rôle `resp_*` — un responsable sans entité ne peut rien piloter.
+   */
+  assignments?: Assignments;
   passwordChanged: boolean;
   /** Mot de passe défini par l'utilisateur (démo ; à hacher en production). */
   password?: string;
@@ -57,6 +71,8 @@ export interface ManagedUserPublic {
   phone?: string;
   grade?: string;
   roles: Role[];
+  /** Entités affectées (portée ABAC) — visible dans l'écran d'administration. */
+  assignments?: Assignments;
   status: "active" | "inactive";
   activatedByAdmin: boolean;
   hasTempCode: boolean;
@@ -95,6 +111,7 @@ function toPublic(u: ManagedUser): ManagedUserPublic {
     phone: u.phone,
     grade: u.grade,
     roles: u.roles,
+    assignments: u.assignments,
     status: userActive(u) ? "active" : "inactive",
     activatedByAdmin: u.activatedByAdmin,
     hasTempCode: !u.passwordChanged && !!u.tempPassword,
@@ -108,15 +125,15 @@ function toPublic(u: ManagedUser): ManagedUserPublic {
 }
 
 @Injectable()
-export class UsersService {
+export class UsersService implements ScopeResolver {
   private readonly users: ManagedUser[] = [
     // Compte fondateur : code initial « ARGOS-2026 » (remis hors-bande), mot de
     // passe personnel OBLIGATOIRE au 1er login — aucun mot de passe passe-partout.
     { id: "u-benjelloun", matricule: "m.zraib", nom: "Zraib", prenom: "Mohammed", phone: "+212663002950", grade: "Commandant", roles: ["superadmin"], passwordChanged: false, tempPassword: "ARGOS-2026", activatedByAdmin: true, disabled: false, online: false, builtin: true, createdBy: "système", createdAt: "2026-01-04T08:00:00Z", lastLogin: null },
     { id: "u-alami", matricule: "h.alami", nom: "Cdt. H. Alami", grade: "Commandant", roles: ["admin"], passwordChanged: true, password: "argos", tempPassword: null, activatedByAdmin: false, disabled: false, online: false, createdBy: "k.benjelloun", createdAt: "2026-02-11T09:20:00Z", lastLogin: "2026-07-13T18:40:00Z" },
     { id: "u-tazi", matricule: "y.tazi", nom: "Cne. Y. Tazi", grade: "Capitaine", roles: ["bluecell"], passwordChanged: true, password: "argos", tempPassword: null, activatedByAdmin: false, disabled: false, online: true, createdBy: "h.alami", createdAt: "2026-03-02T14:05:00Z", lastLogin: "2026-07-14T00:10:00Z" },
-    { id: "u-fassi", matricule: "n.fassi", nom: "Lt. N. Fassi", grade: "Lieutenant", roles: ["resp_unit"], passwordChanged: false, tempPassword: "A7X2-K9D3", activatedByAdmin: false, disabled: false, online: false, createdBy: "h.alami", createdAt: "2026-07-12T11:30:00Z", lastLogin: null },
-    { id: "u-bennani", matricule: "s.bennani", nom: "Cdt. S. Bennani", grade: "Commandant", roles: ["tacom", "bluecell", "resp_unit"], passwordChanged: false, tempPassword: "Q4M8-P2L6", activatedByAdmin: false, disabled: false, online: false, createdBy: "k.benjelloun", createdAt: "2026-07-13T16:45:00Z", lastLogin: null },
+    { id: "u-fassi", matricule: "n.fassi", nom: "Lt. N. Fassi", grade: "Lieutenant", roles: ["resp_unit"], assignments: { unit: "U3" }, passwordChanged: false, tempPassword: "A7X2-K9D3", activatedByAdmin: false, disabled: false, online: false, createdBy: "h.alami", createdAt: "2026-07-12T11:30:00Z", lastLogin: null },
+    { id: "u-bennani", matricule: "s.bennani", nom: "Cdt. S. Bennani", grade: "Commandant", roles: ["tacom", "bluecell", "resp_unit"], assignments: { unit: "U2" }, passwordChanged: false, tempPassword: "Q4M8-P2L6", activatedByAdmin: false, disabled: false, online: false, createdBy: "k.benjelloun", createdAt: "2026-07-13T16:45:00Z", lastLogin: null },
     { id: "u-idrissi", matricule: "r.idrissi", nom: "Cne. R. Idrissi", grade: "Capitaine", roles: ["strategic"], passwordChanged: false, tempPassword: "Z9C1-H5R7", activatedByAdmin: true, disabled: false, online: false, createdBy: "k.benjelloun", createdAt: "2026-07-10T10:15:00Z", lastLogin: null },
   ];
 
@@ -197,14 +214,63 @@ export class UsersService {
     }
   }
 
+  /**
+   * Valide le rattachement ABAC : chaque rôle `resp_*` doit se voir affecter
+   * une entité, et aucune affectation ne peut porter sur une nature que les
+   * rôles du compte ne couvrent pas (pas de portée orpheline).
+   */
+  private normalizeAssignments(
+    roles: readonly Role[],
+    input: Assignments | undefined,
+    /**
+     * `true` quand l'appelant a explicitement fourni des affectations : une clé
+     * hors périmètre est alors une erreur de saisie. `false` quand on reprend
+     * l'état existant du compte : les affectations devenues orphelines (rôle
+     * retiré) sont simplement PURGÉES, sans faire échouer la modification.
+     */
+    explicit: boolean,
+  ): Assignments | undefined {
+    const needed = requiredAssignments(roles);
+    const provided = input ?? {};
+
+    if (explicit) {
+      // Ne considérer que les clés RÉELLEMENT renseignées : désérialisé depuis
+      // le DTO, l'objet porte toutes les natures, la plupart à `undefined`.
+      for (const [key, value] of Object.entries(provided)) {
+        if (value === undefined || value === null || String(value).trim() === "") continue;
+        if (!isResponsibilityKind(key)) {
+          throw new BadRequestException(`Nature de responsabilité inconnue : ${key}`);
+        }
+        if (!needed.includes(key)) {
+          throw new BadRequestException(
+            `Affectation « ${RESPONSIBILITY_LABELS[key]} » impossible : aucun rôle du compte n'en est responsable.`,
+          );
+        }
+      }
+    }
+
+    const out: Assignments = {};
+    for (const kind of needed) {
+      const id = provided[kind]?.trim();
+      if (!id) {
+        throw new BadRequestException(
+          `Le rôle « responsable ${RESPONSIBILITY_LABELS[kind].toLowerCase()} » exige d'affecter une entité.`,
+        );
+      }
+      out[kind] = id;
+    }
+    return needed.length > 0 ? out : undefined;
+  }
+
   // --- écriture ------------------------------------------------------------
 
   create(
     creator: Role,
     actorUsername: string,
-    input: { matricule: string; nom: string; prenom?: string; phone?: string; grade?: string; roles: Role[] },
+    input: { matricule: string; nom: string; prenom?: string; phone?: string; grade?: string; roles: Role[]; assignments?: Assignments },
   ): { user: ManagedUserPublic; tempPassword: string } {
     this.validateRoles(creator, input.roles);
+    const assignments = this.normalizeAssignments(input.roles, input.assignments, input.assignments !== undefined);
     const matricule = input.matricule.trim();
     if (this.users.some((u) => u.matricule.toLowerCase() === matricule.toLowerCase())) {
       throw new ConflictException("Ce matricule existe déjà.");
@@ -218,6 +284,7 @@ export class UsersService {
       phone: input.phone?.trim() || undefined,
       grade: input.grade?.trim() || undefined,
       roles: input.roles,
+      assignments,
       passwordChanged: false,
       tempPassword,
       activatedByAdmin: false,
@@ -235,13 +302,23 @@ export class UsersService {
   update(
     actorRole: Role,
     id: string,
-    patch: { matricule?: string; nom?: string; prenom?: string; phone?: string; grade?: string; roles?: Role[] },
+    patch: { matricule?: string; nom?: string; prenom?: string; phone?: string; grade?: string; roles?: Role[]; assignments?: Assignments },
   ): ManagedUserPublic {
     const u = this.find(id);
     this.assertManageable(actorRole, u);
     if (patch.roles !== undefined) {
       this.validateRoles(actorRole, patch.roles);
       u.roles = patch.roles;
+    }
+    // Le rattachement est revalidé dès que les rôles OU les affectations
+    // changent : passer un compte à « Responsable Hôpital » sans lui affecter
+    // d'établissement doit échouer, et retirer le rôle doit purger la portée.
+    if (patch.roles !== undefined || patch.assignments !== undefined) {
+      u.assignments = this.normalizeAssignments(
+        u.roles,
+        patch.assignments ?? u.assignments,
+        patch.assignments !== undefined,
+      );
     }
     // Le nom d'utilisateur (identifiant de connexion) n'est modifiable que par
     // le Super Administrateur, et doit rester unique.
@@ -381,6 +458,20 @@ export class UsersService {
   }
 
   /** Valide qu'un rôle appartient bien au compte (sélecteur de rôle multi-rôles). */
+  /**
+   * Portée ABAC d'un compte (implémente `ScopeResolver`). Appelée par la garde
+   * JWT à chaque requête : une réaffectation prend effet sans reconnexion.
+   */
+  resolveScope(username: string): Assignments | undefined {
+    const u = this.users.find((x) => x.matricule.toLowerCase() === username.toLowerCase());
+    return u?.assignments;
+  }
+
+  /** Entité affectée pour une nature donnée, ou `undefined`. */
+  assignedEntity(username: string, kind: ResponsibilityKind): string | undefined {
+    return this.resolveScope(username)?.[kind];
+  }
+
   hasRole(matricule: string, role: Role): boolean {
     const u = this.byMatricule(matricule);
     return !!u && u.roles.includes(role);

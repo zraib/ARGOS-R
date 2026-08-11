@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { DomainService } from "@/modules/domain/domain.service";
 import { CatalogService } from "@/modules/domain/catalog.service";
@@ -14,13 +14,24 @@ import {
   CreateHospitalDto,
   CreateIncidentDto,
   CreateSubIncidentDto,
+  AdmitBodyDto,
+  CreateEquipDto,
+  CreateWardDto,
   CreateUnitDto,
   RegisterIncidentTypeDto,
   SendMessageDto,
+  UpdateHospitalDto,
   UpdateIncidentDto,
+  UpdateEquipDto,
+  UpdateMorgueDto,
+  UpdateMortuaryRecordDto,
+  UpdateShelterDto,
+  UpdateUnitDto,
+  UpdateWardDto,
   UpdateSeismicAlertConfigDto,
 } from "@/modules/domain/dto";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
+import { RequireScope } from "@/common/decorators/require-scope.decorator";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
 
@@ -142,6 +153,130 @@ export class DomainController {
     return this.domain.createUnit(dto);
   }
 
+  @Patch("units/:id")
+  @RequirePermission("org:units:manage")
+  @RequireScope("unit")
+  @ApiOperation({ summary: "Mettre à jour une unité — un responsable ne peut agir que sur la sienne" })
+  updateUnit(@Param("id") id: string, @Body() dto: UpdateUnitDto) {
+    const u = this.domain.updateUnit(id, dto);
+    if (!u) throw new NotFoundException(`Unité introuvable : ${id}`);
+    return u;
+  }
+
+  // --- abris ----------------------------------------------------------------
+
+  @Get("shelters")
+  @RequirePermission("org:zones:read")
+  @ApiOperation({ summary: "Liste des abris d'hébergement" })
+  shelters() {
+    return this.domain.listShelters();
+  }
+
+  @Patch("shelters/:id")
+  @RequirePermission("org:zones:manage")
+  @RequireScope("shelter")
+  @ApiOperation({ summary: "Mettre à jour un abri — un responsable ne peut agir que sur le sien" })
+  updateShelter(@Param("id") id: string, @Body() dto: UpdateShelterDto) {
+    const sh = this.domain.updateShelter(id, dto);
+    if (!sh) throw new NotFoundException(`Abri introuvable : ${id}`);
+    return sh;
+  }
+
+  // --- parc d'équipement -----------------------------------------------------
+  // La route porte l'identifiant de l'UNITÉ détentrice (et non celui de
+  // l'article) : le ScopeGuard peut ainsi cantonner sans connaître la ressource,
+  // exactement comme pour les services de soins d'un hôpital.
+
+  @Get("equipment-parks/:id/items")
+  @RequirePermission("equip:read")
+  @ApiOperation({ summary: "Parc d'équipement d'une unité" })
+  parkItems(@Param("id") id: string) {
+    if (!this.domain.findUnit(id)) throw new NotFoundException(`Unité introuvable : ${id}`);
+    return this.domain.listEquipment(id);
+  }
+
+  @Post("equipment-parks/:id/items")
+  @RequirePermission("equip:manage")
+  @RequireScope("equipment")
+  @ApiOperation({ summary: "Ajouter un article — dans SON parc uniquement" })
+  addParkItem(@Param("id") id: string, @Body() dto: CreateEquipDto) {
+    const unit = this.domain.findUnit(id);
+    if (!unit) throw new NotFoundException(`Unité introuvable : ${id}`);
+    // Le libellé affiché reste celui de l'unité : jamais saisi par le client.
+    return this.domain.addEquipment(id, unit.nom, dto);
+  }
+
+  @Patch("equipment-parks/:id/items/:eid")
+  @RequirePermission("equip:manage")
+  @RequireScope("equipment")
+  @ApiOperation({ summary: "Modifier un article — dans SON parc uniquement" })
+  updateParkItem(@Param("id") id: string, @Param("eid") eid: string, @Body() dto: UpdateEquipDto) {
+    const e = this.domain.updateEquipment(id, eid, dto);
+    if (!e) throw new NotFoundException(`Article introuvable dans le parc ${id} : ${eid}`);
+    return e;
+  }
+
+  @Delete("equipment-parks/:id/items/:eid")
+  @RequirePermission("equip:manage")
+  @RequireScope("equipment")
+  @ApiOperation({ summary: "Sortir un article du parc — dans SON parc uniquement" })
+  removeParkItem(@Param("id") id: string, @Param("eid") eid: string) {
+    if (!this.domain.removeEquipment(id, eid)) {
+      throw new NotFoundException(`Article introuvable dans le parc ${id} : ${eid}`);
+    }
+    return { ok: true };
+  }
+
+  // --- morgue / registre DVI -------------------------------------------------
+  // Lecture réservée au commandement et au responsable ; toute ÉCRITURE est
+  // cantonnée au site dont le compte a la responsabilité.
+
+  @Get("morgues")
+  @RequirePermission("morgue:read")
+  @ApiOperation({ summary: "Sites mortuaires" })
+  morgues() {
+    return this.domain.listMorgues();
+  }
+
+  @Patch("morgues/:id")
+  @RequirePermission("morgue:manage")
+  @RequireScope("morgue")
+  @ApiOperation({ summary: "Mettre à jour un site mortuaire — le sien uniquement" })
+  updateMorgue(@Param("id") id: string, @Body() dto: UpdateMorgueDto) {
+    const m = this.domain.updateMorgue(id, dto);
+    if (!m) throw new NotFoundException(`Site mortuaire introuvable : ${id}`);
+    return m;
+  }
+
+  @Get("morgues/:id/records")
+  @RequirePermission("morgue:read")
+  @ApiOperation({ summary: "Registre d'identification d'un site mortuaire" })
+  mortuaryRecords(@Param("id") id: string) {
+    if (!this.domain.findMorgue(id)) throw new NotFoundException(`Site mortuaire introuvable : ${id}`);
+    return this.domain.listMortuaryRecords(id);
+  }
+
+  @Post("morgues/:id/records")
+  @RequirePermission("morgue:manage")
+  @RequireScope("morgue")
+  @ApiOperation({ summary: "Admettre un corps sous référence provisoire — dans SON site uniquement" })
+  admitBody(@Param("id") id: string, @Body() dto: AdmitBodyDto) {
+    if (!this.domain.findMorgue(id)) throw new NotFoundException(`Site mortuaire introuvable : ${id}`);
+    return this.domain.admitBody(id, dto);
+  }
+
+  @Patch("morgues/:id/records/:rid")
+  @RequirePermission("morgue:manage")
+  @RequireScope("morgue")
+  @ApiOperation({ summary: "Faire évoluer un dossier d'identification — dans SON site uniquement" })
+  updateMortuaryRecord(@Param("id") id: string, @Param("rid") rid: string, @Body() dto: UpdateMortuaryRecordDto) {
+    const res = this.domain.updateMortuaryRecord(id, rid, dto);
+    if (res.missing) throw new NotFoundException(`Dossier introuvable dans ${id} : ${rid}`);
+    // Violation d'un invariant du parcours DVI → 409 (règle métier, pas saisie).
+    if (res.error) throw new ConflictException(res.error);
+    return res.record;
+  }
+
   @Get("hospitals")
   @RequirePermission("org:hospitals:read")
   @ApiOperation({ summary: "Liste des hôpitaux" })
@@ -154,6 +289,56 @@ export class DomainController {
   @ApiOperation({ summary: "Créer un hôpital (audité)" })
   createHospital(@Body() dto: CreateHospitalDto) {
     return this.domain.createHospital(dto);
+  }
+
+  @Patch("hospitals/:id")
+  @RequirePermission("org:hospitals:manage")
+  @RequireScope("hospital")
+  @ApiOperation({ summary: "Mettre à jour un établissement — un responsable ne peut agir que sur le sien" })
+  updateHospital(@Param("id") id: string, @Body() dto: UpdateHospitalDto) {
+    const h = this.domain.updateHospital(id, dto);
+    if (!h) throw new NotFoundException(`Établissement introuvable : ${id}`);
+    return h;
+  }
+
+  // --- services de soins d'un établissement --------------------------------
+  // Lecture ouverte à qui peut lire le réseau ; toute ÉCRITURE est cantonnée
+  // à l'établissement dont le compte a la responsabilité (@RequireScope).
+
+  @Get("hospitals/:id/wards")
+  @RequirePermission("org:hospitals:read")
+  @ApiOperation({ summary: "Services de soins d'un établissement" })
+  listWards(@Param("id") id: string) {
+    if (!this.domain.findHospital(id)) throw new NotFoundException(`Établissement introuvable : ${id}`);
+    return this.domain.listWards(id);
+  }
+
+  @Post("hospitals/:id/wards")
+  @RequirePermission("org:hospitals:manage")
+  @RequireScope("hospital")
+  @ApiOperation({ summary: "Ouvrir un service de soins — dans SON établissement uniquement" })
+  createWard(@Param("id") id: string, @Body() dto: CreateWardDto) {
+    if (!this.domain.findHospital(id)) throw new NotFoundException(`Établissement introuvable : ${id}`);
+    return this.domain.createWard(id, dto);
+  }
+
+  @Patch("hospitals/:id/wards/:wid")
+  @RequirePermission("org:hospitals:manage")
+  @RequireScope("hospital")
+  @ApiOperation({ summary: "Modifier un service de soins — dans SON établissement uniquement" })
+  updateWard(@Param("id") id: string, @Param("wid") wid: string, @Body() dto: UpdateWardDto) {
+    const w = this.domain.updateWard(id, wid, dto);
+    if (!w) throw new NotFoundException(`Service introuvable dans ${id} : ${wid}`);
+    return w;
+  }
+
+  @Delete("hospitals/:id/wards/:wid")
+  @RequirePermission("org:hospitals:manage")
+  @RequireScope("hospital")
+  @ApiOperation({ summary: "Fermer un service de soins — dans SON établissement uniquement" })
+  deleteWard(@Param("id") id: string, @Param("wid") wid: string) {
+    if (!this.domain.deleteWard(id, wid)) throw new NotFoundException(`Service introuvable dans ${id} : ${wid}`);
+    return { ok: true };
   }
 
   @Get("field-hospitals")

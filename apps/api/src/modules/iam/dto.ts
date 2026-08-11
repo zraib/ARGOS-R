@@ -1,6 +1,34 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { ArrayMinSize, IsArray, IsBoolean, IsIn, IsOptional, IsString, MinLength } from "class-validator";
+import { Type } from "class-transformer";
+import { ArrayMinSize, IsArray, IsBoolean, IsIn, IsOptional, IsString, MinLength, ValidateNested } from "class-validator";
 import { MODULE_FEATURES, ROLES, type Role } from "@/shared/permissions";
+
+/**
+ * Rattachement d'un compte : l'entité dont il répond, par nature de
+ * responsabilité. Une propriété nommée par nature (plutôt qu'un objet libre)
+ * pour que le contrat OpenAPI — et donc le client généré — soit typé.
+ */
+export class AssignmentsDto {
+  @ApiPropertyOptional({ example: "H4", description: "Hôpital militaire (Responsable Hôpital)" })
+  @IsOptional() @IsString()
+  hospital?: string;
+
+  @ApiPropertyOptional({ example: "U2", description: "Unité (Responsable Unité)" })
+  @IsOptional() @IsString()
+  unit?: string;
+
+  @ApiPropertyOptional({ example: "AB-04", description: "Abri (Responsable Abri)" })
+  @IsOptional() @IsString()
+  shelter?: string;
+
+  @ApiPropertyOptional({ example: "M1", description: "Site mortuaire (Responsable Morgue)" })
+  @IsOptional() @IsString()
+  morgue?: string;
+
+  @ApiPropertyOptional({ example: "U2", description: "Parc d'équipement (Responsable Équipement)" })
+  @IsOptional() @IsString()
+  equipment?: string;
+}
 
 /** Corps de la demande de jeton de développement (mode dev uniquement). */
 export class DevTokenDto {
@@ -83,11 +111,20 @@ export class CreateUserDto {
   @IsString()
   grade?: string;
 
-  @ApiProperty({ enum: ROLES, isArray: true, example: ["command", "dispatcher"] })
+  @ApiProperty({ enum: ROLES, isArray: true, example: ["tacom", "bluecell"] })
   @IsArray()
   @ArrayMinSize(1)
   @IsIn(ROLES as unknown as string[], { each: true })
   roles!: Role[];
+
+  @ApiPropertyOptional({
+    type: AssignmentsDto,
+    description: "Entité affectée par nature de responsabilité (portée ABAC). Obligatoire pour tout rôle « resp_* ».",
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AssignmentsDto)
+  assignments?: AssignmentsDto;
 }
 
 /** Modification d'un utilisateur (champs optionnels). */
@@ -125,6 +162,12 @@ export class UpdateUserDto {
   @ArrayMinSize(1)
   @IsIn(ROLES as unknown as string[], { each: true })
   roles?: Role[];
+
+  @ApiPropertyOptional({ type: AssignmentsDto, description: "Entité affectée par nature de responsabilité (portée ABAC)." })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AssignmentsDto)
+  assignments?: AssignmentsDto;
 }
 
 /** Activation forcée / suspension d'un compte. */

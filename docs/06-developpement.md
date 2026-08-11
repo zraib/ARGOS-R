@@ -49,7 +49,7 @@ Node uniquement (exigence de souveraineté).
 | `npm run dev:api` / `npm run dev:web` | un seul service |
 | `npm run setup` | `npm install` dans `packages/api-client`, `apps/api`, `apps/web` |
 | `npm run typecheck` | `tsc --noEmit` sur l'API puis le web |
-| `npm test` | suite de tests de l'API (**50 tests**, dont la gate de sécurité) |
+| `npm test` | suite de tests de l'API (**79 tests**, dont la gate de sécurité) |
 | `npm run build` | build de production API + web |
 | `npm run openapi` | régénère `apps/api/openapi.json` |
 

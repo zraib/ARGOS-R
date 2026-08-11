@@ -5,6 +5,7 @@ import { LoggerModule } from "nestjs-pino";
 import configuration from "@/config/configuration";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "@/common/guards/permissions.guard";
+import { ScopeGuard } from "@/common/guards/scope.guard";
 import { AuditInterceptor } from "@/common/interceptors/audit.interceptor";
 import { DatabaseModule } from "@/db/database.module";
 import { AuditModule } from "@/modules/audit/audit.module";
@@ -32,9 +33,11 @@ import { OrdersModule } from "@/modules/orders/orders.module";
     OrdersModule,
   ],
   providers: [
-    // Ordre : authentification (JWT) puis autorisation (RBAC). Global = default-deny.
+    // Ordre : authentification (JWT), autorisation par rôle (RBAC), puis
+    // cantonnement au périmètre affecté (ABAC). Global = default-deny.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
+    { provide: APP_GUARD, useClass: ScopeGuard },
     // Journalisation automatique des mutations dans le journal d'audit chaîné.
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
   ],

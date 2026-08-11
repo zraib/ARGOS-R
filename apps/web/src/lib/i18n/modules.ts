@@ -328,6 +328,48 @@ export interface ModulesDict {
     seis_log_empty: string;
     seis_sent_to: string;
   };
+  resp: {
+    my_responsibility: string; manage: string; manage_title: string; loading: string;
+    beds_free: string; icu_free: string; icu: string; staff: string; vehicles: string; amb_heli: string;
+    load: string; beds_overall: string; wards: string; field_hosp: string; incidents: string;
+    no_field: string; no_ward: string; no_incident: string;
+    capacities: string; add_ward: string; edit_ward: string; edit: string; delete: string; cancel: string;
+    save: string; saving: string; saved: string;
+    ward_created: string; ward_saved: string; ward_deleted: string;
+    delete_ward_title: string; delete_ward_text: string;
+    f_beds: string; f_occ: string; f_icu: string; f_icu_occ: string; f_staff: string; f_amb: string; f_heli: string;
+    f_ward_name: string; f_ward_name_ph: string; f_status: string; f_chief: string; f_chief_ph: string;
+    err_occ: string; err_rea: string; err_name: string; err_denied: string;
+    none_title: string; none_text: string; unassigned_title: string; unassigned_text: string; pending_text: string;
+    manage_unit: string; manage_shelter: string;
+    u_effectif: string; u_readiness: string; u_posture: string; u_posture_block: string; u_missions: string; u_engaged: string; u_cmdt: string;
+    s_places_free: string; s_occupants: string; s_staff: string; s_supplies: string; s_occupancy: string; s_demography: string;
+    s_adults: string; s_children: string; s_elderly: string; s_needs: string; s_needs_field: string; s_needs_ph: string;
+    s_capacity: string; s_capacity_block: string; err_occupants: string;
+    manage_morgue: string;
+    g_places_free: string; g_unidentified: string; g_in_progress: string; g_released: string;
+    g_occupancy: string; g_bodies_present: string; g_progress: string; g_register: string; g_no_record: string;
+    g_reference: string; g_reference_ph: string; g_status: string; g_identity: string; g_identity_ph: string;
+    g_samples: string; g_found_at: string; g_found_at_ph: string; g_sex: string; g_age: string;
+    g_incident: string; g_incident_none: string; g_admit: string; g_admit_btn: string; g_admit_hint: string; g_admitted: string;
+    g_record: string; g_record_saved: string; g_unknown: string; g_closed: string;
+    g_released_to: string; g_released_field: string; g_released_ph: string; g_released_hint: string;
+    g_site_block: string; g_capacity: string; g_staff: string;
+    g_err_reference: string; g_err_identity: string; g_err_released: string; g_err_transition: string;
+    e_park: string; e_articles: string; e_below: string; e_oos: string; e_inventory: string; e_empty: string;
+    e_add: string; e_edit: string; e_added: string; e_saved: string; e_removed: string; e_low: string;
+    e_desig: string; e_desig_ph: string; e_category: string; e_category_ph: string; e_condition: string;
+    e_stock: string; e_threshold: string; e_threshold_field: string; e_err_fields: string;
+    e_remove_title: string; e_remove_text: string;
+    equip_cond: Record<"ok" | "repair" | "oos", string>;
+    morgue_statut: Record<"op" | "partial" | "closed", string>;
+    dvi_status: Record<"unidentified" | "in_progress" | "identified" | "released", string>;
+    dvi_sample: Record<"dna" | "dental" | "fingerprint", string>;
+    dvi_sex: Record<"m" | "f" | "unknown", string>;
+    unit_dispo: Record<"ready" | "deployed" | "standby", string>;
+    supply: Record<"ok" | "low" | "critical", string>;
+    ward_status: Record<"open" | "saturated" | "closed", string>;
+  };
   roles: Record<
     | "superadmin" | "admin" | "strategic" | "tacom" | "bluecell" | "greencell" | "orangecell"
     | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment",
@@ -397,6 +439,12 @@ export interface ModulesDict {
     deleted_toast: string;
     activated_toast: string;
     need_role: string;
+    need_assignment: string;
+    assignment: string;
+    assignment_hint: string;
+    assignment_none: string;
+    assignment_id_ph: string;
+    responsibility: Record<"hospital" | "unit" | "shelter" | "morgue" | "equipment", string>;
     need_fields: string;
     dup_matricule: string;
     role_features_title: string;
@@ -443,6 +491,50 @@ const fr: ModulesDict = {
   dispatch: { strip_ops: "Opérations actives", strip_units: "Unités engagées", strip_movements: "Mouvements en cours", strip_queue: "File de dispatching", strip_available: "Unités disponibles", need: "Besoin à traiter", select_need: "Sélectionner une opération ou une demande", units_board: "Unités", eta: "ETA", score: "Score", match: "Adéquation", engage: "Engager", relieve: "Relever", engaged: "Engagée", reco_title: "Recommandations", reco_hint: "Moteur de recommandation — proximité × capacités × disponibilité", apply: "Appliquer", best: "Meilleure option", excluded: "Écartée", b_travel: "Temps de trajet", b_cap: "Capacités", b_readiness: "Dispo. opér.", b_avail: "Disponibilité", caps_required: "Capacités requises", mv_mission: "Mission", mv_vehicles: "Véhicules", mv_origin: "Origine", mv_dest: "Destination", mv_cargo: "Chargement", mv_progress: "Progression", mv_delay: "Retard", mv_ontime: "À l'heure", queue_title: "File de dispatching", treat: "Traiter", urg_urgent: "Urgent", urg_high: "Prioritaire", urg_medium: "Normal", confirm_engage: "Confirmer l'engagement", reason: "Motif (obligatoire)", reason_ph: "Justification de la décision…", confirm: "Confirmer l'engagement", audit_note: "Chaque décision est confirmée, motivée et auditée.", min: "min", sim: "Simulation « et si ? »", sim_hint: "Ajustez les poids du score pour comparer des scénarios, sans engager", sim_reset: "Réinitialiser", sim_active: "Simulation active", weights_title: "Poids du score" },
   ai: { subtitle: "Assistant opérationnel — requêtes en langage naturel", guardrail: "Lecture seule : l'assistant interroge le moteur Couche 1 et rédige ; il n'exécute aucune action et chaque échange est journalisé.", provider_local: "LLM local", provider_online: "connecté", provider_offline: "hors ligne — réponses déterministes", mode_llm: "reformulé par le LLM local", mode_det: "réponse déterministe (Couche 1)", layer1: "Requête Couche 1", placeholder: "Poser une question opérationnelle…", send: "Envoyer", clear: "Effacer", examples: "Exemples", ex_reach: "Quelles unités peuvent atteindre Al Haouz en moins d'une heure avec des groupes électrogènes ?", ex_reach2: "Unités de génie mobilisables pour le glissement d'Al Hoceïma en moins de 3 heures", ex_sitrep: "Génère un brouillon de SITREP pour l'opération SALAMA", ex_anomaly: "Résume les anomalies des mouvements en cours", thinking: "Analyse en cours…", empty: "Posez une question ou choisissez un exemple.", model: "Modèle", no_models: "aucun modèle détecté", configure: "Configurer" },
   settings: { reserved: "Réservé au Super Administrateur", ai_title: "Assistant IA — Modèle de langage (LLM)", provider: "Fournisseur", endpoint: "Point d'accès (URL)", model: "Modèle", model_ph: "nom du modèle (ex. llama3.1:8b)", detect: "Détecter / Tester", detected: "modèle(s) détecté(s)", status_connected: "Connecté", status_offline: "Hors ligne", status_checking: "Test…", note: "En production, ces réglages sont pilotés par le Super Admin et propagés à tous les postes via l'API ARGOS ; l'appel LLM s'exécute côté serveur.", future_title: "Autres paramètres", future_hint: "Registre des appareils, image de marque, rétention des journaux… (à venir)", reset: "Valeurs par défaut", flags_title: "Modules (feature flags)", flags_hint: "Activez ou désactivez les modules globalement. Un module désactivé disparaît de la navigation et sa page est verrouillée.", module_disabled: "Module désactivé par l'administrateur.", types_title: "Types d'incident", types_hint: "Ajoutez de nouveaux types ; ils apparaissent aussitôt dans l'assistant de déclaration avec l'icône choisie.", type_id: "Identifiant", type_id_ph: "ex. tempete_sable", type_icon: "Icône", label_fr: "Libellé FR", label_ar: "Libellé AR", label_en: "Libellé EN", type_add: "Ajouter le type", type_added: "Type d'incident ajouté", type_exists: "Ce type existe déjà.", type_builtin: "Fourni", types_search: "Rechercher un type…", types_empty: "Aucun type ne correspond.", audit_title: "Journal d'audit", audit_intact: "chaîne intègre", audit_broken: "chaîne rompue", audit_refresh: "Actualiser", audit_empty: "Aucune entrée — basculez un module pour générer une trace.", seis_title: "Alertes sismiques", seis_hint: "Un séisme sur le territoire national ≥ seuil national déclenche une alerte rouge dans l'app ET l'envoi SMS + e-mail aux autorités ci-dessous (surveillance côté serveur). Un séisme mondial ≥ seuil mondial ne déclenche qu'une notification dans l'app.", seis_ma_lbl: "Seuil national (SMS + e-mail)", seis_ma_hint: "magnitude min. d'un séisme au Maroc", seis_world_lbl: "Seuil mondial (notification app)", seis_world_hint: "magnitude min. d'un séisme hors Maroc", seis_contacts: "Autorités notifiées", seis_c_name: "Nom / fonction", seis_c_phone: "Téléphone (SMS)", seis_c_email: "E-mail", seis_add: "Ajouter une autorité", seis_save: "Enregistrer", seis_saved: "Configuration des alertes enregistrée", seis_log: "Derniers envois", seis_log_empty: "Aucun envoi pour l'instant.", seis_sent_to: "autorité(s)" },
+  resp: {
+    my_responsibility: "Ma responsabilité", manage: "Gérer", manage_title: "Gestion de mon établissement", loading: "Chargement…",
+    beds_free: "Lits disponibles", icu_free: "Réanimation disponible", icu: "Réanimation", staff: "Effectif médical", vehicles: "Moyens", amb_heli: "ambulances + hélicoptères",
+    load: "Charge de l'établissement", beds_overall: "Lits (toutes disciplines)", wards: "Services de soins", field_hosp: "Hôpitaux de campagne rattachés", incidents: "Incidents engageant l'établissement",
+    no_field: "Aucun hôpital de campagne rattaché.", no_ward: "Aucun service enregistré.", no_incident: "Aucun incident en cours.",
+    capacities: "Capacités de l'établissement", add_ward: "Nouveau service", edit_ward: "Modifier le service", edit: "Modifier", delete: "Supprimer", cancel: "Annuler",
+    save: "Enregistrer", saving: "Enregistrement…", saved: "Capacités mises à jour.",
+    ward_created: "Service ouvert.", ward_saved: "Service mis à jour.", ward_deleted: "Service fermé.",
+    delete_ward_title: "Fermer le service", delete_ward_text: "Confirmer la fermeture définitive du service",
+    f_beds: "Lits armés", f_occ: "Lits occupés", f_icu: "Lits de réanimation", f_icu_occ: "Réanimation occupée", f_staff: "Effectif", f_amb: "Ambulances", f_heli: "Hélicoptères",
+    f_ward_name: "Intitulé du service", f_ward_name_ph: "ex. Réanimation polyvalente", f_status: "Statut", f_chief: "Médecin-chef", f_chief_ph: "ex. Cdt. S. Alaoui",
+    err_occ: "Les lits occupés ne peuvent pas dépasser les lits armés.", err_rea: "La réanimation occupée ne peut pas dépasser les lits de réanimation.", err_name: "Renseignez l'intitulé du service.", err_denied: "Action refusée par le serveur : hors de votre périmètre.",
+    none_title: "Aucune responsabilité", none_text: "Le rôle actif n'est rattaché à aucune entité. Changez de rôle depuis le menu utilisateur si votre compte en cumule plusieurs.",
+    unassigned_title: "Aucune entité affectée", unassigned_text: "Votre compte porte un rôle de responsable mais aucune entité ne lui est affectée. Contactez l'administrateur.",
+    pending_text: "Le module de gestion de cette responsabilité est en cours de livraison. Entité affectée",
+    manage_unit: "Gestion de mon unité", manage_shelter: "Gestion de mon abri",
+    u_effectif: "Effectif", u_readiness: "Taux de préparation", u_posture: "Posture", u_posture_block: "Posture et effectif", u_missions: "Missions en cours", u_engaged: "Incidents engageant l'unité", u_cmdt: "Commandant",
+    s_places_free: "Places disponibles", s_occupants: "Personnes hébergées", s_staff: "Encadrement", s_supplies: "Approvisionnement", s_occupancy: "Taux d'occupation", s_demography: "Démographie",
+    s_adults: "Adultes", s_children: "Enfants", s_elderly: "Personnes âgées", s_needs: "Besoins", s_needs_field: "Besoins exprimés", s_needs_ph: "ex. Couvertures, eau potable",
+    s_capacity: "Capacité d'accueil", s_capacity_block: "Capacité et encadrement", err_occupants: "Les personnes hébergées ne peuvent pas dépasser la capacité.",
+    manage_morgue: "Gestion de mon site mortuaire",
+    g_places_free: "Emplacements libres", g_unidentified: "Non identifiés", g_in_progress: "Identification en cours", g_released: "Restitués",
+    g_occupancy: "Occupation du site", g_bodies_present: "Corps présents", g_progress: "Avancement de l'identification", g_register: "Registre d'identification", g_no_record: "Aucun dossier enregistré.",
+    g_reference: "Référence", g_reference_ph: "ex. AH-2026-004", g_status: "Statut", g_identity: "Identité confirmée", g_identity_ph: "Nom et prénom",
+    g_samples: "Prélèvements", g_found_at: "Lieu de découverte", g_found_at_ph: "ex. Douar Tinzert", g_sex: "Sexe", g_age: "Tranche d'âge",
+    g_incident: "Incident d'origine", g_incident_none: "— Non rattaché —", g_admit: "Admettre un corps", g_admit_btn: "Enregistrer l'admission", g_admit_hint: "Le dossier est ouvert au statut « non identifié ». L'identité se renseigne ensuite, au fil de l'identification.", g_admitted: "Corps admis au registre.",
+    g_record: "Dossier", g_record_saved: "Dossier mis à jour.", g_unknown: "Non identifié", g_closed: "Dossier clos",
+    g_released_to: "remis à", g_released_field: "Remis à", g_released_ph: "ex. Famille Ait Oussaid (frère)", g_released_hint: "La restitution clôt définitivement le dossier : il ne sera plus modifiable.",
+    g_site_block: "Capacité et effectif du site", g_capacity: "Emplacements réfrigérés", g_staff: "Effectif du site",
+    g_err_reference: "La référence provisoire est obligatoire.", g_err_identity: "L'identité confirmée est obligatoire à ce statut.", g_err_released: "Indiquez à qui le corps est remis.", g_err_transition: "Étape refusée par le serveur : transition interdite ou dossier clos.",
+    e_park: "Parc d'équipement", e_articles: "Articles au parc", e_below: "Sous le seuil", e_oos: "Hors service", e_inventory: "Inventaire du parc", e_empty: "Aucun article au parc.",
+    e_add: "Ajouter un article", e_edit: "Modifier l'article", e_added: "Article ajouté au parc.", e_saved: "Article mis à jour.", e_removed: "Article sorti du parc.", e_low: "Stock bas",
+    e_desig: "Désignation", e_desig_ph: "ex. Groupe électrogène 20 kVA", e_category: "Catégorie", e_category_ph: "ex. Énergie", e_condition: "État",
+    e_stock: "Quantité en parc", e_threshold: "seuil", e_threshold_field: "Seuil d'alerte", e_err_fields: "Renseignez la désignation et la catégorie.",
+    e_remove_title: "Sortir l'article du parc", e_remove_text: "Confirmer la sortie définitive de",
+    equip_cond: { ok: "Opérationnel", repair: "En réparation", oos: "Hors service" },
+    morgue_statut: { op: "Opérationnel", partial: "Partiel", closed: "Fermé" },
+    dvi_status: { unidentified: "Non identifié", in_progress: "En cours", identified: "Identifié", released: "Restitué" },
+    dvi_sample: { dna: "ADN", dental: "Dentaire", fingerprint: "Empreintes" },
+    dvi_sex: { m: "Masculin", f: "Féminin", unknown: "Indéterminé" },
+    unit_dispo: { ready: "Disponible", deployed: "Déployée", standby: "En alerte" },
+    supply: { ok: "Suffisant", low: "Faible", critical: "Critique" },
+    ward_status: { open: "Ouvert", saturated: "Saturé", closed: "Fermé" },
+  },
   roles: { superadmin: "Super Administrateur", admin: "Administrateur", strategic: "Utilisateur Stratégique", tacom: "TACOM", bluecell: "Cellule Bleue — Opérations", greencell: "Cellule Verte — Logistique", orangecell: "Cellule Orange — Sécurité", resp_hospital: "Responsable Hôpital", resp_shelter: "Responsable Abri", resp_morgue: "Responsable Morgue", resp_unit: "Responsable Unité", resp_equipment: "Responsable Équipement" },
   users: {
     title: "Gestion des utilisateurs", subtitle: "Création, rôles et cycle de vie des comptes",
@@ -467,6 +559,12 @@ firstname: "Prénom", firstname_ph: "ex. Ahmed", phone: "Numéro de téléphone"
     you: "vous", builtin: "compte système", created_by: "Créé par", last_login: "Dernière connexion", never: "jamais",
     created_toast: "Compte créé — code temporaire : ", deleted_toast: "Utilisateur supprimé", activated_toast: "Statut mis à jour",
     need_role: "Sélectionnez au moins un rôle.", need_fields: "Renseignez le matricule et le nom.", dup_matricule: "Ce nom d'utilisateur existe déjà.",
+    need_assignment: "Affectez une entité à chaque responsabilité.",
+    assignment: "Rattachement",
+    assignment_hint: "Un responsable ne pilote que l'entité qui lui est affectée. L'API refuse toute action en dehors de ce périmètre.",
+    assignment_none: "— Sélectionner —",
+    assignment_id_ph: "Identifiant de l'entité",
+    responsibility: { hospital: "Hôpital militaire", unit: "Unité", shelter: "Abri", morgue: "Morgue", equipment: "Parc d'équipement" },
     role_features_title: "Fonctionnalités par rôle", role_features_hint: "Activez ou désactivez les modules autorisés pour chaque rôle. Ces droits complètent l'application côté API.",
     feature: "Fonctionnalité", allowed: "autorisé(s)", reset_role: "Réinitialiser", locked_all: "Accès total (verrouillé)",
     select_role: "Choisir un rôle", modules_count: "modules autorisés", empty: "Aucun utilisateur.",
@@ -493,6 +591,50 @@ const en: ModulesDict = {
   dispatch: { strip_ops: "Active operations", strip_units: "Engaged units", strip_movements: "Movements in transit", strip_queue: "Dispatch queue", strip_available: "Available units", need: "Need to handle", select_need: "Select an operation or request", units_board: "Units", eta: "ETA", score: "Score", match: "Match", engage: "Engage", relieve: "Relieve", engaged: "Engaged", reco_title: "Recommendations", reco_hint: "Recommendation engine — proximity × capability × availability", apply: "Apply", best: "Best option", excluded: "Excluded", b_travel: "Travel time", b_cap: "Capabilities", b_readiness: "Op. readiness", b_avail: "Availability", caps_required: "Required capabilities", mv_mission: "Mission", mv_vehicles: "Vehicles", mv_origin: "Origin", mv_dest: "Destination", mv_cargo: "Cargo", mv_progress: "Progress", mv_delay: "Delay", mv_ontime: "On time", queue_title: "Dispatch queue", treat: "Handle", urg_urgent: "Urgent", urg_high: "Priority", urg_medium: "Normal", confirm_engage: "Confirm engagement", reason: "Reason (required)", reason_ph: "Justify the decision…", confirm: "Confirm engagement", audit_note: "Every decision is confirmed, reasoned and audited.", min: "min", sim: "Simulation « what if? »", sim_hint: "Adjust score weights to compare scenarios, without engaging", sim_reset: "Reset", sim_active: "Simulation active", weights_title: "Score weights" },
   ai: { subtitle: "Operational assistant — natural-language queries", guardrail: "Read-only: the assistant queries the Layer 1 engine and drafts; it executes no action and every exchange is logged.", provider_local: "Local LLM", provider_online: "connected", provider_offline: "offline — deterministic answers", mode_llm: "rephrased by the local LLM", mode_det: "deterministic answer (Layer 1)", layer1: "Layer 1 query", placeholder: "Ask an operational question…", send: "Send", clear: "Clear", examples: "Examples", ex_reach: "Which units can reach Al Haouz in under an hour with generators?", ex_reach2: "Engineering units available for the Al Hoceïma landslide within 3 hours", ex_sitrep: "Draft a SITREP for Operation SALAMA", ex_anomaly: "Summarize anomalies in current movements", thinking: "Analyzing…", empty: "Ask a question or pick an example.", model: "Model", no_models: "no model detected", configure: "Configure" },
   settings: { reserved: "Super Administrator only", ai_title: "AI assistant — Language model (LLM)", provider: "Provider", endpoint: "Endpoint (URL)", model: "Model", model_ph: "model name (e.g. llama3.1:8b)", detect: "Detect / Test", detected: "model(s) detected", status_connected: "Connected", status_offline: "Offline", status_checking: "Testing…", note: "In production these settings are managed by the Super Admin and propagated to all stations via the ARGOS API; the LLM call runs server-side.", future_title: "Other settings", future_hint: "Device registry, branding, log retention… (coming soon)", reset: "Defaults", flags_title: "Modules (feature flags)", flags_hint: "Enable or disable modules globally. A disabled module disappears from navigation and its page is locked.", module_disabled: "Module disabled by the administrator.", types_title: "Incident types", types_hint: "Add new types; they appear immediately in the report wizard with the chosen icon.", type_id: "Identifier", type_id_ph: "e.g. sandstorm", type_icon: "Icon", label_fr: "FR label", label_ar: "AR label", label_en: "EN label", type_add: "Add type", type_added: "Incident type added", type_exists: "This type already exists.", type_builtin: "Built-in", types_search: "Search a type…", types_empty: "No type matches.", audit_title: "Audit log", audit_intact: "chain intact", audit_broken: "chain broken", audit_refresh: "Refresh", audit_empty: "No entry — toggle a module to generate a trace.", seis_title: "Seismic alerts", seis_hint: "An earthquake on national territory ≥ the national threshold triggers a red in-app alert AND SMS + e-mail to the authorities below (server-side watch). A worldwide earthquake ≥ the global threshold only triggers an in-app notification.", seis_ma_lbl: "National threshold (SMS + e-mail)", seis_ma_hint: "min. magnitude of a quake in Morocco", seis_world_lbl: "Global threshold (app notification)", seis_world_hint: "min. magnitude of a quake outside Morocco", seis_contacts: "Notified authorities", seis_c_name: "Name / role", seis_c_phone: "Phone (SMS)", seis_c_email: "E-mail", seis_add: "Add an authority", seis_save: "Save", seis_saved: "Alert configuration saved", seis_log: "Recent dispatches", seis_log_empty: "No dispatch yet.", seis_sent_to: "authority(ies)" },
+  resp: {
+    my_responsibility: "My responsibility", manage: "Manage", manage_title: "Manage my facility", loading: "Loading…",
+    beds_free: "Available beds", icu_free: "Available ICU", icu: "Intensive care", staff: "Medical staff", vehicles: "Assets", amb_heli: "ambulances + helicopters",
+    load: "Facility load", beds_overall: "Beds (all wards)", wards: "Care wards", field_hosp: "Attached field hospitals", incidents: "Incidents involving the facility",
+    no_field: "No field hospital attached.", no_ward: "No ward registered.", no_incident: "No ongoing incident.",
+    capacities: "Facility capacity", add_ward: "New ward", edit_ward: "Edit ward", edit: "Edit", delete: "Delete", cancel: "Cancel",
+    save: "Save", saving: "Saving…", saved: "Capacity updated.",
+    ward_created: "Ward opened.", ward_saved: "Ward updated.", ward_deleted: "Ward closed.",
+    delete_ward_title: "Close ward", delete_ward_text: "Confirm permanent closure of ward",
+    f_beds: "Staffed beds", f_occ: "Occupied beds", f_icu: "ICU beds", f_icu_occ: "ICU occupied", f_staff: "Staff", f_amb: "Ambulances", f_heli: "Helicopters",
+    f_ward_name: "Ward name", f_ward_name_ph: "e.g. General intensive care", f_status: "Status", f_chief: "Head physician", f_chief_ph: "e.g. Maj. S. Alaoui",
+    err_occ: "Occupied beds cannot exceed staffed beds.", err_rea: "Occupied ICU cannot exceed ICU beds.", err_name: "Enter the ward name.", err_denied: "Rejected by the server: outside your scope.",
+    none_title: "No responsibility", none_text: "The active role is not attached to any entity. Switch role from the user menu if your account holds several.",
+    unassigned_title: "No entity assigned", unassigned_text: "Your account holds a manager role but no entity is assigned to it. Contact the administrator.",
+    pending_text: "The management module for this responsibility is being delivered. Assigned entity",
+    manage_unit: "Manage my unit", manage_shelter: "Manage my shelter",
+    u_effectif: "Headcount", u_readiness: "Readiness", u_posture: "Posture", u_posture_block: "Posture and headcount", u_missions: "Ongoing missions", u_engaged: "Incidents involving the unit", u_cmdt: "Commanding officer",
+    s_places_free: "Available places", s_occupants: "People sheltered", s_staff: "Staff", s_supplies: "Supplies", s_occupancy: "Occupancy", s_demography: "Demographics",
+    s_adults: "Adults", s_children: "Children", s_elderly: "Elderly", s_needs: "Needs", s_needs_field: "Stated needs", s_needs_ph: "e.g. Blankets, drinking water",
+    s_capacity: "Capacity", s_capacity_block: "Capacity and staff", err_occupants: "People sheltered cannot exceed capacity.",
+    manage_morgue: "Manage my mortuary site",
+    g_places_free: "Free places", g_unidentified: "Unidentified", g_in_progress: "Identification ongoing", g_released: "Released",
+    g_occupancy: "Site occupancy", g_bodies_present: "Bodies held", g_progress: "Identification progress", g_register: "Identification register", g_no_record: "No record.",
+    g_reference: "Reference", g_reference_ph: "e.g. AH-2026-004", g_status: "Status", g_identity: "Confirmed identity", g_identity_ph: "Full name",
+    g_samples: "Samples", g_found_at: "Place found", g_found_at_ph: "e.g. Douar Tinzert", g_sex: "Sex", g_age: "Age range",
+    g_incident: "Source incident", g_incident_none: "— Unlinked —", g_admit: "Admit a body", g_admit_btn: "Record admission", g_admit_hint: "The record opens as « unidentified ». Identity is filled in later, as identification progresses.", g_admitted: "Body admitted to the register.",
+    g_record: "Record", g_record_saved: "Record updated.", g_unknown: "Unidentified", g_closed: "Record closed",
+    g_released_to: "released to", g_released_field: "Released to", g_released_ph: "e.g. Ait Oussaid family (brother)", g_released_hint: "Release closes the record permanently: it can no longer be edited.",
+    g_site_block: "Site capacity and staff", g_capacity: "Refrigerated places", g_staff: "Site staff",
+    g_err_reference: "The provisional reference is required.", g_err_identity: "Confirmed identity is required at this status.", g_err_released: "State who the body is released to.", g_err_transition: "Step rejected by the server: forbidden transition or closed record.",
+    e_park: "Equipment pool", e_articles: "Items in pool", e_below: "Below threshold", e_oos: "Out of service", e_inventory: "Pool inventory", e_empty: "No item in the pool.",
+    e_add: "Add an item", e_edit: "Edit item", e_added: "Item added to the pool.", e_saved: "Item updated.", e_removed: "Item removed from the pool.", e_low: "Low stock",
+    e_desig: "Designation", e_desig_ph: "e.g. 20 kVA generator", e_category: "Category", e_category_ph: "e.g. Power", e_condition: "Condition",
+    e_stock: "Quantity held", e_threshold: "threshold", e_threshold_field: "Alert threshold", e_err_fields: "Enter the designation and category.",
+    e_remove_title: "Remove item from pool", e_remove_text: "Confirm permanent removal of",
+    equip_cond: { ok: "Operational", repair: "Under repair", oos: "Out of service" },
+    morgue_statut: { op: "Operational", partial: "Partial", closed: "Closed" },
+    dvi_status: { unidentified: "Unidentified", in_progress: "In progress", identified: "Identified", released: "Released" },
+    dvi_sample: { dna: "DNA", dental: "Dental", fingerprint: "Fingerprints" },
+    dvi_sex: { m: "Male", f: "Female", unknown: "Undetermined" },
+    unit_dispo: { ready: "Ready", deployed: "Deployed", standby: "Standby" },
+    supply: { ok: "Sufficient", low: "Low", critical: "Critical" },
+    ward_status: { open: "Open", saturated: "Saturated", closed: "Closed" },
+  },
   roles: { superadmin: "Super Administrator", admin: "Administrator", strategic: "Strategic User", tacom: "TACOM", bluecell: "Blue Cell — Operations", greencell: "Green Cell — Logistics", orangecell: "Orange Cell — Security", resp_hospital: "Hospital Manager", resp_shelter: "Shelter Manager", resp_morgue: "Morgue Manager", resp_unit: "Unit Manager", resp_equipment: "Equipment Manager" },
   users: {
     title: "User management", subtitle: "Account creation, roles and lifecycle",
@@ -517,6 +659,12 @@ firstname: "First name", firstname_ph: "e.g. Ahmed", phone: "Phone number", phon
     you: "you", builtin: "system account", created_by: "Created by", last_login: "Last login", never: "never",
     created_toast: "Account created — temporary code: ", deleted_toast: "User deleted", activated_toast: "Status updated",
     need_role: "Select at least one role.", need_fields: "Enter the service ID and name.", dup_matricule: "This username already exists.",
+    need_assignment: "Assign an entity to each responsibility.",
+    assignment: "Assignment",
+    assignment_hint: "A manager only operates the entity assigned to them. The API rejects any action outside that scope.",
+    assignment_none: "— Select —",
+    assignment_id_ph: "Entity identifier",
+    responsibility: { hospital: "Military hospital", unit: "Unit", shelter: "Shelter", morgue: "Morgue", equipment: "Equipment pool" },
     role_features_title: "Features per role", role_features_hint: "Enable or disable the modules allowed for each role. These rights complement API-side enforcement.",
     feature: "Feature", allowed: "allowed", reset_role: "Reset", locked_all: "Full access (locked)",
     select_role: "Pick a role", modules_count: "allowed modules", empty: "No users.",
@@ -543,6 +691,50 @@ const ar: ModulesDict = {
   dispatch: { strip_ops: "العمليات النشطة", strip_units: "الوحدات المعبأة", strip_movements: "التنقلات الجارية", strip_queue: "قائمة التوزيع", strip_available: "الوحدات المتاحة", need: "الحاجة المطلوب معالجتها", select_need: "اختر عملية أو طلبا", units_board: "الوحدات", eta: "الوصول المقدر", score: "النقطة", match: "الملاءمة", engage: "تعبئة", relieve: "سحب", engaged: "معبأة", reco_title: "التوصيات", reco_hint: "محرك التوصية — القرب × القدرات × التوفر", apply: "تطبيق", best: "الخيار الأفضل", excluded: "مستبعدة", b_travel: "زمن التنقل", b_cap: "القدرات", b_readiness: "الجاهزية العملياتية", b_avail: "التوفر", caps_required: "القدرات المطلوبة", mv_mission: "المهمة", mv_vehicles: "المركبات", mv_origin: "المصدر", mv_dest: "الوجهة", mv_cargo: "الحمولة", mv_progress: "التقدم", mv_delay: "التأخير", mv_ontime: "في الوقت", queue_title: "قائمة التوزيع", treat: "معالجة", urg_urgent: "عاجل", urg_high: "ذو أولوية", urg_medium: "عادي", confirm_engage: "تأكيد التعبئة", reason: "المبرر (إلزامي)", reason_ph: "مبرر القرار…", confirm: "تأكيد التعبئة", audit_note: "كل قرار مؤكد ومبرر ومدقق.", min: "دقيقة", sim: "محاكاة « ماذا لو؟ »", sim_hint: "اضبط أوزان النقطة لمقارنة السيناريوهات دون تعبئة", sim_reset: "إعادة تعيين", sim_active: "محاكاة نشطة", weights_title: "أوزان النقطة" },
   ai: { subtitle: "مساعد عملياتي — استعلامات باللغة الطبيعية", guardrail: "قراءة فقط: يستعلم المساعد محرك الطبقة 1 ويحرر ؛ لا ينفذ أي إجراء وكل تبادل مُسجَّل.", provider_local: "نموذج محلي", provider_online: "متصل", provider_offline: "غير متصل — إجابات حتمية", mode_llm: "أعاد صياغته النموذج المحلي", mode_det: "إجابة حتمية (الطبقة 1)", layer1: "استعلام الطبقة 1", placeholder: "اطرح سؤالا عملياتيا…", send: "إرسال", clear: "مسح", examples: "أمثلة", ex_reach: "ما الوحدات التي يمكنها بلوغ الحوز في أقل من ساعة بمولدات كهربائية؟", ex_reach2: "وحدات الهندسة القابلة للتعبئة لانزلاق الحسيمة في أقل من 3 ساعات", ex_sitrep: "أنشئ مسودة تقرير وضع لعملية سلامة", ex_anomaly: "لخّص شذوذات التنقلات الجارية", thinking: "جارٍ التحليل…", empty: "اطرح سؤالا أو اختر مثالا.", model: "النموذج", no_models: "لا نموذج مكتشف", configure: "إعداد" },
   settings: { reserved: "مخصص للمدير الأعلى", ai_title: "المساعد الذكي — نموذج اللغة (LLM)", provider: "المزود", endpoint: "نقطة الوصول (URL)", model: "النموذج", model_ph: "اسم النموذج (مثال llama3.1:8b)", detect: "كشف / اختبار", detected: "نموذج مكتشف", status_connected: "متصل", status_offline: "غير متصل", status_checking: "اختبار…", note: "في الإنتاج، يدير المدير الأعلى هذه الإعدادات وتُنشر إلى جميع المحطات عبر واجهة ARGOS ؛ يُنفَّذ نداء LLM من جهة الخادم.", future_title: "إعدادات أخرى", future_hint: "سجل الأجهزة، الهوية البصرية، مدة حفظ السجلات… (قريبا)", reset: "القيم الافتراضية", flags_title: "الوحدات (أعلام الميزات)", flags_hint: "فعّل أو عطّل الوحدات عالميا. الوحدة المعطّلة تختفي من التنقل وتُقفل صفحتها.", module_disabled: "وحدة معطّلة من طرف المدير.", types_title: "أنواع الحوادث", types_hint: "أضف أنواعا جديدة ؛ تظهر فورا في مساعد التبليغ بالأيقونة المختارة.", type_id: "المعرّف", type_id_ph: "مثال: aasifa_ramliya", type_icon: "الأيقونة", label_fr: "التسمية بالفرنسية", label_ar: "التسمية بالعربية", label_en: "التسمية بالإنجليزية", type_add: "إضافة النوع", type_added: "تمت إضافة نوع الحادث", type_exists: "هذا النوع موجود بالفعل.", type_builtin: "أصلي", types_search: "ابحث عن نوع…", types_empty: "لا يوجد نوع مطابق.", audit_title: "سجل التدقيق", audit_intact: "السلسلة سليمة", audit_broken: "السلسلة مكسورة", audit_refresh: "تحديث", audit_empty: "لا يوجد سجل — بدّل وحدة لإنشاء أثر.", seis_title: "الإنذارات الزلزالية", seis_hint: "زلزال على التراب الوطني ≥ العتبة الوطنية يطلق إنذارا أحمر في التطبيق وإرسال رسائل نصية وبريد إلكتروني إلى السلطات أدناه (مراقبة من جهة الخادم). زلزال عالمي ≥ العتبة العالمية يطلق إشعارا في التطبيق فقط.", seis_ma_lbl: "العتبة الوطنية (رسائل + بريد)", seis_ma_hint: "أدنى قوة لزلزال في المغرب", seis_world_lbl: "العتبة العالمية (إشعار التطبيق)", seis_world_hint: "أدنى قوة لزلزال خارج المغرب", seis_contacts: "السلطات المُشعَرة", seis_c_name: "الاسم / الصفة", seis_c_phone: "الهاتف (SMS)", seis_c_email: "البريد الإلكتروني", seis_add: "إضافة سلطة", seis_save: "حفظ", seis_saved: "تم حفظ إعدادات الإنذار", seis_log: "آخر الإرسالات", seis_log_empty: "لا إرسال حتى الآن.", seis_sent_to: "سلطة" },
+  resp: {
+    my_responsibility: "مسؤوليتي", manage: "إدارة", manage_title: "إدارة مؤسستي", loading: "جار التحميل…",
+    beds_free: "الأسرة المتاحة", icu_free: "الإنعاش المتاح", icu: "الإنعاش", staff: "الطاقم الطبي", vehicles: "الوسائل", amb_heli: "سيارات إسعاف + مروحيات",
+    load: "حمولة المؤسسة", beds_overall: "الأسرة (كل التخصصات)", wards: "أقسام العلاج", field_hosp: "المستشفيات الميدانية المرتبطة", incidents: "الحوادث التي تعني المؤسسة",
+    no_field: "لا يوجد مستشفى ميداني مرتبط.", no_ward: "لا يوجد قسم مسجل.", no_incident: "لا توجد حادثة جارية.",
+    capacities: "طاقات المؤسسة", add_ward: "قسم جديد", edit_ward: "تعديل القسم", edit: "تعديل", delete: "حذف", cancel: "إلغاء",
+    save: "حفظ", saving: "جار الحفظ…", saved: "تم تحديث الطاقات.",
+    ward_created: "تم فتح القسم.", ward_saved: "تم تحديث القسم.", ward_deleted: "تم إغلاق القسم.",
+    delete_ward_title: "إغلاق القسم", delete_ward_text: "تأكيد الإغلاق النهائي للقسم",
+    f_beds: "الأسرة المجهزة", f_occ: "الأسرة المشغولة", f_icu: "أسرة الإنعاش", f_icu_occ: "الإنعاش المشغول", f_staff: "الطاقم", f_amb: "سيارات الإسعاف", f_heli: "المروحيات",
+    f_ward_name: "اسم القسم", f_ward_name_ph: "مثال: الإنعاش متعدد التخصصات", f_status: "الحالة", f_chief: "الطبيب الرئيس", f_chief_ph: "مثال: الرائد س. علوي",
+    err_occ: "لا يمكن أن تتجاوز الأسرة المشغولة الأسرة المجهزة.", err_rea: "لا يمكن أن يتجاوز الإنعاش المشغول أسرة الإنعاش.", err_name: "أدخل اسم القسم.", err_denied: "رُفض من الخادم: خارج نطاقك.",
+    none_title: "لا توجد مسؤولية", none_text: "الدور النشط غير مرتبط بأي كيان. غيّر الدور من قائمة المستخدم إذا كان حسابك يجمع عدة أدوار.",
+    unassigned_title: "لا يوجد كيان مسند", unassigned_text: "حسابك يحمل دور مسؤول لكن لم يُسند إليه أي كيان. اتصل بالمدير.",
+    pending_text: "وحدة إدارة هذه المسؤولية قيد التسليم. الكيان المسند",
+    manage_unit: "إدارة وحدتي", manage_shelter: "إدارة ملجئي",
+    u_effectif: "التعداد", u_readiness: "نسبة الجاهزية", u_posture: "الوضعية", u_posture_block: "الوضعية والتعداد", u_missions: "المهام الجارية", u_engaged: "الحوادث التي تعني الوحدة", u_cmdt: "القائد",
+    s_places_free: "الأماكن المتاحة", s_occupants: "الأشخاص المؤويون", s_staff: "التأطير", s_supplies: "التموين", s_occupancy: "نسبة الإشغال", s_demography: "التركيبة السكانية",
+    s_adults: "بالغون", s_children: "أطفال", s_elderly: "مسنون", s_needs: "الاحتياجات", s_needs_field: "الاحتياجات المعبر عنها", s_needs_ph: "مثال: أغطية، ماء صالح للشرب",
+    s_capacity: "الطاقة الاستيعابية", s_capacity_block: "الطاقة والتأطير", err_occupants: "لا يمكن أن يتجاوز عدد المؤويين الطاقة الاستيعابية.",
+    manage_morgue: "إدارة موقع المشرحة",
+    g_places_free: "الأماكن الشاغرة", g_unidentified: "غير محددي الهوية", g_in_progress: "تحديد الهوية جار", g_released: "مسلَّمون",
+    g_occupancy: "إشغال الموقع", g_bodies_present: "الجثث الموجودة", g_progress: "تقدم تحديد الهوية", g_register: "سجل تحديد الهوية", g_no_record: "لا يوجد ملف مسجل.",
+    g_reference: "المرجع", g_reference_ph: "مثال: AH-2026-004", g_status: "الحالة", g_identity: "الهوية المؤكدة", g_identity_ph: "الاسم الكامل",
+    g_samples: "العينات", g_found_at: "مكان العثور", g_found_at_ph: "مثال: دوار تينزرت", g_sex: "الجنس", g_age: "الفئة العمرية",
+    g_incident: "الحادثة الأصلية", g_incident_none: "— غير مرتبط —", g_admit: "قبول جثة", g_admit_btn: "تسجيل القبول", g_admit_hint: "يُفتح الملف بحالة « غير محدد الهوية ». تُملأ الهوية لاحقا مع تقدم عملية التعرف.", g_admitted: "تم قبول الجثة في السجل.",
+    g_record: "ملف", g_record_saved: "تم تحديث الملف.", g_unknown: "غير محدد الهوية", g_closed: "ملف مغلق",
+    g_released_to: "سُلِّم إلى", g_released_field: "سُلِّم إلى", g_released_ph: "مثال: عائلة أيت أوسعيد (الأخ)", g_released_hint: "التسليم يغلق الملف نهائيا: لن يعود قابلا للتعديل.",
+    g_site_block: "طاقة الموقع وطاقمه", g_capacity: "الأماكن المبردة", g_staff: "طاقم الموقع",
+    g_err_reference: "المرجع المؤقت إلزامي.", g_err_identity: "الهوية المؤكدة إلزامية في هذه الحالة.", g_err_released: "حدد إلى من سُلِّمت الجثة.", g_err_transition: "رُفضت الخطوة من الخادم: انتقال ممنوع أو ملف مغلق.",
+    e_park: "حظيرة المعدات", e_articles: "الأصناف في الحظيرة", e_below: "دون العتبة", e_oos: "خارج الخدمة", e_inventory: "جرد الحظيرة", e_empty: "لا يوجد صنف في الحظيرة.",
+    e_add: "إضافة صنف", e_edit: "تعديل الصنف", e_added: "تمت إضافة الصنف.", e_saved: "تم تحديث الصنف.", e_removed: "تم إخراج الصنف.", e_low: "مخزون منخفض",
+    e_desig: "التسمية", e_desig_ph: "مثال: مولد كهربائي 20 كيلوفولت أمبير", e_category: "الفئة", e_category_ph: "مثال: الطاقة", e_condition: "الحالة",
+    e_stock: "الكمية المتوفرة", e_threshold: "العتبة", e_threshold_field: "عتبة التنبيه", e_err_fields: "أدخل التسمية والفئة.",
+    e_remove_title: "إخراج الصنف من الحظيرة", e_remove_text: "تأكيد الإخراج النهائي لـ",
+    equip_cond: { ok: "عملياتي", repair: "قيد الإصلاح", oos: "خارج الخدمة" },
+    morgue_statut: { op: "عملياتي", partial: "جزئي", closed: "مغلق" },
+    dvi_status: { unidentified: "غير محدد الهوية", in_progress: "قيد الإنجاز", identified: "محدد الهوية", released: "مسلَّم" },
+    dvi_sample: { dna: "الحمض النووي", dental: "الأسنان", fingerprint: "البصمات" },
+    dvi_sex: { m: "ذكر", f: "أنثى", unknown: "غير محدد" },
+    unit_dispo: { ready: "جاهزة", deployed: "منتشرة", standby: "في حالة تأهب" },
+    supply: { ok: "كاف", low: "ضعيف", critical: "حرج" },
+    ward_status: { open: "مفتوح", saturated: "مشبع", closed: "مغلق" },
+  },
   roles: { superadmin: "المدير الأعلى", admin: "المدير", strategic: "المستخدم الاستراتيجي", tacom: "تاكوم TACOM", bluecell: "الخلية الزرقاء — العمليات", greencell: "الخلية الخضراء — اللوجستيك", orangecell: "الخلية البرتقالية — الأمن", resp_hospital: "مسؤول المستشفى", resp_shelter: "مسؤول الملجأ", resp_morgue: "مسؤول المشرحة", resp_unit: "مسؤول الوحدة", resp_equipment: "مسؤول المعدات" },
   users: {
     title: "إدارة المستخدمين", subtitle: "إنشاء الحسابات والأدوار ودورة الحياة",
@@ -567,6 +759,12 @@ firstname: "الاسم الشخصي", firstname_ph: "مثال: أحمد", phone:
     you: "أنت", builtin: "حساب النظام", created_by: "أنشأه", last_login: "آخر اتصال", never: "أبدا",
     created_toast: "تم إنشاء الحساب — الرمز المؤقت: ", deleted_toast: "تم حذف المستخدم", activated_toast: "تم تحديث الحالة",
     need_role: "اختر دورا واحدا على الأقل.", need_fields: "أدخل رقم التسجيل والاسم.", dup_matricule: "اسم المستخدم موجود مسبقا.",
+    need_assignment: "خصص كيانا لكل مسؤولية.",
+    assignment: "الإسناد",
+    assignment_hint: "المسؤول لا يدير إلا الكيان المسند إليه. واجهة البرمجة ترفض أي إجراء خارج هذا النطاق.",
+    assignment_none: "— اختر —",
+    assignment_id_ph: "معرف الكيان",
+    responsibility: { hospital: "مستشفى عسكري", unit: "وحدة", shelter: "ملجأ", morgue: "مشرحة", equipment: "حظيرة المعدات" },
     role_features_title: "الوظائف حسب الدور", role_features_hint: "فعّل أو عطّل الوحدات المسموح بها لكل دور. تكمّل هذه الحقوق التطبيق من جهة الواجهة.",
     feature: "الوظيفة", allowed: "مسموح", reset_role: "إعادة تعيين", locked_all: "وصول كامل (مقفل)",
     select_role: "اختر دورا", modules_count: "وحدات مسموحة", empty: "لا مستخدمون.",

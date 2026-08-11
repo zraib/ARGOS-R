@@ -43,6 +43,12 @@ export const PERMISSIONS = [
   "workorders:create",
   "workorders:update",
   "workorders:assign",
+  // Morgue / identification des victimes (DVI)
+  "morgue:read",
+  "morgue:manage",
+  // Parc d'équipement (cantonné à l'unité détentrice)
+  "equip:read",
+  "equip:manage",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -104,7 +110,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[] | "*"> = {
     "admin:feature_flags:read", "admin:feature_flags:toggle", "admin:settings:read", "admin:settings:update",
     "org:zones:read", "org:zones:manage", "org:units:read", "org:units:manage", "org:hospitals:read", "org:hospitals:manage",
     "incidents:read", "map:tracking:view_all",
-    "workorders:read",
+    "workorders:read", "morgue:read", "equip:read",
   ],
   // NB : dotations PROVISOIRES — l'attribution fine se fera via la matrice
   // rôles × fonctionnalités (voir docs/matrice-roles-fonctionnalites.xlsx).
@@ -115,7 +121,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[] | "*"> = {
   tacom: [
     "org:zones:read", "org:units:read", "org:hospitals:read",
     "incidents:read", "incidents:create", "incidents:update",
-    "map:tracking:view_all", "dispatch:assign",
+    "map:tracking:view_all", "dispatch:assign", "morgue:read",
   ],
   bluecell: [
     "org:units:read", "org:hospitals:read",
@@ -126,14 +132,19 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[] | "*"> = {
   greencell: [
     "org:units:read", "incidents:read", "map:tracking:view_all",
     "workorders:read", "workorders:create", "workorders:update", "workorders:assign",
+    "equip:read",
   ],
   orangecell: ["org:zones:read", "incidents:read", "map:tracking:view_all"],
   resp_hospital: ["org:hospitals:read", "org:hospitals:manage", "hospinet:beds:update", "incidents:read"],
-  resp_shelter: ["org:zones:read", "incidents:read"],
-  resp_morgue: ["incidents:read"],
+  // Le responsable d'abri pilote SON abri (cantonnement ABAC : ScopeGuard).
+  resp_shelter: ["org:zones:read", "org:zones:manage", "incidents:read"],
+  // Le responsable de morgue pilote SON site (cantonnement ABAC : ScopeGuard).
+  resp_morgue: ["incidents:read", "morgue:read", "morgue:manage"],
   resp_unit: ["org:units:read", "org:units:manage", "incidents:read"],
+  // Le responsable d'équipement pilote LE PARC de son unité (ABAC : ScopeGuard).
   resp_equipment: [
     "org:units:read", "incidents:read",
+    "equip:read", "equip:manage",
     "workorders:read", "workorders:create", "workorders:update", "workorders:assign",
   ],
 };
