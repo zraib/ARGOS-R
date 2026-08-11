@@ -720,10 +720,10 @@ export class DomainService {
     return { provinces: this.provinces, cities: CITIES_MA, vehRoutes: this.vehRoutes };
   }
 
-  // --- statistiques de commandement (tableau de bord état-major) -----------
+  // --- statistiques de commandement (tableau de bord national) -------------
 
   /**
-   * Vue globale pour l'état-major : évolution des déclarations sur 30 jours,
+   * Vue globale pour le commandement : évolution des déclarations sur 30 jours,
    * répartition par gravité, bilan humain (source unique : tableau ORSEC),
    * saturation hospitalière et posture des unités. Série d'évolution
    * déterministe (pseudo-aléatoire seedé) + comptes réels du registre.

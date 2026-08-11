@@ -118,7 +118,7 @@ export function hospitalDetail(h: Hospital, fieldHosps: FieldHospital[], t: Dict
   const idx = idIndex(h.id);
 
   // Le vocabulaire des grades suit le réseau : grades militaires pour le
-  // Service de Santé des FAR, qualifications hospitalières pour le civil.
+  // service de santé militaire, qualifications hospitalières pour le civil.
   const grades = hospKind(h) === "mil" ? MED_GRADES : MED_GRADES_CIV;
   const staffRows: StaffRow[] = Array.from({ length: 6 }, (_, j) => {
     const st: [string, BadgeType][] = [["Garde", "medium"], ["Disponible", "active"], ["Repos", "on_hold"]];

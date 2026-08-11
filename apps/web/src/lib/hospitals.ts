@@ -44,7 +44,7 @@ export function kindDef(k: HospitalKind | undefined): HospitalKindDef {
 /**
  * Catégorie d'un établissement fixe. Les enregistrements créés avant
  * l'introduction du champ n'ont pas de `kind` : on le déduit alors du nom
- * (« Militaire » → réseau FAR), sinon réseau civil.
+ * (« Militaire » → réseau militaire), sinon réseau civil.
  */
 export function hospKind(h: Pick<Hospital, "kind" | "nom">): HospitalKind {
   if (h.kind) return h.kind;

@@ -3,7 +3,7 @@
 // ============================================================================
 // ARGOS — graphe d'évolution (SVG pur, sans dépendance externe)
 // Série temporelle à deux courbes : aire dorée (incidents déclarés) + ligne
-// verte (clôturés). Utilisé par le tableau de bord état-major (évolution 30 j).
+// verte (clôturés). Utilisé par le tableau de bord national (évolution 30 j).
 // ============================================================================
 
 export interface EvolutionPoint {

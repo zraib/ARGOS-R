@@ -2,7 +2,7 @@
 // ARGOS — référentiel hospitalier national
 // Deux réseaux distincts, tous deux visibles sur la carte opérationnelle avec
 // des symboles différenciés (voir lib/map/markers.ts côté web) :
-//   • réseau MILITAIRE  — Service de Santé des FAR (7 établissements) ;
+//   • réseau MILITAIRE  — service de santé militaire (7 établissements) ;
 //   • réseau CIVIL      — hôpitaux publics du ministère de la Santé, classés
 //     par échelon : CHU (universitaire), CHR/CHIR (régional), CHP / hôpital
 //     local / hôpital psychiatrique (provincial).
@@ -46,7 +46,7 @@ export interface HospitalDef {
   ll: [number, number];
 }
 
-/** Réseau hospitalier militaire (source : état-major du Service de Santé). */
+/** Réseau hospitalier militaire (source : direction du service de santé). */
 export const MILITARY_HOSPITALS: HospitalDef[] = [
   { id: "H1", nom: "Hôpital Militaire d'Instruction Mohammed V", ville: "Rabat", region: "Rabat-Salé-Kénitra", province: "Rabat", kind: "mil", type: "Hôpital militaire d'instruction (CHU)", lits: 650, occ: 512, rea: 48, reaOcc: 39, staff: 820, amb: 24, heli: 3, x: 199, y: 152, ll: [-6.85, 34.01] },
   { id: "H2", nom: "Hôpital Militaire Moulay Youssef", ville: "Casablanca", region: "Casablanca-Settat", province: "Casablanca", kind: "mil", type: "Hôpital militaire général", lits: 380, occ: 291, rea: 30, reaOcc: 21, staff: 490, amb: 16, heli: 1, x: 178, y: 172, ll: [-7.62, 33.59] },

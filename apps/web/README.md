@@ -1,7 +1,7 @@
 # ARGOS — Poste de commandement (`apps/web`)
 
 Application web de commandement (vue nationale) pour la gestion des
-catastrophes par les Forces Armées Royales.
+catastrophes.
 
 **Next.js 15 (App Router) · React 19 · TypeScript strict · Tailwind CSS ·
 Zustand · MapLibre GL.** Port **3004**.

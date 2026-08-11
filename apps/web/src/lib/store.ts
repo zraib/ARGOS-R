@@ -92,7 +92,7 @@ export interface SessionInit {
 
 export interface LayerState {
   units: boolean;
-  /** Réseau hospitalier militaire (Service de Santé des FAR). */
+  /** Réseau hospitalier militaire (service de santé militaire). */
   hospitals: boolean;
   /** Réseau hospitalier public civil (CHU / CHR / CHP / locaux). */
   hospitalsCiv: boolean;

@@ -1,5 +1,5 @@
 // ============================================================================
-// ARGOS — grades militaires (FAR), du plus bas au plus élevé
+// ARGOS — grades militaires, du plus bas au plus élevé
 // Liste fermée : le grade est choisi dans une liste déroulante à la création /
 // modification d'un compte (plus de saisie libre → annuaire homogène).
 // ============================================================================

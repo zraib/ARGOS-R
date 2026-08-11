@@ -1,7 +1,7 @@
 # Handoff : ARGOS — Plateforme militaire de gestion des catastrophes
 
 ## Overview
-ARGOS est un poste de commandement (Command HQ, vue nationale — Maroc) pour la gestion des catastrophes par les Forces Armées Royales. Le prototype couvre : tableau de bord (2 dispositions), signalement d'incident par wizard, gestion des unités (personnel / équipements / véhicules), gestion hospitalière « Hospinet » (personnel médical / lits / véhicules / hôpitaux de campagne), carte opérationnelle temps réel (MapLibre, satellite/plan, 2D/3D), centre de communication type Discord, et une navigation complète vers les modules futurs (triage de masse, ICS, ORSEC, abris, etc.).
+ARGOS est un poste de commandement (Command HQ, vue nationale — Maroc) pour la gestion des catastrophes. Le prototype couvre : tableau de bord (2 dispositions), signalement d'incident par wizard, gestion des unités (personnel / équipements / véhicules), gestion hospitalière « Hospinet » (personnel médical / lits / véhicules / hôpitaux de campagne), carte opérationnelle temps réel (MapLibre, satellite/plan, 2D/3D), centre de communication type Discord, et une navigation complète vers les modules futurs (triage de masse, ICS, ORSEC, abris, etc.).
 
 ## About the Design Files
 Les fichiers de ce dossier sont des **références de design réalisées en HTML** (prototype interactif), pas du code de production à copier tel quel. La tâche du développeur est de **recréer ces écrans dans l'environnement du vrai projet** (React/Next.js, Vue, etc.) avec ses patterns et bibliothèques — ou, si le projet n'existe pas encore, de choisir le framework le plus adapté (recommandé : React + Tailwind CSS, car le design system source « Amin Design / Kanban RDIA » est une bibliothèque React + Tailwind).
@@ -23,7 +23,7 @@ Les fichiers de ce dossier sont des **références de design réalisées en HTML
 - Plein écran, fond `rgb(15 31 20)` avec halo radial vert `rgb(27 77 46 / 0.6)` centré à ~32%/45%.
 - Deux colonnes égales (`minmax(320px, 400px)` chacune, gap 16px, centrées, largeur max 880px) :
   - **Gauche** : logo ARGOS grand format (max 320×360px, `drop-shadow(0 24px 48px rgba(0,0,0,0.55))`), titre « ARGOS » 30px bold `#F5F0E8`, sous-titre uppercase or `#C9A84C`.
-  - **Droite** : carte (`carte p-8`) — titre « Authentification requise », bandeau or `bg-or-500/10` avec icône bouclier « Accès restreint — usage officiel uniquement », champs **Matricule** et **Mot de passe** (`input-champ`), bouton `btn-primaire` pleine largeur (désactivé si champs vides, Entrée valide), sélecteur FR/AR/EN, mention « État-Major Général · Forces Armées Royales ».
+  - **Droite** : carte (`carte p-8`) — titre « Authentification requise », bandeau or `bg-or-500/10` avec icône bouclier « Accès restreint — usage officiel uniquement », champs **Matricule** et **Mot de passe** (`input-champ`), bouton `btn-primaire` pleine largeur (désactivé si champs vides, Entrée valide), sélecteur FR/AR/EN, mention institutionnelle en pied de carte.
 - Connexion réussie → toast « Session ouverte » ; bouton de **déconnexion** dans le pied de la sidebar. En production : brancher sur le SSO/annuaire réel (le prototype accepte tout couple non vide).
 
 ### 1. Coquille applicative (App shell)
@@ -48,7 +48,7 @@ Recherche (input-champ) + compteur, table : Réf. (mono), Incident, Type, Régio
 Stepper numéroté (or = courant, vert = validé). Soumission → l'incident apparaît dans la liste, le fil et sur la carte + toast de confirmation.
 
 ### 5. Équipes (unités)
-Grille de cartes unité (nom, ville, badge Opérationnelle/Déployée/En attente, commandant, effectif, jauge « Disponibilité opérationnelle » or). Détail : en-tête retour + stats + onglets **Personnel** (grade, nom, fonction, statut) / **Équipements** (désignation, catégorie, qté, état Opérationnel/Maintenance) / **Véhicules** (type, immatriculation FAR-XXXX, affectation, état).
+Grille de cartes unité (nom, ville, badge Opérationnelle/Déployée/En attente, commandant, effectif, jauge « Disponibilité opérationnelle » or). Détail : en-tête retour + stats + onglets **Personnel** (grade, nom, fonction, statut) / **Équipements** (désignation, catégorie, qté, état Opérationnel/Maintenance) / **Véhicules** (type, immatriculation militaire, affectation, état).
 
 ### 6. Hospinet (hôpitaux)
 Cartes hôpital (occupation avec jauge colorée : vert <75%, or 75–89%, rouge ≥90% ; lits disponibles, réa x/y, effectif médical). Détail : 4 tuiles stats (Lits totaux / Occupés / Disponibles / Réanimation) + onglets **Personnel médical** / **Lits** (jauges par service : Réanimation, Chirurgie, Médecine interne, Urgences, Pédiatrie) / **Véhicules** (ambulances, VAB sanitaire, hélicoptère médicalisé) / **Hôpitaux de campagne** (cartes HMC : capacité, déployé depuis J+n, occupation ; bouton « Déployer un hôpital de campagne » qui crée un HMC rattaché, visible sur la carte).

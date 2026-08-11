@@ -26,7 +26,7 @@ interface Kpi {
 type TileId = "evolution" | "casualties" | "moyens" | "hospitals" | "severity" | "feed";
 
 /**
- * Tableau de bord état-major (disposition A) : grille compacte tenant sur un
+ * Tableau de bord national (disposition A) : grille compacte tenant sur un
  * écran (sans défilement) ; chaque tuile porte en haut à droite un bouton
  * « Agrandir » qui l'ouvre en grand dans une modale.
  */

@@ -2,7 +2,7 @@
   "name": "argos",
   "version": "0.1.0",
   "private": true,
-  "description": "ARGOS — plateforme de commandement pour la gestion des catastrophes (État-Major, FAR).",
+  "description": "ARGOS — plateforme de commandement pour la gestion des catastrophes.",
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "dev:api": "node scripts/dev.mjs api",

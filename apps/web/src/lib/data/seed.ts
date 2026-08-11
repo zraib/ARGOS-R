@@ -37,7 +37,7 @@ export const POOLS = {
   vehs: ["VLRA tout-terrain", "Camion GBC 180", "Ambulance tactique", "Engin de levage", "Bulldozer D7", "VAB sanitaire"],
 };
 
-/** Grades du personnel de santé militaire (Service de Santé des FAR). */
+/** Grades du personnel de santé militaire. */
 export const MED_GRADES = ["Méd. Col.", "Méd. Lt-Col.", "Méd. Cdt.", "Inf. Maj.", "Inf. Cne.", "Inf. 1re Cl."];
 /** Qualifications du personnel de santé civil (ministère de la Santé). */
 export const MED_GRADES_CIV = ["Pr. Ag.", "Méd. spécialiste", "Méd. généraliste", "Inf. chef", "Inf. d'État", "Aide-soignant"];

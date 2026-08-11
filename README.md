@@ -1,12 +1,12 @@
 # ARGOS
 
-Plateforme de commandement pour la gestion des catastrophes, à l'usage de
-l'état-major des Forces Armées Royales.
+Plateforme de commandement pour la gestion des catastrophes.
 
 ARGOS agrège en une vue nationale unique ce qui est aujourd'hui dispersé :
 incidents en cours, unités engagées, réseau hospitalier, abris, sites
 mortuaires, parcs d'équipement, sismologie et météo. Chaque responsable de
-terrain y pilote son établissement ; l'état-major y lit la situation d'ensemble.
+terrain y pilote son établissement ; le commandement y lit la situation
+d'ensemble.
 
 Monorepo TypeScript strict : une application web Next.js, une API NestJS, un
 client généré depuis le contrat OpenAPI, et les livrables de déploiement.
