@@ -14,6 +14,7 @@ import { RoleChooserScreen } from "@/components/shell/RoleChooserScreen";
 import { Sidebar } from "@/components/shell/Sidebar";
 import { Header } from "@/components/shell/Header";
 import { Toast } from "@/components/shell/Toast";
+import { Copilot } from "@/components/shell/Copilot";
 import { IncidentWizard } from "@/components/incidents/IncidentWizard";
 import { QuakeAlert } from "@/components/flux/QuakeAlert";
 
@@ -51,6 +52,8 @@ export function AppFrame({ children }: { children: ReactNode }) {
   const setRoleFeatures = useArgos((s) => s.setRoleFeatures);
   const loadDomain = useArgos((s) => s.loadDomain);
   const simTick = useArgos((s) => s.simTick);
+  const toggleCopilot = useArgos((s) => s.toggleCopilot);
+  const aiVisible = flags["assistant"] !== false;
   const ready = authed && !mustChangePassword && !mustChooseRole;
   const pathname = usePathname();
   const moduleKey = keyForPath(pathname);
@@ -89,6 +92,21 @@ export function AppFrame({ children }: { children: ReactNode }) {
     const id = setInterval(simTick, SIM_INTERVAL);
     return () => clearInterval(id);
   }, [simTick]);
+
+  // Raccourci global ⌘K / Ctrl+K → ouvre/ferme le Copilot si le module est visible.
+  useEffect(() => {
+    if (!ready || !aiVisible) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      const meta = e.metaKey || e.ctrlKey;
+      if (!meta) return;
+      if (e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        toggleCopilot();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [ready, aiVisible, toggleCopilot]);
 
   const dir = lang === "ar" ? "rtl" : "ltr";
   const fontCls = lang === "ar" ? "font-arabe" : "";
@@ -134,6 +152,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
       <IncidentWizard />
       <QuakeAlert />
       <Toast />
+      {aiVisible && <Copilot />}
     </div>
   );
 }
