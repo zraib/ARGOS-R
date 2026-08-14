@@ -19,7 +19,11 @@ export default function AssistantPage() {
   const incidents = useArgos((s) => s.incidents);
   const movements = useArgos((s) => s.movements);
   const units = useArgos((s) => s.units);
+  const hospitals = useArgos((s) => s.hospitals);
+  const dashStats = useArgos((s) => s.dashStats);
+  const quakes = useArgos((s) => s.quakes);
   const catalog = useArgos((s) => s.catalog);
+  const pathname = typeof window !== "undefined" ? window.location.pathname : "";
   const aiLog = useArgos((s) => s.aiLog);
   const pushAi = useArgos((s) => s.pushAi);
   const updateAi = useArgos((s) => s.updateAi);
@@ -57,12 +61,34 @@ export default function AssistantPage() {
     setBusy(true);
 
     // 1) Couche 1 déterministe : traduit la requête et l'exécute (toujours).
-    const ctx: AiContext = { incidents, movements, units, equipment: catalog.equipment, orsec: catalog.orsec };
+    const ctx: AiContext = {
+      incidents,
+      movements,
+      units,
+      hospitals,
+      dashStats,
+      quakes,
+      equipment: catalog.equipment,
+      orsec: catalog.orsec,
+      currentPath: pathname,
+    };
     const answer = interpret(q, ctx);
 
     // 2) Si un LLM local est joignable, il REFORMULE le résultat en streaming
     //    (lecture seule). Sinon, on garde la réponse déterministe.
-    const msgId = pushAi({ role: "assistant", text: answer.text, provider: m.ai.mode_det, layer1: answer.layer1, units: answer.units });
+    const msgId = pushAi({
+      role: "assistant",
+      text: answer.text,
+      provider: m.ai.mode_det,
+      layer1: answer.layer1,
+      units: answer.units,
+      incidents: answer.incidents,
+      hospitals: answer.hospitals,
+      quakes: answer.quakes,
+      equipment: answer.topEquip,
+      stats: answer.stats,
+      cross: answer.cross,
+    });
     if (status === "online") {
       const res = await chatStream(
         cfg,

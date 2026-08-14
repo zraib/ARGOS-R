@@ -37,6 +37,7 @@ import { hospKind } from "@/lib/hospitals";
 import { LANGS, type Dict } from "@/lib/i18n/translations";
 import { MODULES, type ModulesDict } from "@/lib/i18n/modules";
 import { FEED_POOL } from "@/lib/data/seed";
+import type { AiIncidentRow, AiHospitalRow, AiTopEquip, AiAnswerStats, AiCrossBlock, AiSuggestion } from "@/lib/ai/assistant";
 
 /** Présence du centre de communication (interlocuteurs + salle vocale). */
 export interface CommMembers {
@@ -129,6 +130,16 @@ export interface AiMessage {
   /** requête Couche 1 réellement exécutée (transparence) */
   layer1?: string;
   units?: AiUnitResult[];
+  /** Données structurées renvoyées par la Couche 1 (tableaux sous le markdown */
+  incidents?: AiIncidentRow[];
+  hospitals?: AiHospitalRow[];
+  quakes?: { id: string; region: string; mag: number; depth: number; time: string }[];
+  equipment?: AiTopEquip[];
+  stats?: AiAnswerStats;
+  cross?: AiCrossBlock;
+  suggestions?: (string | AiSuggestion)[];
+  /** true si cible cette réponse est un refus d'injection détecté côté frontend */
+  refused?: boolean;
 }
 
 interface ArgosState {
@@ -152,6 +163,8 @@ interface ArgosState {
   navGroups: NavGroups;
   toast: string | null;
   wizOpen: boolean;
+  /** true = la modale Copilot général est ouverte (⌘K / Ctrl+K) */
+  copilotOpen: boolean;
   /** Incident en cours d'édition dans l'assistant (null = création). */
   wizEdit: Incident | null;
   /** Coordonnées [lng, lat] pré-remplies quand le wizard est ouvert depuis la carte */
@@ -279,6 +292,10 @@ interface ArgosState {
   /** Ouvre l'assistant en mode édition (pré-rempli depuis un incident existant). */
   openWizardEdit: (inc: Incident) => void;
   closeWizard: () => void;
+  /** Ouvre/ferme la modale Copilot général (⌘K). */
+  openCopilot: () => void;
+  closeCopilot: () => void;
+  toggleCopilot: () => void;
 
   toggleLayer: (k: keyof LayerState) => void;
   setMap3d: (v: boolean) => void;
@@ -329,6 +346,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
   navGroups: { res: false, dis: false, cmd: false },
   toast: null,
   wizOpen: false,
+  copilotOpen: false,
   wizInitLL: null,
   wizEdit: null,
 
@@ -681,6 +699,10 @@ export const useArgos = create<ArgosState>((set, get) => ({
   openWizard: (initLL) => set({ wizOpen: true, wizInitLL: initLL ?? null, wizEdit: null }),
   openWizardEdit: (inc) => set({ wizOpen: true, wizInitLL: null, wizEdit: inc }),
   closeWizard: () => set({ wizOpen: false, wizInitLL: null, wizEdit: null }),
+
+  openCopilot: () => set({ copilotOpen: true }),
+  closeCopilot: () => set({ copilotOpen: false }),
+  toggleCopilot: () => set((s) => ({ copilotOpen: !s.copilotOpen })),
 
   toggleLayer: (k) => set((s) => ({ layers: { ...s.layers, [k]: !s.layers[k] } })),
   setMap3d: (v) => set({ map3d: v }),
