@@ -33,6 +33,8 @@ export type AiIntent =
   | "orsec_summary"
   | "seismic_status"
   | "equipment_search"
+  | "equipment_critical_status"
+  | "mobilizable_potential"
   | "help"
   | "greeting"
   | "social"
@@ -111,6 +113,7 @@ export interface AiAnswerStatsItem {
   label: string;
   value: string | number;
   level: number;
+  key?: string;
 }
 
 export interface AiAnswerStats {
@@ -350,6 +353,24 @@ const DISPO_LABEL: Record<string, string> = { ready: "opérationnelle", deployed
 const COND_LABEL: Record<string, string> = { ok: "OK", repair: "en réparation", oos: "HS" };
 
 /**
+ * Coordonnées standard villes (déclarées en scope module pour être partagées :
+ * incidentsNearCity + mobilizablePotential + regex mob).
+ * Normalisation NFD + accents supprimés dans CITY_COORDS_LOOKUP (comparaison).
+ */
+const CITY_COORDS: Record<string, [number, number]> = {
+  casa: [-7.5898, 33.5731], casablanca: [-7.5898, 33.5731],
+  rabat: [-6.8498, 34.0209], temara: [-6.9159, 33.9259], skhirate: [-6.7844, 33.8462], sale: [-6.8189, 34.0349], "salé": [-6.8189, 34.0349],
+  marrakech: [-8.0029, 31.6295], safi: [-9.2387, 32.2994],
+  fes: [-4.9808, 34.0181], "fès": [-4.9808, 34.0181], meknes: [-5.5547, 33.8935], "meknès": [-5.5547, 33.8935],
+  tanger: [-5.8038, 35.7595], tangier: [-5.8038, 35.7595], tetouan: [-5.3696, 35.5814], "tétouan": [-5.3696, 35.5814], hoceima: [-3.9326, 35.2470], "al hoceima": [-3.9326, 35.2470],
+  agadir: [-9.6013, 30.4278], taroudant: [-8.8676, 30.4779], tiznit: [-9.7307, 29.7124],
+  oujda: [-1.9124, 34.6803], nador: [-2.9282, 35.1721], berkane: [-2.3194, 34.9189], guercif: [-3.3608, 34.2316],
+  kenitra: [-6.5800, 34.2517], mohammedia: [-7.3855, 33.6933], bouskoura: [-7.4416, 33.4536],
+  taza: [-4.0119, 34.2140], settat: [-7.6216, 32.9927],
+  "beni mellal": [-6.3626, 32.3398], errachidia: [-4.4265, 31.9291], ouarzazate: [-6.9000, 30.9177],
+};
+
+/**
  * Vue STOCKS CRITIQUES / ÉTAT DES ÉQUIPEMENTS (ruptures, HS, sous seuil).
  * Déclenchée quand l'utilisateur demande l'état global des stocks / ruptures
  * (pas une recherche par mot-clé). → retourne 100% réel depuis ctx.equipment.
@@ -400,7 +421,7 @@ function equipmentCriticalStatus(_q: string, ctx: AiContext): AiAnswer {
   ].filter(Boolean).join("\n");
 
   return {
-    intent: "equipment_search",
+    intent: "equipment_critical_status",
     layer1: "état stocks équipements — ruptures / hors-service (issu de catalog.equipment)",
     text,
     topEquip: ruptures.map((e) => ({
@@ -1185,6 +1206,171 @@ function unitsStatus(_q: string, ctx: AiContext): AiAnswer {
   };
 }
 
+/**
+ * Potentiel mobilisable dans un périmètre (région / ville ou rayon km).
+ * - Détecte la ville cible via CITY_COORDS ou un libellé dans les champs ville des unités.
+ * - Accepte un rayon explicite (ex: "60 km", "dans un rayon de 100 km") sinon défaut 50 km.
+ * - Agrège : unités prêtes, readiness moyenne, capacités couvertes, équipements liés, ETA moyen.
+ * - Tri : readiness décroissant puis distance croissante.
+ */
+function mobilizablePotential(q: string, ctx: AiContext): AiAnswer {
+  const nq = norm(q);
+  // 1) Détection du rayon en km
+  const rayonMatch = q.match(/(\d+)\s*(?:km|kilom[èe]tres?)/i);
+  const rayonKm = rayonMatch ? parseInt(rayonMatch[1], 10) : 50;
+  // 2) Détection ville / région
+  const cityKeys = Object.keys(CITY_COORDS).sort((a, b) => b.length - a.length);
+  let ville: string | null = null;
+  let center: [number, number] | null = null;
+  for (const k of cityKeys) {
+    if (nq.includes(norm(k))) {
+      ville = k;
+      center = CITY_COORDS[k] as [number, number];
+      break;
+    }
+  }
+  if (!center) {
+    // Pas de coordonnée connue → on essaie de trouver une ville depuis le libellé exact de unit.ville
+    const candidateVilles = Array.from(new Set(ctx.units.map((u) => u.ville))).sort((a, b) => b.length - a.length);
+    for (const v of candidateVilles) {
+      if (nq.includes(norm(v))) {
+        ville = v;
+        const found = ctx.units.find((u) => u.ville === v);
+        center = found ? found.ll : null;
+        break;
+      }
+    }
+  }
+  // 3) Cas : requête par région (pas de ville détectée, mais un groupe de villes)
+  if (!center) {
+    const regionGroup = /region\s+(de\s+)?(\w[\w\s-]*\w|\w)/i.exec(q);
+    const regionRaw = regionGroup ? regionGroup[2].trim().toLowerCase() : "";
+    const regionHints = [
+      ["rabat-salé", "rabat", "salé", "temara", "skhirate"],
+      ["casablanca-settat", "casa", "casablanca", "settat", "mohammedia", "bouskoura"],
+      ["marrakech-safi", "marrakech", "safi", "el kelaa des sraghna"],
+      ["fès-meknès", "fès", "fes", "meknès", "meknes"],
+      ["tanger-tétouan-al hoceima", "tanger", "tetouan", "tétouan", "hoceima", "al hoceima"],
+      ["souss-massa", "agadir", "taroudant", "tiznit"],
+      ["oriental", "oujda", "nador", "berkane", "guercif"],
+    ];
+    for (const g of regionHints) {
+      const [name, ...members] = g;
+      if (regionRaw === norm(name).replace(/-/g, " ") || members.some((m) => nq.includes(norm(m)))) {
+        const unitsInGroup = ctx.units.filter((u) => members.some((m) => norm(u.ville).includes(norm(m))));
+        if (unitsInGroup.length) {
+          ville = name;
+          const lats = unitsInGroup.map((u) => u.ll[1]);
+          const lons = unitsInGroup.map((u) => u.ll[0]);
+          center = [lons.reduce((a, b) => a + b, 0) / lons.length, lats.reduce((a, b) => a + b, 0) / lats.length];
+          break;
+        }
+      }
+    }
+  }
+  if (!center) {
+    // Centre non résolu → posture nationale potentiellement mobilisable (équivalent à unitsStatus filtré prêtes/standby)
+    const uReady = ctx.units.filter((u) => u.dispo === "ready" || u.dispo === "standby");
+    const totalReady = uReady.filter((u) => u.dispo === "ready").length;
+    const avgR = uReady.length ? Math.round(uReady.reduce((a, u) => a + u.readiness, 0) / uReady.length) : 0;
+    return {
+      intent: "mobilizable_potential",
+      layer1: "potentiel mobilisable — centre non résolu → potentiel national (prêtes / standby)",
+      text: [
+        `POTENTIEL MOBILISABLE — NATIONAL (requête sans zone cible explicite)`,
+        `Unités mobilisables (prêtes + en attente) : ${uReady.length}/${ctx.units.length} · dont ${totalReady} prêtes immédiatement · readiness moyenne ${avgR}%`,
+        `Astuces pour préciser : « 60 km autour de Casablanca » · « potentiel Rabat » · « mobilisable dans la région de Marrakech ».`,
+      ].join("\n"),
+      units: uReady.sort((a, b) => b.readiness - a.readiness).map((u) => ({
+        id: u.id, nom: u.nom, ville: u.ville, etaMin: u.readiness, caps: (UNIT_CAPS[u.id] ?? []).map((c) => CAP_LABELS[c]), dispo: DISPO_LABEL[u.dispo], within: true,
+      })),
+      stats: { unitsReady: totalReady, avgReadiness: avgR },
+    };
+  }
+  // 4) Filtrage par rayon + calculs géo
+  const withDist = ctx.units
+    .map((u) => ({
+      unit: u,
+      dKm: haversineKm(center!, u.ll),
+      etaMin: etaMinutes(center!, u.ll),
+    }))
+    .filter((x) => x.dKm <= rayonKm)
+    .sort((a, b) => {
+      // Prêtes d'abord puis readiness décroissant, puis distance croissante
+      const aDispoRank = a.unit.dispo === "ready" ? 0 : a.unit.dispo === "standby" ? 1 : 2;
+      const bDispoRank = b.unit.dispo === "ready" ? 0 : b.unit.dispo === "standby" ? 1 : 2;
+      if (aDispoRank !== bDispoRank) return aDispoRank - bDispoRank;
+      if (a.unit.readiness !== b.unit.readiness) return b.unit.readiness - a.unit.readiness;
+      return a.dKm - b.dKm;
+    });
+  const total = ctx.units.length;
+  const nbP = withDist.length;
+  const nbReady = withDist.filter((x) => x.unit.dispo === "ready").length;
+  const nbDep = withDist.filter((x) => x.unit.dispo === "deployed").length;
+  const avgR = nbP ? Math.round(withDist.reduce((s, x) => s + x.unit.readiness, 0) / nbP) : 0;
+  const avgEta = nbP ? Math.round(withDist.reduce((s, x) => s + x.etaMin, 0) / nbP) : 0;
+  // 5) Couverture capacités
+  const capCounts = new Map<Capability, number>();
+  withDist.forEach((x) => {
+    (UNIT_CAPS[x.unit.id] ?? [] as Capability[]).forEach((c) => capCounts.set(c, (capCounts.get(c) ?? 0) + 1));
+  });
+  const capLines = [...capCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([c, n]) => `  • ${CAP_LABELS[c]} : ${n} unité(s)`);
+  // 6) Équipements liés (top 5 unités prêtes → leurs équipements)
+  const topUnitIds = new Set(
+    withDist.filter((x) => x.unit.dispo === "ready").slice(0, 5).map((x) => x.unit.id),
+  );
+  const topEquip = ctx.equipment.filter((e) => {
+    const uid = UNIT_CODE[e.unit];
+    return uid ? topUnitIds.has(uid) : false;
+  });
+  // 7) Texte réponse
+  const titleVille = ville ? ville[0].toUpperCase() + ville.slice(1) : "zone cible";
+  const lines = [
+    `POTENTIEL MOBILISABLE — ${titleVille} · rayon ${rayonKm} km`,
+    `${nbP}/${total} unités dans le périmètre · ${nbReady} prêtes immédiatement · ${nbDep} déjà déployées · ${nbP - nbReady - nbDep} en attente`,
+    `Readiness moyenne ${avgR}% · Temps d'arrivée moyen (centre géo) : ${avgEta} min`,
+    capLines.length ? `Capacités couvertes dans le périmètre :` : "Aucune capacité détectée.",
+    ...capLines,
+    withDist.length ? `TOP ${Math.min(8, withDist.length)} unités (prêtes/standby + readiness + proximité) :` : "Aucune unité documentée dans ce périmètre.",
+    ...withDist.slice(0, 8).map((x, i) => {
+      const caps = (UNIT_CAPS[x.unit.id] ?? []).map((c) => CAP_LABELS[c]).join(" / ") || "—";
+      return `${String(i + 1).padStart(2, " ")}. ${x.unit.id} ${x.unit.nom} (${x.unit.ville}) — ${x.dKm.toFixed(1)} km · ETA ${x.etaMin} min · statut ${DISPO_LABEL[x.unit.dispo]} · readiness ${x.unit.readiness}% · eff. ${x.unit.eff} · ${caps}`;
+    }),
+  ];
+  const mapFocus = { ll: center, zoom: rayonKm <= 30 ? 10 : rayonKm <= 80 ? 9 : 8, label: ville ?? undefined };
+  return {
+    intent: "mobilizable_potential",
+    layer1: `potentiel mobilisable ${titleVille} rayon ${rayonKm} km · ${nbP} unités · avg readiness ${avgR}% · avg ETA ${avgEta} min`,
+    text: lines.join("\n"),
+    units: withDist.map((x) => ({
+      id: x.unit.id, nom: x.unit.nom, ville: x.unit.ville, etaMin: x.etaMin, caps: (UNIT_CAPS[x.unit.id] ?? []).map((c) => CAP_LABELS[c]), dispo: DISPO_LABEL[x.unit.dispo], within: x.dKm <= rayonKm, readiness: x.unit.readiness,
+    })),
+    topEquip: topEquip.map((e) => ({
+      id: e.id, desig: e.desig, cat: e.cat, stock: e.stock, cond: COND_LABEL[e.cond], unit: e.unit, seuil: e.threshold,
+    })),
+    stats: {
+      unitsReady: nbReady,
+      unitsDeployed: nbDep,
+      avgReadiness: avgR,
+      items: [
+        { key: "périmètre", label: `Périmètre`, value: `${rayonKm} km autour de ${titleVille}`, level: Math.min(1, rayonKm / 150) },
+        { key: "nb_potentiel", label: `Unités dans périmètre`, value: `${nbP}/${total}`, level: Math.min(1, nbP / Math.max(1, total)) },
+        { key: "nb_pretes", label: `Prêtes immédiatement`, value: `${nbReady}`, level: Math.min(1, nbReady / 6) },
+        { key: "eta_moyen", label: `ETA moyen centre`, value: `${avgEta} min`, level: 1 - Math.min(1, avgEta / 120) },
+        { key: "capacites", label: `Capacités couvertes`, value: capLines.length ? String(capLines.length) : "0", level: Math.min(1, capLines.length / 7) },
+      ],
+    },
+    cross: { zones: [{ nom: ville ?? "cible", count: nbP, severity: nbReady >= 5 ? "moyen" : nbReady >= 2 ? "élevé" : "critique", ll: center, ids: withDist.map((x) => x.unit.id) }], mapFocus },
+    suggestions: [
+      { label: `Dispositif INC-2607`, query: "Dispositif recommandé pour INC-2607", priority: "primary" as const },
+      { label: `Potentiel national`, query: "Potentiel mobilisable national" },
+      { label: `Posture unités`, query: "Posture globale des unités FAR" },
+    ],
+  };
+}
+
 function crossAnalysis(q: string, ctx: AiContext): AiAnswer {
   const target = resolveTarget(q, ctx.incidents);
   if (!target) {
@@ -1811,23 +1997,6 @@ function incidentsNearCity(q: string, ctx: AiContext): AiAnswer {
     /autour\s+de\s+([a-zàâçéèêëîïôûùüÿñæœ\s'-]+?)(?:\s|$|\?|!|,|\.)/.exec(q.toLowerCase())?.[1]?.trim() ??
     /(?:a|à)\s+(casa|casablanca|rabat|marrakech|f[eè]s|tanger|agadir|mekn[eè]s|oujda|t[ée]touan|safi|kenitra|taza|nador|settat|beni mellal)\b/i.exec(normQ)?.[1] ??
     null;
-  const CITY_COORDS: Record<string, [number, number]> = {
-    casa: [-7.5898, 33.5731], casablanca: [-7.5898, 33.5731],
-    rabat: [-6.8498, 34.0209],
-    marrakech: [-8.0029, 31.6295], marrakech1: [-8.0029, 31.6295],
-    fes: [-4.9808, 34.0181], "fès": [-4.9808, 34.0181],
-    tanger: [-5.8038, 35.7595], tangier: [-5.8038, 35.7595],
-    agadir: [-9.6013, 30.4278],
-    meknes: [-5.5547, 33.8935], "meknès": [-5.5547, 33.8935],
-    oujda: [-1.9124, 34.6803],
-    tetouan: [-5.3696, 35.5814], "tétouan": [-5.3696, 35.5814],
-    safi: [-9.2387, 32.2994],
-    kenitra: [-6.5800, 34.2517],
-    taza: [-4.0119, 34.2140],
-    nador: [-2.9282, 35.1721],
-    settat: [-7.6216, 32.9927],
-    "beni mellal": [-6.3626, 32.3398],
-  };
   const key = city ? Object.keys(CITY_COORDS).find((k) => norm(k) === norm(city)) : null;
   const center = (key ? CITY_COORDS[key] : null) ?? null;
   const rayonKm = 50;
@@ -2273,6 +2442,17 @@ export function interpret(q: string, ctx: AiContext): AiAnswer {
   // unités posture globale
   if (/(posture|etat|statut|capacite|liste|disponibilite|readiness|preparation|situation|bilan|vue|apercu|panorama).*(unite|equipe|unite far|unites|far)/.test(nq) || /posture des unites|etat des unites|unites disponibles|toutes les unites|capacites des unites|situation des unites|bilan des unites/.test(nq)) return unitsStatus(q, ctx);
 
+  // 🔥 NOUVEAU : POTENTIEL MOBILISABLE (région / ville / rayon km / périmètre)
+  //    → "potentiel mobilisable 60 km autour de Casablanca"
+  //    → "unités mobilisables dans la région Rabat"
+  //    → "capacité mobilisable Marrakech"
+  //    → "disponibilités 100 km de Fès"
+  const mobRayonExplicit = /(\d+\s*(?:km|kilom[èe]tres?)|rayon|p[ée]rim[èe]tre|autour\s+de|dans\s+(?:un\s+)?rayon)/i;
+  const mobCueWords = /(potentiel\s+mobilisab|mobilisab|capacit[eé]\s+mob|capacit[ée]\s+de\s+mobi|disponibilit[eé]\s+unite|(unite|unit[ée]s).*(zone|region|perimetre|périmètre|rayon|ville))/i;
+  const mobCity = /(casa|casablanca|rabat|marrakech|f[eè]s|fes|tanger|agadir|mekn[eè]s|meknes|oujda|t[ée]touan|tetouan|safi|kenitra|taza|nador|settat|beni\s+mellal|errachidia|ouarzazate|temara|mohammedia|bouskoura|hoceima|al\s+hoceima|taroudant|tiznit|guercif|berkane|sal[ée]|skhirate)/i;
+  const mobRegion = /(region\s+(de|du)?|r[ée]gion\s+(de|du)?|rabat[\s-]+sal[eé]|casablanca[\s-]+settat|marrakech[\s-]+safi|f[eè]s[\s-]+mekn[eè]s|tanger[\s-]+t[eé]touan|souss[\s-]+massa|l'oriental|oriental)/i;
+  if ((mobRayonExplicit.test(nq) || mobCueWords.test(nq) || mobRegion.test(nq) || (mobCity.test(nq) && /(mobilisab|disponibilit[eé]|potentiel|capacit[eé]\s+mob|pretes|pret\s+a|envois?|renfort)/i.test(nq))) && !/saturation|occupation|etat\s+(des\s+)?(hopital|hospinet|hospi)/i.test(nq)) return mobilizablePotential(q, ctx);
+
   // 🔥 PRIORITAIRE : ÉTAT GLOBAL STOCKS / RUPTURES / HORS SERVICE
   //    → Déclenche SUR LA REQUÊTE EXACTE utilisateur "état des stocks des équipements critiques
   //      (ruptures / HORS SERVICE)". Ne PAS passer en equipmentSearch (qui est une recherche
@@ -2287,6 +2467,17 @@ export function interpret(q: string, ctx: AiContext): AiAnswer {
 
   // équipements / inventaire / recherche par mot-clé (reste générique pour "cherche X", "citerne", etc.)
   if (/equipement|inventaire|stock|cherche|recherche|trouve|materiel|catalogue.*equip|piece|kit|groupe electrogene|tente|brancard/.test(nq)) return equipmentSearch(q, ctx);
+
+  // 🔥 PRIORITAIRE : ÉQUIPEMENTS POUR UN INCIDENT / DISPOSITIF INCIDENT
+  //    → Cas complexe #1 : "équipements disponibles pour INC-2607"
+  //    → Cas complexe #3 : "dispositif pour INC-2607 / moyens recommandés / moyens à engager / plan de déploiement"
+  //    - Si un INC est ciblé → crossAnalysis (fournit équipements liés unités recommandées + hôpitaux proches + 360°).
+  if (
+    (hasIncCue && /(equipements?|inventaire|stocks?|ruptures?|materiels?)\s+(disponibles?|pour|d[eé]di[eé]s?|associ[eé]s?|li[eé]s?|rattach[eé]s?|affect[eé]s?|pr[eé]vus?|requis|demandes?|nécessaires?)/i.test(nq)) ||
+    (hasIncCue && /(dispositif|plan\s+de\s+d[ée]ploiement|moyens\s+(recommand[ée]s?|[àa]\s+mettre\s+en\s+place|[àa]\s+engager|[àa]\s+d[ée]ployer|ordonnanc[ée]s?|pr[éè]vus?|disponibles?))/i.test(nq)) ||
+    /(dispositif|moyens\s+(recommand[ée]s|[àa]\s+engager|[àa]\s+mettre\s+en\s+place|[àa]\s+d[ée]ployer)).*\b(INC-\d{3,6})\b/i.test(q) ||
+    /\b(INC-\d{3,6})\b.*(dispositif|moyens\s+(recommand[ée]s|[àa]\s+engager|[àa]\s+mettre\s+en\s+place|[àa]\s+d[ée]ployer))/i.test(q)
+  ) return crossAnalysis(q, ctx);
 
   // analyse croisée / croisement / fiche complète / 360
   if (/analyse croise|croisement|fiche complete|360|vue complete|consolid|synthese.*incident/.test(nq) || (/croise|complet|global|detailled|detail complet|toutes les informations/.test(nq) && hasIncCue)) {
