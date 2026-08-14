@@ -50,10 +50,15 @@ import { api, loadSessionContext } from "@/lib/api";
 import type { QueueItem, TransportMovement } from "@/lib/data/dispatch";
 import { EMPTY_CATALOG, type Catalog } from "@/lib/data/modules";
 import type { AiUnitResult } from "@/lib/ai/assistant";
-import { AI_DEFAULT_SETTINGS, type AiSettings } from "@/lib/ai/config";
+import { AI_DEFAULT_SETTINGS, type AiSettings, resolveProvider, type LlmProviderConfig } from "@/lib/ai/config";
 import { DEFAULT_FLAGS } from "@/lib/nav";
 import type { Assignments, Role } from "@/lib/roles";
 import { defaultRoleFeatures } from "@/lib/data/users";
+import { computeRiskPredictions } from "@/lib/ai/risk/engine";
+import type { RiskPrediction } from "@/lib/ai/risk/types";
+import { predictRiskPredictionsAI } from "@/lib/ai/risk/modelPredictor";
+import type { SituationalAwareness } from "@/lib/ai/situational/types";
+import { computeSituationalAwarenessAI } from "@/lib/ai/situational/engine";
 
 const THEME_KEY = "kanban_rdia_theme";
 const LANG_KEY = "argos_lang";
@@ -127,6 +132,10 @@ export interface AiMessage {
   at: string;
   /** origine de la rédaction : « déterministe » ou l'id du fournisseur LLM */
   provider?: string;
+  /** true si réponse = Couche 1 (regex/ARGOS data) ET Couche 2 a échoué (erreur LLM) */
+  deterministic?: boolean;
+  /** Si couche 2 a échoué : cause courte lisible (sans JSON brut) */
+  llmError?: string;
   /** requête Couche 1 réellement exécutée (transparence) */
   layer1?: string;
   units?: AiUnitResult[];
@@ -197,6 +206,10 @@ interface ArgosState {
   quakeAlert: SeismicEvent | null;
   /** séisme à centrer sur la carte (« voir sur la carte ») ; consommé puis remis à null */
   quakeFocus: SeismicEvent | null;
+  /** incident à centrer sur la carte (même pattern que quakeFocus) ; consommé puis remis à null */
+  incidentFocus: Incident | null;
+  /** centrage générique carte : demandé par un composant (Copilot) ; consommé par MapCanvas puis remis à null */
+  mapCenterRequest: { ll: [number, number]; zoom: number; at: number; label?: string } | null;
   /** séisme sélectionné (bandeau de détail flottant sur la carte) ; null = aucun */
   quakeSelected: SeismicEvent | null;
   /** configuration des alertes (seuils + autorités), chargée depuis l'API */
@@ -239,6 +252,25 @@ interface ArgosState {
   // --- assistant IA (journal d'audit) ---
   aiLog: AiMessage[];
 
+  // --- Module IA Prédictions Risques ---
+  /** Prédictions calculées par computeRiskPredictions ou IA LLM (100% réel, 0 invention). Triées score décroissant. */
+  riskPredictions: RiskPrediction[];
+  /** true = module activé (feature flag). Toggleable par Super Admin dans settings. */
+  riskModuleOn: boolean;
+  /** Moteur actuellement utilisé : poids déterministes OU inférence modèle IA local (Ollama/vLLM). */
+  riskEngine: "deterministic" | "ai_model";
+  /** Nom du modèle IA qui a généré la dernière prédiction (si origin=ai_model). */
+  riskAIModel?: string;
+  /** Erreur LLM (affichée dans RiskPanel) quand fallback vers déterministe. */
+  riskAIError?: string;
+  /** true = IA en cours d'inférence (spinner UI RiskPanel). */
+  riskLoadingAI: boolean;
+
+  // --- Module IA Conscience Situationnelle ---
+  situationalAwareness: SituationalAwareness | null;
+  situationalLoadingAI: boolean;
+  situationalModel?: string;
+
   // --- paramètres (Super Admin) ---
   aiSettings: AiSettings;
   /** feature flags par module (§6.15) */
@@ -267,6 +299,10 @@ interface ArgosState {
   dismissQuakeAlert: () => void;
   /** Demande le centrage de la carte sur un séisme (active la couche) ; null pour purger. */
   focusQuake: (ev: SeismicEvent | null) => void;
+  /** Demande le centrage de la carte sur un incident (active la couche incidents) ; null pour purger. */
+  focusIncident: (inc: Incident | null) => void;
+  /** Demande un centrage générique de la carte (ex: zone géographique). Consommé par MapCanvas. null = purge. */
+  setMapCenter: (ll: [number, number] | null, zoom?: number, label?: string) => void;
   /** Sélectionne un séisme pour le bandeau de détail (clic sur la carte) ; null ferme. */
   selectQuake: (ev: SeismicEvent | null) => void;
   /** Bascule une couche météo de la carte (charge la grille à la 1re activation). */
@@ -325,6 +361,29 @@ interface ArgosState {
   setAiSettings: (patch: Partial<AiSettings>) => void;
   setFlag: (key: string, enabled: boolean) => void;
 
+  // --- Module IA Prédictions Risques ---
+  /** Force un recalcul COMPLET des prédictions (après loadDomain, addIncident, deployFieldHospital). */
+  recomputeRiskPredictions: () => RiskPrediction[];
+  /** Valide une prédiction par un opérateur humain (obligatoire per spec). */
+  validateRiskPrediction: (id: string, validator?: string) => void;
+  /** Ignore/masque une prédiction (considérée non pertinente par l'opérateur). */
+  dismissRiskPrediction: (id: string) => void;
+  /** Active/désactive globalement le module (feature flag). */
+  toggleRiskModule: (enabled?: boolean) => void;
+  /**
+   * Déclenche l'INFÉRENCE MODÈLE IA LOCAL (Ollama / vLLM via provider settings).
+   * Retourne toujours 1..12 RiskPrediction valides :
+   *  → SUCCÈS LLM → predictions origin="ai_model".
+   *  → ÉCHEC LLM (injoignable, timeout, JSON invalide) → FALLBACK vers
+   *    computeRiskPredictions (déterministe 100% réel), origin="deterministic".
+   * Fallback garanti : AUCUNE invention, JAMAIS tableau vide.
+   */
+  recomputeRiskPredictionsAI: () => Promise<RiskPrediction[]>;
+
+  // --- Module IA Conscience Situationnelle ---
+  /** Recalcule conscience situationnelle IA (Ollama local) · fallback déterministe si échec. */
+  recomputeSituationalAwarenessAI: () => Promise<SituationalAwareness>;
+
   simTick: () => void;
 }
 
@@ -369,6 +428,8 @@ export const useArgos = create<ArgosState>((set, get) => ({
   quakeAlert: null,
   seisConfig: null,
   quakeFocus: null,
+  incidentFocus: null,
+  mapCenterRequest: null,
   quakeSelected: null,
 
   wxGrid: null,
@@ -401,6 +462,18 @@ export const useArgos = create<ArgosState>((set, get) => ({
 
   aiLog: [],
   aiSettings: AI_DEFAULT_SETTINGS,
+
+  // --- Module IA Prédictions Risques ---
+  riskPredictions: [],
+  riskModuleOn: true,
+  riskEngine: "deterministic",
+  riskAIModel: undefined,
+  riskAIError: undefined,
+  riskLoadingAI: false,
+
+  situationalAwareness: null,
+  situationalLoadingAI: false,
+  situationalModel: undefined,
   flags: DEFAULT_FLAGS,
 
   roleFeatures: defaultRoleFeatures(),
@@ -491,6 +564,10 @@ export const useArgos = create<ArgosState>((set, get) => ({
       vehRoutes: reference?.vehRoutes ?? s.vehRoutes,
       domainLoaded: true,
     }));
+    // Re-calcul IA prédictions risques (100% données ARGOS réel chargées · IA Ollama
+    // en local si dispo, sinon repli AUTOMATIQUE sur le moteur déterministe).
+    void get().recomputeRiskPredictionsAI();
+    void get().recomputeSituationalAwarenessAI();
   },
 
   // Recharge les séismes depuis l'API (proxy EMSC) et détecte les nouveaux
@@ -546,6 +623,17 @@ export const useArgos = create<ArgosState>((set, get) => ({
   // « Voir sur la carte » : centre (quakeFocus, consommé) + sélectionne pour le
   // bandeau de détail (quakeSelected, persistant) + active la couche séismes.
   focusQuake: (ev) => set((s) => ({ quakeFocus: ev, quakeSelected: ev ?? s.quakeSelected, quakesOn: ev ? true : s.quakesOn })),
+
+  // « Voir sur la carte » : centre sur un incident (pattern identique à focusQuake)
+  focusIncident: (inc) => set((s) => {
+    if (!inc) return { incidentFocus: null };
+    const layers = s.layers.incidents ? s.layers : { ...s.layers, incidents: true };
+    return { incidentFocus: inc, selMarker: { kind: "inc", id: inc.id }, layers };
+  }),
+
+  // Centre générique carte (ex: zone géographique, ville) — consommé par MapCanvas useEffect
+  // zoom par défaut = 7 (niveau national) sinon explicit.
+  setMapCenter: (ll, zoom, label) => set({ mapCenterRequest: ll ? { ll, zoom: zoom ?? 7, at: Date.now(), label } : null }),
 
   selectQuake: (ev) => set({ quakeSelected: ev }),
 
@@ -673,6 +761,141 @@ export const useArgos = create<ArgosState>((set, get) => ({
       return { flags };
     }),
 
+  // ============================================================
+  // Module IA · Prédictions Risques
+  // ============================================================
+  recomputeRiskPredictions: () => {
+    const s = get();
+    if (!s.riskModuleOn) {
+      set({ riskPredictions: [] });
+      return [];
+    }
+    const preds: RiskPrediction[] = computeRiskPredictions({
+      incidents: s.incidents,
+      hospitals: s.hospitals,
+      units: s.units,
+      movements: s.movements,
+      dashStats: s.dashStats,
+    }).map(p => ({ ...p, origin: "deterministic" as const }));
+    set({ riskPredictions: preds, riskEngine: "deterministic", riskAIError: undefined });
+    return preds;
+  },
+  validateRiskPrediction: (id, validator) =>
+    set((s) => ({
+      riskPredictions: s.riskPredictions.map((p) =>
+        p.id === id ? { ...p, validatedByHuman: true, validatedBy: validator ?? p.validatedBy } : p,
+      ),
+    })),
+  dismissRiskPrediction: (id) =>
+    set((s) => ({
+      riskPredictions: s.riskPredictions.map((p) =>
+        p.id === id ? { ...p, dismissed: true } : p,
+      ),
+    })),
+  toggleRiskModule: (enabled) =>
+    set((s) => {
+      const next = typeof enabled === "boolean" ? enabled : !s.riskModuleOn;
+      const preds = next ? computeRiskPredictions({
+        incidents: s.incidents,
+        hospitals: s.hospitals,
+        units: s.units,
+        movements: s.movements,
+        dashStats: s.dashStats,
+      }).map(p => ({ ...p, origin: "deterministic" as const })) : [];
+      return {
+        riskModuleOn: next,
+        riskPredictions: preds,
+        riskEngine: "deterministic",
+        riskAIError: undefined,
+      };
+    }),
+  recomputeRiskPredictionsAI: async () => {
+    const s = get();
+    if (!s.riskModuleOn) {
+      set({ riskPredictions: [], riskLoadingAI: false });
+      return [];
+    }
+    set({ riskLoadingAI: true });
+    try {
+      const cfg: LlmProviderConfig = resolveProvider(s.aiSettings);
+      const res = await predictRiskPredictionsAI(
+        {
+          incidents: s.incidents,
+          hospitals: s.hospitals,
+          units: s.units,
+          movements: s.movements,
+          dashStats: s.dashStats,
+        },
+        cfg,
+      );
+      set({
+        riskPredictions: res.predictions,
+        riskEngine: res.origin,
+        riskAIModel: res.model,
+        riskAIError: res.error,
+        riskLoadingAI: false,
+      });
+      return res.predictions;
+    } catch (e) {
+      // Dernier filet de sécurité: si tout casse (y compris fallback déterministe),
+      // on retombe sur le déterministe (aucune invention, zéro crash).
+      const preds: RiskPrediction[] = computeRiskPredictions({
+        incidents: s.incidents,
+        hospitals: s.hospitals,
+        units: s.units,
+        movements: s.movements,
+        dashStats: s.dashStats,
+      }).map(p => ({ ...p, origin: "deterministic" as const }));
+      set({
+        riskPredictions: preds,
+        riskEngine: "deterministic",
+        riskAIModel: undefined,
+        riskAIError: e instanceof Error ? e.message : "erreur inconnue",
+        riskLoadingAI: false,
+      });
+      return preds;
+    }
+  },
+
+  recomputeSituationalAwarenessAI: async () => {
+    const s = get();
+    set({ situationalLoadingAI: true });
+    try {
+      const cfg: LlmProviderConfig = resolveProvider(s.aiSettings);
+      const { data, model } = await computeSituationalAwarenessAI(
+        {
+          incidents: s.incidents,
+          hospitals: s.hospitals,
+          units: s.units,
+          dashStats: s.dashStats,
+          equipment: s.catalog.equipment,
+        },
+        cfg,
+      );
+      set({
+        situationalAwareness: data,
+        situationalModel: model,
+        situationalLoadingAI: false,
+      });
+      return data;
+    } catch (e) {
+      const { computeSituationalAwarenessFallback } = await import("@/lib/ai/situational/engine");
+      const fallback = computeSituationalAwarenessFallback({
+        incidents: s.incidents,
+        hospitals: s.hospitals,
+        units: s.units,
+        dashStats: s.dashStats,
+        equipment: s.catalog.equipment,
+      });
+      set({
+        situationalAwareness: fallback,
+        situationalModel: undefined,
+        situationalLoadingAI: false,
+      });
+      return fallback;
+    }
+  },
+
   setLang: (lang) => {
     if (typeof window !== "undefined") localStorage.setItem(LANG_KEY, lang);
     set({ lang });
@@ -712,7 +935,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
   setSelUnit: (id) => set({ selUnit: id }),
   setSelHosp: (id) => set({ selHosp: id }),
 
-  addIncident: (inc) =>
+  addIncident: (inc) => {
     set((s) => {
       const d = new Date();
       const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -720,9 +943,12 @@ export const useArgos = create<ArgosState>((set, get) => ({
         incidents: [inc, ...s.incidents],
         feed: [{ time, c: "bg-danger-500", txt: `${inc.id} — ${inc.titre}` }, ...s.feed].slice(0, 8),
       };
-    }),
+    });
+    // Recalcul IA prédictions
+    get().recomputeRiskPredictions();
+  },
 
-  deployFieldHospital: (h) =>
+  deployFieldHospital: (h) => {
     set((s) => {
       const n = s.fieldHosps.filter((f) => f.hid === h.id).length + 1;
       // Le détachement hérite du réseau de son hôpital de rattachement :
@@ -741,7 +967,9 @@ export const useArgos = create<ArgosState>((set, get) => ({
         ll: [h.ll[0] + 0.05 * n, h.ll[1] - 0.04 * n],
       };
       return { fieldHosps: [...s.fieldHosps, entry] };
-    }),
+    });
+    get().recomputeRiskPredictions();
+  },
 
   selectChannel: (id) => set({ comSel: id }),
 

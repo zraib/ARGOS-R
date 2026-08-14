@@ -1,4 +1,5 @@
 export type Tone = "red" | "amber" | "gold" | "green" | "blue" | "gray" | "purple";
+export type PillSize = "sm" | "md";
 
 const TONES: Record<Tone, string> = {
   red: "bg-danger-500/15 text-danger-500",
@@ -10,10 +11,15 @@ const TONES: Record<Tone, string> = {
   purple: "bg-purple-500/15 text-purple-600 dark:text-purple-400",
 };
 
+const SIZES: Record<PillSize, string> = {
+  sm: "px-1.5 py-px text-[9px]",
+  md: "px-2 py-0.5 text-[10px]",
+};
+
 /** Petite pastille de statut colorée pour les statuts hors des six types de Badge. */
-export function Pill({ tone, label }: { tone: Tone; label: string }) {
+export function Pill({ tone, label, size = "md" }: { tone: Tone; label: string; size?: PillSize }) {
   return (
-    <span className={`inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${TONES[tone]}`}>
+    <span className={`inline-flex items-center whitespace-nowrap rounded-md font-bold uppercase tracking-wide ${TONES[tone]} ${SIZES[size]}`}>
       {label}
     </span>
   );

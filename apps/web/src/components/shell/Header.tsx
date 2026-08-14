@@ -6,7 +6,7 @@ import { useArgos, useDict, useModules } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { Avatar } from "@/components/ui/Avatar";
 import { LanguageMenu } from "@/components/shell/LanguageMenu";
-import { UI_ICONS, NAV_ICONS } from "@/lib/icons";
+import { UI_ICONS } from "@/lib/icons";
 import { ROLE_ICONS, type Role } from "@/lib/roles";
 import { ALERT_LEVEL } from "@/lib/config";
 import { screenTitle } from "@/lib/nav";
@@ -180,10 +180,6 @@ export function Header() {
   const dark = useArgos((s) => s.dark);
   const toggleTheme = useArgos((s) => s.toggleTheme);
   const toggleSidebar = useArgos((s) => s.toggleSidebar);
-  const openCopilot = useArgos((s) => s.openCopilot);
-  const flags = useArgos((s) => s.flags);
-  const moduleKey = "assistant";
-  const aiVisible = flags[moduleKey] !== false;
   const ticker = useArgos((s) => s.feed[0]);
 
   return (
@@ -216,19 +212,8 @@ export function Header() {
         <Clock />
       </div>
 
-      {/* Droite : Copilot (⌘K) + langue (globe) + thème + menu utilisateur */}
+      {/* Droite : langue (globe) + thème + menu utilisateur */}
       <div className="flex shrink-0 items-center justify-end gap-1.5">
-        {aiVisible && (
-          <button
-            onClick={openCopilot}
-            title="Copilot ARGOS — ⌘K / Ctrl+K"
-            className="group flex shrink-0 items-center gap-1.5 rounded-lg border border-or-500/20 bg-or-500/10 px-2.5 py-1.5 text-or-500 transition-all hover:bg-or-500 hover:text-white dark:border-or-400/30 dark:bg-or-500/15 dark:text-or-400 dark:hover:bg-or-500 dark:hover:text-rdia-900"
-          >
-            <Icon path={NAV_ICONS.assistant} size={15} />
-            <span className="text-[11px] font-semibold max-[980px]:hidden">Copilot</span>
-            <kbd className="ml-0.5 hidden rounded border border-or-400/40 bg-white/70 px-1.5 py-0.5 font-mono text-[9px] text-or-500 dark:border-or-400/30 dark:bg-rdia-800/60 dark:text-or-300 max-[1240px]:hidden">⌘K</kbd>
-          </button>
-        )}
         <LanguageMenu />
         <button
           onClick={toggleTheme}

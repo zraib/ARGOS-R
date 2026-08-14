@@ -93,8 +93,6 @@ export const NAV: NavEntry[] = [
   item("comms", HREF.comms),
   item("reports", HREF.reports),
   item("analytics", HREF.analytics),
-  // Assistant IA — affiché uniquement si le feature flag est actif (§6.17 Couche 2).
-  ...(AI_ENABLED ? [item("assistant", HREF.assistant)] : []),
   // Gestion des utilisateurs — Super Administrateur et Administrateur.
   { kind: "item", key: "users", href: HREF.users, icon: UI_ICONS.users, roles: ["superadmin", "admin"] },
   // Paramètres — réservé au Super Administrateur (filtré dans la Sidebar).
