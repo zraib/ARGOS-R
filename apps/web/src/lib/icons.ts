@@ -43,6 +43,7 @@ export const KPI_ICONS = {
   personnel: "M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2 M9 11a4 4 0 100-8 4 4 0 000 8z M23 21v-2a4 4 0 00-3-3.87 M16 3.13a4 4 0 010 7.75",
   beds: "M2 4v16 M2 8h18a2 2 0 012 2v10 M2 17h20 M6 8v9",
   units: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+  risk: "M12 9v4m0 4h.01 M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z M12 4l-8.4 13.5A2 2 0 005.36 20h13.28a2 2 0 001.76-2.5L12 4z",
 } as const;
 
 export const TYPE_ICONS: Record<string, string> = {
@@ -136,11 +137,36 @@ export const UI_ICONS = {
   globe: "M12 2a10 10 0 100 20 10 10 0 000-20z M2 12h20 M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z",
   camera: "M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z M12 17a4 4 0 100-8 4 4 0 000 8z",
   expand: "M8 3H5a2 2 0 00-2 2v3 M21 8V5a2 2 0 00-2-2h-3 M3 16v3a2 2 0 002 2h3 M16 21h3a2 2 0 002-2v-3",
+  copilot: "M12 2l1.6 2.1h-3.2L12 2z M7.5 8a4.5 4.5 0 019 0v1.2A4.5 4.5 0 0121 13.5v5A2.5 2.5 0 0118.5 21h-13A2.5 2.5 0 013 18.5v-5A4.5 4.5 0 017.5 9V8z M10 13.5a1.2 1.2 0 100-2.4 1.2 1.2 0 000 2.4z M14 13.5a1.2 1.2 0 100-2.4 1.2 1.2 0 000 2.4z M10 17.5h4a1.2 1.2 0 110 2.4h-4a1.2 1.2 0 110-2.4z",
   map: "M9 20l-6 2V6l6-2m0 16l6-2m-6 2V4m6 14l6 2V6l-6-2m0 16V4",
   archive: "M2 4h20v4H2z M4 8v11a2 2 0 002 2h12a2 2 0 002-2V8 M10 12h4",
   caretDown: "M6 9l6 6 6-6",
   copy: "M20 9h-9a2 2 0 00-2 2v9a2 2 0 002 2h9a2 2 0 002-2v-9a2 2 0 00-2-2z M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1",
   sliders: "M4 6h16 M4 12h16 M4 18h16 M9 4v4 M15 10v4 M7 16v4",
+  refresh: "M21 12a9 9 0 11-3.2-6.9 M21 3v6h-6",
+  refreshCw: "M21 12a9 9 0 11-3.2-6.9 M21 3v6h-6",
+  sparkles: "M12 3v4 M12 17v4 M3 12h4 M17 12h4 M5.6 5.6l2.8 2.8 M15.6 15.6l2.8 2.8 M5.6 18.4l2.8-2.8 M15.6 8.4l2.8-2.8",
+  scale: "M12 3l7 4v10l-7 4-7-4V7z M12 8v8 M8 10l4 2 4-2 M8 14l4 2 4-2",
+  alert: "M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z",
+  heart: "M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 00-7.8 7.8l8.1 8.1a1 1 0 001.4 0l8.1-8.1a5.5 5.5 0 000-7.8z",
+  truck: "M3 16V7h11v9 M14 10h3.5L21 13v3h-7 M7 19a2 2 0 100-4 2 2 0 000 4z M17.5 19a2 2 0 100-4 2 2 0 000 4z",
+  ambulance: "M3 16V8h11v8 M14 11h4l3 3v2h-7 M7 19a2 2 0 100-4 2 2 0 000 4z M17 19a2 2 0 100-4 2 2 0 000 4z M8 6h3 M9.5 4.5v3",
+  helicopter: "M4 5h16 M12 5v3 M6 12h9l4 3v2H9a5 5 0 01-5-5z M11 17v3 M8 20h6 M15 12l4-4",
+  beds: "M2 4v16 M2 8h18a2 2 0 012 2v10 M2 17h20 M6 8v9",
+  medical: "M9 3h6v6h6v6h-6v6H9v-6H3V9h6z",
+  // -------- ICÔNES PRÉDICTIONS EXCLUSIVES CS (Anticipations IA) --------
+  // ⏱️ TTG — horloge
+  clock: "M12 6v6l4 2 M12 22a10 10 0 110-20 10 10 0 010 20z",
+  // ⚠️ Prochaine saturation — triangle alerte
+  "alert-triangle": "M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z M12 9v4 M12 17h.01",
+  // 🏕️ Besoin HMC (tente hôpital campagne)
+  tent: "M4 20l8-12 8 12 M10 20l4-7 4 7 M7 20h10 M14 20v-5h-4v5",
+  // 🔀 Redirection patients
+  shuffle: "M16 3h5v5 M4 20l17-17 M21 16v5h-5 M4 4l7 7 M4 16l5 5 M14 10l7 7",
+  // 📈 Activité (flux patients)
+  activity: "M22 12h-4l-3 9L9 3l-3 9H2",
+  // 📦 Stock critique médical
+  package: "M16.5 9.4L21 7v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7l4.5 2.4 M12 3l9 6-9 6-9-6 9-6z M7 16l5-3 5 3 M12 12v10",
   // Ramification (sous-incidents rattachés à un incident principal).
   branch: "M6 3a3 3 0 100 6 3 3 0 000-6z M6 9v6 M6 15a3 3 0 100 6 3 3 0 000-6z M18 4a3 3 0 100 6 3 3 0 000-6z M18 10c0 5-4 6-9 6.6",
 } as const;

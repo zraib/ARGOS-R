@@ -70,6 +70,34 @@ export async function probeProvider(cfg: LlmProviderConfig): Promise<boolean> {
   }
 }
 
+// Paramètres mémoire stricts pour éviter l'OOM (signal: killed) sur macOS :
+// - num_ctx ≤ 16384 (÷2 vs 32768 → KV cache ÷2, économie ~1.5-2Go)
+// - num_batch = 128 (÷4 vs 512 → pic évaluation prompt ÷4)
+const OLLAMA_OPTIONS = {
+  temperature: 0.2,
+  num_ctx: 16384,
+  num_batch: 128,
+  num_thread: Math.max(4, Math.min(8, typeof navigator !== "undefined" && "hardwareConcurrency" in navigator ? (navigator.hardwareConcurrency ?? 4) - 2 : 4)),
+};
+
+/** Extrait un message lisible depuis un body d'erreur Ollama (JSON ou texte). */
+function simplifyOllamaError(status: number, bodyRaw: string): string {
+  let short = bodyRaw.trim().slice(0, 600);
+  if (!short) return `HTTP ${status}`;
+  try {
+    const j = JSON.parse(short);
+    const msg: unknown = j?.error ?? j?.message ?? j?.detail;
+    if (typeof msg === "string") short = msg;
+  } catch {
+    /* pas JSON → on garde texte brut */
+  }
+  // Normalisations courtes connues
+  if (short.includes("signal: killed")) short = "mémoire saturée (processus tué par le système — OOM)";
+  else if (short.includes("context size too large")) short = "taille contexte demandée trop grande pour le modèle";
+  else if (short.includes("context window")) short = "prompt dépasse la fenêtre de contexte du modèle";
+  return `HTTP ${status} · ${short}`;
+}
+
 /** Complétion de chat. Renvoie `ok:false` (avec `error`) si le runtime est injoignable. */
 export async function chatComplete(cfg: LlmProviderConfig, messages: LlmMessage[]): Promise<LlmResult> {
   const { signal, done } = await withTimeout(AI_TIMEOUT_MS);
@@ -78,10 +106,14 @@ export async function chatComplete(cfg: LlmProviderConfig, messages: LlmMessage[
       const r = await fetch(`${cfg.endpoint}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: cfg.model, messages, stream: false, options: { temperature: 0.2 } }),
+        body: JSON.stringify({ model: cfg.model, messages, stream: false, options: OLLAMA_OPTIONS }),
         signal,
       });
-      if (!r.ok) return { ok: false, text: "", provider: cfg.id, error: `HTTP ${r.status}` };
+      if (!r.ok) {
+        let body = "";
+        try { body = await r.text(); } catch { /* ignore */ }
+        return { ok: false, text: "", provider: cfg.id, error: simplifyOllamaError(r.status, body) };
+      }
       const data = await r.json();
       return { ok: true, text: data?.message?.content ?? "", provider: cfg.id };
     }
@@ -114,15 +146,19 @@ export async function chatStream(
   opts: { onToken: (acc: string) => void },
 ): Promise<LlmResult> {
   if (cfg.id !== "ollama") return chatComplete(cfg, messages);
-  const { signal, done } = await withTimeout(60000);
+  const { signal, done } = await withTimeout(180000);
   try {
     const r = await fetch(`${cfg.endpoint}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: cfg.model, messages, stream: true, options: { temperature: 0.2 } }),
+      body: JSON.stringify({ model: cfg.model, messages, stream: true, options: OLLAMA_OPTIONS }),
       signal,
     });
-    if (!r.ok || !r.body) return { ok: false, text: "", provider: cfg.id, error: `HTTP ${r.status}` };
+    if (!r.ok || !r.body) {
+      let body = "";
+      try { if (r.body) body = await r.text(); } catch { /* ignore */ }
+      return { ok: false, text: "", provider: cfg.id, error: simplifyOllamaError(r.status, body) };
+    }
     const reader = r.body.getReader();
     const decoder = new TextDecoder();
     let acc = "";

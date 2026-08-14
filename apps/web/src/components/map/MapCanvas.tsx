@@ -351,6 +351,10 @@ export function MapCanvas() {
   const quakesOn = useArgos((s) => s.quakesOn);
   const quakeFocus = useArgos((s) => s.quakeFocus);
   const focusQuake = useArgos((s) => s.focusQuake);
+  const incidentFocus = useArgos((s) => s.incidentFocus);
+  const focusIncident = useArgos((s) => s.focusIncident);
+  const mapCenterRequest = useArgos((s) => s.mapCenterRequest);
+  const setMapCenter = useArgos((s) => s.setMapCenter);
   const quakeSelected = useArgos((s) => s.quakeSelected);
   const wxGrid = useArgos((s) => s.wxGrid);
   const wxWorld = useArgos((s) => s.wxWorld);
@@ -1143,6 +1147,26 @@ export function MapCanvas() {
     map.flyTo({ center: quakeFocus.ll, zoom: Math.max(map.getZoom(), 6.5), duration: 1400 });
     focusQuake(null);
   }, [quakeFocus, focusQuake]);
+
+  // --- centrage sur un incident (Copilot « Afficher sur la carte ») ---
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !incidentFocus) return;
+    const ll = incidentFocus.ll;
+    if (!ll || ll.length !== 2) { focusIncident(null); return; }
+    map.flyTo({ center: ll, zoom: Math.max(map.getZoom(), 10), duration: 1300 });
+    focusIncident(null);
+  }, [incidentFocus, focusIncident]);
+
+  // --- centrage GÉNÉRIQUE carte: Copilot zone/ville ---
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapCenterRequest) return;
+    const { ll, zoom } = mapCenterRequest;
+    if (!ll || ll.length !== 2) { setMapCenter(null); return; }
+    map.flyTo({ center: ll, zoom: Math.max(map.getZoom(), zoom), duration: 1200 });
+    setMapCenter(null); // consume request
+  }, [mapCenterRequest, setMapCenter]);
 
   // --- bandeau de détail COLLÉ au séisme sélectionné (popup ancrée au point) ---
   useEffect(() => {

@@ -14,6 +14,8 @@ import type { DashStats, Hospital, Incident, SeismicEvent, Unit } from "@/lib/ty
 import type { TransportMovement } from "@/lib/data/dispatch";
 import type { EquipItem, OrsecBoard } from "@/lib/data/modules";
 import { etaMinutes, UNIT_CAPS, CAP_LABELS, type Capability, recommend, needFromIncident, haversineKm } from "@/lib/reco";
+import { cleanFinalText } from "@/lib/ai/config";
+import type { RiskPrediction } from "@/lib/ai/risk/types";
 
 export type AiIntent =
   | "reachability"
@@ -34,6 +36,21 @@ export type AiIntent =
   | "help"
   | "greeting"
   | "social"
+  // --- Intents temporels (noveaux : ARGOS §6.22)
+  | "today_incidents"
+  | "last24h_summary"
+  | "today_vs_yesterday"
+  | "trend_incidents"
+  | "activity_peaks"
+  | "unusual_evolution"
+  // --- Intents géographiques (nouveaux : ARGOS §6.22)
+  | "touched_zones"
+  | "incidents_near_city"
+  | "critical_concentration"
+  | "riskiest_zone"
+  // --- Intents module IA prédictions risques (nouveau : module dashboard RiskPanel)
+  | "risks_prediction"
+  | "risks_zone"
   | "unknown";
 
 export interface AiUnitResult {
@@ -110,6 +127,13 @@ export interface AiAnswerStats {
   unitsReady?: number;
   unitsDeployed?: number;
   avgReadiness?: number;
+  totalHospitals?: number;
+  totalLits?: number;
+  litsDisponibles?: number;
+  occMoyennePct?: number;
+  totalRea?: number;
+  reaDisponibles?: number;
+  etablissementsSousTension?: number;
   items?: AiAnswerStatsItem[];
 }
 
@@ -133,6 +157,26 @@ export interface AiCrossBlock {
   hospitals?: AiHospitalRow[];
   unitEquipment?: AiCrossUnitEquip[];
   quakes?: SeismicEvent[];
+  // --- géo : centrage carte demandé depuis Copilot « Afficher sur la carte »
+  mapFocus?: {
+    ll: [number, number];
+    zoom: number;
+    label?: string;
+    /** si c'est un incident précis : son ID (on appelle focusIncident) */
+    incidentId?: string;
+  };
+  // --- temporel : infos 24h / hier / aujourd'hui (pour synthèse Qwen)
+  temporal?: {
+    today: { count: number; severity: Record<string, number>; ids: string[] };
+    last24h: { count: number; severity: Record<string, number>; ids: string[] };
+    yesterday?: { count: number; severity: Record<string, number>; ids: string[] };
+    trend?: "increasing" | "decreasing" | "stable";
+    deltaPct?: number;
+    peakHour?: string;
+    unusual?: boolean;
+  };
+  // --- géo : agrégation par zone
+  zones?: { nom: string; count: number; severity: "critique" | "élevé" | "moyen" | "faible"; ll?: [number, number]; ids: string[] }[];
 }
 
 export interface AiSuggestion {
@@ -166,6 +210,8 @@ export interface AiContext {
   quakes?: SeismicEvent[];
   currentPath?: string;
   currentIncidentId?: string | null;
+  /** Module prédictions risques IA (100% réel). Peut être vide si module désactivé. */
+  riskPredictions?: RiskPrediction[];
 }
 
 // --- Utilitaires ----------------------------------------------------------
@@ -976,20 +1022,35 @@ function hospitalsStatus(_q: string, ctx: AiContext): AiAnswer {
   const milRows = mil.map((h) => hospitalRow(h));
   const civRows = civ.map((h) => hospitalRow(h));
   const saturated = rows.filter((h) => h.occPct >= 90 || h.icuPct >= 95);
+  const litsTot = rows.reduce((s, h) => s + h.lits, 0);
+  const litsOcc = rows.reduce((s, h) => s + Math.round(h.lits * h.occPct / 100), 0);
+  const litsDispo = Math.max(0, litsTot - litsOcc);
+  const reaTot = rows.reduce((s, h) => s + h.rea, 0);
+  const reaOcc = rows.reduce((s, h) => s + Math.round(h.rea * h.icuPct / 100), 0);
+  const reaDispo = Math.max(0, reaTot - reaOcc);
   const lines = [
-    `ÉTAT DU RÉSEAU HOSPITALIER · ${hospitals.length} établissements`,
+    `ÉTAT DU RÉSEAU HOSPITALIER · ${hospitals.length} établissements · ${litsTot.toLocaleString("fr-FR")} lits au total · **${litsDispo.toLocaleString("fr-FR")} lits disponibles** (${litsTot ? Math.round(litsDispo * 100 / litsTot) : 0}% marge) · REA totale : ${reaTot} · REA libres **${reaDispo}**`,
     `Militaire (${mil.length}) : occ. moyenne ${avg(milRows)}% · REA moyenne ${avgRea(milRows)}%`,
     civ.length ? `Civil (${civ.length}) : occ. moyenne ${avg(civRows)}% · REA moyenne ${avgRea(civRows)}%` : "",
     saturated.length ? `Établissements sous tension (≥90% occupation lits ou ≥95% REA) : ${saturated.length}` : "Aucun établissement sous tension.",
-    ...saturated.map((h) => `  ⚠ ${h.nom} (${h.ville}) · occ ${h.occPct}% · REA ${h.icuPct}%`),
-    rows.length ? `TOP 6 — occupation :` : "",
-    ...rows.slice(0, 6).map((h) => `  • ${h.nom} (${h.ville}) · occ ${h.occPct}% (${h.lits - Math.round(h.occPct * h.lits / 100)} lits libres) · REA ${h.icuPct}%`),
+    ...saturated.map((h) => `  ⚠ ${h.nom} (${h.ville}) · occ ${h.occPct}% · REA ${h.icuPct}% · lits libres ${Math.max(0, h.lits - Math.round(h.occPct * h.lits / 100))} · REA libres ${Math.max(0, h.rea - Math.round(h.icuPct * h.rea / 100))}`),
+    rows.length ? `TOP 8 — taux lits disponibles (du PLUS saturé au MOINS saturé) — chaque établissement transmis dans JSON pour réponse détaillée :` : "",
+    ...rows.slice(0, 8).map((h) => `  • ${h.nom} (${h.ville}) · occ ${h.occPct}% (${Math.max(0, h.lits - Math.round(h.occPct * h.lits / 100))} lits libres sur ${h.lits}) · REA ${h.icuPct}% (${Math.max(0, h.rea - Math.round(h.icuPct * h.rea / 100))} REA libres sur ${h.rea})`),
   ].filter(Boolean);
   return {
     intent: "hospitals_status",
     layer1: "état réseau hospitalier : militaire + civil, occupation / REA, établissements sous tension",
     text: lines.join("\n"),
-    hospitals: rows.slice(0, 8),
+    hospitals: rows.slice(0, Math.max(50, rows.length)),
+    stats: {
+      totalHospitals: hospitals.length,
+      totalLits: litsTot,
+      litsDisponibles: litsDispo,
+      occMoyennePct: avg(rows),
+      totalRea: reaTot,
+      reaDisponibles: reaDispo,
+      etablissementsSousTension: saturated.length,
+    },
     suggestions: [
       "Hôpitaux les plus proches d'Al Haouz",
       "Croise hôpitaux + incident INC-2607",
@@ -1179,26 +1240,112 @@ function orsecSummary(_q: string, ctx: AiContext): AiAnswer {
 
 function seismicStatus(q: string, ctx: AiContext): AiAnswer {
   const nq = norm(q);
-  const minMag = /nationale|maroc|ma|local/.test(nq) ? 3 : (/fort|majeur/.test(nq) ? 5 : 4);
-  const region = /mondial|monde|global|world/.test(nq) ? "world" : "morocco";
+
+  // --- 🌟 RÈGLE RÉGION (INVERSÉE PAR RAPPORT À AVANT) :
+  // DÉFAUT = "world" (MONDIAL, toutes régions confondues).
+  // SEULEMENT SI user dit explicitement MAROC → région = morocco.
+  const explicitMorocco = /\b(au\s+maroc|maroc|marocaine|nationale|national|locale|local|au\s+pays|dans\s+le\s+pays|far|interieur|intérieur|territoire\s+national)\b/.test(nq);
+  const region = explicitMorocco ? "morocco" : "world";
+
+  // --- 🌟 SEUIL MAGNITUDE PAR DÉFAUT = 2.0
+  let minMag: number;
+  if (/\b(majeur|majeurs|tres\s+fort|tres\s+forts|superieur|supérieur|>=?\s*5|≥\s*5)\b/.test(nq)) {
+    minMag = 5;
+  } else if (/\b(>=?\s*4|≥\s*4|moyen|modere|modéré|significatif)\b/.test(nq)) {
+    minMag = 4;
+  } else if (explicitMorocco) {
+    minMag = 3;
+  } else {
+    minMag = 2;
+  }
+
+  // --- 🌟 TRI : DERNIER (date DESC) ou PLUS FORT (mag DESC) ?
+  const temporalCue = /\b(dernier|demier|derniers|demiers|plus\s+recent|plus\s+récent|recente|récente|actualite|actualité|actualités|actualites|en\s+ce\s+moment|ce\s+jour|aujourd.?hui|24h|48h|semaine|7\s*j|jours?|séisme\s+récent|seisme\s+recent)\b/.test(nq);
+  const sortByTime = temporalCue;
+
+  // --- 🌟 SINGULIER VS PLURIEL : NOMBRE D'ÉVÉNEMENTS À AFFICHER DANS LE TEXTE COUCHE1
+  // User demande explicitement UN SEUL :
+  //   • 1 seul séisme / un seul / juste un / unique / seulement 1 / que 1 / que un
+  //   • OU : mot "séisme" SANS "s" final (singulier) ET il y a un mot "dernier/le plus récent"
+  const singleCue = /\b(1\s*seul|un\s+seul|juste\s+un|seulement\s+1|seulement\s+un|que\s+1|que\s+un|unique|juste\s+1|seulement|le\s+plus\s+recent|le\s+plus\s+récent|le\s+dernier|le\s+demier)\b/.test(nq)
+    // Singulier grammatical fort : "le dernier séisme" / "le plus récent séisme" / "le séisme le plus récent"
+    || /\ble\s+(dernier|demier|plus\s+récent|plus\s+recent|seul|unique)\s+(séisme|seisme|evenement|événement|tremblement)\b/.test(nq)
+    || /\b(séisme|seisme|tremblement)\s+(le\s+)?(dernier|demier|plus\s+récent|plus\s+recent|seul|unique)\b/.test(nq)
+    // Plus le mot "singulier" ou pas de "s" à la fin de la requête (trop fragile → ignoré).
+    ;
+  // Compte le nombre d'occurrences de "séismes" / "seismes" (PLURIEL)
+  const pluralCue = /\b(séismes|seismes|evenements|événements|derniers|demiers|plusieurs|nombre|combien|liste|tous|toutes|les\s+(\d+|quelques|plusieurs))\b/.test(nq);
+
+  // Nombre final d'affichage dans Couche1 :
+  let desiredCount: number;
+  if (singleCue) {
+    desiredCount = 1;
+  } else if (/\b(top|meilleurs|pire|pires|plus\s+forts|plus\s+faibles)\s+\d+/.test(nq)) {
+    const digits = nq.match(/\b\d+\b/);
+    desiredCount = Math.min(20, Math.max(1, digits?.length ? parseInt(digits[0] ?? "3", 10) : 3));
+  } else if (pluralCue) {
+    desiredCount = sortByTime ? 5 : 8;
+  } else if (sortByTime) {
+    // Tri temporel SANS singulier/pluriel explicite:
+    // SI user a écrit "séisme" SANS "s" = on essaie 1, sinon on prend 3
+    const nqRaw = q.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const hasSingularNoun = /(^|[^a-z])(seisme|tremblement)([^a-z]|$)/i.test(nqRaw);
+    desiredCount = hasSingularNoun ? 1 : 3;
+  } else {
+    desiredCount = 5;
+  }
+
   const quakes = ctx.quakes ?? [];
-  let list = quakes.filter((qk) => (region === "morocco" ? qk.lon >= -14 && qk.lon <= -1 && qk.lat >= 21 && qk.lat <= 36 : true));
-  list = list.filter((qk) => qk.mag >= minMag).sort((a, b) => b.mag - a.mag);
-  const top = list.slice(0, 8);
-  const lines = [
-    `VEILLE SISMIQUE · région = ${region} · seuil M ≥ ${minMag} · ${list.length} événements`,
-    ...top.map((qk) => {
-      const t = new Date(qk.time).toLocaleString("fr-FR", { hour12: false });
-      return `  • M${qk.mag.toFixed(1)} (${qk.magType}) · ${qk.region} · ${qk.depth} km · ${t} · agence ${qk.agency}`;
-    }),
-    !top.length ? "  Aucun événement au-dessus du seuil." : "",
-  ].filter(Boolean);
+  let list = quakes.filter((qk) => (region === "morocco" ? (qk.lon >= -14 && qk.lon <= -1 && qk.lat >= 21 && qk.lat <= 36) : true));
+  list = list.filter((qk) => qk.mag >= minMag);
+  if (sortByTime) {
+    list.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+  } else {
+    list.sort((a, b) => b.mag - a.mag);
+  }
+  const top = list.slice(0, desiredCount);
+
+  // --- 🌟 ENRICHISSEMENT LLM (brut non filtré mag/région)
+  const llmVisible = [...quakes]
+    .sort((a, b) => b.mag - a.mag)
+    .slice(0, 12)
+    .map((qk) => ({ id: qk.id, region: qk.region, mag: qk.mag, depth: qk.depth, time: qk.time }));
+
+  // --- 🌟 TEXTE COUCHE1
+  // Si SINGULIER (desiredCount === 1) et qu'il y a un événement → RÉPONSE 1 SEUL ÉVÉNEMENT SANS LISTE À PUCES
+  const lines: string[] = [];
+  if (desiredCount === 1 && top.length === 1) {
+    const qk = top[0];
+    const t = new Date(qk.time).toLocaleString("fr-FR", { hour12: false });
+    lines.push(
+      `DERNIER SÉISME · région = ${region} · seuil M ≥ ${minMag} · 1 événement (le ${sortByTime ? "plus récent" : "plus fort"})`,
+    );
+    lines.push(
+      `  M${qk.mag.toFixed(1)}${qk.magType ? ` (${qk.magType})` : ""} — ${qk.region} · profondeur ${qk.depth} km · ${t}${qk.agency ? ` · agence ${qk.agency}` : ""}`,
+    );
+  } else {
+    lines.push(
+      `VEILLE SISMIQUE · région = ${region} · seuil M ≥ ${minMag} · ordre = ${sortByTime ? "plus récent d'abord" : "magnitude décroissante"} · ${list.length} événements · affichés ${top.length}`,
+    );
+    lines.push(
+      ...top.map((qk) => {
+        const t = new Date(qk.time).toLocaleString("fr-FR", { hour12: false });
+        return `  • M${qk.mag.toFixed(1)}${qk.magType ? ` (${qk.magType})` : ""} · ${qk.region} · ${qk.depth} km · ${t}${qk.agency ? ` · agence ${qk.agency}` : ""}`;
+      }),
+    );
+    if (!top.length) lines.push(`  Aucun événement au-dessus du seuil M≥${minMag} dans la zone ${region}.`);
+  }
+
   return {
     intent: "seismic_status",
-    layer1: `séismes ${region} M≥${minMag}, tri par magnitude décroissante`,
-    text: lines.join("\n"),
-    quakes: top.map((qk) => ({ id: qk.id, region: qk.region, mag: qk.mag, depth: qk.depth, time: qk.time })),
-    suggestions: ["Situation globale", "Analyse croisée avec INC-2607"],
+    layer1: `séismes ${region} M≥${minMag}, ${sortByTime ? "tri par temps décroissant" : "tri par magnitude décroissante"}, affichés ${top.length}/${list.length}${singleCue ? " (singulier)" : ""}`,
+    text: lines.filter(Boolean).join("\n"),
+    quakes: llmVisible.length ? llmVisible : top.map((qk) => ({ id: qk.id, region: qk.region, mag: qk.mag, depth: qk.depth, time: qk.time })),
+    suggestions: [
+      "Situation globale",
+      explicitMorocco ? "Activité sismique mondiale" : "Séismes au Maroc",
+      ...(top.length ? [`Analyse croisée ${top[0].id.startsWith("INC") ? top[0].id : "INC-2607"}`] : ["Analyse croisée avec INC-2607"]),
+    ],
   };
 }
 
@@ -1253,13 +1400,605 @@ function help(_q: string, _ctx: AiContext): AiAnswer {
   return {
     intent: "help",
     layer1: "aide Copilot : intentions et exemples",
-    text: "🤖 Copilot ARGOS — Je réponds sur les incidents, unités, hôpitaux, ORSEC, logistique et sismologie.\n\nEssaie ces requêtes :\n  • Situation globale opérationnelle\n  • Détail INC-2607\n  • Analyse croisée INC-2607\n  • Situation des hôpitaux\n  • SITREP",
+    text: "🤖 Copilot ARGOS — Assistant transversal de la plateforme. Je synthétise les incidents, unités, hôpitaux, ORSEC, logistique, sismologie.\n\nEssaie ces requêtes :\n  • Quelle est la situation actuelle ?\n  • Résume les incidents des 24 dernières heures\n  • Quelles zones sont les plus touchées ?\n  • Incidents près de Casablanca\n  • Incidents critiques (intervention prioritaire)",
     suggestions: [
-      { label: "Situation globale", query: "Situation globale opérationnelle", priority: "primary" as const },
-      { label: "Situation hôpitaux", query: "situation des hôpitaux" },
-      { label: "Détail INC-2607", query: "Détail INC-2607" },
-      { label: "Analyse croisée INC-2607", query: "Analyse croisée INC-2607" },
-      { label: "SITREP", query: "SITREP incidents en cours" },
+      { label: "Situation actuelle", query: "Quelle est la situation actuelle ?", priority: "primary" as const },
+      { label: "Résumé 24h", query: "Résume-moi les incidents des dernières 24 heures" },
+      { label: "Incidents critiques", query: "Quels incidents nécessitent une intervention prioritaire ?" },
+      { label: "Zones à risque", query: "Quelles zones présentent actuellement le plus de risques ?" },
+      { label: "Évolution", query: "Quelle est l'évolution des incidents ?" },
+      { label: "Près de Casablanca", query: "Quels incidents sont actuellement proches de Casablanca ?" },
+    ],
+  };
+}
+
+/** Stats globales (open/high/medium/...) issues de incidents. */
+function getStats(ctx: AiContext): AiAnswerStats {
+  const open = ctx.incidents.filter((i) => i.st === "open");
+  const prog = ctx.incidents.filter((i) => i.st === "prog");
+  const closed = ctx.incidents.filter((i) => i.st === "closed");
+  const high = ctx.incidents.filter((i) => (sevRank[i.sev ?? "medium"] ?? 0) >= 2);
+  const medium = ctx.incidents.filter((i) => (sevRank[i.sev ?? "medium"] ?? 0) === 1);
+  const low = ctx.incidents.filter((i) => (sevRank[i.sev ?? "medium"] ?? 0) <= 0);
+  return {
+    open: open.length, prog: prog.length, closed: closed.length,
+    high: high.length, medium: medium.length, low: low.length,
+  };
+}
+
+// --- TEMPORAL (nouveaux §6.22) ------------------------------------------------
+
+const sevRank: Record<string, number> = { critique: 3, high: 3, elevé: 2, moyen: 1, medium: 1, faible: 0, low: 0 };
+const sevLabel = (s: string): "critique" | "élevé" | "moyen" | "faible" => {
+  const n = norm(s);
+  if (n === "critique" || n === "high") return "critique";
+  if (n === "eleve" || n === "med" || n === "sever") return "élevé";
+  if (n === "moyen" || n === "medium") return "moyen";
+  return "faible";
+};
+
+function sevCounts(rows: { sev?: string }[]): Record<string, number> {
+  return rows.reduce<Record<string, number>>((acc, r) => {
+    const l = sevLabel(r.sev ?? "moyen");
+    acc[l] = (acc[l] ?? 0) + 1;
+    return acc;
+  }, {});
+}
+
+/** Heure de déclaration en millis, depuis champ time (ISO) ou HH:MM + today. */
+function incidentTs(ctx: AiContext, inc: AiContext["incidents"][number]): number {
+  if (inc.time) {
+    const ms = new Date(inc.time).getTime();
+    if (!Number.isNaN(ms)) return ms;
+    if (/^\d{1,2}:\d{2}/.test(inc.time)) {
+      const [h, mm] = inc.time.split(":").map((n) => parseInt(n, 10) || 0);
+      const d = new Date();
+      d.setHours(h, mm, 0, 0);
+      return d.getTime();
+    }
+  }
+  return Date.now();
+}
+
+function windowIncidents(ctx: AiContext, predicate: (ts: number) => boolean): AiContext["incidents"] {
+  return ctx.incidents.filter((i) => predicate(incidentTs(ctx, i)));
+}
+
+function toAiRow(i: AiContext["incidents"][number]): AiIncidentRow {
+  return {
+    id: i.id, titre: i.titre, region: i.region ?? "—",
+    type: i.type ?? "—", sev: (sevLabel(i.sev ?? "medium") === "faible" ? "moyenne" : sevLabel(i.sev ?? "medium") === "moyen" ? "moyenne" : sevLabel(i.sev ?? "medium") === "élevé" ? "élevée" : "critique"),
+    st: i.st === "prog" ? "en cours" : i.st === "closed" ? "fermé" : "ouvert",
+    time: /^\d{4}-/.test(i.time ?? "")
+      ? new Date(i.time).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+      : (i.time ?? "—"),
+    lieu: i.adresse, coords: i.ll,
+    declared: i.time,
+  };
+}
+
+/** Incidents survenus AUJOURD'HUI (minuit → maintenant). */
+function todayIncidents(_q: string, ctx: AiContext): AiAnswer {
+  const D = new Date(); const mid0 = new Date(D.getFullYear(), D.getMonth(), D.getDate(), 0, 0, 0).getTime();
+  const list = windowIncidents(ctx, (ts) => ts >= mid0);
+  const rows = list.map(toAiRow);
+  const counts = sevCounts(list);
+  const text =
+    `📅 **Incidents survenus aujourd'hui** (${D.toLocaleDateString("fr-FR")}) :\n` +
+    `• Total déclaré : **${rows.length}**\n` +
+    `• Critique ${counts.critique ?? 0} · Élevé ${counts.élevé ?? 0} · Moyen ${counts.moyen ?? 0} · Faible ${counts.faible ?? 0}\n` +
+    (rows.length ? rows.slice(0, 3).map((r) => `  ▸ ${r.id} · ${r.titre} · ${r.region} · ${r.sev}`).join("\n") : "Aucun incident documenté aujourd'hui.");
+  return {
+    intent: "today_incidents",
+    layer1: `fenêtre temporelle aujourd'hui (${list.length} incidents)`,
+    text,
+    incidents: rows,
+    stats: { ...getStats(ctx), open: rows.length, items: [
+      { label: "Aujourd'hui total", value: rows.length, level: 2 },
+    ]},
+    cross: {
+      temporal: {
+        today: { count: rows.length, severity: counts, ids: rows.map(r => r.id) },
+        last24h: last24hBucket(ctx),
+      },
+    },
+    suggestions: [
+      { label: "Résumé 24h", query: "Résume-moi les incidents des dernières 24 heures" },
+      { label: "Comparer hier", query: "Compare la situation d'aujourd'hui avec celle d'hier", priority: "primary" as const },
+    ],
+  };
+}
+
+type TemporalBucket = { count: number; severity: Record<string, number>; ids: string[] };
+
+function last24hBucket(ctx: AiContext): TemporalBucket {
+  const D = Date.now(); const cutoff = D - 24 * 3600 * 1000;
+  const list = windowIncidents(ctx, (ts) => ts >= cutoff);
+  const sev = sevCounts(list);
+  return { count: list.length, severity: sev, ids: list.map((i) => i.id) };
+}
+
+/** Résumé des 24 dernières heures. */
+function last24hSummary(_q: string, ctx: AiContext): AiAnswer {
+  const l24 = last24hBucket(ctx);
+  const rows = ctx.incidents
+    .filter((i) => l24.ids.includes(i.id))
+    .map(toAiRow)
+    .sort((a, b) => (sevRank[b.sev] ?? 0) - (sevRank[a.sev] ?? 0));
+  const today = todayBucket(ctx);
+  const trend: "increasing" | "decreasing" | "stable" = today.count > l24.count * 0.8 ? "increasing" : today.count < l24.count * 0.5 ? "decreasing" : "stable";
+  const deltaPct = l24.count ? Math.round(100 * (today.count - Math.max(1, Math.round(l24.count / 2))) / Math.max(1, l24.count)) : 0;
+  const peak = pickPeak(ctx);
+  const text =
+    `🕒 **Résumé des 24 dernières heures** :\n` +
+    `• Incidents déclarés : **${l24.count}**\n` +
+    `• Répartition gravité — Critique ${l24.severity.critique ?? 0} · Élevé ${l24.severity.élevé ?? 0} · Moyen ${l24.severity.moyen ?? 0} · Faible ${l24.severity.faible ?? 0}\n` +
+    `• Tendance vs. la période précédente : **${trend === "increasing" ? "⬆️ en hausse" : trend === "decreasing" ? "⬇️ en baisse" : "➡️ stable"}** (${deltaPct > 0 ? "+" : ""}${deltaPct}%)\n` +
+    (peak ? `• Heure de pic d'activité : **${peak}**\n` : "") +
+    (rows.length ? rows.slice(0, 3).map((r) => `  ▸ ${r.id} · ${r.titre} · ${r.region} · ${r.sev}`).join("\n") : "");
+  return {
+    intent: "last24h_summary",
+    layer1: `fenêtre temporelle 24h · ${l24.count} incidents`,
+    text,
+    incidents: rows,
+    cross: {
+      temporal: { last24h: l24, today, trend, deltaPct, peakHour: peak ?? undefined },
+    },
+    suggestions: [
+      { label: "Tendances", query: "Est-ce que le nombre d'incidents augmente ?", priority: "primary" as const },
+      { label: "Pics activité", query: "Repère les pics d'activité" },
+      { label: "Évolution inhabituelle", query: "Y a-t-il des évolutions inhabituelles ?" },
+    ],
+  };
+}
+
+function todayBucket(ctx: AiContext): TemporalBucket {
+  const D = new Date(); const mid0 = new Date(D.getFullYear(), D.getMonth(), D.getDate(), 0, 0, 0).getTime();
+  const list = windowIncidents(ctx, (ts) => ts >= mid0);
+  return { count: list.length, severity: sevCounts(list), ids: list.map(i => i.id) };
+}
+
+function yesterdayBucket(ctx: AiContext): TemporalBucket {
+  const D = new Date();
+  const yStart = new Date(D.getFullYear(), D.getMonth(), D.getDate() - 1, 0, 0, 0).getTime();
+  const yEnd = new Date(D.getFullYear(), D.getMonth(), D.getDate(), 0, 0, 0).getTime();
+  const list = windowIncidents(ctx, (ts) => ts >= yStart && ts < yEnd);
+  return { count: list.length, severity: sevCounts(list), ids: list.map(i => i.id) };
+}
+
+/** Aujourd'hui vs. hier */
+function todayVsYesterday(_q: string, ctx: AiContext): AiAnswer {
+  const T = todayBucket(ctx); const Y = yesterdayBucket(ctx);
+  const delta = T.count - Y.count; const pct = Y.count ? Math.round(100 * delta / Y.count) : 0;
+  const trend: "increasing" | "decreasing" | "stable" = delta > Math.max(1, Math.round(Y.count * 0.2)) ? "increasing" : delta < -Math.max(1, Math.round(Y.count * 0.2)) ? "decreasing" : "stable";
+  const sevLine = (name: string, S: { severity: Record<string, number>; count: number }) =>
+    `  ▸ ${name} : ${S.count} (C${S.severity.critique ?? 0} · É${S.severity.élevé ?? 0} · M${S.severity.moyen ?? 0} · F${S.severity.faible ?? 0})`;
+  const text =
+    `📊 **Comparaison aujourd'hui / hier** :\n${sevLine("Aujourd'hui", T)}\n${sevLine("Hier        ", Y)}\n` +
+    `• Delta : **${delta > 0 ? "+" : ""}${delta}** (${pct > 0 ? "+" : ""}${pct}%) · Tendance : **${trend === "increasing" ? "⬆️ hausse" : trend === "decreasing" ? "⬇️ baisse" : "➡️ stable"}**\n` +
+    (trend === "increasing" ? "• ⚠️ Vérifier les capacités d'accueil et disponibilités unités." :
+     trend === "decreasing" ? "• ℹ️ Baisse : envisager rotation/maintien de capacités." :
+     "• ℹ️ Situation stable, surveillance usuelle.");
+  return {
+    intent: "today_vs_yesterday",
+    layer1: `comparaison temporelle aujourd'hui(${T.count}) vs hier(${Y.count}) → ${trend}`,
+    text,
+    cross: { temporal: { today: T, yesterday: Y, last24h: last24hBucket(ctx), trend, deltaPct: pct } },
+    suggestions: [
+      { label: "Tendances", query: "Quelle est l'évolution des incidents ?", priority: "primary" as const },
+      { label: "Pics d'activité", query: "Identifier les pics d'activité" },
+    ],
+  };
+}
+
+/** Tendances générales : augmente/diminue, 24h vs 7j, stable. */
+function trendIncidents(_q: string, ctx: AiContext): AiAnswer {
+  const l24 = last24hBucket(ctx); const t = todayBucket(ctx); const y = yesterdayBucket(ctx);
+  const baseCount = Math.max(1, Math.round((l24.count + y.count) / 2));
+  const trend: "increasing" | "decreasing" | "stable" =
+    t.count > baseCount * 1.4 ? "increasing" : t.count < baseCount * 0.6 ? "decreasing" : "stable";
+  const pct = Math.round(100 * (t.count - baseCount) / baseCount);
+  const unusual = Math.abs(pct) >= 50;
+  const text =
+    `📈 **Tendance générale des incidents** :\n` +
+    `• Jour même (J) : ${t.count} · Veille (J-1) : ${y.count} · 24h glissant : ${l24.count}\n` +
+    `• Tendance : **${trend === "increasing" ? "⬆️ AUGMENTATION" : trend === "decreasing" ? "⬇️ DIMINUTION" : "➡️ STABLE"}** · écart ${pct > 0 ? "+" : ""}${pct}%\n` +
+    (unusual ? `• ⚠️ **Écart > 50% : évolution inhabituelle détectée** (à investiguer immédiatement).\n` : "") +
+    `• Recommandation : ${trend === "increasing" ? "prévenir CODIS, monter le niveau ORSEC, réactif les unités de réserve." : trend === "decreasing" ? "situation en amélioration, rotation des équipages possible." : "vigilance normale."}`;
+  return {
+    intent: "trend_incidents",
+    layer1: `analyse temporelle tendance ${trend} · écart ${pct}% · ${unusual ? "inhabituel" : "habituel"}`,
+    text,
+    cross: { temporal: { today: t, yesterday: y, last24h: l24, trend, deltaPct: pct, unusual } },
+    suggestions: [
+      { label: "Pics d'activité", query: "Repère les pics d'activité" },
+      { label: "Évolution inhabituelle", query: "Y a-t-il des évolutions inhabituelles ?", priority: "primary" as const },
+    ],
+  };
+}
+
+function pickPeak(ctx: AiContext): string | null {
+  const byHour = new Map<number, number>();
+  for (const i of ctx.incidents) {
+    const ts = incidentTs(ctx, i);
+    if (!ts) continue;
+    if (Date.now() - ts > 7 * 24 * 3600 * 1000) continue; // 7j fenêtre
+    const h = new Date(ts).getHours();
+    byHour.set(h, (byHour.get(h) ?? 0) + 1);
+  }
+  if (!byHour.size) return null;
+  let best = 0; let bestH = -1;
+  byHour.forEach((v, k) => { if (v > best) { best = v; bestH = k; } });
+  return bestH < 0 ? null : `${String(bestH).padStart(2, "0")}:00 – ${String(bestH + 1).padStart(2, "0")}:00`;
+}
+
+/** Pics d'activité sur la semaine. */
+function activityPeaks(_q: string, ctx: AiContext): AiAnswer {
+  const byHour = new Map<number, number>();
+  for (const i of ctx.incidents) {
+    const ts = incidentTs(ctx, i);
+    if (!ts || Date.now() - ts > 7 * 24 * 3600 * 1000) continue;
+    const h = new Date(ts).getHours();
+    byHour.set(h, (byHour.get(h) ?? 0) + 1);
+  }
+  const sorted = [...byHour.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const peak = pickPeak(ctx);
+  const total = sorted.reduce((s, e) => s + e[1], 0);
+  const text =
+    `🔺 **Pics d'activité identifiés** (7 derniers jours) :\n` +
+    (peak ? `• Pic principal : **${peak}**\n` : "") +
+    (sorted.length
+      ? sorted.map(([h, n]) => `  ▸ ${String(h).padStart(2, "0")}:00 — ${String(h + 1).padStart(2, "0")}:00 : ${n} incidents (${total ? Math.round(100 * n / total) : 0}%)`).join("\n")
+      : "Pas assez d'historique pour établir des pics.");
+  return {
+    intent: "activity_peaks",
+    layer1: `pics d'activité hebdomadaire · ${sorted.length} tranches identifiées`,
+    text,
+    cross: { temporal: { today: todayBucket(ctx), last24h: last24hBucket(ctx), peakHour: peak ?? undefined } },
+    suggestions: [
+      { label: "Tendances", query: "Évolution du nombre d'incidents ?" },
+    ],
+  };
+}
+
+/** Évolutions inhabituelles : pics, delta >= 50%. */
+function unusualEvolution(_q: string, ctx: AiContext): AiAnswer {
+  const t = todayBucket(ctx); const y = yesterdayBucket(ctx); const l24 = last24hBucket(ctx);
+  const pct = y.count ? Math.round(100 * (t.count - y.count) / y.count) : 0;
+  const sevSwing = (Object.keys(t.severity).some((k) => Math.abs((t.severity[k] ?? 0) - (y.severity[k] ?? 0)) >= 2));
+  const unusual = Math.abs(pct) >= 50 || sevSwing;
+  const text =
+    `🧐 **Détection d'évolutions inhabituelles** :\n` +
+    `• Nombre incidents J : ${t.count} vs J-1 : ${y.count} (écart ${pct > 0 ? "+" : ""}${pct}%)\n` +
+    `• Gravité critique J : ${t.severity.critique ?? 0} vs J-1 : ${y.severity.critique ?? 0} · Élevé J : ${t.severity.élevé ?? 0} vs J-1 : ${y.severity.élevé ?? 0}\n` +
+    (unusual
+      ? `• ⚠️ **ANOMALIE DÉTECTÉE** : ${Math.abs(pct) >= 50 ? `volume J/J-1 écart ≥ 50% (${pct}%).` : ""}${sevSwing ? ` répartition gravité fortement modifiée.` : ""}\n  ▸ Action : escalader au CODIS ; réévaluer posture ORSEC.`
+      : `• ✅ Pas d'évolution inhabituelle détectée — situation usuelle.`);
+  return {
+    intent: "unusual_evolution",
+    layer1: `détection anomalies temporelles · ${unusual ? "ANOMALIE" : "normal"} · écart ${pct}%`,
+    text,
+    cross: { temporal: { today: t, yesterday: y, last24h: l24, deltaPct: pct, unusual } },
+    suggestions: [
+      { label: "Tendances", query: "Tendance incidents ?" },
+      { label: "Pics d'activité", query: "Pics d'activité" },
+    ],
+  };
+}
+
+// --- GÉOGRAPHIQUE (nouveaux §6.22) ------------------------------------------
+
+function buildZones(ctx: AiContext, rows?: AiContext["incidents"]): NonNullable<AiCrossBlock["zones"]> {
+  const src = rows ?? ctx.incidents;
+  const map = new Map<string, { nom: string; ids: string[]; worst: number; ll?: [number, number] }>();
+  for (const i of src) {
+    const key = norm(i.region ?? "Inconnue") || "inconnue";
+    const ex = map.get(key);
+    const label = (i.region && i.region !== "-" && i.region !== "—") ? i.region : "Zone non renseignée";
+    const wr = sevRank[i.sev ?? "medium"] ?? 0;
+    const coords = i.ll;
+    if (!ex) map.set(key, { nom: label, ids: [i.id], worst: wr, ll: coords });
+    else {
+      ex.ids.push(i.id); if (wr > ex.worst) ex.worst = wr;
+      if (!ex.ll && coords) ex.ll = coords;
+    }
+  }
+  return [...map.values()]
+    .sort((a, b) => b.ids.length - a.ids.length || b.worst - a.worst)
+    .map((z) => ({
+      nom: z.nom, count: z.ids.length,
+      severity: z.worst >= 3 ? "critique" : z.worst === 2 ? "élevé" : z.worst === 1 ? "moyen" : "faible",
+      ll: z.ll, ids: z.ids,
+    }));
+}
+
+/** Zones les plus touchées (par nombre + pire gravité). */
+function touchedZones(_q: string, ctx: AiContext): AiAnswer {
+  const zones = buildZones(ctx);
+  const top = zones.slice(0, 5);
+  const zone = top[0];
+  const text =
+    `🗺️ **Zones les plus touchées actuellement** (${zones.length} zones documentées) :\n` +
+    (top.length ? top.map((z, i) =>
+      `  ${i + 1}. **${z.nom}** — ${z.count} incident(s) · gravité max **${z.severity}**`
+    ).join("\n") : "Aucune zone documentée.");
+  return {
+    intent: "touched_zones",
+    layer1: `agrégation géographique · ${zones.length} zones · top ${top.length}`,
+    text,
+    cross: {
+      zones: top,
+      mapFocus: zone?.ll ? { ll: zone.ll, zoom: zone.count >= 5 ? 10 : 9, label: zone.nom } : undefined,
+    },
+    suggestions: [
+      { label: "Zone la plus risquée", query: "Quelle zone présente le plus grand niveau de risque ?", priority: "primary" as const },
+      { label: "Concentration critiques", query: "Où se concentrent les incidents critiques ?" },
+      ...(zone?.ll ? [{ label: `🗺️ Afficher ${zone.nom} sur la carte`, query: "afficher zone la plus touchee sur la carte", priority: "primary" as const }] : []),
+    ],
+  };
+}
+
+/** Incidents dans un rayon proche d'une ville (Casablanca, Rabat, etc.). */
+function incidentsNearCity(q: string, ctx: AiContext): AiAnswer {
+  const normQ = norm(q);
+  const city =
+    /pr[eè]s\s+de\s+([a-zàâçéèêëîïôûùüÿñæœ\s'-]+?)(?:\s|$|\?|!|,|\.)/.exec(q.toLowerCase())?.[1]?.trim() ??
+    /autour\s+de\s+([a-zàâçéèêëîïôûùüÿñæœ\s'-]+?)(?:\s|$|\?|!|,|\.)/.exec(q.toLowerCase())?.[1]?.trim() ??
+    /(?:a|à)\s+(casa|casablanca|rabat|marrakech|f[eè]s|tanger|agadir|mekn[eè]s|oujda|t[ée]touan|safi|kenitra|taza|nador|settat|beni mellal)\b/i.exec(normQ)?.[1] ??
+    null;
+  const CITY_COORDS: Record<string, [number, number]> = {
+    casa: [-7.5898, 33.5731], casablanca: [-7.5898, 33.5731],
+    rabat: [-6.8498, 34.0209],
+    marrakech: [-8.0029, 31.6295], marrakech1: [-8.0029, 31.6295],
+    fes: [-4.9808, 34.0181], "fès": [-4.9808, 34.0181],
+    tanger: [-5.8038, 35.7595], tangier: [-5.8038, 35.7595],
+    agadir: [-9.6013, 30.4278],
+    meknes: [-5.5547, 33.8935], "meknès": [-5.5547, 33.8935],
+    oujda: [-1.9124, 34.6803],
+    tetouan: [-5.3696, 35.5814], "tétouan": [-5.3696, 35.5814],
+    safi: [-9.2387, 32.2994],
+    kenitra: [-6.5800, 34.2517],
+    taza: [-4.0119, 34.2140],
+    nador: [-2.9282, 35.1721],
+    settat: [-7.6216, 32.9927],
+    "beni mellal": [-6.3626, 32.3398],
+  };
+  const key = city ? Object.keys(CITY_COORDS).find((k) => norm(k) === norm(city)) : null;
+  const center = (key ? CITY_COORDS[key] : null) ?? null;
+  const rayonKm = 50;
+  const rows = !center ? [] : ctx.incidents
+    .map((i) => {
+      const coords = i.ll;
+      const dKm = coords ? haversineKm(center, coords) : Infinity;
+      return { i, dKm };
+    })
+    .filter((x) => x.dKm <= rayonKm)
+    .sort((a, b) => a.dKm - b.dKm);
+  const title = city ? `à proximité de **${city[0].toUpperCase() + city.slice(1)}** (${rayonKm} km)` : "proximité d'une ville";
+  const rowsAi = rows.map((x) => ({ ...toAiRow(x.i), lieu: (x.i.adresse ?? x.i.region ?? "") + (Number.isFinite(x.dKm) ? ` · ~${x.dKm.toFixed(1)} km` : "") }));
+  const text =
+    `📍 **Incidents ${title}** :\n` +
+    (rowsAi.length
+      ? `${rowsAi.length} incident(s) dans le rayon.\n` + rowsAi.slice(0, 5).map((r) => `  ▸ ${r.id} · ${r.titre} · ${r.lieu ?? r.region ?? ""} · gravité ${r.sev}`).join("\n")
+      : `Aucun incident documenté dans ${rayonKm} km (ou coordonnées non renseignées).`);
+  const mapFocus = center ? { ll: center as [number, number], zoom: rowsAi.length >= 5 ? 9 : 10, label: city ?? undefined } : undefined;
+  return {
+    intent: "incidents_near_city",
+    layer1: `filtre géographique ${title} · ${rowsAi.length} incidents`,
+    text,
+    incidents: rowsAi,
+    cross: { zones: center ? [{ nom: city ?? "cible", count: rowsAi.length, severity: "moyen", ll: center, ids: rowsAi.map(r => r.id) }] : buildZones(ctx, rows.map(x => x.i)).slice(0, 3), mapFocus },
+    suggestions: [
+      { label: "Zones les plus touchées", query: "Quelles sont les zones les plus touchées ?" },
+      ...(mapFocus ? [{ label: `🗺️ Afficher ${city ?? "zone"} sur la carte`, query: "afficher cette zone sur la carte", priority: "primary" as const }] : []),
+    ],
+  };
+}
+
+/** Concentration d'incidents critiques/graves. */
+function criticalConcentration(_q: string, ctx: AiContext): AiAnswer {
+  const crits = ctx.incidents.filter((i) => (sevRank[i.sev ?? "medium"] ?? 0) >= 2);
+  const zones = buildZones(ctx, crits).slice(0, 5);
+  const top = zones[0];
+  const text =
+    `🎯 **Concentration des incidents critiques** (Élevé + Critique) :\n` +
+    `• Nombre total incidents graves : **${crits.length}**\n` +
+    (zones.length
+      ? zones.map((z, idx) => `  ${idx + 1}. **${z.nom}** — ${z.count} incident(s) grave(s) · niveau max **${z.severity}**`).join("\n")
+      : "Aucun incident grave documenté.") +
+    (top ? `\n• Point chaud principal : **${top.nom}** — concentre ${top.count}/${crits.length || 1} soit ${Math.round(100 * top.count / Math.max(1, crits.length))}% des incidents graves.` : "");
+  return {
+    intent: "critical_concentration",
+    layer1: `concentration géographique incidents graves · ${crits.length} cas · ${zones.length} foyers`,
+    text,
+    incidents: crits.map(toAiRow),
+    cross: {
+      zones,
+      mapFocus: top?.ll ? { ll: top.ll, zoom: top.count >= 5 ? 10 : 9, label: top.nom } : undefined,
+    },
+    suggestions: [
+      { label: "Intervention prioritaire", query: "Quels incidents nécessitent une intervention prioritaire ?", priority: "primary" as const },
+      { label: "Zone la plus risquée", query: "Quelle zone présente le plus grand niveau de risque ?" },
+      ...(top?.ll ? [{ label: `🗺️ Afficher foyer ${top.nom}`, query: "afficher foyer critique sur la carte", priority: "primary" as const }] : []),
+    ],
+  };
+}
+
+/** Zone la plus risquée (gravité pondérée × volume). */
+function riskiestZone(_q: string, ctx: AiContext): AiAnswer {
+  const all = buildZones(ctx);
+  const scored = all.map((z) => ({ z, risk: z.count * ((z.severity === "critique" ? 8 : z.severity === "élevé" ? 4 : z.severity === "moyen" ? 2 : 1)) }));
+  scored.sort((a, b) => b.risk - a.risk);
+  const top = scored[0]; const allCrit = scored.reduce((s, x) => s + x.risk, 0);
+  const text =
+    `⚠️ **Zone présentant actuellement le plus grand niveau de risque** (score = volume × gravité) :\n` +
+    (top
+      ? `• **${top.z.nom}** — score de risque **${top.risk}** (${top.z.count} incident(s), gravité max **${top.z.severity}**) · ${allCrit ? Math.round(100 * top.risk / allCrit) : 0}% du risque national.\n` +
+        `• Actions recommandées :\n  ▸ Vérifier disponibilités locales unités + hôpitaux\n  ▸ Prévenir CODIS / ORSEC zone\n  ▸ Consulter les incidents prioritaires`
+      : "Pas assez de données pour établir une zone à risque.");
+  return {
+    intent: "riskiest_zone",
+    layer1: top ? `zone la plus risquée : ${top.z.nom} · score ${top.risk}` : "zone risque : insuffisamment de données",
+    text,
+    incidents: top ? ctx.incidents.filter((i) => i.region && norm(i.region) === norm(top.z.nom)).map(toAiRow).slice(0, 5) : undefined,
+    cross: {
+      zones: scored.slice(0, 5).map((s) => s.z),
+      mapFocus: top?.z.ll ? { ll: top.z.ll, zoom: 10, label: top.z.nom } : undefined,
+    },
+    suggestions: [
+      { label: "Zones les plus touchées", query: "Zones les plus touchées ?" },
+      { label: "Intervention prioritaire", query: "Quels incidents nécessitent une intervention prioritaire ?", priority: "primary" as const },
+      ...(top?.z.ll ? [{ label: `🗺️ Afficher ${top.z.nom} sur la carte`, query: "afficher zone risque sur la carte", priority: "primary" as const }] : []),
+      { label: "Prédictions IA de risques", query: "Quelles sont les prédictions de risques IA ?", priority: "primary" as const },
+    ],
+  };
+}
+
+// ============================================================================
+// Module IA Prédictions Risques (RisquePanel ↔ Copilot, 100% réel)
+// ============================================================================
+function levelFr(l: RiskPrediction["level"]): string {
+  return l === "eleve" ? "élevé" : l === "modere" ? "modéré" : l;
+}
+function severityZone(l: RiskPrediction["level"]): "critique" | "élevé" | "moyen" | "faible" {
+  if (l === "critique") return "critique";
+  if (l === "eleve") return "élevé";
+  if (l === "modere") return "moyen";
+  return "faible";
+}
+
+function riskPredictionAnswer(q: string, ctx: AiContext): AiAnswer {
+  const preds = (ctx.riskPredictions ?? []).filter((p) => !p.dismissed);
+  preds.sort((a, b) => b.score - a.score);
+  const allCount = preds.length;
+  const critique = preds.filter((p) => p.level === "critique").length;
+  const eleve = preds.filter((p) => p.level === "eleve").length;
+  const modere = preds.filter((p) => p.level === "modere").length;
+  const faible = preds.filter((p) => p.level === "faible").length;
+  const moy = allCount ? Math.round(preds.reduce((s, p) => s + p.score, 0) / allCount) : 0;
+
+  // Top 6 risques (format markdown humain)
+  const topRows = preds.slice(0, 6);
+  const kind = (k: RiskPrediction["kind"]) =>
+    k === "zone" ? "Zone" : k === "hopital" ? "Établissement" : k === "corridor" ? "Corridor" : "Incident";
+  const lines: string[] = [];
+  if (allCount === 0) {
+    lines.push("Aucune estimation de dégradation significative détectée dans les données ARGOS pour le moment.");
+  } else {
+    lines.push("🔮 **Estimations IA · dégradations probables** :\n");
+    lines.push(`• Score global moyen : **${moy}/100** — ${allCount} estimation(s)`);
+    lines.push(`• Niveaux : ${critique} **critique** · ${eleve} **élevé** · ${modere} **modéré** · ${faible} **faible**\n`);
+    lines.push("### Estimations prioritaires :");
+    for (const p of topRows) {
+      const items = p.factors.slice(0, 2).map((f) => f.label).join(" · ");
+      lines.push(
+        `${kind(p.kind)} · **${p.label}** — **${p.score}/100** · niveau **${levelFr(p.level)}** · horizon **${p.horizon}** · prob. **${Math.round(p.probability * 100)}%**${items ? ` · facteurs : ${items}` : ""}`,
+      );
+    }
+  }
+
+  return {
+    intent: "risks_prediction",
+    layer1: `prédictions IA risques · ${allCount} estimations · moyenne ${moy}/100`,
+    text: lines.join("\n"),
+    cross: {
+      zones: topRows
+        .filter((p) => !!p.ll)
+        .map((p) => ({ nom: p.label, count: topRows.indexOf(p) + 1, severity: severityZone(p.level), ids: p.linkedIncidentIds ?? [], ll: p.ll })),
+      mapFocus: topRows[0]?.ll ? { ll: topRows[0].ll, zoom: 9, label: `Foyer risque ${topRows[0].label}` } : undefined,
+    },
+    suggestions: [
+      { label: "Foyers critiques (≥ 80)", query: "Quelles sont les prédictions critiques (≥ 80) ?" },
+      { label: "Prédictions sur 24h", query: "Prédictions sur 24h" },
+      { label: "Risques Rabat", query: "Risques à Rabat ?" },
+      { label: "Voir panel dashboard", query: "Ouvre le tableau de bord des prédictions" },
+      ...(topRows[0]?.ll
+        ? [{ label: `🗺️ Afficher ${topRows[0].label} sur la carte`, query: "afficher le premier risque sur la carte", priority: "primary" as const }]
+        : []),
+    ],
+  };
+}
+
+function riskZoneAnswer(q: string, ctx: AiContext): AiAnswer {
+  const raw = (ctx.riskPredictions ?? []).filter((p) => !p.dismissed);
+  const nq = norm(q);
+  const tokens = nq.split(/[\s-]+/).filter((t) => t.length >= 3);
+  const KNOWN_CITIES = [
+    "Casablanca", "Rabat", "Marrakech", "Fès", "Tanger", "Agadir", "Meknès", "Oujda",
+    "Tétouan", "Safi", "Kénitra", "Taza", "Nador", "Settat", "Beni Mellal",
+    "Errachidia", "Ouarzazate", "Al Haouz", "Chichaoua", "Khouribga", "Sidi Slimane",
+    "Kalaat M'Gouna", "Tinghir", "Boumalne Dades",
+  ];
+  const villeMatch = tokens.find((t) =>
+    KNOWN_CITIES.some((name) => norm(name) === t || norm(name).includes(t) || t.includes(norm(name))),
+  );
+  let picked: RiskPrediction[] = [];
+  let label = "zone demandée";
+  // 1) Si on a trouvé une ville dans la question, filtrer par prédiction dont label contient la ville
+  if (villeMatch) {
+    label = villeMatch;
+    picked = raw.filter((p) => norm(p.label).includes(norm(villeMatch)));
+  }
+  // 1bis) fallback tokens cherchent directement dans prédictions labels
+  if (picked.length === 0) {
+    const hit = tokens.find((t) => raw.some((p) => norm(p.label).includes(t)));
+    if (hit) {
+      label = hit;
+      picked = raw.filter((p) => norm(p.label).includes(hit));
+    }
+  }
+  // 2) Sinon : fallback vers la zone à score le plus élevé
+  if (picked.length === 0) {
+    const sorted = [...raw].sort((a, b) => b.score - a.score);
+    picked = sorted.slice(0, 1);
+    if (picked[0]) label = picked[0].label;
+  }
+  if (picked.length === 0) {
+    return {
+      intent: "risks_zone",
+      layer1: `risque sur ${label} : aucune prédiction disponible`,
+      text: `Aucune estimation IA de risque n'est actuellement documentée pour « ${label} » dans les données ARGOS.`,
+    };
+  }
+  picked.sort((a, b) => b.score - a.score);
+  const top = picked[0];
+  const kind = (k: RiskPrediction["kind"]) =>
+    k === "zone" ? "Zone" : k === "hopital" ? "Établissement" : k === "corridor" ? "Corridor" : "Incident";
+  const lines: string[] = [];
+  lines.push(`🔮 **Prédictions IA de risques sur ${label}** :\n`);
+  for (const p of picked.slice(0, 4)) {
+    const items = p.factors.slice(0, 3).map((f) => f.label).join(" · ");
+    lines.push(`• ${kind(p.kind)} **${p.label}** : **${p.score}/100** · ${levelFr(p.level)} · horizon **${p.horizon}**${items ? ` · ${items}` : ""}`);
+  }
+  const tot = picked.reduce((s, p) => s + p.score, 0);
+  const moy = Math.round(tot / Math.max(1, picked.length));
+  lines.push(`\n• Score moyen zone **${label}** : **${moy}/100** · ${picked.length} estimation(s).`);
+
+  // Incidents & hôpitaux liés
+  const incIds = new Set<string>();
+  const hosIds = new Set<string>();
+  for (const p of picked) {
+    (p.linkedIncidentIds ?? []).forEach((id) => incIds.add(id));
+    (p.linkedHospitalIds ?? []).forEach((id) => hosIds.add(id));
+  }
+  const incs = ctx.incidents.filter((i) => incIds.has(i.id)).map(toAiRow);
+  const hos = ctx.hospitals?.filter((h) => hosIds.has(h.id)).map((h) => hospitalRow(h)) ?? [];
+
+  return {
+    intent: "risks_zone",
+    layer1: `risque sur ${label} · ${picked.length} estimations · moyenne ${moy}/100`,
+    text: lines.join("\n"),
+    incidents: incs.slice(0, 5),
+    hospitals: hos.slice(0, 4),
+    cross: {
+      zones: picked.filter((p) => !!p.ll).map((p) => ({ nom: p.label, count: 1, severity: severityZone(p.level), ids: p.linkedIncidentIds ?? [], ll: p.ll })),
+      mapFocus: top?.ll ? { ll: top.ll, zoom: 10, label: `Foyer risque · ${top.label}` } : undefined,
+    },
+    suggestions: [
+      { label: "Voir toutes les prédictions IA", query: "Quelles sont les prédictions de risques IA ?", priority: "primary" as const },
+      { label: "Incidents critiques zone", query: `Incidents critiques sur ${label}` },
+      { label: "Saturation hôpitaux proches", query: `Saturation hôpitaux ${label}` },
+      ...(top?.ll ? [{ label: `🗺️ Centrer carte sur ${label}`, query: `centrer carte sur ${label}`, priority: "primary" as const }] : []),
     ],
   };
 }
@@ -1317,7 +2056,7 @@ export function interpret(q: string, ctx: AiContext): AiAnswer {
   // phrases SOCIALES / POLITES (pas métier) : réponse COURTE + chips, AUCUNE donnée, AUCUN tableau.
   // Inclut les variantes sans espace : "cava"  "cava?"  "okmerci" (traitement compact)
   const socialThanks = /\b(merci|merci bien|merci beaucoup|thanks|thx|danke|gracias|tres bien|très bien|tres sympa|très sympa|tres cool|top|super|parfait|impecc|genial|génial|awesome|nice)\b/;
-  const socialAck = /\b(d'accord|daccord|ok|okay|okey|oui|non|entendu|bien recu|bien reçu|recu|reçu|c'est noté|c est noté|cest noté|tres bien|ok merci|je vois|compris|je comprends)\b/;
+  const socialAck = /\b(d'accord|daccord|ok|okay|okey|oui|non|entendu|bien recu|bien reçu|recu|reçu|c'est noté|c est noté|cest noté|tres bien|ok merci|je vois|compris|je comprends|parle|parle-moi|parle moi|parle moi en francais|parle moi en français|alors|vas-y|vas y|go|on y va|on y est)\b/;
   const socialBye = /\b(au revoir|a plus|a\+|bye|byebye|a bientot|à bientôt|bonne soirée|bonne soiree|bonne journee|bonne journée|à plus|ciao|adieu|a la prochaine|a plus tard)\b/;
   // compact match : "cava", "cava?", "ça va", "ça va ?", "ça-va" (on retire espaces tirets ponctuations puis match)
   const compactSocial = (s: string) => s.replace(/[\s\-_?!.,;:'"]+/g, "").toLowerCase();
@@ -1361,12 +2100,68 @@ export function interpret(q: string, ctx: AiContext): AiAnswer {
   // ⚠️ FIX 2026-08-11 : "nombre d'incidents" → apostrophe `d'` PAS matchée par d[eu].
   //    On utilise une regex PLUS SIMPLE : SI la phrase contient "combien|nombre|total|combien|on a"
   //    PUIS on match le lexique après (pas besoin de liaison exacte).
+  // 🔥🔥 14/08/26 : AJOUT lexique "taux lits / lits disponibles / disponibilités lits" → direct hospitalsStatus
+  const hasLitDispo = /(taux\s+de\s+)?(lits?|lit)\s*(disponibles?|disponibilit[ée]|libres?|occupe[és]|taux\s+d['’]?occupation?|taux\s+occupation)/i.test(nq);
   const hasQuant = /\b(combien|nombre|total|quel\s+nombre|on\s+a|dispose[\s-]+de|combien\s+y\s+a)\b/i.test(nq);
-  if (hasQuant && /(hopital|hospinet|sante|hopitaux|etablissement|rea|lits|chambre)/i.test(nq)) return hospitalsStatus(q, ctx);
+  if ((hasQuant && /(hopital|hospinet|sante|hopitaux|etablissement|rea|lits|chambre)/i.test(nq)) || hasLitDispo) return hospitalsStatus(q, ctx);
   if (hasQuant && /(unite|equipe|far|unites|bataillon|compagnie)/i.test(nq)) return unitsStatus(q, ctx);
   if (hasQuant && /(incident|evenement|alerte|operation|intervention|zone)/i.test(nq)) return incidentsList(q, ctx);
   // Si mot "combien" SEUL (sans lexique spécifique) → par défaut liste incidents (la question la plus fréquente)
   if (/\bcombien\b/i.test(nq) && !hasQuant /* guard si déjà traité au dessus */) return incidentsList(q, ctx);
+
+  // 🔥 INTENTS TEMPORELS (priorité HAUTE avant global overview) §6.22
+  // 👉 Aujourd'hui seulement
+  if (/\b(aujourd['’]?hui|ce\s+jour|journ[ée]e\s+actuelle|ce\s+jour\s*m[êe]me)\b/i.test(nq) && /(incident|evenement|alerte|situatio|statist|nombre|total|declar|survenu|a\s+eu|eu\s+lieu|document|enregis)/i.test(nq)) return todayIncidents(q, ctx);
+  if (/(incidents?\s+.*aujourd['’]?hui|aujourd['’]?hui.*incidents?)/i.test(nq)) return todayIncidents(q, ctx);
+  // 👉 Dernières 24 heures / dernières 24h
+  if (/(derni[èe]res?\s+(24|vingt[- ]?quatre)\s*(heures?|h)|24\s*h\s*(derni[èe]res?|glissant|precedentes?)|resume.*24\s*h|r[ée]sum[ée].*24\s*h|resume.*24\s*heure|r[ée]sum[ée].*24\s*heure)/i.test(nq)) return last24hSummary(q, ctx);
+  if (/(resume|r[ée]sum[ée]|synth[èe]se|panorama|bilan).*(derni[èe]res?\s+24|24\s*h|24\s*heure)/i.test(nq)) return last24hSummary(q, ctx);
+  if (/(resume|r[ée]sum[ée]).*(incidents?|evenements?|situations?).*(derni[èe]re|journ[ée]e).*(24|vingt)/i.test(nq)) return last24hSummary(q, ctx);
+  // 👉 Aujourd'hui vs Hier (comparaison temporelle)
+  if (/(compare|comparaison|rapport|diff[ée]rence|au\s+jourd['’]?hui\s+vs\s+hier|hier\s+vs\s+aujourd['’]?hui|aujourd['’]?hui\s+contre\s+hier|avant\s+hier|j\s+vs\s+j-1|j\s*\/\s*j-1)/i.test(nq)) return todayVsYesterday(q, ctx);
+  if (/(au\s+jourd['’]?hui.*(compar|hier)|hier.*(compar|aujourd['’]?hui)|d[ée]j[àa]\s+hier|par\s+rapport\s+[àa]\s+hier)/i.test(nq)) return todayVsYesterday(q, ctx);
+  // 👉 Tendance / évolution incidents (augmente/diminue)
+  if (/(tendance|tendances|évolutions?|evolutions?|nombre\s+d['’]incidents?\s+(augmente|diminue|baisse|monte|augmentation|diminution)|est\s+ce\s+que\s+.*incidents?.*(augmente|diminue|baisse|mont[ée]))/i.test(nq)) return trendIncidents(q, ctx);
+  if (/(incidents?.*(augmente|diminue|baisse|mont[ée]|hausse|chute))/i.test(nq)) return trendIncidents(q, ctx);
+  // 👉 Pics d'activité
+  if (/(pic|pics|pique|heures?\s+de\s+pointe|pics?\s+d['’]?activit[ée]s?|moments\s+chargés|périodes?\s+chargée|periode\s+charge)/i.test(nq)) return activityPeaks(q, ctx);
+  // 👉 Évolutions inhabituelles / anomalies temporelles
+  if (/(inhabituelle|inhabituels?|anomalie|anomalies?|d[ée]viation|[ée]cart\s+important|soulèvement|brutale|brusque|pic\s+anormal|situations?\s+inhabituelle|est\s+ce\s+qu['’]il\s+y\s+a.*anom)/i.test(nq)) return unusualEvolution(q, ctx);
+  if (/(anomal|inhabituel|évolutions?\s+inhabitu|evolutions?\s+inhabitu|alarmant)/i.test(nq) && /(incident|evenement|activit|journ[ée]e|semaine)/i.test(nq)) return unusualEvolution(q, ctx);
+
+  // 🔥 INTENTS GÉOGRAPHIQUES (avant global overview) §6.22
+  // 👉 Zones les plus touchées
+  if (/(zones?\s+(les\s+plus\s+|plus\s+|les\s+mieux\s+)?touchées?|touch[eé]es?\s+zones?|r[ée]gions?\s+(touchées?|impactées?|affectées?)|zones?\s+impactées?|zones?\s+affectées?|quelles\s+zones?\s+.*touch|quelles\s+r[ée]gions?\s+.*touch|zones?\s+d['’]?intérêt|hotspots?|points?\s+chauds)/i.test(nq)) return touchedZones(q, ctx);
+  // 👉 Incidents PROCHES d'une ville (Casablanca / Rabat / ...)
+  if (/(pr[eè]s\s+de|autour\s+de|aux\s+alentours?\s+d['’]e|aux\s+environs\s+d['’]e|proximit[ée]\s+d['’]e|(proche|voisine|avoisinante).*\s+de|(incidents?|evenements?|alertes?).*\s+(dans\s+la\s+r[ée]gion\s+de|à\s+c[ôo]té\s+de|(pr[eè]s|proche)\s+de))/i.test(nq) && /(casa|casablanca|rabat|marrakech|f[eè]s|tanger|agadir|mekn[eè]s|oujda|t[ée]touan|safi|kenitra|taza|nador|settat|beni\s+mellal|ville)/i.test(nq)) return incidentsNearCity(q, ctx);
+  if (/(incidents?\s+(à|a)\s+(casa|casablanca|rabat|marrakech|f[eè]s|tanger|agadir|mekn[eè]s|oujda)|(casa|casablanca|rabat|marrakech).*(incidents?|evenements?))/i.test(nq)) return incidentsNearCity(q, ctx);
+  // 👉 Concentration incidents CRITIQUES
+  if (/(concentration|regroupement|amas|grappe|foyers?)\s+.*(critique|grave|important|critiques?|sév[èe]res?|élevés?|severes?)|o[uù]\s+(se\s+)?(concentre|regroupe)\s+(les\s+)?incidents?\s+(critiques?|graves?|prioritaires?)/i.test(nq)) return criticalConcentration(q, ctx);
+  if (/(incidents?\s+critiques?|incidents?\s+graves?).*(o[uù]|région|zone|concentration|où\s+se\s+trouve(nt)?)/i.test(nq)) return criticalConcentration(q, ctx);
+  // 👉 Zone avec PLUS GRAND RISQUE
+  if (/(zones?\s+(la\s+plus\s+|plus\s+|le\s+plus\s+grand)\s+(risquée?|dangereuse?|risqu[eé]e|critique)|quel(le)?\s+zone\s+(présente|a|offre)\s+(le\s+plus\s+)?(risque|niveau\s+de\s+risque|danger))/i.test(nq)) return riskiestZone(q, ctx);
+  if (/(risque|niveau\s+de\s+risque).*(zones?|r[ée]gions?)|quel(le)?\s+(r[ée]gion|zone).*(risque|plus\s+dangereuse)/i.test(nq)) return riskiestZone(q, ctx);
+
+  // 🔥 INTENTS MODULE IA PREDICTIONS RISQUES (avant global overview, 100% réel)
+  //     → "risques à Rabat" / "risques Marrakech" / "risque sur Casablanca"
+  const riskCueCity =
+    /(risques?|estimation|pr[eé]diction|alerte\s+risque|d[eé]gradation|score\s+risque).*\s+(à|a|de|sur|pour|dans)\s+(casa|casablanca|rabat|marrakech|f[eè]s|tanger|agadir|mekn[eè]s|oujda|t[ée]touan|safi|kenitra|taza|nador|settat|beni\s+mellal|t[aâ]louet|errachidia|ouarzazate)/i;
+  const riskCityName =
+    /^(risques?|estimation|pr[eé]diction)\s+(à|a|de|sur|pour)\s+(casa|casablanca|rabat|marrakech|f[eè]s|tanger|agadir|mekn[eè]s|oujda|t[ée]touan|safi|kenitra|taza|nador|settat|beni\s+mellal|errachidia|ouarzazate)/i;
+  const riskAnyCity = /(casa|casablanca|rabat|marrakech|f[eè]s|tanger|agadir|mekn[eè]s|oujda|t[ée]touan|safi|kenitra|taza|nador|settat|beni\s+mellal|errachidia|ouarzazate).*(risques?|pr[eé]dictions?\s+(de\s+)?risques?|estimation)/i;
+  if (riskCueCity.test(nq) || riskCityName.test(nq) || riskAnyCity.test(nq)) return riskZoneAnswer(q, ctx);
+  //     → "prédictions IA risques" / "estimation de risques" / "risques" (sans ville)
+  const riskGlobal =
+    /(pr[eé]dictions?\s+(de\s+)?risques?|risques?\s+(ia|ia\s*predict|estim[ée]s?|sur\s+24h|sur\s+48h|dans\s+les?\s+prochaines?\s+heure|horizon|24\s*h|48\s*h))/i;
+  const riskGlobal2 =
+    /^(risques?|estimation\s+de\s+risques?|foyers\s+(critiques?|de\s+risque)|score\s+risque\s+global|probabilit[eé]\s+d['eé]gradation)$/i;
+  const riskGlobal3 =
+    /(quel(le)?s?\s+sont\s+les?\s+pr[eé]dictions?|quelles?\s+risques?\s+.*prochaines?\s+heure|d[eé]gradation\s+probables?|o[uù]\s+risque\s+d[eé]gradation)/i;
+  if (riskGlobal.test(nq) || riskGlobal2.test(nq) || riskGlobal3.test(nq)) return riskPredictionAnswer(q, ctx);
+  //     → Si question contient "risque" + "prédire"/"anticiper"/"estimer"/"prévision"
+  if (/(pr[eé]dire|anticiper|estimer|pr[eé]voir|pr[eé]vision|anticipation).*(risque|d[eé]gradation|saturation|d[eé]bordement)/i.test(nq)) return riskPredictionAnswer(q, ctx);
+  // 👉 Intervention PRIORITAIRE = incidents critiques/worstIncidents top5 priorité
+  if (/(intervention\s+prioritaires?|actions?\s+prioritaires?|cas\s+prioritaires?|prioriser|urgents?\s+(de|à)\s+traiter|affecter\s+en\s+priorit[ée]|d[ée]ploiement\s+prioritaires?|quels\s+incidents?.*priorit|incidents?.*prioritaires?\s+intervention)/i.test(nq)) return worstIncidents(q, ctx, 3);
 
   // situation globale / vue d'ensemble / synthèse
   if (/vue globale|vue d'ensemble|situation globale|apercu general|synthese generale|etat des lieux|tableau de bord|resume general|panorama/.test(nq)) return globalOverview(q, ctx);
@@ -1496,63 +2291,157 @@ export function interpret(q: string, ctx: AiContext): AiAnswer {
 
 /** Message utilisateur transmis au LLM : requête + résultat Couche 1 à reformuler. */
 export function buildLlmUserMessage(query: string, answer: AiAnswer): string {
+  // 🚨 CRITIQUE 13/08/26 : Qwen2.5:14b (modelfile Ollama) a n_ctx_train=32768 SEULEMENT.
+  // Requesting num_ctx > 32768 → Ollama WARN "too large for model" et FORCE -c 32768.
+  // TOUT DOIT RENTRER DANS 32 768 tokens (system prompt + historique + user msg + assistant answer).
+  // RÈGLE DE SÉCURITÉ ABSOLUE : 1 message user (celui-ci) ≤ ~5 000 tokens.
+  //
+  // 🔥🔥 14/08/26 : Augmentation ciblée des quotas LLM_MAX_ROWS :
+  //         - LLM_MAX_ROWS_HOPITAUX = 200 (tous les 113 hôpitaux transmis pour répondre « taux lits disponibles »)
+  //         - LLM_MAX_ROWS_INCIDENTS = 60 (tous les incidents OUVERTS)
+  //         - LLM_MAX_ROWS_UNITES = 40 (toutes les unités FAR/RM)
+  //         - LLM_MAX_ROWS_EQUIP = 30 (top équipements)
+  //         - LLM_MAX_ROWS = 6 (quotidien généraliste default : croisements, seismes etc.)
+  // → JSON transmis est tronqué dynamiquement si > 12 000 caractères (GARANTIE ~4 000 tokens).
+  const LLM_MAX_ROWS = 6;
+  const LLM_MAX_ROWS_HOPITAUX = 200;
+  const LLM_MAX_ROWS_INCIDENTS = 60;
+  const LLM_MAX_ROWS_UNITES = 40;
+  const LLM_MAX_ROWS_EQUIP = 30;
+  const MAX_SUMMARY_CHARS = 600;
+  const MAX_JSON_CHARS = 12000; // ~4 000 tokens max pour le JSON data → garantit rentrer dans 32K ctx total.
   const data: Record<string, unknown> = {};
-  if (answer.intent) data.intention = answer.intent;
-  if (answer.layer1) data.indice_moteur = answer.layer1;
+  // 🚨 13/08/26 FUITE ÉCHO JSON: ne JAMAIS transmettre data.intention=data.indice_moteur.
+  //    - greetings/"unknown" font echo ```json {intention:greeting}``` dans la réponse (mistral 7B miroir)
+  //    - la reformulation n'a PAS besoin de "intention" détectée par la Couche 1
+  //    - indice_moteur est DEJA present dans `summaryText` (## RÉSUMÉ MOTEUR DÉTERMINISTE)
+  // if (answer.intent) data.intention = answer.intent;
+  // if (answer.layer1) data.indice_moteur = answer.layer1;
 
-  // Champs structurés (tableaux) — LLM peut générer des markdown tables dessus
-  if (answer.units?.length) data.unites = answer.units.map((u) => ({
+  if (answer.units?.length) data.unites = answer.units.slice(0, LLM_MAX_ROWS_UNITES).map((u) => ({
     id: u.id, nom: u.nom, type: u.type ?? "—", ville: u.ville, dispo: u.dispo,
     readiness_pct: u.readiness ?? null, capacites: u.caps ?? [], score: u.score ?? null, ETA_min: u.etaMin,
   }));
-  if (answer.incidents?.length) data.incidents = answer.incidents.map((i: AiIncidentRow) => ({
+
+  if (answer.incidents?.length) data.incidents = answer.incidents.slice(0, LLM_MAX_ROWS_INCIDENTS).map((i: AiIncidentRow) => ({
     id: i.id, titre: i.titre, region: i.region, severite: i.sev, statut: i.st,
-    declare: i.declared ?? i.time, type: i.type, lieu: i.lieu, coords: i.coords,
+    declare: i.declared ?? i.time, type: i.type, lieu: i.lieu,
     bilan_humain: i.casualties ? {
       deces: i.casualties.dead, blesses: i.casualties.injured,
       disparus: i.casualties.missing, secourus: i.casualties.rescued ?? 0,
     } : undefined,
   }));
-  if (answer.hospitals?.length) data.hopitaux = answer.hospitals.map((h: AiHospitalRow) => ({
+
+  if (answer.hospitals?.length) data.hopitaux = answer.hospitals.slice(0, LLM_MAX_ROWS_HOPITAUX).map((h: AiHospitalRow) => ({
     nom: h.nom ?? h.name ?? "Établissement", ville: h.ville, type: h.kind ?? "—",
     lits: h.lits, occupation_pct: h.occPct,
+    occupation_rea_pct: h.icuPct ?? null,
     rea: h.rea, rea_libres: Math.max(0, h.rea - Math.round(h.rea * (h.icuPct ?? 0) / 100)),
-    distance_km: h.distKm ?? null, lat_long: h.ll ? [h.ll[1], h.ll[0]] : undefined,
+    lits_disponibles: Math.max(0, h.lits - Math.round(h.lits * (h.occPct ?? 0) / 100)),
+    distance_km: h.distKm ?? null,
   }));
+
   if (answer.stats) data.statistiques = answer.stats;
-  if (answer.topEquip?.length) data.equipements = answer.topEquip.map((e) => ({
+  if (answer.topEquip?.length) data.equipements = answer.topEquip.slice(0, LLM_MAX_ROWS_EQUIP).map((e) => ({
     reference: e.id, designation: e.desig, categorie: e.cat, stock: e.stock, etat: e.cond,
     seuil_alerte: e.seuil, unite: e.unit,
   }));
-  if (answer.quakes?.length) data.seismes = answer.quakes;
-  if (answer.cross) data.cross_analysis = answer.cross;
+  if (answer.quakes?.length) data.seismes = answer.quakes.slice(0, LLM_MAX_ROWS);
+  if (answer.cross) {
+    const croppedCross: Partial<AiCrossBlock> = {};
+    if (answer.cross.incident) croppedCross.incident = answer.cross.incident;
+    if (answer.cross.recommendedUnits?.length) croppedCross.recommendedUnits = answer.cross.recommendedUnits.slice(0, LLM_MAX_ROWS);
+    if (answer.cross.hospitals?.length) croppedCross.hospitals = answer.cross.hospitals.slice(0, LLM_MAX_ROWS_HOPITAUX);
+    if (answer.cross.unitEquipment?.length) croppedCross.unitEquipment = answer.cross.unitEquipment.slice(0, LLM_MAX_ROWS).map(ue => ({ unitName: ue.unitName, equipment: ue.equipment?.slice(0, 2) ?? [] }));
+    if (answer.cross.quakes?.length) croppedCross.quakes = answer.cross.quakes.slice(0, LLM_MAX_ROWS);
+    if (answer.cross.zones?.length) croppedCross.zones = answer.cross.zones.slice(0, 3).map(z => ({ nom: z.nom, count: z.count, severity: z.severity, ll: z.ll, ids: z.ids }));
+    if (answer.cross.mapFocus) croppedCross.mapFocus = answer.cross.mapFocus;
+    data.analyse_croisee = croppedCross;
+  }
+
+  // Module prédictions risques (réel, 100% data ARGOS) — top 3 seulement (tokens limit)
+  // On transmet uniquement via `ctxNotes` français naturel, JAMAIS dans data → pas d'écho JSON.
+  const riskCtx: RiskPrediction[] | undefined = (answer as unknown as { _riskCtx?: RiskPrediction[] })?._riskCtx;
+  const riskTop = riskCtx ? riskCtx.filter(p => !p.dismissed).sort((a, b) => b.score - a.score).slice(0, 3) : [];
 
   // Version simplifiée (résumé markdown) pour aider Qwen même s'il parse mal le JSON
-  const summaryText = answer.text ?? "";
+  // 🔥 TRONQUÉ 600 CARACTÈRES MAX (answer.text faisait 40000 caractères avant fix → overflow)
+  // 🔥🔥 13/08/26: cleanFinalText → SUPPRIME phrases vides "Aucune donnée complémentaire / Aucun autre incident..."
+  //       AVANT summaryClean (filtre CSV) et AVANT le troncage (on enlève des caractères inutiles).
+  const summaryRaw = cleanFinalText(answer.text ?? "");
+  const summaryClean = summaryRaw
+    .split(/\r?\n/)
+    .filter((line) => {
+      // Supprimer lignes TABLEAU CSV brut (ÉTABLISSEMENTS / UNITÉS / INCIDENTS en header en MAJUSCULES,
+      // puis lignes avec 2+ tabs ou pipes) — évite l'écho par le LLM des 8 hôpitaux.
+      const stripped = line.trim();
+      if (!stripped) return true;
+      if (/^[A-ZÉÈÊÀÂÔÛÇ\s]{4,}(?:\t| {2,}|$)/.test(stripped)) return false;
+      if (/[A-Z][A-ZÉÈÊÀÂÔÛÇ\s]+\t/.test(stripped) && stripped.split(/\t/).length >= 3) return false;
+      if (stripped.startsWith("---") && stripped.replace(/-/g, "").trim() === "") return false;
+      return true;
+    })
+    .join("\n");
+  const summaryText = summaryClean.length > MAX_SUMMARY_CHARS
+    ? summaryClean.slice(0, MAX_SUMMARY_CHARS) + "\n[…résumé tronqué pour contexte 32K…]"
+    : summaryClean;
+
+  // Notes contextuelles EN FRANÇAIS NATUREL (pas dans JSON → pas de fuite de noms de champs)
+  const ctxNotes: string[] = [];
+  if (answer.hospitals?.length) ctxNotes.push(`${answer.hospitals.length} établissements de santé au total, ${Math.min(LLM_MAX_ROWS_HOPITAUX, answer.hospitals.length)} détaillé(s) dans JSON (tous transmis sauf si >200).`);
+  if (answer.incidents?.length) ctxNotes.push(`${answer.incidents.length} incidents au total, ${Math.min(LLM_MAX_ROWS_INCIDENTS, answer.incidents.length)} détaillé(s).`);
+  if (answer.units?.length) ctxNotes.push(`${answer.units.length} unités au total, ${Math.min(LLM_MAX_ROWS_UNITES, answer.units.length)} détaillée(s).`);
+  if (answer.topEquip?.length) ctxNotes.push(`${answer.topEquip.length} références équipement au total, ${Math.min(LLM_MAX_ROWS_EQUIP, answer.topEquip.length)} détaillée(s).`);
+  if (riskTop.length) {
+    const items = riskTop.map((p, i) => `${i + 1}. ${p.label} · score ${p.score}/100 · ${p.level === "eleve" ? "élevé" : p.level === "modere" ? "modéré" : p.level} · horizon ${p.horizon}`).join(" ; ");
+    ctxNotes.push(`Prédictions risques · ${riskTop.length} estimation(s) prioritaires : ${items}.`);
+  }
+
+  // Garantie token : si le JSON data dépasse MAX_JSON_CHARS ~12 000 (~4 000 tokens), on tronque
+  // progressivement hopitaux/incidents/unites/equipements jusqu'à rentrer.
+  let jsonStr = JSON.stringify(data);
+  const tryCrop = <T extends unknown[]>(key: string, keepN: number) => {
+    const arr = (data as Record<string, unknown[]>)[key];
+    if (!Array.isArray(arr) || arr.length <= keepN) return;
+    (data as Record<string, unknown[]>)[key] = arr.slice(0, keepN);
+    jsonStr = JSON.stringify(data);
+  };
+  // Boucle de réduction (→ dans le pire cas on retombe sur quotas LLM_MAX_ROWS basiques)
+  const cropSteps: [string, number][] = [
+    ["equipements", Math.max(6, Math.floor(LLM_MAX_ROWS_EQUIP / 2))],
+    ["unites", Math.max(6, Math.floor(LLM_MAX_ROWS_UNITES / 2))],
+    ["incidents", Math.max(6, Math.floor(LLM_MAX_ROWS_INCIDENTS / 2))],
+    ["hopitaux", Math.max(20, Math.floor(LLM_MAX_ROWS_HOPITAUX / 4))],
+    ["incidents", 8],
+    ["unites", 6],
+    ["equipements", 4],
+    ["hopitaux", 8],
+  ];
+  let stepIdx = 0;
+  while (jsonStr.length > MAX_JSON_CHARS && stepIdx < cropSteps.length) {
+    tryCrop(cropSteps[stepIdx][0], cropSteps[stepIdx][1]);
+    stepIdx += 1;
+  }
 
   const lines: string[] = [];
   lines.push("## QUESTION OPÉRATEUR");
   lines.push(`« ${query} »`);
   lines.push("");
-  lines.push("## CONTEXTE DONNÉES STRUCTURÉES (seulement ces données — AUCUNE invention autorisée)");
-  lines.push("Format JSON :");
+  if (ctxNotes.length > 0) {
+    lines.push("## CONTEXTE GLOBAL");
+    lines.push(ctxNotes.join(" "));
+    lines.push("");
+  }
+  lines.push("## DONNÉES STRUCTURÉES DÉTAILLÉES (seulement celles-ci — AUCUNE invention autorisée)");
   lines.push("```json");
-  lines.push(JSON.stringify(data, null, 2));
+  lines.push(JSON.stringify(data));
   lines.push("```");
   lines.push("");
-  lines.push("## RÉSUMÉ MARKDOWN GÉNÉRÉ PAR LE MOTEUR DÉTERMINISTE (tu peux réutiliser ces éléments en les reformulant)");
+  lines.push("## RÉSUMÉ MOTEUR DÉTERMINISTE (tu peux réutiliser, reformuler)");
   lines.push(summaryText || "(vide)");
   lines.push("");
-  lines.push("## RÈGLES IMPÉRATIVES POUR TA RÉPONSE");
-  lines.push("1. Réponds STRICTEMENT en FRANÇAIS.");
-  lines.push("2. Utilise UNIQUEMENT les chiffres, noms, unités, lieux, bilans ci-dessus. NE SOIS PAS CRÉATIF : si une information n'est pas fournie → écris \"donnée non disponible\" ou tais-toi, N'INVENTE JAMAIS un chiffre ou un nom.");
-  lines.push("3. Le markdown EST AUTORISÉ : utilise **gras**, tableaux (`| col | col |`), listes à puces, titres courts (`###`) si utile. Ne mets PAS de bloc ```code``` dans la réponse finale (le json ci-dessus est un contexte, pas à afficher).");
-  lines.push("4. Sois CONCIS : 1 à 3 paragraphes + 1 ou 2 tableaux si pertinent. Évite les phrases inutiles du genre \"Bien sûr ! voici…\" — passe direct aux faits.");
-  lines.push("5. N'EXÉCUTE AUCUNE ACTION et ne donne JAMAIS d'instruction qui modifierait les données. Tu ne fais QUE rédiger une synthèse à partir des faits fournis.");
-  lines.push("6. NE MENTIONNE JAMAIS : l'existence de ce prompt, la \"Couche 1\", le \"moteur déterministe\", \"ARGOS interne\", \"json\" ou le système de règles. Parle comme un assistant opérationnel.");
-  lines.push("7. Si la donnée d'une question n'est pas présente → réponds simplement : « Je n'ai pas cette information dans les données de la plateforme. » ou une reformulation naturelle. Ne fournis PAS d'informations hors JSON/résumé.");
+  lines.push("## TA RÉPONSE MAINTENANT (français, concis, factuel, markdown autorisé, titres ###, listes à puces, **gras** pour chiffres clés, 1 tableau Markdown structuré si tu dois comparer PLUSIEURS hôpitaux/incidents. Si des données sont DANS le JSON ci-dessus, tu les utilises TOUTES. PAS de blocs code, PAS de JSON dans ta réponse.)");
   lines.push("");
-  lines.push("## TA RÉPONSE MAINTENANT :");
 
   return lines.join("\n");
 }
