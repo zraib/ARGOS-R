@@ -43,54 +43,63 @@ Administrateur peut forcer l'activation ou régénérer le code.
 
 ## 3. Catalogue de permissions
 
-Format `module:action:qualifier`. Défini dans `apps/api/src/shared/permissions.ts`.
+Format **`fonctionnalité:action`**, défini dans `apps/api/src/shared/permissions.ts`.
 
-**Administration / gouvernance**
-`iam:users:read` · `iam:users:create` · `iam:users:update` · `iam:users:delete` ·
-`iam:users:activate` · `iam:roles:read` · `iam:roles:create` · `iam:roles:assign` ·
-`iam:roles:features` · `iam:permissions:read` · `admin:feature_flags:read` ·
-`admin:feature_flags:toggle` · `admin:settings:read` · `admin:settings:update` ·
-`audit:log:read` · `audit:log:verify`
+**Actions** — `view` (V) · `create` (A) · `update` (M) · `archive` (Ar) · `delete`.
 
-**Structure organisationnelle**
-`org:zones:read` · `org:zones:manage` · `org:units:read` · `org:units:manage` ·
-`org:hospitals:read` · `org:hospitals:manage`
+> **`delete` n'est jamais accordé par la matrice.** La fonction qui développe une
+> cellule V/A/M/Ar ne l'émet pas : seul le Super Administrateur l'obtient, via
+> son joker `*`. Personne d'autre ne supprime — au mieux on archive.
 
-**Opérations**
-`incidents:read` · `incidents:create` · `incidents:update` ·
-`map:tracking:view_all` · `dispatch:assign` · `hospinet:beds:update`
+**21 fonctionnalités de la matrice** — `dashboard`, `dash_incident`,
+`dash_hospital`, `dash_shelter`, `dash_morgue`, `dash_unit`, `map`, `incidents`,
+`subincidents`, `hospinet`, `shelters`, `morgue`, `units`, `equipment`, `teams`,
+`comms`, `reports`, `analytics`, `assistant`, `users`, `settings`.
 
-**Bons de travail**
-`workorders:read` · `workorders:create` · `workorders:update` · `workorders:assign`
+**10 modules hors matrice** (`LEGACY`, dotations d'avant conservées, à
+arbitrer) — `dispatch`, `triage`, `ics`, `damage`, `orsec`, `plans`,
+`personnel`, `workorders`, `seismic`, `audit`.
 
-**Morgue / identification des victimes**
-`morgue:read` · `morgue:manage`
+## 4. Les 15 rôles
 
-**Parc d'équipement**
-`equip:read` · `equip:manage`
+Les attributions sont la **transcription littérale** de
+`docs/MATRICE ROLES.xlsx` : la table `MATRIX` du code
+reprend le tableur ligne par ligne, et les dotations en sont **calculées**.
+Faire évoluer les droits = modifier cette table, jamais des listes à la main.
 
-## 4. Les 12 rôles
-
-| Rôle | Libellé | Portée |
+| Rôle | Libellé | Dans la matrice |
 | --- | --- | --- |
-| `superadmin` | Super Administrateur | toutes les permissions (`*`) |
-| `admin` | Administrateur | IAM, flags, paramètres, organisation, lecture incidents et bons |
-| `strategic` | Utilisateur Stratégique | lecture large + audit |
-| `tacom` | TACOM | incidents (CRUD), dispatching, organisation en lecture |
-| `bluecell` | Cellule Bleue — Opérations | incidents (CRUD), dispatching |
-| `greencell` | Cellule Verte — Logistique | unités, incidents, **pilotage des bons de travail** |
-| `orangecell` | Cellule Orange — Sécurité | zones, incidents, carte |
-| `resp_hospital` | Responsable Hôpital | hôpitaux (gestion), lits, incidents |
-| `resp_shelter` | Responsable Abri | zones (gestion), incidents |
-| `resp_morgue` | Responsable Morgue | incidents, **registre DVI de son site** |
-| `resp_unit` | Responsable Unité | unités (gestion), incidents |
-| `resp_equipment` | Responsable Équipement | incidents, bons de travail, **parc de son unité** |
+| `superadmin` | Super Administrateur | absent — détient tout (`*`), **seul à supprimer** |
+| `admin` | Administrateur | A-M-Ar-V sur toutes les lignes |
+| `strategic` | Utilisateur Stratégique | lecture ; V-M sur comms et assistant |
+| `place_arme` | Place d'Armes | lecture de la situation ; V-M sur comms et assistant |
+| `wali` | Wali / Gouverneur | idem Place d'Armes |
+| `opcom` | OPCOM | A-M-Ar-V sur incidents, sous-incidents et rapports |
+| `tacom` | TACOM | V-M incidents ; A-M-Ar-V sous-incidents |
+| `bluecell` | Cellule Bleue — Opérations | A-M-V sous-incidents ; lecture ailleurs |
+| `greencell` | Cellule Verte — Logistique | A-M-V Hospinet ; lecture ailleurs |
+| `orangecell` | Cellule Orange — Sécurité | lecture |
+| `resp_hospital` | Responsable Hôpital | A-M-V Hospinet (pas d'archivage) |
+| `resp_shelter` | Responsable Abri | A-M-V Abri |
+| `resp_morgue` | Responsable Morgue | A-M-V Morgue |
+| `resp_unit` | Responsable Unité | A-M-V Unité |
+| `resp_equipment` | Responsable Équipement | A-M-V Gestion Équipement |
 
-> **Dotations provisoires.** Hors `superadmin` et `admin`, les attributions
-> par rôle sont marquées PROVISOIRES dans le code. L'attribution définitive
-> viendra de la matrice `docs/matrice-roles-fonctionnalites.xlsx`
-> (12 rôles × 22 fonctionnalités, cellules OUI/NON), à remplir puis à reporter
-> dans `ROLE_PERMISSIONS` et dans l'onglet « Rôles & fonctionnalités ».
+Une **cellule vide du tableur = aucun droit** sur la fonctionnalité
+(default-deny). Un rôle absent d'une ligne n'y a donc rien.
+
+### Visibilité du registre des comptes
+
+Un compte **Super Administrateur est invisible** à tout autre rôle. Le filtrage
+est fait **côté serveur**, dans `UsersService` :
+
+- `GET /iam/users` ne renvoie jamais de superadmin à un Administrateur ;
+- toute opération ciblée sur un superadmin (consulter son code, l'activer, le
+  modifier) répond **404 et non 403** — un 403 confirmerait son existence ;
+- l'Administrateur peut **désactiver** un compte (`M` sur Utilisateurs) mais
+  **jamais le supprimer** : `users:delete` n'appartient qu'au superadmin.
+
+Tests : `modules/iam/users.spec.ts`.
 
 ### Règles d'attribution de rôles
 
@@ -142,7 +151,7 @@ Une route se cantonne en ajoutant `@RequireScope` à côté de `@RequirePermissi
 
 ```ts
 @Patch("hospitals/:id")
-@RequirePermission("org:hospitals:manage")   // RBAC : a-t-il le droit ?
+@RequirePermission("hospinet:update")        // RBAC : a-t-il le droit ?
 @RequireScope("hospital")                    // ABAC : est-ce bien le sien ?
 ```
 
@@ -165,13 +174,13 @@ La portée effective est visible dans `GET /api/iam/me` (champ `scope`).
 
 | Route | Permission | Portée |
 | --- | --- | --- |
-| `PATCH /hospitals/:id` | `org:hospitals:manage` | `hospital` |
-| `POST` · `PATCH` · `DELETE /hospitals/:id/wards[/:wid]` | `org:hospitals:manage` | `hospital` |
-| `PATCH /units/:id` | `org:units:manage` | `unit` |
-| `PATCH /shelters/:id` | `org:zones:manage` | `shelter` |
-| `PATCH /morgues/:id` | `morgue:manage` | `morgue` |
-| `POST` · `PATCH /morgues/:id/records[/:rid]` | `morgue:manage` | `morgue` |
-| `POST` · `PATCH` · `DELETE /equipment-parks/:id/items[/:eid]` | `equip:manage` | `equipment` |
+| `PATCH /hospitals/:id` | `hospinet:update` | `hospital` |
+| `POST` · `PATCH` · `DELETE /hospitals/:id/wards[/:wid]` | `hospinet:create` · `:update` · `:archive` | `hospital` |
+| `PATCH /units/:id` | `units:update` | `unit` |
+| `PATCH /shelters/:id` | `shelters:update` | `shelter` |
+| `PATCH /morgues/:id` | `morgue:update` | `morgue` |
+| `POST` · `PATCH /morgues/:id/records[/:rid]` | `morgue:create` · `:update` | `morgue` |
+| `POST` · `PATCH` · `DELETE /equipment-parks/:id/items[/:eid]` | `equipment:create` · `:update` · `:archive` | `equipment` |
 
 **Convention de route** : quand la ressource est un enfant (service de soins,
 dossier DVI, article de parc), l'identifiant porté par le chemin est celui de
@@ -234,7 +243,7 @@ Exigences du `MASTER_PLAN.md` §4.3 :
 
 ## 10. Tests de sécurité
 
-La gate default-deny est automatisée (`npm test`, 79 tests) :
+La gate default-deny est automatisée (`npm test`, 82 tests) :
 
 - `modules/iam/authz.spec.ts` — 401 sans jeton, résolution des permissions
   depuis le rôle, 403 sur accès non autorisé, intégrité de la chaîne d'audit ;

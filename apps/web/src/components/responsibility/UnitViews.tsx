@@ -14,7 +14,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Pill, type Tone } from "@/components/ui/Pill";
 import { KPI_ICONS, NAV_ICONS, UI_ICONS } from "@/lib/icons";
 import { loadBarClass } from "@/lib/responsibility";
-import { Loading, RespHeader, Section } from "@/components/responsibility/Shared";
+import { Loading, useSupervision, RespHeader, Section } from "@/components/responsibility/Shared";
 import type { Unit } from "@/lib/types";
 
 const DISPO_TONES: Record<Unit["dispo"], Tone> = { ready: "green", deployed: "amber", standby: "gray" };
@@ -27,6 +27,7 @@ function useMyUnit(uid: string): Unit | null {
 
 export function UnitDashboard({ uid }: { uid: string }) {
   const m = useModules();
+  const supervised = useSupervision();
   const unit = useMyUnit(uid);
   const incidents = useArgos((s) => s.incidents);
   if (!unit) return <Loading />;
@@ -70,12 +71,14 @@ export function UnitDashboard({ uid }: { uid: string }) {
         ))}
       </Section>
 
-      <div className="flex justify-end">
-        <Link href="/ma-responsabilite/gestion" className="btn-primaire flex items-center gap-1.5 text-sm">
-          <Icon path={UI_ICONS.edit} size={14} />
-          {m.resp.manage}
-        </Link>
-      </div>
+      {!supervised && (
+        <div className="flex justify-end">
+          <Link href="/ma-responsabilite/gestion" className="btn-primaire flex items-center gap-1.5 text-sm">
+            <Icon path={UI_ICONS.edit} size={14} />
+            {m.resp.manage}
+          </Link>
+        </div>
+      )}
     </section>
   );
 }

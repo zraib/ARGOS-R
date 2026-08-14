@@ -13,7 +13,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Pill, type Tone } from "@/components/ui/Pill";
 import { KPI_ICONS, NAV_ICONS, UI_ICONS } from "@/lib/icons";
 import { loadBarClass } from "@/lib/responsibility";
-import { Loading, RespHeader, Section } from "@/components/responsibility/Shared";
+import { Loading, useSupervision, RespHeader, Section } from "@/components/responsibility/Shared";
 
 /** Abri tel que servi par l'API (GET /shelters). */
 export interface Shelter {
@@ -50,6 +50,7 @@ function useShelter(sid: string): { shelter: Shelter | null; reload: () => void 
 
 export function ShelterDashboard({ sid }: { sid: string }) {
   const m = useModules();
+  const supervised = useSupervision();
   const { shelter } = useShelter(sid);
   if (!shelter) return <Loading />;
 
@@ -109,12 +110,14 @@ export function ShelterDashboard({ sid }: { sid: string }) {
         </div>
       </Section>
 
-      <div className="flex justify-end">
-        <Link href="/ma-responsabilite/gestion" className="btn-primaire flex items-center gap-1.5 text-sm">
-          <Icon path={UI_ICONS.edit} size={14} />
-          {m.resp.manage}
-        </Link>
-      </div>
+      {!supervised && (
+        <div className="flex justify-end">
+          <Link href="/ma-responsabilite/gestion" className="btn-primaire flex items-center gap-1.5 text-sm">
+            <Icon path={UI_ICONS.edit} size={14} />
+            {m.resp.manage}
+          </Link>
+        </div>
+      )}
     </section>
   );
 }

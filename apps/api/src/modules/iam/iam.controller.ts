@@ -18,14 +18,14 @@ export class IamController {
   }
 
   @Get("roles")
-  @RequirePermission("iam:roles:read")
+  @RequirePermission("users:view")
   @ApiOperation({ summary: "Catalogue des rôles et de leurs permissions" })
   roles() {
     return this.iam.listRoles();
   }
 
   @Get("permissions")
-  @RequirePermission("iam:permissions:read")
+  @RequirePermission("users:view")
   @ApiOperation({ summary: "Catalogue des permissions" })
   permissions() {
     return this.iam.listPermissions();

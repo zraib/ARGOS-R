@@ -97,6 +97,10 @@ export const DEFAULT_ROLE_FEATURES: Record<Role, Record<string, boolean>> = {
   superadmin: ALL_ON(),
   admin: ALL_ON(),
   strategic: featuresFrom(["dashboard", "incidents", "map", "orsec", "plans", "reports", "analytics"]),
+  // Rôles issus de la matrice : lecture large de la situation nationale.
+  place_arme: featuresFrom(["dashboard", "incidents", "map", "comms", "reports", "analytics"]),
+  wali: featuresFrom(["dashboard", "incidents", "map", "comms", "reports", "analytics"]),
+  opcom: featuresFrom(["dashboard", "incidents", "map", "dispatch", "hospitals", "shelters", "orsec", "plans", "comms", "reports", "analytics"]),
   tacom: featuresFrom(["dashboard", "incidents", "map", "dispatch", "hospitals", "orsec", "plans", "comms", "reports"]),
   bluecell: featuresFrom(["dashboard", "incidents", "map", "dispatch", "triage", "ics", "comms"]),
   greencell: featuresFrom(["dashboard", "incidents", "map", "equip", "units", "personnel", "workorders", "comms"]),

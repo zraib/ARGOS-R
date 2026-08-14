@@ -16,7 +16,7 @@ export type NavKey =
   | "hospitals" | "ics" | "damage" | "shelters"
   | "orsec" | "plans" | "comms" | "reports" | "analytics" | "assistant"
   | "users" | "settings"
-  | "myresp" | "myrespManage";
+  | "myresp" | "myrespManage" | "supervision";
 
 export type GroupKey = "res" | "dis" | "cmd";
 
@@ -65,6 +65,7 @@ export const HREF: Record<NavKey, string> = {
   settings: "/parametres",
   myresp: "/ma-responsabilite",
   myrespManage: "/ma-responsabilite/gestion",
+  supervision: "/responsabilites",
 };
 
 export const NAV: NavEntry[] = [
@@ -97,6 +98,8 @@ export const NAV: NavEntry[] = [
   // Gestion des utilisateurs — Super Administrateur et Administrateur.
   { kind: "item", key: "users", href: HREF.users, icon: UI_ICONS.users, roles: ["superadmin", "admin"] },
   // Paramètres — réservé au Super Administrateur (filtré dans la Sidebar).
+  // Supervision des responsabilités — réservée au Super Administrateur.
+  { kind: "item", key: "supervision", href: HREF.supervision, icon: UI_ICONS.shield, roles: ["superadmin"] },
   { kind: "item", key: "settings", href: HREF.settings, icon: NAV_ICONS.settings, roles: ["superadmin"] },
 ];
 
@@ -128,7 +131,7 @@ const LABEL_KEYS: Record<NavKey | GroupKey, keyof Dict> = {
   dashboard: "nav_dash", incidents: "nav_inc", map: "nav_map", seismic: "nav_seismic", dispatch: "nav_dispatch", triage: "nav_triage",
   equip: "nav_equip", units: "nav_units", personnel: "nav_pers", workorders: "nav_wo",
   hospitals: "nav_hosp", ics: "nav_ics", damage: "nav_damage", shelters: "nav_shelters",
-  orsec: "nav_orsec", plans: "nav_plans", comms: "nav_comms", reports: "nav_reports", analytics: "nav_analytics", assistant: "nav_assistant", users: "nav_users", settings: "nav_settings", myresp: "nav_myresp", myrespManage: "nav_myresp_manage",
+  orsec: "nav_orsec", plans: "nav_plans", comms: "nav_comms", reports: "nav_reports", analytics: "nav_analytics", assistant: "nav_assistant", users: "nav_users", settings: "nav_settings", myresp: "nav_myresp", myrespManage: "nav_myresp_manage", supervision: "nav_supervision",
   res: "nav_res", dis: "nav_dis", cmd: "nav_cmd",
 };
 

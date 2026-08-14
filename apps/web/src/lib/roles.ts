@@ -13,6 +13,9 @@ export type Role =
   | "superadmin"
   | "admin"
   | "strategic"
+  | "place_arme"
+  | "wali"
+  | "opcom"
   | "tacom"
   | "bluecell"
   | "greencell"
@@ -28,6 +31,9 @@ export const ROLES: Role[] = [
   "superadmin",
   "admin",
   "strategic",
+  "place_arme",
+  "wali",
+  "opcom",
   "tacom",
   "bluecell",
   "greencell",
@@ -41,6 +47,9 @@ export const ROLES: Role[] = [
 
 /** Icône (tracé SVG) associée à chaque rôle — sert au sélecteur en tuiles. */
 export const ROLE_ICONS: Record<Role, string> = {
+  place_arme: UI_ICONS.shield,
+  wali: UI_ICONS.users,
+  opcom: KPI_ICONS.units,
   superadmin: UI_ICONS.shield,
   admin: NAV_ICONS.settings,
   strategic: NAV_ICONS.cmd,

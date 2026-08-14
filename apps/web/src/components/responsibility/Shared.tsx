@@ -3,13 +3,28 @@
 // Briques partagées par les écrans « Ma responsabilité » (tableau de bord et
 // gestion) : états d'exception et types communs aux natures d'entité.
 
-import type { ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import Link from "next/link";
 import { useModules } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import type { Tone } from "@/components/ui/Pill";
 import type { ResponsibilityKind } from "@/lib/roles";
+
+/**
+ * Mode SUPERVISION : le tableau de bord est consulté par un superviseur (le
+ * superadmin depuis /responsabilites), pas par le responsable de l'entité.
+ * On masque alors le badge « Ma responsabilité » et les liens « Gérer », qui
+ * pointent vers l'entité AFFECTÉE — impasse pour un compte non rattaché.
+ */
+const SupervisionContext = createContext(false);
+
+export const SupervisionProvider = SupervisionContext.Provider;
+
+/** Le tableau de bord courant est-il affiché en supervision ? */
+export function useSupervision(): boolean {
+  return useContext(SupervisionContext);
+}
 
 /** Service de soins tel que servi par l'API (/hospitals/:id/wards). */
 export interface Ward {
@@ -46,6 +61,7 @@ export function RespHeader({
   icon, title, subtitle, badge, back = false,
 }: { icon: string; title: string; subtitle: string; badge?: string; back?: boolean }) {
   const m = useModules();
+  const supervised = useSupervision();
   return (
     <div className="carte flex flex-wrap items-center gap-3 p-4">
       {back ? (
@@ -66,7 +82,7 @@ export function RespHeader({
           {badge}
         </span>
       )}
-      {!back && (
+      {!back && !supervised && (
         <span className="rounded-md bg-gray-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:bg-rdia-800/60 dark:text-rdia-300">
           {m.resp.my_responsibility}
         </span>

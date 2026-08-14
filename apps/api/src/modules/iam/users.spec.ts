@@ -65,21 +65,21 @@ describe("IAM users — RBAC + règles d'attribution (Phase 2)", () => {
     expect(res.body.user.roles).toEqual(["tacom", "bluecell", "resp_unit"]);
   });
 
-  it("activation forcée : réservée au Super Admin (Admin 403, Super Admin 201)", async () => {
+  it("activation forcée : Admin et Super Admin (matrice : A-M-Ar-V sur Utilisateurs)", async () => {
     const su = await token("k.benjelloun", "superadmin");
     const created = await base().post("/api/iam/users").set(auth(su)).send({ matricule: "to.activate", nom: "To Activate", roles: ["strategic"] }).expect(201);
     const id = created.body.user.id as string;
 
     const adminTok = await token("h.alami", "admin");
-    await base().post(`/api/iam/users/${id}/active`).set(auth(adminTok)).send({ active: true }).expect(403);
+    await base().post(`/api/iam/users/${id}/active`).set(auth(adminTok)).send({ active: true }).expect(201);
 
     const res = await base().post(`/api/iam/users/${id}/active`).set(auth(su)).send({ active: true }).expect(201);
     expect(res.body.status).toBe("active");
   });
 
-  it("matrice rôle→fonctionnalités : Admin 403, Super Admin 200", async () => {
+  it("matrice rôle→fonctionnalités : Admin et Super Admin (matrice : M sur Utilisateurs)", async () => {
     const adminTok = await token("h.alami", "admin");
-    await base().patch("/api/iam/role-features/tacom").set(auth(adminTok)).send({ feature: "triage", enabled: true }).expect(403);
+    await base().patch("/api/iam/role-features/tacom").set(auth(adminTok)).send({ feature: "triage", enabled: true }).expect(200);
 
     const su = await token("k.benjelloun", "superadmin");
     const res = await base().patch("/api/iam/role-features/tacom").set(auth(su)).send({ feature: "triage", enabled: true }).expect(200);
@@ -121,4 +121,48 @@ describe("IAM users — RBAC + règles d'attribution (Phase 2)", () => {
     const sel = await base().post("/api/auth/select-role").set(auth(login.body.access_token)).send({ role: "bluecell" }).expect(201);
     expect(sel.body.role).toBe("bluecell");
   });
+
+  it("un Administrateur ne voit AUCUN Super Administrateur dans le registre", async () => {
+    const adminTok = await token("h.alami", "admin");
+    const superTok = await token("m.zraib", "superadmin");
+
+    const asAdmin = await base().get("/api/iam/users").set(auth(adminTok)).expect(200);
+    const asSuper = await base().get("/api/iam/users").set(auth(superTok)).expect(200);
+
+    const supersSeenByAdmin = (asAdmin.body as { roles: string[] }[]).filter((u) => u.roles.includes("superadmin"));
+    const supersSeenBySuper = (asSuper.body as { roles: string[] }[]).filter((u) => u.roles.includes("superadmin"));
+    expect(supersSeenByAdmin).toHaveLength(0);
+    expect(supersSeenBySuper.length).toBeGreaterThan(0);
+    // Il voit bien le reste du registre.
+    expect(asAdmin.body.length).toBe(asSuper.body.length - supersSeenBySuper.length);
+  });
+
+  it("un compte Super Administrateur est INTROUVABLE (404) pour un Administrateur", async () => {
+    const adminTok = await token("h.alami", "admin");
+    const superTok = await token("m.zraib", "superadmin");
+    const all = await base().get("/api/iam/users").set(auth(superTok)).expect(200);
+    const su = (all.body as { id: string; roles: string[] }[]).find((u) => u.roles.includes("superadmin"));
+    expect(su).toBeDefined();
+
+    // 404 et non 403 : un 403 confirmerait l'existence du compte.
+    await base().get(`/api/iam/users/${su!.id}/temp-code`).set(auth(adminTok)).expect(404);
+    await base().post(`/api/iam/users/${su!.id}/active`).set(auth(adminTok)).send({ active: false }).expect(404);
+    await base().delete(`/api/iam/users/${su!.id}`).set(auth(adminTok)).expect(403);
+  });
+
+  it("un Administrateur DÉSACTIVE un compte mais ne le supprime pas", async () => {
+    const adminTok = await token("h.alami", "admin");
+    const created = await base()
+      .post("/api/iam/users")
+      .set(auth(adminTok))
+      .send({ matricule: "u.desactive", nom: "À désactiver", roles: ["bluecell"] })
+      .expect(201);
+    const id = created.body.user.id as string;
+
+    const off = await base().post(`/api/iam/users/${id}/active`).set(auth(adminTok)).send({ active: false }).expect(201);
+    expect(off.body.status).toBe("inactive");
+    // …mais la suppression lui reste interdite (réservée au Super Administrateur).
+    await base().delete(`/api/iam/users/${id}`).set(auth(adminTok)).expect(403);
+  });
+
 });

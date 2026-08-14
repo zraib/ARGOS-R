@@ -55,35 +55,35 @@ export class DomainController {
   ) {}
 
   @Get("catalog")
-  @RequirePermission("incidents:read")
+  @RequirePermission("dashboard:view")
   @ApiOperation({ summary: "Catalogue des modules opérationnels (inventaire, triage, ORSEC, …)" })
   catalogAll() {
     return this.catalog.all();
   }
 
   @Get("incident-types")
-  @RequirePermission("incidents:read")
+  @RequirePermission("incidents:view")
   @ApiOperation({ summary: "Catalogue paramétrable des types d'incident (libellés FR/AR/EN + icônes)" })
   incidentTypesList() {
     return this.incidentTypes.list();
   }
 
   @Post("incident-types")
-  @RequirePermission("admin:settings:update")
+  @RequirePermission("settings:update")
   @ApiOperation({ summary: "Enregistrer un nouveau type d'incident (Super Admin, audité)" })
   registerIncidentType(@Body() dto: RegisterIncidentTypeDto) {
     return this.incidentTypes.register(dto);
   }
 
   @Get("dashboard/stats")
-  @RequirePermission("incidents:read")
+  @RequirePermission("dashboard:view")
   @ApiOperation({ summary: "Statistiques de commandement : évolution 30 j, gravité, bilan humain, saturation hospitalière, posture des unités" })
   dashboardStats() {
     return this.domain.stats();
   }
 
   @Get("incidents")
-  @RequirePermission("incidents:read")
+  @RequirePermission("incidents:view")
   @ApiOperation({ summary: "Liste des incidents" })
   incidents() {
     return this.domain.listIncidents();
@@ -100,7 +100,7 @@ export class DomainController {
   }
 
   @Patch("incidents/:id")
-  @RequirePermission("incidents:create")
+  @RequirePermission("incidents:update")
   @ApiOperation({ summary: "Modifier ou archiver un incident (audité)" })
   updateIncident(@Param("id") id: string, @Body() dto: UpdateIncidentDto) {
     if (dto.type && !this.incidentTypes.isValid(dto.type)) {
@@ -112,14 +112,14 @@ export class DomainController {
   }
 
   @Get("sub-incident-types")
-  @RequirePermission("incidents:read")
+  @RequirePermission("subincidents:view")
   @ApiOperation({ summary: "Catalogue des sous-types + mapping par type d'incident principal" })
   subIncidentTypesList() {
     return this.subIncidentTypes.list();
   }
 
   @Post("incidents/:id/sub-incidents")
-  @RequirePermission("incidents:create")
+  @RequirePermission("subincidents:create")
   @ApiOperation({ summary: "Rattacher un sous-incident (aléa secondaire) à un incident (audité)" })
   addSubIncident(@Param("id") id: string, @Body() dto: CreateSubIncidentDto) {
     if (!this.subIncidentTypes.isValid(dto.type)) {
@@ -131,7 +131,7 @@ export class DomainController {
   }
 
   @Delete("incidents/:id/sub-incidents/:subId")
-  @RequirePermission("incidents:create")
+  @RequirePermission("subincidents:archive")
   @ApiOperation({ summary: "Détacher un sous-incident (audité)" })
   removeSubIncident(@Param("id") id: string, @Param("subId") subId: string) {
     const inc = this.domain.removeSubIncident(id, subId);
@@ -140,21 +140,21 @@ export class DomainController {
   }
 
   @Get("units")
-  @RequirePermission("org:units:read")
+  @RequirePermission("teams:view")
   @ApiOperation({ summary: "Liste des unités" })
   units() {
     return this.domain.listUnits();
   }
 
   @Post("units")
-  @RequirePermission("org:units:manage")
+  @RequirePermission("teams:create")
   @ApiOperation({ summary: "Créer une unité (audité)" })
   createUnit(@Body() dto: CreateUnitDto) {
     return this.domain.createUnit(dto);
   }
 
   @Patch("units/:id")
-  @RequirePermission("org:units:manage")
+  @RequirePermission("units:update")
   @RequireScope("unit")
   @ApiOperation({ summary: "Mettre à jour une unité — un responsable ne peut agir que sur la sienne" })
   updateUnit(@Param("id") id: string, @Body() dto: UpdateUnitDto) {
@@ -166,14 +166,14 @@ export class DomainController {
   // --- abris ----------------------------------------------------------------
 
   @Get("shelters")
-  @RequirePermission("org:zones:read")
+  @RequirePermission("shelters:view")
   @ApiOperation({ summary: "Liste des abris d'hébergement" })
   shelters() {
     return this.domain.listShelters();
   }
 
   @Patch("shelters/:id")
-  @RequirePermission("org:zones:manage")
+  @RequirePermission("shelters:update")
   @RequireScope("shelter")
   @ApiOperation({ summary: "Mettre à jour un abri — un responsable ne peut agir que sur le sien" })
   updateShelter(@Param("id") id: string, @Body() dto: UpdateShelterDto) {
@@ -188,7 +188,7 @@ export class DomainController {
   // exactement comme pour les services de soins d'un hôpital.
 
   @Get("equipment-parks/:id/items")
-  @RequirePermission("equip:read")
+  @RequirePermission("equipment:view")
   @ApiOperation({ summary: "Parc d'équipement d'une unité" })
   parkItems(@Param("id") id: string) {
     if (!this.domain.findUnit(id)) throw new NotFoundException(`Unité introuvable : ${id}`);
@@ -196,7 +196,7 @@ export class DomainController {
   }
 
   @Post("equipment-parks/:id/items")
-  @RequirePermission("equip:manage")
+  @RequirePermission("equipment:create")
   @RequireScope("equipment")
   @ApiOperation({ summary: "Ajouter un article — dans SON parc uniquement" })
   addParkItem(@Param("id") id: string, @Body() dto: CreateEquipDto) {
@@ -207,7 +207,7 @@ export class DomainController {
   }
 
   @Patch("equipment-parks/:id/items/:eid")
-  @RequirePermission("equip:manage")
+  @RequirePermission("equipment:update")
   @RequireScope("equipment")
   @ApiOperation({ summary: "Modifier un article — dans SON parc uniquement" })
   updateParkItem(@Param("id") id: string, @Param("eid") eid: string, @Body() dto: UpdateEquipDto) {
@@ -217,7 +217,7 @@ export class DomainController {
   }
 
   @Delete("equipment-parks/:id/items/:eid")
-  @RequirePermission("equip:manage")
+  @RequirePermission("equipment:archive")
   @RequireScope("equipment")
   @ApiOperation({ summary: "Sortir un article du parc — dans SON parc uniquement" })
   removeParkItem(@Param("id") id: string, @Param("eid") eid: string) {
@@ -232,14 +232,14 @@ export class DomainController {
   // cantonnée au site dont le compte a la responsabilité.
 
   @Get("morgues")
-  @RequirePermission("morgue:read")
+  @RequirePermission("morgue:view")
   @ApiOperation({ summary: "Sites mortuaires" })
   morgues() {
     return this.domain.listMorgues();
   }
 
   @Patch("morgues/:id")
-  @RequirePermission("morgue:manage")
+  @RequirePermission("morgue:update")
   @RequireScope("morgue")
   @ApiOperation({ summary: "Mettre à jour un site mortuaire — le sien uniquement" })
   updateMorgue(@Param("id") id: string, @Body() dto: UpdateMorgueDto) {
@@ -249,7 +249,7 @@ export class DomainController {
   }
 
   @Get("morgues/:id/records")
-  @RequirePermission("morgue:read")
+  @RequirePermission("morgue:view")
   @ApiOperation({ summary: "Registre d'identification d'un site mortuaire" })
   mortuaryRecords(@Param("id") id: string) {
     if (!this.domain.findMorgue(id)) throw new NotFoundException(`Site mortuaire introuvable : ${id}`);
@@ -257,7 +257,7 @@ export class DomainController {
   }
 
   @Post("morgues/:id/records")
-  @RequirePermission("morgue:manage")
+  @RequirePermission("morgue:create")
   @RequireScope("morgue")
   @ApiOperation({ summary: "Admettre un corps sous référence provisoire — dans SON site uniquement" })
   admitBody(@Param("id") id: string, @Body() dto: AdmitBodyDto) {
@@ -266,7 +266,7 @@ export class DomainController {
   }
 
   @Patch("morgues/:id/records/:rid")
-  @RequirePermission("morgue:manage")
+  @RequirePermission("morgue:update")
   @RequireScope("morgue")
   @ApiOperation({ summary: "Faire évoluer un dossier d'identification — dans SON site uniquement" })
   updateMortuaryRecord(@Param("id") id: string, @Param("rid") rid: string, @Body() dto: UpdateMortuaryRecordDto) {
@@ -278,21 +278,21 @@ export class DomainController {
   }
 
   @Get("hospitals")
-  @RequirePermission("org:hospitals:read")
+  @RequirePermission("hospinet:view")
   @ApiOperation({ summary: "Liste des hôpitaux" })
   hospitals() {
     return this.domain.listHospitals();
   }
 
   @Post("hospitals")
-  @RequirePermission("org:hospitals:manage")
+  @RequirePermission("hospinet:create")
   @ApiOperation({ summary: "Créer un hôpital (audité)" })
   createHospital(@Body() dto: CreateHospitalDto) {
     return this.domain.createHospital(dto);
   }
 
   @Patch("hospitals/:id")
-  @RequirePermission("org:hospitals:manage")
+  @RequirePermission("hospinet:update")
   @RequireScope("hospital")
   @ApiOperation({ summary: "Mettre à jour un établissement — un responsable ne peut agir que sur le sien" })
   updateHospital(@Param("id") id: string, @Body() dto: UpdateHospitalDto) {
@@ -306,7 +306,7 @@ export class DomainController {
   // à l'établissement dont le compte a la responsabilité (@RequireScope).
 
   @Get("hospitals/:id/wards")
-  @RequirePermission("org:hospitals:read")
+  @RequirePermission("hospinet:view")
   @ApiOperation({ summary: "Services de soins d'un établissement" })
   listWards(@Param("id") id: string) {
     if (!this.domain.findHospital(id)) throw new NotFoundException(`Établissement introuvable : ${id}`);
@@ -314,7 +314,7 @@ export class DomainController {
   }
 
   @Post("hospitals/:id/wards")
-  @RequirePermission("org:hospitals:manage")
+  @RequirePermission("hospinet:create")
   @RequireScope("hospital")
   @ApiOperation({ summary: "Ouvrir un service de soins — dans SON établissement uniquement" })
   createWard(@Param("id") id: string, @Body() dto: CreateWardDto) {
@@ -323,7 +323,7 @@ export class DomainController {
   }
 
   @Patch("hospitals/:id/wards/:wid")
-  @RequirePermission("org:hospitals:manage")
+  @RequirePermission("hospinet:update")
   @RequireScope("hospital")
   @ApiOperation({ summary: "Modifier un service de soins — dans SON établissement uniquement" })
   updateWard(@Param("id") id: string, @Param("wid") wid: string, @Body() dto: UpdateWardDto) {
@@ -333,7 +333,7 @@ export class DomainController {
   }
 
   @Delete("hospitals/:id/wards/:wid")
-  @RequirePermission("org:hospitals:manage")
+  @RequirePermission("hospinet:archive")
   @RequireScope("hospital")
   @ApiOperation({ summary: "Fermer un service de soins — dans SON établissement uniquement" })
   deleteWard(@Param("id") id: string, @Param("wid") wid: string) {
@@ -342,28 +342,28 @@ export class DomainController {
   }
 
   @Get("field-hospitals")
-  @RequirePermission("org:hospitals:read")
+  @RequirePermission("hospinet:view")
   @ApiOperation({ summary: "Hôpitaux de campagne déployés" })
   fieldHospitals() {
     return this.domain.listFieldHospitals();
   }
 
   @Get("feed")
-  @RequirePermission("incidents:read")
+  @RequirePermission("dashboard:view")
   @ApiOperation({ summary: "Fil des événements" })
   feed() {
     return this.domain.listFeed();
   }
 
   @Get("dispatch/queue")
-  @RequirePermission("dispatch:assign")
+  @RequirePermission("dispatch:view")
   @ApiOperation({ summary: "File de dispatching (besoins entrants)" })
   queue() {
     return this.domain.listQueue();
   }
 
   @Get("dispatch/movements")
-  @RequirePermission("dispatch:assign")
+  @RequirePermission("dispatch:view")
   @ApiOperation({ summary: "Mouvements de transport en cours" })
   movements() {
     return this.domain.listMovements();
@@ -406,7 +406,7 @@ export class DomainController {
   }
 
   @Get("seismic/events")
-  @RequirePermission("incidents:read")
+  @RequirePermission("seismic:view")
   @ApiOperation({ summary: "Séismes récents (CSEM/EMSC, proxy souverain) — minmag & region (morocco|world)" })
   seismicEvents(@Query("minmag") minmag?: string, @Query("region") region?: string) {
     const mag = minmag ? Number(minmag) : 2.5;
@@ -415,49 +415,49 @@ export class DomainController {
   }
 
   @Get("seismic/alert-config")
-  @RequirePermission("incidents:read")
+  @RequirePermission("seismic:view")
   @ApiOperation({ summary: "Configuration des alertes sismiques (seuils national/mondial, autorités notifiées)" })
   seismicAlertConfig() {
     return this.seismicAlerts.getConfig();
   }
 
   @Patch("seismic/alert-config")
-  @RequirePermission("admin:settings:update")
+  @RequirePermission("settings:update")
   @ApiOperation({ summary: "Mettre à jour la configuration des alertes sismiques (audité)" })
   updateSeismicAlertConfig(@Body() dto: UpdateSeismicAlertConfigDto) {
     return this.seismicAlerts.updateConfig(dto);
   }
 
   @Get("seismic/notifications")
-  @RequirePermission("incidents:read")
+  @RequirePermission("seismic:view")
   @ApiOperation({ summary: "Historique des notifications SMS/e-mail envoyées aux autorités" })
   seismicNotifications() {
     return this.seismicAlerts.listNotifications();
   }
 
   @Get("weather/cities")
-  @RequirePermission("incidents:read")
+  @RequirePermission("seismic:view")
   @ApiOperation({ summary: "Villes disponibles pour la météo" })
   weatherCities() {
     return this.weather.cities();
   }
 
   @Get("weather/grid")
-  @RequirePermission("incidents:read")
+  @RequirePermission("seismic:view")
   @ApiOperation({ summary: "Grille de conditions actuelles (carte météo, proxy souverain)" })
   weatherGrid() {
     return this.weather.grid();
   }
 
   @Get("weather/grid-world")
-  @RequirePermission("incidents:read")
+  @RequirePermission("seismic:view")
   @ApiOperation({ summary: "Grille météo mondiale grossière (pas 10°, couverture planétaire de la carte)" })
   weatherGridWorld() {
     return this.weather.gridWorld();
   }
 
   @Get("weather/forecast")
-  @RequirePermission("incidents:read")
+  @RequirePermission("seismic:view")
   @ApiOperation({ summary: "Prévisions météo (Open-Meteo, proxy souverain) pour lat/lon" })
   weatherForecast(@Query("lat") lat: string, @Query("lon") lon: string) {
     const la = Number(lat);

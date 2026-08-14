@@ -69,7 +69,7 @@ export class OrdersController {
   constructor(private readonly orders: OrderService) {}
 
   @Get()
-  @RequirePermission("workorders:read")
+  @RequirePermission("workorders:view")
   @ApiOperation({ summary: "Liste des bons de travail (filtrable)" })
   @ApiQuery({ name: "status", required: false, enum: ORDER_STATUSES })
   @ApiQuery({ name: "priority", required: false, enum: ORDER_PRIORITIES })
@@ -99,14 +99,14 @@ export class OrdersController {
   }
 
   @Get("summary")
-  @RequirePermission("workorders:read")
+  @RequirePermission("workorders:view")
   @ApiOperation({ summary: "Indicateurs des bons de travail (ouverts, en cours, urgents)" })
   summary() {
     return this.orders.summary();
   }
 
   @Get(":id")
-  @RequirePermission("workorders:read")
+  @RequirePermission("workorders:view")
   @ApiOperation({ summary: "Détail d'un bon de travail" })
   getOne(@Param("id") id: string) {
     return run(() => this.orders.getById(id));
@@ -127,7 +127,7 @@ export class OrdersController {
   }
 
   @Patch(":id/assignee")
-  @RequirePermission("workorders:assign")
+  @RequirePermission("workorders:update")
   @ApiOperation({ summary: "Désigner l'exécutant d'un bon" })
   assign(@Param("id") id: string, @Body() dto: AssignOrderDto, @CurrentUser() user: AuthUser) {
     return run(() => this.orders.assign(id, dto.assignee, user.username));

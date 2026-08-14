@@ -196,7 +196,8 @@ describe("ABAC — cantonnement des responsables à leur entité", () => {
 
     const eid = created.body.id as string;
     await base().patch(`/api/equipment-parks/U2/items/${eid}`).set("Authorization", `Bearer ${tok}`).send({ stock: 2, cond: "repair" }).expect(200);
-    await base().delete(`/api/equipment-parks/U2/items/${eid}`).set("Authorization", `Bearer ${tok}`).expect(200);
+    // MATRICE : le Responsable Équipement a A-M-V, PAS Ar.
+    await base().delete(`/api/equipment-parks/U2/items/${eid}`).set("Authorization", `Bearer ${tok}`).expect(403);
 
     // HORS PÉRIMÈTRE : le parc d'une autre unité lui est interdit.
     await base()
@@ -238,9 +239,10 @@ describe("ABAC — cantonnement des responsables à leur entité", () => {
       .expect(200);
     expect(patched.body.statut).toBe("saturated");
 
-    await base().delete(`/api/hospitals/H4/wards/${wid}`).set("Authorization", `Bearer ${tok}`).expect(200);
+    // MATRICE : le Responsable Hôpital a A-M-V, PAS Ar — il ne retire rien.
+    await base().delete(`/api/hospitals/H4/wards/${wid}`).set("Authorization", `Bearer ${tok}`).expect(403);
     const after = await base().get("/api/hospitals/H4/wards").set("Authorization", `Bearer ${tok}`).expect(200);
-    expect((after.body as { id: string }[]).some((w) => w.id === wid)).toBe(false);
+    expect((after.body as { id: string }[]).some((w) => w.id === wid)).toBe(true);
   });
 
   it("HORS PÉRIMÈTRE : il ne peut pas ouvrir de service ailleurs (403)", async () => {

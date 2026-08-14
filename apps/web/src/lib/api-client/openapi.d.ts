@@ -1118,7 +1118,7 @@ export interface components {
              * @example superadmin
              * @enum {string}
              */
-            role: "superadmin" | "admin" | "strategic" | "tacom" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment";
+            role: "superadmin" | "admin" | "strategic" | "place_arme" | "wali" | "opcom" | "tacom" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment";
         };
         LoginDto: {
             /** @example n.fassi */
@@ -1134,7 +1134,7 @@ export interface components {
         };
         SelectRoleDto: {
             /** @enum {string} */
-            role: "superadmin" | "admin" | "strategic" | "tacom" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment";
+            role: "superadmin" | "admin" | "strategic" | "place_arme" | "wali" | "opcom" | "tacom" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment";
         };
         ChangePasswordDto: {
             newPassword: string;
@@ -1192,7 +1192,7 @@ export interface components {
              *       "bluecell"
              *     ]
              */
-            roles: ("superadmin" | "admin" | "strategic" | "tacom" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment")[];
+            roles: ("superadmin" | "admin" | "strategic" | "place_arme" | "wali" | "opcom" | "tacom" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment")[];
             /** @description Entité affectée par nature de responsabilité (portée ABAC). Obligatoire pour tout rôle « resp_* ». */
             assignments?: components["schemas"]["AssignmentsDto"];
         };
@@ -1210,7 +1210,7 @@ export interface components {
             phone?: string;
             /** @example Capitaine */
             grade?: string;
-            roles?: ("superadmin" | "admin" | "strategic" | "tacom" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment")[];
+            roles?: ("superadmin" | "admin" | "strategic" | "place_arme" | "wali" | "opcom" | "tacom" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment")[];
             /** @description Entité affectée par nature de responsabilité (portée ABAC). */
             assignments?: components["schemas"]["AssignmentsDto"];
         };
@@ -1219,7 +1219,7 @@ export interface components {
         };
         ToggleRoleFeatureDto: {
             /** @enum {string} */
-            feature: "dashboard" | "incidents" | "map" | "dispatch" | "triage" | "equip" | "units" | "personnel" | "workorders" | "hospitals" | "ics" | "damage" | "shelters" | "orsec" | "plans" | "comms" | "reports" | "analytics" | "assistant";
+            feature: "dashboard" | "dash_incident" | "dash_hospital" | "dash_shelter" | "dash_morgue" | "dash_unit" | "map" | "incidents" | "subincidents" | "hospinet" | "shelters" | "morgue" | "units" | "equipment" | "teams" | "comms" | "reports" | "analytics" | "assistant" | "users" | "settings" | "dispatch" | "triage" | "ics" | "damage" | "orsec" | "plans" | "personnel" | "workorders" | "seismic" | "audit";
             enabled: boolean;
         };
         ToggleFlagDto: {

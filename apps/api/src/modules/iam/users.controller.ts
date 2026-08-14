@@ -20,28 +20,29 @@ export class UsersController {
   constructor(private readonly users: UsersService) {}
 
   @Get("users")
-  @RequirePermission("iam:users:read")
+  @RequirePermission("users:view")
   @ApiOperation({ summary: "Lister les utilisateurs (Admin/Super Admin)" })
-  list() {
-    return this.users.list();
+  list(@CurrentUser() actor: AuthUser) {
+    // Filtrage côté serveur : un Administrateur ne voit aucun Super Admin.
+    return this.users.list(actor.role);
   }
 
   @Post("users")
-  @RequirePermission("iam:users:create")
+  @RequirePermission("users:create")
   @ApiOperation({ summary: "Créer un utilisateur (règles d'attribution appliquées côté serveur)" })
   create(@CurrentUser() actor: AuthUser, @Body() dto: CreateUserDto) {
     return this.users.create(actor.role, actor.username, dto);
   }
 
   @Patch("users/:id")
-  @RequirePermission("iam:users:update")
+  @RequirePermission("users:update")
   @ApiOperation({ summary: "Modifier un utilisateur (nom, grade, rôles)" })
   update(@CurrentUser() actor: AuthUser, @Param("id") id: string, @Body() dto: UpdateUserDto) {
     return this.users.update(actor.role, id, dto);
   }
 
   @Delete("users/:id")
-  @RequirePermission("iam:users:delete")
+  @RequirePermission("users:delete")
   @ApiOperation({ summary: "Supprimer un utilisateur" })
   remove(@CurrentUser() actor: AuthUser, @Param("id") id: string) {
     this.users.remove(actor.role, actor.username, id);
@@ -49,35 +50,35 @@ export class UsersController {
   }
 
   @Post("users/:id/active")
-  @RequirePermission("iam:users:activate")
+  @RequirePermission("users:update")
   @ApiOperation({ summary: "Activer/suspendre un compte (Super Admin) — activation forcée possible" })
-  setActive(@Param("id") id: string, @Body() dto: SetActiveDto) {
-    return this.users.setActive(id, dto.active);
+  setActive(@CurrentUser() actor: AuthUser, @Param("id") id: string, @Body() dto: SetActiveDto) {
+    return this.users.setActive(actor.role, id, dto.active);
   }
 
   @Post("users/:id/reset-code")
-  @RequirePermission("iam:users:update")
+  @RequirePermission("users:update")
   @ApiOperation({ summary: "Régénérer le code temporaire d'un compte" })
   resetCode(@CurrentUser() actor: AuthUser, @Param("id") id: string) {
     return this.users.resetCode(actor.role, id);
   }
 
   @Get("users/:id/temp-code")
-  @RequirePermission("iam:users:read")
+  @RequirePermission("users:view")
   @ApiOperation({ summary: "Consulter le code temporaire (Admin/Super Admin)" })
   tempCode(@CurrentUser() actor: AuthUser, @Param("id") id: string) {
     return this.users.revealCode(actor.role, id);
   }
 
   @Get("role-features")
-  @RequirePermission("iam:roles:read")
+  @RequirePermission("users:view")
   @ApiOperation({ summary: "Matrice rôle → fonctionnalités" })
   roleFeatures() {
     return this.users.getRoleFeatures();
   }
 
   @Patch("role-features/:role")
-  @RequirePermission("iam:roles:features")
+  @RequirePermission("users:update")
   @ApiOperation({ summary: "Activer/désactiver une fonctionnalité pour un rôle (Super Admin)" })
   setRoleFeature(@Param("role") role: string, @Body() dto: ToggleRoleFeatureDto) {
     if (!isRole(role)) throw new BadRequestException(`Rôle inconnu : ${role}`);

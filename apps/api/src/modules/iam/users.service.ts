@@ -180,13 +180,34 @@ export class UsersService implements ScopeResolver {
 
   // --- lecture -------------------------------------------------------------
 
-  list(): ManagedUserPublic[] {
-    return this.users.map(toPublic);
+  /**
+   * Registre visible par l'appelant. Un compte Super Administrateur est
+   * INVISIBLE à tout autre rôle : le filtrage est fait ici, côté serveur, et
+   * non à l'affichage — masquer une ligne dans l'IHM n'est pas un contrôle.
+   */
+  list(viewer: Role = "superadmin"): ManagedUserPublic[] {
+    return this.users.filter((u) => this.isVisibleTo(viewer, u)).map(toPublic);
+  }
+
+  /** Le compte `target` est-il visible par un porteur du rôle `viewer` ? */
+  private isVisibleTo(viewer: Role, target: ManagedUser): boolean {
+    return viewer === "superadmin" || !target.roles.includes("superadmin");
   }
 
   private find(id: string): ManagedUser {
     const u = this.users.find((x) => x.id === id);
     if (!u) throw new NotFoundException(`Utilisateur inconnu : ${id}`);
+    return u;
+  }
+
+  /**
+   * Résout un compte pour un appelant donné. Un Super Administrateur est
+   * introuvable (404) pour les autres rôles — répondre 403 révélerait son
+   * existence.
+   */
+  private findVisible(viewer: Role, id: string): ManagedUser {
+    const u = this.find(id);
+    if (!this.isVisibleTo(viewer, u)) throw new NotFoundException(`Utilisateur inconnu : ${id}`);
     return u;
   }
 
@@ -304,7 +325,7 @@ export class UsersService implements ScopeResolver {
     id: string,
     patch: { matricule?: string; nom?: string; prenom?: string; phone?: string; grade?: string; roles?: Role[]; assignments?: Assignments },
   ): ManagedUserPublic {
-    const u = this.find(id);
+    const u = this.findVisible(actorRole, id);
     this.assertManageable(actorRole, u);
     if (patch.roles !== undefined) {
       this.validateRoles(actorRole, patch.roles);
@@ -340,7 +361,7 @@ export class UsersService implements ScopeResolver {
   }
 
   remove(actorRole: Role, actorUsername: string, id: string): void {
-    const u = this.find(id);
+    const u = this.findVisible(actorRole, id);
     this.assertManageable(actorRole, u);
     if (u.matricule === actorUsername) throw new ForbiddenException("Impossible de supprimer son propre compte.");
     const idx = this.users.findIndex((x) => x.id === id);
@@ -348,9 +369,13 @@ export class UsersService implements ScopeResolver {
     this.persist();
   }
 
-  /** Activation forcée / suspension (contrôleur réservé au Super Admin via permission). */
-  setActive(id: string, active: boolean): ManagedUserPublic {
-    const u = this.find(id);
+  /**
+   * Activation forcée / suspension. Un Administrateur peut DÉSACTIVER un compte
+   * (matrice : M sur Utilisateurs) mais jamais le supprimer — et un compte
+   * Super Administrateur lui reste introuvable.
+   */
+  setActive(actorRole: Role, id: string, active: boolean): ManagedUserPublic {
+    const u = this.findVisible(actorRole, id);
     if (u.builtin) throw new ForbiddenException("Compte système protégé.");
     if (active) {
       u.activatedByAdmin = true;
@@ -363,7 +388,7 @@ export class UsersService implements ScopeResolver {
   }
 
   resetCode(actorRole: Role, id: string): { tempPassword: string } {
-    const u = this.find(id);
+    const u = this.findVisible(actorRole, id);
     this.assertManageable(actorRole, u);
     const tempPassword = generateTempPassword();
     u.tempPassword = tempPassword;
@@ -380,7 +405,7 @@ export class UsersService implements ScopeResolver {
    * système n'est jamais révélé par l'API (remis hors-bande).
    */
   revealCode(actorRole: Role, id: string): { tempPassword: string | null } {
-    const u = this.find(id);
+    const u = this.findVisible(actorRole, id);
     if (u.builtin) throw new ForbiddenException("Code du compte système non consultable.");
     if (actorRole !== "superadmin" && u.roles.some((r) => r === "superadmin" || r === "admin")) {
       throw new ForbiddenException("Code d'un compte privilégié réservé au Super Admin.");

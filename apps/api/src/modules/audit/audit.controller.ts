@@ -10,7 +10,7 @@ export class AuditController {
   constructor(private readonly audit: AuditService) {}
 
   @Get()
-  @RequirePermission("audit:log:read")
+  @RequirePermission("audit:view")
   @ApiOperation({ summary: "Lister les entrées du journal d'audit (rôle Auditeur/Super Admin)" })
   @ApiOkResponse({ description: "Entrées les plus récentes (chaînées par hash)." })
   list(@Query("limit") limit?: string) {
@@ -18,7 +18,7 @@ export class AuditController {
   }
 
   @Get("verify")
-  @RequirePermission("audit:log:verify")
+  @RequirePermission("audit:view")
   @ApiOperation({ summary: "Vérifier l'intégrité de la chaîne d'audit (tamper-evidence)" })
   verify() {
     return this.audit.verify();

@@ -23,7 +23,7 @@ npm install
 npm run dev          # http://localhost:3005/api
 npm run build && npm start
 npm run typecheck
-npm test             # 79 tests, dont la gate de sécurité default-deny
+npm test             # 82 tests, dont la gate de sécurité default-deny
 npm run openapi      # génère openapi.json (client frontend)
 npm run db:generate  # SQL des migrations depuis src/db/schema.ts
 npm run db:migrate   # applique les migrations (nécessite PostgreSQL)

@@ -127,7 +127,7 @@ scripts/dev.mjs       Lanceur de développement, sans dépendance externe
 | `npm run dev` | API + web, journaux préfixés, `Ctrl+C` arrête l'ensemble |
 | `npm run dev:api` · `npm run dev:web` | un seul service |
 | `npm run typecheck` | `tsc --noEmit` sur l'API puis le web |
-| `npm test` | suite de l'API — **79 tests**, dont la gate de sécurité |
+| `npm test` | suite de l'API — **82 tests**, dont la gate de sécurité |
 | `npm run build` | build de production |
 | `npm run openapi` | régénère le contrat OpenAPI |
 

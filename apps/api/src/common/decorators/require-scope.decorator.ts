@@ -21,7 +21,7 @@ export interface ScopeRequirement {
  *
  * ```ts
  * @Patch("hospitals/:id")
- * @RequirePermission("org:hospitals:manage")   // RBAC : a-t-il le droit ?
+ * @RequirePermission("hospinet:update")        // RBAC : a-t-il le droit ?
  * @RequireScope("hospital")                    // ABAC : est-ce bien le sien ?
  * ```
  */

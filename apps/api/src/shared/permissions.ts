@@ -1,62 +1,126 @@
 // ============================================================================
 // ARGOS — catalogue de permissions et rôles (RBAC)
-// Une permission est une chaîne `module:action:qualifier` (MASTER_PLAN §3.7).
-// Les rôles sont des données de départ (seed), pas du code figé : le moteur RBAC
-// permet de créer des rôles personnalisés. Ce fichier a vocation à migrer vers
-// `packages/shared` pour être partagé avec le frontend (client généré).
+//
+// Source de vérité : `docs/MATRICE ROLES.xlsx`. Une permission est un couple
+// `fonctionnalité:action` ; les attributions par rôle sont la TRANSCRIPTION
+// LITTÉRALE de la matrice (voir MATRIX ci-dessous).
+//
+// Notation de la matrice :
+//   V  = visualiser      A  = ajouter
+//   M  = modifier        Ar = archiver
+//   cellule vide = aucun droit sur cette fonctionnalité (default-deny)
+//
+// SUPPRESSION : personne ne supprime, sauf le Super Administrateur. Les rôles
+// ne disposent au mieux que d'`archive` ; l'action `delete` n'est accordée
+// qu'via le joker `*` du superadmin. Voir docs/04-securite.md.
 // ============================================================================
 
-export const PERMISSIONS = [
-  // Administration / gouvernance
-  "iam:users:read",
-  "iam:users:create",
-  "iam:users:update",
-  "iam:users:delete",
-  "iam:users:activate",
-  "iam:roles:read",
-  "iam:roles:create",
-  "iam:roles:assign",
-  "iam:roles:features",
-  "iam:permissions:read",
-  "admin:feature_flags:read",
-  "admin:feature_flags:toggle",
-  "admin:settings:read",
-  "admin:settings:update",
-  "audit:log:read",
-  "audit:log:verify",
-  // Structure organisationnelle
-  "org:zones:read",
-  "org:zones:manage",
-  "org:units:read",
-  "org:units:manage",
-  "org:hospitals:read",
-  "org:hospitals:manage",
-  // Opérations (aperçu — étendu aux phases suivantes)
-  "incidents:read",
-  "incidents:create",
-  "incidents:update",
-  "map:tracking:view_all",
-  "dispatch:assign",
-  "hospinet:beds:update",
-  // Bons de travail (module orders — logistique / maintenance)
-  "workorders:read",
-  "workorders:create",
-  "workorders:update",
-  "workorders:assign",
-  // Morgue / identification des victimes (DVI)
-  "morgue:read",
-  "morgue:manage",
-  // Parc d'équipement (cantonné à l'unité détentrice)
-  "equip:read",
-  "equip:manage",
+/** Actions possibles sur une fonctionnalité. */
+export const ACTIONS = ["view", "create", "update", "archive", "delete"] as const;
+export type Action = (typeof ACTIONS)[number];
+
+/**
+ * Fonctionnalités de la matrice (21). Les clés sont en anglais (convention du
+ * dépôt) ; les libellés français correspondent aux lignes du tableur.
+ */
+export const MATRIX_FEATURES = [
+  "dashboard",      // Tableau de bord général
+  "dash_incident",  // Tableau de Bord Incident
+  "dash_hospital",  // Tableau de Bord Hôpital
+  "dash_shelter",   // Tableau de Bord Abri
+  "dash_morgue",    // Tableau de Bord Morgue
+  "dash_unit",      // Tableau de bord Unité
+  "map",            // Carte
+  "incidents",      // Incident
+  "subincidents",   // Sous-incidents
+  "hospinet",       // Hospinet
+  "shelters",       // Abri
+  "morgue",         // Morgue
+  "units",          // Unité (l'entité dont un responsable a la charge)
+  "equipment",      // Gestion Équipement
+  "teams",          // Unités / Équipes (annuaire)
+  "comms",          // Centre de communication
+  "reports",        // Rapports d'incidents
+  "analytics",      // Analytique
+  "assistant",      // Assistant IA
+  "users",          // Gestion des utilisateurs
+  "settings",       // Paramètres
 ] as const;
 
-export type Permission = (typeof PERMISSIONS)[number];
+/**
+ * Modules de l'application ABSENTS de la matrice. Leurs dotations sont celles
+ * d'avant la matrice, conservées telles quelles pour ne rien casser — À
+ * ARBITRER : soit les ajouter au tableur, soit les fermer (default-deny).
+ */
+export const LEGACY_FEATURES = [
+  "dispatch",   // Répartiteur
+  "triage",     // Triage de masse
+  "ics",        // Formulaires ICS
+  "damage",     // Évaluation des dommages
+  "orsec",      // Tableau ORSEC
+  "plans",      // Plans
+  "personnel",  // Roster du personnel
+  "workorders", // Bons de travail
+  "seismic",    // Sismologie / météo
+  "audit",      // Journal d'audit
+] as const;
+
+export const FEATURES = [...MATRIX_FEATURES, ...LEGACY_FEATURES] as const;
+export type Feature = (typeof FEATURES)[number];
+
+/** Libellés français des fonctionnalités (interface d'administration). */
+export const FEATURE_LABELS: Record<Feature, string> = {
+  dashboard: "Tableau de bord général",
+  dash_incident: "Tableau de bord Incident",
+  dash_hospital: "Tableau de bord Hôpital",
+  dash_shelter: "Tableau de bord Abri",
+  dash_morgue: "Tableau de bord Morgue",
+  dash_unit: "Tableau de bord Unité",
+  map: "Carte",
+  incidents: "Incident",
+  subincidents: "Sous-incidents",
+  hospinet: "Hospinet",
+  shelters: "Abri",
+  morgue: "Morgue",
+  units: "Unité",
+  equipment: "Gestion Équipement",
+  teams: "Unités / Équipes",
+  comms: "Centre de communication",
+  reports: "Rapports d'incidents",
+  analytics: "Analytique",
+  assistant: "Assistant IA",
+  users: "Gestion des utilisateurs",
+  settings: "Paramètres",
+  dispatch: "Répartiteur",
+  triage: "Triage de masse",
+  ics: "Formulaires ICS",
+  damage: "Évaluation des dommages",
+  orsec: "Tableau ORSEC",
+  plans: "Plans",
+  personnel: "Personnel",
+  workorders: "Bons de travail",
+  seismic: "Sismologie & météo",
+  audit: "Journal d'audit",
+};
+
+export type Permission = `${Feature}:${Action}`;
+
+/** Toutes les permissions existantes (produit fonctionnalités × actions). */
+export const PERMISSIONS: Permission[] = FEATURES.flatMap((f) =>
+  ACTIONS.map((a) => `${f}:${a}` as Permission),
+);
+
+// ---------------------------------------------------------------------------
+// Rôles
+// ---------------------------------------------------------------------------
 
 export const ROLES = [
   "superadmin",
   "admin",
   "strategic",
+  "place_arme",
+  "wali",
+  "opcom",
   "tacom",
   "bluecell",
   "greencell",
@@ -70,10 +134,7 @@ export const ROLES = [
 
 export type Role = (typeof ROLES)[number];
 
-/**
- * Anciens rôles (avant la refonte) → rôle de reprise. Utilisé pour MIGRER les
- * comptes persistés en dev sans invalider les sessions/données existantes.
- */
+/** Anciens rôles → rôle de reprise, pour migrer les comptes déjà persistés. */
 export const LEGACY_ROLE_MAP: Record<string, Role> = {
   auditor: "strategic",
   command: "tacom",
@@ -82,11 +143,14 @@ export const LEGACY_ROLE_MAP: Record<string, Role> = {
   field_agent: "resp_unit",
 };
 
-/** Libellés français des rôles (organisation cible). */
+/** Libellés français des rôles (colonnes de la matrice). */
 export const ROLE_LABELS: Record<Role, string> = {
   superadmin: "Super Administrateur",
   admin: "Administrateur",
   strategic: "Utilisateur Stratégique",
+  place_arme: "Place d'Armes",
+  wali: "Wali / Gouverneur",
+  opcom: "OPCOM",
   tacom: "TACOM",
   bluecell: "Cellule Bleue — Opérations",
   greencell: "Cellule Verte — Logistique",
@@ -98,56 +162,150 @@ export const ROLE_LABELS: Record<Role, string> = {
   resp_equipment: "Responsable Équipement",
 };
 
+// ---------------------------------------------------------------------------
+// Transcription de la matrice
+// ---------------------------------------------------------------------------
+
+/** Codes de cellule : V=visualiser, A=ajouter, M=modifier, R=archiver (Ar). */
+type Cell = string;
+
+const V = "V", VM = "VM", AMV = "AMV", ALL = "AMRV";
+
 /**
- * Attribution des permissions par rôle. `"*"` = toutes les permissions.
+ * `docs/MATRICE ROLES.xlsx`, ligne par ligne. Un rôle absent d'une ligne n'a
+ * AUCUN droit sur la fonctionnalité — c'est une cellule vide du tableur.
+ * Le Super Administrateur n'y figure pas : il détient tout (`*`).
+ */
+const MATRIX: Record<(typeof MATRIX_FEATURES)[number], Partial<Record<Role, Cell>>> = {
+  dashboard: { admin: ALL, strategic: V },
+  dash_incident: {
+    admin: ALL, strategic: V, place_arme: V, wali: V, opcom: V, tacom: V,
+    bluecell: V, greencell: V, orangecell: V, resp_shelter: V, resp_morgue: V,
+  },
+  dash_hospital: {
+    admin: ALL, strategic: V, place_arme: V, wali: V, opcom: V, tacom: V,
+    bluecell: V, greencell: V, orangecell: V, resp_hospital: V,
+  },
+  dash_shelter: {
+    admin: ALL, strategic: V, place_arme: V, wali: V, opcom: V, tacom: V,
+    bluecell: V, greencell: V, orangecell: V, resp_shelter: V,
+  },
+  dash_morgue: {
+    admin: ALL, strategic: V, place_arme: V, wali: V, opcom: V, tacom: V,
+    bluecell: V, greencell: V, orangecell: V, resp_hospital: V, resp_morgue: V,
+  },
+  dash_unit: {
+    admin: ALL, strategic: V, place_arme: V, wali: V, opcom: V, tacom: V,
+    bluecell: V, greencell: V, orangecell: V, resp_unit: V,
+  },
+  map: {
+    admin: ALL, strategic: V, place_arme: V, wali: V, opcom: V, tacom: V,
+    bluecell: V, greencell: V, orangecell: V,
+    resp_hospital: V, resp_shelter: V, resp_unit: V,
+  },
+  incidents: {
+    admin: ALL, opcom: ALL, tacom: VM,
+    bluecell: V, greencell: V, orangecell: V, resp_hospital: V,
+  },
+  subincidents: {
+    admin: ALL, opcom: ALL, tacom: ALL, bluecell: AMV, greencell: V, orangecell: V,
+  },
+  hospinet: {
+    admin: ALL, opcom: V, tacom: V, bluecell: V, greencell: AMV, orangecell: V,
+    resp_hospital: AMV,
+  },
+  shelters: { admin: ALL, opcom: V, tacom: V, resp_shelter: AMV },
+  morgue: {
+    admin: ALL, opcom: V, tacom: V, bluecell: V, greencell: V, orangecell: V,
+    resp_morgue: AMV,
+  },
+  units: {
+    admin: ALL, opcom: V, tacom: V, bluecell: V, greencell: V, orangecell: V,
+    resp_unit: AMV,
+  },
+  equipment: {
+    admin: ALL, opcom: V, tacom: V, bluecell: V, greencell: V, orangecell: V,
+    resp_unit: V, resp_equipment: AMV,
+  },
+  teams: {
+    admin: ALL, opcom: V, tacom: V, bluecell: V, greencell: V, orangecell: V,
+    resp_unit: V,
+  },
+  comms: {
+    admin: ALL, strategic: VM, place_arme: VM, wali: VM, opcom: VM, tacom: VM,
+    bluecell: VM, greencell: VM, orangecell: VM,
+    resp_hospital: VM, resp_shelter: VM, resp_morgue: VM, resp_unit: VM,
+  },
+  reports: {
+    admin: ALL, strategic: V, place_arme: V, wali: V, opcom: ALL, tacom: VM,
+    bluecell: V, greencell: V, orangecell: V,
+  },
+  analytics: {
+    admin: ALL, strategic: V, place_arme: V, wali: V, opcom: V, tacom: V,
+    bluecell: V, greencell: V, orangecell: V, resp_unit: V,
+  },
+  assistant: {
+    admin: ALL, strategic: VM, place_arme: VM, wali: VM, opcom: VM, tacom: VM,
+    bluecell: VM, greencell: VM, orangecell: VM,
+    resp_hospital: VM, resp_shelter: VM, resp_morgue: VM, resp_unit: VM,
+  },
+  users: { admin: ALL },
+  settings: { admin: ALL },
+};
+
+/**
+ * Dotations des modules HORS matrice — reprises de l'état antérieur, en
+ * attente d'arbitrage. Ne pas étendre : tout nouveau droit doit passer par
+ * la matrice.
+ */
+const LEGACY: Record<(typeof LEGACY_FEATURES)[number], Partial<Record<Role, Cell>>> = {
+  dispatch: { admin: V, tacom: AMV, bluecell: AMV, opcom: AMV },
+  triage: { admin: V, tacom: V, bluecell: AMV, resp_morgue: V },
+  ics: { admin: V, tacom: V, bluecell: AMV },
+  damage: { admin: V, tacom: V, bluecell: V },
+  orsec: { admin: V, strategic: V, tacom: AMV, opcom: AMV },
+  plans: { admin: V, strategic: V, tacom: V, opcom: AMV },
+  personnel: { admin: V, greencell: AMV, resp_unit: V },
+  workorders: { admin: V, greencell: AMV, resp_equipment: AMV },
+  seismic: { admin: V, strategic: V, tacom: V, bluecell: V, opcom: V, wali: V, place_arme: V },
+  audit: { admin: V, strategic: V },
+};
+
+/** Développe un code de cellule en liste d'actions. */
+function expand(cell: Cell): Action[] {
+  const out: Action[] = [];
+  if (cell.includes("V")) out.push("view");
+  if (cell.includes("A")) out.push("create");
+  if (cell.includes("M")) out.push("update");
+  if (cell.includes("R")) out.push("archive");
+  // `delete` n'est JAMAIS accordé par la matrice — réservé au superadmin.
+  return out;
+}
+
+/** Construit la dotation effective de chaque rôle à partir des deux tables. */
+function buildRolePermissions(): Record<Role, Permission[] | "*"> {
+  const out = {} as Record<Role, Permission[] | "*">;
+  for (const role of ROLES) out[role] = role === "superadmin" ? "*" : [];
+  const apply = (table: Record<string, Partial<Record<Role, Cell>>>) => {
+    for (const [feature, byRole] of Object.entries(table)) {
+      for (const [role, cell] of Object.entries(byRole) as [Role, Cell][]) {
+        const grant = out[role];
+        if (grant === "*") continue;
+        for (const action of expand(cell)) grant.push(`${feature as Feature}:${action}`);
+      }
+    }
+  };
+  apply(MATRIX);
+  apply(LEGACY);
+  return out;
+}
+
+/**
+ * Attribution des permissions par rôle. `"*"` = toutes les permissions (le
+ * Super Administrateur, seul habilité à supprimer).
  * Tout ce qui n'est pas explicitement accordé est refusé (default-deny).
  */
-export const ROLE_PERMISSIONS: Record<Role, Permission[] | "*"> = {
-  superadmin: "*",
-  admin: [
-    "iam:users:read", "iam:users:create", "iam:users:update", "iam:users:delete",
-    "iam:roles:read", "iam:roles:create", "iam:roles:assign", "iam:permissions:read",
-    "admin:feature_flags:read", "admin:feature_flags:toggle", "admin:settings:read", "admin:settings:update",
-    "org:zones:read", "org:zones:manage", "org:units:read", "org:units:manage", "org:hospitals:read", "org:hospitals:manage",
-    "incidents:read", "map:tracking:view_all",
-    "workorders:read", "morgue:read", "equip:read",
-  ],
-  // NB : dotations PROVISOIRES — l'attribution fine se fera via la matrice
-  // rôles × fonctionnalités (voir docs/matrice-roles-fonctionnalites.xlsx).
-  strategic: [
-    "org:zones:read", "org:units:read", "org:hospitals:read",
-    "incidents:read", "map:tracking:view_all", "audit:log:read",
-  ],
-  tacom: [
-    "org:zones:read", "org:units:read", "org:hospitals:read",
-    "incidents:read", "incidents:create", "incidents:update",
-    "map:tracking:view_all", "dispatch:assign", "morgue:read",
-  ],
-  bluecell: [
-    "org:units:read", "org:hospitals:read",
-    "incidents:read", "incidents:create", "incidents:update",
-    "map:tracking:view_all", "dispatch:assign",
-  ],
-  // Cellule Verte (logistique) : pilote la file des bons de travail.
-  greencell: [
-    "org:units:read", "incidents:read", "map:tracking:view_all",
-    "workorders:read", "workorders:create", "workorders:update", "workorders:assign",
-    "equip:read",
-  ],
-  orangecell: ["org:zones:read", "incidents:read", "map:tracking:view_all"],
-  resp_hospital: ["org:hospitals:read", "org:hospitals:manage", "hospinet:beds:update", "incidents:read"],
-  // Le responsable d'abri pilote SON abri (cantonnement ABAC : ScopeGuard).
-  resp_shelter: ["org:zones:read", "org:zones:manage", "incidents:read"],
-  // Le responsable de morgue pilote SON site (cantonnement ABAC : ScopeGuard).
-  resp_morgue: ["incidents:read", "morgue:read", "morgue:manage"],
-  resp_unit: ["org:units:read", "org:units:manage", "incidents:read"],
-  // Le responsable d'équipement pilote LE PARC de son unité (ABAC : ScopeGuard).
-  resp_equipment: [
-    "org:units:read", "incidents:read",
-    "equip:read", "equip:manage",
-    "workorders:read", "workorders:create", "workorders:update", "workorders:assign",
-  ],
-};
+export const ROLE_PERMISSIONS: Record<Role, Permission[] | "*"> = buildRolePermissions();
 
 /** Résout la liste effective des permissions d'un rôle. */
 export function permissionsForRole(role: Role): Permission[] {
@@ -167,13 +325,12 @@ export function isRole(v: unknown): v is Role {
 
 // ---------------------------------------------------------------------------
 // Règles d'attribution de rôles à la création/modification d'un utilisateur.
-// Appliquées côté serveur (frontière de sécurité) : le frontend ne fait que
-// refléter ces règles.
+// Appliquées côté serveur (frontière de sécurité) ; le frontend les reflète.
 // ---------------------------------------------------------------------------
 
 /**
  * Rôles qu'un créateur a le droit d'attribuer :
- * - le Super Administrateur peut attribuer tous les rôles (dont superadmin/admin) ;
+ * - le Super Administrateur peut attribuer tous les rôles ;
  * - l'Administrateur peut attribuer tous les rôles SAUF superadmin et admin ;
  * - tout autre rôle ne peut attribuer aucun rôle.
  */
@@ -189,41 +346,23 @@ export function canAssignMultipleRoles(creator: Role): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Matrice rôle → fonctionnalités (modules accessibles). Pilotable par le Super
-// Administrateur ; complète l'application des permissions RBAC côté API.
+// Matrice rôle → fonctionnalités (modules visibles dans la navigation).
+// Dérivée du droit de VISUALISER : un rôle voit un module s'il peut le lire.
+// Reste pilotable par le Super Administrateur depuis l'écran Utilisateurs.
 // ---------------------------------------------------------------------------
 
-/** Modules dont l'accès est pilotable par rôle (aligné sur la nav du frontend). */
-export const MODULE_FEATURES = [
-  "dashboard", "incidents", "map", "dispatch", "triage",
-  "equip", "units", "personnel", "workorders",
-  "hospitals", "ics", "damage", "shelters",
-  "orsec", "plans", "comms", "reports", "analytics", "assistant",
-] as const;
+export const MODULE_FEATURES = FEATURES;
+export type ModuleFeature = Feature;
 
-export type ModuleFeature = (typeof MODULE_FEATURES)[number];
-
-const allOn = (): Record<string, boolean> => Object.fromEntries(MODULE_FEATURES.map((k) => [k, true]));
-const featuresFrom = (allowed: readonly ModuleFeature[]): Record<string, boolean> =>
-  Object.fromEntries(MODULE_FEATURES.map((k) => [k, allowed.includes(k)]));
-
-/** Fonctionnalités autorisées par défaut pour chaque rôle. */
-export const DEFAULT_ROLE_FEATURES: Record<Role, Record<string, boolean>> = {
-  superadmin: allOn(),
-  admin: allOn(),
-  strategic: featuresFrom(["dashboard", "incidents", "map", "orsec", "plans", "reports", "analytics"]),
-  tacom: featuresFrom(["dashboard", "incidents", "map", "dispatch", "hospitals", "orsec", "plans", "comms", "reports"]),
-  bluecell: featuresFrom(["dashboard", "incidents", "map", "dispatch", "triage", "ics", "comms"]),
-  greencell: featuresFrom(["dashboard", "incidents", "map", "equip", "units", "personnel", "workorders", "comms"]),
-  orangecell: featuresFrom(["dashboard", "incidents", "map", "comms", "reports"]),
-  resp_hospital: featuresFrom(["dashboard", "incidents", "map", "hospitals", "comms"]),
-  resp_shelter: featuresFrom(["dashboard", "incidents", "map", "shelters", "comms"]),
-  resp_morgue: featuresFrom(["dashboard", "incidents", "map", "triage", "comms"]),
-  resp_unit: featuresFrom(["dashboard", "incidents", "map", "units", "personnel", "comms"]),
-  resp_equipment: featuresFrom(["dashboard", "incidents", "map", "equip", "workorders", "comms"]),
-};
+/** Fonctionnalités visibles par défaut pour chaque rôle (droit `view`). */
+export const DEFAULT_ROLE_FEATURES: Record<Role, Record<string, boolean>> = Object.fromEntries(
+  ROLES.map((role) => [
+    role,
+    Object.fromEntries(FEATURES.map((f) => [f, roleHasPermission(role, `${f}:view`)])),
+  ]),
+) as Record<Role, Record<string, boolean>>;
 
 /** Copie profonde des défauts (état initial modifiable). */
 export function defaultRoleFeatures(): Record<Role, Record<string, boolean>> {
-  return Object.fromEntries(ROLES.map((r) => [r, { ...DEFAULT_ROLE_FEATURES[r] }])) as Record<Role, Record<string, boolean>>;
+  return structuredClone(DEFAULT_ROLE_FEATURES);
 }

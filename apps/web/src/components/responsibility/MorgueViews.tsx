@@ -16,7 +16,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Pill, type Tone } from "@/components/ui/Pill";
 import { KPI_ICONS, UI_ICONS } from "@/lib/icons";
 import { loadBarClass } from "@/lib/responsibility";
-import { Loading, RespHeader, Section } from "@/components/responsibility/Shared";
+import { Loading, useSupervision, RespHeader, Section } from "@/components/responsibility/Shared";
 
 export interface MorgueSite {
   id: string; nom: string; ville: string; capacity: number; staff: number;
@@ -67,6 +67,7 @@ function useMorgue(mid: string) {
 
 export function MorgueDashboard({ mid }: { mid: string }) {
   const m = useModules();
+  const supervised = useSupervision();
   const { site, records } = useMorgue(mid);
   if (!site) return <Loading />;
 
@@ -138,12 +139,14 @@ export function MorgueDashboard({ mid }: { mid: string }) {
         </div>
       </Section>
 
-      <div className="flex justify-end">
-        <Link href="/ma-responsabilite/gestion" className="btn-primaire flex items-center gap-1.5 text-sm">
-          <Icon path={UI_ICONS.edit} size={14} />
-          {m.resp.manage}
-        </Link>
-      </div>
+      {!supervised && (
+        <div className="flex justify-end">
+          <Link href="/ma-responsabilite/gestion" className="btn-primaire flex items-center gap-1.5 text-sm">
+            <Icon path={UI_ICONS.edit} size={14} />
+            {m.resp.manage}
+          </Link>
+        </div>
+      )}
     </section>
   );
 }

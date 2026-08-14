@@ -11,14 +11,14 @@ export class FlagsController {
   constructor(private readonly flags: FlagsService) {}
 
   @Get()
-  @RequirePermission("admin:feature_flags:read")
+  @RequirePermission("settings:view")
   @ApiOperation({ summary: "Lire la matrice des feature flags" })
   all() {
     return this.flags.all();
   }
 
   @Patch(":key")
-  @RequirePermission("admin:feature_flags:toggle")
+  @RequirePermission("settings:update")
   @ApiOperation({ summary: "Activer/désactiver un module (Super Admin) — audité" })
   toggle(@Param("key") key: string, @Body() dto: ToggleFlagDto) {
     return this.flags.set(key, dto.enabled);
