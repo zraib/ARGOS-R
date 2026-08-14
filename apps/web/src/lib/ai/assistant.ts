@@ -349,6 +349,71 @@ const ST_LABEL: Record<string, string> = { open: "ouverte", prog: "en cours", cl
 const DISPO_LABEL: Record<string, string> = { ready: "opérationnelle", deployed: "déployée", standby: "en attente" };
 const COND_LABEL: Record<string, string> = { ok: "OK", repair: "en réparation", oos: "HS" };
 
+/**
+ * Vue STOCKS CRITIQUES / ÉTAT DES ÉQUIPEMENTS (ruptures, HS, sous seuil).
+ * Déclenchée quand l'utilisateur demande l'état global des stocks / ruptures
+ * (pas une recherche par mot-clé). → retourne 100% réel depuis ctx.equipment.
+ */
+function equipmentCriticalStatus(_q: string, ctx: AiContext): AiAnswer {
+  const all = ctx.equipment;
+  const total = all.length;
+  const ruptures = all
+    .filter((e) => (e.stock < e.threshold) || e.cond === "oos")
+    .slice()
+    .sort((a, b) => {
+      const aHs = a.cond === "oos" ? 0 : a.cond === "repair" ? 1 : 2;
+      const bHs = b.cond === "oos" ? 0 : b.cond === "repair" ? 1 : 2;
+      if (aHs !== bHs) return aHs - bHs;
+      const aRatio = a.threshold > 0 ? a.stock / a.threshold : 1;
+      const bRatio = b.threshold > 0 ? b.stock / b.threshold : 1;
+      if (aRatio !== bRatio) return aRatio - bRatio;
+      return (b.stock - a.stock);
+    });
+  const nHorsService = ruptures.filter((e) => e.cond === "oos").length;
+  const nSousSeuil = ruptures.filter((e) => e.cond !== "oos" && e.stock < e.threshold).length;
+  const nRepair = ruptures.filter((e) => e.cond === "repair" && e.stock < e.threshold).length;
+  const niveau =
+    ruptures.length >= 6 || nHorsService >= 2 ? "alerte"
+      : ruptures.length >= 3 || nHorsService >= 1 ? "attention"
+        : "ok";
+  const niveauLabel = niveau === "alerte" ? "🔴 ALERTE" : niveau === "attention" ? "🟠 ATTENTION" : "🟢 OK";
+  const top = ruptures.slice(0, 8);
+  const conformes = total - ruptures.length;
+
+  const text = [
+    `ÉTAT DES STOCKS ÉQUIPEMENTS CRITIQUES — ARGOS`,
+    `Total inventaire : ${total} équipements · Conformes : ${conformes} · ${niveauLabel}`,
+    `${ruptures.length} point(s) sensible(s) : ${nHorsService} HORS SERVICE · ${nSousSeuil} sous seuil · ${nRepair} en réparation + sous seuil.`,
+    ruptures.length
+      ? ""
+      : "Aucune rupture ni équipement hors service. Tous les stocks sont conformes.",
+    ...top.map(
+      (e, i) =>
+        `${String(i + 1).padStart(2, " ")}. ${e.id} · ${e.desig}\n` +
+        `      Catégorie : ${e.cat} · Unité : ${e.unit}\n` +
+        `      Stock : ${e.stock} / seuil ${e.threshold} · État : ${COND_LABEL[e.cond]}` +
+        (e.cond === "oos" ? "  ⛔ HORS SERVICE" : e.stock < e.threshold ? "  ⚠ SOUS SEUIL" : ""),
+    ),
+    conformes && ruptures.length
+      ? `\nLes autres équipements (${conformes}) ont un stock ≥ seuil et état OK.`
+      : "",
+  ].filter(Boolean).join("\n");
+
+  return {
+    intent: "equipment_search",
+    layer1: "état stocks équipements — ruptures / hors-service (issu de catalog.equipment)",
+    text,
+    topEquip: ruptures.map((e) => ({
+      id: e.id, desig: e.desig, cat: e.cat, stock: e.stock,
+      cond: COND_LABEL[e.cond], unit: e.unit, seuil: e.threshold,
+    })),
+    suggestions: [
+      { label: "Situation globale", query: "Situation globale opérationnelle" },
+      { label: "Posture unités FAR", query: "Posture globale des unités FAR" },
+    ],
+  };
+}
+
 function resolveTarget(q: string, incidents: Incident[]): Incident | null {
   const nq = norm(q);
   // 1) match direct sur ID incident (ex: INC-2607)
@@ -2208,7 +2273,19 @@ export function interpret(q: string, ctx: AiContext): AiAnswer {
   // unités posture globale
   if (/(posture|etat|statut|capacite|liste|disponibilite|readiness|preparation|situation|bilan|vue|apercu|panorama).*(unite|equipe|unite far|unites|far)/.test(nq) || /posture des unites|etat des unites|unites disponibles|toutes les unites|capacites des unites|situation des unites|bilan des unites/.test(nq)) return unitsStatus(q, ctx);
 
-  // équipements / inventaire / recherche par mot-clé
+  // 🔥 PRIORITAIRE : ÉTAT GLOBAL STOCKS / RUPTURES / HORS SERVICE
+  //    → Déclenche SUR LA REQUÊTE EXACTE utilisateur "état des stocks des équipements critiques
+  //      (ruptures / HORS SERVICE)". Ne PAS passer en equipmentSearch (qui est une recherche
+  //      par mot-clé et retournait 0 résultats sur la requête générique).
+  if (
+    /(etat|statut|situation|bilan|vue|apercu).*(stock|rupture|rupture.*stock|inventaire|equipement|materiel).*(critique|urgent|sensible|rupture|hors service|hs|sous seuil|disponibilite)/.test(nq) ||
+    /stock.*(critique|rupture|hors service|hs|sous seuil|alerte|disponibilite|etat|statut)/.test(nq) ||
+    /rupture.*(stock|equipement|materiel|critique|alerte)/.test(nq) ||
+    /(hors service|\bh\s*s\b).*(equipement|stock|materiel)/.test(nq) ||
+    /equipements?\s+critiques?\s+\(?\s*ruptures?\s*\/?\s*hors\s+service/.test(nq)
+  ) return equipmentCriticalStatus(q, ctx);
+
+  // équipements / inventaire / recherche par mot-clé (reste générique pour "cherche X", "citerne", etc.)
   if (/equipement|inventaire|stock|cherche|recherche|trouve|materiel|catalogue.*equip|piece|kit|groupe electrogene|tente|brancard/.test(nq)) return equipmentSearch(q, ctx);
 
   // analyse croisée / croisement / fiche complète / 360

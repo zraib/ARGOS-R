@@ -270,10 +270,14 @@ export function Copilot() {
       };
       const answer = interpret(q, ctx);
 
-      // 🔥 🔥 RACCORCI D'INTENTION SOCIALE / SALUTATION :
+      // 🔥 🔥 RACCORCI D'INTENTION SOCIALE / SALUTATION / ÉQUIPEMENT :
       // Si la Couche 1 a identifié intent=greeting OU intent=social →
       // → On NE PASSE PAS AU LLM (évite hallucinations type "hôpitaux militaires 100/100"
       //   + économise GPU + délais). On affiche DIRECTEMENT la réponse Couche 1.
+      // → De même pour intent=equipment_search : LA COUCHE 1 POSSEDE DÉJÀ L'ÉTAT COMPLET
+      //   (ruptures HS / sous seuil) depuis ctx.equipment. Le LLM a TENDANCE À RÉPONDRE
+      //   « Donnée absente » ou d'inventer des stocks non conformes sur ce type de requête
+      //   → on court-circuite complètement et on rend la Couche 1 structurée.
       if (answer.intent === "greeting" || answer.intent === "social") {
         setInput("");
         const socialMsgId = pushAi({
@@ -283,6 +287,27 @@ export function Copilot() {
           suggestions: answer.suggestions,
         });
         void socialMsgId;
+        setBusy(false);
+        return;
+      }
+      if (answer.intent === "equipment_search") {
+        setInput("");
+        const equipMsgId = pushAi({
+          role: "assistant",
+          text: cleanFinalText(answer.text),
+          provider: "Données ARGOS · inventaire & stocks",
+          deterministic: true,
+          layer1: answer.layer1,
+          suggestions: answer.suggestions,
+          units: answer.units,
+          incidents: answer.incidents,
+          hospitals: answer.hospitals,
+          quakes: answer.quakes,
+          equipment: answer.topEquip,
+          stats: answer.stats,
+          cross: answer.cross,
+        });
+        void equipMsgId;
         setBusy(false);
         return;
       }
