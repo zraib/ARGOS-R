@@ -351,10 +351,34 @@ Sources : `translations.ts` 34 Ko + `modules.ts` 77 Ko = **111 Ko pour trois
 langues**. Un opérateur francophone télécharge donc l'anglais et l'arabe qu'il
 n'ouvrira jamais — **environ 95 Ko de poids mort par session**, sur chaque route.
 
-**Correction proposée**
-Découper les dictionnaires par langue et ne charger que la langue active, les
-autres à la bascule. Le store expose déjà `lang` et `LANGS` : le point de
-découpe existe.
+**Correction proposée — et mon estimation d'effort initiale était fausse**
+
+J'avais annoncé « le meilleur rapport gain/effort du rapport ». C'est inexact.
+`useDict()` et `useModules()` (`lib/store.ts:1153`, `:1159`) sont **synchrones**
+et appelés dans **56 composants**. Les rendre asynchrones toucherait chaque
+écran — ce n'est pas une correction de quelques heures.
+
+**La conception qui évite ce piège**, en ne modifiant que le store et les
+dictionnaires, aucun composant :
+
+1. Découper `translations.ts` et `modules.ts` en modules par langue
+   (`fr.ts` / `en.ts` / `ar.ts`) + un chargeur.
+2. Ne garder que **le français en statique** — c'est la langue d'interface par
+   défaut (`CLAUDE.md`).
+3. Dans `setLang(next)` : `await import()` de la langue demandée, **puis** un
+   seul `set()` qui commit le dictionnaire ET `lang` ensemble.
+
+Le point 3 est la clé, et il **règle le danger RTL** au lieu de le créer :
+tant que le dictionnaire arabe n'est pas arrivé, `lang` reste inchangé, donc
+`dir="rtl"` ne s'applique pas et `useDict()` ne renvoie jamais `undefined`. La
+bascule est atomique. Une bascule naïve, elle, ferait pivoter la mise en page
+sur des libellés encore français.
+
+**Effort réel** : 1 à 2 jours, dont la vérification à l'écran des six sens de
+bascule (fr↔en, fr↔ar, en↔ar), RTL compris.
+
+**Prérequis** : aucun test ne couvre l'i18n aujourd'hui. Poser au moins un test
+sur le chargeur avant de toucher aux dictionnaires.
 
 **Risque : moyen.** L'i18n gouverne **toutes** les chaînes affichées ; une
 erreur se voit partout à la fois. La bascule de langue doit être vérifiée à
@@ -493,7 +517,8 @@ chasser à la main.
 |---|---|---|---|---|
 | F-01 | Copilot statique → 316 Ko partout | **HIGH** | ~15 min | −316 Ko sur 27 routes |
 | F-05 | Aucun cache ni revalidation API | **HIGH** | 1–2 j | Moins de trafic, écrans plus rapides |
-| F-06 | Portée du chunk MapLibre à confirmer | **HIGH** | 1 min (vérif.) | jusqu'à −768 Ko si fuite |
+| F-06 | ~~Portée du chunk MapLibre~~ | **CLOS** | — | non fondé : absent du graphe initial partout |
+| F-11 | Trois langues chargées ensemble | **HIGH** | 1–2 j | −95 Ko par session, sur chaque route |
 | F-02 | `assistant.ts` — 2 524 lignes | **HIGH** | 2–3 j | Maintenabilité, découpage possible |
 | F-03 | `JSON.stringify` ×10 par question | MEDIUM | ~10 min | Latence perçue du Copilot |
 | F-04 | Moteurs IA côté client | MEDIUM | 3–5 j | Interactivité du tableau de bord |
