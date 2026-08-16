@@ -338,12 +338,32 @@ mise en page racine et donc présents partout.
 `lib/i18n/translations.ts` et `modules.ts` portent **trois langues complètes**
 chargées simultanément, alors qu'un opérateur n'en utilise qu'une.
 
-**Piste à instruire** (non vérifiée — à mesurer avant d'agir)
-1. Confirmer la composition des 13 chunks partagés, par empreinte.
-2. Si les dictionnaires pèsent, ne charger que la langue active et différer les
-   deux autres.
-3. Vérifier ce que `lib/store.ts` tire par transitivité — il importe les moteurs
-   IA, la carte et le client API dans un seul module chargé partout.
+**Vérifié — l'hypothèse i18n est confirmée**
+Le chunk `2o-xezozmxkvw.js`, **143 Ko, présent dans le graphe initial de
+`/dashboard`**, contient simultanément les trois langues. Test par sondes de
+chaînes distinctives :
+
+```
+2o-xezozmxkvw.js   143 Ko   fr=True  en=True  ar=True
+```
+
+Sources : `translations.ts` 34 Ko + `modules.ts` 77 Ko = **111 Ko pour trois
+langues**. Un opérateur francophone télécharge donc l'anglais et l'arabe qu'il
+n'ouvrira jamais — **environ 95 Ko de poids mort par session**, sur chaque route.
+
+**Correction proposée**
+Découper les dictionnaires par langue et ne charger que la langue active, les
+autres à la bascule. Le store expose déjà `lang` et `LANGS` : le point de
+découpe existe.
+
+**Risque : moyen.** L'i18n gouverne **toutes** les chaînes affichées ; une
+erreur se voit partout à la fois. La bascule de langue doit être vérifiée à
+l'écran dans les trois sens, RTL compris — un dictionnaire arabe chargé
+paresseusement doit arriver **avant** que `dir="rtl"` ne s'applique, sinon la
+mise en page bascule sur des libellés encore français.
+
+**Reste à instruire** : ce que `lib/store.ts` (44 Ko) tire par transitivité — il
+importe les moteurs IA, la carte et le client API dans un module chargé partout.
 
 **Risque** : moyen. Toucher au chargement de l'i18n touche l'affichage de
 **toutes** les chaînes. À traiter avec une bascule de langue vérifiée à l'écran.
