@@ -1,10 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { usePathname } from "next/navigation";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { useArgos, useDict, useModules } from "@/lib/store";
+
+/**
+ * Rendu Markdown chargé à la demande (~313 Ko de dépendances).
+ *
+ * Le Copilot est monté sur chaque écran mais reste fermé par défaut : importer
+ * cette pile en statique la faisait partir sur toutes les routes pour rien.
+ * Voir PERF_AUDIT.md § F-01.
+ */
+const CopilotMarkdown = lazy(() => import("@/components/shell/CopilotMarkdown"));
 import { Icon } from "@/components/ui/Icon";
 import { Pill } from "@/components/ui/Pill";
 import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
@@ -171,6 +178,18 @@ export function Copilot() {
       return () => clearTimeout(id);
     }
   }, [copilotOpen]);
+
+  // Échap ferme le tiroir. L'en-tête l'annonce déjà (« Fermer (Échap) ») mais
+  // rien ne l'implémentait ; sur mobile le tiroir couvre tout l'écran, il faut
+  // pouvoir en sortir autrement qu'en visant la croix.
+  useEffect(() => {
+    if (!copilotOpen) return;
+    const onEsc = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") closeCopilot();
+    };
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [copilotOpen, closeCopilot]);
 
   // Suggestions contextuelles selon écran courant + sélections
   const suggestions = useMemo(() => {
@@ -550,7 +569,7 @@ export function Copilot() {
           aria-label="Ouvrir le Copilot ARGOS (⌘K)"
           title="Ouvrir le Copilot ARGOS (⌘K)"
           onClick={() => useArgos.getState().openCopilot()}
-          className="fixed bottom-6 right-6 z-50 group"
+          className="group fixed bottom-4 end-4 z-50 sm:bottom-6 sm:end-6"
         >
           <span className="absolute -inset-1 rounded-full bg-gradient-to-tr from-or-500 via-rdia-500 to-red-500 blur opacity-40 group-hover:opacity-70 transition-opacity duration-300" />
           <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-or-500 to-rdia-500 text-white shadow-2xl shadow-or-500/40 ring-4 ring-white dark:ring-rdia-800 transition-transform duration-200 group-hover:scale-110 active:scale-95">
@@ -561,7 +580,9 @@ export function Copilot() {
               </span>
             )}
           </span>
-          <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-rdia-800 px-2.5 py-1 text-[11px] font-semibold text-white shadow-lg opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:bg-rdia-700">
+          {/* Bulle d'aide : masquée sous sm — au doigt il n'y a pas de survol,
+              et elle débordait de l'écran à 375 px. */}
+          <span className="absolute end-full top-1/2 me-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-rdia-800 px-2.5 py-1 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 sm:block dark:bg-rdia-700">
             Copilot · ⌘K
           </span>
         </button>
@@ -582,9 +603,11 @@ export function Copilot() {
         role="dialog"
         aria-modal="true"
         aria-label="Copilot ARGOS"
+        // Plein écran sous sm (tiroir pleine largeur, hauteur en `dvh` pour ne
+        // pas passer sous la barre d'adresse mobile) ; largeur fixe ensuite.
         className={`fixed z-[70] flex flex-col bg-white shadow-2xl ring-1 ring-gray-200/70 transition-transform duration-300 ease-out dark:bg-rdia-800 dark:ring-rdia-700/60
           ${copilotOpen ? "translate-x-0" : "translate-x-[110%] pointer-events-none"}
-          top-0 right-0 h-full w-[100vw] sm:w-[460px] md:w-[500px]`}
+          top-0 right-0 h-dvh w-full max-w-full sm:w-[460px] md:w-[500px]`}
       >
         {/* ========= HEADER PANEL (MINIMALISTE) ========= */}
         <header className="flex shrink-0 items-center gap-3 border-b border-gray-100/70 bg-white/80 px-4 py-3 backdrop-blur dark:border-rdia-700/50 dark:bg-rdia-800/80">
@@ -601,13 +624,15 @@ export function Copilot() {
               <p className="mt-0.5 text-[10px] text-gray-400 dark:text-rdia-400 truncate">Assistant opérationnel</p>
             </div>
           </div>
-          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          {/* Commandes d'en-tête : cibles de 44 px sous lg (32 px au doigt, on
+              vise la voisine une fois sur deux). */}
+          <div className="ms-auto flex shrink-0 items-center gap-1.5">
             <button
               type="button"
               onClick={() => setShowSettings((v) => !v)}
               disabled={busy}
               title={showSettings ? "Masquer les paramètres" : "Paramètres (modèle…)"}
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
+              className={`cible-tactile flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
                 showSettings
                   ? "bg-or-500/10 text-or-500 ring-1 ring-or-500/25"
                   : "text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-rdia-700/50 dark:hover:text-rdia-100"
@@ -621,7 +646,7 @@ export function Copilot() {
               onClick={clearAi}
               disabled={busy || aiLog.length === 0}
               title={aiLog.length === 0 ? "Historique vide" : "Vider l'historique"}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-rdia-700/50 dark:hover:text-red-400"
+              className="cible-tactile flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-rdia-700/50 dark:hover:text-red-400"
               aria-label="Vider l'historique"
             >
               <Icon path={UI_ICONS.trash} size={14} />
@@ -631,7 +656,7 @@ export function Copilot() {
               aria-label="Fermer"
               title="Fermer (Échap)"
               onClick={closeCopilot}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-rdia-700/50 dark:hover:text-rdia-100"
+              className="cible-tactile flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-rdia-700/50 dark:hover:text-rdia-100"
             >
               <Icon path={UI_ICONS.close} size={15} />
             </button>
@@ -699,7 +724,7 @@ export function Copilot() {
                     type="submit"
                     disabled={busy || !manualModelInput.trim() || !cfg.local}
                     title="Valider"
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-emerald-500 transition-colors hover:bg-emerald-500/10 disabled:opacity-40"
+                    className="cible-tactile flex h-5 w-5 shrink-0 items-center justify-center rounded text-emerald-500 transition-colors hover:bg-emerald-500/10 disabled:opacity-40"
                   >
                     <Icon path={UI_ICONS.check} size={11} />
                   </button>
@@ -711,7 +736,7 @@ export function Copilot() {
                     }}
                     disabled={busy}
                     title="Annuler"
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-gray-400 transition-colors hover:text-red-500 disabled:opacity-40"
+                    className="cible-tactile flex h-5 w-5 shrink-0 items-center justify-center rounded text-gray-400 transition-colors hover:text-red-500 disabled:opacity-40"
                   >
                     <Icon path={UI_ICONS.close} size={11} />
                   </button>
@@ -730,7 +755,7 @@ export function Copilot() {
                 }}
                 disabled={busy || !cfg.local}
                 title={manualModelMode ? "Revenir à la liste" : "Saisir manuellement le tag"}
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-gray-400 transition-colors hover:text-or-500 disabled:opacity-40"
+                className="cible-tactile flex h-5 w-5 shrink-0 items-center justify-center rounded text-gray-400 transition-colors hover:text-or-500 disabled:opacity-40"
               >
                 <Icon path={UI_ICONS.edit} size={11} />
               </button>
@@ -739,7 +764,7 @@ export function Copilot() {
                 onClick={loadOllamaTags}
                 disabled={loadingTags || !cfg.local}
                 title="Actualiser la liste des modèles"
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-gray-400 transition-colors hover:text-or-500 disabled:cursor-wait disabled:opacity-40"
+                className="cible-tactile flex h-5 w-5 shrink-0 items-center justify-center rounded text-gray-400 transition-colors hover:text-or-500 disabled:cursor-wait disabled:opacity-40"
               >
                 <Icon path={UI_ICONS.refresh} size={11} />
               </button>
@@ -754,7 +779,7 @@ export function Copilot() {
         {/* ========= CORPS CONVERSATION ========= */}
         <div ref={scrollRef} className="carte m-0 flex-1 overflow-y-auto rounded-none border-0 bg-gray-50/50 p-3.5 dark:bg-rdia-900/40 sm:p-4">
           {aiLog.length === 0 ? (
-            <div className="flex h-full min-h-[520px] flex-col items-center justify-center gap-8 py-6">
+            <div className="flex h-full min-h-[380px] flex-col items-center justify-center gap-6 py-6 sm:min-h-[520px] sm:gap-8">
               <div className="w-full max-w-md text-center">
                 <p className="text-[15px] font-semibold leading-snug text-rdia-600 dark:text-rdia-50">
                   Bonjour, je suis le Copilot ARGOS.
@@ -772,12 +797,12 @@ export function Copilot() {
                     key={ex.label}
                     onClick={() => ask(ex.query)}
                     disabled={busy}
-                    className="group flex w-full max-w-[320px] items-center justify-between rounded-lg border border-gray-200/70 bg-white/70 px-3 py-2 text-left text-[12px] text-gray-700 transition-all duration-150 hover:border-or-500/40 hover:bg-or-500/5 hover:text-or-600 hover:shadow-sm active:scale-[0.99] disabled:opacity-40 dark:border-rdia-600/50 dark:bg-rdia-700/30 dark:text-rdia-100 dark:hover:text-or-400 dark:hover:border-or-500/40 dark:hover:bg-rdia-700/40"
+                    className="group flex min-h-11 w-full max-w-[320px] items-center justify-between rounded-lg border border-gray-200/70 bg-white/70 px-3 py-2 text-start text-[12px] text-gray-700 transition-all duration-150 hover:border-or-500/40 hover:bg-or-500/5 hover:text-or-600 hover:shadow-sm active:scale-[0.99] disabled:opacity-40 dark:border-rdia-600/50 dark:bg-rdia-700/30 dark:text-rdia-100 dark:hover:text-or-400 dark:hover:border-or-500/40 dark:hover:bg-rdia-700/40"
                   >
                     <span className="font-medium leading-snug">{ex.label}</span>
                     <span
                       aria-hidden
-                      className="ml-3 shrink-0 text-[11px] text-gray-300 transition-all duration-150 group-hover:text-or-500/70 dark:text-rdia-500 dark:group-hover:text-or-400"
+                      className="ms-3 shrink-0 text-[11px] text-gray-300 transition-all duration-150 group-hover:text-or-500/70 dark:text-rdia-500 dark:group-hover:text-or-400"
                     >
                       →
                     </span>
@@ -808,7 +833,7 @@ export function Copilot() {
                       {msg.deterministic && (
                         <Pill tone="amber" label="Données uniquement" size="sm" />
                       )}
-                      <span className="ml-auto font-mono text-[10px] text-gray-300 dark:text-rdia-500">{msg.at}</span>
+                      <span className="ms-auto font-mono text-[10px] text-gray-300 dark:text-rdia-500">{msg.at}</span>
                       {msg.refused && <Pill tone="red" label="Refus sécurité" size="sm" />}
                     </div>
                     {msg.llmError && (
@@ -818,7 +843,9 @@ export function Copilot() {
                     )}
                     <div className="rounded-2xl rounded-tl-sm bg-white px-3.5 py-2.5 shadow-sm ring-1 ring-gray-100 dark:bg-rdia-800/70 dark:ring-rdia-700/60">
                       <div className="ai-markdown prose prose-sm max-w-none text-sm leading-relaxed text-gray-800 dark:text-rdia-50 prose-headings:mb-2 prose-headings:mt-4 prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-ol:my-1 prose-strong:text-gray-900 dark:prose-invert dark:prose-strong:text-rdia-0 prose-blockquote:text-rdia-600 dark:prose-blockquote:text-rdia-200 prose-blockquote:border-l-or-500 prose-table:my-2 prose-th:bg-gray-50 dark:prose-th:bg-rdia-700/40 prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1 prose-td:border-gray-200 dark:prose-border-rdia-700">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text || ""}</ReactMarkdown>
+                        <Suspense fallback={<p className="whitespace-pre-wrap">{msg.text || ""}</p>}>
+                          <CopilotMarkdown>{msg.text || ""}</CopilotMarkdown>
+                        </Suspense>
                       </div>
 
                       {msg.stats?.items && msg.stats.items.length > 0 && <StatsGrid stats={msg.stats} />}
@@ -1137,7 +1164,7 @@ export function Copilot() {
                                 key={qlabel}
                                 onClick={onClick}
                                 disabled={busy}
-                                className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors hover:border-or-500/60 hover:text-or-500 disabled:opacity-40 ${
+                                className={`rounded-full border px-2.5 py-1.5 text-[12px] transition-colors hover:border-or-500/60 hover:text-or-500 disabled:opacity-40 sm:text-[11px] ${
                                   prio || isMapFocus
                                     ? "border-or-500/40 text-or-500"
                                     : "border-gray-200 text-gray-500 dark:border-rdia-600 dark:text-rdia-300"
@@ -1159,13 +1186,13 @@ export function Copilot() {
 
         {/* ========= SUGGESTIONS RAPIDES ========= */}
         {aiLog.length > 0 && (
-          <div className="flex shrink-0 flex-wrap gap-1.5 border-t border-gray-100 bg-white/70 px-4 py-2 dark:border-rdia-700/60 dark:bg-rdia-800/70">
+          <div className="flex shrink-0 gap-1.5 overflow-x-auto border-t border-gray-100 bg-white/70 px-4 py-2 sm:flex-wrap sm:overflow-x-visible dark:border-rdia-700/60 dark:bg-rdia-800/70">
             {suggestions.slice(0, 4).map((ex) => (
               <button
                 key={ex}
                 onClick={() => ask(ex)}
                 disabled={busy}
-                className="rounded-full border border-gray-200 px-2.5 py-1 text-[11px] text-gray-500 transition-colors hover:border-or-500/50 hover:text-or-500 disabled:opacity-40 dark:border-rdia-600 dark:text-rdia-300"
+                className="shrink-0 whitespace-nowrap rounded-full border border-gray-200 px-2.5 py-1.5 text-[12px] text-gray-500 transition-colors hover:border-or-500/50 hover:text-or-500 disabled:opacity-40 sm:text-[11px] dark:border-rdia-600 dark:text-rdia-300"
               >
                 {ex}
               </button>
@@ -1180,7 +1207,7 @@ export function Copilot() {
               <kbd className="hidden shrink-0 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 font-mono text-[10px] text-gray-400 dark:border-rdia-600 dark:bg-rdia-700 sm:block">⌘K</kbd>
               <input
                 ref={inputRef}
-                className="flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-gray-400 dark:text-rdia-50"
+                className="min-h-11 flex-1 bg-transparent py-2 text-base outline-none placeholder:text-gray-400 md:min-h-0 md:text-sm dark:text-rdia-50"
                 placeholder="Posez votre question..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -1188,7 +1215,7 @@ export function Copilot() {
                 disabled={busy}
               />
             </div>
-            <button className="btn-primaire shrink-0 text-sm px-3 py-2" onClick={() => ask(input)} disabled={busy || !input.trim()}>
+            <button className="btn-primaire cible-tactile shrink-0 px-3 py-2 text-sm" onClick={() => ask(input)} disabled={busy || !input.trim()}>
               <Icon path={UI_ICONS.send} size={16} strokeWidth={2} />
             </button>
           </div>
@@ -1227,7 +1254,9 @@ function BlockTable({
         <Icon path={icon} size={12} />
         {title}
       </div>
-      <table className="w-full text-xs">{children}</table>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">{children}</table>
+      </div>
     </div>
   );
 }
