@@ -302,7 +302,55 @@ que vous avez interdite. Je préfère le dire plutôt que d'estimer.
 
 # 2. Reste de l'application
 
-### F-06 · MapLibre : 768 Ko — vérifier la portée du chargement — `HIGH`
+### F-06 · MapLibre : 768 Ko — ~~`HIGH`~~ → **NON FONDÉ, clos**
+
+> **Mesuré, et le constat tombe.** Le chunk MapLibre n'apparaît dans le graphe
+> initial d'**aucune** route — pas même `/map`. L'import dynamique en place fait
+> déjà exactement son travail.
+>
+> | route | chunks initiaux | poids | MapLibre |
+> |---|---:|---:|---|
+> | `/dashboard` | 13 | 1 035 Ko | non |
+> | `/incidents` | 13 | 1 029 Ko | non |
+> | `/utilisateurs` | 13 | 1 025 Ko | non |
+> | `/map` | 13 | 1 017 Ko | non |
+> | `/parametres` | 13 | 1 019 Ko | non |
+>
+> Je l'avais classé `HIGH` avec la mention « à confirmer ». La confirmation est
+> négative : **il n'y a rien à corriger.**
+
+---
+
+### F-11 · La charge initiale est identique sur toutes les routes (~1 Mo) — `HIGH` *(nouveau, mesuré)*
+
+**Constat**
+Le tableau ci-dessus dit l'essentiel : **13 chunks et ~1 020 Ko sur chaque
+route**, à 18 Ko près entre l'écran le plus léger et le plus lourd. Le découpage
+par route ne fait donc **quasiment rien** — tout est dans la coquille partagée.
+
+**Pourquoi ça compte, et pourquoi c'est le vrai sujet**
+Mes constats F-01 et F-06 visaient des bibliothèques. Or les deux plus grosses
+(MapLibre, Markdown) sont désormais **hors du graphe initial**, et la charge
+reste à ~1 Mo. Le poids n'est donc pas dans les dépendances : il est dans
+**`AppFrame` + `Sidebar` + `store.ts` + les dictionnaires i18n**, tirés par la
+mise en page racine et donc présents partout.
+
+`lib/i18n/translations.ts` et `modules.ts` portent **trois langues complètes**
+chargées simultanément, alors qu'un opérateur n'en utilise qu'une.
+
+**Piste à instruire** (non vérifiée — à mesurer avant d'agir)
+1. Confirmer la composition des 13 chunks partagés, par empreinte.
+2. Si les dictionnaires pèsent, ne charger que la langue active et différer les
+   deux autres.
+3. Vérifier ce que `lib/store.ts` tire par transitivité — il importe les moteurs
+   IA, la carte et le client API dans un seul module chargé partout.
+
+**Risque** : moyen. Toucher au chargement de l'i18n touche l'affichage de
+**toutes** les chaînes. À traiter avec une bascule de langue vérifiée à l'écran.
+
+---
+
+### F-06 (analyse d'origine, conservée pour mémoire)
 
 **Fichiers** `app/map/page.tsx:14` (import dynamique), `components/map/MapCanvas.tsx`
 
