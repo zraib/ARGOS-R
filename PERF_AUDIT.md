@@ -154,7 +154,20 @@ impact/effort du rapport.
 
 ---
 
-### F-02 · `lib/ai/assistant.ts` : 2 524 lignes dans un seul module — `HIGH`
+### F-02 · `lib/ai/assistant.ts` : 2 524 lignes dans un seul module — ~~`HIGH`~~ → **`MEDIUM`**
+
+> **Reclassé après vérification.** J'avais justifié le rang `HIGH` en partie par
+> un argument de **livraison** (« tout module qui importe quoi que ce soit tire
+> l'ensemble »). Cet argument **ne tient pas** : le fichier n'a que **deux
+> consommateurs**, `components/shell/Copilot.tsx` et `lib/store.ts`, tous deux
+> côté client et tous deux ayant besoin de l'assistant à l'exécution. Le module
+> part donc dans le bundle quoi qu'il arrive — **le découper ne retirera pas un
+> octet**.
+>
+> Le bénéfice réel est la **maintenabilité**, pas la performance. C'est une
+> tâche de structure légitime, mais elle n'a pas sa place dans une liste de
+> priorités de performance. `buildLlmUserMessage` (lignes 2370-2524) reste le
+> point d'entrée naturel : 154 lignes, fonction pure, extractible seule.
 
 **Fichier** `apps/web/src/lib/ai/assistant.ts`
 
