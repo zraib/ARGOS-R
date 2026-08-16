@@ -2511,7 +2511,11 @@ export function buildLlmUserMessage(query: string, answer: AiAnswer): string {
   }
   lines.push("## DONNÉES STRUCTURÉES DÉTAILLÉES (seulement celles-ci — AUCUNE invention autorisée)");
   lines.push("```json");
-  lines.push(JSON.stringify(data));
+  // `jsonStr` porte déjà exactement cette sérialisation : la boucle de
+  // troncature ci-dessus le réaffecte à chaque palier. Re-sérialiser ~12 000
+  // caractères ici serait un travail synchrone de plus sur le thread principal,
+  // juste avant l'appel réseau — donc directement dans la latence perçue.
+  lines.push(jsonStr);
   lines.push("```");
   lines.push("");
   lines.push("## RÉSUMÉ MOTEUR DÉTERMINISTE (tu peux réutiliser, reformuler)");
