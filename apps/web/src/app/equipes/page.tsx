@@ -33,27 +33,27 @@ export default function EquipesPage() {
       <section className="flex flex-col gap-4 animate-fade-in">
         {canManage && (
           <div className="flex justify-end">
-            <button className="btn-primaire flex items-center gap-1.5 text-sm" onClick={() => setAdding(true)}>
+            <button className="btn-primaire flex w-full items-center justify-center gap-1.5 text-sm sm:w-auto" onClick={() => setAdding(true)}>
               <Icon path={UI_ICONS.plus} size={15} />
               {t.add_unit}
             </button>
           </div>
         )}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
           {units.map((u) => {
             const b = dispoBadge(u.dispo, t);
             return (
-              <div key={u.id} className="carte flex flex-col gap-3 p-5">
+              <div key={u.id} className="carte flex flex-col gap-3 p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h3 className="text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{u.nom}</h3>
+                    <h3 className="break-words text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{u.nom}</h3>
                     <div className="mt-0.5 text-xs text-gray-500 dark:text-rdia-300">{u.ville}</div>
                   </div>
-                  <Badge type={b.type} label={b.label} />
+                  <span className="shrink-0"><Badge type={b.type} label={b.label} /></span>
                 </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-500 dark:text-rdia-300">{t.commander}</span>
-                  <span className="font-semibold text-gray-800 dark:text-rdia-50">{u.cmdt}</span>
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="shrink-0 text-gray-500 dark:text-rdia-300">{t.commander}</span>
+                  <span className="min-w-0 break-words text-end font-semibold text-gray-800 dark:text-rdia-50">{u.cmdt}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-gray-500 dark:text-rdia-300">{t.effectif}</span>
@@ -66,7 +66,7 @@ export default function EquipesPage() {
                   </div>
                   <ProgressBar value={u.readiness} />
                 </div>
-                <button className="btn-secondaire w-full text-xs" onClick={() => { setTab("pers"); setSelUnit(u.id); }}>{t.view}</button>
+                <button className="btn-secondaire min-h-[44px] w-full text-xs lg:min-h-0" onClick={() => { setTab("pers"); setSelUnit(u.id); }}>{t.view}</button>
               </div>
             );
           })}
@@ -81,36 +81,38 @@ export default function EquipesPage() {
   const { pers, equip, vehs } = unitDetail(unit);
   const tabs: [typeof tab, string][] = [["pers", t.personnel], ["equip", t.equipment], ["veh", t.vehicles]];
   const tabCls = (k: string) =>
-    `rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+    `min-h-[44px] shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors lg:min-h-0 ${
       tab === k ? "bg-or-500 text-rdia-600" : "bg-gray-100 text-gray-500 hover:text-or-500 dark:bg-rdia-600 dark:text-rdia-300"
     }`;
 
   return (
     <section className="flex flex-col gap-4 animate-fade-in">
-      <div className="carte flex flex-col gap-4 p-5">
+      <div className="carte flex flex-col gap-4 p-4 sm:p-5">
         <div className="flex items-center gap-3">
-          <button className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600" onClick={() => setSelUnit(null)}>
+          <button aria-label={t.back} title={t.back} className="cible-tactile flex shrink-0 items-center justify-center rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600" onClick={() => setSelUnit(null)}>
             <Icon path={UI_ICONS.arrowLeft} size={16} strokeWidth={2} />
           </button>
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-bold leading-tight text-rdia-600 dark:text-rdia-50">{unit.nom}</h2>
-            <div className="text-xs text-gray-500 dark:text-rdia-300">{unit.ville} · {unit.cmdt}</div>
+            <h2 className="break-words text-base font-bold leading-tight text-rdia-600 dark:text-rdia-50">{unit.nom}</h2>
+            <div className="break-words text-xs text-gray-500 dark:text-rdia-300">{unit.ville} · {unit.cmdt}</div>
           </div>
-          <Badge type={b.type} label={b.label} />
+          <span className="shrink-0"><Badge type={b.type} label={b.label} /></span>
         </div>
-        <div className="flex flex-wrap items-center gap-6">
+        <div className="flex flex-wrap items-center gap-4 sm:gap-6">
           <div>
             <div className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400">{t.effectif}</div>
             <div className="text-xl font-bold tabular-nums text-rdia-600 dark:text-rdia-50">{unit.eff}</div>
           </div>
-          <div className="min-w-[160px] flex-1">
+          {/* La jauge ne réclame plus 160 px : sous `sm` elle prend la ligne. */}
+          <div className="min-w-0 flex-1 basis-full sm:min-w-[160px] sm:basis-auto">
             <div className="mb-1 flex items-center justify-between text-[10px] text-gray-400 dark:text-rdia-400">
               <span>{t.readiness}</span>
               <span className="font-mono">{unit.readiness} %</span>
             </div>
             <ProgressBar value={unit.readiness} height="h-2" />
           </div>
-          <div className="flex gap-2">
+          {/* Bandeau défilable sous `sm` : trois onglets côte à côte débordent. */}
+          <div className="-mx-4 flex w-[calc(100%_+_2rem)] gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:w-auto sm:overflow-x-visible sm:px-0 sm:pb-0">
             {tabs.map(([k, label]) => (
               <button key={k} className={tabCls(k)} onClick={() => setTab(k)}>{label}</button>
             ))}
@@ -118,7 +120,8 @@ export default function EquipesPage() {
         </div>
       </div>
 
-      <div className="carte overflow-x-auto">
+      {/* Tableaux : à partir de `md`, quatre colonnes redeviennent lisibles. */}
+      <div className="carte hidden overflow-x-auto md:block">
         {tab === "pers" && (
           <table className="w-full text-sm">
             <thead><tr className="border-b border-gray-200 dark:border-rdia-600"><th className={TH}>{t.h_grade}</th><th className={TH}>{t.h_name}</th><th className={TH}>{t.h_role}</th><th className={TH}>{t.h_status}</th></tr></thead>
@@ -165,6 +168,56 @@ export default function EquipesPage() {
           </table>
         )}
       </div>
+
+      {/* Sous `md` : une carte par ligne — mêmes colonnes, aucune donnée perdue. */}
+      <div className="flex flex-col gap-2 md:hidden">
+        {tab === "pers" && pers.map((p, i) => (
+          <div key={i} className="carte flex flex-col gap-2 p-3">
+            <div className="flex items-start justify-between gap-2">
+              <span className="min-w-0 break-words text-sm font-semibold text-gray-800 dark:text-rdia-50">{p.nom}</span>
+              <span className="shrink-0"><Badge type={p.stType} label={p.stLabel} /></span>
+            </div>
+            <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[13px]">
+              <Champ label={t.h_grade} value={p.grade} />
+              <Champ label={t.h_role} value={p.fonction} />
+            </dl>
+          </div>
+        ))}
+        {tab === "equip" && equip.map((e, i) => (
+          <div key={i} className="carte flex flex-col gap-2 p-3">
+            <div className="flex items-start justify-between gap-2">
+              <span className="min-w-0 break-words text-sm font-semibold text-gray-800 dark:text-rdia-50">{e.desig}</span>
+              <span className={`shrink-0 ${etatBadge(e.maint)}`}>{e.etat}</span>
+            </div>
+            <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[13px]">
+              <Champ label={t.h_cat} value={e.cat} />
+              <Champ label={t.h_qty} value={e.qty} mono />
+            </dl>
+          </div>
+        ))}
+        {tab === "veh" && vehs.map((v, i) => (
+          <div key={i} className="carte flex flex-col gap-2 p-3">
+            <div className="flex items-start justify-between gap-2">
+              <span className="min-w-0 break-words text-sm font-semibold text-gray-800 dark:text-rdia-50">{v.type}</span>
+              <span className={`shrink-0 ${etatBadge(v.maint)}`}>{v.etat}</span>
+            </div>
+            <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[13px]">
+              <Champ label={t.h_plate} value={v.plate} mono />
+              <Champ label={t.h_assign} value={v.assign} />
+            </dl>
+          </div>
+        ))}
+      </div>
     </section>
+  );
+}
+
+/** Couple libellé/valeur d'une carte mobile (équivalent d'une cellule du tableau). */
+function Champ({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[11px] uppercase tracking-wider text-gray-400 dark:text-rdia-400">{label}</dt>
+      <dd className={`break-words text-gray-700 dark:text-rdia-100 ${mono ? "font-mono tabular-nums" : ""}`}>{value}</dd>
+    </div>
   );
 }

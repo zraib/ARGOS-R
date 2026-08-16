@@ -18,6 +18,7 @@ const MapCanvas = dynamic(() => import("@/components/map/MapCanvas").then((m) =>
   ),
 });
 
+import { AircraftPanel } from "@/components/map/AircraftPanel";
 import { OVERLAY_STYLE, SWITCH_OFF } from "@/lib/map/overlay";
 import { HOSPITAL_KINDS, hospKind, kindDef } from "@/lib/hospitals";
 import { HealthGlyph } from "@/components/health/HealthGlyph";
@@ -32,6 +33,24 @@ interface SelInfo {
   titre: string; sub: string; badgeType: BadgeType; badgeLabel: string;
   lines: SelLine[]; action?: () => void;
 }
+
+// ---------------------------------------------------------------------------
+// Surcouches adaptatives
+//
+// À partir de `lg` les panneaux flottent sur la carte comme auparavant (colonne
+// gauche : couches, suivi aérien, légende ; colonne droite : contrôles et
+// détail de sélection).
+//
+// En dessous, la carte n'a plus la place de porter 300 px de panneaux : à
+// 375 px ils la recouvraient entièrement et se chevauchaient. Les mêmes
+// contenus — sans rien retirer — passent donc dans une **feuille ancrée en
+// bas**, ouverte par un bouton flottant et organisée en onglets. Par défaut la
+// feuille est fermée : la carte occupe tout l'espace. Les contrôles (2D/3D,
+// fond, plein écran) restent en haut, hors de la feuille, en cibles de 44 px ;
+// les commandes natives de MapLibre (zoom, boussole, recentrage) sont remontées
+// en haut par `globals.css` pour la même raison.
+// ---------------------------------------------------------------------------
+type SheetTab = "layers" | "aircraft" | "legend" | "selection";
 
 /** Interrupteur on/off compact. */
 function Switch({ on }: { on: boolean }) {
@@ -74,9 +93,11 @@ interface TreeFamily { label: string; layers: TreeLayer[] }
 /** Ligne d'un élément : cliquer sélectionne le marqueur et recentre la carte. */
 function LeafRow({ leaf, sel, select }: { leaf: TreeLeaf; sel: boolean; select: (k: MarkerKind, id: string) => void }) {
   return (
+    // Sous lg la ligne monte à 44 px : au doigt, une ligne de 20 px est
+    // impossible à viser sans toucher sa voisine.
     <button
       onClick={() => select(leaf.kind, leaf.id)}
-      className={`flex w-full items-center gap-1.5 truncate rounded px-1 py-0.5 text-start text-[13px] transition-colors ${
+      className={`flex min-h-11 w-full items-center gap-1.5 truncate rounded px-1 py-0.5 text-start text-[14px] transition-colors lg:min-h-0 lg:text-[13px] ${
         sel ? "bg-or-500/20 text-or-300" : "text-white/70 hover:bg-white/10 hover:text-white"
       }`}
     >
@@ -101,7 +122,7 @@ function LayerNode({
         <button
           onClick={() => setOpen((o) => !o)}
           disabled={!has}
-          className="text-white/50 transition-colors hover:text-or-400 disabled:opacity-0"
+          className="cible-tactile flex items-center justify-center text-white/50 transition-colors hover:text-or-400 disabled:opacity-0"
           aria-label={layer.label}
         >
           <Icon path={UI_ICONS.caretDown} size={10} strokeWidth={2.5} className={`transition-transform ${open ? "" : "-rotate-90"}`} />
@@ -110,7 +131,7 @@ function LayerNode({
           {layer.label}
           {has && <span className="ms-1 text-white/40">({layer.leaves.length})</span>}
         </button>
-        <button onClick={toggle} aria-label={layer.label}><Switch on={on} /></button>
+        <button onClick={toggle} aria-label={layer.label} className="cible-tactile flex items-center justify-center"><Switch on={on} /></button>
       </div>
       {open && has && (
         <div className="ms-2 flex max-h-40 flex-col overflow-y-auto overflow-x-hidden border-s border-white/15 ps-1.5">
@@ -136,11 +157,11 @@ function FamilyNode({
   return (
     <div>
       <div className="flex items-center gap-1.5 py-1">
-        <button onClick={() => setOpen((o) => !o)} className="text-white/60 transition-colors hover:text-or-400" aria-label={family.label}>
+        <button onClick={() => setOpen((o) => !o)} className="cible-tactile flex items-center justify-center text-white/60 transition-colors hover:text-or-400" aria-label={family.label}>
           <Icon path={UI_ICONS.caretDown} size={11} strokeWidth={2.5} className={`transition-transform ${open ? "" : "-rotate-90"}`} />
         </button>
         <span className="min-w-0 flex-1 truncate text-[14px] font-bold text-white/90">{family.label}</span>
-        <button onClick={() => setAll(!anyOn)} aria-label={family.label}><Switch on={anyOn} /></button>
+        <button onClick={() => setAll(!anyOn)} aria-label={family.label} className="cible-tactile flex items-center justify-center"><Switch on={anyOn} /></button>
       </div>
       {open && (
         <div className="ms-2 flex flex-col border-s border-white/15 ps-1.5">
@@ -169,6 +190,7 @@ export default function MapPage() {
   const lang = useArgos((s) => s.lang);
   const hospitals = useArgos((s) => s.hospitals);
   const layers = useArgos((s) => s.layers);
+  const aircraft = useArgos((s) => s.aircraft);
   const toggleLayer = useArgos((s) => s.toggleLayer);
   const selMarker = useArgos((s) => s.selMarker);
   const clearSelection = useArgos((s) => s.clearSelection);
@@ -188,6 +210,8 @@ export default function MapPage() {
   const fieldHosps = useArgos((s) => s.fieldHosps);
   const select = useArgos((s) => s.select);
   const [full, setFull] = useState(false);
+  /** Onglet ouvert dans la feuille du bas (sous `lg`) ; `null` = feuille fermée. */
+  const [sheet, setSheet] = useState<SheetTab | null>(null);
 
   // Échap quitte le plein écran.
   useEffect(() => {
@@ -196,6 +220,14 @@ export default function MapPage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [full]);
+
+  // Toucher un marqueur doit montrer son détail : la feuille s'ouvre sur
+  // l'onglet Sélection, et se referme dès que la sélection est levée (sinon
+  // l'opérateur garde une feuille vide en travers de la carte).
+  useEffect(() => {
+    if (selMarker) setSheet("selection");
+    else setSheet((s) => (s === "selection" ? null : s));
+  }, [selMarker]);
 
   // Arbre : famille → couche (interrupteur) → éléments réellement créés.
   const families: TreeFamily[] = [
@@ -222,6 +254,20 @@ export default function MapPage() {
             .map((h) => ({ id: h.id, label: `${h.nom} · ${h.ville}`, kind: "hosp" })),
         },
         { key: "field", label: t.field, leaves: fieldHosps.map((f) => ({ id: f.nom, label: f.nom, kind: "field" })) },
+      ],
+    },
+    {
+      label: t.fam_air,
+      layers: [
+        {
+          key: "aircraft",
+          label: t.lg_aircraft,
+          leaves: aircraft.map((a) => ({
+            id: a.aircraft.id,
+            label: `${a.aircraft.label} · ${a.aircraft.code}`,
+            kind: "acft" as const,
+          })),
+        },
       ],
     },
     {
@@ -291,87 +337,136 @@ export default function MapPage() {
     }
   }
 
-  const seg = (on: boolean) => `px-4 py-2.5 text-[14px] font-bold transition-colors ${on ? "bg-or-500 text-rdia-600" : "text-white/90 hover:text-or-400"}`;
+  // Cibles de 44 px sous lg (§ tactile) ; densité d'origine à partir de lg.
+  const seg = (on: boolean) => `min-h-11 px-4 py-2.5 text-[14px] font-bold transition-colors lg:min-h-0 ${on ? "bg-or-500 text-rdia-600" : "text-white/90 hover:text-or-400"}`;
   const legend: [ReactNode, string][] = [
     [<rect key="u" x={-4} y={-4} width={8} height={8} fill="#C9A84C" />, t.lg_units],
     [<path key="i" d="M0,-6 L6,5 L-6,5 Z" fill="#EF4444" />, t.nav_inc],
     [<path key="v" d="M0,-5 L5,0 L0,5 L-5,0 Z" fill="#3B82F6" />, t.lg_veh],
   ];
 
+  // ---- corps des panneaux ----
+  // Rendus une seule fois puis placés soit dans les panneaux flottants (≥ lg),
+  // soit dans la feuille du bas (< lg) : aucune fonctionnalité n'est dupliquée
+  // ni perdue d'un côté ou de l'autre du point de rupture.
+  const layersBody = (
+    // Pas de hauteur maximale sous lg : c'est la feuille qui défile.
+    <div className="flex flex-col overflow-x-hidden lg:max-h-[36vh] lg:overflow-y-auto">
+      {families.map((f) => (
+        <FamilyNode
+          key={f.label}
+          family={f}
+          layers={layers}
+          toggleLayer={toggleLayer}
+          selMarker={selMarker}
+          select={select}
+        />
+      ))}
+      {/* Couche sismique (EMSC) — indépendante de LayerState (flux externe) */}
+      <div className="mt-1 flex items-center gap-1.5 border-t border-white/10 py-0.5 pt-1.5">
+        <span className="w-[10px]" />
+        <button onClick={() => setQuakesOn(!quakesOn)} className={`min-w-0 flex-1 truncate text-start text-[14px] transition-colors ${quakesOn ? "text-white/90" : "text-white/45"}`}>
+          {t.nav_seismic}
+          <span className="ms-1 text-white/40">({quakes.length})</span>
+        </button>
+        <button onClick={() => setQuakesOn(!quakesOn)} aria-label={t.nav_seismic} className="cible-tactile flex items-center justify-center"><Switch on={quakesOn} /></button>
+      </div>
+
+      {/* Couches météo (grille de conditions actuelles) — superposables */}
+      <div className="mt-1 border-t border-white/10 pt-1.5">
+        <div className="py-0.5 text-[14px] font-bold text-white/90">{t.nav_weather}</div>
+        {([["temp", fx.wx_temp], ["wind", fx.wx_wind], ["precip", fx.wx_precip]] as const).map(([k, label]) => (
+          <div key={k} className="flex items-center gap-1.5 py-0.5 ps-3">
+            <button onClick={() => toggleWxLayer(k)} className={`min-w-0 flex-1 truncate text-start text-[14px] transition-colors ${wxLayers[k] ? "text-white/90" : "text-white/45"}`}>
+              {label}
+            </button>
+            <button onClick={() => toggleWxLayer(k)} aria-label={label} className="cible-tactile flex items-center justify-center"><Switch on={wxLayers[k]} /></button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const legendBody = (
+    <div className="flex flex-col gap-2 overflow-x-hidden text-[14px] text-white/80 lg:max-h-[46vh] lg:overflow-y-auto">
+      {legend.map(([shape, label]) => (
+        <div key={label} className="flex items-center gap-2">
+          <svg width={14} height={14} viewBox="-7 -7 14 14">{shape}</svg>
+          <span>{label}</span>
+        </div>
+      ))}
+      {/* Établissements de santé : six symboles distincts —
+          hexagone = militaire, cercle = civil, pointillé = campagne. */}
+      <div className="mt-1 border-t border-white/12 pt-2">
+        <div className="mb-1.5 text-[12px] font-bold uppercase tracking-wider text-white/50">{t.lg_health_net}</div>
+        <div className="flex flex-col gap-1.5">
+          {HOSPITAL_KINDS.map((k) => (
+            <div key={k.kind} className="flex items-center gap-2">
+              <HealthGlyph kind={k.kind} size={17} />
+              <span>{k.long}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const selectionBody = selInfo && (
+    <div className="flex flex-col gap-2">
+      <div className="text-[14px] text-white/60">{selInfo.sub}</div>
+      <div><Badge type={selInfo.badgeType} label={selInfo.badgeLabel} /></div>
+      <div className="flex flex-col gap-1">
+        {selInfo.lines.map((ln, i) => (
+          <div key={i} className="flex items-center justify-between gap-2 border-b border-white/12 py-1 text-[14px]">
+            <span className="min-w-0 text-white/60">{ln.k}</span>
+            <span className="min-w-0 text-end font-semibold text-white">{ln.v}</span>
+          </div>
+        ))}
+      </div>
+      {selInfo.action && <button className="btn-secondaire min-h-11 w-full text-[14px] lg:min-h-0" onClick={selInfo.action}>{t.view}</button>}
+    </div>
+  );
+
+  // Onglets de la feuille : l'onglet « sélection » n'existe que s'il y a une
+  // sélection — son libellé est alors le nom de l'élément (aucune clé i18n
+  // supplémentaire n'est nécessaire).
+  const sheetTabs: { key: SheetTab; label: string; body: ReactNode }[] = [
+    { key: "layers", label: t.layers, body: layersBody },
+    { key: "aircraft", label: t.acft_panel, body: <AircraftPanel /> },
+    { key: "legend", label: t.legend, body: legendBody },
+  ];
+  if (selInfo) sheetTabs.push({ key: "selection", label: selInfo.titre, body: selectionBody });
+  const openTab = sheetTabs.find((x) => x.key === sheet) ?? null;
+
+  // Les marges négatives annulent exactement le rembourrage de <main>
+  // (`p-3 sm:p-4 lg:p-6`) : figées à `-m-6`, elles débordaient de 24 px à
+  // 375 px et faisaient défiler la page horizontalement.
+  const frameCls = full
+    ? "fixed inset-0 z-[9999] bg-rdia-900"
+    : "relative -m-3 h-[calc(100%+1.5rem)] animate-fade-in sm:-m-4 sm:h-[calc(100%+2rem)] lg:-m-6 lg:h-[calc(100%+3rem)]";
+
   return (
     <section
-      className={full ? "fixed inset-0 z-[9999] bg-rdia-900" : "relative -m-6 h-[calc(100%+3rem)] animate-fade-in"}
+      className={`carte-page ${frameCls}`}
       style={{ background: "#10202f" }}
     >
       <MapCanvas />
 
       {/* Surcouches : tout est posé sur la carte, chaque panneau est repliable */}
       <div className="pointer-events-none absolute inset-0 z-20">
-        {/* Colonne gauche : couches (arbre) + légende */}
-        <div className="absolute flex w-[300px] flex-col gap-2" style={{ top: 12, insetInlineStart: 12 }}>
-          <Panel title={t.layers} width={300}>
-            <div className="flex max-h-[36vh] flex-col overflow-y-auto overflow-x-hidden">
-              {families.map((f) => (
-                <FamilyNode
-                  key={f.label}
-                  family={f}
-                  layers={layers}
-                  toggleLayer={toggleLayer}
-                  selMarker={selMarker}
-                  select={select}
-                />
-              ))}
-              {/* Couche sismique (EMSC) — indépendante de LayerState (flux externe) */}
-              <div className="mt-1 flex items-center gap-1.5 border-t border-white/10 py-0.5 pt-1.5">
-                <span className="w-[10px]" />
-                <button onClick={() => setQuakesOn(!quakesOn)} className={`min-w-0 flex-1 truncate text-start text-[14px] transition-colors ${quakesOn ? "text-white/90" : "text-white/45"}`}>
-                  {t.nav_seismic}
-                  <span className="ms-1 text-white/40">({quakes.length})</span>
-                </button>
-                <button onClick={() => setQuakesOn(!quakesOn)} aria-label={t.nav_seismic}><Switch on={quakesOn} /></button>
-              </div>
-
-              {/* Couches météo (grille de conditions actuelles) — superposables */}
-              <div className="mt-1 border-t border-white/10 pt-1.5">
-                <div className="py-0.5 text-[14px] font-bold text-white/90">{t.nav_weather}</div>
-                {([["temp", fx.wx_temp], ["wind", fx.wx_wind], ["precip", fx.wx_precip]] as const).map(([k, label]) => (
-                  <div key={k} className="flex items-center gap-1.5 py-0.5 ps-3">
-                    <button onClick={() => toggleWxLayer(k)} className={`min-w-0 flex-1 truncate text-start text-[14px] transition-colors ${wxLayers[k] ? "text-white/90" : "text-white/45"}`}>
-                      {label}
-                    </button>
-                    <button onClick={() => toggleWxLayer(k)} aria-label={label}><Switch on={wxLayers[k]} /></button>
-                  </div>
-                ))}
-              </div>
-            </div>
+        {/* Colonne gauche (≥ lg) : couches (arbre) + suivi aérien + légende.
+            Sous lg ces trois panneaux sont dans la feuille du bas. */}
+        <div className="absolute top-3 hidden w-[300px] flex-col gap-2 lg:flex" style={{ insetInlineStart: 12 }}>
+          <Panel title={t.layers} width={300}>{layersBody}</Panel>
+          {/* Suivi aérien : saisie des codes et liste des appareils inscrits. */}
+          <Panel title={t.acft_panel} width={300} defaultOpen={false}>
+            <AircraftPanel />
           </Panel>
-          <Panel title={t.legend} width={300} defaultOpen={false}>
-            <div className="flex max-h-[46vh] flex-col gap-2 overflow-y-auto overflow-x-hidden text-[14px] text-white/80">
-              {legend.map(([shape, label]) => (
-                <div key={label} className="flex items-center gap-2">
-                  <svg width={14} height={14} viewBox="-7 -7 14 14">{shape}</svg>
-                  <span>{label}</span>
-                </div>
-              ))}
-              {/* Établissements de santé : six symboles distincts —
-                  hexagone = militaire, cercle = civil, pointillé = campagne. */}
-              <div className="mt-1 border-t border-white/12 pt-2">
-                <div className="mb-1.5 text-[12px] font-bold uppercase tracking-wider text-white/50">{t.lg_health_net}</div>
-                <div className="flex flex-col gap-1.5">
-                  {HOSPITAL_KINDS.map((k) => (
-                    <div key={k.kind} className="flex items-center gap-2">
-                      <HealthGlyph kind={k.kind} size={17} />
-                      <span>{k.long}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </Panel>
+          <Panel title={t.legend} width={300} defaultOpen={false}>{legendBody}</Panel>
         </div>
 
-        {/* Colonne droite : contrôles + sélection */}
-        <div className="absolute flex w-[300px] flex-col items-end gap-2" style={{ top: 12, insetInlineEnd: 12 }}>
+        {/* Colonne droite : contrôles de carte (toutes tailles) + sélection (≥ lg) */}
+        <div className="absolute top-3 flex max-w-[calc(100%-1.5rem)] flex-col items-end gap-2 lg:w-[300px]" style={{ insetInlineEnd: 12 }}>
           <div className="pointer-events-auto flex flex-wrap justify-end gap-2">
             <div className="flex overflow-hidden rounded-lg shadow-md" style={GLASS}>
               <button className={seg(!map3d)} onClick={() => setMap3d(false)}>2D</button>
@@ -385,40 +480,81 @@ export default function MapPage() {
               onClick={() => setFull((f) => !f)}
               title={full ? t.wz_exit_full : t.wz_fullscreen}
               aria-label={full ? t.wz_exit_full : t.wz_fullscreen}
-              className="flex h-[30px] w-[30px] items-center justify-center rounded-lg text-white/90 shadow-md transition-colors hover:text-or-400"
+              className="flex h-11 w-11 items-center justify-center rounded-lg text-white/90 shadow-md transition-colors hover:text-or-400 lg:h-[30px] lg:w-[30px]"
               style={GLASS}
             >
               <Icon path={full ? UI_ICONS.close : UI_ICONS.expand} size={15} strokeWidth={2} />
             </button>
           </div>
 
+          {/* Bouton flottant d'ouverture de la feuille — sous lg uniquement. */}
+          <button
+            onClick={() => setSheet((s) => (s ? null : "layers"))}
+            title={t.layers}
+            aria-label={t.layers}
+            aria-expanded={sheet !== null}
+            className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-lg text-white/90 shadow-md transition-colors hover:text-or-400 lg:hidden"
+            style={GLASS}
+          >
+            <Icon path={sheet ? UI_ICONS.close : UI_ICONS.sliders} size={18} strokeWidth={2} />
+          </button>
+
           {selInfo && (
-            <Panel
-              title={selInfo.titre}
-              width={240}
-              right={
-                <button className="me-2 rounded-lg p-1 text-white/60 transition-colors hover:text-or-400" onClick={clearSelection} aria-label={t.cancel}>
-                  <Icon path={UI_ICONS.close} size={13} strokeWidth={2} />
-                </button>
-              }
-            >
-              <div className="flex flex-col gap-2">
-                <div className="text-[14px] text-white/60">{selInfo.sub}</div>
-                <div><Badge type={selInfo.badgeType} label={selInfo.badgeLabel} /></div>
-                <div className="flex flex-col gap-1">
-                  {selInfo.lines.map((ln, i) => (
-                    <div key={i} className="flex items-center justify-between gap-2 border-b border-white/12 py-1 text-[14px]">
-                      <span className="text-white/60">{ln.k}</span>
-                      <span className="text-end font-semibold text-white">{ln.v}</span>
-                    </div>
-                  ))}
-                </div>
-                {selInfo.action && <button className="btn-secondaire w-full text-[14px]" onClick={selInfo.action}>{t.view}</button>}
-              </div>
-            </Panel>
+            <div className="hidden lg:block">
+              <Panel
+                title={selInfo.titre}
+                width={240}
+                right={
+                  <button className="me-2 rounded-lg p-1 text-white/60 transition-colors hover:text-or-400" onClick={clearSelection} aria-label={t.cancel}>
+                    <Icon path={UI_ICONS.close} size={13} strokeWidth={2} />
+                  </button>
+                }
+              >
+                {selectionBody}
+              </Panel>
+            </div>
           )}
         </div>
+
       </div>
+
+      {/* Feuille ancrée en bas (< lg) : mêmes panneaux, en onglets. Elle ne
+          couvre jamais plus de 62 % de la hauteur utile et laisse donc voir la
+          carte pendant qu'on bascule une couche. Rendue hors de la surcouche
+          `z-20` : il lui faut passer devant le bouton flottant du Copilot
+          (`z-50`), sinon celui-ci se pose au milieu du contenu. */}
+      {openTab && (
+        <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-[60] flex max-h-[62dvh] flex-col overflow-hidden rounded-t-2xl shadow-2xl lg:hidden" style={GLASS}>
+          <div className="flex shrink-0 items-center gap-1 border-b border-white/12 ps-1">
+            {/* Onglets défilables : quatre libellés ne tiennent pas à 375 px. */}
+            <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
+              {sheetTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setSheet(tab.key)}
+                  className={`min-h-11 max-w-[45vw] shrink-0 truncate rounded-t-lg px-3 text-[13px] font-bold uppercase tracking-wider transition-colors ${
+                    tab.key === openTab.key ? "bg-white/10 text-or-400" : "text-white/60 hover:text-white"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setSheet(null)}
+              aria-label={t.cancel}
+              className="cible-tactile flex shrink-0 items-center justify-center rounded-lg text-white/70 transition-colors hover:text-or-400"
+            >
+              <Icon path={UI_ICONS.close} size={16} strokeWidth={2} />
+            </button>
+          </div>
+          {/* Seule la feuille défile ; `overscroll-contain` évite d'entraîner
+              la carte quand on arrive en bout de liste. */}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+            {openTab.body}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

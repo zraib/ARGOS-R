@@ -1,7 +1,16 @@
 // Constructeurs de marqueurs HTML pour la carte opérationnelle — répliquent
 // les glyphes stylés du prototype pour que la carte soit identique à l'export.
 
-import type { FieldHospital, Hospital, HospitalKind, Incident, Unit, VehRoute } from "@/lib/types";
+import type {
+  AircraftRole,
+  FieldHospital,
+  Hospital,
+  HospitalKind,
+  Incident,
+  TrackingStatus,
+  Unit,
+  VehRoute,
+} from "@/lib/types";
 import { incidentFill } from "@/lib/helpers";
 import { fieldKind, hospKind, kindDef } from "@/lib/hospitals";
 
@@ -105,6 +114,61 @@ export function vehMarkerHTML(v: VehRoute, sel: boolean): string {
     `<div style="width:14px;height:14px;background:#3B82F6;border:2px solid #0f1f14;transform:rotate(45deg);${selRing(sel)}"></div>` +
     `<span style="font:700 8px Inter,sans-serif;color:#BFDBFE;text-shadow:0 1px 2px #000;background:rgba(15,31,20,.7);padding:0 3px;border-radius:3px;">${v.id}</span></div>`
   );
+}
+
+/**
+ * Marqueur d'aéronef suivi : silhouette orientée au cap réel.
+ *
+ * Le cap porte une information opérationnelle — savoir qu'un bombardier fait
+ * route vers le front ou en revient vaut autant que sa position. La silhouette
+ * pivote donc, mais l'étiquette reste horizontale pour rester lisible.
+ *
+ * Trois états : en vol (plein), au sol (atténué), sans signal (contour seul).
+ */
+export function acftMarkerHTML(
+  label: string,
+  role: AircraftRole,
+  status: TrackingStatus,
+  heading: number | null,
+  sel: boolean,
+  /** Dernier contact réel trop ancien : la position affichée n'engage plus. */
+  stale = false,
+): string {
+  const fill = status === "no_signal" ? "none" : ACFT_FILL[role];
+  const stroke = ACFT_FILL[role];
+  // Contact périmé : la silhouette s'estompe. Un appareil dont on n'a plus de
+  // nouvelles depuis une minute ne doit pas s'afficher aussi franchement qu'un
+  // appareil suivi en continu.
+  const opacity = status === "ground" ? "0.55" : stale ? "0.4" : "1";
+  // Sans écho, on n'invente pas de cap : la silhouette reste au nord.
+  const rot = status === "no_signal" ? 0 : Math.round(heading ?? 0);
+  // Un appareil sans signal est signalé explicitement plutôt que masqué :
+  // l'absence d'écho est elle-même une information pour le commandement.
+  const glyph =
+    role === "helicopter"
+      ? '<path d="M12,3 L12,21 M4,6 L20,6 M8,21 L16,21" stroke-width="2.2" stroke-linecap="round" fill="none"/>'
+      : '<path d="M12,2 L14,10 L22,14 L22,16 L14,14 L13.5,20 L16,22 L16,23 L12,22 L8,23 L8,22 L10.5,20 L10,14 L2,16 L2,14 L10,10 Z"/>';
+
+  return (
+    '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">' +
+    `<div style="width:24px;height:24px;opacity:${opacity};transform:rotate(${rot}deg);${selRing(sel)}">` +
+    `<svg width="24" height="24" viewBox="0 0 24 24" fill="${fill}" stroke="${stroke}" stroke-width="1.4">${glyph}</svg></div>` +
+    `<span style="font:700 8px Inter,sans-serif;color:#FDE68A;text-shadow:0 1px 2px #000;background:rgba(15,31,20,.75);padding:0 3px;border-radius:3px;white-space:nowrap;">${escapeHtml(label)}</span></div>`
+  );
+}
+
+/** Couleur par rôle opérationnel — cohérente avec la palette `or` / `danger`. */
+const ACFT_FILL: Record<AircraftRole, string> = {
+  waterbomber: "#F59E0B",
+  helicopter: "#38BDF8",
+  observation: "#A3E635",
+  transport: "#C4B5FD",
+  medevac: "#F87171",
+};
+
+/** Le libellé vient d'une saisie opérateur : il est inséré dans du HTML. */
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
 
 /** Position le long d'une polyligne à la progression fractionnaire p ∈ [0,1). */

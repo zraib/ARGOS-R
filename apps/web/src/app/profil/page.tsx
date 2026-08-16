@@ -74,6 +74,10 @@ export default function ProfilPage() {
   const photo0 = sessionUser?.photo;
   const dirty = nom.trim() !== nom0 || photo !== photo0;
   const labelCls = "mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200";
+  // 16 px sur mobile : en dessous, iOS zoome au focus et décale la page.
+  const champCls = "input-champ text-base md:text-sm";
+  // Bouton d'action : 44 px au doigt, densité d'origine au pointeur (≥ lg).
+  const actionCls = "btn-primaire min-h-[44px] text-sm lg:min-h-0";
 
   const pickPhoto = async (file: File) => {
     try {
@@ -118,86 +122,94 @@ export default function ProfilPage() {
   return (
     <section className="mx-auto flex max-w-2xl flex-col gap-4 animate-fade-in">
       {/* Identité éditable : photo + nom affiché */}
-      <div className="carte flex flex-col gap-4 p-5">
-        <div className="flex items-center gap-4">
-          <div className="relative shrink-0">
+      <div className="carte flex flex-col gap-4 p-4 sm:p-5">
+        <div className="flex items-center gap-3 sm:gap-4">
+          {/* L'avatar entier déclenche le sélecteur de fichier : la pastille
+              d'appareil photo seule ferait une cible de 28 px, intenable au
+              doigt. Un <span> à l'intérieur, jamais un bouton imbriqué. */}
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            title={t.pr_photo}
+            className="relative shrink-0 rounded-full"
+          >
             <Avatar nom={nom || nom0} photo={photo} size={72} />
-            <button
-              onClick={() => fileRef.current?.click()}
-              title={t.pr_photo}
-              className="absolute -bottom-1 -end-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-or-500 text-rdia-600 transition-colors hover:bg-or-400 dark:border-rdia-700"
-            >
+            <span className="absolute -bottom-1 -end-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-or-500 text-rdia-600 transition-colors hover:bg-or-400 dark:border-rdia-700">
               <Icon path={UI_ICONS.camera} size={13} />
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) void pickPhoto(f); e.target.value = ""; }}
-            />
-          </div>
+            </span>
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) void pickPhoto(f); e.target.value = ""; }}
+          />
           <div className="min-w-0 flex-1">
             <div className="truncate font-mono text-xs text-gray-400 dark:text-rdia-300">{sessionUser?.matricule}</div>
-            <Pill tone="gold" label={m.roles[role]} />
+            {/* Le libellé de rôle ne se coupe pas : à 375 px, « Retirer la photo »
+                passe à la ligne plutôt que de pousser la pastille hors écran. */}
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <Pill tone="gold" label={m.roles[role]} />
+              {photo && (
+                <button className="py-1 text-[11px] font-semibold text-gray-400 hover:text-danger-500" onClick={() => setPhoto(undefined)}>
+                  {t.pr_photo_remove}
+                </button>
+              )}
+            </div>
           </div>
-          {photo && (
-            <button className="text-[11px] font-semibold text-gray-400 hover:text-danger-500" onClick={() => setPhoto(undefined)}>
-              {t.pr_photo_remove}
-            </button>
-          )}
         </div>
         <div>
           <label className={labelCls}>{t.pr_name}</label>
-          <input className="input-champ text-sm" value={nom} onChange={(e) => setNom(e.target.value)} />
+          <input className={champCls} value={nom} onChange={(e) => setNom(e.target.value)} />
         </div>
         <div className="flex justify-end">
-          <button className="btn-primaire text-sm" onClick={() => void saveProfile()} disabled={!dirty || savingProfile}>
+          <button className={actionCls} onClick={() => void saveProfile()} disabled={!dirty || savingProfile}>
             {savingProfile ? "…" : t.pr_submit}
           </button>
         </div>
       </div>
 
       {/* Rôles du compte */}
-      <div className="carte flex flex-col gap-3 p-5">
+      <div className="carte flex flex-col gap-3 p-4 sm:p-5">
         <h3 className="text-sm font-semibold text-rdia-600 dark:text-rdia-50">{t.pr_roles}</h3>
         <div className="flex flex-wrap gap-2">
           {(sessionUser?.roles ?? [role]).map((r) => (
             <span
               key={r}
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
+              className={`inline-flex max-w-full items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
                 r === role
                   ? "border-or-500 bg-or-500/10 text-or-600 dark:text-or-400"
                   : "border-gray-200 text-gray-500 dark:border-rdia-600 dark:text-rdia-300"
               }`}
             >
-              <Icon path={ROLE_ICONS[r]} size={13} />
-              {m.roles[r]}
-              {r === role && <span className="text-[9px] uppercase tracking-wide">· {t.pr_active_role}</span>}
+              <Icon path={ROLE_ICONS[r]} size={13} className="shrink-0" />
+              <span className="min-w-0">{m.roles[r]}</span>
+              {r === role && <span className="shrink-0 text-[9px] uppercase tracking-wide">· {t.pr_active_role}</span>}
             </span>
           ))}
         </div>
       </div>
 
       {/* Changement de mot de passe */}
-      <div className="carte flex flex-col gap-4 p-5">
+      <div className="carte flex flex-col gap-4 p-4 sm:p-5">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-rdia-600 dark:text-rdia-50">
-          <Icon path={UI_ICONS.key} size={15} className="text-or-500" />
+          <Icon path={UI_ICONS.key} size={15} className="shrink-0 text-or-500" />
           {m.users.cp_title}
         </h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className={labelCls}>{m.users.cp_new}</label>
-            <input type="password" className="input-champ text-sm" value={pass} onChange={(e) => { setPass(e.target.value); setPwError(null); }} />
+            <input type="password" className={champCls} value={pass} onChange={(e) => { setPass(e.target.value); setPwError(null); }} />
           </div>
           <div>
             <label className={labelCls}>{m.users.cp_confirm}</label>
-            <input type="password" className="input-champ text-sm" value={confirm} onChange={(e) => { setConfirm(e.target.value); setPwError(null); }} />
+            <input type="password" className={champCls} value={confirm} onChange={(e) => { setConfirm(e.target.value); setPwError(null); }} />
           </div>
         </div>
         {pwError && <p className="text-xs font-semibold text-danger-500">{pwError}</p>}
         <div className="flex justify-end">
-          <button className="btn-primaire text-sm" onClick={() => void changePassword()} disabled={busyPw || !pass || !confirm}>
+          <button className={actionCls} onClick={() => void changePassword()} disabled={busyPw || !pass || !confirm}>
             {busyPw ? "…" : t.pr_pw_submit}
           </button>
         </div>

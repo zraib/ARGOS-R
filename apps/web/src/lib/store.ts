@@ -28,6 +28,8 @@ import type {
   Province,
   SeismicAlertConfig,
   SeismicEvent,
+  AircraftRole,
+  TrackedAircraftState,
   Unit,
   VehRoute,
   WeatherGridSeries,
@@ -105,6 +107,8 @@ export interface LayerState {
   incidents: boolean;
   vehicles: boolean;
   field: boolean;
+  /** Aéronefs inscrits au suivi (bombardiers d'eau, hélicoptères…). */
+  aircraft: boolean;
 }
 
 interface NavGroups {
@@ -169,6 +173,16 @@ interface ArgosState {
   lang: Lang;
   dark: boolean;
   sbOpen: boolean;
+  /**
+   * Tiroir de navigation MOBILE (< lg), distinct de `sbOpen`.
+   *
+   * Sur grand écran, `sbOpen` replie la barre latérale sans jamais la masquer.
+   * Sur mobile il n'y a pas la place : la navigation devient un tiroir posé
+   * PAR-DESSUS le contenu, fermé par défaut. Deux états séparés, car un
+   * opérateur qui replie sa barre au bureau ne doit pas retrouver son tiroir
+   * ouvert sur téléphone.
+   */
+  navOpen: boolean;
   navGroups: NavGroups;
   toast: string | null;
   wizOpen: boolean;
@@ -291,6 +305,18 @@ interface ArgosState {
   /** Charge les entités de domaine depuis l'API (incidents, unités, hôpitaux, fil). */
   loadDomain: () => Promise<void>;
   /** Recharge les séismes (EMSC) et détecte les nouveaux (→ alerte). */
+  // --- suivi aérien : aéronefs inscrits + positions ---
+  /** Aéronefs inscrits, enrichis de leur position quand le flux les voit. */
+  aircraft: TrackedAircraftState[];
+  /** Fournisseur de positions en service (« OpenSky Network », « Exercice… »). */
+  aircraftFeed: string;
+  /** Vrai pendant une inscription/suppression, pour désarmer les boutons. */
+  aircraftBusy: boolean;
+  /** Dernière erreur de saisie, affichée sous le formulaire ; null = aucune. */
+  aircraftError: string | null;
+  loadAircraft: () => Promise<void>;
+  addAircraft: (input: { code: string; label: string; role: AircraftRole }) => Promise<boolean>;
+  removeAircraft: (id: string) => Promise<void>;
   loadQuakes: () => Promise<void>;
   loadSeisConfig: () => Promise<void>;
   setSeisConfig: (cfg: SeismicAlertConfig) => void;
@@ -321,6 +347,8 @@ interface ArgosState {
   setLang: (lang: Lang) => void;
   toggleTheme: () => void;
   toggleSidebar: () => void;
+  toggleNav: () => void;
+  closeNav: () => void;
   toggleNavGroup: (g: keyof NavGroups) => void;
   openNavGroup: (g: keyof NavGroups) => void;
   showToast: (msg: string) => void;
@@ -402,6 +430,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
   lang: "fr",
   dark: true,
   sbOpen: true,
+  navOpen: false,
   navGroups: { res: false, dis: false, cmd: false },
   toast: null,
   wizOpen: false,
@@ -441,7 +470,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
 
   // Le réseau civil (106 établissements) est masqué par défaut : il se
   // rallume d'un clic quand l'opérateur cherche une capacité d'accueil.
-  layers: { units: true, hospitals: true, hospitalsCiv: false, incidents: true, vehicles: true, field: true },
+  layers: { units: true, hospitals: true, hospitalsCiv: false, incidents: true, vehicles: true, field: true, aircraft: true },
   map3d: false,
   mapSat: true,
   selMarker: null,
@@ -572,6 +601,50 @@ export const useArgos = create<ArgosState>((set, get) => ({
 
   // Recharge les séismes depuis l'API (proxy EMSC) et détecte les nouveaux
   // événements pour déclencher l'alerte globale (hors 1er chargement / couche off).
+  aircraft: [],
+  aircraftFeed: "",
+  aircraftBusy: false,
+  aircraftError: null,
+
+  /**
+   * Recharge la liste et les positions. L'API ne renvoie que les aéronefs
+   * inscrits : le trafic aérien non désigné n'atteint jamais le navigateur.
+   */
+  loadAircraft: async () => {
+    const res = await api.getAircraftStates();
+    const data = res.data as { feed?: string; aircraft?: TrackedAircraftState[] } | undefined;
+    if (!data) return;
+    set({ aircraft: data.aircraft ?? [], aircraftFeed: data.feed ?? "" });
+  },
+
+  /** Inscrit un aéronef. Retourne `false` et publie le motif si l'API refuse. */
+  addAircraft: async (input) => {
+    set({ aircraftBusy: true, aircraftError: null });
+    try {
+      const res = await api.addAircraft(input);
+      if (res.error) {
+        const msg = (res.error as { message?: string | string[] } | undefined)?.message;
+        set({ aircraftError: Array.isArray(msg) ? msg.join(" ") : (msg ?? "Inscription refusée.") });
+        return false;
+      }
+      await get().loadAircraft();
+      return true;
+    } finally {
+      set({ aircraftBusy: false });
+    }
+  },
+
+  /** Retire un aéronef du suivi (archivage : geste réversible, non destructif). */
+  removeAircraft: async (id) => {
+    set({ aircraftBusy: true });
+    try {
+      await api.archiveAircraft(id);
+      await get().loadAircraft();
+    } finally {
+      set({ aircraftBusy: false });
+    }
+  },
+
   loadQuakes: async () => {
     const { quakesMinMag, quakesRegion, quakes: prev, quakesOn, seisConfig } = get();
     const res = await api.getSeismicEvents(quakesMinMag, quakesRegion);
@@ -911,6 +984,8 @@ export const useArgos = create<ArgosState>((set, get) => ({
   },
 
   toggleSidebar: () => set((s) => ({ sbOpen: !s.sbOpen })),
+  toggleNav: () => set((s) => ({ navOpen: !s.navOpen })),
+  closeNav: () => set({ navOpen: false }),
   toggleNavGroup: (g) => set((s) => ({ navGroups: { ...s.navGroups, [g]: !s.navGroups[g] } })),
   openNavGroup: (g) => set((s) => ({ sbOpen: true, navGroups: { ...s.navGroups, [g]: true } })),
 

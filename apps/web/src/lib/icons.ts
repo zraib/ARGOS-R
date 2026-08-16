@@ -115,6 +115,8 @@ export const UI_ICONS = {
   arrowLeft: "M19 12H5M12 19l-7-7 7-7",
   close: "M18 6L6 18M6 6l12 12",
   sidebar: "M3 5h18v14H3z M9 5v14",
+  /** Menu mobile : trois barres, convention universelle du tiroir de navigation. */
+  menu: "M4 7h16 M4 12h16 M4 17h16",
   logout: "M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4 M16 17l5-5-5-5 M21 12H9",
   sun: "M12 3v2m0 14v2M5.2 5.2l1.4 1.4m10.8 10.8l1.4 1.4M3 12h2m14 0h2M5.2 18.8l1.4-1.4M17.4 6.6l1.4-1.4M12 8a4 4 0 100 8 4 4 0 000-8z",
   moon: "M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z",

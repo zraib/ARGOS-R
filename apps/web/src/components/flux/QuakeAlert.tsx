@@ -61,7 +61,10 @@ export function QuakeAlert() {
   const nContacts = seisConfig?.contacts.length ?? 0;
 
   return (
-    <div className="fixed bottom-4 end-4 z-[60] w-80 animate-fade-in">
+    // Sous sm la pop-up s'étend d'un bord à l'autre (moins 12 px de marge) :
+    // figée à 320 px, elle ne laissait plus la place aux deux boutons d'action
+    // et débordait de son cadre à 375 px.
+    <div className="fixed bottom-4 start-3 end-3 z-[60] animate-fade-in sm:start-auto sm:end-4 sm:w-80">
       <div
         className={`rounded-2xl border bg-white shadow-2xl dark:bg-rdia-800 ${
           isMa ? "border-danger-500 ring-2 ring-danger-500/50 animate-pulse-ring" : "border-or-500/40"
@@ -87,21 +90,22 @@ export function QuakeAlert() {
               </span>
             </div>
             <p className="mt-1 truncate text-xs text-gray-600 dark:text-rdia-200">{alert.region}</p>
-            <p className="text-[11px] text-gray-400 dark:text-rdia-400">{isMa ? f.alert_ma_body : f.alert_body}</p>
+            <p className="text-[12px] text-gray-400 dark:text-rdia-400">{isMa ? f.alert_ma_body : f.alert_body}</p>
             {/* Rappel de la notification serveur des autorités (SMS + e-mail) */}
             {isMa && (
-              <p className={`mt-1 text-[11px] font-semibold ${nContacts > 0 ? "text-danger-500" : "text-or-500"}`}>
+              <p className={`mt-1 text-[12px] font-semibold ${nContacts > 0 ? "text-danger-500" : "text-or-500"}`}>
                 {nContacts > 0 ? `${f.alert_ma_sent} ${nContacts}` : f.alert_ma_none}
               </p>
             )}
-            <div className="mt-2 flex gap-2">
-              <button className="btn-primaire flex items-center gap-1.5 text-xs" onClick={view}>
+            {/* Les deux actions passent à la ligne plutôt que de déborder. */}
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button className="btn-primaire flex min-h-11 items-center gap-1.5 text-xs sm:min-h-0" onClick={view}>
                 <Icon path={UI_ICONS.map} size={13} /> {f.alert_view}
               </button>
-              <button className="btn-secondaire text-xs" onClick={dismiss}>{f.alert_dismiss}</button>
+              <button className="btn-secondaire min-h-11 text-xs sm:min-h-0" onClick={dismiss}>{f.alert_dismiss}</button>
             </div>
           </div>
-          <button onClick={dismiss} className="rounded-md p-1 text-gray-400 transition-colors hover:text-danger-500" aria-label={f.alert_dismiss}>
+          <button onClick={dismiss} className="cible-tactile flex shrink-0 items-center justify-center rounded-md p-1 text-gray-400 transition-colors hover:text-danger-500" aria-label={f.alert_dismiss}>
             <Icon path={UI_ICONS.close} size={14} />
           </button>
         </div>

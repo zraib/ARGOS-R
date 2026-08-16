@@ -36,6 +36,7 @@ export type CreateEquipBody = Json<NonNullable<paths["/api/equipment-parks/{id}/
 export type UpdateEquipBody = Json<NonNullable<paths["/api/equipment-parks/{id}/items/{eid}"]["patch"]["requestBody"]>>;
 export type CreateWardBody = Json<NonNullable<paths["/api/hospitals/{id}/wards"]["post"]["requestBody"]>>;
 export type UpdateWardBody = Json<NonNullable<paths["/api/hospitals/{id}/wards/{wid}"]["patch"]["requestBody"]>>;
+export type AddAircraftBody = Json<NonNullable<paths["/api/aviation/aircraft"]["post"]["requestBody"]>>;
 
 export interface ArgosClientOptions {
   /** Origine de l'API, SANS le préfixe /api (ex. http://localhost:4000). */
@@ -156,6 +157,17 @@ export function createArgosClient(opts: ArgosClientOptions) {
     updateSeismicAlertConfig: (body: { maMinMag: number; globalMinMag: number; contacts: { name: string; phone: string; email: string }[] }) =>
       client.PATCH("/api/seismic/alert-config", { body }),
     getSeismicNotifications: () => client.GET("/api/seismic/notifications"),
+
+    // --- suivi aérien (feux de forêt) ---
+    /** Aéronefs inscrits à la surveillance. */
+    getAircraft: () => client.GET("/api/aviation/aircraft", {}),
+    /** Positions courantes des seuls aéronefs inscrits (+ nom du flux en service). */
+    getAircraftStates: () => client.GET("/api/aviation/states", {}),
+    addAircraft: (body: AddAircraftBody) => client.POST("/api/aviation/aircraft", { body }),
+    archiveAircraft: (id: string) =>
+      client.POST("/api/aviation/aircraft/{id}/archive", { params: { path: { id } } }),
+    deleteAircraft: (id: string) =>
+      client.DELETE("/api/aviation/aircraft/{id}", { params: { path: { id } } }),
     getWeatherCities: () => client.GET("/api/weather/cities"),
     getWeatherGrid: () => client.GET("/api/weather/grid"),
     getWeatherGridWorld: () => client.GET("/api/weather/grid-world"),

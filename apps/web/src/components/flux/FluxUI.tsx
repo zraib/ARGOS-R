@@ -77,7 +77,7 @@ export function ToggleChip({ on, onClick, label }: { on: boolean; onClick: () =>
       type="button"
       onClick={onClick}
       aria-pressed={on}
-      className="flex items-center gap-2 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:border-or-500/40 dark:border-rdia-600 dark:text-rdia-200"
+      className="flex min-h-11 items-center gap-2 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:border-or-500/40 lg:min-h-0 dark:border-rdia-600 dark:text-rdia-200"
     >
       <span className={`inline-flex h-4 w-7 shrink-0 items-center rounded-full px-0.5 transition-colors ${on ? "bg-or-500" : "bg-gray-300 dark:bg-rdia-600"}`}>
         <span className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${on ? "translate-x-3" : ""}`} />

@@ -116,9 +116,9 @@ export default function DashboardPage() {
               { label: m.orsec.n_missing, val: dashStats.casualties.missing, cls: "text-gray-500 dark:text-rdia-300" },
               { label: m.orsec.n_rescued, val: dashStats.casualties.rescued, cls: "text-green-600 dark:text-green-400" },
             ].map((c) => (
-              <div key={c.label} className="flex flex-col justify-center rounded-lg bg-gray-50 px-3 py-2 dark:bg-rdia-800/50">
+              <div key={c.label} className="flex min-w-0 flex-col justify-center rounded-lg bg-gray-50 px-3 py-2 dark:bg-rdia-800/50">
                 <span className={`text-2xl font-bold leading-tight tabular-nums ${c.cls}`}>{c.val}</span>
-                <span className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400">{c.label}</span>
+                <span className="truncate text-[11px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 sm:text-[10px]">{c.label}</span>
               </div>
             ))}
           </div>
@@ -131,9 +131,11 @@ export default function DashboardPage() {
           // décroissante (tri effectué par l'API) — la liste défile.
           <div className="flex h-full flex-col gap-2 overflow-y-auto pe-1">
             {dashStats.hospitals.map((h) => (
-              <div key={h.id} className="flex items-center gap-2.5">
+              <div key={h.id} className="flex items-center gap-2 sm:gap-2.5">
                 <HealthGlyph kind={(h.kind ?? "civ") as HospitalKind} size={15} />
-                <span className="w-36 shrink-0 truncate text-xs text-gray-600 dark:text-rdia-200" title={`${h.nom} · ${h.ville}`}>{h.nom}</span>
+                {/* Nom raccourci sous `sm` : à 375 px, 144 px de libellé ne
+                    laisseraient plus de place à la jauge d'occupation. */}
+                <span className="w-24 shrink-0 truncate text-xs text-gray-600 dark:text-rdia-200 sm:w-36" title={`${h.nom} · ${h.ville}`}>{h.nom}</span>
                 <div className="min-w-0 flex-1"><ProgressBar value={h.occPct} fill={occBarClass(h.occPct)} /></div>
                 <span className="w-10 shrink-0 text-end font-mono text-xs tabular-nums text-gray-500 dark:text-rdia-300">{h.occPct} %</span>
               </div>
@@ -157,8 +159,8 @@ export default function DashboardPage() {
         return (
           <div className="flex h-full flex-col gap-1.5 overflow-y-auto">
             {feed.map((f, i) => (
-              <div key={`${f.time}-${i}`} className="flex items-center gap-2.5 border-b border-gray-100 py-1 dark:border-rdia-700/50">
-                <span className="w-9 shrink-0 font-mono text-[10px] text-gray-400 dark:text-rdia-400">{f.time}</span>
+              <div key={`${f.time}-${i}`} className="flex items-center gap-2 border-b border-gray-100 py-1 dark:border-rdia-700/50 sm:gap-2.5">
+                <span className="w-9 shrink-0 font-mono text-[11px] text-gray-400 dark:text-rdia-400 sm:text-[10px]">{f.time}</span>
                 <span className={`h-2 w-2 shrink-0 rounded-full ${f.c}`} />
                 <span className="min-w-0 flex-1 truncate text-xs text-gray-700 dark:text-rdia-100">{f.txt}</span>
               </div>
@@ -167,7 +169,10 @@ export default function DashboardPage() {
         );
       case "predictions":
         return (
-          <div className="h-full min-h-[920px] w-full">
+          // Le panneau de conscience situationnelle a besoin de hauteur, mais
+          // 920 px sur un téléphone forceraient un défilement interminable :
+          // la réserve grandit avec la largeur disponible.
+          <div className="h-full min-h-[560px] w-full sm:min-h-[720px] lg:min-h-[920px]">
             <SituationalAwarenessPanel bare />
           </div>
         );
@@ -175,42 +180,50 @@ export default function DashboardPage() {
   };
 
   return (
-    <section className="flex h-full flex-col gap-3 animate-fade-in">
-      {/* Rangée de KPI (compacte) */}
-      <div className="grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-4">
+    // Sous `lg`, la grille ne peut plus tenir dans une seule hauteur d'écran :
+    // la page reprend un flux vertical normal et c'est `<main>` qui défile.
+    <section className="flex flex-col gap-3 animate-fade-in lg:h-full">
+      {/* Rangée de KPI (compacte) — 2 colonnes tiennent dès 375 px */}
+      <div className="grid shrink-0 grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         {kpis.map((k) => (
-          <div key={k.label} className="carte flex items-center gap-3 p-3">
-            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${k.iconWrap}`}>
+          <div key={k.label} className="carte flex items-center gap-2.5 p-3 sm:gap-3">
+            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 ${k.iconWrap}`}>
               <Icon path={k.icon} size={20} />
             </div>
             <div className="min-w-0">
               <div className="truncate text-xs text-gray-500 dark:text-rdia-300">{k.label}</div>
-              <div className="flex items-end gap-2">
-                <span className="text-2xl font-bold leading-none tabular-nums text-rdia-600 dark:text-rdia-50">{k.val}</span>
-                <span className={`text-[10px] font-semibold ${k.subColor}`}>{k.sub}</span>
+              {/* `flex-wrap` + `whitespace-nowrap` : sur une demi-largeur de
+                  téléphone, le delta passe à la ligne au lieu de couper le
+                  nombre en deux. */}
+              <div className="flex flex-wrap items-end gap-x-2">
+                <span className="whitespace-nowrap text-xl font-bold leading-none tabular-nums text-rdia-600 dark:text-rdia-50 sm:text-2xl">{k.val}</span>
+                <span className={`whitespace-nowrap text-[11px] font-semibold sm:text-[10px] ${k.subColor}`}>{k.sub}</span>
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Grille de tuiles : remplit l'écran restant.
+      {/* Grille de tuiles : remplit l'écran restant à partir de `lg`.
+           - Téléphone : une colonne, hauteurs naturelles (les graphiques
+             gardent une hauteur explicite pour ne pas s'écraser).
+           - Tablette (`md`) : deux colonnes, les blocs larges s'étendent.
            - Rangée 3 = CONSCIENCE SITUATIONNELLE IA (lg:col-span-4)
-           - Rangées 1 & 2 = AGRANDIES par rapport à la version compacte précédente
            - ratios : row1 (1.22fr) + row2 (1.22fr) + row3 (1.15fr) → blocs du haut PLUS GRANDS */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-4 lg:grid-rows-[minmax(0,1.22fr)_minmax(0,1.22fr)_minmax(0,1.15fr)]">
-        <DashTile id="evolution" title={titleOf.evolution} className="lg:col-span-2" onExpand={setExpanded} label={t.dash_expand}>{body("evolution")}</DashTile>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:min-h-0 lg:flex-1 lg:grid-cols-4 lg:grid-rows-[minmax(0,1.22fr)_minmax(0,1.22fr)_minmax(0,1.15fr)]">
+        <DashTile id="evolution" title={titleOf.evolution} className="h-64 sm:h-72 md:col-span-2 lg:h-auto lg:col-span-2" onExpand={setExpanded} label={t.dash_expand}>{body("evolution")}</DashTile>
         <DashTile id="casualties" title={titleOf.casualties} onExpand={setExpanded} label={t.dash_expand}>{body("casualties")}</DashTile>
-        <DashTile id="moyens" title={titleOf.moyens} onExpand={setExpanded} label={t.dash_expand}>{body("moyens")}</DashTile>
-        <DashTile id="hospitals" title={titleOf.hospitals} className="lg:col-span-2" onExpand={setExpanded} label={t.dash_expand}>{body("hospitals")}</DashTile>
-        <DashTile id="severity" title={titleOf.severity} onExpand={setExpanded} label={t.dash_expand}>{body("severity")}</DashTile>
-        <DashTile id="feed" title={titleOf.feed} onExpand={setExpanded} label={t.dash_expand}>{body("feed")}</DashTile>
-        <DashTile id="predictions" title={titleOf.predictions} className="lg:col-span-4" onExpand={setExpanded} label={t.dash_expand}>{body("predictions")}</DashTile>
+        <DashTile id="moyens" title={titleOf.moyens} className="h-60 sm:h-64 lg:h-auto" onExpand={setExpanded} label={t.dash_expand}>{body("moyens")}</DashTile>
+        <DashTile id="hospitals" title={titleOf.hospitals} className="md:col-span-2 lg:col-span-2" onExpand={setExpanded} label={t.dash_expand}>{body("hospitals")}</DashTile>
+        <DashTile id="severity" title={titleOf.severity} className="h-44 sm:h-48 lg:h-auto" onExpand={setExpanded} label={t.dash_expand}>{body("severity")}</DashTile>
+        <DashTile id="feed" title={titleOf.feed} className="h-64 lg:h-auto" onExpand={setExpanded} label={t.dash_expand}>{body("feed")}</DashTile>
+        <DashTile id="predictions" title={titleOf.predictions} className="md:col-span-2 lg:col-span-4" onExpand={setExpanded} label={t.dash_expand}>{body("predictions")}</DashTile>
       </div>
 
-      {/* Tuile agrandie · taille 2XL · hauteur maximale (85vh) + max d'espace pour SA */}
+      {/* Tuile agrandie · taille 2XL · `dvh` (et non `vh`) pour ne pas passer
+          sous la barre d'adresse mobile */}
       <Modal open={expanded !== null} size="2xl" title={expanded ? titleOf[expanded] : ""} onClose={() => setExpanded(null)}>
-        <div className="h-[85vh]">{expanded && body(expanded)}</div>
+        <div className="h-[65dvh] sm:h-[72dvh] lg:h-[85dvh]">{expanded && body(expanded)}</div>
       </Modal>
     </section>
   );
@@ -237,14 +250,15 @@ function DashTile({
   children: ReactNode;
 }) {
   return (
-    <div className={`carte flex min-h-0 flex-col p-4 ${className}`}>
+    <div className={`carte flex min-h-0 flex-col p-3 sm:p-4 ${className}`}>
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="truncate text-sm font-semibold text-rdia-600 dark:text-rdia-50">{title}</h3>
+        <h3 className="min-w-0 truncate text-sm font-semibold text-rdia-600 dark:text-rdia-50">{title}</h3>
         <button
           onClick={() => onExpand(id)}
           title={label}
           aria-label={label}
-          className="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600 dark:hover:text-or-400"
+          // `cible-tactile` : 44 px au doigt sous `lg`, densité d'origine ensuite.
+          className="cible-tactile -me-1 flex shrink-0 items-center justify-center rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600 dark:hover:text-or-400"
         >
           <Icon path={UI_ICONS.expand} size={14} strokeWidth={2} />
         </button>

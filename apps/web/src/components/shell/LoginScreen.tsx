@@ -63,9 +63,18 @@ export function LoginScreen() {
     if (e.key === "Enter") void submit();
   };
 
+  // Champ de saisie : 16 px sur mobile (sous 16 px, iOS zoome au focus et décale
+  // toute la page), densité d'origine à partir de md. Hauteur ≥ 44 px au doigt.
+  const champCls = "input-champ text-base md:text-sm";
+  const labelCls = "mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200";
+
   return (
     <section
-      className="relative flex h-screen w-full items-center justify-center p-6"
+      // `min-h-dvh` et non `h-screen` : sur mobile la barre d'adresse se rétracte,
+      // `100vh` déborde alors de l'écran et coupe le bas de la carte. Le centrage
+      // vertical se fait par `my-auto` sur l'enfant (et non `items-center`) :
+      // ainsi, sur un écran court, le haut de la carte reste atteignable.
+      className="relative flex min-h-dvh w-full flex-col items-center p-3 sm:p-6"
       style={{
         // Fond thème-conscient : voile vert militaire sur sombre OU clair.
         background: dark
@@ -77,63 +86,59 @@ export function LoginScreen() {
       <button
         onClick={toggleTheme}
         title="Mode"
-        className="absolute top-4 rounded-lg p-2 text-gray-500 transition-colors hover:text-or-600 dark:text-rdia-200 dark:hover:text-or-400"
-        style={{ insetInlineEnd: 16 }}
+        className="cible-tactile absolute end-2 top-2 flex items-center justify-center rounded-lg p-2 text-gray-500 transition-colors hover:text-or-600 sm:end-4 sm:top-4 dark:text-rdia-200 dark:hover:text-or-400"
       >
         <Icon path={dark ? UI_ICONS.sun : UI_ICONS.moon} size={18} />
       </button>
-      <div
-        className="grid w-full animate-fade-in-up items-center gap-4"
-        style={{
-          maxWidth: 880,
-          gridTemplateColumns: "minmax(320px, 400px) minmax(320px, 400px)",
-          justifyContent: "center",
-        }}
-      >
-        <div className="flex min-w-0 flex-col items-center gap-6">
+
+      {/* Mobile : une seule colonne (identité au-dessus, formulaire dessous).
+          À partir de lg seulement il y a la place pour les deux côte à côte. */}
+      <div className="my-auto grid w-full max-w-[880px] animate-fade-in-up items-center justify-items-center gap-6 lg:grid-cols-2 lg:gap-4">
+        <div className="flex w-full min-w-0 max-w-sm flex-col items-center gap-4 sm:gap-6">
           <Image
             src="/argos-logo.png"
             alt="ARGOS"
             width={320}
             height={360}
             priority
-            className="w-full"
+            // Le logo se réduit avec l'écran plutôt que d'imposer 320 px de large.
+            className="h-auto w-32 max-w-full object-contain sm:w-44 lg:w-full lg:max-w-[320px]"
             style={{
-              objectFit: "contain",
-              maxWidth: 320,
-              maxHeight: 360,
               filter: dark ? "drop-shadow(0 24px 48px rgba(0,0,0,0.55))" : "drop-shadow(0 16px 32px rgba(15,45,26,0.25))",
             }}
           />
           <div className="text-center">
-            <div className="text-3xl font-bold tracking-wide text-rdia-600 dark:text-rdia-50">ARGOS</div>
+            <div className="text-2xl font-bold tracking-wide text-rdia-600 sm:text-3xl dark:text-rdia-50">ARGOS</div>
             <div className="mt-2 text-xs uppercase tracking-wider text-or-600 dark:text-or-500">{t.appSub}</div>
           </div>
         </div>
 
-        <div className="carte flex w-full flex-col items-center gap-5 p-8">
+        <div className="carte flex w-full max-w-sm flex-col items-center gap-4 p-5 sm:gap-5 sm:p-8">
           <div className="text-center">
             <div className="text-lg font-bold text-rdia-600 dark:text-rdia-50">{t.lg_welcome}</div>
           </div>
           <div className="flex w-full items-center gap-2 rounded-lg bg-or-500/10 px-3 py-2">
             <Icon path={UI_ICONS.shield} size={14} className="shrink-0 text-or-500" />
-            <span className="text-[11px] font-semibold text-or-500">{t.lg_restricted}</span>
+            <span className="min-w-0 text-[11px] font-semibold text-or-500">{t.lg_restricted}</span>
           </div>
           <div className="flex w-full flex-col gap-3">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200">{t.lg_user}</label>
-              <input className="input-champ text-sm" value={user} onChange={(e) => { setUser(e.target.value); setError(null); }} onKeyDown={onKey} autoComplete="username" />
+              <label className={labelCls}>{t.lg_user}</label>
+              <input className={champCls} value={user} onChange={(e) => { setUser(e.target.value); setError(null); }} onKeyDown={onKey} autoComplete="username" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200">{t.lg_pass}</label>
-              <input type="password" className="input-champ text-sm" value={pass} onChange={(e) => { setPass(e.target.value); setError(null); }} onKeyDown={onKey} autoComplete="current-password" />
+              <label className={labelCls}>{t.lg_pass}</label>
+              <input type="password" className={champCls} value={pass} onChange={(e) => { setPass(e.target.value); setError(null); }} onKeyDown={onKey} autoComplete="current-password" />
             </div>
             {error && <p className="text-xs font-semibold text-danger-500">{error}</p>}
-            <button className="btn-primaire mt-2 w-full text-sm" onClick={() => void submit()} disabled={disabled}>
+            <button className="btn-primaire mt-2 min-h-[44px] w-full text-sm" onClick={() => void submit()} disabled={disabled}>
               {busy ? "…" : t.lg_btn}
             </button>
           </div>
-          <div className="w-full">
+          {/* Les trois boutons de langue sont des cibles tactiles : on impose la
+              hauteur depuis le parent, le composant restant partagé avec la
+              barre latérale (densité d'origine à partir de lg). */}
+          <div className="w-full [&_button]:min-h-[44px] lg:[&_button]:min-h-0">
             <LanguageSwitch variant="login" />
           </div>
           <div className="text-center text-[10px] text-gray-400 dark:text-rdia-400">{t.lg_footer}</div>

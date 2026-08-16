@@ -89,8 +89,8 @@ export default function RepartitionPage() {
 
   return (
     <section className="flex flex-col gap-4 animate-fade-in">
-      {/* Bandeau de situation */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      {/* Bandeau de situation — les tuiles KPI tiennent à deux par ligne sur téléphone. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
         <StatTile label={m.dispatch.strip_ops} value={activeIncidents.length} icon={KPI_ICONS.incidents} tint="danger" />
         <StatTile label={m.dispatch.strip_units} value={engagements.length} icon={KPI_ICONS.units} tint="or" />
         <StatTile label={m.dispatch.strip_available} value={units.length - engagements.length} icon={NAV_ICONS.res} tint="green" />
@@ -104,7 +104,7 @@ export default function RepartitionPage() {
           <span className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{m.dispatch.need}</span>
           <button
             onClick={() => setSimOpen((v) => !v)}
-            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${
+            className={`cible-tactile flex shrink-0 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${
               simOpen || isSim ? "border-or-500 text-or-500" : "border-gray-200 text-gray-500 hover:text-or-500 dark:border-rdia-600 dark:text-rdia-300"
             }`}
           >
@@ -144,7 +144,7 @@ export default function RepartitionPage() {
               <p className="mt-0.5 text-[10px] text-gray-400 dark:text-rdia-400">{m.dispatch.sim_hint}</p>
             </div>
             <button
-              className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] font-semibold text-gray-500 transition-colors hover:text-or-500 disabled:opacity-40 dark:border-rdia-600 dark:text-rdia-300"
+              className="cible-tactile shrink-0 rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] font-semibold text-gray-500 transition-colors hover:text-or-500 disabled:opacity-40 dark:border-rdia-600 dark:text-rdia-300"
               onClick={() => setWeights(DEFAULT_WEIGHTS)}
               disabled={!isSim}
             >
@@ -178,13 +178,15 @@ export default function RepartitionPage() {
         {/* Tableau des unités (classées par recommandation) */}
         <div className="lg:col-span-2">
           <div className="carte overflow-hidden">
-            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-rdia-600">
+            {/* `flex-wrap` : la liste des capacités requises passe sous le titre
+                sur téléphone au lieu de le comprimer. */}
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-gray-200 px-3 py-3 sm:px-4 dark:border-rdia-600">
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold text-rdia-600 dark:text-rdia-50">{m.dispatch.units_board}</h3>
                 {isSim && <Pill tone="gold" label={m.dispatch.sim_active} />}
               </div>
               {need && (
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-[10px] text-gray-400 dark:text-rdia-400">{m.dispatch.caps_required}:</span>
                   {requiredCaps.map((c) => (
                     <span key={c} className="rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-semibold text-gray-500 dark:bg-rdia-600 dark:text-rdia-200">{CAP_LABELS[c]}</span>
@@ -196,17 +198,36 @@ export default function RepartitionPage() {
               {suggestions.map((s, i) => {
                 const eng = engagementFor(s.unit.id);
                 const b = dispoBadge(s.unit.dispo, t);
+                // Le bouton d'action : rendu seulement s'il existe, pour éviter
+                // une ligne repliée vide sur les unités exclues.
+                const action = eng ? (
+                  <button className="cible-tactile rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-500 transition-colors hover:border-danger-500 hover:text-danger-500 dark:border-rdia-600 dark:text-rdia-300" onClick={() => relieveUnit(s.unit.id)}>
+                    {m.dispatch.relieve}
+                  </button>
+                ) : !s.excluded ? (
+                  <button className="cible-tactile btn-primaire text-xs" onClick={() => openConfirm(s, "manual")}>{m.dispatch.engage}</button>
+                ) : null;
                 return (
-                  <div key={s.unit.id} className={`flex items-center gap-3 px-4 py-3 ${s.excluded ? "opacity-50" : ""}`}>
+                  // Sous `sm`, la ligne se replie : identité + score sur la
+                  // première ligne, action sur la seconde. Densité d'origine ensuite.
+                  <div key={s.unit.id} className={`flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-3 sm:flex-nowrap sm:px-4 ${s.excluded ? "opacity-50" : ""}`}>
                     <div className="w-5 shrink-0 text-center font-mono text-xs text-gray-400 dark:text-rdia-400">{i + 1}</div>
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 basis-40">
                       <div className="flex items-center gap-2">
                         <span className="truncate text-sm font-semibold text-gray-800 dark:text-rdia-50">{s.unit.nom}</span>
                         {!s.excluded && best?.unit.id === s.unit.id && <Pill tone="gold" label={m.dispatch.best} />}
                       </div>
-                      <div className="mt-0.5 flex items-center gap-2 text-[10px] text-gray-400 dark:text-rdia-400">
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-gray-400 dark:text-rdia-400">
                         <span>{s.unit.ville}</span>
                         <Badge type={b.type} label={b.label} />
+                        {/* Les colonnes ETA et correspondance n'existent pas sous
+                            `sm`/`md` : on replie leur valeur ici pour ne rien perdre. */}
+                        {!s.excluded && (
+                          <>
+                            <span className="font-mono tabular-nums sm:hidden">{m.dispatch.eta} {s.etaMin} {m.dispatch.min}</span>
+                            <span className="font-mono tabular-nums md:hidden">{m.dispatch.match} {s.capMatched}/{s.capRequired}</span>
+                          </>
+                        )}
                         {s.excluded && <Pill tone="gray" label={`${m.dispatch.excluded} · ${s.exclusionReason}`} />}
                       </div>
                     </div>
@@ -229,17 +250,7 @@ export default function RepartitionPage() {
                         </div>
                       </>
                     )}
-                    <div className="w-24 shrink-0 text-end">
-                      {eng ? (
-                        <button className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-500 transition-colors hover:border-danger-500 hover:text-danger-500 dark:border-rdia-600 dark:text-rdia-300" onClick={() => relieveUnit(s.unit.id)}>
-                          {m.dispatch.relieve}
-                        </button>
-                      ) : (
-                        !s.excluded && (
-                          <button className="btn-primaire text-xs" onClick={() => openConfirm(s, "manual")}>{m.dispatch.engage}</button>
-                        )
-                      )}
-                    </div>
+                    {action && <div className="w-full shrink-0 text-end sm:w-24">{action}</div>}
                   </div>
                 );
               })}
@@ -296,7 +307,7 @@ export default function RepartitionPage() {
                     </div>
                     <div className="mt-1 text-xs font-medium leading-snug text-gray-700 dark:text-rdia-100">{q.label}</div>
                   </div>
-                  <button className="btn-secondaire shrink-0 text-[11px]" onClick={() => setSel({ kind: "queue", id: q.id })}>{m.dispatch.treat}</button>
+                  <button className="cible-tactile btn-secondaire shrink-0 text-[11px]" onClick={() => setSel({ kind: "queue", id: q.id })}>{m.dispatch.treat}</button>
                 </div>
               ))}
               {queue.length === 0 && <div className="py-4 text-center text-xs text-gray-400 dark:text-rdia-400">{m.common.none}</div>}
@@ -308,27 +319,75 @@ export default function RepartitionPage() {
       {/* Mouvements de transport */}
       <div>
         <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{m.dispatch.strip_movements}</h3>
-        <Table headers={[m.common.ref, m.dispatch.mv_mission, m.dispatch.mv_vehicles, m.dispatch.mv_dest, m.dispatch.mv_cargo, m.dispatch.mv_progress, m.dispatch.eta, m.dispatch.mv_delay]}>
-          {movements.map((mv) => (
-            <tr key={mv.id} className={TR}>
-              <td className={TD_MONO}>{mv.id}</td>
-              <td className={TD_STRONG}>{mv.mission}</td>
-              <td className={TD_MUTED}>{mv.vehicles}</td>
-              <td className={TD_MUTED}>{mv.origin} → {mv.destination}</td>
-              <td className={TD_MUTED}>{mv.cargo}</td>
-              <td className={TD}>
-                <div className="flex items-center gap-2">
-                  <div className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-100 dark:bg-rdia-600">
-                    <div className="h-full rounded-full bg-or-500" style={{ width: `${mv.progress}%` }} />
+
+        {/* Tableau : à partir de md, la densité de 8 colonnes redevient lisible. */}
+        <div className="hidden md:block">
+          <Table headers={[m.common.ref, m.dispatch.mv_mission, m.dispatch.mv_vehicles, m.dispatch.mv_dest, m.dispatch.mv_cargo, m.dispatch.mv_progress, m.dispatch.eta, m.dispatch.mv_delay]}>
+            {movements.map((mv) => (
+              <tr key={mv.id} className={TR}>
+                <td className={TD_MONO}>{mv.id}</td>
+                <td className={TD_STRONG}>{mv.mission}</td>
+                <td className={TD_MUTED}>{mv.vehicles}</td>
+                <td className={TD_MUTED}>{mv.origin} → {mv.destination}</td>
+                <td className={TD_MUTED}>{mv.cargo}</td>
+                <td className={TD}>
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-100 dark:bg-rdia-600">
+                      <div className="h-full rounded-full bg-or-500" style={{ width: `${mv.progress}%` }} />
+                    </div>
+                    <span className="font-mono text-[10px] tabular-nums text-gray-400 dark:text-rdia-400">{mv.progress}%</span>
                   </div>
-                  <span className="font-mono text-[10px] tabular-nums text-gray-400 dark:text-rdia-400">{mv.progress}%</span>
+                </td>
+                <td className={`${TD} font-mono text-xs tabular-nums text-gray-600 dark:text-rdia-200`}>{mv.etaMin} {m.dispatch.min}</td>
+                <td className={TD}>{mv.delayMin > 0 ? <Pill tone="red" label={`${m.dispatch.mv_delay} +${mv.delayMin}′`} /> : <Pill tone="green" label={m.dispatch.mv_ontime} />}</td>
+              </tr>
+            ))}
+          </Table>
+        </div>
+
+        {/* Sous md : une carte par mouvement — mêmes données que le tableau. */}
+        <div className="flex flex-col gap-2 md:hidden">
+          {movements.map((mv) => (
+            <div key={mv.id} className="carte flex flex-col gap-2 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-mono text-[11px] text-gray-500 dark:text-rdia-300">{mv.id}</div>
+                  <div className="text-sm font-medium text-gray-800 dark:text-rdia-50">{mv.mission}</div>
                 </div>
-              </td>
-              <td className={`${TD} font-mono text-xs tabular-nums text-gray-600 dark:text-rdia-200`}>{mv.etaMin} {m.dispatch.min}</td>
-              <td className={TD}>{mv.delayMin > 0 ? <Pill tone="red" label={`${m.dispatch.mv_delay} +${mv.delayMin}′`} /> : <Pill tone="green" label={m.dispatch.mv_ontime} />}</td>
-            </tr>
+                <div className="shrink-0">
+                  {mv.delayMin > 0 ? <Pill tone="red" label={`${m.dispatch.mv_delay} +${mv.delayMin}′`} /> : <Pill tone="green" label={m.dispatch.mv_ontime} />}
+                </div>
+              </div>
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[13px]">
+                <div className="min-w-0">
+                  <dt className="text-[11px] text-gray-400 dark:text-rdia-400">{m.dispatch.mv_vehicles}</dt>
+                  <dd className="truncate text-gray-700 dark:text-rdia-100">{mv.vehicles}</dd>
+                </div>
+                <div className="min-w-0">
+                  <dt className="text-[11px] text-gray-400 dark:text-rdia-400">{m.dispatch.eta}</dt>
+                  <dd className="font-mono tabular-nums text-gray-700 dark:text-rdia-100">{mv.etaMin} {m.dispatch.min}</dd>
+                </div>
+                <div className="col-span-2 min-w-0">
+                  <dt className="text-[11px] text-gray-400 dark:text-rdia-400">{m.dispatch.mv_dest}</dt>
+                  <dd className="text-gray-700 dark:text-rdia-100">{mv.origin} → {mv.destination}</dd>
+                </div>
+                <div className="col-span-2 min-w-0">
+                  <dt className="text-[11px] text-gray-400 dark:text-rdia-400">{m.dispatch.mv_cargo}</dt>
+                  <dd className="text-gray-700 dark:text-rdia-100">{mv.cargo}</dd>
+                </div>
+              </dl>
+              <div>
+                <div className="mb-1 flex items-center justify-between text-[11px] text-gray-400 dark:text-rdia-400">
+                  <span>{m.dispatch.mv_progress}</span>
+                  <span className="font-mono tabular-nums">{mv.progress}%</span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-rdia-600">
+                  <div className="h-full rounded-full bg-or-500" style={{ width: `${mv.progress}%` }} />
+                </div>
+              </div>
+            </div>
           ))}
-        </Table>
+        </div>
       </div>
 
       {/* Confirmation d'engagement */}
@@ -344,7 +403,8 @@ export default function RepartitionPage() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200">{m.dispatch.reason}</label>
-              <textarea className="input-champ text-sm" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={m.dispatch.reason_ph} autoFocus />
+              {/* 16 px sur mobile : sous ce seuil iOS zoome au focus et décale la page. */}
+              <textarea className="input-champ text-base md:text-sm" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={m.dispatch.reason_ph} autoFocus />
             </div>
             <p className="text-[10px] text-gray-400 dark:text-rdia-400">{m.dispatch.audit_note}</p>
             <div className="flex justify-end gap-2">

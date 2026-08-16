@@ -105,7 +105,7 @@ export function HospitalDashboard({ hid }: { hid: string }) {
       <div className="carte flex flex-col gap-3 p-5">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-rdia-600 dark:text-rdia-50">{m.resp.wards}</h3>
-          {!supervised && <Link href="/ma-responsabilite/gestion" className="btn-secondaire text-xs">{m.resp.manage}</Link>}
+          {!supervised && <Link href="/ma-responsabilite/gestion" className="cible-tactile btn-secondaire shrink-0 text-xs">{m.resp.manage}</Link>}
         </div>
         {loading && <Empty label={m.resp.loading} />}
         {!loading && wards.length === 0 && <Empty label={m.resp.no_ward} />}
@@ -152,25 +152,29 @@ function Header({ hosp }: { hosp: { nom: string; ville: string; type?: string } 
   const m = useModules();
   const supervised = useSupervision();
   return (
-    <div className="carte flex flex-wrap items-center gap-3 p-4">
+    <div className="carte flex flex-wrap items-center gap-2 p-3 sm:gap-3 sm:p-4">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-or-500/15 text-or-500">
         <Icon path={NAV_ICONS.hospitals} size={20} />
       </div>
-      <div className="min-w-0 flex-1">
+      {/* `basis-32` : le titre RÉCLAME de la place, sinon (basis 0) la pastille
+          et le bouton restent sur la première ligne et l'écrasent. */}
+      <div className="min-w-0 flex-1 basis-32 sm:basis-40">
         <h2 className="truncate text-sm font-bold text-rdia-600 dark:text-rdia-50">{hosp.nom}</h2>
         <p className="truncate text-xs text-gray-500 dark:text-rdia-300">
           {hosp.ville}{hosp.type ? ` · ${hosp.type}` : ""}
         </p>
       </div>
-      <span className="rounded-md bg-or-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-or-500">
-        {m.resp.my_responsibility}
-      </span>
-      {!supervised && (
-        <Link href="/ma-responsabilite/gestion" className="btn-primaire flex items-center gap-1.5 text-sm">
-          <Icon path={UI_ICONS.edit} size={14} />
-          {m.resp.manage}
-        </Link>
-      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-md bg-or-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-or-500">
+          {m.resp.my_responsibility}
+        </span>
+        {!supervised && (
+          <Link href="/ma-responsabilite/gestion" className="cible-tactile btn-primaire flex items-center gap-1.5 text-sm">
+            <Icon path={UI_ICONS.edit} size={14} />
+            {m.resp.manage}
+          </Link>
+        )}
+      </div>
     </div>
   );
 }
@@ -233,11 +237,12 @@ export function HospitalManagement({ hid }: { hid: string }) {
 
   return (
     <section className="flex flex-col gap-4 animate-fade-in">
-      <div className="carte flex flex-wrap items-center gap-3 p-4">
-        <Link href="/ma-responsabilite" className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600">
-          <Icon path={UI_ICONS.arrowLeft} size={16} strokeWidth={2} />
+      <div className="carte flex flex-wrap items-center gap-2 p-3 sm:gap-3 sm:p-4">
+        <Link href="/ma-responsabilite" className="cible-tactile flex shrink-0 items-center justify-center rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600">
+          {/* La flèche de retour suit le sens de lecture (RTL en arabe). */}
+          <Icon path={UI_ICONS.arrowLeft} size={16} strokeWidth={2} className="rtl:rotate-180" />
         </Link>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-32 sm:basis-40">
           <h2 className="truncate text-sm font-bold text-rdia-600 dark:text-rdia-50">{m.resp.manage_title}</h2>
           <p className="truncate text-xs text-gray-500 dark:text-rdia-300">{hosp.nom} — {hosp.ville}</p>
         </div>
@@ -264,19 +269,21 @@ export function HospitalManagement({ hid }: { hid: string }) {
           {wards.map((w) => {
             const pct = w.lits > 0 ? Math.round((w.occ / w.lits) * 100) : 0;
             return (
-              <div key={w.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-100 p-3 dark:border-rdia-700/60">
-                <div className="min-w-0 flex-1" style={{ minWidth: 200 }}>
+              // Les largeurs figées (200 px / 150 px) débordaient sous 375 px :
+              // remplacées par des bases souples qui se replient.
+              <div key={w.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-gray-100 p-3 dark:border-rdia-700/60">
+                <div className="min-w-0 flex-1 basis-40">
                   <div className="flex items-center gap-2">
                     <span className="truncate text-xs font-semibold text-gray-800 dark:text-rdia-50">{w.nom}</span>
                     <Pill tone={WARD_TONES[w.statut]} label={m.resp.ward_status[w.statut]} />
                   </div>
                   <div className="mt-0.5 truncate text-[10px] text-gray-400 dark:text-rdia-400">{w.chef ?? "—"}</div>
                 </div>
-                <div style={{ width: 150 }}>
+                <div className="min-w-0 flex-1 basis-32 sm:max-w-[150px] sm:flex-none sm:basis-[150px]">
                   <div className="mb-1 text-end font-mono text-[10px] text-gray-400 dark:text-rdia-400">{w.occ} / {w.lits} · {pct} %</div>
                   <ProgressBar value={pct} fill={loadBarClass(pct)} height="h-2" />
                 </div>
-                <div className="flex gap-1">
+                <div className="flex shrink-0 gap-2">
                   <IconButton icon={UI_ICONS.edit} title={m.resp.edit} onClick={() => setEditing(w)} />
                   <IconButton icon={UI_ICONS.trash} title={m.resp.delete} danger onClick={() => setConfirmDel(w)} />
                 </div>
@@ -300,10 +307,10 @@ export function HospitalManagement({ hid }: { hid: string }) {
           <p className="text-sm text-gray-600 dark:text-rdia-200">
             {m.resp.delete_ward_text} <strong>{confirmDel?.nom}</strong> ?
           </p>
-          <div className="flex justify-end gap-2">
-            <button className="btn-secondaire text-sm" onClick={() => setConfirmDel(null)}>{m.resp.cancel}</button>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button className="cible-tactile btn-secondaire text-sm" onClick={() => setConfirmDel(null)}>{m.resp.cancel}</button>
             <button
-              className="rounded-lg bg-danger-500 px-3 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              className="cible-tactile rounded-lg bg-danger-500 px-3 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
               onClick={() => confirmDel && void removeWard(confirmDel)}
             >
               {m.resp.delete}
@@ -355,12 +362,13 @@ function CapacityForm({ hid, onSaved }: { hid: string; onSaved: () => void }) {
   return (
     <div className="carte flex flex-col gap-4 p-5">
       <h3 className="text-sm font-bold text-rdia-600 dark:text-rdia-50">{m.resp.capacities}</h3>
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4 xl:grid-cols-7">
         {fields.map(([k, label]) => (
           <div key={k}>
             <label className="mb-1 block text-[11px] font-semibold text-gray-600 dark:text-rdia-200">{label}</label>
+            {/* 16 px sur mobile (pas de zoom iOS au focus) et hauteur ≥ 44 px. */}
             <input
-              className="input-champ font-mono text-sm"
+              className="input-champ font-mono text-base md:text-sm"
               type="number"
               min={0}
               value={form[k]}
@@ -412,30 +420,31 @@ function WardForm({ hid, ward, onClose, onDone }: { hid: string; ward?: Ward; on
   return (
     <Modal open onClose={onClose} title={editing ? m.resp.edit_ward : m.resp.add_ward}>
       <div className="flex flex-col gap-4">
+        {/* Champs à 16 px sur mobile : sous ce seuil iOS zoome au focus. */}
         <div>
           <label className={labelCls}>{m.resp.f_ward_name}</label>
-          <input className="input-champ text-sm" placeholder={m.resp.f_ward_name_ph} value={nom} onChange={(e) => { setNom(e.target.value); setError(null); }} />
+          <input className="input-champ text-base md:text-sm" placeholder={m.resp.f_ward_name_ph} value={nom} onChange={(e) => { setNom(e.target.value); setError(null); }} />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
           <div>
             <label className={labelCls}>{m.resp.f_beds}</label>
-            <input className="input-champ font-mono text-sm" type="number" min={0} value={lits} onChange={(e) => { setLits(Math.max(0, parseInt(e.target.value, 10) || 0)); setError(null); }} />
+            <input className="input-champ font-mono text-base md:text-sm" type="number" min={0} value={lits} onChange={(e) => { setLits(Math.max(0, parseInt(e.target.value, 10) || 0)); setError(null); }} />
           </div>
           <div>
             <label className={labelCls}>{m.resp.f_occ}</label>
-            <input className="input-champ font-mono text-sm" type="number" min={0} value={occ} onChange={(e) => { setOcc(Math.max(0, parseInt(e.target.value, 10) || 0)); setError(null); }} />
+            <input className="input-champ font-mono text-base md:text-sm" type="number" min={0} value={occ} onChange={(e) => { setOcc(Math.max(0, parseInt(e.target.value, 10) || 0)); setError(null); }} />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className={labelCls}>{m.resp.f_status}</label>
-            <select className="input-champ text-sm" value={statut} onChange={(e) => setStatut(e.target.value as Ward["statut"])}>
+            <select className="input-champ text-base md:text-sm" value={statut} onChange={(e) => setStatut(e.target.value as Ward["statut"])}>
               {WARD_STATUSES.map((s) => <option key={s} value={s}>{m.resp.ward_status[s]}</option>)}
             </select>
           </div>
           <div>
             <label className={labelCls}>{m.resp.f_chief}</label>
-            <input className="input-champ text-sm" placeholder={m.resp.f_chief_ph} value={chef} onChange={(e) => setChef(e.target.value)} />
+            <input className="input-champ text-base md:text-sm" placeholder={m.resp.f_chief_ph} value={chef} onChange={(e) => setChef(e.target.value)} />
           </div>
         </div>
         {error && <p className="text-xs font-semibold text-danger-500">{error}</p>}
@@ -455,7 +464,7 @@ function IconButton({ icon, title, onClick, danger = false }: { icon: string; ti
     <button
       title={title}
       onClick={onClick}
-      className={`rounded-lg p-1.5 transition-colors ${
+      className={`cible-tactile flex items-center justify-center rounded-lg p-1.5 transition-colors ${
         danger
           ? "text-gray-400 hover:bg-danger-500/10 hover:text-danger-500"
           : "text-gray-400 hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600"

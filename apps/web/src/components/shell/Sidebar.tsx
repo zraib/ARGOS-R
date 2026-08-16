@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -13,6 +14,20 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const sbOpen = useArgos((s) => s.sbOpen);
+  const navOpen = useArgos((s) => s.navOpen);
+  const closeNav = useArgos((s) => s.closeNav);
+
+  /**
+   * Libellés visibles. Sur grand écran c'est le repli (`sbOpen`) qui décide ;
+   * dans un tiroir mobile ouvert on les montre toujours.
+   */
+  const expanded = sbOpen || navOpen;
+
+  // Le tiroir se referme dès qu'on navigue : sur mobile il masque le contenu,
+  // le laisser ouvert obligerait à le fermer à la main après chaque choix.
+  useEffect(() => {
+    closeNav();
+  }, [pathname, closeNav]);
   const dark = useArgos((s) => s.dark);
   const navGroups = useArgos((s) => s.navGroups);
   const toggleNavGroup = useArgos((s) => s.toggleNavGroup);
@@ -26,7 +41,7 @@ export function Sidebar() {
   // s'il est autorisé pour le rôle actif (matrice rôle→fonctionnalités).
   const moduleVisible = (key: string) => flags[key] !== false && roleFeatures[role]?.[key] !== false;
 
-  const collapsed = !sbOpen;
+  const collapsed = !expanded;
   const activeInc = incidents.filter((i) => i.st !== "closed").length;
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
@@ -120,21 +135,25 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`flex shrink-0 flex-col overflow-hidden ${dark ? "text-rdia-50" : "bg-white text-rdia-600"}`}
+      id="argos-nav"
+      className={`nav-drawer flex shrink-0 flex-col overflow-hidden ${navOpen ? "est-ouvert" : ""} ${dark ? "text-rdia-50" : "bg-white text-rdia-600"}`}
       style={{
-        width: sbOpen ? 256 : 64,
+        // La largeur de bureau passe par une variable CSS : la règle mobile de
+        // `globals.css` peut ainsi la remplacer, ce qu'un style en ligne
+        // interdirait.
+        ["--sb-w" as string]: sbOpen ? "256px" : "64px",
         backgroundColor: dark ? "rgb(15 45 26)" : undefined,
-        transition: "width .2s ease, background-color .2s ease",
         borderInlineEnd: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "#E5E7EB"}`,
       }}
+      aria-label={t.app}
     >
       {/* Brand */}
       <div
-        className={sbOpen ? "flex items-center gap-3 border-b px-4 py-4" : "flex items-center justify-center border-b py-4"}
+        className={expanded ? "flex items-center gap-3 border-b px-4 py-4" : "flex items-center justify-center border-b py-4"}
         style={{ borderColor: dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)" }}
       >
-        <Image src="/argos-logo.png" alt="ARGOS" width={48} height={48} className={sbOpen ? "h-12 w-12 shrink-0" : "h-9 w-9 shrink-0"} style={{ objectFit: "contain" }} />
-        {sbOpen && (
+        <Image src="/argos-logo.png" alt="ARGOS" width={48} height={48} className={expanded ? "h-12 w-12 shrink-0" : "h-9 w-9 shrink-0"} style={{ objectFit: "contain" }} />
+        {expanded && (
           <div className="min-w-0">
             <div className="text-lg font-bold leading-tight tracking-wide">{t.app}</div>
             <div className={`mt-0.5 text-[10px] uppercase tracking-wider ${dark ? "text-rdia-300" : "text-gray-400"}`}>{t.appSub}</div>

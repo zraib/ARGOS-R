@@ -185,3 +185,148 @@ a:hover {
 .animate-pulse-ring {
   animation: pulse-ring 1.6s ease-out infinite;
 }
+
+
+/* ==========================================================================
+   ARGOS — navigation adaptative
+   Sur grand écran (≥ lg) la barre latérale reste en flux, repliable. En dessous
+   il n'y a pas la place : elle devient un tiroir hors-champ posé par-dessus le
+   contenu. Le décalage utilise `translateX`, donc composé sur le GPU, et il est
+   inversé en RTL — un tiroir arabe sort par la droite.
+   ========================================================================== */
+.nav-drawer {
+  width: var(--sb-w, 256px);
+  transition: width 0.2s ease, transform 0.2s ease-out, background-color 0.2s ease;
+}
+
+@media (max-width: 1023px) {
+  .nav-drawer {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    z-index: 50;
+    /* Jamais plus de 85 % de l'écran : un tiroir doit laisser voir qu'il y a
+       quelque chose derrière, sinon on croit avoir changé de page. */
+    width: min(288px, 85vw);
+    transform: translateX(-100%);
+  }
+  [dir="rtl"] .nav-drawer {
+    transform: translateX(100%);
+  }
+  .nav-drawer.est-ouvert,
+  [dir="rtl"] .nav-drawer.est-ouvert {
+    transform: translateX(0);
+  }
+}
+
+/* Le tiroir se déplace : on le neutralise quand l'utilisateur réclame moins
+   d'animation (prefers-reduced-motion). */
+@media (prefers-reduced-motion: reduce) {
+  .nav-drawer {
+    transition: none;
+  }
+}
+
+/* Cible tactile minimale (44 px, Apple HIG / 48 dp Material). S'applique aux
+   commandes d'icône seules, trop petites au doigt sans cette garantie. */
+.cible-tactile {
+  min-width: 44px;
+  min-height: 44px;
+}
+@media (min-width: 1024px) {
+  /* Au clavier et à la souris, la précision est meilleure : on rend la densité
+     d'origine plutôt que d'imposer des boutons de 44 px sur un poste fixe. */
+  .cible-tactile {
+    min-width: 0;
+    min-height: 0;
+  }
+}
+
+
+/* --------------------------------------------------------------------------
+   Finitions tactiles
+   -------------------------------------------------------------------------- */
+
+/* Supprime le délai de 300 ms que les navigateurs mobiles réservent au
+   double-tap. Sans cela, chaque appui paraît mou — inacceptable sur un poste de
+   commandement où l'on agit vite. */
+button,
+a,
+[role="button"],
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+@media (max-width: 1023px) {
+  /* Le tiroir descend jusqu'au bord bas de l'écran : sans marge de zone sûre,
+     son dernier élément de navigation passerait sous la barre d'accueil iOS. */
+  .nav-drawer {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Le défilement du tiroir ne doit pas entraîner celui de la page derrière
+     lui (chaînage) : arrivé en bas de la navigation, le geste s'arrête. */
+  .nav-drawer nav {
+    overscroll-behavior: contain;
+  }
+}
+
+/* Le contenu ne défile plus quand le tiroir est ouvert : sur mobile le tiroir
+   couvre l'écran, faire bouger la page derrière désoriente. */
+body:has(.nav-drawer.est-ouvert) {
+  overflow: hidden;
+}
+@media (min-width: 1024px) {
+  /* Au-dessus de lg le tiroir n'existe pas — on ne bloque rien. */
+  body:has(.nav-drawer.est-ouvert) {
+    overflow: visible;
+  }
+}
+
+/* ==========================================================================
+   ARGOS — carte opérationnelle : commandes natives MapLibre sous lg
+   Sous lg, le bas de la carte est occupé par la feuille des panneaux (couches,
+   suivi aérien, légende, sélection). Les commandes natives — zoom, boussole,
+   recentrage, attribution — sont donc remontées en haut, du côté de la ligne
+   de départ, où rien ne les recouvre ; et leurs boutons passent à 44 px, les
+   29 px d'origine étant invisables au doigt.
+   Portée limitée à `.carte-page` : la mini-carte de l'assistant de déclaration
+   d'incident garde ses commandes d'origine.
+   ========================================================================== */
+@media (max-width: 1023px) {
+  .carte-page .maplibregl-ctrl-bottom-right {
+    top: 8px;
+    bottom: auto;
+    left: 8px;
+    right: auto;
+  }
+  [dir="rtl"] .carte-page .maplibregl-ctrl-bottom-right {
+    left: auto;
+    right: 8px;
+  }
+  .carte-page .maplibregl-map .maplibregl-ctrl-group button {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+
+/* --------------------------------------------------------------------------
+   Hauteur minimale des commandes au doigt
+   -------------------------------------------------------------------------- */
+
+/* Les boutons du design system sont dimensionnés par leur rembourrage (py-2 →
+   36 px). Au doigt c'est sous le minimum de 44 px : on relève le plancher sur
+   petit écran, sans toucher au rembourrage — l'aspect ne change pas, seule la
+   zone de contact grandit. Au-dessus de lg, la densité d'origine revient.
+   Le sélecteur porte sur les classes de composants, pas sur `button`, pour ne
+   pas gonfler les micro-commandes déjà traitées par `.cible-tactile`. */
+@media (max-width: 1023px) {
+  .btn-primaire,
+  .btn-secondaire,
+  .input-champ {
+    min-height: 44px;
+  }
+}

@@ -53,6 +53,8 @@ export function AppFrame({ children }: { children: ReactNode }) {
   const loadDomain = useArgos((s) => s.loadDomain);
   const simTick = useArgos((s) => s.simTick);
   const toggleCopilot = useArgos((s) => s.toggleCopilot);
+  const navOpen = useArgos((s) => s.navOpen);
+  const closeNav = useArgos((s) => s.closeNav);
   const aiVisible = flags["assistant"] !== false;
   const ready = authed && !mustChangePassword && !mustChooseRole;
   const pathname = usePathname();
@@ -142,12 +144,28 @@ export function AppFrame({ children }: { children: ReactNode }) {
   return (
     <div
       dir={dir}
-      className={`flex h-screen w-full overflow-hidden bg-gray-100 font-sans text-gray-800 dark:bg-rdia-900 dark:text-rdia-50 ${fontCls}`}
+      // `h-dvh` et non `h-screen` : sur mobile la barre d'adresse se rétracte et
+      // `100vh` déborde alors de l'écran, coupant le bas de la page.
+      className={`flex h-dvh w-full overflow-hidden bg-gray-100 font-sans text-gray-800 dark:bg-rdia-900 dark:text-rdia-50 ${fontCls}`}
     >
       <Sidebar />
+      {/* Voile du tiroir mobile : assombrit le contenu et le referme au toucher.
+          Absent au clavier de la navigation (aria-hidden) car le tiroir offre
+          déjà sa propre fermeture. */}
+      {navOpen && (
+        <div
+          onClick={closeNav}
+          aria-hidden
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[1px] lg:hidden"
+        />
+      )}
       <div className="flex min-w-0 flex-1 flex-col">
         <Header />
-        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">{moduleDisabled ? <DisabledNotice /> : children}</main>
+        {/* Marges resserrées sur mobile : 24 px de gouttière sur un écran de
+            375 px amputerait le contenu de 13 %. */}
+        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3 sm:p-4 lg:p-6">
+          {moduleDisabled ? <DisabledNotice /> : children}
+        </main>
       </div>
       <IncidentWizard />
       <QuakeAlert />

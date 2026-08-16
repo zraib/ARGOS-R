@@ -11,9 +11,11 @@ const TONES: Record<Tone, string> = {
   purple: "bg-purple-500/15 text-purple-600 dark:text-purple-400",
 };
 
+// Un cran plus grand sur téléphone (9 px ne se lit pas au bras tendu) ;
+// densité d'origine à partir de sm.
 const SIZES: Record<PillSize, string> = {
-  sm: "px-1.5 py-px text-[9px]",
-  md: "px-2 py-0.5 text-[10px]",
+  sm: "px-1.5 py-px text-[10px] sm:text-[9px]",
+  md: "px-2 py-0.5 text-[11px] sm:text-[10px]",
 };
 
 /** Petite pastille de statut colorée pour les statuts hors des six types de Badge. */

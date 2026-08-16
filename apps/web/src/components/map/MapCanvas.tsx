@@ -8,6 +8,7 @@ import { FLUX } from "@/lib/i18n/flux";
 import { canReportIncident } from "@/lib/roles";
 import { MAP_CENTER, MAP_STYLE, MAP_ZOOM } from "@/lib/map/style";
 import { routeThrough, type RouteResult } from "@/lib/map/routing";
+import { extrapolate } from "@/lib/map/deadReckoning";
 import { OVERLAY_STYLE } from "@/lib/map/overlay";
 import { Icon } from "@/components/ui/Icon";
 import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
@@ -21,6 +22,7 @@ import {
   incMarkerHTML,
   unitMarkerHTML,
   vehMarkerHTML,
+  acftMarkerHTML,
   vehPos,
 } from "@/lib/map/markers";
 import type { MarkerKind, WeatherGridSeries } from "@/lib/types";
@@ -278,11 +280,31 @@ function wxToUV(pt: { wind: number[]; windDir: number[] }, s: number, comp: "u" 
 }
 
 /** Carte opérationnelle MapLibre : marqueurs en direct, convois animés, bascule 2D/3D + fond. */
+/**
+ * Cadence d'interrogation du flux. Le palier public d'OpenSky publie un point
+ * toutes les ~10 s ; sonder plus vite ne rapporterait rien et consommerait du
+ * quota. Le mouvement affiché entre deux points vient de l'estime, pas du
+ * réseau.
+ */
+const ACFT_POLL_MS = 6_000;
+
+/** Cadence de réaffichage de la position estimée (~4 images/s). */
+const ACFT_FRAME_MS = 250;
+
+/** Au-delà, le dernier contact est trop ancien : le marqueur s'estompe. */
+const ACFT_STALE_S = 45;
+
 export function MapCanvas() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const vehMarkersRef = useRef<VehMarker[]>([]);
+  /**
+   * Marqueurs d'aéronefs, indexés par identifiant. Registre PERSISTANT : on
+   * déplace les marqueurs existants au lieu de les recréer, sinon la carte
+   * clignoterait à chaque rafraîchissement de position.
+   */
+  const acftMarkersRef = useRef<Map<string, { mk: maplibregl.Marker; el: HTMLElement; html: string }>>(new Map());
   const vehProgRef = useRef<number[]>([0.1, 0.45, 0.7]);
   const rafRef = useRef<number>(0);
   const readyRef = useRef(false);
@@ -344,6 +366,7 @@ export function MapCanvas() {
   const selMarker = useArgos((s) => s.selMarker);
   const incidents = useArgos((s) => s.incidents);
   const fieldHosps = useArgos((s) => s.fieldHosps);
+  const aircraft = useArgos((s) => s.aircraft);
   const map3d = useArgos((s) => s.map3d);
   const mapSat = useArgos((s) => s.mapSat);
   // Couche sismique (EMSC) : points colorés/dimensionnés par magnitude.
@@ -415,6 +438,12 @@ export function MapCanvas() {
         vehMarkersRef.current.push({ mk, routeIndex });
       });
     }
+
+    // Les aéronefs ne passent PAS par cette reconstruction : ils bougent en
+    // continu, alors que `syncMarkers` détruit et recrée l'intégralité des
+    // marqueurs (unités, centaines d'hôpitaux, incidents). Les rebâtir à chaque
+    // rafraîchissement de position ferait clignoter toute la carte. Ils ont leur
+    // propre registre, déplacé par `setLngLat`. Voir l'effet « suivi aérien ».
 
     if (map.getLayer("routes-line")) {
       map.setLayoutProperty("routes-line", "visibility", L.vehicles ? "visible" : "none");
@@ -1006,6 +1035,98 @@ export function MapCanvas() {
     syncMarkers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layers, selMarker, incidents, fieldHosps]);
+
+  // --- suivi aérien : interrogation du flux ---
+  // Le minuteur s'arrête dès que la couche est masquée, pour ne pas consommer
+  // de quota au profit d'une carte que personne ne regarde.
+  useEffect(() => {
+    if (!layers.aircraft) return;
+    const load = () => void useArgos.getState().loadAircraft();
+    load();
+    const timer = window.setInterval(load, ACFT_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [layers.aircraft]);
+
+  // --- suivi aérien : marqueurs propres + navigation à l'estime ---
+  //
+  // Le flux public ne livre un point que toutes les 10 s environ. Attendre le
+  // point suivant laisserait le marqueur figé puis le ferait sauter ; on avance
+  // donc la position estimée à cadence d'affichage, entre deux contacts.
+  //
+  // L'effet ne dépend QUE de la visibilité de la couche : la boucle relit l'état
+  // du store à chaque image, donc inutile de la reconstruire quand les positions
+  // changent.
+  useEffect(() => {
+    const map = mapRef.current;
+    const registry = acftMarkersRef.current;
+    const dropAll = () => {
+      registry.forEach((e) => e.mk.remove());
+      registry.clear();
+    };
+    if (!map || !layers.aircraft) {
+      dropAll();
+      return;
+    }
+
+    const render = () => {
+      const now = Date.now();
+      const st = useArgos.getState();
+      const sel = st.selMarker;
+      const vus = new Set<string>();
+
+      st.aircraft.forEach((a) => {
+        // Sans écho, pas de position : l'appareil reste listé dans le panneau
+        // mais n'est pas placé sur la carte.
+        if (!a.position) return;
+        const id = a.aircraft.id;
+        vus.add(id);
+
+        const est = extrapolate(a.position, now);
+        let entry = registry.get(id);
+        if (!entry) {
+          const el = mkEl("", "acft", id);
+          const mk = new maplibregl.Marker({ element: el }).setLngLat(est.ll).addTo(map);
+          entry = { mk, el, html: "" };
+          registry.set(id, entry);
+        }
+
+        // Le balisage n'est réécrit que s'il change réellement (cap, état,
+        // sélection) : réécrire innerHTML à chaque image saccaderait le rendu.
+        const html = acftMarkerHTML(
+          a.aircraft.label,
+          a.aircraft.role,
+          a.status,
+          a.position.heading,
+          sel?.kind === "acft" && sel.id === id,
+          est.ageSec > ACFT_STALE_S,
+        );
+        if (html !== entry.html) {
+          entry.el.innerHTML = html;
+          // `mkEl` agrandit le contenu à la création ; réécrire le balisage
+          // remplace cet enfant, il faut donc réappliquer l'échelle.
+          const inner = entry.el.firstElementChild as HTMLElement | null;
+          if (inner) inner.style.transform = "scale(1.4)";
+          entry.html = html;
+        }
+        entry.mk.setLngLat(est.ll);
+      });
+
+      // Appareils retirés du suivi ou ayant perdu leur écho.
+      registry.forEach((entry, id) => {
+        if (!vus.has(id)) {
+          entry.mk.remove();
+          registry.delete(id);
+        }
+      });
+    };
+
+    render();
+    const timer = window.setInterval(render, ACFT_FRAME_MS);
+    return () => {
+      window.clearInterval(timer);
+      dropAll();
+    };
+  }, [layers.aircraft]);
 
   // --- recentrage/zoom sur l'élément sélectionné (ex. « voir sur la carte ») ---
   useEffect(() => {

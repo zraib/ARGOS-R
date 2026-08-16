@@ -1107,6 +1107,96 @@ export interface paths {
         patch: operations["OrdersController_cancel"];
         trace?: never;
     };
+    "/api/aviation/aircraft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Aéronefs inscrits à la surveillance. */
+        get: operations["AviationController_list"];
+        put?: never;
+        /** Inscrire un aéronef à la surveillance. */
+        post: operations["AviationController_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/aviation/states": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Positions courantes des seuls aéronefs inscrits.
+         * @description Le flux externe est interrogé sur l'emprise nationale puis croisé avec la liste de suivi côté serveur : le trafic non inscrit ne sort jamais de l'API, et la liste de suivi n'est jamais transmise au fournisseur.
+         */
+        get: operations["AviationController_states"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/aviation/aircraft/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Supprimer définitivement (superadmin uniquement). */
+        delete: operations["AviationController_remove"];
+        options?: never;
+        head?: never;
+        /** Modifier un aéronef inscrit. */
+        patch: operations["AviationController_update"];
+        trace?: never;
+    };
+    "/api/aviation/aircraft/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archiver un aéronef (geste par défaut, réversible). */
+        post: operations["AviationController_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/aviation/aircraft/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Réactiver un aéronef archivé. */
+        post: operations["AviationController_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1219,7 +1309,7 @@ export interface components {
         };
         ToggleRoleFeatureDto: {
             /** @enum {string} */
-            feature: "dashboard" | "dash_incident" | "dash_hospital" | "dash_shelter" | "dash_morgue" | "dash_unit" | "map" | "incidents" | "subincidents" | "hospinet" | "shelters" | "morgue" | "units" | "equipment" | "teams" | "comms" | "reports" | "analytics" | "assistant" | "users" | "settings" | "dispatch" | "triage" | "ics" | "damage" | "orsec" | "plans" | "personnel" | "workorders" | "seismic" | "audit";
+            feature: "dashboard" | "dash_incident" | "dash_hospital" | "dash_shelter" | "dash_morgue" | "dash_unit" | "map" | "incidents" | "subincidents" | "hospinet" | "shelters" | "morgue" | "units" | "equipment" | "teams" | "comms" | "reports" | "analytics" | "assistant" | "users" | "settings" | "dispatch" | "triage" | "ics" | "damage" | "orsec" | "plans" | "personnel" | "workorders" | "seismic" | "audit" | "aviation";
             enabled: boolean;
         };
         ToggleFlagDto: {
@@ -1593,6 +1683,38 @@ export interface components {
         CancelOrderDto: {
             /** @example Doublon du BT-3388 */
             reason: string;
+        };
+        AddAircraftDto: {
+            /**
+             * @description Identifiant de l'aéronef : immatriculation (CN-TZS), indicatif d'appel (GRM01), code transpondeur IFF (7001) ou adresse OACI 24 bits (02a101). La nature est déduite de la forme.
+             * @example CN-TZS
+             */
+            code: string;
+            /**
+             * @description Libellé affiché sur la carte.
+             * @example Canadair 01
+             */
+            label: string;
+            /**
+             * @description Rôle opérationnel.
+             * @example waterbomber
+             * @enum {string}
+             */
+            role: "waterbomber" | "helicopter" | "observation" | "transport" | "medevac";
+            /** @description Incident auquel l'appareil est engagé. */
+            incidentId?: string;
+            /**
+             * @description Adresse OACI 24 bits, si connue. Seule clé d'appariement sans ambiguïté.
+             * @example 02a101
+             */
+            icao24?: string;
+        };
+        UpdateAircraftDto: {
+            label?: string;
+            /** @enum {string} */
+            role?: "waterbomber" | "helicopter" | "observation" | "transport" | "medevac";
+            incidentId?: string;
+            archived?: boolean;
         };
     };
     responses: never;
@@ -3160,6 +3282,153 @@ export interface operations {
         };
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AviationController_list: {
+        parameters: {
+            query?: {
+                includeArchived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AviationController_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddAircraftDto"];
+            };
+        };
+        responses: {
+            /** @description Code ou libellé invalide. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Aéronef déjà suivi. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AviationController_states: {
+        parameters: {
+            query?: {
+                incidentId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AviationController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AviationController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAircraftDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AviationController_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AviationController_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -35,18 +35,18 @@ export default function AbrisPage() {
           const pct = Math.round((s.occupants / s.capacity) * 100);
           const sup = SUPPLY[s.supplies];
           return (
-            <div key={s.id} className="carte flex flex-col gap-3 p-5">
+            <div key={s.id} className="carte flex flex-col gap-3 p-4 sm:p-5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <h3 className="text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{s.nom}</h3>
+                  <h3 className="break-words text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{s.nom}</h3>
                   <div className="mt-0.5 text-xs text-gray-500 dark:text-rdia-300">{s.ville}</div>
                 </div>
-                <Pill tone={sup.tone} label={m.shelters[sup.key]} />
+                <span className="shrink-0"><Pill tone={sup.tone} label={m.shelters[sup.key]} /></span>
               </div>
               <div>
-                <div className="mb-1 flex items-center justify-between text-[10px] text-gray-400 dark:text-rdia-400">
+                <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 text-xs text-gray-400 dark:text-rdia-400 md:text-[10px]">
                   <span>{m.shelters.col_occupancy}</span>
-                  <span className="font-mono">{s.occupants} / {s.capacity} · {pct}%</span>
+                  <span className="font-mono tabular-nums">{s.occupants} / {s.capacity} · {pct}%</span>
                 </div>
                 <ProgressBar value={pct} fill={occBarClass(pct)} />
               </div>
@@ -58,13 +58,13 @@ export default function AbrisPage() {
                 ].map((d) => (
                   <div key={d.label} className="text-center">
                     <div className="text-sm font-bold tabular-nums text-gray-800 dark:text-rdia-50">{d.value}</div>
-                    <div className="text-[9px] uppercase tracking-wide text-gray-400 dark:text-rdia-400">{d.label}</div>
+                    <div className="text-xs uppercase tracking-wide text-gray-400 dark:text-rdia-400 md:text-[9px]">{d.label}</div>
                   </div>
                 ))}
               </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-500 dark:text-rdia-300">{m.shelters.col_needs}</span>
-                <span className={`text-end font-medium ${s.needs === "—" ? "text-gray-400 dark:text-rdia-400" : "text-or-500"}`}>{s.needs}</span>
+              <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-[13px] sm:text-xs">
+                <span className="shrink-0 text-gray-500 dark:text-rdia-300">{m.shelters.col_needs}</span>
+                <span className={`min-w-0 break-words text-end font-medium ${s.needs === "—" ? "text-gray-400 dark:text-rdia-400" : "text-or-500"}`}>{s.needs}</span>
               </div>
             </div>
           );

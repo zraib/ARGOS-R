@@ -255,6 +255,9 @@ export function IncidentWizard() {
 
   const steps = [t.wz1, t.wz2, t.wz3, t.wz4];
   const labelCls = "mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200";
+  // 16 px sur mobile : sous ce seuil iOS zoome automatiquement au focus et
+  // décale toute la modale. La densité d'origine (14 px) revient à partir de md.
+  const fieldCls = "input-champ text-base md:text-sm";
   const sectionCls = "mb-2 text-xs font-bold uppercase tracking-wide text-rdia-500 dark:text-rdia-300";
 
   /** Ligne « moyen » sélectionnable (unité ou hôpital), ordonnée par proximité. */
@@ -299,35 +302,41 @@ export function IncidentWizard() {
   return (
     <Modal open={open} title={wizEdit ? t.edit_title : t.wiz_title} onClose={onClose} size="xl">
       <div className="flex flex-col gap-5">
-        {/* Stepper — quatre colonnes égales : espacement uniforme entre les étapes */}
-        <div className="grid grid-cols-4">
-          {steps.map((label, i) => {
-            const num = i + 1;
-            const done = step > num;
-            const current = step === num;
-            return (
-              <div key={label} className="flex items-center justify-center gap-2">
-                <span
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                    done ? "bg-green-500 text-white" : current ? "bg-or-500 text-rdia-600" : "bg-gray-200 text-gray-500 dark:bg-rdia-600 dark:text-rdia-300"
-                  }`}
-                >
-                  {num}
-                </span>
-                <span className={`text-xs ${current ? "font-bold text-or-500" : "text-gray-400 dark:text-rdia-400"}`}>{label}</span>
-              </div>
-            );
-          })}
+        {/* Stepper — quatre colonnes égales : espacement uniforme entre les étapes.
+            Sous `sm` les libellés ne tiennent pas côte à côte (375 px ÷ 4 ≈ 85 px) :
+            on ne garde que les pastilles numérotées, et le libellé de l'étape en
+            cours est rappelé sur la ligne du dessous. */}
+        <div>
+          <div className="grid grid-cols-4">
+            {steps.map((label, i) => {
+              const num = i + 1;
+              const done = step > num;
+              const current = step === num;
+              return (
+                <div key={label} className="flex items-center justify-center gap-2">
+                  <span
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                      done ? "bg-green-500 text-white" : current ? "bg-or-500 text-rdia-600" : "bg-gray-200 text-gray-500 dark:bg-rdia-600 dark:text-rdia-300"
+                    }`}
+                  >
+                    {num}
+                  </span>
+                  <span className={`hidden text-xs sm:inline ${current ? "font-bold text-or-500" : "text-gray-400 dark:text-rdia-400"}`}>{label}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-2 text-center text-sm font-bold text-or-500 sm:hidden">{steps[step - 1]}</div>
         </div>
 
         {/* Étape 1 — type (catalogue paramétrable servi par l'API) */}
         {step === 1 && (
-          <div className="grid max-h-[46vh] grid-cols-3 gap-3 overflow-y-auto sm:grid-cols-4">
+          <div className="grid max-h-[46dvh] grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3 sm:gap-3 md:grid-cols-4">
             {incidentTypes.map((def) => (
               <button
                 key={def.id}
                 onClick={() => setType(def.id)}
-                className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 p-4 text-xs font-semibold transition-all ${
+                className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 p-3 text-xs font-semibold transition-all sm:p-4 ${
                   type === def.id
                     ? "border-or-500 bg-or-500/10 text-or-500"
                     : "border-gray-200 text-gray-500 hover:border-or-500/40 dark:border-rdia-600 dark:text-rdia-300"
@@ -345,11 +354,11 @@ export function IncidentWizard() {
           <div className="flex flex-col gap-4">
             <div>
               <label className={labelCls}>{t.f_title}</label>
-              <input className="input-champ text-sm" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <input className={fieldCls} value={title} onChange={(e) => setTitle(e.target.value)} />
             </div>
             <div>
               <label className={labelCls}>{t.f_desc}</label>
-              <textarea className="input-champ text-sm" rows={4} value={desc} onChange={(e) => setDesc(e.target.value)} />
+              <textarea className={fieldCls} rows={4} value={desc} onChange={(e) => setDesc(e.target.value)} />
             </div>
             <div>
               <label className={labelCls}>{t.f_attach}</label>
@@ -385,7 +394,7 @@ export function IncidentWizard() {
                 <label className={labelCls}>{t.f_addr}</label>
                 <input
                   list="loc-places"
-                  className="input-champ text-sm"
+                  className={fieldCls}
                   value={adresse}
                   onChange={(e) => onAddress(e.target.value)}
                   placeholder={t.f_addr}
@@ -399,7 +408,7 @@ export function IncidentWizard() {
 
               <div>
                 <label className={labelCls}>{t.f_prov}</label>
-                <select className="input-champ text-sm" value={prov} onChange={(e) => onProv(e.target.value)}>
+                <select className={fieldCls} value={prov} onChange={(e) => onProv(e.target.value)}>
                   <option value="">—</option>
                   {provinces.map((p) => (
                     <option key={p.v} value={p.v}>{p.v} — {p.region}</option>
@@ -409,7 +418,7 @@ export function IncidentWizard() {
 
               <div>
                 <label className={labelCls}>{t.f_city}</label>
-                <select className="input-champ text-sm" value={city} onChange={(e) => onCity(e.target.value)}>
+                <select className={fieldCls} value={city} onChange={(e) => onCity(e.target.value)}>
                   <option value="">—</option>
                   {cityOptions.map((c) => (
                     <option key={c.v} value={c.v}>{prov ? c.v : `${c.v} — ${c.region}`}</option>

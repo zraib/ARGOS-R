@@ -180,27 +180,45 @@ export function Header() {
   const dark = useArgos((s) => s.dark);
   const toggleTheme = useArgos((s) => s.toggleTheme);
   const toggleSidebar = useArgos((s) => s.toggleSidebar);
+  const toggleNav = useArgos((s) => s.toggleNav);
+  const navOpen = useArgos((s) => s.navOpen);
   const ticker = useArgos((s) => s.feed[0]);
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-6 dark:border-rdia-700 dark:bg-rdia-800">
-      {/* Gauche : bascule barre latérale + titre de l'écran */}
-      <div className="flex shrink-0 items-center gap-4">
+    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-gray-200 bg-white px-3 sm:gap-3 sm:px-4 lg:h-16 lg:px-6 dark:border-rdia-700 dark:bg-rdia-800">
+      {/* Gauche : accès à la navigation + titre de l'écran.
+          Deux commandes distinctes, jamais visibles ensemble : le tiroir sous
+          `lg`, le repli au-dessus. Un même bouton pour les deux gestes prêterait
+          à confusion, les effets n'étant pas les mêmes. */}
+      <div className="flex min-w-0 shrink items-center gap-2 sm:gap-4">
+        <button
+          onClick={toggleNav}
+          aria-label={t.nav_open}
+          aria-expanded={navOpen}
+          aria-controls="argos-nav"
+          className="cible-tactile flex shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-or-500 lg:hidden dark:text-rdia-200 dark:hover:bg-rdia-600"
+        >
+          <Icon path={UI_ICONS.menu} size={22} />
+        </button>
         <button
           onClick={toggleSidebar}
-          className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600"
+          className="hidden shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 lg:block dark:hover:bg-rdia-600"
           aria-label="Basculer la barre latérale"
         >
           <Icon path={UI_ICONS.sidebar} size={18} />
         </button>
-        <h1 className="max-w-[240px] truncate text-lg font-bold text-rdia-600 dark:text-rdia-50">
+        <h1 className="min-w-0 truncate text-base font-bold text-rdia-600 sm:text-lg lg:max-w-[240px] dark:text-rdia-50">
           {screenTitle(pathname, t)}
         </h1>
       </div>
 
-      {/* Centre : fil des événements + niveau d'alerte + horloge (centré, sans chevauchement) */}
-      <div className="flex min-w-0 flex-1 items-center justify-center gap-3 max-[980px]:hidden">
-        <div className="flex min-w-0 items-center gap-2 rounded-lg bg-gray-50 px-3 py-1.5 max-[1240px]:hidden dark:bg-rdia-900/40">
+      {/* Centre : fil des événements + niveau d'alerte + horloge.
+          Repli progressif plutôt que tout ou rien — le niveau d'alerte est
+          l'information la plus critique du bandeau, il survit jusqu'au
+          téléphone ; le fil et l'horloge n'apparaissent que là où il y a la
+          place, sans jamais comprimer le titre de l'écran. */}
+      <div className="hidden min-w-0 flex-1 items-center justify-center gap-3 md:flex">
+        <div className="hidden min-w-0 items-center gap-2 rounded-lg bg-gray-50 px-3 py-1.5 xl:flex dark:bg-rdia-900/40">
           <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-danger-500" />
           <span className="max-w-[260px] truncate font-mono text-xs text-gray-600 dark:text-rdia-200">
             {ticker ? `${ticker.time} — ${ticker.txt}` : ""}
@@ -212,13 +230,21 @@ export function Header() {
         <Clock />
       </div>
 
+      {/* Sous md, le bandeau central disparaît : on garde tout de même le niveau
+          d'alerte, seule information du bandeau qui engage une conduite. */}
+      <span
+        className={`ms-auto whitespace-nowrap rounded-md px-2 py-1 text-[10px] font-bold md:hidden ${ALERT_STYLES[ALERT_LEVEL]}`}
+      >
+        {alertLabel(t)}
+      </span>
+
       {/* Droite : langue (globe) + thème + menu utilisateur */}
       <div className="flex shrink-0 items-center justify-end gap-1.5">
         <LanguageMenu />
         <button
           onClick={toggleTheme}
           title="Mode clair / sombre"
-          className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:text-rdia-200 dark:hover:bg-rdia-700/60 dark:hover:text-or-400"
+          className="cible-tactile flex shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 lg:p-1.5 dark:text-rdia-200 dark:hover:bg-rdia-700/60 dark:hover:text-or-400"
         >
           <Icon path={dark ? UI_ICONS.sun : UI_ICONS.moon} size={18} />
         </button>

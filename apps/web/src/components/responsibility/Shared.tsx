@@ -63,9 +63,12 @@ export function RespHeader({
   const m = useModules();
   const supervised = useSupervision();
   return (
-    <div className="carte flex flex-wrap items-center gap-3 p-4">
+    <div className="carte flex flex-wrap items-center gap-2 p-3 sm:gap-3 sm:p-4">
       {back ? (
-        <Link href="/ma-responsabilite" className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600">
+        <Link
+          href="/ma-responsabilite"
+          className="cible-tactile flex shrink-0 items-center justify-center rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600"
+        >
           <Icon path={UI_ICONS.arrowLeft} size={16} strokeWidth={2} />
         </Link>
       ) : (
@@ -73,20 +76,24 @@ export function RespHeader({
           <Icon path={icon} size={20} />
         </div>
       )}
-      <div className="min-w-0 flex-1">
+      {/* `basis-32` : le titre RÉCLAME de la place, sinon (basis 0) les pastilles
+          restent sur la première ligne et l'écrasent à quelques pixels. */}
+      <div className="min-w-0 flex-1 basis-32 sm:basis-40">
         <h2 className="truncate text-sm font-bold text-rdia-600 dark:text-rdia-50">{title}</h2>
         <p className="truncate text-xs text-gray-500 dark:text-rdia-300">{subtitle}</p>
       </div>
-      {badge && (
-        <span className="rounded-md bg-or-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-or-500">
-          {badge}
-        </span>
-      )}
-      {!back && !supervised && (
-        <span className="rounded-md bg-gray-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:bg-rdia-800/60 dark:text-rdia-300">
-          {m.resp.my_responsibility}
-        </span>
-      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {badge && (
+          <span className="rounded-md bg-or-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-or-500">
+            {badge}
+          </span>
+        )}
+        {!back && !supervised && (
+          <span className="rounded-md bg-gray-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:bg-rdia-800/60 dark:text-rdia-300">
+            {m.resp.my_responsibility}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -94,7 +101,7 @@ export function RespHeader({
 /** Carte de section avec titre et compteur optionnel. */
 export function Section({ title, count, children }: { title: string; count?: number; children: ReactNode }) {
   return (
-    <div className="carte flex flex-col gap-3 p-5">
+    <div className="carte flex flex-col gap-3 p-4 sm:p-5">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-rdia-600 dark:text-rdia-50">{title}</h3>
         {count !== undefined && <span className="font-mono text-[10px] text-gray-400 dark:text-rdia-400">{count}</span>}
@@ -106,9 +113,10 @@ export function Section({ title, count, children }: { title: string; count?: num
 
 function Notice({ icon, title, text }: { icon: string; title: string; text: string }) {
   return (
-    <section className="flex animate-fade-in items-center justify-center" style={{ minHeight: "60vh" }}>
-      <div className="carte flex flex-col items-center gap-3 p-8 text-center" style={{ maxWidth: 460 }}>
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-or-500/15 text-or-500">
+    // `dvh` et carte fluide : à 375 px, une largeur figée de 460 px déborderait.
+    <section className="flex min-h-[60dvh] animate-fade-in items-center justify-center">
+      <div className="carte flex w-full max-w-[460px] flex-col items-center gap-3 p-5 text-center sm:p-8">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-or-500/15 text-or-500">
           <Icon path={icon} size={22} />
         </div>
         <h2 className="text-base font-bold text-rdia-600 dark:text-rdia-50">{title}</h2>

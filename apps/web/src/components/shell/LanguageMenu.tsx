@@ -42,7 +42,7 @@ export function LanguageMenu() {
         title="Langue / Language / اللغة"
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-1 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:text-rdia-200 dark:hover:bg-rdia-700/60 dark:hover:text-or-400"
+        className="cible-tactile flex items-center justify-center gap-1 rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 lg:p-1.5 dark:text-rdia-200 dark:hover:bg-rdia-700/60 dark:hover:text-or-400"
       >
         <Icon path={UI_ICONS.globe} size={18} />
         <span className="text-[10px] font-bold uppercase">{lang}</span>
@@ -51,7 +51,7 @@ export function LanguageMenu() {
       {open && (
         <div
           role="menu"
-          className="absolute top-full z-50 mt-1.5 w-40 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-xl dark:border-rdia-600 dark:bg-rdia-700"
+          className="absolute end-0 top-full z-50 mt-1.5 w-40 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-xl dark:border-rdia-600 dark:bg-rdia-700"
           style={{ insetInlineEnd: 0 }}
         >
           {OPTIONS.map((o) => (

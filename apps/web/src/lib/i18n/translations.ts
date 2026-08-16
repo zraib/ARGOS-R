@@ -13,6 +13,16 @@ export interface Dict {
   nav_dash: string;
   nav_map: string;
   nav_seismic: string;
+  /** Libellé accessible du bouton d'ouverture du tiroir de navigation. */
+  nav_open: string;
+  /** Libellé accessible du bouton d'envoi de message. */
+  send: string;
+  // --- suivi aérien (feux de forêt) ---
+  acft_panel: string; acft_code: string; acft_code_ph: string; acft_label: string; acft_label_ph: string;
+  acft_role: string; acft_track: string; acft_untrack: string; acft_empty: string; acft_no_signal: string;
+  acft_feed: string; acft_last_contact: string; fam_air: string; lg_aircraft: string;
+  acft_role_waterbomber: string; acft_role_helicopter: string; acft_role_observation: string;
+  acft_role_transport: string; acft_role_medevac: string;
   nav_weather: string;
   nav_inc: string;
   nav_units: string;
@@ -277,7 +287,14 @@ export interface Dict {
 export const LANGS: Record<Lang, Dict> = {
   fr: {
     app: "ARGOS", appSub: "Gestion des Catastrophes · Forces Armées Royales", role: "Chef de Division",
-    nav_dash: "Tableau de bord", nav_map: "Carte opérationnelle", nav_seismic: "Sismologie", nav_weather: "Météo", nav_inc: "Incidents", nav_units: "Équipes", nav_hosp: "Hospinet",
+    acft_panel: "Suivi aérien", acft_code: "Code de l'aéronef",
+    acft_code_ph: "Immatriculation, indicatif ou IFF", acft_label: "Libellé", acft_label_ph: "Libellé sur la carte (ex. Canadair 01)",
+    acft_role: "Rôle", acft_track: "Suivre", acft_untrack: "Retirer du suivi",
+    acft_empty: "Aucun aéronef suivi. Saisissez un code pour l'afficher sur la carte.",
+    acft_no_signal: "sans signal", acft_feed: "Flux", acft_last_contact: "Altitude · âge du dernier contact réel", fam_air: "Moyens aériens", lg_aircraft: "Aéronefs suivis",
+    acft_role_waterbomber: "Bombardier d'eau", acft_role_helicopter: "Hélicoptère",
+    acft_role_observation: "Observation", acft_role_transport: "Transport", acft_role_medevac: "Évacuation sanitaire",
+    nav_open: "Ouvrir la navigation", send: "Envoyer", nav_dash: "Tableau de bord", nav_map: "Carte opérationnelle", nav_seismic: "Sismologie", nav_weather: "Météo", nav_inc: "Incidents", nav_units: "Équipes", nav_hosp: "Hospinet",
     report: "Signaler un incident", live: "DIRECT",
     lvl1: "NIVEAU 1 · ROUTINE", lvl2: "NIVEAU 2 · VIGILANCE", lvl3: "NIVEAU 3 · VIGILANCE RENFORCÉE", lvl4: "NIVEAU 4 · URGENCE NATIONALE",
     kpi_inc: "Incidents actifs", kpi_pers: "Personnel déployé", kpi_beds: "Lits disponibles", kpi_units: "Unités en alerte",
@@ -304,7 +321,14 @@ export const LANGS: Record<Lang, Dict> = {
   },
   en: {
     app: "ARGOS", appSub: "Disaster Management · Royal Armed Forces", role: "Division Chief",
-    nav_dash: "Dashboard", nav_map: "Operational map", nav_seismic: "Seismology", nav_weather: "Weather", nav_inc: "Incidents", nav_units: "Teams", nav_hosp: "Hospinet",
+    acft_panel: "Air tracking", acft_code: "Aircraft code",
+    acft_code_ph: "Registration, callsign or IFF", acft_label: "Label", acft_label_ph: "Map label (e.g. Canadair 01)",
+    acft_role: "Role", acft_track: "Track", acft_untrack: "Stop tracking",
+    acft_empty: "No aircraft tracked. Enter a code to show it on the map.",
+    acft_no_signal: "no signal", acft_feed: "Feed", acft_last_contact: "Altitude · age of last real contact", fam_air: "Air assets", lg_aircraft: "Tracked aircraft",
+    acft_role_waterbomber: "Water bomber", acft_role_helicopter: "Helicopter",
+    acft_role_observation: "Observation", acft_role_transport: "Transport", acft_role_medevac: "Medevac",
+    nav_open: "Open navigation", send: "Send", nav_dash: "Dashboard", nav_map: "Operational map", nav_seismic: "Seismology", nav_weather: "Weather", nav_inc: "Incidents", nav_units: "Teams", nav_hosp: "Hospinet",
     report: "Report an incident", live: "LIVE",
     lvl1: "LEVEL 1 · ROUTINE", lvl2: "LEVEL 2 · VIGILANCE", lvl3: "LEVEL 3 · HIGH VIGILANCE", lvl4: "LEVEL 4 · NATIONAL EMERGENCY",
     kpi_inc: "Active incidents", kpi_pers: "Deployed personnel", kpi_beds: "Available beds", kpi_units: "Units on alert",
@@ -331,7 +355,14 @@ export const LANGS: Record<Lang, Dict> = {
   },
   ar: {
     app: "ARGOS", appSub: "تدبير الكوارث · القوات المسلحة الملكية", role: "رئيس قسم",
-    nav_dash: "لوحة القيادة", nav_map: "الخريطة العملياتية", nav_seismic: "علم الزلازل", nav_weather: "الطقس", nav_inc: "الحوادث", nav_units: "الفرق", nav_hosp: "هوسبينت",
+    acft_panel: "التتبع الجوي", acft_code: "رمز الطائرة",
+    acft_code_ph: "التسجيل أو النداء أو IFF", acft_label: "التسمية", acft_label_ph: "التسمية على الخريطة",
+    acft_role: "الدور", acft_track: "تتبع", acft_untrack: "إيقاف التتبع",
+    acft_empty: "لا توجد طائرات متتبعة. أدخل رمزًا لعرضها على الخريطة.",
+    acft_no_signal: "بلا إشارة", acft_feed: "التدفق", acft_last_contact: "الارتفاع · عمر آخر اتصال فعلي", fam_air: "الوسائل الجوية", lg_aircraft: "الطائرات المتتبعة",
+    acft_role_waterbomber: "قاذفة مياه", acft_role_helicopter: "مروحية",
+    acft_role_observation: "استطلاع", acft_role_transport: "نقل", acft_role_medevac: "إخلاء طبي",
+    nav_open: "فتح التنقل", send: "إرسال", nav_dash: "لوحة القيادة", nav_map: "الخريطة العملياتية", nav_seismic: "علم الزلازل", nav_weather: "الطقس", nav_inc: "الحوادث", nav_units: "الفرق", nav_hosp: "هوسبينت",
     report: "التبليغ عن حادث", live: "مباشر",
     lvl1: "المستوى 1 · عادي", lvl2: "المستوى 2 · يقظة", lvl3: "المستوى 3 · يقظة معززة", lvl4: "المستوى 4 · طوارئ وطنية",
     kpi_inc: "الحوادث النشطة", kpi_pers: "الأفراد المنتشرون", kpi_beds: "الأسرّة المتاحة", kpi_units: "وحدات في حالة تأهب",

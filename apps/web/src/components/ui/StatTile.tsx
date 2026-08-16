@@ -25,7 +25,9 @@ export function StatTile({
     gray: "bg-gray-400/20 text-gray-500 dark:text-rdia-200",
   };
   return (
-    <div className="carte flex items-center gap-3 p-4">
+    // Rembourrage réduit sur téléphone : dans une grille à deux colonnes à
+    // 375 px, 16 px de chaque côté ne laissaient plus de place au libellé.
+    <div className="carte flex items-center gap-3 p-3 sm:p-4">
       <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tints[tint]}`}>
         <Icon path={icon} size={20} />
       </div>

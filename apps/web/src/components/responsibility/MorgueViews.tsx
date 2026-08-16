@@ -114,8 +114,10 @@ export function MorgueDashboard({ mid }: { mid: string }) {
 
       <Section title={m.resp.g_register} count={records.length}>
         {records.length === 0 && <Empty label={m.resp.g_no_record} />}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ minWidth: 640 }}>
+
+        {/* Tableau : à partir de md, les 5 colonnes redeviennent lisibles. */}
+        <div className="hidden overflow-x-auto md:block">
+          <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-rdia-600">
                 <Th>{m.resp.g_reference}</Th><Th>{m.resp.g_status}</Th><Th>{m.resp.g_identity}</Th>
@@ -136,6 +138,35 @@ export function MorgueDashboard({ mid }: { mid: string }) {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Sous md : une carte par dossier — mêmes données que le tableau
+            (le défilement horizontal d'une table de 640 px n'est pas une réponse). */}
+        <div className="flex flex-col gap-2 md:hidden">
+          {records.map((r) => (
+            <div key={r.id} className="rounded-lg border border-gray-100 p-3 dark:border-rdia-700/60">
+              <div className="flex items-start justify-between gap-2">
+                <span className="min-w-0 truncate font-mono text-xs font-semibold text-gray-800 dark:text-rdia-50">{r.reference}</span>
+                <div className="shrink-0"><Pill tone={STATUS_TONES[r.status]} label={m.resp.dvi_status[r.status]} /></div>
+              </div>
+              <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[13px]">
+                <div className="col-span-2 min-w-0">
+                  <dt className="text-[11px] text-gray-400 dark:text-rdia-400">{m.resp.g_identity}</dt>
+                  <dd className="truncate text-gray-700 dark:text-rdia-100">{r.identifiedAs ?? "—"}</dd>
+                </div>
+                <div className="min-w-0">
+                  <dt className="text-[11px] text-gray-400 dark:text-rdia-400">{m.resp.g_samples}</dt>
+                  <dd className="text-gray-700 dark:text-rdia-100">
+                    {r.samples.length > 0 ? r.samples.map((s) => m.resp.dvi_sample[s]).join(" · ") : "—"}
+                  </dd>
+                </div>
+                <div className="min-w-0">
+                  <dt className="text-[11px] text-gray-400 dark:text-rdia-400">{m.resp.g_found_at}</dt>
+                  <dd className="text-gray-700 dark:text-rdia-100">{r.foundAt ?? "—"}</dd>
+                </div>
+              </dl>
+            </div>
+          ))}
         </div>
       </Section>
 
@@ -179,9 +210,11 @@ export function MorgueManagement({ mid }: { mid: string }) {
         {records.length === 0 && <Empty label={m.resp.g_no_record} />}
         <div className="flex flex-col gap-2">
           {records.map((r) => (
-            <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-100 p-3 dark:border-rdia-700/60">
-              <div className="min-w-0 flex-1" style={{ minWidth: 200 }}>
-                <div className="flex items-center gap-2">
+            // Les largeurs figées (200 px / 130 px) débordaient sous 375 px :
+            // remplacées par des bases souples qui se replient.
+            <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-gray-100 p-3 dark:border-rdia-700/60">
+              <div className="min-w-0 flex-1 basis-40">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-xs font-semibold text-gray-800 dark:text-rdia-50">{r.reference}</span>
                   <Pill tone={STATUS_TONES[r.status]} label={m.resp.dvi_status[r.status]} />
                 </div>
@@ -190,14 +223,14 @@ export function MorgueManagement({ mid }: { mid: string }) {
                   {r.releasedTo ? ` · ${m.resp.g_released_to} ${r.releasedTo}` : ""}
                 </div>
               </div>
-              <div className="text-[10px] text-gray-500 dark:text-rdia-300" style={{ minWidth: 130 }}>
+              <div className="min-w-0 flex-1 basis-32 text-[10px] text-gray-500 dark:text-rdia-300 sm:flex-none sm:basis-[130px]">
                 {r.samples.length > 0 ? r.samples.map((s) => m.resp.dvi_sample[s]).join(" · ") : "—"}
               </div>
               <button
                 title={r.status === "released" ? m.resp.g_closed : m.resp.edit}
                 disabled={r.status === "released"}
                 onClick={() => setEditing(r)}
-                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-rdia-600"
+                className="cible-tactile flex shrink-0 items-center justify-center rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-rdia-600"
               >
                 <Icon path={UI_ICONS.edit} size={14} />
               </button>
@@ -234,24 +267,25 @@ function SiteForm({ site, onSaved }: { site: MorgueSite; onSaved: () => void }) 
   return (
     <div className="carte flex flex-col gap-4 p-5">
       <h3 className="text-sm font-bold text-rdia-600 dark:text-rdia-50">{m.resp.g_site_block}</h3>
+      {/* Champs à 16 px sur mobile (pas de zoom iOS au focus) et ≥ 44 px de haut. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div>
           <label className={labelCls}>{m.resp.g_capacity}</label>
-          <input className="input-champ font-mono text-sm" type="number" min={0} value={form.capacity} onChange={(e) => setForm((f) => ({ ...f, capacity: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
+          <input className="input-champ font-mono text-base md:text-sm" type="number" min={0} value={form.capacity} onChange={(e) => setForm((f) => ({ ...f, capacity: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
         </div>
         <div>
           <label className={labelCls}>{m.resp.g_staff}</label>
-          <input className="input-champ font-mono text-sm" type="number" min={0} value={form.staff} onChange={(e) => setForm((f) => ({ ...f, staff: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
+          <input className="input-champ font-mono text-base md:text-sm" type="number" min={0} value={form.staff} onChange={(e) => setForm((f) => ({ ...f, staff: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
         </div>
         <div>
           <label className={labelCls}>{m.resp.g_status}</label>
-          <select className="input-champ text-sm" value={form.statut} onChange={(e) => setForm((f) => ({ ...f, statut: e.target.value as MorgueSite["statut"] }))}>
+          <select className="input-champ text-base md:text-sm" value={form.statut} onChange={(e) => setForm((f) => ({ ...f, statut: e.target.value as MorgueSite["statut"] }))}>
             {(["op", "partial", "closed"] as const).map((s) => <option key={s} value={s}>{m.resp.morgue_statut[s]}</option>)}
           </select>
         </div>
       </div>
       <div className="flex justify-end">
-        <button className="btn-primaire text-sm disabled:opacity-60" disabled={busy} onClick={() => void save()}>
+        <button className="cible-tactile btn-primaire text-sm disabled:opacity-60" disabled={busy} onClick={() => void save()}>
           {busy ? m.resp.saving : m.resp.save}
         </button>
       </div>
@@ -295,38 +329,39 @@ function AdmitForm({ mid, onClose, onDone }: { mid: string; onClose: () => void;
   return (
     <Modal open onClose={onClose} title={m.resp.g_admit}>
       <div className="flex flex-col gap-4">
+        {/* Champs à 16 px sur mobile (pas de zoom iOS au focus) et ≥ 44 px de haut. */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className={labelCls}>{m.resp.g_reference}</label>
-            <input className="input-champ font-mono text-sm" placeholder={m.resp.g_reference_ph} value={reference} onChange={(e) => { setReference(e.target.value); setError(null); }} />
+            <input className="input-champ font-mono text-base md:text-sm" placeholder={m.resp.g_reference_ph} value={reference} onChange={(e) => { setReference(e.target.value); setError(null); }} />
           </div>
-          <div>
+          <div className="min-w-0">
             <label className={labelCls}>{m.resp.g_incident}</label>
-            <select className="input-champ text-sm" value={incidentId} onChange={(e) => setIncidentId(e.target.value)}>
+            <select className="input-champ text-base md:text-sm" value={incidentId} onChange={(e) => setIncidentId(e.target.value)}>
               <option value="">{m.resp.g_incident_none}</option>
               {incidents.filter((i) => !i.archived).map((i) => <option key={i.id} value={i.id}>{i.id} — {i.titre}</option>)}
             </select>
           </div>
           <div className="sm:col-span-2">
             <label className={labelCls}>{m.resp.g_found_at}</label>
-            <input className="input-champ text-sm" placeholder={m.resp.g_found_at_ph} value={foundAt} onChange={(e) => setFoundAt(e.target.value)} />
+            <input className="input-champ text-base md:text-sm" placeholder={m.resp.g_found_at_ph} value={foundAt} onChange={(e) => setFoundAt(e.target.value)} />
           </div>
           <div>
             <label className={labelCls}>{m.resp.g_sex}</label>
-            <select className="input-champ text-sm" value={sex} onChange={(e) => setSex(e.target.value as "m" | "f" | "unknown")}>
+            <select className="input-champ text-base md:text-sm" value={sex} onChange={(e) => setSex(e.target.value as "m" | "f" | "unknown")}>
               {(["unknown", "m", "f"] as const).map((s) => <option key={s} value={s}>{m.resp.dvi_sex[s]}</option>)}
             </select>
           </div>
           <div>
             <label className={labelCls}>{m.resp.g_age}</label>
-            <input className="input-champ text-sm" placeholder="40-55" value={ageRange} onChange={(e) => setAgeRange(e.target.value)} />
+            <input className="input-champ text-base md:text-sm" placeholder="40-55" value={ageRange} onChange={(e) => setAgeRange(e.target.value)} />
           </div>
         </div>
         <p className="text-[11px] text-gray-400 dark:text-rdia-400">{m.resp.g_admit_hint}</p>
         {error && <p className="text-xs font-semibold text-danger-500">{error}</p>}
-        <div className="flex justify-end gap-2">
-          <button className="btn-secondaire text-sm" onClick={onClose}>{m.resp.cancel}</button>
-          <button className="btn-primaire text-sm disabled:opacity-60" disabled={busy} onClick={() => void submit()}>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button className="cible-tactile btn-secondaire text-sm" onClick={onClose}>{m.resp.cancel}</button>
+          <button className="cible-tactile btn-primaire text-sm disabled:opacity-60" disabled={busy} onClick={() => void submit()}>
             {busy ? m.resp.saving : m.resp.g_admit_btn}
           </button>
         </div>
@@ -380,9 +415,10 @@ function RecordForm({ mid, record, onClose, onDone }: { mid: string; record: Mor
   return (
     <Modal open onClose={onClose} title={`${m.resp.g_record} ${record.reference}`}>
       <div className="flex flex-col gap-4">
+        {/* Champs à 16 px sur mobile (pas de zoom iOS au focus) et ≥ 44 px de haut. */}
         <div>
           <label className={labelCls}>{m.resp.g_status}</label>
-          <select className="input-champ text-sm" value={status} onChange={(e) => { setStatus(e.target.value as DviStatus); setError(null); }}>
+          <select className="input-champ text-base md:text-sm" value={status} onChange={(e) => { setStatus(e.target.value as DviStatus); setError(null); }}>
             {options.map((s) => <option key={s} value={s}>{m.resp.dvi_status[s]}</option>)}
           </select>
         </div>
@@ -397,7 +433,7 @@ function RecordForm({ mid, record, onClose, onDone }: { mid: string; record: Mor
                   key={s}
                   type="button"
                   onClick={() => toggleSample(s)}
-                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${on ? "border-or-500 bg-or-500/10 text-or-600 dark:text-or-400" : "border-gray-200 text-gray-500 hover:border-or-500/50 dark:border-rdia-600 dark:text-rdia-300"}`}
+                  className={`cible-tactile inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${on ? "border-or-500 bg-or-500/10 text-or-600 dark:text-or-400" : "border-gray-200 text-gray-500 hover:border-or-500/50 dark:border-rdia-600 dark:text-rdia-300"}`}
                 >
                   <span className={`flex h-4 w-4 items-center justify-center rounded-sm border ${on ? "border-or-500 bg-or-500 text-white" : "border-gray-300 dark:border-rdia-500"}`}>
                     {on && <Icon path={UI_ICONS.check} size={10} strokeWidth={3} />}
@@ -411,21 +447,21 @@ function RecordForm({ mid, record, onClose, onDone }: { mid: string; record: Mor
 
         <div>
           <label className={labelCls}>{m.resp.g_identity}</label>
-          <input className="input-champ text-sm" placeholder={m.resp.g_identity_ph} value={identifiedAs} onChange={(e) => { setIdentifiedAs(e.target.value); setError(null); }} />
+          <input className="input-champ text-base md:text-sm" placeholder={m.resp.g_identity_ph} value={identifiedAs} onChange={(e) => { setIdentifiedAs(e.target.value); setError(null); }} />
         </div>
 
         {status === "released" && (
           <div>
             <label className={labelCls}>{m.resp.g_released_field}</label>
-            <input className="input-champ text-sm" placeholder={m.resp.g_released_ph} value={releasedTo} onChange={(e) => { setReleasedTo(e.target.value); setError(null); }} />
+            <input className="input-champ text-base md:text-sm" placeholder={m.resp.g_released_ph} value={releasedTo} onChange={(e) => { setReleasedTo(e.target.value); setError(null); }} />
             <p className="mt-1 text-[11px] text-gray-400 dark:text-rdia-400">{m.resp.g_released_hint}</p>
           </div>
         )}
 
         {error && <p className="text-xs font-semibold text-danger-500">{error}</p>}
-        <div className="flex justify-end gap-2">
-          <button className="btn-secondaire text-sm" onClick={onClose}>{m.resp.cancel}</button>
-          <button className="btn-primaire text-sm disabled:opacity-60" disabled={busy} onClick={() => void submit()}>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button className="cible-tactile btn-secondaire text-sm" onClick={onClose}>{m.resp.cancel}</button>
+          <button className="cible-tactile btn-primaire text-sm disabled:opacity-60" disabled={busy} onClick={() => void submit()}>
             {busy ? m.resp.saving : m.resp.save}
           </button>
         </div>

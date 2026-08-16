@@ -73,7 +73,7 @@ export function UnitDashboard({ uid }: { uid: string }) {
 
       {!supervised && (
         <div className="flex justify-end">
-          <Link href="/ma-responsabilite/gestion" className="btn-primaire flex items-center gap-1.5 text-sm">
+          <Link href="/ma-responsabilite/gestion" className="cible-tactile btn-primaire flex items-center gap-1.5 text-sm">
             <Icon path={UI_ICONS.edit} size={14} />
             {m.resp.manage}
           </Link>
@@ -115,18 +115,19 @@ export function UnitManagement({ uid }: { uid: string }) {
 
       <div className="carte flex flex-col gap-4 p-5">
         <h3 className="text-sm font-bold text-rdia-600 dark:text-rdia-50">{m.resp.u_posture_block}</h3>
+        {/* Champs à 16 px sur mobile (pas de zoom iOS au focus) et ≥ 44 px de haut. */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <div>
             <label className={labelCls}>{m.resp.u_cmdt}</label>
-            <input className="input-champ text-sm" value={form.cmdt} onChange={(e) => setForm((f) => ({ ...f, cmdt: e.target.value }))} />
+            <input className="input-champ text-base md:text-sm" value={form.cmdt} onChange={(e) => setForm((f) => ({ ...f, cmdt: e.target.value }))} />
           </div>
           <div>
             <label className={labelCls}>{m.resp.u_effectif}</label>
-            <input className="input-champ font-mono text-sm" type="number" min={0} value={form.eff} onChange={(e) => setForm((f) => ({ ...f, eff: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
+            <input className="input-champ font-mono text-base md:text-sm" type="number" min={0} value={form.eff} onChange={(e) => setForm((f) => ({ ...f, eff: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
           </div>
           <div>
             <label className={labelCls}>{m.resp.u_posture}</label>
-            <select className="input-champ text-sm" value={form.dispo} onChange={(e) => setForm((f) => ({ ...f, dispo: e.target.value as Unit["dispo"] }))}>
+            <select className="input-champ text-base md:text-sm" value={form.dispo} onChange={(e) => setForm((f) => ({ ...f, dispo: e.target.value as Unit["dispo"] }))}>
               {(["ready", "deployed", "standby"] as const).map((d) => (
                 <option key={d} value={d}>{m.resp.unit_dispo[d]}</option>
               ))}
@@ -134,12 +135,12 @@ export function UnitManagement({ uid }: { uid: string }) {
           </div>
           <div>
             <label className={labelCls}>{m.resp.u_readiness} (%)</label>
-            <input className="input-champ font-mono text-sm" type="number" min={0} max={100} value={form.readiness} onChange={(e) => setForm((f) => ({ ...f, readiness: Math.min(100, Math.max(0, parseInt(e.target.value, 10) || 0)) }))} />
+            <input className="input-champ font-mono text-base md:text-sm" type="number" min={0} max={100} value={form.readiness} onChange={(e) => setForm((f) => ({ ...f, readiness: Math.min(100, Math.max(0, parseInt(e.target.value, 10) || 0)) }))} />
           </div>
         </div>
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <Pill tone={DISPO_TONES[form.dispo]} label={m.resp.unit_dispo[form.dispo]} />
-          <button className="btn-primaire text-sm disabled:opacity-60" disabled={busy} onClick={() => void save()}>
+          <button className="cible-tactile btn-primaire text-sm disabled:opacity-60" disabled={busy} onClick={() => void save()}>
             {busy ? m.resp.saving : m.resp.save}
           </button>
         </div>

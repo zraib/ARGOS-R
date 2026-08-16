@@ -337,7 +337,53 @@ export interface SeismicNotification {
 
 // --- Sélection sur la carte opérationnelle -------------------------------
 
-export type MarkerKind = "unit" | "hosp" | "inc" | "veh" | "field";
+export type MarkerKind = "unit" | "hosp" | "inc" | "veh" | "field" | "acft";
+
+// --- suivi aérien (feux de forêt) ---
+// Miroir des types du module `aviation` de l'API. Le poste de commandement ne
+// suit que les aéronefs qu'un opérateur a explicitement inscrits.
+
+export type AircraftRole = "waterbomber" | "helicopter" | "observation" | "transport" | "medevac";
+export type AircraftCodeKind = "icao24" | "registration" | "callsign" | "squawk";
+export type TrackingStatus = "airborne" | "ground" | "no_signal";
+
+export interface TrackedAircraft {
+  id: string;
+  code: string;
+  codeKind: AircraftCodeKind;
+  icao24?: string;
+  label: string;
+  role: AircraftRole;
+  incidentId?: string;
+  archived: boolean;
+  addedAt: string;
+  addedBy: string;
+}
+
+export interface AircraftPosition {
+  icao24: string;
+  callsign: string | null;
+  lat: number;
+  lon: number;
+  ll: [number, number];
+  /** Altitude en mètres. */
+  altitude: number | null;
+  /** Cap vrai en degrés (0 = nord). */
+  heading: number | null;
+  /** Vitesse sol en m/s. */
+  velocity: number | null;
+  verticalRate: number | null;
+  onGround: boolean;
+  squawk: string | null;
+  lastContact: string;
+  originCountry: string | null;
+}
+
+export interface TrackedAircraftState {
+  aircraft: TrackedAircraft;
+  position: AircraftPosition | null;
+  status: TrackingStatus;
+}
 
 export interface MapSelection {
   kind: MarkerKind;

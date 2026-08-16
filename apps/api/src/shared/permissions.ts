@@ -63,6 +63,7 @@ export const LEGACY_FEATURES = [
   "workorders", // Bons de travail
   "seismic",    // Sismologie / météo
   "audit",      // Journal d'audit
+  "aviation",   // Suivi aérien (feux de forêt) — absent de la matrice, à arbitrer
 ] as const;
 
 export const FEATURES = [...MATRIX_FEATURES, ...LEGACY_FEATURES] as const;
@@ -101,6 +102,7 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   workorders: "Bons de travail",
   seismic: "Sismologie & météo",
   audit: "Journal d'audit",
+  aviation: "Suivi aérien",
 };
 
 export type Permission = `${Feature}:${Action}`;
@@ -269,6 +271,13 @@ const LEGACY: Record<(typeof LEGACY_FEATURES)[number], Partial<Record<Role, Cell
   workorders: { admin: V, greencell: AMV, resp_equipment: AMV },
   seismic: { admin: V, strategic: V, tacom: V, bluecell: V, opcom: V, wali: V, place_arme: V },
   audit: { admin: V, strategic: V },
+  // Suivi aérien : la conduite des moyens aériens revient au commandement
+  // opératif et tactique ; les cellules et l'état-major observent. Dotation
+  // provisoire, à confirmer lors de l'arbitrage de la matrice.
+  aviation: {
+    admin: ALL, opcom: AMV, tacom: AMV,
+    strategic: V, place_arme: V, wali: V, bluecell: V, greencell: V, orangecell: V,
+  },
 };
 
 /** Développe un code de cellule en liste d'actions. */

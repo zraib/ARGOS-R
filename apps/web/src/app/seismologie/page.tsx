@@ -103,15 +103,17 @@ export default function SeismologiePage() {
 
   return (
     <section className="flex flex-col gap-4 animate-fade-in">
-      {/* Barre d'outils : contexte à gauche, contrôles temps réel à droite */}
+      {/* Barre d'outils : contexte à gauche, contrôles temps réel à droite.
+          Sur téléphone les trois contrôles ne tiennent pas sur une ligne : ils
+          s'enroulent au lieu de pousser la page hors de l'écran. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-gray-500 dark:text-rdia-300">{f.seis_sub}</p>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <LivePill label={f.seis_live} />
           <ToggleChip on={quakesOn} onClick={() => setQuakesOn(!quakesOn)} label={f.seis_layer} />
           <button
             onClick={() => { setLoading(true); void loadQuakes().finally(() => setLoading(false)); }}
-            className="btn-secondaire flex items-center gap-1.5 text-xs disabled:opacity-50"
+            className="btn-secondaire cible-tactile flex items-center gap-1.5 text-xs disabled:opacity-50"
             disabled={loading}
             aria-label={f.seis_updated}
           >
@@ -130,12 +132,15 @@ export default function SeismologiePage() {
 
       {/* Liste des séismes + filtres dans l'en-tête de la carte */}
       <div className="carte flex flex-col gap-3 p-0">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-4 pt-4 pb-3 dark:border-rdia-700/50">
+        {/* Filtres. Les deux groupes segmentés dépassent 375 px côte à côte : ils
+            s'empilent sur téléphone. `[&_button]` porte la cible tactile de 44 px
+            jusque dans `SegBtn`, primitive partagée avec l'écran Météo. */}
+        <div className="flex flex-col gap-3 border-b border-gray-100 px-3 pt-3 pb-3 dark:border-rdia-700/50 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-4 sm:pt-4 [&_button]:min-h-[44px] lg:[&_button]:min-h-0">
           <Seg>
             <SegBtn on={region === "morocco"} onClick={() => setQuakesFilter(minmag, "morocco")}>{f.seis_region_morocco}</SegBtn>
             <SegBtn on={region === "world"} onClick={() => setQuakesFilter(minmag, "world")}>{f.seis_region_world}</SegBtn>
           </Seg>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className={MICRO}>{f.seis_minmag}</span>
             <Seg>
               {MINMAGS.map((m) => (
@@ -145,7 +150,8 @@ export default function SeismologiePage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Tableau : à partir de `md`, la densité redevient lisible. */}
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-rdia-600">
@@ -175,7 +181,7 @@ export default function SeismologiePage() {
                       <td className="px-4 py-2.5 font-mono text-xs tabular-nums text-gray-500 dark:text-rdia-300">{fmtUTC(q.time)}</td>
                       <td className="px-4 py-2.5">
                         <div className="flex items-center justify-end gap-2">
-                          <button className="btn-secondaire inline-flex items-center gap-1.5 text-xs" onClick={(e) => { e.stopPropagation(); seeOnMap(q); }}>
+                          <button className="btn-secondaire cible-tactile inline-flex items-center gap-1.5 text-xs" onClick={(e) => { e.stopPropagation(); seeOnMap(q); }}>
                             <Icon path={UI_ICONS.map} size={13} /> {f.seis_on_map}
                           </button>
                           <Icon path={UI_ICONS.caretDown} size={14} className={`shrink-0 text-gray-400 transition-transform dark:text-rdia-400 ${open ? "rotate-180" : ""}`} />
@@ -205,6 +211,55 @@ export default function SeismologiePage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Sous `md` : une carte par séisme — mêmes colonnes, même dépliement de
+            détail, même renvoi vers la carte. Rien n'est retiré. */}
+        <div className="flex flex-col gap-2 px-3 pb-3 md:hidden">
+          {quakes.map((q) => {
+            const open = openId === q.id;
+            return (
+              <div key={q.id} className="rounded-xl border border-gray-100 dark:border-rdia-700/50">
+                {/* L'en-tête entier est la commande de dépliement : cible large au doigt. */}
+                <button
+                  type="button"
+                  aria-expanded={open}
+                  onClick={() => setOpenId(open ? null : q.id)}
+                  className={`flex w-full items-center gap-3 rounded-t-xl p-3 text-start transition-colors ${open ? "bg-gray-50 dark:bg-rdia-700/30" : ""}`}
+                >
+                  <span className={`inline-flex min-w-[3rem] shrink-0 items-center justify-center rounded-lg px-2 py-1 text-sm font-bold tabular-nums ${magClass(q.mag)}`}>
+                    {q.mag.toFixed(1)}
+                  </span>
+                  <span className="min-w-0 flex-1 break-words text-sm text-gray-700 dark:text-rdia-100">{q.region}</span>
+                  <Icon path={UI_ICONS.caretDown} size={16} className={`shrink-0 text-gray-400 transition-transform dark:text-rdia-400 ${open ? "rotate-180" : ""}`} />
+                </button>
+
+                <div className="flex flex-col gap-3 border-t border-gray-100 p-3 dark:border-rdia-700/50">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                    <Detail label={f.seis_col_depth} value={`${Math.round(Math.abs(q.depth))} ${f.seis_km}`} mono />
+                    <Detail label={f.seis_col_time} value={fmtUTC(q.time)} mono />
+                    {open && (
+                      <>
+                        <Detail label={f.seis_evtype} value={evLabel(q.evtype, lang)} />
+                        <Detail label={f.seis_magtype} value={q.magType || "—"} />
+                        <Detail label={f.seis_agency} value={q.agency} />
+                        <Detail label={f.seis_coords} value={`${q.lat.toFixed(3)}, ${q.lon.toFixed(3)}`} mono />
+                        <Detail label={f.seis_local} value={fmtLocal(q.time, lang)} mono />
+                        <Detail label={f.seis_update} value={fmtLocal(q.lastUpdate, lang)} mono />
+                        {q.sourceId && <Detail label={f.seis_ref} value={q.sourceId} mono />}
+                      </>
+                    )}
+                  </div>
+                  <button className="btn-secondaire cible-tactile inline-flex items-center justify-center gap-1.5 text-sm" onClick={() => seeOnMap(q)}>
+                    <Icon path={UI_ICONS.map} size={14} /> {f.seis_on_map}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          {quakes.length === 0 && (
+            <div className="px-4 py-10 text-center text-sm text-gray-400 dark:text-rdia-400">{loading ? "…" : f.seis_empty}</div>
+          )}
         </div>
       </div>
 

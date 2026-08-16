@@ -2302,6 +2302,220 @@
           "orders"
         ]
       }
+    },
+    "/api/aviation/aircraft": {
+      "get": {
+        "operationId": "AviationController_list",
+        "parameters": [
+          {
+            "name": "includeArchived",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Aéronefs inscrits à la surveillance.",
+        "tags": [
+          "aviation"
+        ]
+      },
+      "post": {
+        "operationId": "AviationController_add",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddAircraftDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Code ou libellé invalide."
+          },
+          "409": {
+            "description": "Aéronef déjà suivi."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Inscrire un aéronef à la surveillance.",
+        "tags": [
+          "aviation"
+        ]
+      }
+    },
+    "/api/aviation/states": {
+      "get": {
+        "description": "Le flux externe est interrogé sur l'emprise nationale puis croisé avec la liste de suivi côté serveur : le trafic non inscrit ne sort jamais de l'API, et la liste de suivi n'est jamais transmise au fournisseur.",
+        "operationId": "AviationController_states",
+        "parameters": [
+          {
+            "name": "incidentId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Positions courantes des seuls aéronefs inscrits.",
+        "tags": [
+          "aviation"
+        ]
+      }
+    },
+    "/api/aviation/aircraft/{id}": {
+      "patch": {
+        "operationId": "AviationController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAircraftDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Modifier un aéronef inscrit.",
+        "tags": [
+          "aviation"
+        ]
+      },
+      "delete": {
+        "operationId": "AviationController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Supprimer définitivement (superadmin uniquement).",
+        "tags": [
+          "aviation"
+        ]
+      }
+    },
+    "/api/aviation/aircraft/{id}/archive": {
+      "post": {
+        "operationId": "AviationController_archive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Archiver un aéronef (geste par défaut, réversible).",
+        "tags": [
+          "aviation"
+        ]
+      }
+    },
+    "/api/aviation/aircraft/{id}/restore": {
+      "post": {
+        "operationId": "AviationController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Réactiver un aéronef archivé.",
+        "tags": [
+          "aviation"
+        ]
+      }
     }
   },
   "info": {
@@ -2649,7 +2863,8 @@
               "personnel",
               "workorders",
               "seismic",
-              "audit"
+              "audit",
+              "aviation"
             ]
           },
           "enabled": {
@@ -3665,6 +3880,71 @@
         "required": [
           "reason"
         ]
+      },
+      "AddAircraftDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Identifiant de l'aéronef : immatriculation (CN-TZS), indicatif d'appel (GRM01), code transpondeur IFF (7001) ou adresse OACI 24 bits (02a101). La nature est déduite de la forme.",
+            "example": "CN-TZS"
+          },
+          "label": {
+            "type": "string",
+            "description": "Libellé affiché sur la carte.",
+            "example": "Canadair 01"
+          },
+          "role": {
+            "type": "string",
+            "description": "Rôle opérationnel.",
+            "enum": [
+              "waterbomber",
+              "helicopter",
+              "observation",
+              "transport",
+              "medevac"
+            ],
+            "example": "waterbomber"
+          },
+          "incidentId": {
+            "type": "string",
+            "description": "Incident auquel l'appareil est engagé."
+          },
+          "icao24": {
+            "type": "string",
+            "description": "Adresse OACI 24 bits, si connue. Seule clé d'appariement sans ambiguïté.",
+            "example": "02a101"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "role"
+        ]
+      },
+      "UpdateAircraftDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "waterbomber",
+              "helicopter",
+              "observation",
+              "transport",
+              "medevac"
+            ]
+          },
+          "incidentId": {
+            "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
+          }
+        }
       }
     }
   }

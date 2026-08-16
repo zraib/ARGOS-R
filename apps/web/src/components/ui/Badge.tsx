@@ -21,8 +21,10 @@ const STYLES: Record<BadgeType, string> = {
 
 export function Badge({ type, label }: { type: BadgeType; label: string }) {
   return (
+    // 11 px sur téléphone : à 10 px, une pastille en majuscules devient
+    // illisible à bout de bras. Densité d'origine à partir de sm.
     <span
-      className={`inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${STYLES[type]}`}
+      className={`inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide sm:text-[10px] ${STYLES[type]}`}
     >
       {label}
     </span>

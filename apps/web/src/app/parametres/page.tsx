@@ -101,9 +101,10 @@ export default function ParametresPage() {
 
   // Accès refusé (défense en profondeur — l'entrée de menu est déjà masquée).
   if (role !== "superadmin") {
+    // Hauteur en `dvh` et non `vh` : la barre d'adresse mobile fausse `vh`.
     return (
-      <section className="flex animate-fade-in items-center justify-center" style={{ minHeight: "60vh" }}>
-        <div className="carte flex flex-col items-center gap-3 p-8 text-center" style={{ maxWidth: 420 }}>
+      <section className="flex min-h-[60dvh] animate-fade-in items-center justify-center">
+        <div className="carte flex w-full max-w-[420px] flex-col items-center gap-3 p-6 text-center sm:p-8">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-danger-500/10 text-danger-500">
             <Icon path={UI_ICONS.shield} size={22} />
           </div>
@@ -129,7 +130,9 @@ export default function ParametresPage() {
     setStatus("idle");
   };
 
-  const inputCls = "input-champ text-sm";
+  // 16 px sur mobile (sous ce seuil iOS zoome au focus et décale la page),
+  // densité d'origine à partir de `md`.
+  const inputCls = "input-champ text-base md:text-sm";
   const labelCls = "mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200";
 
   // Rubriques du rail de navigation (l'audit n'apparaît qu'avec une session API).
@@ -144,8 +147,8 @@ export default function ParametresPage() {
 
   return (
     <section className="flex flex-col gap-4 animate-fade-in">
-      {/* En-tête pleine largeur */}
-      <div className="carte flex items-center gap-3 p-4">
+      {/* En-tête pleine largeur — le badge passe à la ligne s'il ne tient pas. */}
+      <div className="carte flex flex-wrap items-center gap-3 p-3 sm:p-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-or-500/15 text-or-500">
           <Icon path={NAV_ICONS.settings} size={20} />
         </div>
@@ -153,7 +156,7 @@ export default function ParametresPage() {
           <h2 className="text-sm font-bold text-rdia-600 dark:text-rdia-50">{t.nav_settings}</h2>
           <p className="truncate text-xs text-gray-500 dark:text-rdia-300">{m.settings.reserved}</p>
         </div>
-        <span className="rounded-md bg-or-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-or-500">Super Admin</span>
+        <span className="shrink-0 rounded-md bg-or-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-or-500">{m.roles.superadmin}</span>
       </div>
 
       {/* Disposition « réglages » : rail de rubriques à gauche, contenu à droite.
@@ -163,12 +166,13 @@ export default function ParametresPage() {
         <nav className="carte flex flex-row gap-1 overflow-x-auto p-2 lg:sticky lg:top-6 lg:flex-col">
           {sections.filter((s) => !s.hidden).map((s) => {
             const on = activeTab === s.id;
+            // `min-h-11` : 44 px de cible tactile sous `lg`, densité d'origine au-dessus.
             return (
               <button
                 key={s.id}
                 onClick={() => setTab(s.id)}
                 aria-current={on}
-                className={`flex items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-start text-sm font-medium transition-colors ${
+                className={`flex min-h-11 items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-start text-sm font-medium transition-colors lg:min-h-0 ${
                   on
                     ? "bg-or-500/15 text-or-600 dark:text-or-400"
                     : "text-gray-500 hover:bg-gray-100 hover:text-or-500 dark:text-rdia-300 dark:hover:bg-rdia-700/50"
@@ -186,11 +190,11 @@ export default function ParametresPage() {
 
       {/* Section : Assistant IA / LLM */}
       {activeTab === "ai" && (
-      <div className="carte flex flex-col gap-4 p-5">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-rdia-600 dark:text-rdia-50">
-            <Icon path={NAV_ICONS.assistant} size={16} className="text-or-500" />
-            {m.settings.ai_title}
+      <div className="carte flex flex-col gap-4 p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold text-rdia-600 dark:text-rdia-50">
+            <Icon path={NAV_ICONS.assistant} size={16} className="shrink-0 text-or-500" />
+            <span className="min-w-0 truncate">{m.settings.ai_title}</span>
           </h3>
           <Pill tone={statusPill.tone} label={statusPill.label} />
         </div>
@@ -212,9 +216,11 @@ export default function ParametresPage() {
 
         <div>
           <label className={labelCls}>{m.settings.model}</label>
-          <div className="flex items-center gap-2">
-            <input className={`${inputCls} font-mono`} value={aiSettings.model} onChange={(e) => setAiSettings({ model: e.target.value })} placeholder={m.settings.model_ph} spellCheck={false} />
-            <button className="btn-secondaire shrink-0 text-xs" onClick={detect} disabled={status === "checking"}>
+          {/* Empilé sur mobile : côte à côte, le champ de modèle descendrait
+              sous une largeur utilisable à 375 px. */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <input className={`${inputCls} min-w-0 font-mono`} value={aiSettings.model} onChange={(e) => setAiSettings({ model: e.target.value })} placeholder={m.settings.model_ph} spellCheck={false} />
+            <button className="btn-secondaire cible-tactile w-full shrink-0 text-xs sm:w-auto" onClick={detect} disabled={status === "checking"}>
               {m.settings.detect}
             </button>
           </div>
@@ -226,7 +232,7 @@ export default function ParametresPage() {
                   <button
                     key={mo}
                     onClick={() => setAiSettings({ model: mo })}
-                    className={`rounded-full border px-2.5 py-1 font-mono text-[10px] transition-colors ${
+                    className={`cible-tactile inline-flex items-center justify-center rounded-full border px-3 py-2 font-mono text-xs transition-colors sm:px-2.5 sm:py-1 sm:text-[10px] ${
                       aiSettings.model === mo
                         ? "border-or-500 bg-or-500/10 text-or-500"
                         : "border-gray-200 text-gray-500 hover:border-or-500/50 hover:text-or-500 dark:border-rdia-600 dark:text-rdia-300"
@@ -242,11 +248,11 @@ export default function ParametresPage() {
 
         <div className="flex items-start gap-2 rounded-lg bg-or-500/10 px-3 py-2">
           <Icon path={UI_ICONS.shield} size={13} className="mt-0.5 shrink-0 text-or-500" />
-          <span className="text-[11px] leading-snug text-or-600 dark:text-or-300">{m.settings.note}</span>
+          <span className="min-w-0 text-xs leading-snug text-or-600 sm:text-[11px] dark:text-or-300">{m.settings.note}</span>
         </div>
 
         <div className="flex justify-end">
-          <button className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-500 transition-colors hover:text-or-500 dark:border-rdia-600 dark:text-rdia-300" onClick={() => { setAiSettings(AI_DEFAULT_SETTINGS); setStatus("idle"); setModels([]); }}>
+          <button className="cible-tactile inline-flex items-center justify-center rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-500 transition-colors hover:text-or-500 dark:border-rdia-600 dark:text-rdia-300" onClick={() => { setAiSettings(AI_DEFAULT_SETTINGS); setStatus("idle"); setModels([]); }}>
             {m.settings.reset}
           </button>
         </div>
@@ -261,14 +267,14 @@ export default function ParametresPage() {
 
       {/* Section : matrice de feature flags (§6.15) */}
       {activeTab === "flags" && (
-      <div className="carte flex flex-col gap-3 p-5">
-        <div>
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-rdia-600 dark:text-rdia-50">
-            <Icon path={NAV_ICONS.dashboard} size={16} className="text-or-500" />
+      <div className="carte flex flex-col gap-3 p-4 sm:p-5">
+        <div className="min-w-0">
+          <h3 className="flex flex-wrap items-center gap-2 text-sm font-semibold text-rdia-600 dark:text-rdia-50">
+            <Icon path={NAV_ICONS.dashboard} size={16} className="shrink-0 text-or-500" />
             {m.settings.flags_title}
             <Pill tone={apiConnected ? "green" : "gray"} label={apiConnected ? "API" : "local"} />
           </h3>
-          <p className="mt-0.5 text-[11px] text-gray-400 dark:text-rdia-400">{m.settings.flags_hint}</p>
+          <p className="mt-0.5 text-xs text-gray-400 sm:text-[11px] dark:text-rdia-400">{m.settings.flags_hint}</p>
         </div>
         <div className="grid grid-cols-1 gap-x-8 gap-y-0.5 sm:grid-cols-2">
           {FLAGGABLE_KEYS.map((k) => {
@@ -277,11 +283,12 @@ export default function ParametresPage() {
               <button
                 key={k}
                 onClick={() => toggleFlag(k, on)}
-                className="flex items-center justify-between gap-2 border-b border-gray-100 py-2 text-sm transition-colors last:border-0 dark:border-rdia-700/50"
+                className="flex min-h-11 items-center justify-between gap-2 border-b border-gray-100 py-2 text-start text-sm transition-colors last:border-0 lg:min-h-0 dark:border-rdia-700/50"
               >
-                <span className={on ? "text-gray-700 dark:text-rdia-100" : "text-gray-400 line-through dark:text-rdia-400"}>{navLabel(k, t)}</span>
+                <span className={`min-w-0 truncate ${on ? "text-gray-700 dark:text-rdia-100" : "text-gray-400 line-through dark:text-rdia-400"}`}>{navLabel(k, t)}</span>
                 <span className={`relative h-4 w-8 shrink-0 rounded-full transition-colors ${on ? "bg-or-500" : "bg-gray-300 dark:bg-rdia-600"}`}>
-                  <span className="absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all" style={{ left: on ? 18 : 2 }} />
+                  {/* Propriété logique : en RTL le curseur doit glisser vers la gauche. */}
+                  <span className="absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all" style={{ insetInlineStart: on ? 18 : 2 }} />
                 </span>
               </button>
             );
@@ -292,26 +299,29 @@ export default function ParametresPage() {
 
       {/* Section : journal d'audit (depuis l'API, chaîné par hash) */}
       {activeTab === "audit" && apiConnected && (
-        <div className="carte flex flex-col gap-3 p-5">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-rdia-600 dark:text-rdia-50">
-              <Icon path={NAV_ICONS.reports} size={16} className="text-or-500" />
+        <div className="carte flex flex-col gap-3 p-4 sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-semibold text-rdia-600 dark:text-rdia-50">
+              <Icon path={NAV_ICONS.reports} size={16} className="shrink-0 text-or-500" />
               {m.settings.audit_title}
               {chain && <Pill tone={chain.valid ? "green" : "red"} label={chain.valid ? `${m.settings.audit_intact} · ${chain.count}` : m.settings.audit_broken} />}
             </h3>
-            <button className="text-[11px] font-semibold text-or-500 hover:underline" onClick={() => void loadAudit()}>{m.settings.audit_refresh}</button>
+            <button className="cible-tactile inline-flex items-center text-xs font-semibold text-or-500 hover:underline sm:text-[11px]" onClick={() => void loadAudit()}>{m.settings.audit_refresh}</button>
           </div>
           {audit.length === 0 ? (
             <p className="text-xs text-gray-400 dark:text-rdia-400">{m.settings.audit_empty}</p>
           ) : (
             <div className="flex flex-col divide-y divide-gray-100 dark:divide-rdia-700/50">
+              {/* Entrée d'audit : une seule ligne dès `sm`. Sous ce seuil, le
+                  hash passe à la ligne plutôt que d'être masqué — la trace doit
+                  rester vérifiable au téléphone. */}
               {audit.map((e) => (
-                <div key={e.seq} className="flex items-center gap-3 py-1.5 text-xs">
-                  <span className="w-6 shrink-0 font-mono text-gray-400 dark:text-rdia-400">#{e.seq}</span>
+                <div key={e.seq} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 py-2 text-xs sm:gap-x-3 sm:py-1.5">
+                  <span className="shrink-0 font-mono text-gray-400 dark:text-rdia-400">#{e.seq}</span>
                   <span className="w-14 shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-center font-mono text-[10px] font-bold text-gray-500 dark:bg-rdia-600 dark:text-rdia-200">{e.method}</span>
                   <span className="min-w-0 flex-1 truncate font-mono text-gray-600 dark:text-rdia-200">{e.path}</span>
-                  <span className="shrink-0 text-gray-400 dark:text-rdia-400">{e.actor}</span>
-                  <span className="hidden w-24 shrink-0 truncate font-mono text-[10px] text-gray-300 dark:text-rdia-500 sm:block">{e.hash.slice(0, 12)}…</span>
+                  <span className="min-w-0 max-w-[40%] truncate text-gray-400 dark:text-rdia-400">{e.actor}</span>
+                  <span className="w-full shrink-0 truncate font-mono text-[11px] text-gray-300 sm:w-24 sm:text-[10px] dark:text-rdia-500">{e.hash.slice(0, 12)}…</span>
                 </div>
               ))}
             </div>
@@ -381,21 +391,22 @@ function SeismicAlertsPanel() {
     }
   };
 
-  const inputCls = "input-champ text-sm";
+  // 16 px sur mobile (évite le zoom automatique d'iOS au focus), densité d'origine ensuite.
+  const inputCls = "input-champ text-base md:text-sm";
   const lblCls = "mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200";
-  const microCls = "mt-1 text-[10px] text-gray-400 dark:text-rdia-400";
+  const microCls = "mt-1 text-xs text-gray-400 sm:text-[10px] dark:text-rdia-400";
   const fmtWhen = (iso: string) => (iso.length >= 16 ? `${iso.slice(0, 10)} ${iso.slice(11, 16)}` : iso);
 
   return (
-    <div className="carte flex flex-col gap-4 p-5">
-      <h3 className="flex items-center gap-2 text-sm font-semibold text-rdia-600 dark:text-rdia-50">
-        <Icon path={NAV_ICONS.seismic} size={16} className="text-or-500" />
-        {m.settings.seis_title}
+    <div className="carte flex flex-col gap-4 p-4 sm:p-5">
+      <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold text-rdia-600 dark:text-rdia-50">
+        <Icon path={NAV_ICONS.seismic} size={16} className="shrink-0 text-or-500" />
+        <span className="min-w-0 truncate">{m.settings.seis_title}</span>
       </h3>
 
       <div className="flex items-start gap-2 rounded-lg bg-or-500/10 px-3 py-2">
         <Icon path={UI_ICONS.shield} size={13} className="mt-0.5 shrink-0 text-or-500" />
-        <span className="text-[11px] leading-snug text-or-600 dark:text-or-300">{m.settings.seis_hint}</span>
+        <span className="min-w-0 text-xs leading-snug text-or-600 sm:text-[11px] dark:text-or-300">{m.settings.seis_hint}</span>
       </div>
 
       {/* Seuils : national (rouge — déclenche les envois) / mondial (app) */}
@@ -414,23 +425,28 @@ function SeismicAlertsPanel() {
 
       {/* Autorités notifiées (SMS + e-mail) */}
       <div>
-        <div className="mb-2 flex items-center justify-between">
-          <label className="text-xs font-semibold text-gray-600 dark:text-rdia-200">{m.settings.seis_contacts} ({contacts.length})</label>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <label className="min-w-0 text-xs font-semibold text-gray-600 dark:text-rdia-200">{m.settings.seis_contacts} ({contacts.length})</label>
           <button
-            className="btn-secondaire flex items-center gap-1.5 text-xs"
+            className="btn-secondaire cible-tactile flex shrink-0 items-center gap-1.5 text-xs"
             onClick={() => setContacts((a) => [...a, { name: "", phone: "", email: "" }])}
           >
             <Icon path={UI_ICONS.plus} size={13} /> {m.settings.seis_add}
           </button>
         </div>
-        <div className="flex flex-col gap-2">
+        {/* Trois champs sur une ligne tombent à ~100 px chacun sur un téléphone :
+            sous `md`, chaque autorité devient une fiche empilée encadrée. */}
+        <div className="flex flex-col gap-3 md:gap-2">
           {contacts.map((c, i) => (
-            <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] items-center gap-2">
-              <input className={inputCls} placeholder={m.settings.seis_c_name} value={c.name} onChange={(e) => setC(i, "name", e.target.value)} />
-              <input className={`${inputCls} font-mono`} placeholder={m.settings.seis_c_phone} value={c.phone} onChange={(e) => setC(i, "phone", e.target.value)} dir="ltr" />
-              <input className={`${inputCls} font-mono`} placeholder={m.settings.seis_c_email} value={c.email} onChange={(e) => setC(i, "email", e.target.value)} dir="ltr" />
+            <div
+              key={i}
+              className="flex flex-col gap-2 rounded-lg border border-gray-100 p-2 md:flex-row md:items-center md:rounded-none md:border-0 md:p-0 dark:border-rdia-700/50"
+            >
+              <input className={`${inputCls} min-w-0 md:flex-1`} placeholder={m.settings.seis_c_name} value={c.name} onChange={(e) => setC(i, "name", e.target.value)} />
+              <input className={`${inputCls} min-w-0 font-mono md:flex-1`} placeholder={m.settings.seis_c_phone} value={c.phone} onChange={(e) => setC(i, "phone", e.target.value)} dir="ltr" />
+              <input className={`${inputCls} min-w-0 font-mono md:flex-1`} placeholder={m.settings.seis_c_email} value={c.email} onChange={(e) => setC(i, "email", e.target.value)} dir="ltr" />
               <button
-                className="rounded-md p-1.5 text-gray-400 transition-colors hover:text-danger-500"
+                className="cible-tactile flex shrink-0 items-center justify-center self-end rounded-md p-1.5 text-gray-400 transition-colors hover:text-danger-500 md:self-auto"
                 onClick={() => setContacts((a) => a.filter((_, j) => j !== i))}
                 aria-label={m.settings.seis_c_name}
               >
@@ -442,7 +458,7 @@ function SeismicAlertsPanel() {
       </div>
 
       <div className="flex justify-end">
-        <button className="btn-primaire text-sm disabled:opacity-50" onClick={() => void save()} disabled={busy}>
+        <button className="btn-primaire cible-tactile w-full text-sm disabled:opacity-50 sm:w-auto" onClick={() => void save()} disabled={busy}>
           {m.settings.seis_save}
         </button>
       </div>
@@ -451,12 +467,14 @@ function SeismicAlertsPanel() {
       <div className="border-t border-gray-100 pt-3 dark:border-rdia-700/50">
         <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{m.settings.seis_log}</div>
         {notifs.length === 0 && <div className="text-xs text-gray-400 dark:text-rdia-400">{m.settings.seis_log_empty}</div>}
+        {/* Ligne d'envoi : la date et le nombre de destinataires passent à la
+            ligne sur mobile plutôt que d'écraser le nom de région. */}
         {notifs.map((n) => (
-          <div key={n.id} className="flex items-center gap-2 py-1 text-xs text-gray-600 dark:text-rdia-200">
-            <span className="rounded bg-danger-500 px-1.5 py-0.5 text-[10px] font-bold text-white">M{n.mag.toFixed(1)}</span>
+          <div key={n.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 py-1.5 text-xs text-gray-600 dark:text-rdia-200">
+            <span className="shrink-0 rounded bg-danger-500 px-1.5 py-0.5 text-[10px] font-bold text-white">M{n.mag.toFixed(1)}</span>
             <span className="min-w-0 flex-1 truncate">{n.region}</span>
-            <span className="font-mono text-[10px] text-gray-400 dark:text-rdia-400">{fmtWhen(n.sentAt)}</span>
-            <span className="text-[10px] font-semibold text-or-500">{n.contacts} {m.settings.seis_sent_to}</span>
+            <span className="shrink-0 font-mono text-[11px] text-gray-400 sm:text-[10px] dark:text-rdia-400">{fmtWhen(n.sentAt)}</span>
+            <span className="shrink-0 text-[11px] font-semibold text-or-500 sm:text-[10px]">{n.contacts} {m.settings.seis_sent_to}</span>
           </div>
         ))}
       </div>
@@ -512,25 +530,25 @@ function IncidentTypesPanel() {
   const labelCls = "mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200";
 
   return (
-    <div className="carte flex flex-col gap-3 p-5">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-rdia-600 dark:text-rdia-50">
-            <Icon path={NAV_ICONS.incidents} size={16} className="text-or-500" />
+    <div className="carte flex flex-col gap-3 p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="flex flex-wrap items-center gap-2 text-sm font-semibold text-rdia-600 dark:text-rdia-50">
+            <Icon path={NAV_ICONS.incidents} size={16} className="shrink-0 text-or-500" />
             {m.settings.types_title}
             <span className="rounded-md bg-gray-100 px-1.5 py-0.5 font-mono text-[10px] text-gray-500 dark:bg-rdia-600 dark:text-rdia-200">{incidentTypes.length}</span>
           </h3>
-          <p className="mt-0.5 text-[11px] text-gray-400 dark:text-rdia-400">{m.settings.types_hint}</p>
+          <p className="mt-0.5 text-xs text-gray-400 sm:text-[11px] dark:text-rdia-400">{m.settings.types_hint}</p>
         </div>
         {!open && (
-          <button className="btn-secondaire flex shrink-0 items-center gap-1.5 text-xs disabled:opacity-50" onClick={() => setOpen(true)} disabled={!apiConnected}>
+          <button className="btn-secondaire cible-tactile flex shrink-0 items-center gap-1.5 text-xs disabled:opacity-50" onClick={() => setOpen(true)} disabled={!apiConnected}>
             <Icon path={UI_ICONS.plus} size={13} /> {m.settings.type_add}
           </button>
         )}
       </div>
 
-      {/* Recherche */}
-      <input className="input-champ text-sm" placeholder={m.settings.types_search} value={q} onChange={(e) => setQ(e.target.value)} />
+      {/* Recherche — 16 px sur mobile pour éviter le zoom automatique d'iOS. */}
+      <input className="input-champ text-base md:text-sm" placeholder={m.settings.types_search} value={q} onChange={(e) => setQ(e.target.value)} />
 
       {/* Catalogue actuel : liste par lignes (icône · libellé · identifiant · badge) */}
       <div className="max-h-80 overflow-y-auto rounded-lg border border-gray-100 dark:border-rdia-700/50">
@@ -538,11 +556,16 @@ function IncidentTypesPanel() {
           <p className="px-3 py-6 text-center text-xs text-gray-400 dark:text-rdia-400">{m.settings.types_empty}</p>
         ) : (
           filtered.map((def) => (
-            <div key={def.id} className="flex items-center gap-3 border-b border-gray-100 px-3 py-2 last:border-0 dark:border-rdia-700/50">
+            <div key={def.id} className="flex items-center gap-2.5 border-b border-gray-100 px-3 py-2 last:border-0 sm:gap-3 dark:border-rdia-700/50">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-or-500/10 text-or-500">
                 <Icon path={def.icon} size={17} strokeWidth={1.6} />
               </span>
-              <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-800 dark:text-rdia-50">{def.labels[lang]}</span>
+              {/* Sous `sm`, l'identifiant passe sous le libellé au lieu d'être
+                  masqué : aucune donnée ne disparaît sur téléphone. */}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-gray-800 dark:text-rdia-50">{def.labels[lang]}</span>
+                <span className="block truncate font-mono text-[11px] text-gray-400 sm:hidden dark:text-rdia-400">{def.id}</span>
+              </span>
               <span className="hidden shrink-0 font-mono text-[10px] text-gray-400 dark:text-rdia-400 sm:block">{def.id}</span>
               {def.builtin && (
                 <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-gray-400 dark:bg-rdia-600 dark:text-rdia-300">{m.settings.type_builtin}</span>
@@ -555,28 +578,31 @@ function IncidentTypesPanel() {
       {/* Formulaire d'ajout : modale dédiée */}
       <Modal open={open} title={m.settings.type_add} onClose={() => { reset(); setOpen(false); }} size="lg">
         <div className="flex flex-col gap-4">
+          {/* Champs à 16 px sur mobile (`text-base`) : sous ce seuil, iOS zoome
+              au focus et la modale part hors de l'écran. */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className={labelCls}>{m.settings.type_id}</label>
-              <input className="input-champ font-mono text-sm" value={id} onChange={(e) => setId(e.target.value)} placeholder={m.settings.type_id_ph} spellCheck={false} />
+              <input className="input-champ font-mono text-base md:text-sm" value={id} onChange={(e) => setId(e.target.value)} placeholder={m.settings.type_id_ph} spellCheck={false} />
             </div>
             <div>
               <label className={labelCls}>{m.settings.label_fr}</label>
-              <input className="input-champ text-sm" value={fr} onChange={(e) => setFr(e.target.value)} />
+              <input className="input-champ text-base md:text-sm" value={fr} onChange={(e) => setFr(e.target.value)} />
             </div>
             <div>
               <label className={labelCls}>{m.settings.label_en}</label>
-              <input className="input-champ text-sm" value={en} onChange={(e) => setEn(e.target.value)} />
+              <input className="input-champ text-base md:text-sm" value={en} onChange={(e) => setEn(e.target.value)} />
             </div>
             <div>
               <label className={labelCls}>{m.settings.label_ar}</label>
-              <input className="input-champ text-sm" dir="rtl" value={ar} onChange={(e) => setAr(e.target.value)} />
+              <input className="input-champ text-base md:text-sm" dir="rtl" value={ar} onChange={(e) => setAr(e.target.value)} />
             </div>
           </div>
 
           <div>
             <label className={labelCls}>{m.settings.type_icon}</label>
-            <div className="grid max-h-56 grid-cols-8 gap-1.5 overflow-y-auto rounded-lg border border-gray-100 p-2 sm:grid-cols-10 dark:border-rdia-700/50">
+            {/* 6 colonnes sur téléphone : à 8, chaque case tomberait sous 40 px. */}
+            <div className="grid max-h-48 grid-cols-6 gap-1.5 overflow-y-auto rounded-lg border border-gray-100 p-2 sm:max-h-56 sm:grid-cols-8 md:grid-cols-10 dark:border-rdia-700/50">
               {INCIDENT_ICON_CHOICES.map((c) => (
                 <button
                   key={c.key}
@@ -599,15 +625,17 @@ function IncidentTypesPanel() {
           {exists && <p className="text-xs text-danger-500">{m.settings.type_exists}</p>}
           {err && <p className="text-xs text-danger-500">{err}</p>}
 
-          <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-4 dark:border-rdia-700/50">
+          {/* Pied de modale : aperçu au-dessus des actions sur mobile, les deux
+              sur une ligne dès `sm`. */}
+          <div className="flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between sm:gap-2 dark:border-rdia-700/50">
             {/* Aperçu de la tuile telle qu'elle apparaîtra dans l'assistant */}
-            <div className="flex items-center gap-2 rounded-lg border-2 border-or-500/40 px-3 py-1.5">
-              <Icon path={icon} size={20} strokeWidth={1.6} className="text-or-500" />
-              <span className="text-xs font-semibold text-gray-700 dark:text-rdia-100">{fr.trim() || m.settings.label_fr}</span>
+            <div className="flex min-w-0 items-center gap-2 self-start rounded-lg border-2 border-or-500/40 px-3 py-1.5">
+              <Icon path={icon} size={20} strokeWidth={1.6} className="shrink-0 text-or-500" />
+              <span className="min-w-0 truncate text-xs font-semibold text-gray-700 dark:text-rdia-100">{fr.trim() || m.settings.label_fr}</span>
             </div>
             <div className="flex items-center gap-2">
-              <button className="btn-secondaire text-xs" onClick={() => { reset(); setOpen(false); }}>{m.settings.reset}</button>
-              <button className="btn-primaire text-xs disabled:opacity-50" onClick={submit} disabled={!canAdd}>{m.settings.type_add}</button>
+              <button className="btn-secondaire cible-tactile flex-1 text-xs sm:flex-none" onClick={() => { reset(); setOpen(false); }}>{m.settings.reset}</button>
+              <button className="btn-primaire cible-tactile flex-1 text-xs disabled:opacity-50 sm:flex-none" onClick={submit} disabled={!canAdd}>{m.settings.type_add}</button>
             </div>
           </div>
         </div>

@@ -187,7 +187,7 @@ function ShellInner({
           type="button"
           onClick={onRefresh}
           disabled={loading}
-          className="shrink-0 inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-60 dark:border-white/5 dark:bg-white/5 dark:text-rdia-100 dark:hover:bg-white/10"
+          className="shrink-0 inline-flex h-11 items-center gap-1.5 lg:h-9 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-60 dark:border-white/5 dark:bg-white/5 dark:text-rdia-100 dark:hover:bg-white/10"
         >
           <Icon name="refresh-cw" className={cn("h-4 w-4", loading && "animate-spin")} />
           Actualiser

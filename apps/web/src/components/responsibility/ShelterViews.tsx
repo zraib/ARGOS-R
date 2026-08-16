@@ -112,7 +112,7 @@ export function ShelterDashboard({ sid }: { sid: string }) {
 
       {!supervised && (
         <div className="flex justify-end">
-          <Link href="/ma-responsabilite/gestion" className="btn-primaire flex items-center gap-1.5 text-sm">
+          <Link href="/ma-responsabilite/gestion" className="cible-tactile btn-primaire flex items-center gap-1.5 text-sm">
             <Icon path={UI_ICONS.edit} size={14} />
             {m.resp.manage}
           </Link>
@@ -155,11 +155,12 @@ export function ShelterManagement({ sid }: { sid: string }) {
   };
 
   const labelCls = "mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200";
+  // 16 px sur mobile : sous ce seuil iOS zoome au focus et décale la page.
   const numField = (key: keyof Shelter, label: string) => (
     <div key={key}>
       <label className={labelCls}>{label}</label>
       <input
-        className="input-champ font-mono text-sm"
+        className="input-champ font-mono text-base md:text-sm"
         type="number"
         min={0}
         value={(f[key] as number) ?? 0}
@@ -174,14 +175,14 @@ export function ShelterManagement({ sid }: { sid: string }) {
 
       <div className="carte flex flex-col gap-4 p-5">
         <h3 className="text-sm font-bold text-rdia-600 dark:text-rdia-50">{m.resp.s_capacity_block}</h3>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
           {numField("capacity", m.resp.s_capacity)}
           {numField("occupants", m.resp.s_occupants)}
           {numField("staff", m.resp.s_staff)}
         </div>
 
         <h3 className="mt-2 text-sm font-bold text-rdia-600 dark:text-rdia-50">{m.resp.s_demography}</h3>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
           {numField("adults", m.resp.s_adults)}
           {numField("children", m.resp.s_children)}
           {numField("elderly", m.resp.s_elderly)}
@@ -191,19 +192,19 @@ export function ShelterManagement({ sid }: { sid: string }) {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
             <label className={labelCls}>{m.resp.s_supplies}</label>
-            <select className="input-champ text-sm" value={f.supplies ?? "ok"} onChange={(e) => set({ supplies: e.target.value as Shelter["supplies"] })}>
+            <select className="input-champ text-base md:text-sm" value={f.supplies ?? "ok"} onChange={(e) => set({ supplies: e.target.value as Shelter["supplies"] })}>
               {SUPPLY_LEVELS.map((lvl) => <option key={lvl} value={lvl}>{m.resp.supply[lvl]}</option>)}
             </select>
           </div>
           <div className="sm:col-span-2">
             <label className={labelCls}>{m.resp.s_needs_field}</label>
-            <input className="input-champ text-sm" placeholder={m.resp.s_needs_ph} value={f.needs ?? ""} onChange={(e) => set({ needs: e.target.value })} />
+            <input className="input-champ text-base md:text-sm" placeholder={m.resp.s_needs_ph} value={f.needs ?? ""} onChange={(e) => set({ needs: e.target.value })} />
           </div>
         </div>
 
         {error && <p className="text-xs font-semibold text-danger-500">{error}</p>}
         <div className="flex justify-end">
-          <button className="btn-primaire text-sm disabled:opacity-60" disabled={busy} onClick={() => void save()}>
+          <button className="cible-tactile btn-primaire text-sm disabled:opacity-60" disabled={busy} onClick={() => void save()}>
             {busy ? m.resp.saving : m.resp.save}
           </button>
         </div>

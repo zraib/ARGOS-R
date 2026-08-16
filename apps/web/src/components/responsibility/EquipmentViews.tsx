@@ -69,7 +69,7 @@ export function EquipmentPark({ unitId }: { unitId: string }) {
       <div className="carte flex flex-col gap-3 p-5">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="flex-1 text-sm font-bold text-rdia-600 dark:text-rdia-50">{m.resp.e_inventory}</h3>
-          <button className="btn-primaire flex items-center gap-1.5 text-xs" onClick={() => setAdding(true)}>
+          <button className="cible-tactile btn-primaire flex shrink-0 items-center gap-1.5 text-xs" onClick={() => setAdding(true)}>
             <Icon path={UI_ICONS.plus} size={14} />
             {m.resp.e_add}
           </button>
@@ -85,8 +85,10 @@ export function EquipmentPark({ unitId }: { unitId: string }) {
           {items.map((it) => {
             const low = it.stock < it.threshold;
             return (
-              <div key={it.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-100 p-3 dark:border-rdia-700/60">
-                <div className="min-w-0 flex-1" style={{ minWidth: 200 }}>
+              // Les largeurs figées (200 px / 110 px) débordaient sous 375 px :
+              // remplacées par des bases souples qui se replient.
+              <div key={it.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-gray-100 p-3 dark:border-rdia-700/60">
+                <div className="min-w-0 flex-1 basis-40">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-[10px] text-gray-400 dark:text-rdia-400">{it.id}</span>
                     <span className="truncate text-xs font-semibold text-gray-800 dark:text-rdia-50">{it.desig}</span>
@@ -95,11 +97,11 @@ export function EquipmentPark({ unitId }: { unitId: string }) {
                   </div>
                   <div className="mt-0.5 text-[10px] text-gray-400 dark:text-rdia-400">{it.cat}</div>
                 </div>
-                <div className="text-end" style={{ minWidth: 110 }}>
+                <div className="shrink-0 text-end">
                   <div className={`font-mono text-sm font-semibold ${low ? "text-danger-500" : "text-gray-700 dark:text-rdia-100"}`}>{it.stock}</div>
                   <div className="font-mono text-[10px] text-gray-400 dark:text-rdia-400">{m.resp.e_threshold} {it.threshold}</div>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex shrink-0 gap-2">
                   <IconBtn icon={UI_ICONS.edit} title={m.resp.edit} onClick={() => setEditing(it)} />
                   <IconBtn icon={UI_ICONS.trash} title={m.resp.delete} danger onClick={() => setConfirmDel(it)} />
                 </div>
@@ -123,10 +125,10 @@ export function EquipmentPark({ unitId }: { unitId: string }) {
           <p className="text-sm text-gray-600 dark:text-rdia-200">
             {m.resp.e_remove_text} <strong>{confirmDel?.desig}</strong> ?
           </p>
-          <div className="flex justify-end gap-2">
-            <button className="btn-secondaire text-sm" onClick={() => setConfirmDel(null)}>{m.resp.cancel}</button>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button className="cible-tactile btn-secondaire text-sm" onClick={() => setConfirmDel(null)}>{m.resp.cancel}</button>
             <button
-              className="rounded-lg bg-danger-500 px-3 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              className="cible-tactile rounded-lg bg-danger-500 px-3 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
               onClick={() => confirmDel && void remove(confirmDel)}
             >
               {m.resp.delete}
@@ -170,34 +172,35 @@ function ItemForm({ unitId, item, onClose, onDone }: { unitId: string; item?: Eq
   return (
     <Modal open onClose={onClose} title={editing ? m.resp.e_edit : m.resp.e_add}>
       <div className="flex flex-col gap-4">
+        {/* Champs à 16 px sur mobile (pas de zoom iOS au focus) et ≥ 44 px de haut. */}
         <div>
           <label className={labelCls}>{m.resp.e_desig}</label>
-          <input className="input-champ text-sm" placeholder={m.resp.e_desig_ph} value={desig} onChange={(e) => { setDesig(e.target.value); setError(null); }} />
+          <input className="input-champ text-base md:text-sm" placeholder={m.resp.e_desig_ph} value={desig} onChange={(e) => { setDesig(e.target.value); setError(null); }} />
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className={labelCls}>{m.resp.e_category}</label>
-            <input className="input-champ text-sm" placeholder={m.resp.e_category_ph} value={cat} onChange={(e) => { setCat(e.target.value); setError(null); }} />
+            <input className="input-champ text-base md:text-sm" placeholder={m.resp.e_category_ph} value={cat} onChange={(e) => { setCat(e.target.value); setError(null); }} />
           </div>
           <div>
             <label className={labelCls}>{m.resp.e_condition}</label>
-            <select className="input-champ text-sm" value={cond} onChange={(e) => setCond(e.target.value as EquipItem["cond"])}>
+            <select className="input-champ text-base md:text-sm" value={cond} onChange={(e) => setCond(e.target.value as EquipItem["cond"])}>
               {EQUIP_CONDITIONS.map((c) => <option key={c} value={c}>{m.resp.equip_cond[c]}</option>)}
             </select>
           </div>
           <div>
             <label className={labelCls}>{m.resp.e_stock}</label>
-            <input className="input-champ font-mono text-sm" type="number" min={0} value={stock} onChange={(e) => setStock(Math.max(0, parseInt(e.target.value, 10) || 0))} />
+            <input className="input-champ font-mono text-base md:text-sm" type="number" min={0} value={stock} onChange={(e) => setStock(Math.max(0, parseInt(e.target.value, 10) || 0))} />
           </div>
           <div>
             <label className={labelCls}>{m.resp.e_threshold_field}</label>
-            <input className="input-champ font-mono text-sm" type="number" min={0} value={threshold} onChange={(e) => setThreshold(Math.max(0, parseInt(e.target.value, 10) || 0))} />
+            <input className="input-champ font-mono text-base md:text-sm" type="number" min={0} value={threshold} onChange={(e) => setThreshold(Math.max(0, parseInt(e.target.value, 10) || 0))} />
           </div>
         </div>
         {error && <p className="text-xs font-semibold text-danger-500">{error}</p>}
-        <div className="flex justify-end gap-2">
-          <button className="btn-secondaire text-sm" onClick={onClose}>{m.resp.cancel}</button>
-          <button className="btn-primaire text-sm disabled:opacity-60" disabled={busy} onClick={() => void submit()}>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button className="cible-tactile btn-secondaire text-sm" onClick={onClose}>{m.resp.cancel}</button>
+          <button className="cible-tactile btn-primaire text-sm disabled:opacity-60" disabled={busy} onClick={() => void submit()}>
             {busy ? m.resp.saving : m.resp.save}
           </button>
         </div>
@@ -211,7 +214,7 @@ function IconBtn({ icon, title, onClick, danger = false }: { icon: string; title
     <button
       title={title}
       onClick={onClick}
-      className={`rounded-lg p-1.5 transition-colors ${
+      className={`cible-tactile flex items-center justify-center rounded-lg p-1.5 transition-colors ${
         danger ? "text-gray-400 hover:bg-danger-500/10 hover:text-danger-500" : "text-gray-400 hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600"
       }`}
     >

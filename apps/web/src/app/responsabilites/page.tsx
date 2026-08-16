@@ -88,8 +88,9 @@ export default function SupervisionPage() {
   // Défense en profondeur : l'API refuse déjà ce que ce rôle ne peut pas lire.
   if (!isSuperAdmin(role)) {
     return (
-      <section className="flex animate-fade-in items-center justify-center" style={{ minHeight: "60vh" }}>
-        <div className="carte flex flex-col items-center gap-3 p-8 text-center" style={{ maxWidth: 420 }}>
+      // `dvh` et carte fluide : à 375 px, une largeur figée déborderait.
+      <section className="flex min-h-[60dvh] animate-fade-in items-center justify-center">
+        <div className="carte flex w-full max-w-[420px] flex-col items-center gap-3 p-5 text-center sm:p-8">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-danger-500/10 text-danger-500">
             <Icon path={UI_ICONS.shield} size={22} />
           </div>
@@ -107,10 +108,11 @@ export default function SupervisionPage() {
         <div className="carte flex flex-wrap items-center gap-3 p-3">
           <button
             onClick={() => setSelected(null)}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600"
+            className="cible-tactile flex shrink-0 items-center justify-center rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600"
             title={m.sup.back}
           >
-            <Icon path={UI_ICONS.arrowLeft} size={16} strokeWidth={2} />
+            {/* La flèche de retour suit le sens de lecture (RTL en arabe). */}
+            <Icon path={UI_ICONS.arrowLeft} size={16} strokeWidth={2} className="rtl:rotate-180" />
           </button>
           <span className="text-xs font-semibold text-gray-500 dark:text-rdia-300">{m.sup.viewing}</span>
           <span className="rounded-md bg-or-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-or-500">
@@ -137,6 +139,8 @@ export default function SupervisionPage() {
         </div>
       </div>
 
+      {/* Sélecteur de nature : replié en plusieurs lignes sur téléphone, avec
+          des cibles de 44 px. */}
       <div className="flex flex-wrap gap-2">
         {KINDS.map((k) => {
           const on = k === kind;
@@ -144,7 +148,7 @@ export default function SupervisionPage() {
             <button
               key={k}
               onClick={() => { setKind(k); setSelected(null); }}
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+              className={`cible-tactile inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
                 on
                   ? "border-or-500 bg-or-500/10 text-or-600 dark:text-or-400"
                   : "border-gray-200 text-gray-500 hover:border-or-500/50 hover:text-or-500 dark:border-rdia-600 dark:text-rdia-300"
@@ -175,7 +179,8 @@ export default function SupervisionPage() {
               <div className="truncate text-xs font-bold text-rdia-600 dark:text-rdia-50">{e.nom}</div>
               <div className="truncate text-[11px] text-gray-500 dark:text-rdia-300">{e.sub}</div>
             </div>
-            <Icon path={UI_ICONS.chevronRight} size={15} />
+            {/* Le chevron d'ouverture suit le sens de lecture (RTL en arabe). */}
+            <Icon path={UI_ICONS.chevronRight} size={15} className="shrink-0 rtl:rotate-180" />
           </button>
         ))}
       </div>

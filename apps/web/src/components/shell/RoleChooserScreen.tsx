@@ -42,25 +42,28 @@ export function RoleChooserScreen() {
 
   return (
     <section
-      className="flex h-screen w-full items-center justify-center p-6"
+      // `min-h-dvh` (et non `100vh`) + centrage par `my-auto` : avec quinze rôles
+      // la colonne dépasse un écran de téléphone, elle doit rester défilable.
+      className="flex min-h-dvh w-full flex-col items-center p-3 sm:p-6"
       style={{
         background: dark
           ? "radial-gradient(ellipse at 32% 45%, rgb(27 77 46 / 0.6), transparent 60%), rgb(15 31 20)"
           : "radial-gradient(ellipse at 32% 45%, rgb(27 77 46 / 0.14), transparent 60%), rgb(243 244 246)",
       }}
     >
-      <div className="flex w-full max-w-3xl animate-fade-in-up flex-col items-center gap-8">
+      <div className="my-auto flex w-full max-w-3xl animate-fade-in-up flex-col items-center gap-6 sm:gap-8">
         <div className="text-center">
-          <div className="text-2xl font-bold text-rdia-600 dark:text-rdia-50">{m.users.rc_title}</div>
+          <div className="text-xl font-bold text-rdia-600 sm:text-2xl dark:text-rdia-50">{m.users.rc_title}</div>
           <p className="mt-1.5 text-sm text-or-600 dark:text-or-500">{m.users.rc_hint}</p>
           {sessionUser && (
-            <p className="mt-1 text-xs text-gray-500 dark:text-rdia-200">{sessionUser.nom} · <span className="font-mono">{sessionUser.matricule}</span></p>
+            <p className="mt-1 break-words text-xs text-gray-500 dark:text-rdia-200">{sessionUser.nom} · <span className="font-mono">{sessionUser.matricule}</span></p>
           )}
         </div>
 
-        {/* Tuiles GRANDES et prononcées, centrées quelle que soit leur quantité
-            (justify-center) — double-clic = accès direct. */}
-        <div className="flex w-full flex-wrap justify-center gap-5">
+        {/* Une colonne au téléphone (la tuile devient une rangée icône + libellé,
+            entièrement cliquable), deux puis trois colonnes ensuite. Le
+            double-clic reste l'accès direct au pointeur. */}
+        <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
           {roles.map((r) => {
             const on = picked === r;
             return (
@@ -68,23 +71,25 @@ export function RoleChooserScreen() {
                 key={r}
                 onClick={() => setPicked(r)}
                 onDoubleClick={() => void confirm(r)}
-                className={`carte flex w-52 flex-col items-center gap-4 p-8 transition-all duration-150 ${
+                className={`carte flex w-full min-h-[56px] items-center gap-3 p-3 transition-all duration-150 sm:min-h-0 sm:flex-col sm:gap-4 sm:p-6 lg:p-8 ${
                   on
-                    ? "scale-105 shadow-2xl ring-2 ring-or-500 shadow-or-500/20"
-                    : "opacity-75 hover:scale-[1.02] hover:opacity-100 hover:shadow-xl"
+                    ? "shadow-2xl ring-2 ring-or-500 shadow-or-500/20 sm:scale-105"
+                    : "opacity-75 hover:opacity-100 hover:shadow-xl sm:hover:scale-[1.02]"
                 }`}
               >
-                <span className={`flex h-20 w-20 items-center justify-center rounded-full transition-colors ${on ? "bg-or-500 text-rdia-600 shadow-lg shadow-or-500/40" : "bg-or-500/15 text-or-500"}`}>
-                  <Icon path={ROLE_ICONS[r]} size={38} />
+                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors sm:h-16 sm:w-16 lg:h-20 lg:w-20 ${on ? "bg-or-500 text-rdia-600 shadow-lg shadow-or-500/40" : "bg-or-500/15 text-or-500"}`}>
+                  {/* Le glyphe suit la taille de la pastille (CSS prime sur les
+                      attributs width/height du SVG). */}
+                  <Icon path={ROLE_ICONS[r]} size={22} className="h-[22px] w-[22px] sm:h-8 sm:w-8 lg:h-[38px] lg:w-[38px]" />
                 </span>
-                <span className="text-center text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{m.roles[r]}</span>
+                <span className="min-w-0 text-start text-sm font-bold leading-snug text-rdia-600 sm:text-center dark:text-rdia-50">{m.roles[r]}</span>
               </button>
             );
           })}
         </div>
 
         <button
-          className="btn-primaire w-full max-w-xs text-sm"
+          className="btn-primaire min-h-[44px] w-full max-w-xs text-sm"
           disabled={!picked || busy}
           onClick={() => picked && void confirm(picked)}
         >

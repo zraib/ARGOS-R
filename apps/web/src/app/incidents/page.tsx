@@ -22,9 +22,23 @@ const STATUSES: IncidentStatus[] = ["open", "prog", "closed"];
 const llTxt = (ll: [number, number]) =>
   `${ll[1].toFixed(3)}° ${ll[1] >= 0 ? "N" : "S"} · ${Math.abs(ll[0]).toFixed(3)}° ${ll[0] >= 0 ? "E" : "W"}`;
 
-/** Filtre de colonne façon Excel : chevron → cases à cocher (marquer/démarquer). */
+/** Descripteur d'un filtre de colonne — partagé entre l'en-tête du tableau et le bandeau mobile. */
+interface FilterSpec {
+  key: "type" | "sev" | "region" | "st";
+  label: string;
+  options: { value: string; label: string }[];
+  selected: string[];
+  onToggle: (v: string) => void;
+  onClear: () => void;
+}
+
+/**
+ * Filtre de colonne façon Excel : chevron → cases à cocher (marquer/démarquer).
+ * `align` ancre le panneau à droite quand la commande est près du bord de
+ * l'écran — sinon le panneau déborde à 375 px.
+ */
 function ColumnFilter({
-  label, options, selected, open, onToggleOpen, onToggle, onClear, clearLabel,
+  label, options, selected, open, onToggleOpen, onToggle, onClear, clearLabel, align = "start",
 }: {
   label: string;
   options: { value: string; label: string }[];
@@ -34,16 +48,17 @@ function ColumnFilter({
   onToggle: (v: string) => void;
   onClear: () => void;
   clearLabel: string;
+  align?: "start" | "end";
 }) {
   const activeF = selected.length > 0;
   return (
-    <div className="relative inline-flex items-center gap-1">
-      <span>{label}</span>
+    <div className="relative inline-flex min-w-0 items-center gap-1">
+      <span className="truncate">{label}</span>
       <button
         type="button"
         onClick={onToggleOpen}
         aria-label={label}
-        className={`flex items-center gap-0.5 rounded p-0.5 transition-colors ${activeF ? "text-or-500" : "text-gray-400 hover:text-or-500 dark:text-rdia-400"}`}
+        className={`cible-tactile flex shrink-0 items-center justify-center gap-0.5 rounded p-0.5 transition-colors ${activeF ? "text-or-500" : "text-gray-400 hover:text-or-500 dark:text-rdia-400"}`}
       >
         <Icon path={UI_ICONS.caretDown} size={13} strokeWidth={2.5} />
         {activeF && <span className="rounded-full bg-or-500 px-1 text-[9px] font-bold leading-none text-rdia-600">{selected.length}</span>}
@@ -51,11 +66,11 @@ function ColumnFilter({
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={onToggleOpen} aria-hidden="true" />
-          <div className="absolute start-0 top-full z-50 mt-1.5 max-h-64 min-w-[190px] overflow-y-auto rounded-xl border border-gray-200 bg-white p-1 shadow-xl dark:border-rdia-600 dark:bg-rdia-700">
+          <div className={`absolute top-full z-50 mt-1.5 max-h-64 min-w-[190px] max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-xl border border-gray-200 bg-white p-1 shadow-xl dark:border-rdia-600 dark:bg-rdia-700 ${align === "end" ? "end-0" : "start-0"}`}>
             {options.map((o) => {
               const on = selected.includes(o.value);
               return (
-                <button key={o.value} type="button" onClick={() => onToggle(o.value)} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-start text-xs font-medium normal-case text-gray-700 transition-colors hover:bg-gray-100 dark:text-rdia-100 dark:hover:bg-rdia-600">
+                <button key={o.value} type="button" onClick={() => onToggle(o.value)} className="flex w-full items-center gap-2 rounded-lg px-2 py-2.5 text-start text-sm font-medium normal-case text-gray-700 transition-colors hover:bg-gray-100 dark:text-rdia-100 dark:hover:bg-rdia-600 lg:py-1.5 lg:text-xs">
                   <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded ${on ? "bg-or-500 text-white" : "border border-gray-300 dark:border-rdia-500"}`}>
                     {on && <Icon path={UI_ICONS.check} size={11} strokeWidth={3} />}
                   </span>
@@ -64,7 +79,7 @@ function ColumnFilter({
               );
             })}
             {activeF && (
-              <button type="button" onClick={onClear} className="mt-1 w-full rounded-lg px-2 py-1.5 text-start text-[11px] font-semibold normal-case text-danger-500 transition-colors hover:bg-danger-500/10">
+              <button type="button" onClick={onClear} className="mt-1 w-full rounded-lg px-2 py-2.5 text-start text-xs font-semibold normal-case text-danger-500 transition-colors hover:bg-danger-500/10 lg:py-1.5 lg:text-[11px]">
                 {clearLabel}
               </button>
             )}
@@ -148,28 +163,68 @@ export default function IncidentsPage() {
 
   const toggleFilter = (k: "type" | "sev" | "region" | "st") => () => { setSortOpen(false); setOpenFilter((cur) => (cur === k ? null : k)); };
   const toggleExpand = (id: string) => setExpanded((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]));
-  const iconBtn = "rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600";
+  // Boutons d'icône : 44 px au doigt sous lg, densité d'origine au-dessus.
+  const iconBtn = "cible-tactile inline-flex items-center justify-center rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600";
   const typeOptions = presentTypes.map((id) => ({ value: id, label: typeLabel(id, incidentTypes, lang) }));
   const sevOptions = SEVS.map((s) => ({ value: s, label: sevBadge(s, t).label }));
   const regionOptions = regions.map((r) => ({ value: r, label: r }));
   const statusOptions = STATUSES.map((s) => ({ value: s, label: stBadge(s, t).label }));
   const sortOptions: [typeof sortBy, string][] = [["time", t.sort_time], ["sev", t.sort_sev], ["type", t.flt_type]];
   const canEdit = canReportIncident(role);
-  const tabBtn = (on: boolean) => `rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${on ? "bg-or-500 text-rdia-600" : "text-gray-500 hover:text-or-500 dark:text-rdia-300"}`;
+  const tabBtn = (on: boolean) => `min-h-11 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors lg:min-h-0 lg:py-1.5 ${on ? "bg-or-500 text-rdia-600" : "text-gray-500 hover:text-or-500 dark:text-rdia-300"}`;
+  // Filtres décrits une seule fois : rendus dans l'en-tête du tableau (≥ md) et
+  // dans le bandeau de puces au-dessus des cartes (< md).
+  const filterSpecs: FilterSpec[] = [
+    { key: "type", label: t.h_typev, options: typeOptions, selected: fType, onToggle: toggleIn(setFType), onClear: () => setFType([]) },
+    { key: "region", label: t.col_region, options: regionOptions, selected: fRegion, onToggle: toggleIn(setFRegion), onClear: () => setFRegion([]) },
+    { key: "sev", label: t.col_sev, options: sevOptions, selected: fSev, onToggle: toggleIn(setFSev), onClear: () => setFSev([]) },
+    { key: "st", label: t.col_status, options: statusOptions, selected: fStatus, onToggle: toggleIn(setFStatus), onClear: () => setFStatus([]) },
+  ];
+  const spec = (k: FilterSpec["key"]): FilterSpec => filterSpecs.find((f) => f.key === k)!;
+
+  // Actions et sélecteur de statut décrits une seule fois : la ligne du tableau
+  // (≥ md) et la carte (< md) doivent proposer exactement les mêmes commandes.
+  const rowActions = (i: Incident): ReactNode => (
+    <>
+      <button className={iconBtn} title={t.act_view} aria-label={t.act_view} onClick={() => setViewInc(i)}><Icon path={UI_ICONS.eye} size={16} /></button>
+      {canEdit && <button className={iconBtn} title={t.act_edit} aria-label={t.act_edit} onClick={() => openWizardEdit(i)}><Icon path={UI_ICONS.edit} size={15} /></button>}
+      <button className={iconBtn} title={t.to_map} aria-label={t.to_map} onClick={() => toMap(i.id)}><Icon path={UI_ICONS.map} size={16} /></button>
+      {canEdit && (
+        i.archived
+          ? <button className={iconBtn} title={t.act_unarchive} aria-label={t.act_unarchive} disabled={busy} onClick={() => void setArchived(i.id, false)}><Icon path={UI_ICONS.archive} size={15} /></button>
+          : <button className={iconBtn} title={t.act_archive} aria-label={t.act_archive} disabled={busy} onClick={() => void setArchived(i.id, true)}><Icon path={UI_ICONS.archive} size={15} /></button>
+      )}
+    </>
+  );
+  const statusControl = (i: Incident): ReactNode => {
+    const st = stBadge(i.st, t);
+    if (!canEdit || i.archived) return <Badge type={st.type} label={st.label} />;
+    return (
+      <select
+        value={i.st}
+        aria-label={t.col_status}
+        onChange={(e) => { const ns = e.target.value as IncidentStatus; if (ns !== i.st) setStChange({ inc: i, newSt: ns }); }}
+        className="min-h-[44px] rounded-md border border-gray-200 bg-transparent px-1.5 py-1 text-base font-semibold text-gray-700 dark:border-rdia-600 dark:text-rdia-100 lg:min-h-0 lg:text-xs"
+      >
+        {STATUSES.map((s) => <option key={s} value={s}>{stBadge(s, t).label}</option>)}
+      </select>
+    );
+  };
 
   return (
     <section className="flex flex-col gap-4 animate-fade-in">
       {/* Onglets Actifs / Archivés */}
-      <div className="flex items-center gap-1 rounded-xl bg-gray-100 p-1 dark:bg-rdia-800/60" style={{ width: "fit-content" }}>
+      <div className="flex w-fit max-w-full items-center gap-1 overflow-hidden rounded-xl bg-gray-100 p-1 dark:bg-rdia-800/60">
         <button className={tabBtn(tab === "active")} onClick={() => setTab("active")}>{t.tab_active} ({activeList.length})</button>
         <button className={tabBtn(tab === "archived")} onClick={() => setTab("archived")}>{t.tab_archived} ({archivedList.length})</button>
       </div>
 
       {/* Barre : recherche + compteur + tri + déclaration */}
       <div className="flex flex-wrap items-center gap-2">
-        <input className="input-champ max-w-[220px] text-sm" placeholder={t.search} value={q} onChange={(e) => setQ(e.target.value)} />
+        {/* 16 px sur mobile : sous ce seuil iOS zoome au focus et décale la page. */}
+        <input className="input-champ text-base sm:max-w-[220px] md:text-sm" placeholder={t.search} value={q} onChange={(e) => setQ(e.target.value)} />
         <span className="font-mono text-xs text-gray-400 dark:text-rdia-400">{rows.length} / {base.length}</span>
-        <div className="flex-1" />
+        <div className="hidden flex-1 sm:block" />
         <div className="relative">
           <button type="button" onClick={() => { setOpenFilter(null); setSortOpen((o) => !o); }} className="btn-secondaire flex items-center gap-1.5 whitespace-nowrap text-sm">
             <Icon path={UI_ICONS.sliders} size={15} />
@@ -180,7 +235,7 @@ export default function IncidentsPage() {
               <div className="fixed inset-0 z-40" onClick={() => setSortOpen(false)} aria-hidden="true" />
               <div className="absolute end-0 top-full z-50 mt-1.5 min-w-[180px] rounded-xl border border-gray-200 bg-white p-1 shadow-xl dark:border-rdia-600 dark:bg-rdia-700">
                 {sortOptions.map(([v, label]) => (
-                  <button key={v} type="button" onClick={() => { setSortBy(v); setSortOpen(false); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-start text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-rdia-100 dark:hover:bg-rdia-600">
+                  <button key={v} type="button" onClick={() => { setSortBy(v); setSortOpen(false); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-2.5 text-start text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-rdia-100 dark:hover:bg-rdia-600 lg:py-1.5 lg:text-xs">
                     <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${sortBy === v ? "bg-or-500 text-white" : "border border-gray-300 dark:border-rdia-500"}`}>
                       {sortBy === v && <Icon path={UI_ICONS.check} size={10} strokeWidth={3} />}
                     </span>
@@ -199,16 +254,58 @@ export default function IncidentsPage() {
         )}
       </div>
 
-      <div className="carte">
+      {/* Sous md, les filtres de colonne n'ont plus d'en-tête où vivre : ils
+          deviennent des puces. Deux par ligne, panneau ancré du côté opposé pour
+          la seconde colonne — sinon il sort de l'écran à 375 px. */}
+      <div className="grid grid-cols-2 gap-2 md:hidden">
+        {filterSpecs.map((f, idx) => (
+          <div
+            key={f.key}
+            className={`flex min-w-0 items-center justify-between rounded-lg border px-2.5 py-2 text-[11px] font-semibold uppercase tracking-wider ${
+              f.selected.length > 0
+                ? "border-or-500 bg-or-500/10 text-or-600 dark:text-or-400"
+                : "border-gray-200 text-gray-500 dark:border-rdia-600 dark:text-rdia-300"
+            }`}
+          >
+            <ColumnFilter
+              label={f.label}
+              options={f.options}
+              selected={f.selected}
+              open={openFilter === f.key}
+              onToggleOpen={toggleFilter(f.key)}
+              onToggle={f.onToggle}
+              onClear={f.onClear}
+              clearLabel={t.flt_clear}
+              align={idx % 2 === 1 ? "end" : "start"}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Tableau : à partir de md, la densité redevient lisible. */}
+      <div className="carte hidden overflow-x-auto md:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 dark:border-rdia-600">
               <th className={TH}>{t.col_id}</th>
               <th className={TH}>{t.col_incident}</th>
-              <th className={TH}><ColumnFilter label={t.h_typev} options={typeOptions} selected={fType} open={openFilter === "type"} onToggleOpen={toggleFilter("type")} onToggle={toggleIn(setFType)} onClear={() => setFType([])} clearLabel={t.flt_clear} /></th>
-              <th className={TH}><ColumnFilter label={t.col_region} options={regionOptions} selected={fRegion} open={openFilter === "region"} onToggleOpen={toggleFilter("region")} onToggle={toggleIn(setFRegion)} onClear={() => setFRegion([])} clearLabel={t.flt_clear} /></th>
-              <th className={TH}><ColumnFilter label={t.col_sev} options={sevOptions} selected={fSev} open={openFilter === "sev"} onToggleOpen={toggleFilter("sev")} onToggle={toggleIn(setFSev)} onClear={() => setFSev([])} clearLabel={t.flt_clear} /></th>
-              <th className={TH}><ColumnFilter label={t.col_status} options={statusOptions} selected={fStatus} open={openFilter === "st"} onToggleOpen={toggleFilter("st")} onToggle={toggleIn(setFStatus)} onClear={() => setFStatus([])} clearLabel={t.flt_clear} /></th>
+              {(["type", "region", "sev", "st"] as const).map((k) => {
+                const f = spec(k);
+                return (
+                  <th key={k} className={TH}>
+                    <ColumnFilter
+                      label={f.label}
+                      options={f.options}
+                      selected={f.selected}
+                      open={openFilter === k}
+                      onToggleOpen={toggleFilter(k)}
+                      onToggle={f.onToggle}
+                      onClear={f.onClear}
+                      clearLabel={t.flt_clear}
+                    />
+                  </th>
+                );
+              })}
               <th className={TH}>{t.col_time}</th>
               <th className={`${TH} text-end`}>{t.col_actions}</th>
             </tr>
@@ -216,7 +313,6 @@ export default function IncidentsPage() {
           <tbody>
             {rows.map((i) => {
               const sb = sevBadge(i.sev, t);
-              const st = stBadge(i.st, t);
               const subCount = i.subIncidents?.length ?? 0;
               const isOpen = subCount > 0 && expanded.includes(i.id);
               return (
@@ -255,31 +351,10 @@ export default function IncidentsPage() {
                   <td className={`${TD} text-xs text-gray-600 dark:text-rdia-200`}>{typeLabel(i.type, incidentTypes, lang)}</td>
                   <td className={`${TD} text-xs text-gray-600 dark:text-rdia-200`}>{i.region}</td>
                   <td className={TD}><Badge type={sb.type} label={sb.label} /></td>
-                  <td className={TD}>
-                    {canEdit && !i.archived ? (
-                      <select
-                        value={i.st}
-                        onChange={(e) => { const ns = e.target.value as IncidentStatus; if (ns !== i.st) setStChange({ inc: i, newSt: ns }); }}
-                        className="rounded-md border border-gray-200 bg-transparent px-1.5 py-1 text-xs font-semibold text-gray-700 dark:border-rdia-600 dark:text-rdia-100"
-                      >
-                        {STATUSES.map((s) => <option key={s} value={s}>{stBadge(s, t).label}</option>)}
-                      </select>
-                    ) : (
-                      <Badge type={st.type} label={st.label} />
-                    )}
-                  </td>
+                  <td className={TD}>{statusControl(i)}</td>
                   <td className={`${TD} font-mono text-xs text-gray-500 dark:text-rdia-300`}>{i.time}</td>
                   <td className={TD}>
-                    <div className="flex items-center justify-end gap-0.5">
-                      <button className={iconBtn} title={t.act_view} aria-label={t.act_view} onClick={() => setViewInc(i)}><Icon path={UI_ICONS.eye} size={16} /></button>
-                      {canEdit && <button className={iconBtn} title={t.act_edit} aria-label={t.act_edit} onClick={() => openWizardEdit(i)}><Icon path={UI_ICONS.edit} size={15} /></button>}
-                      <button className={iconBtn} title={t.to_map} aria-label={t.to_map} onClick={() => toMap(i.id)}><Icon path={UI_ICONS.map} size={16} /></button>
-                      {canEdit && (
-                        i.archived
-                          ? <button className={iconBtn} title={t.act_unarchive} aria-label={t.act_unarchive} disabled={busy} onClick={() => void setArchived(i.id, false)}><Icon path={UI_ICONS.archive} size={15} /></button>
-                          : <button className={iconBtn} title={t.act_archive} aria-label={t.act_archive} disabled={busy} onClick={() => void setArchived(i.id, true)}><Icon path={UI_ICONS.archive} size={15} /></button>
-                      )}
-                    </div>
+                    <div className="flex items-center justify-end gap-0.5">{rowActions(i)}</div>
                   </td>
                 </tr>
                 {/* Ligne dépliée : arborescence des sous-incidents (comme les détails sismiques). */}
@@ -295,6 +370,74 @@ export default function IncidentsPage() {
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* Sous md : une carte par incident — mêmes données, mêmes actions. */}
+      <div className="flex flex-col gap-2 md:hidden">
+        {rows.map((i) => {
+          const sb = sevBadge(i.sev, t);
+          const subCount = i.subIncidents?.length ?? 0;
+          const isOpen = subCount > 0 && expanded.includes(i.id);
+          return (
+            <div key={i.id} className="carte flex flex-col gap-2 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <button
+                  className="flex min-w-0 flex-1 items-start gap-1.5 text-start text-sm font-medium text-gray-800 dark:text-rdia-50"
+                  aria-expanded={subCount > 0 ? isOpen : undefined}
+                  onClick={() => (subCount > 0 ? toggleExpand(i.id) : setViewInc(i))}
+                >
+                  {subCount > 0 ? (
+                    <Icon
+                      path={UI_ICONS.caretDown}
+                      size={14}
+                      strokeWidth={2.5}
+                      className={`mt-0.5 shrink-0 text-gray-400 transition-transform dark:text-rdia-400 ${isOpen ? "text-or-500 dark:text-or-400" : "-rotate-90 rtl:rotate-90"}`}
+                    />
+                  ) : (
+                    <span className="w-3.5 shrink-0" aria-hidden="true" />
+                  )}
+                  <span className={`min-w-0 break-words ${isOpen ? "text-or-600 dark:text-or-400" : ""}`}>{i.titre}</span>
+                  {subCount > 0 && (
+                    <span
+                      title={t.si_title}
+                      className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full bg-or-500/15 px-1.5 py-0.5 text-[10px] font-bold leading-none text-or-600 dark:text-or-400"
+                    >
+                      <Icon path={UI_ICONS.branch} size={10} strokeWidth={2.5} />
+                      {subCount}
+                    </span>
+                  )}
+                </button>
+                <Badge type={sb.type} label={sb.label} />
+              </div>
+
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[13px]">
+                <div className="min-w-0">
+                  <dt className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{t.col_id}</dt>
+                  <dd className="truncate font-mono text-gray-600 dark:text-rdia-200">{i.id}</dd>
+                </div>
+                <div className="min-w-0">
+                  <dt className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{t.col_time}</dt>
+                  <dd className="truncate font-mono text-gray-600 dark:text-rdia-200">{i.time}</dd>
+                </div>
+                <div className="min-w-0">
+                  <dt className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{t.h_typev}</dt>
+                  <dd className="break-words text-gray-600 dark:text-rdia-200">{typeLabel(i.type, incidentTypes, lang)}</dd>
+                </div>
+                <div className="min-w-0">
+                  <dt className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{t.col_region}</dt>
+                  <dd className="break-words text-gray-600 dark:text-rdia-200">{i.region}</dd>
+                </div>
+              </dl>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-2 dark:border-rdia-700/50">
+                {statusControl(i)}
+                <div className="flex items-center gap-0.5">{rowActions(i)}</div>
+              </div>
+
+              {isOpen && <SubIncidentTree incident={i} onAddSub={() => setAddSubFor(i)} />}
+            </div>
+          );
+        })}
       </div>
 
       {/* Détails masqués tant que la modale d'ajout de sous-incident est ouverte : une seule modale à la fois (pas d'imbrication). */}
@@ -317,9 +460,9 @@ export default function IncidentsPage() {
         <Modal open title={t.arch_title} onClose={() => setArchivePrompt(null)} size="sm">
           <div className="flex flex-col gap-4">
             <p className="text-sm text-gray-600 dark:text-rdia-200">{t.arch_body}</p>
-            <div className="flex justify-end gap-2">
-              <button className="btn-secondaire text-sm" onClick={() => setArchivePrompt(null)}>{t.no}</button>
-              <button className="btn-primaire text-sm" disabled={busy} onClick={async () => { const inc = archivePrompt; setArchivePrompt(null); await setArchived(inc.id, true); }}>{t.yes}</button>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button className="btn-secondaire cible-tactile text-sm" onClick={() => setArchivePrompt(null)}>{t.no}</button>
+              <button className="btn-primaire cible-tactile text-sm" disabled={busy} onClick={async () => { const inc = archivePrompt; setArchivePrompt(null); await setArchived(inc.id, true); }}>{t.yes}</button>
             </div>
           </div>
         </Modal>
@@ -358,11 +501,11 @@ function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddSub }: {
   return (
     <Modal open title={`${incident.id} — ${incident.titre}`} onClose={onClose} size="lg">
       <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-1 border-b border-gray-100 pb-3 dark:border-rdia-700/50">
-          <button className="btn-secondaire flex items-center gap-1.5 text-xs" onClick={() => onMap(incident.id)}><Icon path={UI_ICONS.map} size={14} /> {t.to_map}</button>
-          <button className="btn-secondaire flex items-center gap-1.5 text-xs" onClick={() => onEdit(incident)}><Icon path={UI_ICONS.edit} size={14} /> {t.act_edit}</button>
+        <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-3 dark:border-rdia-700/50">
+          <button className="btn-secondaire cible-tactile flex items-center gap-1.5 text-xs" onClick={() => onMap(incident.id)}><Icon path={UI_ICONS.map} size={14} /> {t.to_map}</button>
+          <button className="btn-secondaire cible-tactile flex items-center gap-1.5 text-xs" onClick={() => onEdit(incident)}><Icon path={UI_ICONS.edit} size={14} /> {t.act_edit}</button>
         </div>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+        <div className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
           <Detail label={t.h_typev} value={typeLabel(incident.type, incidentTypes, lang)} />
           <Detail label={t.col_region} value={incident.region} />
           <Detail label={t.col_sev} value={<Badge type={sevBadge(incident.sev, t).type} label={sevBadge(incident.sev, t).label} />} />
@@ -432,16 +575,18 @@ function SubIncidentCard({ incident, sub }: { incident: Incident; sub: SubIncide
 
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-gray-100 bg-white px-2.5 py-1.5 dark:border-rdia-600/50 dark:bg-rdia-700/40">
-      <div className="flex items-center gap-2">
+      {/* La ligne d'en-tête passe à la ligne : à 375 px gravité + type + note +
+          heure ne tiennent pas côte à côte. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <Badge type={sb.type} label={sb.label} />
-        <span className="text-sm font-medium text-gray-800 dark:text-rdia-50">{subTypeLabel(sub.type, subCatalog.types, lang)}</span>
-        {sub.note && <span className="truncate text-xs text-gray-500 dark:text-rdia-300">· {sub.note}</span>}
+        <span className="min-w-0 break-words text-sm font-medium text-gray-800 dark:text-rdia-50">{subTypeLabel(sub.type, subCatalog.types, lang)}</span>
+        {sub.note && <span className="min-w-0 break-words text-xs text-gray-500 dark:text-rdia-300">· {sub.note}</span>}
         <span className="ms-auto font-mono text-[11px] text-gray-400 dark:text-rdia-400">{sub.time}</span>
         {canEdit && (
           <button
             onClick={() => void remove()}
             disabled={busy}
-            className="rounded-md p-1 text-gray-400 transition-colors hover:text-danger-500 disabled:opacity-40"
+            className="cible-tactile inline-flex shrink-0 items-center justify-center rounded-md p-1 text-gray-400 transition-colors hover:text-danger-500 disabled:opacity-40"
             aria-label={t.si_removed}
           >
             <Icon path={UI_ICONS.close} size={13} strokeWidth={2.5} />
@@ -471,22 +616,24 @@ function SubIncidentTree({ incident, onAddSub }: { incident: Incident; onAddSub:
   const canEdit = canReportIncident(role);
   const subs = incident.subIncidents ?? [];
 
+  // Indentation réduite sous md : à 375 px chaque pixel d'indentation est pris
+  // sur la largeur utile des cartes filles.
   return (
-    <div className="ps-6 animate-fade-in">
+    <div className="ps-0 animate-fade-in md:ps-6">
       <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">
         <Icon path={UI_ICONS.branch} size={12} strokeWidth={2} />
         {t.si_title} ({subs.length})
       </div>
-      <div className="ms-1.5 flex flex-col gap-2 border-s-2 border-or-500/30 ps-4">
+      <div className="ms-1.5 flex flex-col gap-2 border-s-2 border-or-500/30 ps-3 md:ps-4">
         {subs.map((s) => (
-          <div key={s.id} className="relative max-w-3xl">
-            <span aria-hidden="true" className="absolute -start-4 top-4 h-px w-3.5 bg-or-500/30" />
+          <div key={s.id} className="relative min-w-0 max-w-3xl">
+            <span aria-hidden="true" className="absolute -start-3 top-4 h-px w-2.5 bg-or-500/30 md:-start-4 md:w-3.5" />
             <SubIncidentCard incident={incident} sub={s} />
           </div>
         ))}
         {canEdit && (
           <div className="relative">
-            <span aria-hidden="true" className="absolute -start-4 top-1/2 h-px w-3.5 bg-or-500/30" />
+            <span aria-hidden="true" className="absolute -start-3 top-1/2 h-px w-2.5 bg-or-500/30 md:-start-4 md:w-3.5" />
             <button className="btn-secondaire flex items-center gap-1.5 text-xs" onClick={onAddSub}>
               <Icon path={UI_ICONS.plus} size={13} /> {t.si_add}
             </button>
@@ -506,12 +653,12 @@ function SubIncidentSection({ incident, onAdd }: { incident: Incident; onAdd: ()
 
   return (
     <div className="border-t border-gray-100 pt-3 dark:border-rdia-700/50">
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">
           {t.si_title} ({subs.length})
         </div>
         {canEdit && (
-          <button className="btn-secondaire flex items-center gap-1.5 text-xs" onClick={onAdd}>
+          <button className="btn-secondaire cible-tactile flex items-center gap-1.5 text-xs" onClick={onAdd}>
             <Icon path={UI_ICONS.plus} size={13} /> {t.si_add}
           </button>
         )}
@@ -594,10 +741,11 @@ function SubIncidentWizard({ incident, onClose }: { incident: Incident; onClose:
     }
   };
 
-  const numCls = "input-champ text-sm";
+  // 16 px sur mobile : en dessous, iOS zoome au focus et décale toute la modale.
+  const numCls = "input-champ text-base md:text-sm";
   const lblCls = "mb-1 block text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400";
   const chip = (on: boolean) =>
-    `rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${
+    `rounded-md px-2 py-2 text-xs font-medium transition-colors lg:py-1 lg:text-[11px] ${
       on ? "bg-or-500/15 text-or-600 dark:text-or-400" : "bg-gray-100 text-gray-500 hover:text-or-500 dark:bg-rdia-700/50 dark:text-rdia-300"
     }`;
 
@@ -627,7 +775,8 @@ function SubIncidentWizard({ incident, onClose }: { incident: Incident; onClose:
           <div className="flex flex-col gap-3">
             <div>
               <label className={lblCls}>{t.si_type}</label>
-              <div className="grid max-h-[36vh] grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
+              {/* Tuiles compactes : deux colonnes tiennent à 375 px, trois dès sm. */}
+              <div className="grid max-h-[36dvh] grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
                 {options.map((o) => (
                   <button
                     key={o.value}
@@ -663,7 +812,7 @@ function SubIncidentWizard({ incident, onClose }: { incident: Incident; onClose:
             </div>
             <div>
               <label className={lblCls}>{t.si_note}</label>
-              <input className="input-champ text-sm" placeholder={t.si_note} value={note} onChange={(e) => setNote(e.target.value)} />
+              <input className="input-champ text-base md:text-sm" placeholder={t.si_note} value={note} onChange={(e) => setNote(e.target.value)} />
             </div>
           </div>
         )}
@@ -729,13 +878,13 @@ function SubIncidentWizard({ incident, onClose }: { incident: Incident; onClose:
 
         {/* Navigation du wizard */}
         <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-4 dark:border-rdia-700/50">
-          <button className="btn-secondaire text-xs" onClick={() => (step > 1 ? setStep(step - 1) : onClose())}>
+          <button className="btn-secondaire cible-tactile text-sm md:text-xs" onClick={() => (step > 1 ? setStep(step - 1) : onClose())}>
             {step > 1 ? t.prev : t.no}
           </button>
           {step < 3 ? (
-            <button className="btn-primaire text-xs disabled:opacity-50" onClick={() => setStep(step + 1)} disabled={step === 1 && !type}>{t.next}</button>
+            <button className="btn-primaire cible-tactile text-sm disabled:opacity-50 md:text-xs" onClick={() => setStep(step + 1)} disabled={step === 1 && !type}>{t.next}</button>
           ) : (
-            <button className="btn-primaire text-xs disabled:opacity-50" onClick={submit} disabled={!type || busy}>{t.si_add}</button>
+            <button className="btn-primaire cible-tactile text-sm disabled:opacity-50 md:text-xs" onClick={submit} disabled={!type || busy}>{t.si_add}</button>
           )}
         </div>
       </div>
@@ -777,12 +926,12 @@ function StatusConfirm({ inc, newSt, matricule, onClose, onDone }: { inc: Incide
         </div>
         <div>
           <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200">{t.st_change_pass}</label>
-          <input type="password" className="input-champ text-sm" value={pass} autoFocus onChange={(e) => { setPass(e.target.value); setErr(false); }} onKeyDown={(e) => { if (e.key === "Enter") void confirm(); }} />
+          <input type="password" className="input-champ text-base md:text-sm" value={pass} autoFocus onChange={(e) => { setPass(e.target.value); setErr(false); }} onKeyDown={(e) => { if (e.key === "Enter") void confirm(); }} />
           {err && <p className="mt-1 text-xs font-semibold text-danger-500">{t.lg_badpass}</p>}
         </div>
-        <div className="flex justify-end gap-2">
-          <button className="btn-secondaire text-sm" onClick={onClose}>{t.cancel}</button>
-          <button className="btn-primaire text-sm" disabled={!pass || busy} onClick={() => void confirm()}>{busy ? "…" : t.confirm}</button>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button className="btn-secondaire cible-tactile text-sm" onClick={onClose}>{t.cancel}</button>
+          <button className="btn-primaire cible-tactile text-sm" disabled={!pass || busy} onClick={() => void confirm()}>{busy ? "…" : t.confirm}</button>
         </div>
       </div>
     </Modal>
