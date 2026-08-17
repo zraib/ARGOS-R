@@ -36,8 +36,11 @@ import type {
 } from "@/lib/types";
 import { pointInMorocco } from "@/lib/map/morocco";
 import { hospKind } from "@/lib/hospitals";
-import { LANGS, type Dict } from "@/lib/i18n/translations";
-import { MODULES, type ModulesDict } from "@/lib/i18n/modules";
+import type { Dict } from "@/lib/i18n/translations";
+import type { ModulesDict } from "@/lib/i18n/modules";
+import { FR_DICT } from "@/lib/i18n/translations.fr";
+import { FR_MODULES } from "@/lib/i18n/modules.fr";
+import { loadLangResources } from "@/lib/i18n/loader";
 import { FEED_POOL } from "@/lib/data/seed";
 import type { AiIncidentRow, AiHospitalRow, AiTopEquip, AiAnswerStats, AiCrossBlock, AiSuggestion } from "@/lib/ai/assistant";
 
@@ -58,9 +61,7 @@ import type { Assignments, Role } from "@/lib/roles";
 import { defaultRoleFeatures } from "@/lib/data/users";
 import { computeRiskPredictions } from "@/lib/ai/risk/engine";
 import type { RiskPrediction } from "@/lib/ai/risk/types";
-import { predictRiskPredictionsAI } from "@/lib/ai/risk/modelPredictor";
 import type { SituationalAwareness } from "@/lib/ai/situational/types";
-import { computeSituationalAwarenessAI } from "@/lib/ai/situational/engine";
 
 const THEME_KEY = "kanban_rdia_theme";
 const LANG_KEY = "argos_lang";
@@ -171,6 +172,16 @@ interface ArgosState {
   /** true si la session provient de l'API (JWT réel), false en démo */
   apiConnected: boolean;
   lang: Lang;
+  /**
+   * Dictionnaires de la langue ACTIVE, portés par l'état (F-11).
+   *
+   * Seul le français est lié statiquement ; les autres langues arrivent par
+   * import dynamique à la bascule. `setLang` committe dictionnaire ET langue
+   * dans un même set() : `dir="rtl"` ne peut donc jamais s'appliquer avant
+   * l'arrivée des libellés arabes.
+   */
+  dict: Dict;
+  modulesDict: ModulesDict;
   dark: boolean;
   sbOpen: boolean;
   /**
@@ -428,6 +439,8 @@ export const useArgos = create<ArgosState>((set, get) => ({
   token: null,
   apiConnected: false,
   lang: "fr",
+  dict: FR_DICT,
+  modulesDict: FR_MODULES,
   dark: true,
   sbOpen: true,
   navOpen: false,
@@ -780,6 +793,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
     const theme = localStorage.getItem(THEME_KEY);
     const dark = (theme || "dark") !== "light";
     const storedLang = localStorage.getItem(LANG_KEY) as Lang | null;
+    if (storedLang && storedLang !== "fr") get().setLang(storedLang);
     // La session survit au rafraîchissement/navigation dans l'onglet (porte de démo ; pas un jeton).
     const authed = sessionStorage.getItem(AUTH_KEY) === "1";
     // Réglages LLM persistés (page Paramètres, Super Admin).
@@ -811,7 +825,6 @@ export const useArgos = create<ArgosState>((set, get) => ({
     }
     set((s) => ({
       dark,
-      lang: storedLang ?? s.lang,
       authed,
       aiSettings,
       flags,
@@ -891,6 +904,9 @@ export const useArgos = create<ArgosState>((set, get) => ({
     set({ riskLoadingAI: true });
     try {
       const cfg: LlmProviderConfig = resolveProvider(s.aiSettings);
+      // Import au premier usage : ~500 lignes de prédicteur quittent le graphe
+      // initial de toutes les routes ; le module est mis en cache ensuite.
+      const { predictRiskPredictionsAI } = await import("@/lib/ai/risk/modelPredictor");
       const res = await predictRiskPredictionsAI(
         {
           incidents: s.incidents,
@@ -935,6 +951,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
     set({ situationalLoadingAI: true });
     try {
       const cfg: LlmProviderConfig = resolveProvider(s.aiSettings);
+      const { computeSituationalAwarenessAI } = await import("@/lib/ai/situational/engine");
       const { data, model } = await computeSituationalAwarenessAI(
         {
           incidents: s.incidents,
@@ -971,7 +988,12 @@ export const useArgos = create<ArgosState>((set, get) => ({
 
   setLang: (lang) => {
     if (typeof window !== "undefined") localStorage.setItem(LANG_KEY, lang);
-    set({ lang });
+    // Chargement PUIS commit : tant que le dictionnaire demandé n'est pas là,
+    // rien ne bouge (ni libellés, ni direction RTL). En cas d'échec réseau on
+    // reste simplement sur la langue courante — jamais d'interface muette.
+    void loadLangResources(lang)
+      .then((res) => set({ lang, dict: res.dict, modulesDict: res.modules }))
+      .catch(() => {});
   },
 
   toggleTheme: () => {
@@ -1149,14 +1171,12 @@ export const useArgos = create<ArgosState>((set, get) => ({
 
 /** Hook pratique : dictionnaire courant pour la langue active. */
 export function useDict(): Dict {
-  const lang = useArgos((s) => s.lang);
-  return LANGS[lang];
+  return useArgos((s) => s.dict);
 }
 
 /** Chaînes des modules pour la langue active (modules opérationnels). */
 export function useModules(): ModulesDict {
-  const lang = useArgos((s) => s.lang);
-  return MODULES[lang];
+  return useArgos((s) => s.modulesDict);
 }
 
 // Accès console en développement UNIQUEMENT (tests manuels : simuler une

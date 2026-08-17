@@ -1,0 +1,44 @@
+// ============================================================================
+// ARGOS — dictionnaire arabe (ar)
+// Fichier par langue : seul le français part dans le bundle initial ; les
+// autres langues sont chargées à la bascule (voir lib/i18n/loader.ts et
+// PERF_AUDIT.md § F-11). L'interface Dict, exhaustive, garantit qu'aucune clé
+// ne se perd au découpage : une clé manquante ici est une erreur de typage.
+// ============================================================================
+
+import type { Dict } from "@/lib/i18n/translations";
+
+export const AR_DICT: Dict = {
+    app: "ARGOS", appSub: "تدبير الكوارث · القوات المسلحة الملكية", role: "رئيس قسم",
+    acft_panel: "التتبع الجوي", acft_code: "رمز الطائرة",
+    acft_code_ph: "التسجيل أو النداء أو IFF", acft_label: "التسمية", acft_label_ph: "التسمية على الخريطة",
+    acft_role: "الدور", acft_track: "تتبع", acft_untrack: "إيقاف التتبع",
+    acft_empty: "لا توجد طائرات متتبعة. أدخل رمزًا لعرضها على الخريطة.",
+    acft_no_signal: "بلا إشارة", acft_feed: "التدفق", acft_last_contact: "الارتفاع · عمر آخر اتصال فعلي", fam_air: "الوسائل الجوية", lg_aircraft: "الطائرات المتتبعة",
+    acft_role_waterbomber: "قاذفة مياه", acft_role_helicopter: "مروحية",
+    acft_role_observation: "استطلاع", acft_role_transport: "نقل", acft_role_medevac: "إخلاء طبي",
+    nav_open: "فتح التنقل", send: "إرسال", nav_dash: "لوحة القيادة", nav_map: "الخريطة العملياتية", nav_seismic: "علم الزلازل", nav_weather: "الطقس", nav_inc: "الحوادث", nav_units: "الفرق", nav_hosp: "هوسبينت",
+    report: "التبليغ عن حادث", live: "مباشر",
+    lvl1: "المستوى 1 · عادي", lvl2: "المستوى 2 · يقظة", lvl3: "المستوى 3 · يقظة معززة", lvl4: "المستوى 4 · طوارئ وطنية",
+    kpi_inc: "الحوادث النشطة", kpi_pers: "الأفراد المنتشرون", kpi_beds: "الأسرّة المتاحة", kpi_units: "وحدات في حالة تأهب",
+    layoutA: "التنسيق أ", layoutB: "التنسيق ب", overview: "الوضع العام",
+    chart_types: "الحوادث حسب النوع (30 يوما)", chart_regions: "الحوادث حسب الجهة", chart_moyens: "الموارد المعبأة",
+    ops: "العمليات الجارية", feed: "سجل الأحداث",
+    col_id: "مرجع", col_incident: "الحادث", col_region: "الجهة", col_sev: "الخطورة", col_status: "الحالة", col_time: "الوقت", col_actions: "إجراءات",
+    search: "البحث عن حادث…", to_map: "الخريطة",
+    sev_high: "حرجة", sev_med: "متوسطة", sev_low: "ضعيفة",
+    st_open: "مفتوح", st_prog: "جارٍ", st_closed: "مغلق",
+    ty_earthquake: "زلزال", ty_flood: "فيضان", ty_wildfire: "حريق غابة", ty_landslide: "انزلاق تربة", ty_epidemic: "وباء", ty_industrial: "حادث صناعي",
+    u_ready: "جاهزة", u_deployed: "منتشرة", u_standby: "في الانتظار",
+    personnel: "الأفراد", equipment: "المعدات", vehicles: "المركبات", commander: "القائد", readiness: "الجاهزية العملياتية", effectif: "التعداد", view: "تفاصيل", back: "رجوع",
+    h_name: "الاسم", h_grade: "الرتبة", h_role: "المهمة", h_status: "الحالة", h_desig: "التسمية", h_cat: "الفئة", h_qty: "الكمية", h_state: "الوضع", h_typev: "النوع", h_plate: "الترقيم", h_assign: "التخصيص", h_spec: "التخصص",
+    med_staff: "الطاقم الطبي", beds: "الأسرّة", field: "المستشفيات الميدانية", deploy_field: "نشر مستشفى ميداني",
+    beds_total: "مجموع الأسرّة", beds_occ: "مشغولة", beds_free: "متاحة", icu: "الإنعاش", occupancy: "نسبة الإشغال",
+    op_ok: "عملياتي", op_partial: "قيد التجهيز", since: "منتشر منذ", capacity: "السعة", staff: "الطاقم الطبي",
+    wiz_title: "التبليغ عن حادث", wz1: "نوع الحادث", wz2: "التفاصيل", wz3: "الموقع",
+    f_title: "عنوان الحادث", f_desc: "الوصف", f_attach: "المرفقات", f_attach_hint: "صورة أو فيديو أو وثيقة — انقر للإرفاق",
+    f_prov: "الإقليم", f_coords: "الإحداثيات", pick_map: "انقر على الخريطة لتحديد موقع الحادث",
+    prev: "السابق", next: "التالي", submit: "إرسال التقرير", cancel: "إلغاء",
+    toast_ok: "تم إرسال التقرير إلى مركز العمليات", toast_field: "جارٍ نشر المستشفى الميداني",
+    layers: "الطبقات", legend: "مفتاح الخريطة", sel_none: "اختر عنصرا على الخريطة", lg_veh: "المركبات / القوافل", now: "الآن", base_sat: "قمر صناعي", base_plan: "خريطة", lg_units: "الوحدات", lg_hosp: "المستشفيات", lg_hosp_mil: "المستشفيات العسكرية", lg_hosp_civ: "المستشفيات المدنية", lg_health_net: "المؤسسات الصحية", lg_health_kind: "الصنف", hn_filter_kind: "الصنف", hn_search: "ابحث عن مؤسسة أو مدينة…", hn_count: "مؤسسة", hn_network: "الشبكة", nav_triage: "الفرز الجماعي", nav_res: "الموارد", nav_equip: "جرد المعدات", nav_pers: "الأفراد", nav_wo: "أوامر العمل", nav_dis: "تدبير الكوارث", nav_ics: "استمارة ICS", nav_damage: "تقييم الأضرار", nav_shelters: "تدبير الملاجئ", nav_cmd: "القيادة", nav_orsec: "جدول ORSEC", nav_plans: "الخطط", nav_comms: "مركز الاتصالات", nav_reports: "تقارير الحوادث", nav_analytics: "التحليلات", nav_dispatch: "التوزيع", nav_assistant: "المساعد الذكي", nav_users: "إدارة المستخدمين", nav_myresp: "مسؤوليتي", nav_myresp_manage: "إدارة كياني", nav_supervision: "الإشراف على المسؤوليات", nav_settings: "الإعدادات", stub_msg: "الوحدة قيد الإعداد — سيتم تصميم محتواها قريبا.", cm_new_cat: "مجموعة جديدة", cm_new_chan: "اسم القناة…", cm_new_cat_ph: "اسم المجموعة…", cm_msg_ph: "اكتب رسالة…", cm_members: "الأعضاء", cm_online: "متصل", cm_offline: "غير متصل", cm_voice: "غرفة صوتية", cm_join: "انضمام", cm_connected: "المتصلون", cm_joined: "جارٍ الاتصال بالغرفة الصوتية…", lg_welcome: "المصادقة مطلوبة", lg_user: "اسم المستخدم", lg_pass: "كلمة السر", lg_btn: "تسجيل الدخول", lg_restricted: "دخول مقيد — للاستعمال الرسمي فقط", lg_footer: "الأركان العامة · القوات المسلحة الملكية", lg_toast: "تم فتح الجلسة — مرحبا", lg_badpass: "رقم التسجيل أو كلمة السر غير صحيحة.", lg_api_down: "الواجهة غير متاحة — تحقق من الاتصال بخادم ARGOS.", lg_role_demo: "الدور (تجريبي — أو يوفّره Keycloak)", logout: "تسجيل الخروج", add_unit: "إضافة وحدة", add_hosp: "إضافة مستشفى", lbl_city: "المدينة", lbl_create: "إنشاء", lbl_amb: "سيارات الإسعاف", lbl_heli: "المروحيات", toast_unit: "تم إنشاء الوحدة وإدماجها في الجهاز", toast_hosp: "تم إدماج المستشفى في شبكة هوسبينت", pr_settings: "إعدادات الملف الشخصي", pr_title: "ملفي الشخصي", pr_roles: "أدوار الحساب", pr_active_role: "نشط", pr_submit: "حفظ الملف", pr_name: "الاسم المعروض", pr_photo: "تغيير الصورة", pr_photo_remove: "إزالة الصورة", pr_photo_err: "صورة غير مقروءة.", pr_profile_saved: "تم تحديث الملف", pr_pw_submit: "تحديث كلمة السر", pr_saved: "تم تحديث كلمة السر", wz_mode_prov: "الإقليم", wz_mode_city: "المدينة", wz_mode_address: "العنوان", f_city: "المدينة", wz_prov_anchor: "الإقليم التابع", wz_fullscreen: "ملء الشاشة", wz_exit_full: "إنهاء ملء الشاشة", wz_map_hint: "انقر على الخريطة لتحديد الموقع", wz4: "الضحايا والوسائل", wz_casualties: "الحصيلة البشرية", wz_dead: "وفيات", wz_injured: "جرحى", wz_missing: "مفقودون", wz_units_near: "أقرب الوحدات", wz_hospitals_near: "أقرب المستشفيات", wz_suggested: "مقترح", act_view: "عرض", act_edit: "تعديل", act_archive: "أرشفة", flt_type: "النوع", flt_sev: "الخطورة", flt_region: "الجهة", flt_status: "الحالة", flt_all: "الكل", sort_by: "ترتيب حسب", sort_time: "الوقت", sort_sev: "الخطورة", sort_status: "الحالة", det_title: "تفاصيل الحادث", edit_title: "تعديل الحادث", save: "حفظ", det_responders: "الوسائل المعبأة", flt_clear: "مسح", tab_active: "نشطة", tab_archived: "مؤرشفة", act_unarchive: "إلغاء الأرشفة", st_change_title: "تأكيد تغيير الحالة", st_change_hint: "يتطلب هذا الإجراء كلمة مرور المشرف الأعلى.", st_change_pass: "كلمة المرور", confirm: "تأكيد", arch_title: "أرشفة الحادث؟", arch_body: "هذا الحادث مغلق. هل تريد أرشفته؟", yes: "نعم", no: "لا", det_personnel: "الأفراد المعبأون", det_vehicles: "المركبات والإسعاف", si_title: "الحوادث الفرعية", si_add: "إضافة حادث فرعي", si_type: "نوع الحادث الفرعي", si_note: "توضيح (اختياري)", si_none: "لا يوجد حادث فرعي مرتبط", si_choose: "اختر نوعا…", si_added: "تم ربط الحادث الفرعي", si_removed: "تمت إزالة الحادث الفرعي", si_details: "تفاصيل إضافية", si_optional: "اختياري", si_loc_hint: "الإحداثيات منقولة من الحادث الرئيسي — عدّلها إذا كان الحادث الفرعي في مكان آخر.", map_measure: "قياس", map_alt: "الارتفاع", map_distance: "المسافة", fam_forces: "القوات", fam_health: "الصحة", map_measure_hint: "انقر لإضافة نقاط", map_route: "مسار الطريق", map_direct: "خط مستقيم", map_points: "النقاط", map_eta: "المدة", wz_mode_coords: "الإحداثيات", wz_mode_map: "على الخريطة", wz_mode_geo: "موقعي", wz_geo_btn: "استخدام موقعي الحالي", wz_geo_err: "الموقع غير متاح — اسمح بتحديد الموقع.", wz_lat: "خط العرض", wz_lng: "خط الطول", f_addr: "العنوان / المكان (اختياري)", dash_evolution: "تطور الحوادث (30 يوما)", dash_opened: "مُبلَّغ عنها", dash_closed: "مُغلقة", dash_hosp: "الإشباع الاستشفائي", dash_expand: "تكبير",
+};

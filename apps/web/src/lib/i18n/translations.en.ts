@@ -1,0 +1,44 @@
+// ============================================================================
+// ARGOS — dictionnaire anglais (en)
+// Fichier par langue : seul le français part dans le bundle initial ; les
+// autres langues sont chargées à la bascule (voir lib/i18n/loader.ts et
+// PERF_AUDIT.md § F-11). L'interface Dict, exhaustive, garantit qu'aucune clé
+// ne se perd au découpage : une clé manquante ici est une erreur de typage.
+// ============================================================================
+
+import type { Dict } from "@/lib/i18n/translations";
+
+export const EN_DICT: Dict = {
+    app: "ARGOS", appSub: "Disaster Management · Royal Armed Forces", role: "Division Chief",
+    acft_panel: "Air tracking", acft_code: "Aircraft code",
+    acft_code_ph: "Registration, callsign or IFF", acft_label: "Label", acft_label_ph: "Map label (e.g. Canadair 01)",
+    acft_role: "Role", acft_track: "Track", acft_untrack: "Stop tracking",
+    acft_empty: "No aircraft tracked. Enter a code to show it on the map.",
+    acft_no_signal: "no signal", acft_feed: "Feed", acft_last_contact: "Altitude · age of last real contact", fam_air: "Air assets", lg_aircraft: "Tracked aircraft",
+    acft_role_waterbomber: "Water bomber", acft_role_helicopter: "Helicopter",
+    acft_role_observation: "Observation", acft_role_transport: "Transport", acft_role_medevac: "Medevac",
+    nav_open: "Open navigation", send: "Send", nav_dash: "Dashboard", nav_map: "Operational map", nav_seismic: "Seismology", nav_weather: "Weather", nav_inc: "Incidents", nav_units: "Teams", nav_hosp: "Hospinet",
+    report: "Report an incident", live: "LIVE",
+    lvl1: "LEVEL 1 · ROUTINE", lvl2: "LEVEL 2 · VIGILANCE", lvl3: "LEVEL 3 · HIGH VIGILANCE", lvl4: "LEVEL 4 · NATIONAL EMERGENCY",
+    kpi_inc: "Active incidents", kpi_pers: "Deployed personnel", kpi_beds: "Available beds", kpi_units: "Units on alert",
+    layoutA: "Layout A", layoutB: "Layout B", overview: "Situation overview",
+    chart_types: "Incidents by type (30 d)", chart_regions: "Incidents by region", chart_moyens: "Committed resources",
+    ops: "Ongoing operations", feed: "Event feed",
+    col_id: "Ref.", col_incident: "Incident", col_region: "Region", col_sev: "Severity", col_status: "Status", col_time: "Time", col_actions: "Actions",
+    search: "Search incidents…", to_map: "Map",
+    sev_high: "Critical", sev_med: "Moderate", sev_low: "Low",
+    st_open: "Open", st_prog: "Ongoing", st_closed: "Closed",
+    ty_earthquake: "Earthquake", ty_flood: "Flood", ty_wildfire: "Wildfire", ty_landslide: "Landslide", ty_epidemic: "Epidemic", ty_industrial: "Industrial accident",
+    u_ready: "Ready", u_deployed: "Deployed", u_standby: "Standby",
+    personnel: "Personnel", equipment: "Equipment", vehicles: "Vehicles", commander: "Commander", readiness: "Operational readiness", effectif: "Strength", view: "Details", back: "Back",
+    h_name: "Name", h_grade: "Rank", h_role: "Role", h_status: "Status", h_desig: "Designation", h_cat: "Category", h_qty: "Qty", h_state: "State", h_typev: "Type", h_plate: "Plate", h_assign: "Assignment", h_spec: "Specialty",
+    med_staff: "Medical staff", beds: "Beds", field: "Field hospitals", deploy_field: "Deploy a field hospital",
+    beds_total: "Total beds", beds_occ: "Occupied", beds_free: "Available", icu: "ICU", occupancy: "Occupancy",
+    op_ok: "Operational", op_partial: "Ramping up", since: "Deployed", capacity: "Capacity", staff: "Medical strength",
+    wiz_title: "Report an incident", wz1: "Incident type", wz2: "Details", wz3: "Location",
+    f_title: "Incident title", f_desc: "Description", f_attach: "Attachments", f_attach_hint: "Photo, video or document — click to attach",
+    f_prov: "Province", f_coords: "Coordinates", pick_map: "Click the map to position the incident",
+    prev: "Previous", next: "Next", submit: "Submit report", cancel: "Cancel",
+    toast_ok: "Report transmitted to the operations center", toast_field: "Field hospital deployment initiated",
+    layers: "Layers", legend: "Legend", sel_none: "Select an element on the map", lg_veh: "Vehicles / convoys", now: "Now", base_sat: "Satellite", base_plan: "Map", lg_units: "Units", lg_hosp: "Hospitals", lg_hosp_mil: "Military hospitals", lg_hosp_civ: "Civilian hospitals", lg_health_net: "Health facilities", lg_health_kind: "Category", hn_filter_kind: "Category", hn_search: "Search a facility, a city…", hn_count: "facilities", hn_network: "Network", nav_triage: "Mass triage", nav_res: "Resources", nav_equip: "Equipment inventory", nav_pers: "Personnel", nav_wo: "Work orders", nav_dis: "Disaster management", nav_ics: "ICS form", nav_damage: "Damage assessment", nav_shelters: "Shelter management", nav_cmd: "Command", nav_orsec: "ORSEC board", nav_plans: "Plans", nav_comms: "Communication center", nav_reports: "Incident reports", nav_analytics: "Analytics", nav_dispatch: "Dispatching", nav_assistant: "AI assistant", nav_users: "User management", nav_myresp: "My responsibility", nav_myresp_manage: "Manage my entity", nav_supervision: "Responsibility oversight", nav_settings: "Settings", stub_msg: "Module in preparation — its content will be designed shortly.", cm_new_cat: "New group", cm_new_chan: "Channel name…", cm_new_cat_ph: "Group name…", cm_msg_ph: "Write a message…", cm_members: "Members", cm_online: "Online", cm_offline: "Offline", cm_voice: "Voice room", cm_join: "Join", cm_connected: "Connected", cm_joined: "Joining voice room…", lg_welcome: "Authentication required", lg_user: "Username", lg_pass: "Password", lg_btn: "Sign in", lg_restricted: "Restricted access — Official use only", lg_footer: "General Staff · Royal Armed Forces", lg_toast: "Session opened — welcome Col. Benjelloun", lg_badpass: "Incorrect service ID or password.", lg_api_down: "API unreachable — check the ARGOS server connection.", lg_role_demo: "Role (demo — otherwise provided by Keycloak)", logout: "Sign out", add_unit: "Add a unit", add_hosp: "Add a hospital", lbl_city: "City", lbl_create: "Create", lbl_amb: "Ambulances", lbl_heli: "Helicopters", toast_unit: "Unit created and added to the force", toast_hosp: "Hospital added to the Hospinet network", pr_settings: "Profile settings", pr_title: "My profile", pr_roles: "Account roles", pr_active_role: "active", pr_submit: "Save profile", pr_name: "Display name", pr_photo: "Change photo", pr_photo_remove: "Remove photo", pr_photo_err: "Unreadable image.", pr_profile_saved: "Profile updated", pr_pw_submit: "Update password", pr_saved: "Password updated", wz_mode_prov: "Province", wz_mode_city: "City", wz_mode_address: "Address", f_city: "City", wz_prov_anchor: "Attached province", wz_fullscreen: "Fullscreen", wz_exit_full: "Exit fullscreen", wz_map_hint: "Click the map to drop the point", wz4: "Casualties & assets", wz_casualties: "Human toll", wz_dead: "Deaths", wz_injured: "Injured", wz_missing: "Missing", wz_units_near: "Nearest units", wz_hospitals_near: "Nearest hospitals", wz_suggested: "Suggested", act_view: "View", act_edit: "Edit", act_archive: "Archive", flt_type: "Type", flt_sev: "Severity", flt_region: "Region", flt_status: "Status", flt_all: "All", sort_by: "Sort by", sort_time: "Time", sort_sev: "Severity", sort_status: "Status", det_title: "Incident details", edit_title: "Edit incident", save: "Save", det_responders: "Assigned assets", flt_clear: "Clear", tab_active: "Active", tab_archived: "Archived", act_unarchive: "Unarchive", st_change_title: "Confirm status change", st_change_hint: "This action requires your superadmin password.", st_change_pass: "Password", confirm: "Confirm", arch_title: "Archive incident?", arch_body: "This incident is closed. Archive it?", yes: "Yes", no: "No", det_personnel: "Personnel engaged", det_vehicles: "Vehicles & ambulances", si_title: "Sub-incidents", si_add: "Add a sub-incident", si_type: "Sub-incident type", si_note: "Note (optional)", si_none: "No sub-incident attached", si_choose: "Choose a type…", si_added: "Sub-incident attached", si_removed: "Sub-incident removed", si_details: "Additional details", si_optional: "optional", si_loc_hint: "Coordinates copied from the main incident — adjust if the sub-incident is elsewhere.", map_measure: "Measure", map_alt: "Alt.", map_distance: "Distance", fam_forces: "Forces", fam_health: "Health", map_measure_hint: "Click to add points", map_route: "Road route", map_direct: "Straight line", map_points: "Points", map_eta: "ETA", wz_mode_coords: "Coordinates", wz_mode_map: "On the map", wz_mode_geo: "My location", wz_geo_btn: "Use my current location", wz_geo_err: "Location unavailable — allow geolocation.", wz_lat: "Latitude", wz_lng: "Longitude", f_addr: "Address / locality (optional)", dash_evolution: "Incident evolution (30 d)", dash_opened: "Reported", dash_closed: "Closed", dash_hosp: "Hospital saturation", dash_expand: "Enlarge",
+};

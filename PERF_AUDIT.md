@@ -251,7 +251,27 @@ mouvement** — ne pas traiter comme une refactorisation mécanique.
 
 ---
 
-### F-05 · Aucune stratégie de cache ni de revalidation — `HIGH`
+### F-05 · Cache et revalidation — ~~`HIGH`~~ → ✅ **RÉSOLU, et le constat était surdimensionné**
+
+> **Mesuré avant d'agir, et le constat a fondu deux fois.**
+>
+> 1. *« C'est lent »* — faux : dépôts in-memory, **/hospitals répond en 1,5 ms**
+>    (31 Ko), /incidents en 0,8 ms. Rien à accélérer côté serveur.
+> 2. *« Aucun cache »* — faux aussi : **Express émet déjà un ETag et répond 304**
+>    sur `If-None-Match`, nativement. Le mécanisme existait sans une ligne de code.
+>
+> Ce qui manquait réellement : la politique **explicite**. Ajouté dans
+> `apps/api/src/main.ts` — `Cache-Control: private, no-cache` sur tous les GET.
+> `no-cache` = le navigateur stocke mais **revalide à chaque requête** : fenêtre
+> de péremption **nulle**, un poste de commandement ne voit jamais une situation
+> périmée. L'ETag d'Express est calculé sur la réponse servie *à cet
+> utilisateur*, donc naturellement correct face au filtrage RBAC.
+>
+> **Preuve** : `GET /hospitals` → 200, 32 064 octets, ETag `W/"7d40-…"` ; rejeu
+> avec `If-None-Match` → **304, 0 octet**. 93/93 tests API.
+>
+> Le cache TTL reste volontairement absent : à 1,5 ms il n'apporte rien. Il
+> deviendra pertinent avec Drizzle/Postgres (le poser alors, avec les index F-08).
 
 **Fichiers**
 `apps/api/src/modules/domain/domain.controller.ts` (0 occurrence de cache)
@@ -321,7 +341,39 @@ que vous avez interdite. Je préfère le dire plutôt que d'estimer.
 
 ---
 
-### F-11 · La charge initiale est identique sur toutes les routes (~1 Mo) — `HIGH` *(nouveau, mesuré)*
+### F-11 · La charge initiale est identique sur toutes les routes (~1 Mo) — `HIGH` — ✅ **TRAITÉ** (avec F-12)
+
+> **Résultat mesuré après découpage i18n + Copilot paresseux (F-12) :**
+>
+> | route | avant | après | delta | langues initiales |
+> |---|---:|---:|---:|---|
+> | `/dashboard` | 1 035 Ko | **831 Ko** | **−204 Ko** | fr seul |
+> | `/incidents` | 1 029 Ko | 825 Ko | −204 Ko | fr seul |
+> | `/utilisateurs` | 1 025 Ko | 822 Ko | −203 Ko | fr seul |
+> | `/map` | 1 017 Ko | 813 Ko | −204 Ko | fr seul |
+> | `/parametres` | 1 019 Ko | 819 Ko | −200 Ko | fr seul |
+>
+> **−20 % de graphe initial sur chaque route.** Dictionnaires découpés par
+> langue (`translations.{fr,en,ar}.ts`, `modules.{fr,en,ar}.ts` + `loader.ts`),
+> français seul en statique, bascule **atomique** dans `setLang` (dictionnaire
+> + langue dans un même `set()` — vérifié au navigateur : l'arabe arrive AVEC
+> son RTL, les six sens de bascule testés sur l'écran de connexion).
+> Résidu assumé : `flux.ts` (13 Ko, 3 langues) — non découpé, gain ~8 Ko.
+
+### F-12 · Copilot : corps + assistant chargés à la première ouverture — ✅ **FAIT** *(nouveau)*
+
+> `Copilot.tsx` (1 253 l.) et `lib/ai/assistant.ts` (2 524 l.) partaient dans le
+> graphe initial de toutes les routes — pour une modale fermée par défaut.
+> Découpé en coquille (FAB seule, ~70 l.) + `CopilotBody.tsx` derrière
+> `React.lazy`, monté au premier ⌘K et **conservé ensuite** (l'historique
+> survit aux fermetures — vérifié au navigateur). Même geste sur les moteurs IA
+> asynchrones (`modelPredictor`, `situational/engine`, ~1 100 l.) : import au
+> point d'usage dans le store. Le calcul déterministe (`risk/engine`), appelé en
+> synchrone, reste statique — le rendre paresseux aurait changé le comportement.
+> La sonde `QUESTION OPÉRATEUR` (chaîne du prompt) est absente de tous les
+> graphes initiaux. Effet visible assumé : le tout premier tiroir s'ouvre un
+> battement plus tard ; en échange, la sonde du fournisseur LLM ne part plus au
+> chargement de chaque page.
 
 **Constat**
 Le tableau ci-dessus dit l'essentiel : **13 chunks et ~1 020 Ko sur chaque
@@ -478,7 +530,13 @@ prévoir.
 
 ---
 
-### F-09 · Une balise `<img>` non optimisée — `LOW`
+### F-09 · Une balise `<img>` non optimisée — ~~`LOW`~~ → **NON FONDÉ, clos**
+
+> L'unique occurrence de `<img ` du dépôt est… dans un **commentaire** de
+> `MapCanvas.tsx` (« un `<img crossOrigin>` sur ce bucket ne résout pas »). Mon
+> grep d'audit comptait un commentaire. Aucune image non optimisée n'existe ;
+> rien à corriger. Leçon au passage : un audit par grep sans lecture du contexte
+> fabrique des constats.
 
 **Mesure** : 1 occurrence de `<img>` brut ; 2 fichiers utilisent `next/image`.
 
@@ -513,19 +571,20 @@ chasser à la main.
 
 ## Récapitulatif
 
-| # | Constat | Rang | Effort | Gain mesuré ou attendu |
-|---|---|---|---|---|
-| F-01 | Copilot statique → 316 Ko partout | **HIGH** | ~15 min | −316 Ko sur 27 routes |
-| F-05 | Aucun cache ni revalidation API | **HIGH** | 1–2 j | Moins de trafic, écrans plus rapides |
-| F-06 | ~~Portée du chunk MapLibre~~ | **CLOS** | — | non fondé : absent du graphe initial partout |
-| F-11 | Trois langues chargées ensemble | **HIGH** | 1–2 j | −95 Ko par session, sur chaque route |
-| F-02 | `assistant.ts` — 2 524 lignes | **HIGH** | 2–3 j | Maintenabilité, découpage possible |
-| F-03 | `JSON.stringify` ×10 par question | MEDIUM | ~10 min | Latence perçue du Copilot |
-| F-04 | Moteurs IA côté client | MEDIUM | 3–5 j | Interactivité du tableau de bord |
-| F-07 | 82 % de composants clients | MEDIUM | projet | Premier rendu |
-| F-08 | N+1 latent (Drizzle) | MEDIUM | préventif | Évite une dette coûteuse |
-| F-09 | `<img>` non optimisée | LOW | 5 min | CLS |
-| F-10 | Code mort, duplication | LOW | 1 j | Lisibilité |
+| # | Constat | État | Résultat |
+|---|---|---|---|
+| F-01 | Markdown du Copilot partout | ✅ fait | chunk micromark hors graphe initial (mesuré) |
+| F-03 | `JSON.stringify` redondant | ✅ fait | une sérialisation de ~12 Ko en moins par question |
+| F-05 | Cache / revalidation | ✅ fait | ETag natif + `Cache-Control` explicite ; 304 = 0 octet (mesuré) |
+| F-11 | Trois langues dans le bundle | ✅ fait | **−204 Ko/route (−20 %)**, fr seul, bascule atomique (mesuré) |
+| F-12 | Corps Copilot + assistant + moteurs IA | ✅ fait | ~3 800 l. hors graphe initial ; compris dans les −204 Ko |
+| F-06 | Fuite MapLibre | ⊘ non fondé | absent du graphe initial partout (mesuré) |
+| F-09 | `<img>` non optimisée | ⊘ non fondé | l'occurrence était un commentaire |
+| F-02 | `assistant.ts` monolithique | ↓ MEDIUM | maintenabilité seule — aucun octet à gagner (prouvé) |
+| F-04 | Moteurs IA côté client | ⏸ en attente | arbitrage avec Oumaima (contrat de données) |
+| F-07 | 82 % composants clients | ⏸ projet | ADR — touche l'authentification |
+| F-08 | N+1 latent | ⏸ préventif | à traiter au passage à Drizzle, avec les index |
+| F-10 | Code mort | ⏸ hygiène | aucun effet bundle (non importé) |
 
 **Par où commencer, si vous ne faites qu'une chose :** F-06 (une minute de
 vérification, potentiellement 768 Ko), puis F-01 (quinze minutes, 316 Ko
