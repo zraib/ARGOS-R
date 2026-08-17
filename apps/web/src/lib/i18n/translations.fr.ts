@@ -9,7 +9,7 @@
 import type { Dict } from "@/lib/i18n/translations";
 
 export const FR_DICT: Dict = {
-    app: "ARGOS", appSub: "Gestion des Catastrophes · Forces Armées Royales", role: "Chef de Division",
+    app: "ARGOS", appSub: "Alerte, Réponse, Gestion des Opérations et Sinistres", role: "Chef de Division",
     acft_panel: "Suivi aérien", acft_code: "Code de l'aéronef",
     acft_code_ph: "Immatriculation, indicatif ou IFF", acft_label: "Libellé", acft_label_ph: "Libellé sur la carte (ex. Canadair 01)",
     acft_role: "Rôle", acft_track: "Suivre", acft_untrack: "Retirer du suivi",
