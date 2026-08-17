@@ -5,7 +5,7 @@ import { AppFrame } from "@/components/shell/AppFrame";
 export const metadata: Metadata = {
   title: "ARGOS — Poste de commandement",
   description:
-    "ARGOS — Plateforme militaire de gestion des catastrophes (vue nationale). État-Major Général · Forces Armées Royales.",
+    "ARGOS — Alerte, Réponse, Gestion des Opérations et Sinistres. Plateforme de commandement pour la gestion de crise (vue nationale).",
   icons: { icon: "/argos-logo.png" },
 };
 
