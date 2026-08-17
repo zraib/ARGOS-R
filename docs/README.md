@@ -13,6 +13,7 @@ Index de la documentation technique. Point d'entrée du dépôt :
 | 4 | [Sécurité](04-securite.md) | RBAC, 12 rôles, permissions, audit chaîné, souveraineté |
 | 5 | [Application web](05-frontend.md) | écrans, store, i18n, carte, conventions front |
 | 6 | [Guide de développement](06-developpement.md) | commandes, variables, tests, dépannage |
+| 7 | [Performance](07-performance.md) | la campagne d'optimisation : méthode de mesure, leviers, avant/après |
 
 ## Décisions d'architecture
 
@@ -44,6 +45,7 @@ conséquences et alternatives écartées.
 | --- | --- |
 | un endpoint, un DTO | [03-api.md](03-api.md) **et** le client généré |
 | une permission, un rôle | [04-securite.md](04-securite.md) |
+| mesurer/optimiser la performance | [07-performance.md](07-performance.md) |
 | un écran, une route web | [05-frontend.md](05-frontend.md) |
 | une commande, une variable d'environnement | [06-developpement.md](06-developpement.md) |
 | une frontière ou un composant | [01-architecture.md](01-architecture.md) |
