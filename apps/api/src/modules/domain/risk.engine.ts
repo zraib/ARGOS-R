@@ -1,12 +1,14 @@
 // ========================================================================
-// ARGOS · Moteur déterministe de Prédiction Risques IA
+// ARGOS · Moteur déterministe de Prédiction Risques IA — CÔTÉ API (F-04)
+// Porté à l'identique depuis apps/web/src/lib/ai/risk/engine.ts (branche IA,
+// Oumaima) : mêmes entrées → mêmes prédictions, mais calculées UNE fois par
+// l'API depuis ses données faisant foi, au lieu de N fois sur N postes.
 // RÈGLE D'OR : 100% basé sur LES DONNÉES RÉELLES fournies (incidents,
 // hôpitaux, unités, dashStats). AUCUNE invention, AUCUNE donnée hors
 // périmètre. Le moteur est reproductible, purement fonctionnel (mêmes
 // entrées → mêmes sorties).
 // ========================================================================
-import type { DashStats, Hospital, Incident, Unit } from "@/lib/types";
-import { haversineKm } from "@/lib/reco";
+import type { Hospital, Incident, Unit } from "@/modules/domain/domain.service";
 import type {
   RiskContext,
   RiskFactor,
@@ -14,7 +16,19 @@ import type {
   RiskLevel,
   RiskPrediction,
   RiskTrend,
-} from "./types";
+} from "@/modules/domain/risk.types";
+
+/** Distance grand-cercle en km — recopiée de apps/web/src/lib/reco.ts. */
+function haversineKm(a: [number, number], b: [number, number]): number {
+  const R = 6371;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b[1] - a[1]);
+  const dLon = toRad(b[0] - a[0]);
+  const lat1 = toRad(a[1]);
+  const lat2 = toRad(b[1]);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
 
 function deriveTrendFromScoreLevel(score: number, level: RiskLevel): RiskTrend {
   if (score >= 65 || level === "critique" || level === "eleve") return "aggravation";
@@ -567,10 +581,18 @@ export function computeRiskPredictions(ctx: RiskContext): RiskPrediction[] {
 }
 
 // --- Helpers pour UI ----------------------------------------------------
-// Aides de présentation déplacées dans ./types.ts (F-04) : RiskPanel les
-// importe de là, si bien que ce fichier — le moteur lourd — ne part plus dans
-// le graphe initial d'aucune route. Ré-exportées ici par compatibilité.
-export { levelTint, levelLabel, probabilityToPercent } from "./types";
+export function levelTint(l: RiskLevel): "red" | "amber" | "green" | "gray" | "blue" {
+  if (l === "critique") return "red";
+  if (l === "eleve") return "amber";
+  if (l === "modere") return "blue";
+  return "green";
+}
+export function levelLabel(l: RiskLevel): string {
+  return l === "eleve" ? "élevé" : l;
+}
+export function probabilityToPercent(p: number): number {
+  return clamp01(p) * 100;
+}
 // --- Type guards pour intégration ----------------------------------------
 export function isDashStatsLike(
   o: unknown,

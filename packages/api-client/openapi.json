@@ -700,6 +700,27 @@
         ]
       }
     },
+    "/api/dashboard/risk": {
+      "get": {
+        "description": "Le moteur tourne UNE fois sur les données faisant foi de l'API (mémo 5 s) au lieu de N fois dans N navigateurs. L'enveloppe expose computeMs et cached pour rendre le coût observable.",
+        "operationId": "DomainController_dashboardRisk",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Prédictions de risques (moteur déterministe, calculé côté serveur)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/incidents": {
       "get": {
         "operationId": "DomainController_incidents",

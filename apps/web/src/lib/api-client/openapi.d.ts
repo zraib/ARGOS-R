@@ -399,6 +399,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dashboard/risk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Prédictions de risques (moteur déterministe, calculé côté serveur)
+         * @description Le moteur tourne UNE fois sur les données faisant foi de l'API (mémo 5 s) au lieu de N fois dans N navigateurs. L'enveloppe expose computeMs et cached pour rendre le coût observable.
+         */
+        get: operations["DomainController_dashboardRisk"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/incidents": {
         parameters: {
             query?: never;
@@ -2229,6 +2249,23 @@ export interface operations {
         };
     };
     DomainController_dashboardStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_dashboardRisk: {
         parameters: {
             query?: never;
             header?: never;

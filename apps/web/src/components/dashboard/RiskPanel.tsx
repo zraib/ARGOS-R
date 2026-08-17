@@ -28,7 +28,7 @@ import {
   levelLabel,
   levelTint,
   probabilityToPercent,
-} from "@/lib/ai/risk/engine";
+} from "@/lib/ai/risk/types";
 import type { RiskHorizon, RiskLevel, RiskPrediction, RiskTrend } from "@/lib/ai/risk/types";
 
 const FILTERS_HORIZON: (RiskHorizon | "all")[] = ["all", "2h", "6h", "24h", "48h"];

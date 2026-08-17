@@ -106,6 +106,8 @@ export function createArgosClient(opts: ArgosClientOptions) {
     removeSubIncident: (id: string, subId: string) =>
       client.DELETE("/api/incidents/{id}/sub-incidents/{subId}", { params: { path: { id, subId } } }),
     getDashboardStats: () => client.GET("/api/dashboard/stats"),
+    /** Prédictions risques calculées côté serveur (moteur déterministe, F-04). */
+    getDashboardRisk: () => client.GET("/api/dashboard/risk"),
     createIncident: (body: CreateIncidentBody) => client.POST("/api/incidents", { body }),
     updateIncident: (id: string, body: UpdateIncidentBody) => client.PATCH("/api/incidents/{id}", { params: { path: { id } }, body }),
     getUnits: () => client.GET("/api/units"),

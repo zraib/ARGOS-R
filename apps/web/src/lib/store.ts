@@ -59,7 +59,6 @@ import { AI_DEFAULT_SETTINGS, type AiSettings, resolveProvider, type LlmProvider
 import { DEFAULT_FLAGS } from "@/lib/nav";
 import type { Assignments, Role } from "@/lib/roles";
 import { defaultRoleFeatures } from "@/lib/data/users";
-import { computeRiskPredictions } from "@/lib/ai/risk/engine";
 import type { RiskPrediction } from "@/lib/ai/risk/types";
 import type { SituationalAwareness } from "@/lib/ai/situational/types";
 
@@ -71,6 +70,20 @@ const FLAGS_KEY = "argos_flags";
 const TOKEN_KEY = "argos_token";
 const SESSION_USER_KEY = "argos_session_user";
 const SESSION_ROLE_KEY = "argos_session_role";
+
+/**
+ * Prédictions risques depuis l'API (F-04, branche fusion).
+ *
+ * Le moteur déterministe tourne désormais côté serveur, UNE fois pour tous les
+ * postes, sur les données faisant foi — au lieu de N recalculs dans N
+ * navigateurs. Le client ne fait plus que charger le résultat. L'estampille
+ * `origin` reste posée ici, à l'identique de l'ancien comportement.
+ */
+async function fetchRiskPredictions(): Promise<RiskPrediction[]> {
+  const res = await api.getDashboardRisk();
+  const env = res.data as { predictions?: RiskPrediction[] } | undefined;
+  return (env?.predictions ?? []).map((p) => ({ ...p, origin: "deterministic" as const }));
+}
 
 /** Rôle de la session (aligné sur l'API/Keycloak). En production : claim OIDC (§4.3). Défini dans lib/roles. */
 export type { Role };
@@ -402,7 +415,7 @@ interface ArgosState {
 
   // --- Module IA Prédictions Risques ---
   /** Force un recalcul COMPLET des prédictions (après loadDomain, addIncident, deployFieldHospital). */
-  recomputeRiskPredictions: () => RiskPrediction[];
+  recomputeRiskPredictions: () => void;
   /** Valide une prédiction par un opérateur humain (obligatoire per spec). */
   validateRiskPrediction: (id: string, validator?: string) => void;
   /** Ignore/masque une prédiction (considérée non pertinente par l'opérateur). */
@@ -851,20 +864,15 @@ export const useArgos = create<ArgosState>((set, get) => ({
   // Module IA · Prédictions Risques
   // ============================================================
   recomputeRiskPredictions: () => {
-    const s = get();
-    if (!s.riskModuleOn) {
+    if (!get().riskModuleOn) {
       set({ riskPredictions: [] });
-      return [];
+      return;
     }
-    const preds: RiskPrediction[] = computeRiskPredictions({
-      incidents: s.incidents,
-      hospitals: s.hospitals,
-      units: s.units,
-      movements: s.movements,
-      dashStats: s.dashStats,
-    }).map(p => ({ ...p, origin: "deterministic" as const }));
-    set({ riskPredictions: preds, riskEngine: "deterministic", riskAIError: undefined });
-    return preds;
+    void fetchRiskPredictions()
+      .then((preds) => set({ riskPredictions: preds, riskEngine: "deterministic", riskAIError: undefined }))
+      .catch(() => {
+        /* API injoignable : on garde les dernières prédictions affichées. */
+      });
   },
   validateRiskPrediction: (id, validator) =>
     set((s) => ({
@@ -881,16 +889,16 @@ export const useArgos = create<ArgosState>((set, get) => ({
   toggleRiskModule: (enabled) =>
     set((s) => {
       const next = typeof enabled === "boolean" ? enabled : !s.riskModuleOn;
-      const preds = next ? computeRiskPredictions({
-        incidents: s.incidents,
-        hospitals: s.hospitals,
-        units: s.units,
-        movements: s.movements,
-        dashStats: s.dashStats,
-      }).map(p => ({ ...p, origin: "deterministic" as const })) : [];
+      // Réactivation : on vide puis on charge depuis l'API — les prédictions
+      // arrivent une fraction de seconde plus tard, identiques pour tous les postes.
+      if (next) {
+        void fetchRiskPredictions()
+          .then((preds) => set({ riskPredictions: preds }))
+          .catch(() => {});
+      }
       return {
         riskModuleOn: next,
-        riskPredictions: preds,
+        riskPredictions: [],
         riskEngine: "deterministic",
         riskAIError: undefined,
       };
@@ -917,24 +925,26 @@ export const useArgos = create<ArgosState>((set, get) => ({
         },
         cfg,
       );
+      // F-04 : si le LLM a échoué, modelPredictor a recalculé EN LOCAL son repli
+      // déterministe. On lui préfère le résultat de l'API — même moteur, mais
+      // exécuté une fois côté serveur et identique pour tous les postes. Le
+      // calcul local reste l'ultime filet si l'API est injoignable.
+      const predictions =
+        res.origin === "deterministic"
+          ? await fetchRiskPredictions().catch(() => res.predictions)
+          : res.predictions;
       set({
-        riskPredictions: res.predictions,
+        riskPredictions: predictions,
         riskEngine: res.origin,
         riskAIModel: res.model,
         riskAIError: res.error,
         riskLoadingAI: false,
       });
-      return res.predictions;
+      return predictions;
     } catch (e) {
       // Dernier filet de sécurité: si tout casse (y compris fallback déterministe),
       // on retombe sur le déterministe (aucune invention, zéro crash).
-      const preds: RiskPrediction[] = computeRiskPredictions({
-        incidents: s.incidents,
-        hospitals: s.hospitals,
-        units: s.units,
-        movements: s.movements,
-        dashStats: s.dashStats,
-      }).map(p => ({ ...p, origin: "deterministic" as const }));
+      const preds: RiskPrediction[] = await fetchRiskPredictions().catch(() => []);
       set({
         riskPredictions: preds,
         riskEngine: "deterministic",

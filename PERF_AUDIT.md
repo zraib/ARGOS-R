@@ -221,7 +221,31 @@ identique par construction.
 
 ---
 
-### F-04 · Moteurs de risque et de conscience situationnelle en client — `MEDIUM` *(inféré)*
+### F-04 · Moteur de risques côté client — ✅ **TRAITÉ sur la branche `fusion`** (arbitrage Oumaima obtenu)
+
+> **Périmètre convenu** : branche `fusion`, `main` intact, démonstration chiffrée.
+> Le moteur **déterministe** est porté dans l'API (`risk.engine.ts`, portage à
+> l'identique) ; le chemin **LLM d'Oumaima est intact** — `modelPredictor` garde
+> son contexte client et son repli local en ultime filet. Quand le LLM échoue,
+> le déterministe vient désormais de l'API : même moteur, exécuté une fois.
+>
+> **Mesures (branche fusion)** :
+> - Endpoint `GET /dashboard/risk` : **calcul 1,5 ms**, 12 prédictions, 9,4 Ko ;
+>   mémo 5 s (`cached: true` au 2ᵉ appel) ; rejeu ETag → **304, 0 octet**.
+> - Bundle : moteur absent de **tous** les graphes initiaux → **−11 à −12 Ko/route**
+>   (dashboard 831→820 Ko).
+> - Fidélité : 96/96 tests dont 3 nouveaux (déterminisme sur données réelles,
+>   bornes 1..12, mémo) ; au navigateur, le panneau affiche les **mêmes
+>   prédictions** (« Saturation hospitalière · Rabat · Critique 82 % ») servies
+>   par l'API.
+> - Cohérence de commandement en prime : N postes reçoivent désormais des
+>   prédictions **identiques**, calculées sur les données faisant foi.
+>
+> Non porté, volontairement : `situational/engine` (même patron applicable après
+> validation d'Oumaima) et le chemin LLM (architecture « LLM côté serveur » =
+> chantier MASTER_PLAN distinct).
+
+### F-04 (analyse d'origine, conservée pour mémoire)
 
 **Fichiers**
 `lib/ai/risk/engine.ts` (589 l.), `lib/ai/risk/modelPredictor.ts` (492 l.),
@@ -581,7 +605,7 @@ chasser à la main.
 | F-06 | Fuite MapLibre | ⊘ non fondé | absent du graphe initial partout (mesuré) |
 | F-09 | `<img>` non optimisée | ⊘ non fondé | l'occurrence était un commentaire |
 | F-02 | `assistant.ts` monolithique | ↓ MEDIUM | maintenabilité seule — aucun octet à gagner (prouvé) |
-| F-04 | Moteurs IA côté client | ⏸ en attente | arbitrage avec Oumaima (contrat de données) |
+| F-04 | Moteur déterministe côté client | ✅ **branche `fusion`** | porté dans l'API : 1 calcul/5 s pour N postes (1,5 ms), −11 Ko/route, mêmes prédictions (testé) |
 | F-07 | 82 % composants clients | ⏸ projet | ADR — touche l'authentification |
 | F-08 | N+1 latent | ⏸ préventif | à traiter au passage à Drizzle, avec les index |
 | F-10 | Code mort | ⏸ hygiène | aucun effet bundle (non importé) |

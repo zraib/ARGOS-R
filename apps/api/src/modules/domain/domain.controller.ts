@@ -1,5 +1,6 @@
 import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { RiskService } from "@/modules/domain/risk.service";
 import { DomainService } from "@/modules/domain/domain.service";
 import { CatalogService } from "@/modules/domain/catalog.service";
 import { CommsService } from "@/modules/domain/comms.service";
@@ -44,6 +45,7 @@ import type { AuthUser } from "@/common/types/auth-user";
 @Controller()
 export class DomainController {
   constructor(
+    private readonly risk: RiskService,
     private readonly domain: DomainService,
     private readonly catalog: CatalogService,
     private readonly comms: CommsService,
@@ -80,6 +82,18 @@ export class DomainController {
   @ApiOperation({ summary: "Statistiques de commandement : évolution 30 j, gravité, bilan humain, saturation hospitalière, posture des unités" })
   dashboardStats() {
     return this.domain.stats();
+  }
+
+  @Get("dashboard/risk")
+  @RequirePermission("dashboard:view")
+  @ApiOperation({
+    summary: "Prédictions de risques (moteur déterministe, calculé côté serveur)",
+    description:
+      "Le moteur tourne UNE fois sur les données faisant foi de l'API (mémo 5 s) au lieu de N fois " +
+      "dans N navigateurs. L'enveloppe expose computeMs et cached pour rendre le coût observable.",
+  })
+  dashboardRisk() {
+    return this.risk.predictions();
   }
 
   @Get("incidents")
