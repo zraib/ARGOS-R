@@ -18,7 +18,7 @@ import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
 import {
   AI_ENABLED,
   AI_REFUS_RESPONSE,
-  AI_SYSTEM_PROMPT,
+  aiSystemPrompt,
   cleanFinalText,
   detectInjection,
   detectLeakedPrompt,
@@ -38,26 +38,11 @@ import type { RiskPrediction } from "@/lib/ai/risk/types";
 
 type ProviderStatus = "checking" | "online" | "offline";
 
-const SAFE_GREETING_RESPONSES: string[] = [
-  "Bonjour opérateur. Prêt pour la **plateforme ARGOS** : incidents, unités, hôpitaux, ORSEC, logistique, sismologie. Que souhaitez-vous consulter ?",
-  "Bonjour ! Je suis prêt pour la **plateforme ARGOS**. Demande-moi une vue globale, un détail d'incident, un croisement de données ou un SITREP.",
-  "Salut opérateur, à votre service sur la **plateforme ARGOS** 🫡. Quelle situation voulez-vous analyser ?",
-  "Bonsoir. À votre disposition sur la **plateforme ARGOS** : incidents, unités, hôpitaux, ORSEC, logistique, sismologie.",
-  "Hello ! Disponible immédiatement sur la **plateforme ARGOS** pour toute interrogation opérationnelle.",
-  "Pris en compte, opérateur. Je suis prêt sur la **plateforme ARGOS** — formulez votre demande.",
-];
-function pickGreetingResponse(): string {
-  // Évite de retomber 2x sur le même message (quand on a 2+ éléments).
-  const i = Math.floor(Math.random() * SAFE_GREETING_RESPONSES.length);
-  return SAFE_GREETING_RESPONSES[i] ?? SAFE_GREETING_RESPONSES[0];
+/** Tire une salutation au hasard dans le lot fourni (dictionnaire de session). */
+function pickGreetingResponse(pool: string[]): string {
+  const i = Math.floor(Math.random() * pool.length);
+  return pool[i] ?? pool[0];
 }
-
-const DEFAULT_EMPTY_SUGGESTIONS: { label: string; query: string }[] = [
-  { label: "Quelle est la situation actuelle ?", query: "Quelle est la situation actuelle ?" },
-  { label: "Quels sont les incidents critiques ?", query: "Quels sont les incidents critiques ?" },
-  { label: "Résume-moi les dernières 24 heures", query: "Résume-moi les incidents des dernières 24 heures" },
-  { label: "Prédictions IA de risques", query: "Quelles sont les prédictions de risques IA ?" },
-];
 
 const SEV_COLORS: Record<string, string> = {
   faible: "text-emerald-500",
@@ -82,6 +67,7 @@ function toneForLevel(v: number) {
 
 export default function CopilotBody() {
   const m = useModules();
+  const t = useDict();
   const path = usePathname() ?? "";
 
   const copilotOpen = useArgos((s) => s.copilotOpen);
@@ -121,6 +107,23 @@ export default function CopilotBody() {
   const [loadingTags, setLoadingTags] = useState(false);
   const [manualModelMode, setManualModelMode] = useState(false);
   const [manualModelInput, setManualModelInput] = useState(aiSettings.model);
+
+  // Salutations et suggestions dans la langue de session. La REQUÊTE envoyée au
+  // moteur reste la formulation canonique française : la Couche 1 (analyse
+  // d'intention) est réglée sur elle — le libellé affiché, lui, suit l'opérateur.
+  const safeGreetings = useMemo(
+    () => [t.cp_greet_1, t.cp_greet_2, t.cp_greet_3, t.cp_greet_4, t.cp_greet_5, t.cp_greet_6],
+    [t],
+  );
+  const emptySuggestions = useMemo(
+    () => [
+      { label: t.cp_sugg_situation, query: "Quelle est la situation actuelle ?" },
+      { label: t.cp_sugg_critical, query: "Quels sont les incidents critiques ?" },
+      { label: t.cp_sugg_last24, query: "Résume-moi les incidents des dernières 24 heures" },
+      { label: t.cp_sugg_risks, query: "Quelles sont les prédictions de risques IA ?" },
+    ],
+    [t],
+  );
   const [showSettings, setShowSettings] = useState(false);
   useEffect(() => {
     setManualModelInput(aiSettings.model);
@@ -193,34 +196,37 @@ export default function CopilotBody() {
 
   // Suggestions contextuelles selon écran courant + sélections
   const suggestions = useMemo(() => {
-    const base: string[] = [
-      "Situation globale opérationnelle",
-      "Tendances incidents 30 derniers jours",
-      "SITREP incidents en cours",
-      "État des hôpitaux",
+    // Paires { libellé localisé, requête canonique française } — voir note
+    // au-dessus de `emptySuggestions`.
+    const base: { label: string; query: string }[] = [
+      { label: t.cp_ctx_global, query: "Situation globale opérationnelle" },
+      { label: t.cp_ctx_trends, query: "Tendances incidents 30 derniers jours" },
+      { label: t.cp_ctx_sitrep, query: "SITREP incidents en cours" },
+      { label: t.cp_ctx_hospitals, query: "État des hôpitaux" },
     ];
     const incMatch = path.match(/\/incidents\/(INC-\d+)/i);
     const focusedIncId = incMatch?.[1] ?? (selMarker?.kind === "inc" ? selMarker.id : null);
     const focusedInc = incidents.find((i) => i.id === focusedIncId) ?? null;
     if (focusedInc) {
-      base.unshift(`Analyse croisée ${focusedInc.id}`);
-      base.unshift(`Détail de ${focusedInc.id}`);
+      base.unshift({ label: t.cp_ctx_cross.replace("{id}", focusedInc.id), query: `Analyse croisée ${focusedInc.id}` });
+      base.unshift({ label: t.cp_ctx_detail.replace("{id}", focusedInc.id), query: `Détail de ${focusedInc.id}` });
     }
     if (selUnit) {
       const u = units.find((x) => x.id === selUnit);
-      base.push(`Statut unité ${u?.nom ?? selUnit}`);
+      base.push({ label: t.cp_ctx_unit.replace("{nom}", u?.nom ?? selUnit), query: `Statut unité ${u?.nom ?? selUnit}` });
     }
     if (selHosp) {
       const h = hospitals.find((x) => x.id === selHosp);
-      base.push(`Statut hôpital ${h?.nom ?? selHosp}`);
+      base.push({ label: t.cp_ctx_hosp.replace("{nom}", h?.nom ?? selHosp), query: `Statut hôpital ${h?.nom ?? selHosp}` });
     }
-    if (path.startsWith("/seism")) base.unshift("Activité sismique récente");
-    if (path.includes("orsec") || path.includes("plan")) base.unshift("Synthèse ORSEC");
+    if (path.startsWith("/seism")) base.unshift({ label: t.cp_ctx_seismic, query: "Activité sismique récente" });
+    if (path.includes("orsec") || path.includes("plan")) base.unshift({ label: t.cp_ctx_orsec, query: "Synthèse ORSEC" });
     if (path.startsWith("/command") || path.startsWith("/dash") || path.startsWith("/tableau")) {
-      base.unshift("Bilan humain global");
-      base.unshift("Posture globale des unités FAR");
+      base.unshift({ label: t.cp_ctx_toll, query: "Bilan humain global" });
+      base.unshift({ label: t.cp_ctx_posture, query: "Posture globale des unités FAR" });
     }
-    return Array.from(new Set(base)).slice(0, 8);
+    const seen = new Set<string>();
+    return base.filter((x) => (seen.has(x.query) ? false : (seen.add(x.query), true))).slice(0, 8);
   }, [path, incidents, units, hospitals, selUnit, selHosp, selMarker]);
 
   const ask = useCallback(
@@ -237,7 +243,7 @@ export default function CopilotBody() {
         pushAi({
           role: "assistant",
           text: AI_REFUS_RESPONSE,
-          provider: "Garde-fou sécurité",
+          provider: t.cp_guard,
           refused: true,
         });
         return;
@@ -255,8 +261,8 @@ export default function CopilotBody() {
         pushAi({ role: "user", text: qRaw });
         pushAi({
           role: "assistant",
-          text: pickGreetingResponse(),
-          provider: "Copilot ARGOS",
+          text: pickGreetingResponse(safeGreetings),
+          provider: t.cp_title,
         });
         return;
       }
@@ -302,7 +308,7 @@ export default function CopilotBody() {
         const socialMsgId = pushAi({
           role: "assistant",
           text: cleanFinalText(answer.text),
-          provider: "Copilot ARGOS",
+          provider: t.cp_title,
           suggestions: answer.suggestions,
         });
         void socialMsgId;
@@ -314,7 +320,7 @@ export default function CopilotBody() {
         const equipMsgId = pushAi({
           role: "assistant",
           text: cleanFinalText(answer.text),
-          provider: "Données ARGOS · inventaire & stocks",
+          provider: t.cp_inv_src,
           deterministic: true,
           layer1: answer.layer1,
           suggestions: answer.suggestions,
@@ -346,7 +352,7 @@ export default function CopilotBody() {
       // il voit : Traitement → stream Qwen mot par mot → puis blocs structurés ajoutés en dessous.
       const msgId = pushAi({
         role: "assistant",
-        text: "Traitement en cours…",
+        text: t.cp_processing,
         provider: `${cfg.label} · ${cfg.model}`,
       });
 
@@ -422,9 +428,9 @@ export default function CopilotBody() {
           chatStream(
             cfg,
             [
-              { role: "system", content: AI_SYSTEM_PROMPT },
+              { role: "system", content: aiSystemPrompt(useArgos.getState().lang, aiSettings.systemPrompt) },
               ...llmHistory,
-              { role: "user", content: buildLlmUserMessage(q, withRiskCtx) },
+              { role: "user", content: buildLlmUserMessage(q, withRiskCtx, useArgos.getState().lang) },
             ],
             {
               onToken: (acc) => {
@@ -483,7 +489,7 @@ export default function CopilotBody() {
               : `réponse vide`;
           updateAi(msgId, {
             text: cleanFinalText(answer.text),
-            provider: `Données ARGOS · ${answer.intent === "unknown" ? "données partielles" : "réponse détaillée"}`,
+            provider: `Données ARGOS · ${answer.intent === "unknown" ? t.cp_partial : t.cp_detailed}`,
             deterministic: true,
             llmError: `🤖 ${cfg.label} : ${llmError}`,
             layer1: answer.layer1,
@@ -522,7 +528,7 @@ export default function CopilotBody() {
         // ⚠️ ERREUR RUNTIME → fallback Couche 1
         updateAi(msgId, {
           text: answer.text,
-          provider: `Données ARGOS · ${answer.intent === "unknown" ? "données partielles" : "réponse détaillée"}`,
+          provider: `Données ARGOS · ${answer.intent === "unknown" ? t.cp_partial : t.cp_detailed}`,
           deterministic: true,
           llmError: `⛔ ERREUR T+${durationSec}s : ${msg}`,
           layer1: answer.layer1,
@@ -551,10 +557,10 @@ export default function CopilotBody() {
 
   const statusDot =
     status === "online"
-      ? { bg: "bg-emerald-500", ring: "bg-emerald-500/20", title: "Copilot prêt" }
+      ? { bg: "bg-emerald-500", ring: "bg-emerald-500/20", title: t.cp_ready }
       : status === "offline"
-        ? { bg: "bg-amber-500", ring: "bg-amber-500/20", title: "Mode déterministe seul" }
-        : { bg: "bg-gray-400", ring: "bg-gray-200", title: "Vérification…" };
+        ? { bg: "bg-amber-500", ring: "bg-amber-500/20", title: t.cp_det_only }
+        : { bg: "bg-gray-400", ring: "bg-gray-200", title: t.cp_checking };
 
   if (!AI_ENABLED) return null;
 
@@ -566,16 +572,16 @@ export default function CopilotBody() {
       {/* 🌟 BOUTON FLOTTANT (FAB) — visible quand Copilot fermé */}
       {!copilotOpen && (
         <button
-          aria-label="Ouvrir le Copilot ARGOS (⌘K)"
-          title="Ouvrir le Copilot ARGOS (⌘K)"
+          aria-label={t.cp_open}
+          title={t.cp_open}
           onClick={() => useArgos.getState().openCopilot()}
           className="group fixed bottom-4 end-4 z-50 sm:bottom-6 sm:end-6"
         >
-          <span className="absolute -inset-1 rounded-full bg-gradient-to-tr from-or-500 via-rdia-500 to-red-500 blur opacity-40 group-hover:opacity-70 transition-opacity duration-300" />
-          <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-or-500 to-rdia-500 text-white shadow-2xl shadow-or-500/40 ring-4 ring-white dark:ring-rdia-800 transition-transform duration-200 group-hover:scale-110 active:scale-95">
+          <span className="absolute -inset-1 rounded-full bg-or-500 opacity-30 blur transition-opacity duration-300 group-hover:opacity-60" />
+          <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-or-500 text-rdia-900 shadow-2xl shadow-or-500/40 ring-4 ring-white dark:ring-rdia-800 transition-transform duration-200 group-hover:scale-110 active:scale-95">
             <Icon path={UI_ICONS.copilot} size={24} strokeWidth={2} />
             {unreadBadge > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-5 min-w-[20px] items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[10px] font-bold text-white dark:border-rdia-800">
+              <span className="absolute -top-1 -end-1 flex h-5 min-w-[20px] items-center justify-center rounded-full border-2 border-white bg-danger-500 px-1 text-[10px] font-bold text-white dark:border-rdia-800">
                 {unreadBadge}
               </span>
             )}
@@ -583,7 +589,7 @@ export default function CopilotBody() {
           {/* Bulle d'aide : masquée sous sm — au doigt il n'y a pas de survol,
               et elle débordait de l'écran à 375 px. */}
           <span className="absolute end-full top-1/2 me-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-rdia-800 px-2.5 py-1 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 sm:block dark:bg-rdia-700">
-            Copilot · ⌘K
+            {t.cp_title} · ⌘K
           </span>
         </button>
       )}
@@ -620,8 +626,8 @@ export default function CopilotBody() {
               />
             </div>
             <div className="min-w-0">
-              <h2 className="text-[13px] font-semibold leading-none text-rdia-600 dark:text-rdia-50">Copilot ARGOS</h2>
-              <p className="mt-0.5 text-[10px] text-gray-400 dark:text-rdia-400 truncate">Assistant opérationnel</p>
+              <h2 className="text-[13px] font-semibold leading-none text-rdia-600 dark:text-rdia-50">{t.cp_title}</h2>
+              <p className="mt-0.5 text-[10px] text-gray-400 dark:text-rdia-400 truncate">{t.cp_subtitle}</p>
             </div>
           </div>
           {/* Commandes d'en-tête : cibles de 44 px sous lg (32 px au doigt, on
@@ -631,13 +637,13 @@ export default function CopilotBody() {
               type="button"
               onClick={() => setShowSettings((v) => !v)}
               disabled={busy}
-              title={showSettings ? "Masquer les paramètres" : "Paramètres (modèle…)"}
+              title={showSettings ? t.cp_settings_hide : t.cp_settings_show}
               className={`cible-tactile flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
                 showSettings
                   ? "bg-or-500/10 text-or-500 ring-1 ring-or-500/25"
                   : "text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-rdia-700/50 dark:hover:text-rdia-100"
               } disabled:opacity-40`}
-              aria-label="Paramètres"
+              aria-label={t.cp_settings}
             >
               <Icon path={UI_ICONS.sliders} size={15} />
             </button>
@@ -645,16 +651,16 @@ export default function CopilotBody() {
               type="button"
               onClick={clearAi}
               disabled={busy || aiLog.length === 0}
-              title={aiLog.length === 0 ? "Historique vide" : "Vider l'historique"}
+              title={aiLog.length === 0 ? t.cp_clear_empty : t.cp_clear}
               className="cible-tactile flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-rdia-700/50 dark:hover:text-red-400"
-              aria-label="Vider l'historique"
+              aria-label={t.cp_clear}
             >
               <Icon path={UI_ICONS.trash} size={14} />
             </button>
             <button
               type="button"
-              aria-label="Fermer"
-              title="Fermer (Échap)"
+              aria-label={t.cp_close}
+              title={t.cp_close_esc}
               onClick={closeCopilot}
               className="cible-tactile flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-rdia-700/50 dark:hover:text-rdia-100"
             >
@@ -678,11 +684,11 @@ export default function CopilotBody() {
                   onChange={(e) => setAiSettings({ model: e.target.value })}
                   disabled={busy || !cfg.local}
                   className="w-full truncate rounded-md border-0 bg-transparent px-1 py-0 font-mono text-[11px] text-gray-700 focus:outline-none focus:ring-0 disabled:opacity-60 dark:text-rdia-100"
-                  title="Modèle Ollama courant"
+                  title={t.cp_model_current}
                 >
                   {ollamaTags.length === 0 && (
                     <option value={aiSettings.model}>
-                      {loadingTags ? "… chargement" : aiSettings.model}
+                      {loadingTags ? "…" : aiSettings.model}
                     </option>
                   )}
                   {ollamaTags.map((t) => {
@@ -716,7 +722,7 @@ export default function CopilotBody() {
                     value={manualModelInput}
                     onChange={(e) => setManualModelInput(e.target.value)}
                     disabled={busy || !cfg.local}
-                    placeholder="ex: ministral-3:8b"
+                    placeholder={t.cp_model_manual_ph}
                     className="w-full rounded-md border-0 bg-transparent px-1 py-0 font-mono text-[11px] text-gray-700 outline-none focus:ring-0 disabled:opacity-60 dark:text-rdia-100"
                     autoFocus
                   />
@@ -754,7 +760,7 @@ export default function CopilotBody() {
                   }
                 }}
                 disabled={busy || !cfg.local}
-                title={manualModelMode ? "Revenir à la liste" : "Saisir manuellement le tag"}
+                title={manualModelMode ? t.cp_model_back_list : t.cp_model_manual}
                 className="cible-tactile flex h-5 w-5 shrink-0 items-center justify-center rounded text-gray-400 transition-colors hover:text-or-500 disabled:opacity-40"
               >
                 <Icon path={UI_ICONS.edit} size={11} />
@@ -763,7 +769,7 @@ export default function CopilotBody() {
                 type="button"
                 onClick={loadOllamaTags}
                 disabled={loadingTags || !cfg.local}
-                title="Actualiser la liste des modèles"
+                title={t.cp_model_refresh}
                 className="cible-tactile flex h-5 w-5 shrink-0 items-center justify-center rounded text-gray-400 transition-colors hover:text-or-500 disabled:cursor-wait disabled:opacity-40"
               >
                 <Icon path={UI_ICONS.refresh} size={11} />
@@ -788,11 +794,11 @@ export default function CopilotBody() {
                   Comment puis-je vous aider ?
                 </p>
                 <p className="mt-2 text-[11.5px] leading-relaxed text-gray-500 dark:text-rdia-300">
-                  Posez votre question ou choisissez un point de départ.
+                  {t.cp_empty_hint}
                 </p>
               </div>
               <div className="flex w-full max-w-md flex-col items-center gap-2 px-2">
-                {DEFAULT_EMPTY_SUGGESTIONS.map((ex) => (
+                {emptySuggestions.map((ex) => (
                   <button
                     key={ex.label}
                     onClick={() => ask(ex.query)}
@@ -831,10 +837,10 @@ export default function CopilotBody() {
                         </span>
                       )}
                       {msg.deterministic && (
-                        <Pill tone="amber" label="Données uniquement" size="sm" />
+                        <Pill tone="amber" label={t.cp_data_only} size="sm" />
                       )}
                       <span className="ms-auto font-mono text-[10px] text-gray-300 dark:text-rdia-500">{msg.at}</span>
-                      {msg.refused && <Pill tone="red" label="Refus sécurité" size="sm" />}
+                      {msg.refused && <Pill tone="red" label={t.cp_refused} size="sm" />}
                     </div>
                     {msg.llmError && (
                       <div className="rounded-md border border-amber-500/20 bg-amber-500/5 px-2.5 py-1 text-[10px] font-medium text-amber-600 dark:text-amber-400/90">
@@ -876,7 +882,7 @@ export default function CopilotBody() {
                       )}
 
                       {msg.units && msg.units.length > 0 && (
-                        <BlockTable title="Unités recommandées" icon={NAV_ICONS.units}>
+                        <BlockTable title={t.cp_tbl_units} icon={NAV_ICONS.units}>
                           <tbody>
                             {msg.units.slice(0, 10).map((u) => (
                               <tr key={u.id} className="border-b border-gray-100 last:border-0 dark:border-rdia-700/50">
@@ -893,7 +899,7 @@ export default function CopilotBody() {
                       )}
 
                       {msg.hospitals && msg.hospitals.length > 0 && (
-                        <BlockTable title="Établissements de santé" icon={NAV_ICONS.hospitals}>
+                        <BlockTable title={t.cp_tbl_health} icon={NAV_ICONS.hospitals}>
                           <thead>
                             <tr className="bg-gray-50 text-[10px] uppercase text-gray-400 dark:bg-rdia-700/40 dark:text-rdia-400">
                               <th className="px-2.5 py-1.5 text-left font-medium">Établissement</th>
@@ -923,7 +929,7 @@ export default function CopilotBody() {
                       )}
 
                       {msg.equipment && msg.equipment.length > 0 && (
-                        <BlockTable title="Inventaire & équipements" icon={UI_ICONS.archive}>
+                        <BlockTable title={t.cp_tbl_inventory} icon={UI_ICONS.archive}>
                           <thead>
                             <tr className="bg-gray-50 text-[10px] uppercase text-gray-400 dark:bg-rdia-700/40 dark:text-rdia-400">
                               <th className="px-2.5 py-1.5 text-left font-medium">Équipement</th>
@@ -956,7 +962,7 @@ export default function CopilotBody() {
                       )}
 
                       {msg.quakes && msg.quakes.length > 0 && (
-                        <BlockTable title="Sismicité récente" icon={NAV_ICONS.seismic}>
+                        <BlockTable title={t.cp_tbl_seismic} icon={NAV_ICONS.seismic}>
                           <thead>
                             <tr className="bg-gray-50 text-[10px] uppercase text-gray-400 dark:bg-rdia-700/40 dark:text-rdia-400">
                               <th className="px-2.5 py-1.5 text-left font-medium">Date</th>
@@ -1189,12 +1195,12 @@ export default function CopilotBody() {
           <div className="flex shrink-0 gap-1.5 overflow-x-auto border-t border-gray-100 bg-white/70 px-4 py-2 sm:flex-wrap sm:overflow-x-visible dark:border-rdia-700/60 dark:bg-rdia-800/70">
             {suggestions.slice(0, 4).map((ex) => (
               <button
-                key={ex}
-                onClick={() => ask(ex)}
+                key={ex.query}
+                onClick={() => ask(ex.query)}
                 disabled={busy}
                 className="shrink-0 whitespace-nowrap rounded-full border border-gray-200 px-2.5 py-1.5 text-[12px] text-gray-500 transition-colors hover:border-or-500/50 hover:text-or-500 disabled:opacity-40 sm:text-[11px] dark:border-rdia-600 dark:text-rdia-300"
               >
-                {ex}
+                {ex.label}
               </button>
             ))}
           </div>
@@ -1208,7 +1214,7 @@ export default function CopilotBody() {
               <input
                 ref={inputRef}
                 className="min-h-11 flex-1 bg-transparent py-2 text-base outline-none placeholder:text-gray-400 md:min-h-0 md:text-sm dark:text-rdia-50"
-                placeholder="Posez votre question..."
+                placeholder={t.cp_input_ph}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={onKey}

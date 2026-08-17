@@ -291,6 +291,10 @@ export interface ModulesDict {
     reset: string;
     /** Info-bulle du point signalant une dotation modifiée par rapport au défaut. */
     modified: string;
+    /** Réglages LLM avancés (température, prompt système, liste de modèles). */
+    llm_temp: string; llm_temp_hint: string;
+    llm_sysprompt: string; llm_sysprompt_hint: string; llm_sysprompt_reset: string;
+    llm_model_list_hint: string; llm_model_manual: string;
     flags_title: string;
     flags_hint: string;
     module_disabled: string;

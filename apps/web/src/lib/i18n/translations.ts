@@ -18,6 +18,24 @@ export interface Dict {
   nav_open: string;
   /** Libellé accessible du bouton d'envoi de message. */
   send: string;
+  // --- tableau de bord : onglets + analyse IA ---
+  dash_tab_ops: string; dash_tab_ai: string; dash_ai_title: string;
+  sa_loading: string; sa_init: string; sa_hotspots: string; sa_zones: string;
+  sa_anticip: string; sa_horizons: string; sa_factors: string; sa_detected: string; sa_risks: string;
+  // --- Copilot : chrome de l'assistant ---
+  cp_title: string; cp_subtitle: string; cp_open: string; cp_ready: string; cp_det_only: string;
+  cp_checking: string; cp_settings: string; cp_settings_show: string; cp_settings_hide: string;
+  cp_clear: string; cp_clear_empty: string; cp_close: string; cp_close_esc: string;
+  cp_processing: string; cp_guard: string; cp_partial: string; cp_detailed: string;
+  cp_input_ph: string; cp_empty_hint: string; cp_data_only: string; cp_refused: string;
+  cp_tbl_units: string; cp_tbl_health: string; cp_tbl_inventory: string; cp_tbl_seismic: string;
+  cp_model_current: string; cp_model_manual_ph: string; cp_model_back_list: string;
+  cp_model_manual: string; cp_model_refresh: string; cp_inv_src: string;
+  cp_greet_1: string; cp_greet_2: string; cp_greet_3: string; cp_greet_4: string; cp_greet_5: string; cp_greet_6: string;
+  cp_sugg_situation: string; cp_sugg_critical: string; cp_sugg_last24: string; cp_sugg_risks: string;
+  cp_ctx_global: string; cp_ctx_trends: string; cp_ctx_sitrep: string; cp_ctx_hospitals: string;
+  cp_ctx_seismic: string; cp_ctx_orsec: string; cp_ctx_toll: string; cp_ctx_posture: string;
+  cp_ctx_detail: string; cp_ctx_cross: string; cp_ctx_unit: string; cp_ctx_hosp: string;
   // --- suivi aérien (feux de forêt) ---
   acft_panel: string; acft_code: string; acft_code_ph: string; acft_label: string; acft_label_ph: string;
   acft_role: string; acft_track: string; acft_untrack: string; acft_empty: string; acft_no_signal: string;

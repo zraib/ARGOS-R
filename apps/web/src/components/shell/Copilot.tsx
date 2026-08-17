@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, lazy, useEffect, useState } from "react";
-import { useArgos } from "@/lib/store";
+import { useArgos, useDict } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 
@@ -20,20 +20,28 @@ import { UI_ICONS } from "@/lib/icons";
 
 const CopilotBody = lazy(() => import("@/components/shell/CopilotBody"));
 
-/** Bouton flottant d'ouverture — réplique de la FAB du corps. */
+/**
+ * Bouton flottant d'ouverture — réplique de la FAB du corps.
+ *
+ * Couleurs prises dans la palette du thème (et nulle part ailleurs) : disque
+ * or-500 avec glyphe rdia-900 — le couple du .btn-primaire sombre — halo or
+ * uni, badge danger-500. L'ancien dégradé or→vert→rouge mélangeait la couleur
+ * d'alerte à la marque, ce que la sémantique des couleurs interdit.
+ */
 function Fab({ unread }: { unread: number }) {
+  const t = useDict();
   return (
     <button
-      aria-label="Ouvrir le Copilot ARGOS (⌘K)"
-      title="Ouvrir le Copilot ARGOS (⌘K)"
+      aria-label={t.cp_open}
+      title={t.cp_open}
       onClick={() => useArgos.getState().openCopilot()}
       className="group fixed bottom-4 end-4 z-50 sm:bottom-6 sm:end-6"
     >
-      <span className="absolute -inset-1 rounded-full bg-gradient-to-tr from-or-500 via-rdia-500 to-red-500 blur opacity-40 group-hover:opacity-70 transition-opacity duration-300" />
-      <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-or-500 to-rdia-500 text-white shadow-2xl shadow-or-500/40 ring-4 ring-white dark:ring-rdia-800 transition-transform duration-200 group-hover:scale-110 active:scale-95">
-        <Icon path={UI_ICONS.copilot} size={24} strokeWidth={2} />
+      <span className="absolute -inset-1 rounded-full bg-or-500 opacity-30 blur transition-opacity duration-300 group-hover:opacity-60" />
+      <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-or-500 text-rdia-900 shadow-2xl shadow-or-500/40 ring-4 ring-white transition-transform duration-200 group-hover:scale-110 active:scale-95 dark:ring-rdia-800">
+        <Icon path={UI_ICONS.copilot} size={26} strokeWidth={2} />
         {unread > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-5 min-w-[20px] items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[10px] font-bold text-white dark:border-rdia-800">
+          <span className="absolute -top-1 -end-1 flex h-5 min-w-[20px] items-center justify-center rounded-full border-2 border-white bg-danger-500 px-1 text-[10px] font-bold text-white dark:border-rdia-800">
             {unread}
           </span>
         )}
@@ -41,7 +49,7 @@ function Fab({ unread }: { unread: number }) {
       {/* Bulle d'aide : masquée sous sm — au doigt il n'y a pas de survol,
           et elle débordait de l'écran à 375 px. */}
       <span className="absolute end-full top-1/2 me-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-rdia-800 px-2.5 py-1 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 sm:block dark:bg-rdia-700">
-        Copilot · ⌘K
+        {t.cp_title} · ⌘K
       </span>
     </button>
   );

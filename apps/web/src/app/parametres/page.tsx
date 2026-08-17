@@ -219,31 +219,73 @@ export default function ParametresPage() {
           {/* Empilé sur mobile : côte à côte, le champ de modèle descendrait
               sous une largeur utilisable à 375 px. */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <input className={`${inputCls} min-w-0 font-mono`} value={aiSettings.model} onChange={(e) => setAiSettings({ model: e.target.value })} placeholder={m.settings.model_ph} spellCheck={false} />
+            {models.length > 0 ? (
+              // Liste déroulante des modèles détectés — le tag courant reste
+              // sélectionnable même s'il a disparu du point d'accès.
+              <select
+                className={`${inputCls} min-w-0 font-mono`}
+                value={aiSettings.model}
+                onChange={(e) => setAiSettings({ model: e.target.value })}
+              >
+                {!models.includes(aiSettings.model) && <option value={aiSettings.model}>{aiSettings.model}</option>}
+                {models.map((mo) => (
+                  <option key={mo} value={mo}>{mo}</option>
+                ))}
+              </select>
+            ) : (
+              <input className={`${inputCls} min-w-0 font-mono`} value={aiSettings.model} onChange={(e) => setAiSettings({ model: e.target.value })} placeholder={m.settings.model_ph} spellCheck={false} />
+            )}
             <button className="btn-secondaire cible-tactile w-full shrink-0 text-xs sm:w-auto" onClick={detect} disabled={status === "checking"}>
               {m.settings.detect}
             </button>
           </div>
-          {models.length > 0 && (
-            <div className="mt-2">
-              <div className="mb-1 text-[10px] uppercase tracking-wide text-gray-400 dark:text-rdia-400">{models.length} {m.settings.detected}</div>
-              <div className="flex flex-wrap gap-1.5">
-                {models.map((mo) => (
-                  <button
-                    key={mo}
-                    onClick={() => setAiSettings({ model: mo })}
-                    className={`cible-tactile inline-flex items-center justify-center rounded-full border px-3 py-2 font-mono text-xs transition-colors sm:px-2.5 sm:py-1 sm:text-[10px] ${
-                      aiSettings.model === mo
-                        ? "border-or-500 bg-or-500/10 text-or-500"
-                        : "border-gray-200 text-gray-500 hover:border-or-500/50 hover:text-or-500 dark:border-rdia-600 dark:text-rdia-300"
-                    }`}
-                  >
-                    {mo}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          <p className="mt-1 text-[11px] leading-snug text-gray-400 dark:text-rdia-400">
+            {models.length > 0 ? `${models.length} ${m.settings.llm_model_list_hint}` : m.settings.llm_model_manual}
+          </p>
+        </div>
+
+        {/* Température : bornée à la saisie (0–2), défaut opérationnel 0,2. */}
+        <div className="sm:max-w-xs">
+          <label className={labelCls} htmlFor="llm-temp">{m.settings.llm_temp}</label>
+          <input
+            id="llm-temp"
+            type="number"
+            inputMode="decimal"
+            min={0}
+            max={2}
+            step={0.1}
+            className={`${inputCls} font-mono`}
+            value={aiSettings.temperature ?? 0.2}
+            onChange={(e) => {
+              const v = e.target.value === "" ? undefined : Number(e.target.value);
+              setAiSettings({ temperature: v === undefined || Number.isNaN(v) ? undefined : Math.min(2, Math.max(0, v)) });
+            }}
+          />
+          <p className="mt-1 text-[11px] leading-snug text-gray-400 dark:text-rdia-400">{m.settings.llm_temp_hint}</p>
+        </div>
+
+        {/* Prompt système : vide = prompt ARGOS par défaut (règles de sécurité). */}
+        <div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label className={labelCls} htmlFor="llm-sysprompt">{m.settings.llm_sysprompt}</label>
+            {(aiSettings.systemPrompt ?? "") !== "" && (
+              <button
+                className="cible-tactile inline-flex items-center justify-center rounded-lg px-2 py-1 text-[11px] font-semibold text-gray-400 transition-colors hover:text-or-500 dark:text-rdia-400"
+                onClick={() => setAiSettings({ systemPrompt: undefined })}
+              >
+                {m.settings.llm_sysprompt_reset}
+              </button>
+            )}
+          </div>
+          <textarea
+            id="llm-sysprompt"
+            rows={5}
+            className={`${inputCls} resize-y font-mono text-xs leading-relaxed`}
+            value={aiSettings.systemPrompt ?? ""}
+            onChange={(e) => setAiSettings({ systemPrompt: e.target.value || undefined })}
+            spellCheck={false}
+          />
+          <p className="mt-1 text-[11px] leading-snug text-gray-400 dark:text-rdia-400">{m.settings.llm_sysprompt_hint}</p>
         </div>
 
         <div className="flex items-start gap-2 rounded-lg bg-or-500/10 px-3 py-2">

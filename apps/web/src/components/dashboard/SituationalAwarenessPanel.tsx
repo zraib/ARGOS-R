@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, type ReactNode } from "react";
-import { useArgos } from "@/lib/store";
+import { useArgos, useDict } from "@/lib/store";
 import { UI_ICONS, KPI_ICONS, FLUX_ICONS, TYPE_ICONS } from "@/lib/icons";
 
 const ICONS: Record<string, string> = { ...FLUX_ICONS, ...KPI_ICONS, ...UI_ICONS, ...TYPE_ICONS };
@@ -100,6 +100,7 @@ function Section({ title, children, right }: { title: string; children: ReactNod
 
 // ---------- Composant principal
 export default function SituationalAwarenessPanel({ className, bare }: Props) {
+  const t = useDict();
   const sa = useArgos((s) => s.situationalAwareness);
   const loading = useArgos((s) => s.situationalLoadingAI);
   const model = useArgos((s) => s.situationalModel);
@@ -142,7 +143,7 @@ export default function SituationalAwarenessPanel({ className, bare }: Props) {
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 animate-pulse rounded-full bg-violet-500" />
           <span className="font-medium text-violet-700 dark:text-violet-300">
-            {loading ? "Analyse IA en cours…" : "Initialisation conscience situationnelle"}
+            {loading ? t.sa_loading : t.sa_init}
           </span>
         </div>
         <Bar value={60} className="h-1.5 w-52" fill="bg-violet-500" />
@@ -163,6 +164,7 @@ function ShellInner({
   onRefresh: () => void;
   shell: (children: ReactNode) => ReactNode;
 }) {
+  const t = useDict();
   const lm = LEVEL_META[sa.niveauGlobal];
   return shell(
     <>
@@ -199,12 +201,12 @@ function ShellInner({
         {/* ========== COLONNE GAUCHE (3 blocs) — GAP 5 ========== */}
         <div className="flex flex-col gap-5 min-w-0">
           {/* Bloc 1 — Points chauds géographiques */}
-          <Section title="Points chauds géographiques" right={<span className="text-[10.5px] font-medium text-gray-400 leading-none">{sa.pointsChauds.length} zone(s)</span>}>
+          <Section title={t.sa_hotspots} right={<span className="text-[10.5px] font-medium text-gray-400 leading-none">{sa.pointsChauds.length} {t.sa_zones}</span>}>
             <HotspotsBars data={sa.pointsChauds} />
           </Section>
 
           {/* Bloc 2 — Anticipations IA (1 LIGNE · 4 CHIPS) */}
-          <Section title="Anticipations IA" right={<span className="text-[10.5px] font-medium text-gray-400 leading-none">Horizons 30 min–12 h</span>}>
+          <Section title={t.sa_anticip} right={<span className="text-[10.5px] font-medium text-gray-400 leading-none">{t.sa_horizons}</span>}>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
               <ForeChip
                 tone={sa.predictions.ttgStable ? "emerald" : sa.predictions.ttgMinutes <= 30 ? "red" : sa.predictions.ttgMinutes <= 90 ? "amber" : "sky"}
@@ -271,12 +273,12 @@ function ShellInner({
         {/* ========== COLONNE DROITE (3 blocs) — GAP 5 ========== */}
         <div className="flex flex-col gap-5 min-w-0">
           {/* Bloc 1 — Facteurs critiques */}
-          <Section title="Facteurs critiques" right={<span className="text-[10.5px] font-medium text-gray-400 leading-none">{sa.facteursCritiques.length} détecté(s)</span>}>
+          <Section title={t.sa_factors} right={<span className="text-[10.5px] font-medium text-gray-400 leading-none">{sa.facteursCritiques.length} {t.sa_detected}</span>}>
             <FactorBars data={sa.facteursCritiques} />
           </Section>
 
           {/* Bloc 2 — Risques imminents */}
-          <Section title="Risques imminents">
+          <Section title={t.sa_risks}>
             <RiskTimeline risks={sa.risquesProchaines} />
           </Section>
 

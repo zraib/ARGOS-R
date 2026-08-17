@@ -2367,7 +2367,10 @@ export function interpret(q: string, ctx: AiContext): AiAnswer {
 }
 
 /** Message utilisateur transmis au LLM : requête + résultat Couche 1 à reformuler. */
-export function buildLlmUserMessage(query: string, answer: AiAnswer): string {
+export function buildLlmUserMessage(query: string, answer: AiAnswer, lang: "fr" | "en" | "ar" = "fr"): string {
+  // Langue de la consigne finale : suit la session (le prompt système porte la
+  // même directive) ; les données restent telles quelles.
+  const langName = lang === "en" ? "anglais" : lang === "ar" ? "arabe" : "français";
   // 🚨 CRITIQUE 13/08/26 : Qwen2.5:14b (modelfile Ollama) a n_ctx_train=32768 SEULEMENT.
   // Requesting num_ctx > 32768 → Ollama WARN "too large for model" et FORCE -c 32768.
   // TOUT DOIT RENTRER DANS 32 768 tokens (system prompt + historique + user msg + assistant answer).
@@ -2521,7 +2524,7 @@ export function buildLlmUserMessage(query: string, answer: AiAnswer): string {
   lines.push("## RÉSUMÉ MOTEUR DÉTERMINISTE (tu peux réutiliser, reformuler)");
   lines.push(summaryText || "(vide)");
   lines.push("");
-  lines.push("## TA RÉPONSE MAINTENANT (français, concis, factuel, markdown autorisé, titres ###, listes à puces, **gras** pour chiffres clés, 1 tableau Markdown structuré si tu dois comparer PLUSIEURS hôpitaux/incidents. Si des données sont DANS le JSON ci-dessus, tu les utilises TOUTES. PAS de blocs code, PAS de JSON dans ta réponse.)");
+  lines.push(`## TA RÉPONSE MAINTENANT (${langName}, concis, factuel, markdown autorisé, titres ###, listes à puces, **gras** pour chiffres clés, 1 tableau Markdown structuré si tu dois comparer PLUSIEURS hôpitaux/incidents. Si des données sont DANS le JSON ci-dessus, tu les utilises TOUTES. PAS de blocs code, PAS de JSON dans ta réponse.)`);
   lines.push("");
 
   return lines.join("\n");

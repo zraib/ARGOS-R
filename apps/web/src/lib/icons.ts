@@ -139,7 +139,12 @@ export const UI_ICONS = {
   globe: "M12 2a10 10 0 100 20 10 10 0 000-20z M2 12h20 M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z",
   camera: "M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z M12 17a4 4 0 100-8 4 4 0 000 8z",
   expand: "M8 3H5a2 2 0 00-2 2v3 M21 8V5a2 2 0 00-2-2h-3 M3 16v3a2 2 0 002 2h3 M16 21h3a2 2 0 002-2v-3",
-  copilot: "M12 2l1.6 2.1h-3.2L12 2z M7.5 8a4.5 4.5 0 019 0v1.2A4.5 4.5 0 0121 13.5v5A2.5 2.5 0 0118.5 21h-13A2.5 2.5 0 013 18.5v-5A4.5 4.5 0 017.5 9V8z M10 13.5a1.2 1.2 0 100-2.4 1.2 1.2 0 000 2.4z M14 13.5a1.2 1.2 0 100-2.4 1.2 1.2 0 000 2.4z M10 17.5h4a1.2 1.2 0 110 2.4h-4a1.2 1.2 0 110-2.4z",
+  /**
+   * Copilot : casque-micro d'opérateur — arceau, deux écouteurs, perche micro.
+   * Tout en trait (aucun remplissage), même graisse que le reste de la famille :
+   * l'ancien robot mêlait cercles pleins et traits, ce qui jurait à 24 px.
+   */
+  copilot: "M4 13.5a8 8 0 0 1 16 0 M4 13.5h2.5v5.5H5.5A1.5 1.5 0 0 1 4 17.5v-4z M20 13.5h-2.5v5.5h1a1.5 1.5 0 0 0 1.5-1.5v-4z M17.5 19.5v.5a2 2 0 0 1-2 2H13",
   map: "M9 20l-6 2V6l6-2m0 16l6-2m-6 2V4m6 14l6 2V6l-6-2m0 16V4",
   archive: "M2 4h20v4H2z M4 8v11a2 2 0 002 2h12a2 2 0 002-2V8 M10 12h4",
   caretDown: "M6 9l6 6 6-6",

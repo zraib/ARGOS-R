@@ -16,6 +16,8 @@ export interface LlmProviderConfig {
   model: string;
   /** true = exécuté dans le périmètre (air-gap possible) */
   local: boolean;
+  /** Température d'échantillonnage transmise au runtime. */
+  temperature?: number;
 }
 
 /** Feature flag (piloté par le Super Admin, §6.15). */
@@ -37,18 +39,23 @@ export interface AiSettings {
   providerId: LlmProviderId;
   endpoint: string;
   model: string;
+  /** Température d'échantillonnage (0 = déterministe). Défaut : 0.2. */
+  temperature?: number;
+  /** Prompt système personnalisé ; vide = prompt ARGOS par défaut. */
+  systemPrompt?: string;
 }
 
 export const AI_DEFAULT_SETTINGS: AiSettings = {
   providerId: AI_DEFAULT_PROVIDER,
   endpoint: AI_PROVIDERS[AI_DEFAULT_PROVIDER].endpoint,
   model: AI_PROVIDERS[AI_DEFAULT_PROVIDER].model,
+  temperature: 0.2,
 };
 
 /** Fusionne la base statique d'un fournisseur avec les réglages runtime. */
 export function resolveProvider(s: AiSettings): LlmProviderConfig {
   const base = AI_PROVIDERS[s.providerId];
-  return { ...base, endpoint: s.endpoint.trim() || base.endpoint, model: s.model.trim() || base.model };
+  return { ...base, endpoint: s.endpoint.trim() || base.endpoint, model: s.model.trim() || base.model, temperature: s.temperature };
 }
 
 /** Délai maximal d'un appel LLM (ms) avant repli sur la réponse déterministe. */
@@ -496,4 +503,29 @@ function normalizeMarkdownTables(raw: string): string {
     }
   }
   return out.join("\n");
+}
+
+
+// --- Langue de réponse du Copilot ------------------------------------------
+// La règle [G5] du prompt par défaut impose le français. Quand l'interface est
+// en anglais ou en arabe, on ajoute une directive qui la remplace : le Copilot
+// suit la langue de session, les chiffres et noms restant tels quels.
+
+const AI_LANG_LABEL: Record<"fr" | "en" | "ar", string> = {
+  fr: "français",
+  en: "anglais (English)",
+  ar: "arabe (العربية)",
+};
+
+/**
+ * Prompt système effectif : personnalisé s'il existe, sinon celui d'ARGOS,
+ * plus la directive de langue quand la session n'est pas en français.
+ */
+export function aiSystemPrompt(lang: "fr" | "en" | "ar" = "fr", override?: string): string {
+  const base = override?.trim() || AI_SYSTEM_PROMPT;
+  if (lang === "fr") return base;
+  return (
+    base +
+    `\n[G5-langue] Cette directive REMPLACE la langue fixée en [G5] : tu réponds STRICTEMENT en ${AI_LANG_LABEL[lang]}, concis et structuré, en conservant chiffres, unités et noms propres tels quels.`
+  );
 }

@@ -106,7 +106,7 @@ export async function chatComplete(cfg: LlmProviderConfig, messages: LlmMessage[
       const r = await fetch(`${cfg.endpoint}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: cfg.model, messages, stream: false, options: OLLAMA_OPTIONS }),
+        body: JSON.stringify({ model: cfg.model, messages, stream: false, options: { ...OLLAMA_OPTIONS, temperature: cfg.temperature ?? OLLAMA_OPTIONS.temperature } }),
         signal,
       });
       if (!r.ok) {
@@ -121,7 +121,7 @@ export async function chatComplete(cfg: LlmProviderConfig, messages: LlmMessage[
       const r = await fetch(`${cfg.endpoint}/v1/chat/completions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: cfg.model, messages, temperature: 0.2, stream: false }),
+        body: JSON.stringify({ model: cfg.model, messages, temperature: cfg.temperature ?? 0.2, stream: false }),
         signal,
       });
       if (!r.ok) return { ok: false, text: "", provider: cfg.id, error: `HTTP ${r.status}` };
@@ -151,7 +151,7 @@ export async function chatStream(
     const r = await fetch(`${cfg.endpoint}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: cfg.model, messages, stream: true, options: OLLAMA_OPTIONS }),
+      body: JSON.stringify({ model: cfg.model, messages, stream: true, options: { ...OLLAMA_OPTIONS, temperature: cfg.temperature ?? OLLAMA_OPTIONS.temperature } }),
       signal,
     });
     if (!r.ok || !r.body) {

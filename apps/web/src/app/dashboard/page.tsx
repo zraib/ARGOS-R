@@ -24,7 +24,7 @@ interface Kpi {
   iconWrap: string;
 }
 
-type TileId = "evolution" | "casualties" | "moyens" | "hospitals" | "severity" | "feed" | "predictions";
+type TileId = "evolution" | "casualties" | "moyens" | "hospitals" | "severity" | "feed";
 
 /**
  * Tableau de bord national (disposition A) : grille compacte tenant sur un
@@ -42,6 +42,13 @@ export default function DashboardPage() {
   const situational = useArgos((s) => s.situationalAwareness);
 
   const [expanded, setExpanded] = useState<TileId | null>(null);
+  /**
+   * Onglet actif : vue opérationnelle (tuiles) ou analyse IA (conscience
+   * situationnelle). La tuile IA occupait une rangée entière de la grille avec
+   * 920 px de haut — un panneau de cette ampleur mérite son propre onglet, pas
+   * une case de grille.
+   */
+  const [view, setView] = useState<"ops" | "ia">("ops");
 
   const activeInc = incidents.filter((i) => i.st !== "closed").length;
   const bedsFixed = hospitals.reduce((a, h) => a + (h.lits - h.occ), 0);
@@ -97,7 +104,6 @@ export default function DashboardPage() {
     hospitals: t.dash_hosp,
     severity: m.analytics.severity_dist,
     feed: t.feed,
-    predictions: "Conscience situationnelle à base d'IA",
   };
 
   /** Corps (bare) d'une tuile, réutilisé dans la grille et dans la modale. */
@@ -167,15 +173,6 @@ export default function DashboardPage() {
             ))}
           </div>
         );
-      case "predictions":
-        return (
-          // Le panneau de conscience situationnelle a besoin de hauteur, mais
-          // 920 px sur un téléphone forceraient un défilement interminable :
-          // la réserve grandit avec la largeur disponible.
-          <div className="h-full min-h-[560px] w-full sm:min-h-[720px] lg:min-h-[920px]">
-            <SituationalAwarenessPanel bare />
-          </div>
-        );
     }
   };
 
@@ -204,21 +201,50 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* Onglets : même langage visuel que ceux de /utilisateurs (cohérence de
+          navigation). L'état actif est marqué par fond + couleur, pas par la
+          couleur seule. */}
+      <div role="tablist" aria-label={t.nav_dash} className="flex w-fit max-w-full shrink-0 gap-1 overflow-hidden rounded-lg bg-gray-100 p-1 dark:bg-rdia-800/60">
+        {([["ops", t.dash_tab_ops], ["ia", t.dash_tab_ai]] as const).map(([id, label]) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={view === id}
+            onClick={() => setView(id)}
+            className={`min-h-11 rounded-md px-3 py-2.5 text-xs font-semibold transition-colors lg:min-h-0 lg:py-1.5 ${
+              view === id ? "bg-white text-or-600 shadow-sm dark:bg-rdia-600 dark:text-or-400" : "text-gray-500 hover:text-or-500 dark:text-rdia-300"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {view === "ia" ? (
+        <div role="tabpanel" className="carte flex min-h-0 flex-1 flex-col p-3 sm:p-4">
+          <h3 className="mb-2 shrink-0 text-sm font-semibold text-rdia-600 dark:text-rdia-50">{t.dash_ai_title}</h3>
+          <div className="min-h-0 flex-1 overflow-y-auto pe-1">
+            <SituationalAwarenessPanel bare />
+          </div>
+        </div>
+      ) : (
+      <>
       {/* Grille de tuiles : remplit l'écran restant à partir de `lg`.
            - Téléphone : une colonne, hauteurs naturelles (les graphiques
              gardent une hauteur explicite pour ne pas s'écraser).
            - Tablette (`md`) : deux colonnes, les blocs larges s'étendent.
            - Rangée 3 = CONSCIENCE SITUATIONNELLE IA (lg:col-span-4)
            - ratios : row1 (1.22fr) + row2 (1.22fr) + row3 (1.15fr) → blocs du haut PLUS GRANDS */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:min-h-0 lg:flex-1 lg:grid-cols-4 lg:grid-rows-[minmax(0,1.22fr)_minmax(0,1.22fr)_minmax(0,1.15fr)]">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:min-h-0 lg:flex-1 lg:grid-cols-4 lg:grid-rows-[minmax(0,1.1fr)_minmax(0,1fr)]">
         <DashTile id="evolution" title={titleOf.evolution} className="h-64 sm:h-72 md:col-span-2 lg:h-auto lg:col-span-2" onExpand={setExpanded} label={t.dash_expand}>{body("evolution")}</DashTile>
         <DashTile id="casualties" title={titleOf.casualties} onExpand={setExpanded} label={t.dash_expand}>{body("casualties")}</DashTile>
         <DashTile id="moyens" title={titleOf.moyens} className="h-60 sm:h-64 lg:h-auto" onExpand={setExpanded} label={t.dash_expand}>{body("moyens")}</DashTile>
         <DashTile id="hospitals" title={titleOf.hospitals} className="md:col-span-2 lg:col-span-2" onExpand={setExpanded} label={t.dash_expand}>{body("hospitals")}</DashTile>
         <DashTile id="severity" title={titleOf.severity} className="h-44 sm:h-48 lg:h-auto" onExpand={setExpanded} label={t.dash_expand}>{body("severity")}</DashTile>
         <DashTile id="feed" title={titleOf.feed} className="h-64 lg:h-auto" onExpand={setExpanded} label={t.dash_expand}>{body("feed")}</DashTile>
-        <DashTile id="predictions" title={titleOf.predictions} className="md:col-span-2 lg:col-span-4" onExpand={setExpanded} label={t.dash_expand}>{body("predictions")}</DashTile>
       </div>
+      </>
+      )}
 
       {/* Tuile agrandie · taille 2XL · `dvh` (et non `vh`) pour ne pas passer
           sous la barre d'adresse mobile */}
