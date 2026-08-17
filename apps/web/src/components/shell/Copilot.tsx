@@ -1111,45 +1111,6 @@ export function Copilot() {
                         </div>
                       )}
 
-                      {(() => {
-                        const mf = msg.cross?.mapFocus;
-                        const incCoords = msg.cross?.incident?.coords;
-                        const incId = msg.cross?.incident?.id ?? mf?.incidentId;
-                        const hasMapAction =
-                          !!mf || (!!incCoords && !!incId);
-                        if (!hasMapAction) return null;
-                        const label = mf?.label ?? `Localiser`;
-                        const doAction = () => {
-                          if (mf?.incidentId) {
-                            const inc = incidents.find((i) => i.id === mf.incidentId);
-                            if (inc) return focusIncident(inc);
-                          }
-                          if (incCoords && incId) {
-                            const inc = incidents.find((i) => i.id === incId);
-                            if (inc) return focusIncident(inc);
-                          }
-                          if (mf?.ll) {
-                            setMapCenter(mf.ll as [number, number], mf.zoom ?? 9, mf.label);
-                          } else if (incCoords) {
-                            setMapCenter(incCoords as [number, number], 10, msg.cross?.incident?.titre ?? "Incident");
-                          }
-                        };
-                        return (
-                          <div className="mt-3 flex items-center gap-2 border-t border-gray-100 pt-2.5 dark:border-rdia-700/50">
-                            <button
-                              type="button"
-                              onClick={doAction}
-                              disabled={busy}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-or-500/30 bg-or-500/10 px-3 py-1.5 text-xs font-semibold text-or-500 transition-colors hover:bg-or-500/20 disabled:opacity-40"
-                            >
-                              <span className="text-sm leading-none">🗺️</span>
-                              <span>Afficher sur la carte</span>
-                              {label && label !== "Localiser" && <span className="text-[11px] text-or-500/70">· {label}</span>}
-                            </button>
-                          </div>
-                        );
-                      })()}
-
                       {msg.suggestions && msg.suggestions.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-1.5 border-t border-gray-100 pt-2.5 dark:border-rdia-700/50">
                           <span className="self-center pr-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-rdia-400">Suggérés :</span>

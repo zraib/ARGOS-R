@@ -1984,7 +1984,6 @@ function touchedZones(_q: string, ctx: AiContext): AiAnswer {
     suggestions: [
       { label: "Zone la plus risquée", query: "Quelle zone présente le plus grand niveau de risque ?", priority: "primary" as const },
       { label: "Concentration critiques", query: "Où se concentrent les incidents critiques ?" },
-      ...(zone?.ll ? [{ label: `🗺️ Afficher ${zone.nom} sur la carte`, query: "afficher zone la plus touchee sur la carte", priority: "primary" as const }] : []),
     ],
   };
 }
@@ -2024,7 +2023,6 @@ function incidentsNearCity(q: string, ctx: AiContext): AiAnswer {
     cross: { zones: center ? [{ nom: city ?? "cible", count: rowsAi.length, severity: "moyen", ll: center, ids: rowsAi.map(r => r.id) }] : buildZones(ctx, rows.map(x => x.i)).slice(0, 3), mapFocus },
     suggestions: [
       { label: "Zones les plus touchées", query: "Quelles sont les zones les plus touchées ?" },
-      ...(mapFocus ? [{ label: `🗺️ Afficher ${city ?? "zone"} sur la carte`, query: "afficher cette zone sur la carte", priority: "primary" as const }] : []),
     ],
   };
 }
@@ -2053,7 +2051,6 @@ function criticalConcentration(_q: string, ctx: AiContext): AiAnswer {
     suggestions: [
       { label: "Intervention prioritaire", query: "Quels incidents nécessitent une intervention prioritaire ?", priority: "primary" as const },
       { label: "Zone la plus risquée", query: "Quelle zone présente le plus grand niveau de risque ?" },
-      ...(top?.ll ? [{ label: `🗺️ Afficher foyer ${top.nom}`, query: "afficher foyer critique sur la carte", priority: "primary" as const }] : []),
     ],
   };
 }
@@ -2082,7 +2079,6 @@ function riskiestZone(_q: string, ctx: AiContext): AiAnswer {
     suggestions: [
       { label: "Zones les plus touchées", query: "Zones les plus touchées ?" },
       { label: "Intervention prioritaire", query: "Quels incidents nécessitent une intervention prioritaire ?", priority: "primary" as const },
-      ...(top?.z.ll ? [{ label: `🗺️ Afficher ${top.z.nom} sur la carte`, query: "afficher zone risque sur la carte", priority: "primary" as const }] : []),
       { label: "Prédictions IA de risques", query: "Quelles sont les prédictions de risques IA ?", priority: "primary" as const },
     ],
   };
@@ -2146,9 +2142,6 @@ function riskPredictionAnswer(q: string, ctx: AiContext): AiAnswer {
       { label: "Prédictions sur 24h", query: "Prédictions sur 24h" },
       { label: "Risques Rabat", query: "Risques à Rabat ?" },
       { label: "Voir panel dashboard", query: "Ouvre le tableau de bord des prédictions" },
-      ...(topRows[0]?.ll
-        ? [{ label: `🗺️ Afficher ${topRows[0].label} sur la carte`, query: "afficher le premier risque sur la carte", priority: "primary" as const }]
-        : []),
     ],
   };
 }
@@ -2232,7 +2225,6 @@ function riskZoneAnswer(q: string, ctx: AiContext): AiAnswer {
       { label: "Voir toutes les prédictions IA", query: "Quelles sont les prédictions de risques IA ?", priority: "primary" as const },
       { label: "Incidents critiques zone", query: `Incidents critiques sur ${label}` },
       { label: "Saturation hôpitaux proches", query: `Saturation hôpitaux ${label}` },
-      ...(top?.ll ? [{ label: `🗺️ Centrer carte sur ${label}`, query: `centrer carte sur ${label}`, priority: "primary" as const }] : []),
     ],
   };
 }
