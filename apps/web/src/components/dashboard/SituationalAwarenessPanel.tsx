@@ -430,7 +430,11 @@ function HotspotsBars({ data }: { data: SituationalAwareness["pointsChauds"] }) 
     return <div className="rounded-lg border border-dashed border-gray-200 p-2.5 text-center text-[10.5px] text-gray-400 dark:border-white/10">Aucun point chaud</div>;
   }
   const max = Math.max(...data.map((d) => d.poids), 0.3);
-  const cols = data.length <= 2 ? "grid-cols-2 sm:grid-cols-2" : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4";
+  // Un histogramme partage UNE ligne de base : le repli multi-rangées écrasait
+  // les rangées dans les 110 px du conteneur et les pistes absolues de la
+  // rangée basse transperçaient les sections au-dessus. Une seule rangée,
+  // colonnes fluides — les barres se compriment, ne se replient jamais.
+  const gridTemplate = { gridTemplateColumns: `repeat(${data.length}, minmax(0, 1fr))` } as const;
   return (
     <div className="flex flex-col gap-2.5 rounded-lg border border-gray-100 bg-gray-50/60 p-4 dark:border-white/5 dark:bg-white/3 min-h-[170px] w-full min-w-0">
       {/* ========== ROW 1 : BARRES (hauteur FIXE + items-end → BASELINE PARFAITE à 0.5px) ========== */}
@@ -439,7 +443,7 @@ function HotspotsBars({ data }: { data: SituationalAwareness["pointsChauds"] }) 
         <div className="absolute bottom-0 left-0 h-px w-full bg-gray-200/80 dark:bg-white/10" />
 
         {/* Grille barres : CHAQUE CELLULE = items-end justify-center → barre COLLÉE AU BAS */}
-        <div className={cn("relative z-10 grid h-[110px] w-full items-end justify-items-center gap-x-3.5", cols)}>
+        <div className="relative z-10 grid h-[110px] w-full items-end justify-items-center gap-x-2 sm:gap-x-3.5" style={gridTemplate}>
           {data.map((h) => {
             const sevTint = h.sev === "high" ? "bg-red-500" : h.sev === "medium" ? "bg-orange-500" : "bg-amber-400";
             const hPct = (h.poids / max) * 100;
@@ -450,22 +454,25 @@ function HotspotsBars({ data }: { data: SituationalAwareness["pointsChauds"] }) 
                 title={`${h.region} · ${h.nIncidents} incident(s)`}
               >
                 {/* Zone piste barre (subtile alignement) */}
+                {/* Largeur FLUIDE bornée : une cellule plus étroite que 56 px
+                    comprime la piste au lieu de la laisser déborder sur la
+                    cellule voisine (chevauchement constaté en colonne serrée). */}
                 <div className={cn(
-                  "absolute bottom-0 h-[110px] w-[56px] rounded-t-md opacity-70",
+                  "absolute inset-x-0 bottom-0 mx-auto h-full w-full max-w-[56px] rounded-t-md opacity-70",
                   h.sev === "high" ? "bg-red-600/10" : h.sev === "medium" ? "bg-orange-500/10" : "bg-amber-400/10",
                 )} />
 
                 {/* BARRE — height en % + w-[56px] fixe + bottom=0 (items-end flex garantit) */}
                 <div
                   className={cn(
-                    "relative z-10 w-[56px] shrink-0 rounded-t-md transition-all duration-500 group-hover:brightness-110 group-hover:shadow-[0_0_0_2px_rgba(0,0,0,0.05)]",
+                    "relative z-10 w-full max-w-[56px] rounded-t-md transition-all duration-500 group-hover:brightness-110 group-hover:shadow-[0_0_0_2px_rgba(0,0,0,0.05)]",
                     sevTint,
                   )}
                   style={{ height: `${Math.max(12, hPct)}%` }}
                 />
 
                 {/* Badge incidents AU SURVOL — collé au sommet de la barre, centré */}
-                <div className="pointer-events-none absolute left-1/2 z-20 flex -translate-x-1/2 flex-col items-center gap-0 opacity-0 transition-all duration-200 ease-out group-hover:-translate-y-1.5 group-hover:opacity-100 bottom-full pb-1.5">
+                <div aria-hidden className="pointer-events-none invisible absolute left-1/2 z-20 flex -translate-x-1/2 flex-col items-center gap-0 opacity-0 transition-all duration-200 ease-out group-hover:visible group-hover:-translate-y-1.5 group-hover:opacity-100 bottom-full pb-1.5">
                   <span className="rounded-md bg-black/85 px-2 py-1 text-center text-[10.5px] font-bold text-white shadow-md whitespace-nowrap dark:bg-black/80">
                     {h.nIncidents} incident{h.nIncidents > 1 ? "s" : ""}
                   </span>
@@ -478,11 +485,11 @@ function HotspotsBars({ data }: { data: SituationalAwareness["pointsChauds"] }) 
       </div>
 
       {/* ========== ROW 2 : LABELS (MÊME GRILLE COLONNES que row barres → label PILE SOUS SA BARRE) ========== */}
-      <div className={cn("grid w-full items-start justify-items-center gap-x-3.5", cols)}>
+      <div className="grid w-full items-start justify-items-center gap-x-2 sm:gap-x-3.5" style={gridTemplate}>
         {data.map((h) => (
           <div
             key={`lbl-${h.id}`}
-            className="w-full text-center text-[11.5px] font-semibold leading-snug text-gray-700 dark:text-rdia-100/90 whitespace-normal hyphens-none break-words max-w-[72px] mx-auto min-w-0"
+            className="w-full text-center text-[11.5px] font-semibold leading-snug text-gray-700 dark:text-rdia-100/90 whitespace-normal hyphens-none break-words max-w-[min(72px,100%)] mx-auto min-w-0 px-0.5"
           >
             {h.region}
           </div>
