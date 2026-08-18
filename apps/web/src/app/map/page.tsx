@@ -50,7 +50,7 @@ interface SelInfo {
 // les commandes natives de MapLibre (zoom, boussole, recentrage) sont remontées
 // en haut par `globals.css` pour la même raison.
 // ---------------------------------------------------------------------------
-type SheetTab = "layers" | "aircraft" | "legend" | "selection";
+type SheetTab = "layers" | "legend" | "selection";
 
 /** Interrupteur on/off compact. */
 function Switch({ on }: { on: boolean }) {
@@ -212,6 +212,8 @@ export default function MapPage() {
   const [full, setFull] = useState(false);
   /** Onglet ouvert dans la feuille du bas (sous `lg`) ; `null` = feuille fermée. */
   const [sheet, setSheet] = useState<SheetTab | null>(null);
+  /** Tiroir du suivi aérien (bouton avion, colonne droite) ; fermé par défaut. */
+  const [airOpen, setAirOpen] = useState(false);
 
   // Échap quitte le plein écran.
   useEffect(() => {
@@ -432,7 +434,6 @@ export default function MapPage() {
   // supplémentaire n'est nécessaire).
   const sheetTabs: { key: SheetTab; label: string; body: ReactNode }[] = [
     { key: "layers", label: t.layers, body: layersBody },
-    { key: "aircraft", label: t.acft_panel, body: <AircraftPanel /> },
     { key: "legend", label: t.legend, body: legendBody },
   ];
   if (selInfo) sheetTabs.push({ key: "selection", label: selInfo.titre, body: selectionBody });
@@ -458,16 +459,28 @@ export default function MapPage() {
             Sous lg ces trois panneaux sont dans la feuille du bas. */}
         <div className="absolute top-3 hidden w-[300px] flex-col gap-2 lg:flex" style={{ insetInlineStart: 12 }}>
           <Panel title={t.layers} width={300}>{layersBody}</Panel>
-          {/* Suivi aérien : saisie des codes et liste des appareils inscrits. */}
-          <Panel title={t.acft_panel} width={300} defaultOpen={false}>
-            <AircraftPanel />
-          </Panel>
           <Panel title={t.legend} width={300} defaultOpen={false}>{legendBody}</Panel>
         </div>
 
         {/* Colonne droite : contrôles de carte (toutes tailles) + sélection (≥ lg) */}
         <div className="absolute top-3 flex max-w-[calc(100%-1.5rem)] flex-col items-end gap-2 lg:w-[300px]" style={{ insetInlineEnd: 12 }}>
           <div className="pointer-events-auto flex flex-wrap justify-end gap-2">
+            {/* Suivi aérien : un bouton avion, le tiroir se déploie dessous. */}
+            <button
+              onClick={() => setAirOpen((o) => !o)}
+              aria-label={t.acft_panel}
+              aria-expanded={airOpen}
+              title={t.acft_panel}
+              className={`cible-tactile relative flex h-11 items-center justify-center rounded-lg px-3 shadow-md transition-colors lg:h-auto lg:py-2 ${airOpen ? "text-or-400" : "text-white/90 hover:text-or-400"}`}
+              style={GLASS}
+            >
+              <Icon path={UI_ICONS.plane} size={19} strokeWidth={2} />
+              {aircraft.length > 0 && (
+                <span className="absolute -end-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-or-500 px-1 text-[9px] font-bold text-rdia-900">
+                  {aircraft.length}
+                </span>
+              )}
+            </button>
             <div className="flex overflow-hidden rounded-lg shadow-md" style={GLASS}>
               <button className={seg(!map3d)} onClick={() => setMap3d(false)}>2D</button>
               <button className={seg(map3d)} onClick={() => setMap3d(true)}>3D</button>
@@ -498,6 +511,32 @@ export default function MapPage() {
           >
             <Icon path={sheet ? UI_ICONS.close : UI_ICONS.sliders} size={18} strokeWidth={2} />
           </button>
+
+          {/* Tiroir du suivi aérien : toujours monté, glissé/fondu en 200 ms
+              (transform + opacité uniquement). Dans le flux de la colonne : il
+              pousse le panneau de sélection au lieu de le recouvrir. */}
+          <div
+            className={`pointer-events-auto w-[300px] max-w-full overflow-hidden rounded-xl shadow-lg transition-[transform,opacity] duration-200 ease-out motion-reduce:transition-none ${
+              airOpen ? "translate-x-0 opacity-100" : "pointer-events-none absolute end-0 top-14 translate-x-3 opacity-0"
+            }`}
+            style={GLASS}
+            aria-hidden={!airOpen}
+          >
+            <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
+              <Icon path={UI_ICONS.plane} size={15} className="shrink-0 text-or-400" />
+              <span className="min-w-0 flex-1 truncate text-[13px] font-bold uppercase tracking-wider text-white/85">{t.acft_panel}</span>
+              <button
+                onClick={() => setAirOpen(false)}
+                aria-label={t.cancel}
+                className="cible-tactile flex items-center justify-center rounded-md text-[17px] leading-none text-white/45 transition-colors hover:text-or-400"
+              >
+                ×
+              </button>
+            </div>
+            <div className="max-h-[52vh] overflow-y-auto px-3 pb-3 pt-2.5">
+              <AircraftPanel />
+            </div>
+          </div>
 
           {selInfo && (
             <div className="hidden lg:block">
