@@ -4,7 +4,7 @@
   "private": true,
   "description": "ARGOS — Plateforme militaire de gestion des catastrophes (poste de commandement)",
   "scripts": {
-    "dev": "NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://127.0.0.1:3005} next dev -p 3004",
+    "dev": "next dev -p 3004",
     "build": "next build",
     "start": "next start -p 3004",
     "typecheck": "tsc --noEmit"

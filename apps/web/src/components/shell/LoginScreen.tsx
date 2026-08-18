@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState, type KeyboardEvent } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
 import { useArgos, useDict, type Role } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
@@ -27,14 +27,29 @@ export function LoginScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const disabled = !(user.trim() && pass) || busy;
+  // Les gestionnaires de mots de passe remplissent le DOM SANS déclencher
+  // onChange : l'état React restait vide et le bouton restait verrouillé alors
+  // que les champs semblaient remplis. Le bouton n'est donc plus conditionné au
+  // contenu ; la validation lit les valeurs réelles du DOM à la soumission.
+  const userRef = useRef<HTMLInputElement>(null);
+  const passRef = useRef<HTMLInputElement>(null);
+  const disabled = busy;
 
   const submit = async () => {
-    if (!(user.trim() && pass) || busy) return;
+    if (busy) return;
+    const u = (userRef.current?.value ?? user).trim();
+    const p = passRef.current?.value ?? pass;
+    if (!u || !p) {
+      setError(t.lg_fill);
+      return;
+    }
+    // Resynchronise l'état avec ce que l'opérateur voit réellement.
+    setUser(u);
+    setPass(p);
     setError(null);
     setBusy(true);
     try {
-      const res = await api.login({ matricule: user.trim(), password: pass });
+      const res = await api.login({ matricule: u, password: p });
       if (res.error || !res.data) {
         setError(t.lg_badpass);
         return;
@@ -52,7 +67,10 @@ export function LoginScreen() {
       if (ctx.flags) setFlags(ctx.flags);
       if (ctx.roleFeatures) setRoleFeatures(ctx.roleFeatures as Record<Role, Record<string, boolean>>);
       showToast(t.lg_toast);
-    } catch {
+    } catch (e) {
+      // Trace développeur : sans elle, toute exception (réseau, code, URL) se
+      // déguise en « API injoignable » et devient indiagnosticable.
+      console.error("[connexion]", e);
       setError(t.lg_api_down);
     } finally {
       setBusy(false);
@@ -124,11 +142,11 @@ export function LoginScreen() {
           <div className="flex w-full flex-col gap-3">
             <div>
               <label className={labelCls}>{t.lg_user}</label>
-              <input className={champCls} value={user} onChange={(e) => { setUser(e.target.value); setError(null); }} onKeyDown={onKey} autoComplete="username" />
+              <input ref={userRef} className={champCls} value={user} onChange={(e) => { setUser(e.target.value); setError(null); }} onKeyDown={onKey} autoComplete="username" />
             </div>
             <div>
               <label className={labelCls}>{t.lg_pass}</label>
-              <input type="password" className={champCls} value={pass} onChange={(e) => { setPass(e.target.value); setError(null); }} onKeyDown={onKey} autoComplete="current-password" />
+              <input ref={passRef} type="password" className={champCls} value={pass} onChange={(e) => { setPass(e.target.value); setError(null); }} onKeyDown={onKey} autoComplete="current-password" />
             </div>
             {error && <p className="text-xs font-semibold text-danger-500">{error}</p>}
             <button className="btn-primaire mt-2 min-h-[44px] w-full text-sm" onClick={() => void submit()} disabled={disabled}>

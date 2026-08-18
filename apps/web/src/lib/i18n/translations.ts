@@ -197,7 +197,7 @@ export interface Dict {
   lg_restricted: string;
   lg_footer: string;
   lg_toast: string;
-  lg_badpass: string;
+  lg_badpass: string; lg_fill: string;
   lg_api_down: string;
   lg_role_demo: string;
   logout: string;
