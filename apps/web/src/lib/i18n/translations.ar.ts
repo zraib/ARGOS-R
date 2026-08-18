@@ -13,7 +13,7 @@ export const AR_DICT: Dict = {
     acft_panel: "التتبع الجوي", acft_code: "رمز الطائرة",
     acft_code_ph: "التسجيل أو النداء أو IFF", acft_label: "التسمية", acft_label_ph: "التسمية على الخريطة",
     acft_role: "الدور", acft_track: "تتبع", acft_untrack: "إيقاف التتبع",
-    acft_empty: "لا توجد طائرات متتبعة.",
+    acft_empty: "لا توجد طائرات متتبعة. أدخل رمزًا لعرضها على الخريطة.",
     acft_no_signal: "بلا إشارة", acft_feed: "التدفق", acft_last_contact: "الارتفاع · عمر آخر اتصال فعلي", fam_air: "الوسائل الجوية", lg_aircraft: "الطائرات المتتبعة",
     acft_role_waterbomber: "قاذفة مياه", acft_role_helicopter: "مروحية",
     acft_role_observation: "استطلاع", acft_role_transport: "نقل", acft_role_medevac: "إخلاء طبي",

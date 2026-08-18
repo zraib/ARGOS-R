@@ -13,7 +13,7 @@ export const FR_DICT: Dict = {
     acft_panel: "Suivi aérien", acft_code: "Code de l'aéronef",
     acft_code_ph: "Immatriculation, indicatif ou IFF", acft_label: "Libellé", acft_label_ph: "Libellé sur la carte (ex. Canadair 01)",
     acft_role: "Rôle", acft_track: "Suivre", acft_untrack: "Retirer du suivi",
-    acft_empty: "Aucun appareil suivi.",
+    acft_empty: "Aucun aéronef suivi. Saisissez un code pour l'afficher sur la carte.",
     acft_no_signal: "sans signal", acft_feed: "Flux", acft_last_contact: "Altitude · âge du dernier contact réel", fam_air: "Moyens aériens", lg_aircraft: "Aéronefs suivis",
     acft_role_waterbomber: "Bombardier d'eau", acft_role_helicopter: "Hélicoptère",
     acft_role_observation: "Observation", acft_role_transport: "Transport", acft_role_medevac: "Évacuation sanitaire",

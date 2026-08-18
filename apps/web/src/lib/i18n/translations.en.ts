@@ -13,7 +13,7 @@ export const EN_DICT: Dict = {
     acft_panel: "Air tracking", acft_code: "Aircraft code",
     acft_code_ph: "Registration, callsign or IFF", acft_label: "Label", acft_label_ph: "Map label (e.g. Canadair 01)",
     acft_role: "Role", acft_track: "Track", acft_untrack: "Stop tracking",
-    acft_empty: "No aircraft tracked.",
+    acft_empty: "No aircraft tracked. Enter a code to show it on the map.",
     acft_no_signal: "no signal", acft_feed: "Feed", acft_last_contact: "Altitude · age of last real contact", fam_air: "Air assets", lg_aircraft: "Tracked aircraft",
     acft_role_waterbomber: "Water bomber", acft_role_helicopter: "Helicopter",
     acft_role_observation: "Observation", acft_role_transport: "Transport", acft_role_medevac: "Medevac",
