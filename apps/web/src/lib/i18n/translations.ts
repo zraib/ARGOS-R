@@ -27,7 +27,7 @@ export interface Dict {
   cp_checking: string; cp_settings: string; cp_settings_show: string; cp_settings_hide: string;
   cp_clear: string; cp_clear_empty: string; cp_close: string; cp_close_esc: string;
   cp_processing: string; cp_guard: string; cp_partial: string; cp_detailed: string;
-  cp_input_ph: string; cp_empty_hint: string; cp_data_only: string; cp_refused: string;
+  cp_input_ph: string; cp_welcome: string; cp_welcome_q: string; cp_empty_hint: string; cp_data_only: string; cp_refused: string;
   cp_tbl_units: string; cp_tbl_health: string; cp_tbl_inventory: string; cp_tbl_seismic: string;
   cp_model_current: string; cp_model_manual_ph: string; cp_model_back_list: string;
   cp_model_manual: string; cp_model_refresh: string; cp_inv_src: string;

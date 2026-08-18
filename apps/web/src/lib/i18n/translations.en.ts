@@ -29,7 +29,7 @@ export const EN_DICT: Dict = {
     cp_settings_hide: "Hide settings", cp_clear: "Clear history", cp_clear_empty: "History empty",
     cp_close: "Close", cp_close_esc: "Close (Esc)", cp_processing: "Processing…",
     cp_guard: "Security guardrail", cp_partial: "partial data", cp_detailed: "detailed answer",
-    cp_input_ph: "Ask your question...", cp_empty_hint: "Ask a question or pick a starting point.",
+    cp_input_ph: "Ask your question...", cp_welcome: "Hello, I am the ARGOS Copilot.", cp_welcome_q: "How can I help you?", cp_empty_hint: "Ask a question or pick a starting point.",
     cp_data_only: "Data only", cp_refused: "Security refusal",
     cp_tbl_units: "Recommended units", cp_tbl_health: "Health facilities",
     cp_tbl_inventory: "Inventory & equipment", cp_tbl_seismic: "Recent seismicity",

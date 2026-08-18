@@ -29,7 +29,7 @@ export const FR_DICT: Dict = {
     cp_settings_hide: "Masquer les paramètres", cp_clear: "Vider l'historique", cp_clear_empty: "Historique vide",
     cp_close: "Fermer", cp_close_esc: "Fermer (Échap)", cp_processing: "Traitement en cours…",
     cp_guard: "Garde-fou sécurité", cp_partial: "données partielles", cp_detailed: "réponse détaillée",
-    cp_input_ph: "Posez votre question...", cp_empty_hint: "Posez votre question ou choisissez un point de départ.",
+    cp_input_ph: "Posez votre question...", cp_welcome: "Bonjour, je suis le Copilot ARGOS.", cp_welcome_q: "Comment puis-je vous aider ?", cp_empty_hint: "Posez votre question ou choisissez un point de départ.",
     cp_data_only: "Données uniquement", cp_refused: "Refus sécurité",
     cp_tbl_units: "Unités recommandées", cp_tbl_health: "Établissements de santé",
     cp_tbl_inventory: "Inventaire & équipements", cp_tbl_seismic: "Sismicité récente",

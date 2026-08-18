@@ -230,7 +230,9 @@ export default function CopilotBody() {
   }, [path, incidents, units, hospitals, selUnit, selHosp, selMarker]);
 
   const ask = useCallback(
-    async (query: string) => {
+    // `display` : texte montré dans le fil quand il diffère de la requête
+    // envoyée au moteur (puce cliquée dans une autre langue que le français).
+    async (query: string, display?: string) => {
       const qRaw = query.trim();
       if (!qRaw || busy) return;
 
@@ -239,7 +241,7 @@ export default function CopilotBody() {
       // → évite que l'enrichissement / préfixage casse la liste blanche de salutations.
       if (detectInjection(qRaw)) {
         setInput("");
-        pushAi({ role: "user", text: qRaw });
+        pushAi({ role: "user", text: display ?? qRaw });
         pushAi({
           role: "assistant",
           text: AI_REFUS_RESPONSE,
@@ -258,7 +260,7 @@ export default function CopilotBody() {
       //   4. Économise GPU/RAM de l'utilisateur.
       if (isSafeGreeting(qRaw)) {
         setInput("");
-        pushAi({ role: "user", text: qRaw });
+        pushAi({ role: "user", text: display ?? qRaw });
         pushAi({
           role: "assistant",
           text: pickGreetingResponse(safeGreetings),
@@ -268,7 +270,7 @@ export default function CopilotBody() {
       }
 
       setInput("");
-      pushAi({ role: "user", text: qRaw });
+      pushAi({ role: "user", text: display ?? qRaw });
 
       // 🧠 Mémoire Couche 1 : enrichit les questions vagues
       const enriched = enrichFromHistory(qRaw, aiLog);
@@ -788,10 +790,10 @@ export default function CopilotBody() {
             <div className="flex h-full min-h-[380px] flex-col items-center justify-center gap-6 py-6 sm:min-h-[520px] sm:gap-8">
               <div className="w-full max-w-md text-center">
                 <p className="text-[15px] font-semibold leading-snug text-rdia-600 dark:text-rdia-50">
-                  Bonjour, je suis le Copilot ARGOS.
+                  {t.cp_welcome}
                 </p>
                 <p className="mt-1 text-[15px] font-medium text-rdia-600 dark:text-rdia-50">
-                  Comment puis-je vous aider ?
+                  {t.cp_welcome_q}
                 </p>
                 <p className="mt-2 text-[11.5px] leading-relaxed text-gray-500 dark:text-rdia-300">
                   {t.cp_empty_hint}
@@ -801,7 +803,7 @@ export default function CopilotBody() {
                 {emptySuggestions.map((ex) => (
                   <button
                     key={ex.label}
-                    onClick={() => ask(ex.query)}
+                    onClick={() => ask(ex.query, ex.label)}
                     disabled={busy}
                     className="group flex min-h-11 w-full max-w-[320px] items-center justify-between rounded-lg border border-gray-200/70 bg-white/70 px-3 py-2 text-start text-[12px] text-gray-700 transition-all duration-150 hover:border-or-500/40 hover:bg-or-500/5 hover:text-or-600 hover:shadow-sm active:scale-[0.99] disabled:opacity-40 dark:border-rdia-600/50 dark:bg-rdia-700/30 dark:text-rdia-100 dark:hover:text-or-400 dark:hover:border-or-500/40 dark:hover:bg-rdia-700/40"
                   >
@@ -1196,7 +1198,7 @@ export default function CopilotBody() {
             {suggestions.slice(0, 4).map((ex) => (
               <button
                 key={ex.query}
-                onClick={() => ask(ex.query)}
+                onClick={() => ask(ex.query, ex.label)}
                 disabled={busy}
                 className="shrink-0 whitespace-nowrap rounded-full border border-gray-200 px-2.5 py-1.5 text-[12px] text-gray-500 transition-colors hover:border-or-500/50 hover:text-or-500 disabled:opacity-40 sm:text-[11px] dark:border-rdia-600 dark:text-rdia-300"
               >

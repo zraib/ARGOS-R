@@ -29,7 +29,7 @@ export const AR_DICT: Dict = {
     cp_settings_hide: "إخفاء الإعدادات", cp_clear: "مسح السجل", cp_clear_empty: "السجل فارغ",
     cp_close: "إغلاق", cp_close_esc: "إغلاق (Échap)", cp_processing: "جارٍ المعالجة…",
     cp_guard: "حاجز الأمان", cp_partial: "بيانات جزئية", cp_detailed: "إجابة مفصلة",
-    cp_input_ph: "اطرح سؤالك...", cp_empty_hint: "اطرح سؤالا أو اختر نقطة انطلاق.",
+    cp_input_ph: "اطرح سؤالك...", cp_welcome: "مرحبًا، أنا مساعد ARGOS.", cp_welcome_q: "كيف يمكنني مساعدتك؟", cp_empty_hint: "اطرح سؤالا أو اختر نقطة انطلاق.",
     cp_data_only: "بيانات فقط", cp_refused: "رفض أمني",
     cp_tbl_units: "الوحدات الموصى بها", cp_tbl_health: "المؤسسات الصحية",
     cp_tbl_inventory: "الجرد والمعدات", cp_tbl_seismic: "النشاط الزلزالي الأخير",
