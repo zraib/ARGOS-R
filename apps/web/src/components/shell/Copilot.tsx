@@ -38,7 +38,7 @@ function Fab({ unread }: { unread: number }) {
       className="group fixed bottom-4 end-4 z-50 sm:bottom-6 sm:end-6"
     >
       <span className="absolute -inset-1 rounded-full bg-or-500 opacity-30 blur transition-opacity duration-300 group-hover:opacity-60" />
-      <span className="relative flex h-[88px] w-[88px] items-center justify-center rounded-full bg-or-500 text-rdia-900 shadow-2xl shadow-or-500/40 ring-4 ring-white transition-transform duration-200 group-hover:scale-110 active:scale-95 dark:ring-rdia-800">
+      <span className="relative flex h-[72px] w-[72px] items-center justify-center rounded-full bg-or-500 text-rdia-900 shadow-2xl shadow-or-500/40 ring-4 ring-white transition-transform duration-200 group-hover:scale-110 active:scale-95 dark:ring-rdia-800">
         <Icon path={UI_ICONS.copilot} size={46} strokeWidth={2} />
         {unread > 0 && (
           <span className="absolute -top-1 -end-1 flex h-5 min-w-[20px] items-center justify-center rounded-full border-2 border-white bg-danger-500 px-1 text-[10px] font-bold text-white dark:border-rdia-800">
