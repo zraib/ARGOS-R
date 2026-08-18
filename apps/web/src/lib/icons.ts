@@ -140,11 +140,12 @@ export const UI_ICONS = {
   camera: "M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z M12 17a4 4 0 100-8 4 4 0 000 8z",
   expand: "M8 3H5a2 2 0 00-2 2v3 M21 8V5a2 2 0 00-2-2h-3 M3 16v3a2 2 0 002 2h3 M16 21h3a2 2 0 002-2v-3",
   /**
-   * Copilot : tête de robot coiffée d'un casque — arceau par-dessus le crâne,
-   * un écouteur sur chaque tempe, deux yeux en traits courts. Tout en trait
-   * (aucun remplissage), même graisse que le reste de la famille.
+   * Copilot : tête de robot coiffée d'un casque-micro — arceau par-dessus le
+   * crâne, un écouteur charnu sur chaque tempe, perche qui descend de
+   * l'écouteur droit jusque sous le menton, terminée par la capsule micro.
+   * Tout en trait (aucun remplissage), même graisse que la famille.
    */
-  copilot: "M7 8h10a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z M4 13v-2a8 8 0 0 1 16 0v2 M3.5 12.5v4 M20.5 12.5v4 M10 12.5v2 M14 12.5v2 M10.5 16.5h3",
+  copilot: "M7 7h10a2 2 0 0 1 2 2v6.5a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z M4 12v-1.5a8 8 0 0 1 16 0V12 M5 11.5H3.8a1.3 1.3 0 0 0-1.3 1.3v2.4a1.3 1.3 0 0 0 1.3 1.3H5z M19 11.5h1.2a1.3 1.3 0 0 1 1.3 1.3v2.4a1.3 1.3 0 0 1-1.3 1.3H19z M20 16.5v1.2a3 3 0 0 1-3 3h-3.5 M13.2 19.6v2.2 M10 11.5v2 M14 11.5v2 M10.5 15h3",
   map: "M9 20l-6 2V6l6-2m0 16l6-2m-6 2V4m6 14l6 2V6l-6-2m0 16V4",
   archive: "M2 4h20v4H2z M4 8v11a2 2 0 002 2h12a2 2 0 002-2V8 M10 12h4",
   caretDown: "M6 9l6 6 6-6",
