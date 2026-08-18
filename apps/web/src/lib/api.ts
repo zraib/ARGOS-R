@@ -7,7 +7,16 @@
 import type { Assignments } from "@/lib/roles";
 import { createArgosClient } from "@/lib/api-client";
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3005";
+/**
+ * Base de l'API. `NEXT_PUBLIC_API_URL` prime toujours ; sinon on vise le port
+ * 3005 sur L'HÔTE QUI A SERVI LA PAGE. Figée à 127.0.0.1, la base désignait
+ * l'appareil du LECTEUR : depuis un téléphone du réseau local, chaque appel
+ * partait vers le téléphone lui-même — d'où « API injoignable » alors que le
+ * serveur tournait. (Côté serveur/SSR, repli local — le navigateur recalcule.)
+ */
+export const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ??
+  (typeof window !== "undefined" ? `http://${window.location.hostname}:3005` : "http://127.0.0.1:3005");
 export const TOKEN_KEY = "argos_token";
 
 export function getStoredToken(): string | null {

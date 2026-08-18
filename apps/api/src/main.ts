@@ -27,7 +27,23 @@ async function bootstrap() {
     next();
   });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }));
-  app.enableCors({ origin: config.get<string[]>("corsOrigins"), credentials: true });
+  // CORS : liste stricte en production. En mode dev, on accepte AUSSI les
+  // origines du réseau privé (localhost, 192.168.x, 10.x, 172.16-31.x, *.local)
+  // pour pouvoir tester depuis un téléphone du LAN — sinon le préflight repart
+  // sans Access-Control-Allow-Origin et l'écran de connexion conclut à tort
+  // « API injoignable ».
+  const allowList = config.get<string[]>("corsOrigins") ?? [];
+  const devMode = process.env.AUTH_MODE !== "keycloak" && process.env.NODE_ENV !== "production";
+  const privateLan = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|[a-z0-9-]+\.local)(:\d+)?$/i;
+  app.enableCors({
+    origin: (origin, cb) => {
+      // Requêtes sans origine (curl, santé, outillage) : autorisées.
+      if (!origin) return cb(null, true);
+      if (allowList.includes(origin) || (devMode && privateLan.test(origin))) return cb(null, true);
+      return cb(null, false);
+    },
+    credentials: true,
+  });
 
   // OpenAPI (contract-first) : documentation interactive + JSON pour générer le
   // client frontend (`packages/api-client`).
