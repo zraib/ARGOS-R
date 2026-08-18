@@ -143,9 +143,11 @@ export const UI_ICONS = {
    * Copilot : tête de robot coiffée d'un casque-micro — arceau par-dessus le
    * crâne, un écouteur charnu sur chaque tempe, perche qui descend de
    * l'écouteur droit jusque sous le menton, terminée par la capsule micro.
-   * Tout en trait (aucun remplissage), même graisse que la famille.
+   * Tout en trait (aucun remplissage), même graisse que la famille. Un jour
+   * d'un pas et demi sépare la tête des écouteurs et de l'arceau : les deux
+   * pièces se lisent distinctement, le casque est POSÉ sur la tête.
    */
-  copilot: "M7 7h10a2 2 0 0 1 2 2v6.5a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z M4 12v-1.5a8 8 0 0 1 16 0V12 M5 11.5H3.8a1.3 1.3 0 0 0-1.3 1.3v2.4a1.3 1.3 0 0 0 1.3 1.3H5z M19 11.5h1.2a1.3 1.3 0 0 1 1.3 1.3v2.4a1.3 1.3 0 0 1-1.3 1.3H19z M20 16.5v1.2a3 3 0 0 1-3 3h-3.5 M13.2 19.6v2.2 M10 11.5v2 M14 11.5v2 M10.5 15h3",
+  copilot: "M8.5 7.5h7a2 2 0 0 1 2 2v5.5a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2V9.5a2 2 0 0 1 2-2z M4 12V11a8 8 0 0 1 16 0v1 M5 11.5H3.8a1.3 1.3 0 0 0-1.3 1.3v2.4a1.3 1.3 0 0 0 1.3 1.3H5z M19 11.5h1.2a1.3 1.3 0 0 1 1.3 1.3v2.4a1.3 1.3 0 0 1-1.3 1.3H19z M20 16.5v1.2a3 3 0 0 1-3 3h-3.5 M13.2 19.6v2.2 M10 11.5v2 M14 11.5v2 M10.5 15h3",
   map: "M9 20l-6 2V6l6-2m0 16l6-2m-6 2V4m6 14l6 2V6l-6-2m0 16V4",
   archive: "M2 4h20v4H2z M4 8v11a2 2 0 002 2h12a2 2 0 002-2V8 M10 12h4",
   caretDown: "M6 9l6 6 6-6",
