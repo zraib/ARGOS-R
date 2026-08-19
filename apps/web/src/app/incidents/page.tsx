@@ -10,7 +10,9 @@ import { Modal } from "@/components/ui/Modal";
 import { UI_ICONS } from "@/lib/icons";
 import { sevBadge, stBadge, subTypeLabel, typeLabel } from "@/lib/helpers";
 import { canReportIncident } from "@/lib/roles";
-import type { Incident, IncidentStatus, Severity, SubIncident } from "@/lib/types";
+import type { Incident, IncidentStatus, Severity, SubIncident, WeatherForecast } from "@/lib/types";
+import { predictIncidentEvolution, type IncidentEvolution } from "@/lib/ai/risk/incidentEvolution";
+import { IncidentEvolutionCard } from "@/components/incidents/IncidentEvolutionCard";
 
 const TH = "px-4 py-3 text-start text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400";
 const TD = "px-4 py-2.5";
@@ -82,6 +84,8 @@ export default function IncidentsPage() {
   const incidentTypes = useArgos((s) => s.incidentTypes);
   const units = useArgos((s) => s.units);
   const hospitals = useArgos((s) => s.hospitals);
+  const quakes = useArgos((s) => s.quakes);
+  const dashStats = useArgos((s) => s.dashStats);
   const lang = useArgos((s) => s.lang);
   const role = useArgos((s) => s.role);
   const sessionUser = useArgos((s) => s.sessionUser);
@@ -133,6 +137,28 @@ export default function IncidentsPage() {
       return a.time < b.time ? 1 : a.time > b.time ? -1 : 0;
     });
   }, [base, q, fType, fSev, fRegion, fStatus, sortBy, incidentTypes, lang]);
+
+  // Évolutions IA (version compacte, sans météo — affichée dans le tableau principal).
+  // Calculée une fois à chaque rendu, O(1) par incident.
+  const compactEvos = useMemo<Record<string, IncidentEvolution>>(() => {
+    const out: Record<string, IncidentEvolution> = {};
+    for (const inc of incidents) {
+      try {
+        out[inc.id] = predictIncidentEvolution({
+          incident: inc,
+          allIncidents: incidents,
+          hospitals,
+          units,
+          dashStats,
+          quakes,
+          weather: null,
+        });
+      } catch {
+        /* noop */
+      }
+    }
+    return out;
+  }, [incidents, hospitals, units, dashStats, quakes]);
 
   const toMap = (id: string) => { select("inc", id); router.push("/map"); };
   const setArchived = async (id: string, archived: boolean) => {
@@ -199,18 +225,19 @@ export default function IncidentsPage() {
         )}
       </div>
 
-      <div className="carte">
-        <table className="w-full text-sm">
+      <div className="carte overflow-x-auto">
+        <table className="min-w-max w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 dark:border-rdia-600">
-              <th className={TH}>{t.col_id}</th>
-              <th className={TH}>{t.col_incident}</th>
-              <th className={TH}><ColumnFilter label={t.h_typev} options={typeOptions} selected={fType} open={openFilter === "type"} onToggleOpen={toggleFilter("type")} onToggle={toggleIn(setFType)} onClear={() => setFType([])} clearLabel={t.flt_clear} /></th>
-              <th className={TH}><ColumnFilter label={t.col_region} options={regionOptions} selected={fRegion} open={openFilter === "region"} onToggleOpen={toggleFilter("region")} onToggle={toggleIn(setFRegion)} onClear={() => setFRegion([])} clearLabel={t.flt_clear} /></th>
-              <th className={TH}><ColumnFilter label={t.col_sev} options={sevOptions} selected={fSev} open={openFilter === "sev"} onToggleOpen={toggleFilter("sev")} onToggle={toggleIn(setFSev)} onClear={() => setFSev([])} clearLabel={t.flt_clear} /></th>
-              <th className={TH}><ColumnFilter label={t.col_status} options={statusOptions} selected={fStatus} open={openFilter === "st"} onToggleOpen={toggleFilter("st")} onToggle={toggleIn(setFStatus)} onClear={() => setFStatus([])} clearLabel={t.flt_clear} /></th>
-              <th className={TH}>{t.col_time}</th>
-              <th className={`${TH} text-end`}>{t.col_actions}</th>
+              <th className={`${TH} whitespace-nowrap`}>{t.col_id}</th>
+              <th className={`${TH} whitespace-nowrap`}>{t.col_incident}</th>
+              <th className={`${TH} whitespace-nowrap`}><ColumnFilter label={t.h_typev} options={typeOptions} selected={fType} open={openFilter === "type"} onToggleOpen={toggleFilter("type")} onToggle={toggleIn(setFType)} onClear={() => setFType([])} clearLabel={t.flt_clear} /></th>
+              <th className={`${TH} whitespace-nowrap`}><ColumnFilter label={t.col_region} options={regionOptions} selected={fRegion} open={openFilter === "region"} onToggleOpen={toggleFilter("region")} onToggle={toggleIn(setFRegion)} onClear={() => setFRegion([])} clearLabel={t.flt_clear} /></th>
+              <th className={`${TH} whitespace-nowrap`}><ColumnFilter label={t.col_sev} options={sevOptions} selected={fSev} open={openFilter === "sev"} onToggleOpen={toggleFilter("sev")} onToggle={toggleIn(setFSev)} onClear={() => setFSev([])} clearLabel={t.flt_clear} /></th>
+              <th className={`${TH} whitespace-nowrap`}><ColumnFilter label={t.col_status} options={statusOptions} selected={fStatus} open={openFilter === "st"} onToggleOpen={toggleFilter("st")} onToggle={toggleIn(setFStatus)} onClear={() => setFStatus([])} clearLabel={t.flt_clear} /></th>
+              <th className={`${TH} whitespace-nowrap`}>Évolution IA</th>
+              <th className={`${TH} whitespace-nowrap`}>{t.col_time}</th>
+              <th className={`${TH} whitespace-nowrap text-end`}>{t.col_actions}</th>
             </tr>
           </thead>
           <tbody>
@@ -268,6 +295,20 @@ export default function IncidentsPage() {
                       <Badge type={st.type} label={st.label} />
                     )}
                   </td>
+                  <td className={TD}>
+                    {compactEvos[i.id] ? (
+                      <button
+                        type="button"
+                        className="w-full text-start hover:underline"
+                        title="Ouvrir la fiche détaillée · Prédictions IA Évolution"
+                        onClick={() => setViewInc(i)}
+                      >
+                        <IncidentEvolutionCard ev={compactEvos[i.id]} compact />
+                      </button>
+                    ) : (
+                      <span className="text-xs text-gray-400 dark:text-rdia-400">—</span>
+                    )}
+                  </td>
                   <td className={`${TD} font-mono text-xs text-gray-500 dark:text-rdia-300`}>{i.time}</td>
                   <td className={TD}>
                     <div className="flex items-center justify-end gap-0.5">
@@ -285,7 +326,7 @@ export default function IncidentsPage() {
                 {/* Ligne dépliée : arborescence des sous-incidents (comme les détails sismiques). */}
                 {isOpen && (
                   <tr className="border-b border-gray-100 bg-gray-50 dark:border-rdia-700/50 dark:bg-rdia-700/30">
-                    <td colSpan={8} className="px-4 pb-3 pt-0">
+                    <td colSpan={9} className="px-4 pb-3 pt-0">
                       <SubIncidentTree incident={i} onAddSub={() => setAddSubFor(i)} />
                     </td>
                   </tr>
@@ -338,13 +379,16 @@ function Detail({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-/** Modale de détails enrichie (bilan humain, moyens, personnel, véhicules, sous-incidents). */
+/** Modale de détails enrichie (bilan humain, moyens, personnel, véhicules, sous-incidents + IA évolution). */
 function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddSub }: { incident: Incident; onClose: () => void; onMap: (id: string) => void; onEdit: (inc: Incident) => void; onAddSub: (inc: Incident) => void }) {
   const t = useDict();
   const lang = useArgos((s) => s.lang);
   const incidentTypes = useArgos((s) => s.incidentTypes);
   const units = useArgos((s) => s.units);
   const hospitals = useArgos((s) => s.hospitals);
+  const allIncidents = useArgos((s) => s.incidents);
+  const quakes = useArgos((s) => s.quakes);
+  const dashStats = useArgos((s) => s.dashStats);
   // Lecture de la version VIVE de l'incident (mise à jour après ajout/retrait
   // d'un sous-incident) ; repli sur l'instantané passé en prop.
   const incident = useArgos((s) => s.incidents.find((i) => i.id === initial.id)) ?? initial;
@@ -355,8 +399,41 @@ function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddSub }: {
   const heli = engHosps.reduce((n, h) => n + h.heli, 0);
   const hasResp = engUnits.length > 0 || engHosps.length > 0;
 
+  const [weather, setWeather] = useState<WeatherForecast | null>(null);
+  const [wxLoading, setWxLoading] = useState(false);
+  const [wxTried, setWxTried] = useState(false);
+
+  // Chargement lazy de la météo pour l'incident (une seule fois à l'ouverture).
+  if (!wxTried && incident?.ll) {
+    setWxTried(true);
+    setWxLoading(true);
+    void api.getWeatherForecast(incident.ll[1], incident.ll[0])
+      .then((res) => {
+        if (res && res.data) setWeather(res.data as WeatherForecast);
+      })
+      .catch(() => { /* on reste sur weather=null, l'évolution fonctionne quand même */ })
+      .finally(() => setWxLoading(false));
+  }
+
+  const evolution = useMemo<IncidentEvolution | null>(() => {
+    if (!incident) return null;
+    try {
+      return predictIncidentEvolution({
+        incident,
+        allIncidents,
+        hospitals,
+        units,
+        dashStats,
+        quakes,
+        weather: weather ?? null,
+      });
+    } catch {
+      return null;
+    }
+  }, [incident, allIncidents, hospitals, units, dashStats, quakes, weather]);
+
   return (
-    <Modal open title={`${incident.id} — ${incident.titre}`} onClose={onClose} size="lg">
+    <Modal open title={`${incident.id} — ${incident.titre}`} onClose={onClose} size="xl">
       <div className="flex flex-col gap-4">
         <div className="flex items-center gap-1 border-b border-gray-100 pb-3 dark:border-rdia-700/50">
           <button className="btn-secondaire flex items-center gap-1.5 text-xs" onClick={() => onMap(incident.id)}><Icon path={UI_ICONS.map} size={14} /> {t.to_map}</button>
@@ -389,6 +466,29 @@ function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddSub }: {
             </div>
           </div>
         )}
+
+        {/* === SECTION IA · PRÉDICTION D'ÉVOLUTION === */}
+        <div className="mt-2">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-wider text-gray-500 dark:text-rdia-300/80">
+              <Icon path={UI_ICONS.sparkles} size={13} className="text-or-500" />
+              Prédictions IA · Évolution incident
+              {wxLoading && <span className="text-[10.5px] font-normal text-gray-400 dark:text-rdia-400">(chargement météo en cours…)</span>}
+            </div>
+            <div className="flex items-center gap-1 text-[10.5px] text-gray-400 dark:text-rdia-400">
+              {weather ? <span className="inline-flex items-center gap-1"><Icon path={UI_ICONS.refresh} size={11} /> météo chargée ({weather.current.code})</span> : wxLoading ? null : <span>prédiction sans météo</span>}
+              <span>· sismicité {quakes.length} évént. 72h</span>
+            </div>
+          </div>
+          {evolution ? (
+            <IncidentEvolutionCard ev={evolution} />
+          ) : (
+            <div className="rounded-xl border border-gray-200 bg-white/60 p-3 text-xs text-gray-500 dark:border-rdia-700/50 dark:bg-rdia-800/30 dark:text-rdia-300">
+              Calcul de l'évolution IA indisponible sur cet incident.
+            </div>
+          )}
+        </div>
+
         <SubIncidentSection incident={incident} onAdd={() => onAddSub(incident)} />
       </div>
     </Modal>

@@ -24,7 +24,10 @@ export type RiskDataSource =
   | "dashstats.status"
   | "dashstats.casualties"
   | "geo.concentration"
-  | "geo.corridor";
+  | "geo.corridor"
+  | "weather.current"
+  | "weather.forecast"
+  | "seismic.events";
 
 /** Facteur explicatif associé à un score (toujours fondé sur des données ARGOS). */
 export interface RiskFactor {

@@ -49,7 +49,6 @@ const DEFAULT_EMPTY_SUGGESTIONS: { label: string; query: string }[] = [
   { label: "Quelle est la situation actuelle ?", query: "Quelle est la situation actuelle ?" },
   { label: "Quels sont les incidents critiques ?", query: "Quels sont les incidents critiques ?" },
   { label: "Résume-moi les dernières 24 heures", query: "Résume-moi les incidents des dernières 24 heures" },
-  { label: "Prédictions IA de risques", query: "Quelles sont les prédictions de risques IA ?" },
 ];
 
 const SEV_COLORS: Record<string, string> = {

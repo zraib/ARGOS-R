@@ -167,7 +167,7 @@ export default function DashboardPage() {
         );
       case "predictions":
         return (
-          <div className="h-full min-h-[920px] w-full">
+          <div className="h-full min-h-[1080px] w-full">
             <SituationalAwarenessPanel bare />
           </div>
         );
