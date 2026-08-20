@@ -340,3 +340,39 @@ body:has(.nav-drawer.est-ouvert) {
     min-height: 44px;
   }
 }
+
+/* --------------------------------------------------------------------------
+   Panneaux de carte : ouverture « bulle » depuis leur bouton, et lisibilité
+   des sélecteurs natifs posés sur les surcouches sombres.
+   -------------------------------------------------------------------------- */
+
+/* Léger dépassement (1.03) puis retour : l'effet bulle demandé, en transform +
+   opacité uniquement, 220 ms — coupé si l'utilisateur réduit les animations. */
+@keyframes bulle {
+  0% { opacity: 0; transform: scale(0.86); }
+  65% { opacity: 1; transform: scale(1.03); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.anim-bulle {
+  animation: bulle 0.22s cubic-bezier(0.3, 1.4, 0.6, 1) both;
+  transform-origin: top left;
+}
+[dir="rtl"] .anim-bulle { transform-origin: top right; }
+@media (prefers-reduced-motion: reduce) {
+  .anim-bulle { animation: none; }
+}
+
+/* Un <select> hérité du thème clair posé sur la surcouche sombre devenait
+   illisible (valeur pâle, liste déroulante claire incohérente). On force ici
+   la variante sombre : valeur en blanc net, liste native sombre. */
+.carte-page .panneau-sombre select {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-weight: 600;
+  color-scheme: dark;
+}
+.carte-page .panneau-sombre select option {
+  background-color: #1f2937;
+  color: #fff;
+}

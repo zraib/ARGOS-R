@@ -212,6 +212,12 @@ export default function MapPage() {
   const [full, setFull] = useState(false);
   /** Onglet ouvert dans la feuille du bas (sous `lg`) ; `null` = feuille fermée. */
   const [sheet, setSheet] = useState<SheetTab | null>(null);
+  /**
+   * Panneau ouvert dans le trio de gauche (≥ lg) : couches, suivi aérien ou
+   * légende — un seul à la fois, fermé par défaut. Les boutons répliquent le
+   * style des contrôles natifs MapLibre (blanc, 44 px, rayon 12).
+   */
+  const [openPanel, setOpenPanel] = useState<"layers" | "air" | "legend" | null>(null);
 
   // Échap quitte le plein écran.
   useEffect(() => {
@@ -456,13 +462,58 @@ export default function MapPage() {
       <div className="pointer-events-none absolute inset-0 z-20">
         {/* Colonne gauche (≥ lg) : couches (arbre) + suivi aérien + légende.
             Sous lg ces trois panneaux sont dans la feuille du bas. */}
-        <div className="absolute top-3 hidden w-[300px] flex-col gap-2 lg:flex" style={{ insetInlineStart: 12 }}>
-          <Panel title={t.layers} width={300}>{layersBody}</Panel>
-          {/* Suivi aérien : saisie des codes et liste des appareils inscrits. */}
-          <Panel title={t.acft_panel} width={300} defaultOpen={false}>
-            <AircraftPanel />
-          </Panel>
-          <Panel title={t.legend} width={300} defaultOpen={false}>{legendBody}</Panel>
+        {/* Trio de gauche (≥ lg) : trois boutons au style des contrôles natifs ;
+            le panneau choisi s'ouvre à côté avec l'animation « bulle », un seul
+            à la fois. Sous lg, ces contenus restent dans la feuille du bas. */}
+        <div className="absolute top-3 hidden items-start gap-2 lg:flex" style={{ insetInlineStart: 12 }}>
+          <div className="pointer-events-auto flex flex-col overflow-hidden rounded-xl bg-white shadow-md">
+            {(
+              [
+                { key: "layers" as const, icon: UI_ICONS.layers, label: t.layers },
+                { key: "air" as const, icon: UI_ICONS.plane, label: t.acft_panel },
+                { key: "legend" as const, icon: UI_ICONS.legend, label: t.legend },
+              ]
+            ).map((b) => (
+              <button
+                key={b.key}
+                onClick={() => setOpenPanel((o) => (o === b.key ? null : b.key))}
+                aria-label={b.label}
+                aria-expanded={openPanel === b.key}
+                title={b.label}
+                className={`flex h-11 w-11 items-center justify-center border-b border-gray-200 transition-colors last:border-0 ${
+                  openPanel === b.key ? "bg-or-500/15 text-or-600" : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <Icon path={b.icon} size={22} strokeWidth={2} />
+              </button>
+            ))}
+          </div>
+
+          {openPanel && (
+            // `key` relance l'animation bulle à chaque changement de panneau.
+            <div key={openPanel} className="anim-bulle panneau-sombre pointer-events-auto w-[300px] overflow-hidden rounded-xl shadow-lg" style={GLASS}>
+              <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
+                <Icon
+                  path={openPanel === "layers" ? UI_ICONS.layers : openPanel === "air" ? UI_ICONS.plane : UI_ICONS.legend}
+                  size={14}
+                  className="shrink-0 text-or-400"
+                />
+                <span className="min-w-0 flex-1 truncate text-[13px] font-bold uppercase tracking-wider text-white/85">
+                  {openPanel === "layers" ? t.layers : openPanel === "air" ? t.acft_panel : t.legend}
+                </span>
+                <button
+                  onClick={() => setOpenPanel(null)}
+                  aria-label={t.flt_clear}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-[16px] leading-none text-white/45 transition-colors hover:text-or-400"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="max-h-[62vh] overflow-y-auto px-3 pb-3 pt-2">
+                {openPanel === "layers" ? layersBody : openPanel === "air" ? <AircraftPanel /> : legendBody}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Colonne droite : contrôles de carte (toutes tailles) + sélection (≥ lg) */}
@@ -524,7 +575,7 @@ export default function MapPage() {
           `z-20` : il lui faut passer devant le bouton flottant du Copilot
           (`z-50`), sinon celui-ci se pose au milieu du contenu. */}
       {openTab && (
-        <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-[60] flex max-h-[62dvh] flex-col overflow-hidden rounded-t-2xl shadow-2xl lg:hidden" style={GLASS}>
+        <div className="panneau-sombre pointer-events-auto absolute inset-x-0 bottom-0 z-[60] flex max-h-[62dvh] flex-col overflow-hidden rounded-t-2xl shadow-2xl lg:hidden" style={GLASS}>
           <div className="flex shrink-0 items-center gap-1 border-b border-white/12 ps-1">
             {/* Onglets défilables : quatre libellés ne tiennent pas à 375 px. */}
             <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
