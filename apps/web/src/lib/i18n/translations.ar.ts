@@ -17,7 +17,7 @@ export const AR_DICT: Dict = {
     acft_no_signal: "بلا إشارة", acft_feed: "التدفق", acft_last_contact: "الارتفاع · عمر آخر اتصال فعلي", fam_air: "الوسائل الجوية", lg_aircraft: "الطائرات المتتبعة",
     acft_role_waterbomber: "قاذفة مياه", acft_role_helicopter: "مروحية",
     acft_role_observation: "استطلاع", acft_role_transport: "نقل", acft_role_medevac: "إخلاء طبي",
-    nav_open: "فتح التنقل", send: "إرسال",
+    nav_open: "فتح التنقل", nav_simulation: "محاكاة What-If", col_evo: "التطور بالذكاء الاصطناعي", send: "إرسال",
     dash_tab_ops: "العرض العملياتي", dash_tab_ai: "تحليل الذكاء الاصطناعي", dash_ai_title: "الوعي الظرفي بالذكاء الاصطناعي",
     sa_loading: "التحليل الذكي جارٍ…", sa_init: "تهيئة الوعي الظرفي",
     sa_hotspots: "النقاط الساخنة الجغرافية", sa_zones: "منطقة",

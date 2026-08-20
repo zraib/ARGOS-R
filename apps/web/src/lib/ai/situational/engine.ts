@@ -5,6 +5,7 @@ import type { DashStats, Hospital, Incident, Unit } from "@/lib/types";
 import type { LlmProviderConfig } from "@/lib/ai/config";
 import { chatComplete } from "@/lib/ai/provider";
 import type { EquipItem } from "@/lib/data/modules";
+import { clamp01, safeNum } from "@/lib/ai/shared";
 import type {
   CriticalFactor,
   GlobalAlertLevel,
@@ -14,12 +15,8 @@ import type {
   SituationalForecasts,
 } from "./types";
 
-// ---------- helpers ----------------------------------------------------------------
-function clamp01(x: number) { return Math.max(0, Math.min(1, x)); }
-function numOr(v: unknown, d: number): number {
-  const n = typeof v === "number" ? v : (typeof v === "string" ? Number(v) : NaN);
-  return Number.isFinite(n) ? n : d;
-}
+// ---------- helpers (depuis shared.ts : clamp01 + safeNum) ------------------------
+function numOr(v: unknown, d: number): number { return safeNum(v, d); }
 function pickLL<T extends string>(v: unknown, list: readonly T[]): T | null {
   return typeof v === "string" && list.includes(v as T) ? (v as T) : null;
 }
@@ -301,7 +298,7 @@ export function computeSituationalAwarenessFallback(input: {
     }
   }
   if (facteursCritiques.length === 0) {
-    facteursCritiques.push({ id: `fc-neutre-${time}`, label: "Aucun facteur critique détecté", type: "evenement", impact: "faible" });
+    facteursCritiques.push({ id: `fc-neutre-${time}`, label: "Situation maîtrisée (aucun facteur critique détecté)", type: "evenement", impact: "faible" });
   }
 
   // Risques prochaines

@@ -14,7 +14,7 @@ export type NavKey =
   | "dashboard" | "incidents" | "map" | "seismic" | "dispatch" | "triage"
   | "equip" | "units" | "personnel" | "workorders"
   | "hospitals" | "ics" | "damage" | "shelters"
-  | "orsec" | "plans" | "comms" | "reports" | "analytics" | "assistant"
+  | "orsec" | "plans" | "comms" | "reports" | "analytics" | "assistant" | "simulation"
   | "users" | "settings"
   | "myresp" | "myrespManage" | "supervision";
 
@@ -61,6 +61,7 @@ export const HREF: Record<NavKey, string> = {
   reports: "/rapports",
   analytics: "/analytique",
   assistant: "/assistant",
+  simulation: "/simulation",
   users: "/utilisateurs",
   settings: "/parametres",
   myresp: "/ma-responsabilite",
@@ -93,6 +94,7 @@ export const NAV: NavEntry[] = [
   item("comms", HREF.comms),
   item("reports", HREF.reports),
   item("analytics", HREF.analytics),
+  { kind: "item", key: "simulation", href: HREF.simulation, icon: NAV_ICONS.seismic, roles: ["superadmin", "admin", "strategic", "tacom"] },
   // Gestion des utilisateurs — Super Administrateur et Administrateur.
   { kind: "item", key: "users", href: HREF.users, icon: UI_ICONS.users, roles: ["superadmin", "admin"] },
   // Paramètres — réservé au Super Administrateur (filtré dans la Sidebar).
@@ -112,11 +114,11 @@ export const FLAGGABLE_KEYS: NavKey[] = [
   "incidents", "map", "seismic", "dispatch", "triage",
   "equip", "units", "personnel", "workorders",
   "hospitals", "ics", "damage", "shelters",
-  "orsec", "plans", "comms", "reports", "analytics", "assistant",
+  "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation",
 ];
 
 export const DEFAULT_FLAGS: Record<string, boolean> = Object.fromEntries(
-  FLAGGABLE_KEYS.map((k) => [k, k === "assistant" ? AI_ENABLED : true]),
+  FLAGGABLE_KEYS.map((k) => [k, (k === "assistant" || k === "simulation") ? AI_ENABLED : true]),
 );
 
 /** Résout un chemin vers la clé de module courante (pour la garde de route). */
@@ -129,7 +131,7 @@ const LABEL_KEYS: Record<NavKey | GroupKey, keyof Dict> = {
   dashboard: "nav_dash", incidents: "nav_inc", map: "nav_map", seismic: "nav_seismic", dispatch: "nav_dispatch", triage: "nav_triage",
   equip: "nav_equip", units: "nav_units", personnel: "nav_pers", workorders: "nav_wo",
   hospitals: "nav_hosp", ics: "nav_ics", damage: "nav_damage", shelters: "nav_shelters",
-  orsec: "nav_orsec", plans: "nav_plans", comms: "nav_comms", reports: "nav_reports", analytics: "nav_analytics", assistant: "nav_assistant", users: "nav_users", settings: "nav_settings", myresp: "nav_myresp", myrespManage: "nav_myresp_manage", supervision: "nav_supervision",
+  orsec: "nav_orsec", plans: "nav_plans", comms: "nav_comms", reports: "nav_reports", analytics: "nav_analytics", assistant: "nav_assistant", simulation: "nav_simulation", users: "nav_users", settings: "nav_settings", myresp: "nav_myresp", myrespManage: "nav_myresp_manage", supervision: "nav_supervision",
   res: "nav_res", dis: "nav_dis", cmd: "nav_cmd",
 };
 

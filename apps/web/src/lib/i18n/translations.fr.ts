@@ -17,7 +17,7 @@ export const FR_DICT: Dict = {
     acft_no_signal: "sans signal", acft_feed: "Flux", acft_last_contact: "Altitude · âge du dernier contact réel", fam_air: "Moyens aériens", lg_aircraft: "Aéronefs suivis",
     acft_role_waterbomber: "Bombardier d'eau", acft_role_helicopter: "Hélicoptère",
     acft_role_observation: "Observation", acft_role_transport: "Transport", acft_role_medevac: "Évacuation sanitaire",
-    nav_open: "Ouvrir la navigation", send: "Envoyer",
+    nav_open: "Ouvrir la navigation", nav_simulation: "Simulation What-If", col_evo: "Évolution IA", send: "Envoyer",
     dash_tab_ops: "Vue opérationnelle", dash_tab_ai: "Analyse IA", dash_ai_title: "Conscience situationnelle à base d'IA",
     sa_loading: "Analyse IA en cours…", sa_init: "Initialisation conscience situationnelle",
     sa_hotspots: "Points chauds géographiques", sa_zones: "zone(s)",

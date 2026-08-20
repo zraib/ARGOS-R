@@ -120,7 +120,6 @@ export default function CopilotBody() {
       { label: t.cp_sugg_situation, query: "Quelle est la situation actuelle ?" },
       { label: t.cp_sugg_critical, query: "Quels sont les incidents critiques ?" },
       { label: t.cp_sugg_last24, query: "Résume-moi les incidents des dernières 24 heures" },
-      { label: t.cp_sugg_risks, query: "Quelles sont les prédictions de risques IA ?" },
     ],
     [t],
   );
@@ -317,7 +316,54 @@ export default function CopilotBody() {
         setBusy(false);
         return;
       }
-      if (answer.intent === "equipment_search") {
+            // 🔥 RACCourci CROSS ANALYSIS (dispositif / équipements pour INC / fiche 360) :
+      //    crossAnalysis contient TOUT le dispositif (unités reco + hôpitaux + équipements liés)
+      //    en Couche 1 (recommandations réelles, 100% ARGOS). Le LLM tend à diluer ça en
+      //    texte trop long / hors sujet → on affiche direct Couche1.
+      if (answer.intent === "cross_analysis") {
+        setInput("");
+        const crossMsgId = pushAi({
+          role: "assistant",
+          text: cleanFinalText(answer.text),
+          provider: "ARGOS · dispositif & recommandations",
+          deterministic: true,
+          layer1: answer.layer1,
+          suggestions: answer.suggestions,
+          units: answer.units,
+          incidents: answer.incidents,
+          hospitals: answer.hospitals,
+          quakes: answer.quakes,
+          equipment: answer.topEquip,
+          stats: answer.stats,
+          cross: answer.cross,
+        });
+        void crossMsgId;
+        setBusy(false);
+        return;
+      }
+      // 🔥 RACCourci POTENTIEL MOBILISABLE (géographique périmètre / région / ville / rayon km)
+      if (answer.intent === "mobilizable_potential") {
+        setInput("");
+        const mobMsgId = pushAi({
+          role: "assistant",
+          text: cleanFinalText(answer.text),
+          provider: "ARGOS · potentiel mobilisable",
+          deterministic: true,
+          layer1: answer.layer1,
+          suggestions: answer.suggestions,
+          units: answer.units,
+          incidents: answer.incidents,
+          hospitals: answer.hospitals,
+          quakes: answer.quakes,
+          equipment: answer.topEquip,
+          stats: answer.stats,
+          cross: answer.cross,
+        });
+        void mobMsgId;
+        setBusy(false);
+        return;
+      }
+      if (answer.intent === "equipment_search" || answer.intent === "equipment_critical_status") {
         setInput("");
         const equipMsgId = pushAi({
           role: "assistant",

@@ -171,6 +171,9 @@ export interface Dict {
   nav_comms: string;
   nav_reports: string;
   nav_analytics: string;
+  nav_simulation: string;
+  /** En-tête de la colonne de prédiction d'évolution (page incidents, branche IA). */
+  col_evo: string;
   nav_dispatch: string;
   nav_assistant: string;
   nav_users: string;

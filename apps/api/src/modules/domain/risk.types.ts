@@ -1,8 +1,7 @@
 // ============================================================================
 // ARGOS — types du moteur de prédiction risques (PORTÉS côté API, F-04)
-// Source d'origine : apps/web/src/lib/ai/risk/types.ts (branche IA, Oumaima).
-// Portage à l'identique — seuls les imports pointent vers les types du domaine
-// API. Toute évolution de contrat se fait ICI d'abord, le web suit.
+// Régénérés depuis apps/web/src/lib/ai/risk/types.ts après la fusion de la
+// branche IA : le port suit le client à l'identique, imports exceptés.
 // ============================================================================
 
 // ========================================================================
@@ -30,7 +29,10 @@ export type RiskDataSource =
   | "dashstats.status"
   | "dashstats.casualties"
   | "geo.concentration"
-  | "geo.corridor";
+  | "geo.corridor"
+  | "weather.current"
+  | "weather.forecast"
+  | "seismic.events";
 
 /** Facteur explicatif associé à un score (toujours fondé sur des données ARGOS). */
 export interface RiskFactor {
@@ -117,4 +119,23 @@ export interface RiskContext {
   } | null;
   /** Timestamp "maintenant" pour la déterministe (tests). */
   now?: number;
+}
+
+// --- Aides de présentation (déplacées du moteur, F-04) -----------------------
+// Trois fonctions pures consommées par RiskPanel. Les garder dans le moteur
+// forçait tout le moteur dans le bundle du tableau de bord pour trois teintes.
+
+const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
+
+export function levelTint(l: RiskLevel): "red" | "amber" | "green" | "gray" | "blue" {
+  if (l === "critique") return "red";
+  if (l === "eleve") return "amber";
+  if (l === "modere") return "blue";
+  return "green";
+}
+export function levelLabel(l: RiskLevel): string {
+  return l === "eleve" ? "élevé" : l;
+}
+export function probabilityToPercent(p: number): number {
+  return clamp01(p) * 100;
 }

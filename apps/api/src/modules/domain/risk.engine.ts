@@ -1,14 +1,15 @@
 // ========================================================================
 // ARGOS · Moteur déterministe de Prédiction Risques IA — CÔTÉ API (F-04)
-// Porté à l'identique depuis apps/web/src/lib/ai/risk/engine.ts (branche IA,
-// Oumaima) : mêmes entrées → mêmes prédictions, mais calculées UNE fois par
-// l'API depuis ses données faisant foi, au lieu de N fois sur N postes.
+// Régénéré depuis apps/web/src/lib/ai/risk/engine.ts APRÈS la fusion de la
+// branche IA : les améliorations d'Oumaima s'appliquent donc aussi ici, là
+// où le tableau de bord calcule réellement. Mêmes entrées → mêmes sorties.
 // RÈGLE D'OR : 100% basé sur LES DONNÉES RÉELLES fournies (incidents,
 // hôpitaux, unités, dashStats). AUCUNE invention, AUCUNE donnée hors
 // périmètre. Le moteur est reproductible, purement fonctionnel (mêmes
 // entrées → mêmes sorties).
 // ========================================================================
 import type { Hospital, Incident, Unit } from "@/modules/domain/domain.service";
+import { clamp01, clamp100, haversineKm } from "@/modules/domain/risk.shared";
 import type {
   RiskContext,
   RiskFactor,
@@ -17,18 +18,6 @@ import type {
   RiskPrediction,
   RiskTrend,
 } from "@/modules/domain/risk.types";
-
-/** Distance grand-cercle en km — recopiée de apps/web/src/lib/reco.ts. */
-function haversineKm(a: [number, number], b: [number, number]): number {
-  const R = 6371;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(b[1] - a[1]);
-  const dLon = toRad(b[0] - a[0]);
-  const lat1 = toRad(a[1]);
-  const lat2 = toRad(b[1]);
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
-}
 
 function deriveTrendFromScoreLevel(score: number, level: RiskLevel): RiskTrend {
   if (score >= 65 || level === "critique" || level === "eleve") return "aggravation";
@@ -55,9 +44,8 @@ function deriveRiskTypeFromIncident(type: Incident["type"], score: number): stri
 }
 
 
-// --- Helpers numériques ---------------------------------------------------
-const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
-const clamp100 = (n: number) => Math.max(0, Math.min(100, n));
+
+// --- Helpers numériques (depuis shared.ts) --------------------------------
 const pct = (n: number) => clamp01(n);
 const sevWeight: Record<Incident["sev"], number> = {
   high: 1.0,
@@ -71,18 +59,19 @@ const statusWeight: Record<Incident["st"], number> = {
 };
 
 // --- Score -> niveau -------------------------------------------------------
+// Paliers revus à la hausse (avant critique=80 trop bas → tout passe 🔴)
 export function scoreToLevel(s: number): RiskLevel {
-  if (s >= 80) return "critique";
-  if (s >= 55) return "eleve";
-  if (s >= 30) return "modere";
+  if (s >= 88) return "critique";
+  if (s >= 68) return "eleve";
+  if (s >= 36) return "modere";
   return "faible";
 }
 // --- Score -> horizon temporel --------------------------------------------
-// Plus le score est élevé, plus l'horizon est proche.
+// Plus le score est élevé, plus l'horizon est proche. Revu à la hausse.
 export function scoreToHorizon(s: number): RiskHorizon {
-  if (s >= 75) return "2h";
-  if (s >= 50) return "6h";
-  if (s >= 30) return "24h";
+  if (s >= 90) return "2h";
+  if (s >= 72) return "6h";
+  if (s >= 40) return "24h";
   return "48h";
 }
 
@@ -93,6 +82,7 @@ function factorsToProbability(factors: RiskFactor[]): number {
 }
 
 // --- Règle 1 — Score HÔPITAL (saturation globale + REA) -------------------
+// Poids réduits × 0.62 (avant occ×65+rea×30 = trop haut ; on retire le fallback rea 92% occ)
 function scoreHospital(h: Hospital): { score: number; factors: RiskFactor[] } {
   const factors: RiskFactor[] = [];
   let score = 0;
@@ -105,10 +95,10 @@ function scoreHospital(h: Hospital): { score: number; factors: RiskFactor[] } {
     sources: ["hospitals.saturation"],
     rawValue: `${Math.round(occ * 100)}%`,
   };
-  score += clamp100(occ * 65);
+  score += clamp100(occ * 42);   // 100% occ = 42 pts (42/100 = FAIBLE)
   factors.push(factorOcc);
 
-  // Facteur secondaire: REA
+  // Facteur secondaire: REA (seulement SI DATA RÉELLE (rea > 0))
   if (typeof h.reaOcc === "number" && typeof h.rea === "number" && h.rea > 0) {
     const rea = pct(h.reaOcc / h.rea);
     const reaFactor: RiskFactor = {
@@ -117,28 +107,18 @@ function scoreHospital(h: Hospital): { score: number; factors: RiskFactor[] } {
       sources: ["hospitals.rea"],
       rawValue: `${h.reaOcc}/${h.rea}`,
     };
-    score += clamp100(rea * 30);
-    factors.push(reaFactor);
-  } else if (typeof h.occ === "number") {
-    // Estimation REA si non renseigné via occ globale (proportionnel).
-    const rea = pct(occ * 0.92);
-    const reaFactor: RiskFactor = {
-      label: `Saturation réanimation estimée ~${Math.round(rea * 100)}% (corrélé à l'occupation)`,
-      weight: clamp01(rea * 0.2),
-      sources: ["hospitals.saturation"],
-      rawValue: `occ × 0.92 = ${(rea).toFixed(2)}`,
-    };
-    score += clamp100(rea * 20);
+    score += clamp100(rea * 26); // 100% rea = 26 pts
     factors.push(reaFactor);
   }
+  // ⚠️ SUPPRIMÉ : le fallback occ * 0.92 = faux positif systématique (tous hôpitaux > 50% avaient rea+20)
 
   // Staff disponible si renseigné (sinon 0).
   if (typeof h.staff === "number" && h.staff < 10) {
     const staffF = pct((10 - h.staff) / 10);
-    score += clamp100(staffF * 10);
+    score += clamp100(staffF * 6);
     factors.push({
       label: `Effectif hospitalier faible (${h.staff})`,
-      weight: clamp01(staffF * 0.12),
+      weight: clamp01(staffF * 0.10),
       sources: ["units.deploiement"],
       rawValue: `staff=${h.staff}`,
     });
@@ -149,26 +129,27 @@ function scoreHospital(h: Hospital): { score: number; factors: RiskFactor[] } {
 
 // --- Règle 2 — Score INCIDENT individuel (sev × statut × temps écoulé + ---
 // responders count) ---------------------------------------------------------
+// Poids réduits global × 0.60 ; pénalité "pas d'unité déployée" /2.7 (22 → 8)
 function scoreIncident(inc: Incident, now: number): { score: number; factors: RiskFactor[] } {
   const factors: RiskFactor[] = [];
   let score = 0;
 
-  // Gravité
+  // Gravité (× 27 pts, avant ×45)
   const sw = sevWeight[inc.sev];
-  score += clamp100(sw * 45);
+  score += clamp100(sw * 27);
   factors.push({
     label: `Gravité incident "${inc.sev.toUpperCase()}"`,
-    weight: clamp01(sw * 0.45),
+    weight: clamp01(sw * 0.32),
     sources: ["incidents.actifs", "dashstats.severity"],
     rawValue: `sev=${inc.sev} (poids ${sw})`,
   });
 
-  // Statut (ouvert/en cours)
+  // Statut (ouvert/en cours) — ×8 pts avant ×15
   const stw = statusWeight[inc.st];
-  score += clamp100(stw * 15);
+  score += clamp100(stw * 8);
   factors.push({
     label: `Statut incident "${inc.st === "open" ? "ouvert" : inc.st === "prog" ? "en cours" : "clos"}"`,
-    weight: clamp01(stw * 0.15),
+    weight: clamp01(stw * 0.10),
     sources: ["incidents.actifs", "dashstats.status"],
     rawValue: `st=${inc.st}`,
   });
@@ -177,59 +158,59 @@ function scoreIncident(inc: Incident, now: number): { score: number; factors: Ri
   const deployedUnits = inc.responders?.units?.length ?? 0;
   if (deployedUnits > 0) {
     const w = clamp01(deployedUnits / 6);
-    score += clamp100(w * 12);
+    score += clamp100(w * 6);   // avant ×12
     factors.push({
       label: `${deployedUnits} unité(s) déployée(s) sur cet incident`,
-      weight: clamp01(w * 0.12),
+      weight: clamp01(w * 0.10),
       sources: ["units.deploiement"],
       rawValue: `${deployedUnits} responders`,
     });
   } else if (inc.st !== "closed") {
-    // Pas de réponse alors que l'incident n'est pas clos.
-    score += clamp100(22);
+    // Pas de réponse : pénalité MODÉRÉE (8 pts, avant 22 !)
+    score += clamp100(8);
     factors.push({
       label: "Aucune unité déployée sur un incident non clos",
-      weight: clamp01(0.22),
+      weight: clamp01(0.08),
       sources: ["incidents.actifs", "units.deploiement"],
       rawValue: "responders.units=0",
     });
   }
 
-  // Temps écoulé depuis création (heures).
+  // Temps écoulé depuis création (heures). Plateau 24h, ×9 pts (avant ×14)
   const incT = new Date(inc.time).getTime();
   if (!Number.isNaN(incT)) {
     const hrs = Math.max(0, (now - incT) / 3_600_000);
-    const w = clamp01(hrs / 18); // plateau à 18h = 1.0
-    score += clamp100(w * 14);
+    const w = clamp01(hrs / 24);
+    score += clamp100(w * 9);
     factors.push({
       label: `Incident en cours depuis ${hrs.toFixed(1)}h`,
-      weight: clamp01(w * 0.14),
+      weight: clamp01(w * 0.10),
       sources: ["incidents.actifs"],
       rawValue: `${hrs.toFixed(2)}h`,
     });
   }
 
-  // Bilan humain (si renseigné)
+  // Bilan humain (si renseigné) — ×12 pts avant ×20
   if (inc.casualties) {
     const total = (inc.casualties.injured ?? 0) + (inc.casualties.dead ?? 0) + (inc.casualties.missing ?? 0);
     if (total > 0) {
-      const w = clamp01(total / 10);
-      score += clamp100(w * 20);
+      const w = clamp01(total / 12);
+      score += clamp100(w * 12);
       factors.push({
         label: `Bilan humain connu : ${total} victime(s) (blessés/décès/disparus)`,
-        weight: clamp01(w * 0.2),
+        weight: clamp01(w * 0.16),
         sources: ["incidents.actifs"],
         rawValue: `total=${total}`,
       });
     }
   }
-  // Sous-incidents
+  // Sous-incidents — ×5 pts avant ×10
   if (inc.subIncidents && inc.subIncidents.length > 0) {
-    const subW = clamp01(inc.subIncidents.length / 3);
-    score += clamp100(subW * 10);
+    const subW = clamp01(inc.subIncidents.length / 4);
+    score += clamp100(subW * 5);
     factors.push({
       label: `${inc.subIncidents.length} sous-incident(s) lié(s)`,
-      weight: clamp01(subW * 0.1),
+      weight: clamp01(subW * 0.08),
       sources: ["incidents.actifs"],
       rawValue: `sub=${inc.subIncidents.length}`,
     });
@@ -581,18 +562,10 @@ export function computeRiskPredictions(ctx: RiskContext): RiskPrediction[] {
 }
 
 // --- Helpers pour UI ----------------------------------------------------
-export function levelTint(l: RiskLevel): "red" | "amber" | "green" | "gray" | "blue" {
-  if (l === "critique") return "red";
-  if (l === "eleve") return "amber";
-  if (l === "modere") return "blue";
-  return "green";
-}
-export function levelLabel(l: RiskLevel): string {
-  return l === "eleve" ? "élevé" : l;
-}
-export function probabilityToPercent(p: number): number {
-  return clamp01(p) * 100;
-}
+// Aides de présentation déplacées dans ./types.ts (F-04) : RiskPanel les
+// importe de là, si bien que ce fichier — le moteur lourd — ne part plus dans
+// le graphe initial d'aucune route. Ré-exportées ici par compatibilité.
+export { levelTint, levelLabel, probabilityToPercent } from "@/modules/domain/risk.types";
 // --- Type guards pour intégration ----------------------------------------
 export function isDashStatsLike(
   o: unknown,

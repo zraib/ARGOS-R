@@ -9,6 +9,12 @@ import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import { svgToLL, llToSvg, typeLabel } from "@/lib/helpers";
 import type { Province } from "@/lib/types";
+import {
+  useDraftProposal,
+  TitleAssistButtons,
+  DescAssistButtons,
+  type DescriptionProposalInput,
+} from "@/components/incidents/IncidentDraftAssist";
 
 // Aperçu carte réel chargé côté client uniquement (MapLibre accède à window).
 const LocationPreviewMap = dynamic(
@@ -108,6 +114,34 @@ export function IncidentWizard() {
   const nearUnits = useMemo(() => rankByDistance(units, pt), [units, pt]);
   const nearHosps = useMemo(() => rankByDistance(hospitals, pt), [hospitals, pt]);
 
+  const toggleUnit = (id: string) => setSelUnits((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  const toggleHosp = (id: string) => setSelHosps((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+
+  /* ===== Proposition IA description (UNIQUEMENT à partir du type choisi) ===== */
+  const descProposalInput = useMemo<DescriptionProposalInput>(() => ({
+    type,
+    titre: title,
+    adresse,
+    province: prov,
+    ville: city,
+    pt,
+    lang: (lang as "fr" | "ar" | "en") ?? "fr",
+    incidentTypes,
+  }), [type, title, adresse, prov, city, pt, lang, incidentTypes]);
+
+  /* ===== HOOK useDraftProposal : propositions DIRECTEMENT DANS LES CHAMPS =====
+   * - Régénère via bouton icône refresh À DROITE de l'input
+   * - Appliquer via icône sparkles
+   * - Auto-apply SI CHAMP VIDE (demande utilisateur : pas de bloc en dessous)
+   */
+  const draft = useDraftProposal(descProposalInput, {
+    currentTitle: title,
+    currentDesc: desc,
+    autoApplyIfEmpty: true, // injecte directement la valeur dans le champ SI VIDE
+    setTitle,
+    setDesc,
+  });
+
   // Pose le point et met à jour l'affichage des coordonnées.
   const applyLL = (ll: [number, number]) => {
     setPt(ll);
@@ -184,9 +218,6 @@ export function IncidentWizard() {
     if (Number.isFinite(la) && Number.isFinite(lo)) setPt([lo, la]);
   };
   const onMapPick = (ll: [number, number]) => applyLL(ll);
-
-  const toggleUnit = (id: string) => setSelUnits((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
-  const toggleHosp = (id: string) => setSelHosps((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
   const useGeolocation = () => {
     setGeoErr(false);
@@ -352,13 +383,46 @@ export function IncidentWizard() {
         {/* Étape 2 — détails */}
         {step === 2 && (
           <div className="flex flex-col gap-4">
+            {/* Champ TITRE avec icônes sparkles + refresh DANS la barre droite */}
             <div>
               <label className={labelCls}>{t.f_title}</label>
-              <input className={fieldCls} value={title} onChange={(e) => setTitle(e.target.value)} />
+              <div className="flex items-stretch gap-1.5">
+                <input
+                  className={`${fieldCls} min-w-0 flex-1`}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder={draft.proposal.title || "Titre de l'incident…"}
+                />
+                <div className="flex shrink-0 items-center">
+                  <TitleAssistButtons
+                    onApply={draft.applyTitle}
+                    onRegen={draft.regenFreshT}
+                    applied={draft.titleUsed}
+                    disabled={!type}
+                  />
+                </div>
+              </div>
             </div>
+
+            {/* Champ DESCRIPTION avec icônes sparkles + refresh DANS barre droite (au-dessus textarea)
+                Valeur proposée DIRECTEMENT ÉCRITE DANS textarea si vide (via hook autoApply) */}
             <div>
-              <label className={labelCls}>{t.f_desc}</label>
-              <textarea className={fieldCls} rows={4} value={desc} onChange={(e) => setDesc(e.target.value)} />
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <label className={labelCls + " mb-0"}>{t.f_desc}</label>
+                <DescAssistButtons
+                  onApply={draft.applyDesc}
+                  onRegen={draft.regenFreshD}
+                  applied={draft.descUsed}
+                  disabled={!type}
+                />
+              </div>
+              <textarea
+                className={fieldCls}
+                rows={4}
+                value={desc}
+                onChange={(e) => setDesc(e.target.value)}
+                placeholder={draft.proposal.desc || "Description de l'incident (2 lignes)…"}
+              />
             </div>
             <div>
               <label className={labelCls}>{t.f_attach}</label>
