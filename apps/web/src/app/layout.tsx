@@ -25,7 +25,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="stylesheet" href="/fonts/fonts.css" />
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
-      <body className="font-sans">
+      {/* `suppressHydrationWarning` : des extensions de navigateur (ColorZilla,
+          Grammarly, gestionnaires de mots de passe…) injectent leurs attributs
+          sur <body> AVANT l'hydratation — React signalait alors un écart
+          serveur/client qui n'est pas de notre fait. La suppression ne porte
+          que sur les attributs de CET élément, jamais sur ses enfants. */}
+      <body className="font-sans" suppressHydrationWarning>
         <AppFrame>{children}</AppFrame>
       </body>
     </html>
