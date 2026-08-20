@@ -312,6 +312,16 @@ body:has(.nav-drawer.est-ouvert) {
   }
 }
 
+/* Au bureau, les commandes natives (zoom ±, boussole, recentrage) restent en
+   bas à droite — le coin qu'occupe aussi le bouton flottant de l'assistant IA
+   (56 px + halo, à ~16 px du bord). On remonte le groupe juste au-dessus :
+   16 + 56 + 16 de respiration = 88 px. */
+@media (min-width: 1024px) {
+  .carte-page .maplibregl-ctrl-bottom-right {
+    bottom: 88px;
+  }
+}
+
 
 /* --------------------------------------------------------------------------
    Hauteur minimale des commandes au doigt
