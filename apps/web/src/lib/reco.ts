@@ -24,15 +24,50 @@ export type Capability =
   | "eau"
   | "transmissions";
 
-/** Capacités requises par type d'incident (dures + souples). */
-export const REQUIRED_CAPS: Record<IncidentType, Capability[]> = {
+/**
+ * Capacités requises par type d'incident (dures + souples).
+ *
+ * Le catalogue des types est PARAMÉTRABLE (l'API en sert de nouveaux, créés
+ * depuis /parametres) : cette table ne peut donc pas prétendre être exhaustive.
+ * Ne jamais l'indexer directement — passer par `capsFor()`, qui rend un
+ * profil de repli pour les types qu'elle ne connaît pas. Un `Record` indexé
+ * par une chaîne libre ment au typage : l'accès rendait `undefined` sans que
+ * TypeScript le signale, et la page Répartition plantait sur tout incident
+ * d'un type absent d'ici.
+ */
+export const REQUIRED_CAPS: Record<string, Capability[]> = {
   earthquake: ["sar", "genie", "medical"],
   flood: ["hydraulique", "sar", "genie"],
   wildfire: ["sar", "logistique", "eau"],
   landslide: ["genie", "sar"],
   epidemic: ["medical", "logistique"],
   industrial: ["nrbc", "medical"],
+  // Types du catalogue fourni restés sans profil : un incident déclaré sous
+  // l'un d'eux n'était pas « sans exigence », il faisait planter la reco.
+  tsunami: ["sar", "medical", "logistique"],
+  storm: ["sar", "genie", "transmissions"],
+  coldwave: ["logistique", "medical"],
+  drought: ["eau", "logistique"],
+  building_collapse: ["sar", "genie", "medical"],
+  road_accident: ["medical", "sar"],
+  maritime: ["sar", "aeroporte", "medical"],
+  // NRBC : la décontamination est une capacité DURE — une unité qui ne l'a
+  // pas est écartée d'office, quel que soit son temps de trajet.
+  nrbc: ["nrbc", "medical"],
 };
+
+/**
+ * Profil de repli pour un type inconnu du moteur (type créé par un
+ * administrateur). Volontairement générique et SANS capacité dure : on ne
+ * peut pas deviner l'exigence, et une capacité dure inventée écarterait à
+ * tort des unités. Le moteur reste consultatif — l'opérateur tranche.
+ */
+const FALLBACK_CAPS: Capability[] = ["sar", "medical", "logistique"];
+
+/** Capacités requises pour un type d'incident, repli compris. */
+export function capsFor(type: IncidentType): Capability[] {
+  return REQUIRED_CAPS[type] ?? FALLBACK_CAPS;
+}
 
 /** Capacités apportées par chaque unité (indexées par id d'unité). */
 export const UNIT_CAPS: Record<string, Capability[]> = {
@@ -122,7 +157,7 @@ export function recommend(
   const sum = raw.travel + raw.capability + raw.readiness + raw.availability || 1;
   const w: Weights = { travel: raw.travel / sum, capability: raw.capability / sum, readiness: raw.readiness / sum, availability: raw.availability / sum };
   const engaged = opts.engagedUnitIds ?? new Set<string>();
-  const required = REQUIRED_CAPS[need.type];
+  const required = capsFor(need.type);
   const hardNeeded = required.filter((c) => HARD_CAPS.includes(c));
 
   const suggestions: Suggestion[] = units.map((u) => {

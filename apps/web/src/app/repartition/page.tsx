@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useArgos, useModules, useDict } from "@/lib/store";
 import { KIND_LABEL, type QueueItem, type Urgency } from "@/lib/data/dispatch";
-import { recommend, needFromIncident, REQUIRED_CAPS, CAP_LABELS, DEFAULT_WEIGHTS, type Need, type Suggestion, type Weights } from "@/lib/reco";
+import { recommend, needFromIncident, capsFor, CAP_LABELS, DEFAULT_WEIGHTS, type Need, type Suggestion, type Weights } from "@/lib/reco";
 import { Modal } from "@/components/ui/Modal";
 import { Icon } from "@/components/ui/Icon";
 import { Badge } from "@/components/ui/Badge";
@@ -85,7 +85,7 @@ export default function RepartitionPage() {
   };
 
   const engagementFor = (unitId: string) => engagements.find((e) => e.unitId === unitId);
-  const requiredCaps = need ? REQUIRED_CAPS[need.type] : [];
+  const requiredCaps = need ? capsFor(need.type) : [];
 
   return (
     <section className="flex flex-col gap-4 animate-fade-in">
