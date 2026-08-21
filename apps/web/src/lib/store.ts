@@ -72,6 +72,48 @@ const FLAGS_KEY = "argos_flags";
 const TOKEN_KEY = "argos_token";
 const SESSION_USER_KEY = "argos_session_user";
 const SESSION_ROLE_KEY = "argos_session_role";
+/**
+ * Historique Copilot · ségrégé PAR UTILISATEUR.
+ *
+ * Chaque compte possède son propre journal ; personne ne voit les échanges
+ * d'un autre. La clé porte le matricule du compte connecté pour garantir
+ * l'isolation inter-comptes (§ RGPD/journalisation audit).
+ *
+ * - Persistance : localStorage (survit F5 et fermeture de l'onglet)
+ * - Format clé : argos_ai_log_<matricule>
+ * - Compte « démo » / hors session : argos_ai_log_demo
+ */
+const AI_LOG_PREFIX = "argos_ai_log_";
+function aiLogKey(matricule: string | null | undefined): string {
+  return `${AI_LOG_PREFIX}${matricule ?? "demo"}`;
+}
+function loadAiLogFor(userId: string | null | undefined): AiMessage[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(aiLogKey(userId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as AiMessage[]) : [];
+  } catch {
+    return [];
+  }
+}
+function saveAiLogFor(userId: string | null | undefined, log: AiMessage[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(aiLogKey(userId), JSON.stringify(log));
+  } catch {
+    /* quota exceeded : on ignore */
+  }
+}
+function clearAiLogFor(userId: string | null | undefined): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(aiLogKey(userId));
+  } catch {
+    /* */
+  }
+}
 
 /**
  * Prédictions risques depuis l'API (F-04, branche fusion).
@@ -589,6 +631,10 @@ export const useArgos = create<ArgosState>((set, get) => ({
       sessionUser: init.sessionUser,
       mustChangePassword: init.mustChangePassword,
       mustChooseRole: init.mustChooseRole,
+      // Séparateur inter-comptes : CHAQUE utilisateur voit SON historique
+      // Copilot (et personne d'autre). Si le compte n'a pas encore utilisé
+      // le Copilot → [], c'est un chat NEUF, pas l'historique du précédent.
+      aiLog: loadAiLogFor(init.sessionUser?.matricule),
     });
   },
 
@@ -598,7 +644,17 @@ export const useArgos = create<ArgosState>((set, get) => ({
       sessionStorage.setItem(TOKEN_KEY, token);
       sessionStorage.setItem(SESSION_ROLE_KEY, role);
     }
-    set({ authed: true, apiConnected: true, token, role, mustChangePassword: false, mustChooseRole: false });
+    // Pas de sessionUser précisée ici : on charge l'historique du compte déjà
+    // en mémoire (ou demo) pour préserver la continuité du chat en cours.
+    set({
+      authed: true,
+      apiConnected: true,
+      token,
+      role,
+      mustChangePassword: false,
+      mustChooseRole: false,
+      aiLog: loadAiLogFor(get().sessionUser?.matricule),
+    });
   },
   setFlags: (flags) => set({ flags }),
   setRoleFeatures: (rf) => set({ roleFeatures: rf }),
@@ -852,7 +908,18 @@ export const useArgos = create<ArgosState>((set, get) => ({
       sessionStorage.removeItem(SESSION_USER_KEY);
       sessionStorage.removeItem(SESSION_ROLE_KEY);
     }
-    set({ authed: false, apiConnected: false, token: null, sessionUser: null, mustChangePassword: false, mustChooseRole: false });
+    // Lors d'une déconnexion : le Copilot revient à un historique NEUF.
+    // L'historique du compte qui s'en va reste préservé dans sa clé dédiée
+    // (ré-hydraté au prochain login du même compte).
+    set({
+      authed: false,
+      apiConnected: false,
+      token: null,
+      sessionUser: null,
+      mustChangePassword: false,
+      mustChooseRole: false,
+      aiLog: [],
+    });
   },
 
   // 1er login finalisé côté API (POST /auth/change-password) → compte actif.
@@ -921,6 +988,9 @@ export const useArgos = create<ArgosState>((set, get) => ({
     } catch {
       /* profil illisible → sera rechargé via /iam/me */
     }
+    // Historique Copilot du COMPTE CONNECTÉ uniquement (isolation inter-comptes).
+    // Au F5 on retrouve SON chat, personne d'autre. Si nouveau compte : [].
+    const aiLog = loadAiLogFor(sessionUser?.matricule);
     set((s) => ({
       dark,
       authed,
@@ -928,6 +998,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
       flags,
       sessionUser,
       role: storedRole ?? s.role,
+      aiLog,
     }));
   },
 
@@ -1241,11 +1312,24 @@ export const useArgos = create<ArgosState>((set, get) => ({
     const d = new Date();
     const at = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
     const id = `AI-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    set((s) => ({ aiLog: [...s.aiLog, { ...msg, id, at }] }));
+    const state = get();
+    const userMatricule = state.sessionUser?.matricule;
+    const next = [...state.aiLog, { ...msg, id, at }];
+    saveAiLogFor(userMatricule, next);
+    set({ aiLog: next });
     return id;
   },
-  updateAi: (id, patch) => set((s) => ({ aiLog: s.aiLog.map((mo) => (mo.id === id ? { ...mo, ...patch } : mo)) })),
-  clearAi: () => set({ aiLog: [] }),
+  updateAi: (id, patch) =>
+    set((s) => {
+      const next = s.aiLog.map((mo) => (mo.id === id ? { ...mo, ...patch } : mo));
+      saveAiLogFor(s.sessionUser?.matricule, next);
+      return { aiLog: next };
+    }),
+  clearAi: () => {
+    const state = get();
+    clearAiLogFor(state.sessionUser?.matricule);
+    set({ aiLog: [] });
+  },
 
   simTick: () =>
     set((s) => {
