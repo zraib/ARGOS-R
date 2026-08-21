@@ -371,6 +371,18 @@ body:has(.nav-drawer.est-ouvert) {
   color: #fff;
   font-weight: 600;
   color-scheme: dark;
+  /* Les marges internes héritées d'input-champ + la hauteur figée laissaient
+     une boîte de contenu plus basse que la ligne : les glyphes étaient coupés
+     en deux. Hauteur de ligne = hauteur du champ → centrage exact, zéro
+     rognage, quelle que soit la langue. */
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 2.75rem; /* = h-11 (mobile) */
+}
+@media (min-width: 768px) {
+  .carte-page .panneau-sombre select {
+    line-height: 2rem; /* = md:h-8 (bureau) */
+  }
 }
 .carte-page .panneau-sombre select option {
   background-color: #1f2937;
