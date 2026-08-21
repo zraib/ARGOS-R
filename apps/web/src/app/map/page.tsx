@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useArgos, useDict } from "@/lib/store";
 import { Badge, type BadgeType } from "@/components/ui/Badge";
@@ -231,6 +231,12 @@ export default function MapPage() {
   const setPlumeEnvelope = useArgos((s) => s.setPlumeEnvelope);
   const setPlumeHour = useArgos((s) => s.setPlumeHour);
   const hidePlume = useArgos((s) => s.hidePlume);
+  const showPlume = useArgos((s) => s.showPlume);
+  /** Incidents chimiques actifs : rendent le bouton NRBC découvrable depuis la carte. */
+  const nrbcIncidents = useMemo(
+    () => incidents.filter((i) => !i.archived && i.nrbc?.family === "C"),
+    [incidents],
+  );
 
   // L'opérateur arrive depuis « Voir le panache » : le panneau s'ouvre seul
   // (et se referme si la couche est éteinte pendant qu'il est affiché).
@@ -442,7 +448,29 @@ export default function MapPage() {
    * une mesure » est permanent (doctrine d'honnêteté) : un gabarit de
    * planification n'est jamais présenté comme une observation.
    */
-  const nrbcBody = plumeIncidentId && (
+  const nrbcBody = !plumeIncidentId ? (
+    // Aucun panache affiché : le panneau devient le point d'entrée — il liste
+    // les incidents chimiques en cours et active le panache d'un clic (la
+    // carte vole alors vers l'incident au bon zoom via showPlume).
+    <div className="flex flex-col gap-2 text-[14px] text-white/80">
+      <div className="text-[12px] text-white/60">
+        {nrbcIncidents.length > 0 ? t.nrbc_pick : t.nrbc_none_active}
+      </div>
+      {nrbcIncidents.map((i) => (
+        <button
+          key={i.id}
+          onClick={() => showPlume(i.id)}
+          className="flex min-h-11 w-full items-center gap-2 rounded-lg border border-white/12 px-2.5 py-2 text-start transition-colors hover:border-or-400/60 hover:bg-white/5 lg:min-h-0"
+        >
+          <Icon path={UI_ICONS.nrbc} size={15} className="shrink-0 text-or-400" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[13px] font-semibold text-white">{i.titre}</span>
+            <span className="block text-[11px] text-white/50">{i.id} · {i.region}</span>
+          </span>
+        </button>
+      ))}
+    </div>
+  ) : (
     <div className="flex flex-col gap-3 text-[14px] text-white/80">
       <div className="rounded-lg bg-or-500/20 px-2.5 py-1.5 text-[12px] font-bold uppercase tracking-wider text-or-300">
         {t.nrbc_estimate}
@@ -594,8 +622,12 @@ export default function MapPage() {
                 { key: "layers" as const, icon: UI_ICONS.layers, label: t.layers },
                 { key: "air" as const, icon: UI_ICONS.plane, label: t.acft_panel },
                 { key: "legend" as const, icon: UI_ICONS.legend, label: t.legend },
-                // Le bouton NRBC n'existe que lorsqu'un panache est actif.
-                ...(plumeIncidentId ? [{ key: "nrbc" as const, icon: UI_ICONS.nrbc, label: t.nrbc_panel }] : []),
+                // Le bouton NRBC existe dès qu'un incident chimique est en cours
+                // (ou qu'un panache est déjà affiché) : la capacité se découvre
+                // depuis la carte, sans passer par la fiche incident.
+                ...(plumeIncidentId || nrbcIncidents.length > 0
+                  ? [{ key: "nrbc" as const, icon: UI_ICONS.nrbc, label: t.nrbc_panel }]
+                  : []),
               ]
             ).map((b) => (
               <button

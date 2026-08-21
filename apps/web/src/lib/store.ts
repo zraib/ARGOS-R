@@ -748,6 +748,10 @@ export const useArgos = create<ArgosState>((set, get) => ({
 
   showPlume: (incidentId) => {
     set({ plumeIncidentId: incidentId, plumeData: null, plumeHour: 0 });
+    // Le cadrage n'est PAS demandé ici : un panache de quelques kilomètres est
+    // invisible à l'échelle nationale, mais c'est MapCanvas qui ajuste la
+    // caméra sur l'emprise réelle des zones dès qu'elles arrivent — seul
+    // endroit qui connaisse l'état du canevas (voir fitPlumeRef).
     void get().loadPlume();
   },
 

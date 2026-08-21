@@ -342,5 +342,7 @@ export interface Dict {
   nrbc_lvl_vigilance: string;
   nrbc_day: string;
   nrbc_night: string;
+  nrbc_pick: string;
+  nrbc_none_active: string;
 }
 

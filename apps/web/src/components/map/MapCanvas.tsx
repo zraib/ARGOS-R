@@ -316,6 +316,8 @@ export function MapCanvas() {
   const vehProgRef = useRef<number[]>([0.1, 0.45, 0.7]);
   const rafRef = useRef<number>(0);
   const readyRef = useRef(false);
+  /** Panache déjà cadré — évite de recadrer à chaque échéance ou bascule. */
+  const fitPlumeRef = useRef<string | null>(null);
   const quakeBound = useRef(false); // handlers hover/clic de la couche séismes posés une fois
   const quakePopupRef = useRef<maplibregl.Popup | null>(null); // bandeau collé au séisme
   // --- météo UNIFIÉE : canvas planétaires + séries par pas + villes ---
@@ -743,6 +745,28 @@ export function MapCanvas() {
     const { plumeData, plumeModels, plumeEnvelope, plumeIncidentId } = useArgos.getState();
     const empty = { type: "FeatureCollection" as const, features: [] };
     src.setData(plumeIncidentId && plumeData ? (plumeData.fc as GeoJSON.FeatureCollection) : empty);
+
+    // Cadrage sur l'emprise RÉELLE des zones, une seule fois par panache : à
+    // l'échelle nationale un panache de quelques kilomètres est un point
+    // invisible. On ne recadre pas aux changements d'échéance ou de
+    // référentiel — l'opérateur garde la main sur sa caméra ensuite.
+    if (plumeIncidentId && plumeData && fitPlumeRef.current !== plumeIncidentId) {
+      const rings = plumeData.fc.features.flatMap((f) => f.geometry.coordinates[0]);
+      if (rings.length > 0) {
+        const lons = rings.map((p) => p[0]);
+        const lats = rings.map((p) => p[1]);
+        map.fitBounds(
+          [
+            [Math.min(...lons), Math.min(...lats)],
+            [Math.max(...lons), Math.max(...lats)],
+          ],
+          // Marge à gauche : le panneau NRBC (300 px) recouvre la carte au-delà de `lg`.
+          { padding: { top: 80, bottom: 80, left: map.getContainer().clientWidth >= 1024 ? 380 : 60, right: 60 }, duration: 900, maxZoom: 13 },
+        );
+        fitPlumeRef.current = plumeIncidentId;
+      }
+    }
+    if (!plumeIncidentId) fitPlumeRef.current = null;
     // Primaire = premier référentiel actif (ordre de l'ADR : ATP-45 puis ERG).
     const primary = plumeModels.atp45 ? "atp45" : "erg";
     if (plumeEnvelope) {

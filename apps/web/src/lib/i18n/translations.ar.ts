@@ -89,4 +89,6 @@ export const AR_DICT: Dict = {
     nrbc_no_substance: "دون مادة مصرح بها لا يتوفر قالب ERG",
     nrbc_lvl_danger: "خطر", nrbc_lvl_protection: "حماية", nrbc_lvl_vigilance: "يقظة",
     nrbc_day: "نهار", nrbc_night: "ليل",
+    nrbc_pick: "الحوادث الكيميائية الجارية — اختر واحدة لعرض سحابتها:",
+    nrbc_none_active: "لا يوجد حادث كيميائي نشط.",
 };

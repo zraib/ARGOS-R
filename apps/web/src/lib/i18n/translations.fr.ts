@@ -88,4 +88,6 @@ export const FR_DICT: Dict = {
     nrbc_no_substance: "Sans substance déclarée, le gabarit ERG n'est pas disponible",
     nrbc_lvl_danger: "Danger", nrbc_lvl_protection: "Protection", nrbc_lvl_vigilance: "Vigilance",
     nrbc_day: "jour", nrbc_night: "nuit",
+    nrbc_pick: "Incidents chimiques en cours — choisir pour afficher le panache :",
+    nrbc_none_active: "Aucun incident NRBC chimique actif.",
 };
