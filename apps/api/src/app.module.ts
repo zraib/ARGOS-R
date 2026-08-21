@@ -15,6 +15,7 @@ import { FlagsModule } from "@/modules/flags/flags.module";
 import { DomainModule } from "@/modules/domain/domain.module";
 import { OrdersModule } from "@/modules/orders/orders.module";
 import { AviationModule } from "@/modules/aviation/aviation.module";
+import { NrbcModule } from "@/modules/nrbc/nrbc.module";
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { AviationModule } from "@/modules/aviation/aviation.module";
     DomainModule,
     OrdersModule,
     AviationModule,
+    NrbcModule,
   ],
   providers: [
     // Ordre : authentification (JWT), autorisation par rôle (RBAC), puis

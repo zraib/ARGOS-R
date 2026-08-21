@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useArgos, useDict } from "@/lib/store";
 import { api } from "@/lib/api";
@@ -552,6 +552,18 @@ function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddSub }: {
   const [wxLoading, setWxLoading] = useState(false);
   const [wxTried, setWxTried] = useState(false);
 
+  // Volet NRBC : catalogue tiré au besoin pour résoudre la substance déclarée.
+  const nrbcSubstances = useArgos((s) => s.nrbcSubstances);
+  const ensureNrbcSubstances = useArgos((s) => s.ensureNrbcSubstances);
+  const showPlume = useArgos((s) => s.showPlume);
+  const nrbcSubstanceId = incident.nrbc?.substanceId;
+  useEffect(() => {
+    if (nrbcSubstanceId) void ensureNrbcSubstances();
+  }, [nrbcSubstanceId, ensureNrbcSubstances]);
+  const nrbcSub = nrbcSubstanceId ? nrbcSubstances.find((s) => s.id === nrbcSubstanceId) : undefined;
+  // Même défaut prudent que l'API : sans ampleur déclarée, le grand déversement.
+  const nrbcDist = nrbcSub ? (incident.nrbc?.spill === "small" ? nrbcSub.small : nrbcSub.large) : undefined;
+
   // Chargement lazy de la météo pour l'incident (une seule fois à l'ouverture).
   if (!wxTried && incident?.ll) {
     setWxTried(true);
@@ -613,6 +625,63 @@ function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddSub }: {
                 <span key={h.id} className="rounded-md bg-blue-500/15 px-2 py-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400">{h.nom}</span>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* === VOLET NRBC : substance, distances ERG, accès au panache === */}
+        {incident.nrbc && (
+          <div className="rounded-xl border-2 border-or-500/30 bg-or-500/5 p-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-wider text-gray-500 dark:text-rdia-300/80">
+                <Icon path={UI_ICONS.nrbc} size={13} className="text-or-500" />
+                {t.nrbc_title}
+                <span className="rounded-md bg-or-500/15 px-1.5 py-0.5 text-[10px] font-bold text-or-500">
+                  {incident.nrbc.family} — {incident.nrbc.family === "N" ? t.nrbc_fam_n : incident.nrbc.family === "R" ? t.nrbc_fam_r : incident.nrbc.family === "B" ? t.nrbc_fam_b : t.nrbc_fam_c}
+                </span>
+              </div>
+              {incident.nrbc.family === "C" && (
+                <button
+                  className="btn-primaire cible-tactile flex items-center gap-1.5 text-xs"
+                  onClick={() => {
+                    showPlume(incident.id);
+                    onMap(incident.id);
+                  }}
+                >
+                  <Icon path={UI_ICONS.nrbc} size={14} /> {t.nrbc_see_plume}
+                </button>
+              )}
+            </div>
+            {nrbcSub && nrbcDist ? (
+              <div className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                <Detail
+                  label={t.nrbc_substance}
+                  value={
+                    <span>
+                      {nrbcSub.labels[lang]}{" "}
+                      <span className="font-mono text-xs text-gray-500 dark:text-rdia-300">
+                        UN {nrbcSub.un} · {t.nrbc_guide} {nrbcSub.ergGuide}
+                      </span>
+                    </span>
+                  }
+                />
+                <Detail
+                  label={t.nrbc_spill}
+                  value={incident.nrbc.spill === "small" ? t.nrbc_spill_small : t.nrbc_spill_large}
+                />
+                <Detail label={t.nrbc_iso} value={`${nrbcDist.isolationM} m`} />
+                <Detail
+                  label={`${t.nrbc_protect_day} / ${t.nrbc_protect_night}`}
+                  value={`${nrbcDist.protectDayKm} km / ${nrbcDist.protectNightKm} km`}
+                />
+                {!nrbcSub.ergVerified && (
+                  <div className="text-[10px] font-semibold text-or-500 sm:col-span-2">{t.nrbc_unverified}</div>
+                )}
+              </div>
+            ) : (
+              incident.nrbc.family === "C" && (
+                <div className="text-xs text-gray-500 dark:text-rdia-300">{t.nrbc_substance_none}</div>
+              )
+            )}
           </div>
         )}
 

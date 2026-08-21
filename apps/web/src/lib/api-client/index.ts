@@ -170,6 +170,14 @@ export function createArgosClient(opts: ArgosClientOptions) {
       client.POST("/api/aviation/aircraft/{id}/archive", { params: { path: { id } } }),
     deleteAircraft: (id: string) =>
       client.DELETE("/api/aviation/aircraft/{id}", { params: { path: { id } } }),
+    // --- capacité NRBC (panache chimique, ADR 0005) ---
+    /** Catalogue des substances chimiques (table 1 de l'ERG 2024). */
+    getNrbcSubstances: () => client.GET("/api/nrbc/substances", {}),
+    /** Panache estimé d'un incident NRBC : référentiels choisis, échéance H+n. */
+    getNrbcPlume: (incidentId: string, models: string, hour: number) =>
+      client.GET("/api/nrbc/plume/{incidentId}", {
+        params: { path: { incidentId }, query: { models, hour: String(hour) } },
+      }),
     getWeatherCities: () => client.GET("/api/weather/cities"),
     getWeatherGrid: () => client.GET("/api/weather/grid"),
     getWeatherGridWorld: () => client.GET("/api/weather/grid-world"),

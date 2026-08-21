@@ -25,6 +25,59 @@ export interface IncidentTypeDef {
 export type Severity = "high" | "medium" | "low";
 export type IncidentStatus = "open" | "prog" | "closed";
 
+/** Familles de menace NRBC (volet déclaratif d'un incident de type nrbc). */
+export type NrbcFamily = "N" | "R" | "B" | "C";
+
+/** Volet NRBC d'un incident : famille, substance du catalogue, ampleur, rejet. */
+export interface NrbcDetails {
+  family: NrbcFamily;
+  substanceId?: string;
+  spill?: "small" | "large";
+  release?: "instant" | "continuous";
+}
+
+/** Substance chimique du catalogue API (table 1 de l'ERG 2024). */
+export interface NrbcSubstance {
+  id: string;
+  un: string;
+  ergGuide: string;
+  labels: { fr: string; ar: string; en: string };
+  state: "gas" | "liquid";
+  small: { isolationM: number; protectDayKm: number; protectNightKm: number };
+  large: { isolationM: number; protectDayKm: number; protectNightKm: number };
+  /** false = distances à confirmer sur l'ERG 2024 — l'UI l'affiche. */
+  ergVerified: boolean;
+}
+
+/** Zone du panache : propriétés portées par chaque Feature GeoJSON de l'API. */
+export interface NrbcPlumeZoneProps {
+  model: "atp45" | "erg";
+  level: "danger" | "protection" | "vigilance";
+  kind: "circle" | "triangle" | "square";
+  radiusKm: number | null;
+  reachKm: number | null;
+}
+
+/** Panache estimé d'un incident NRBC (réponse /nrbc/plume/:id). */
+export interface NrbcPlume {
+  incidentId: string;
+  substance: Pick<NrbcSubstance, "id" | "un" | "ergGuide" | "labels" | "ergVerified"> | null;
+  spill: "small" | "large";
+  hour: number;
+  /** Vent du pas de prévision retenu — null si la prévision est indisponible. */
+  wind: { speedKmh: number; fromDeg: number; time: string; isDay: boolean } | null;
+  models: ("atp45" | "erg")[];
+  generatedAt: string;
+  fc: {
+    type: "FeatureCollection";
+    features: {
+      type: "Feature";
+      properties: NrbcPlumeZoneProps;
+      geometry: { type: "Polygon"; coordinates: [number, number][][] };
+    }[];
+  };
+}
+
 export interface Incident {
   id: string;
   type: IncidentType;
@@ -46,6 +99,8 @@ export interface Incident {
   responders?: { units: string[]; hospitals: string[] };
   /** Sous-incidents (aléas secondaires rattachés après la déclaration) */
   subIncidents?: SubIncident[];
+  /** Volet NRBC (incidents de type nrbc) */
+  nrbc?: NrbcDetails;
   /** Incident archivé (masqué de la liste active) */
   archived?: boolean;
 }

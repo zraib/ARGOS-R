@@ -30,6 +30,8 @@ import type {
   SeismicEvent,
   AircraftRole,
   TrackedAircraftState,
+  NrbcPlume,
+  NrbcSubstance,
   Unit,
   VehRoute,
   WeatherGridSeries,
@@ -253,6 +255,21 @@ interface ArgosState {
   /** configuration des alertes (seuils + autorités), chargée depuis l'API */
   seisConfig: SeismicAlertConfig | null;
 
+  // --- capacité NRBC : catalogue de substances + panache carte (ADR 0005) ---
+  /** Catalogue des substances chimiques (API /nrbc/substances), chargé au besoin. */
+  nrbcSubstances: NrbcSubstance[];
+  /** Incident dont le panache est affiché sur la carte ; null = couche éteinte. */
+  plumeIncidentId: string | null;
+  /** Référentiels sélectionnés — combinables (le premier actif est le « primaire »). */
+  plumeModels: { atp45: boolean; erg: boolean };
+  /** Enveloppe prudente : toutes les zones remplies (plus de hiérarchie visuelle). */
+  plumeEnvelope: boolean;
+  /** Échéance affichée : H+0 … H+6 (heures de prévision). */
+  plumeHour: number;
+  /** Dernier panache reçu de l'API — consommé par MapCanvas et le panneau. */
+  plumeData: NrbcPlume | null;
+  plumeBusy: boolean;
+
   // --- couches météo de la carte opérationnelle (grille de prévisions 24 h) ---
   wxGrid: WeatherGridSeries | null;
   /** grille mondiale grossière (pas 10°) : couverture planétaire des couches */
@@ -341,6 +358,17 @@ interface ArgosState {
   loadAircraft: () => Promise<void>;
   addAircraft: (input: { code: string; label: string; role: AircraftRole }) => Promise<boolean>;
   removeAircraft: (id: string) => Promise<void>;
+  // --- capacité NRBC ---
+  /** Charge le catalogue de substances une seule fois (idempotent). */
+  ensureNrbcSubstances: () => Promise<void>;
+  /** Active le panache d'un incident sur la carte et lance son chargement. */
+  showPlume: (incidentId: string) => void;
+  hidePlume: () => void;
+  setPlumeModels: (patch: Partial<{ atp45: boolean; erg: boolean }>) => void;
+  setPlumeEnvelope: (v: boolean) => void;
+  setPlumeHour: (h: number) => void;
+  /** (Re)charge le panache selon l'état courant (incident, modèles, échéance). */
+  loadPlume: () => Promise<void>;
   loadQuakes: () => Promise<void>;
   loadSeisConfig: () => Promise<void>;
   setSeisConfig: (cfg: SeismicAlertConfig) => void;
@@ -486,6 +514,17 @@ export const useArgos = create<ArgosState>((set, get) => ({
   incidentFocus: null,
   mapCenterRequest: null,
   quakeSelected: null,
+
+  nrbcSubstances: [],
+  plumeIncidentId: null,
+  // Les deux référentiels combinés par défaut : l'opérateur voit d'emblée le
+  // gabarit OTAN ET la table substance, puis affine depuis le panneau carte.
+  // (Sans substance déclarée, l'API omet l'ERG et la réponse l'indique.)
+  plumeModels: { atp45: true, erg: true },
+  plumeEnvelope: false,
+  plumeHour: 0,
+  plumeData: null,
+  plumeBusy: false,
 
   wxGrid: null,
   wxWorld: null,
@@ -641,6 +680,52 @@ export const useArgos = create<ArgosState>((set, get) => ({
     const data = res.data as { feed?: string; aircraft?: TrackedAircraftState[] } | undefined;
     if (!data) return;
     set({ aircraft: data.aircraft ?? [], aircraftFeed: data.feed ?? "" });
+  },
+
+  // --- capacité NRBC (ADR 0005) ---
+  ensureNrbcSubstances: async () => {
+    if (get().nrbcSubstances.length > 0) return;
+    const res = await api.getNrbcSubstances();
+    const data = res.data as { substances?: NrbcSubstance[] } | undefined;
+    if (data?.substances) set({ nrbcSubstances: data.substances });
+  },
+
+  showPlume: (incidentId) => {
+    set({ plumeIncidentId: incidentId, plumeData: null, plumeHour: 0 });
+    void get().loadPlume();
+  },
+
+  hidePlume: () => set({ plumeIncidentId: null, plumeData: null }),
+
+  setPlumeModels: (patch) => {
+    const models = { ...get().plumeModels, ...patch };
+    // Toujours au moins un référentiel actif : une couche vide serait lue
+    // comme « pas de danger », le contresens qu'on ne peut pas se permettre.
+    if (!models.atp45 && !models.erg) return;
+    set({ plumeModels: models });
+    void get().loadPlume();
+  },
+
+  setPlumeEnvelope: (v) => set({ plumeEnvelope: v }),
+
+  setPlumeHour: (h) => {
+    set({ plumeHour: Math.max(0, Math.min(6, h)) });
+    void get().loadPlume();
+  },
+
+  loadPlume: async () => {
+    const { plumeIncidentId, plumeModels, plumeHour } = get();
+    if (!plumeIncidentId) return;
+    const models = [plumeModels.atp45 ? "atp45" : null, plumeModels.erg ? "erg" : null].filter(Boolean).join(",");
+    set({ plumeBusy: true });
+    try {
+      const res = await api.getNrbcPlume(plumeIncidentId, models, plumeHour);
+      const data = res.data as unknown as NrbcPlume | undefined;
+      // Réponse d'une requête périmée (l'opérateur a déjà changé d'incident) : ignorée.
+      if (data && get().plumeIncidentId === data.incidentId) set({ plumeData: data });
+    } finally {
+      set({ plumeBusy: false });
+    }
   },
 
   /** Inscrit un aéronef. Retourne `false` et publie le motif si l'API refuse. */

@@ -8,7 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import { svgToLL, llToSvg, typeLabel } from "@/lib/helpers";
-import type { Province } from "@/lib/types";
+import type { NrbcFamily, Province } from "@/lib/types";
 import {
   useDraftProposal,
   TitleAssistButtons,
@@ -102,6 +102,18 @@ export function IncidentWizard() {
   const [selUnits, setSelUnits] = useState<string[]>([]);
   const [selHosps, setSelHosps] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  // Volet NRBC (section conditionnelle de l'étape 2, type « nrbc » uniquement).
+  const [nrbcFamily, setNrbcFamily] = useState<NrbcFamily | null>(null);
+  const [nrbcSubstance, setNrbcSubstance] = useState("");
+  const [nrbcSpill, setNrbcSpill] = useState<"small" | "large">("large");
+  const [nrbcRelease, setNrbcRelease] = useState<"instant" | "continuous">("instant");
+  const nrbcSubstances = useArgos((s) => s.nrbcSubstances);
+  const ensureNrbcSubstances = useArgos((s) => s.ensureNrbcSubstances);
+
+  // Le catalogue de substances n'est tiré que lorsqu'il devient nécessaire.
+  useEffect(() => {
+    if (open && type === "nrbc") void ensureNrbcSubstances();
+  }, [open, type, ensureNrbcSubstances]);
 
   const province = useMemo(() => provinces.find((p) => p.v === prov), [prov, provinces]);
   const selectedCity = useMemo(() => cities.find((c) => c.v === city), [city, cities]);
@@ -171,6 +183,10 @@ export function IncidentWizard() {
       setMissing(wizEdit.casualties ? String(wizEdit.casualties.missing) : "");
       setSelUnits(wizEdit.responders?.units ?? []);
       setSelHosps(wizEdit.responders?.hospitals ?? []);
+      setNrbcFamily(wizEdit.nrbc?.family ?? null);
+      setNrbcSubstance(wizEdit.nrbc?.substanceId ?? "");
+      setNrbcSpill(wizEdit.nrbc?.spill ?? "large");
+      setNrbcRelease(wizEdit.nrbc?.release ?? "instant");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, wizEdit]);
@@ -236,6 +252,7 @@ export function IncidentWizard() {
     setStep(1); setType(null); setTitle(""); setDesc(""); setFiles([]);
     setAdresse(""); setProv(""); setCity(""); setLat(""); setLng(""); setPt(null); setGeoErr(false);
     setDead(""); setInjured(""); setMissing(""); setSelUnits([]); setSelHosps([]);
+    setNrbcFamily(null); setNrbcSubstance(""); setNrbcSpill("large"); setNrbcRelease("instant");
   };
   const onClose = () => { reset(); close(); };
 
@@ -269,6 +286,17 @@ export function IncidentWizard() {
         ll: pt,
         casualties: hasCasualties ? { dead: d, injured: inj, missing: mis } : undefined,
         responders: hasResponders ? { units: selUnits, hospitals: selHosps } : undefined,
+        // Volet NRBC : uniquement pour le type dédié, avec une famille choisie.
+        // La substance et l'ampleur n'ont de sens que pour la famille chimique.
+        nrbc:
+          type === "nrbc" && nrbcFamily
+            ? {
+                family: nrbcFamily,
+                substanceId: nrbcFamily === "C" && nrbcSubstance ? nrbcSubstance : undefined,
+                spill: nrbcFamily === "C" ? nrbcSpill : undefined,
+                release: nrbcFamily === "C" ? nrbcRelease : undefined,
+              }
+            : undefined,
       };
       // Édition : PATCH (conserve gravité/statut). Sinon création (audité).
       if (wizEdit) {
@@ -424,6 +452,112 @@ export function IncidentWizard() {
                 placeholder={draft.proposal.desc || "Description de l'incident (2 lignes)…"}
               />
             </div>
+
+            {/* Volet NRBC — visible uniquement pour le type dédié. La famille
+                pilote le reste : substance/ampleur/rejet n'existent qu'en chimique. */}
+            {type === "nrbc" && (
+              <div className="rounded-xl border-2 border-or-500/30 bg-or-500/5 p-3">
+                <div className={sectionCls}>{t.nrbc_section}</div>
+                <label className={labelCls}>{t.nrbc_family}</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {(
+                    [
+                      ["N", t.nrbc_fam_n],
+                      ["R", t.nrbc_fam_r],
+                      ["B", t.nrbc_fam_b],
+                      ["C", t.nrbc_fam_c],
+                    ] as [NrbcFamily, string][]
+                  ).map(([fam, label]) => (
+                    <button
+                      key={fam}
+                      type="button"
+                      onClick={() => setNrbcFamily(fam)}
+                      className={`flex flex-col items-center rounded-lg border-2 px-2 py-2 text-xs font-semibold transition-colors ${
+                        nrbcFamily === fam
+                          ? "border-or-500 bg-or-500/10 text-or-500"
+                          : "border-gray-200 text-gray-500 hover:border-or-500/40 dark:border-rdia-600 dark:text-rdia-300"
+                      }`}
+                    >
+                      <span className="text-base font-bold">{fam}</span>
+                      <span className="text-center text-[10px] leading-tight">{label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {nrbcFamily === "C" && (
+                  <div className="mt-3 flex flex-col gap-3">
+                    <div>
+                      <label className={labelCls}>{t.nrbc_substance}</label>
+                      <select className={fieldCls} value={nrbcSubstance} onChange={(e) => setNrbcSubstance(e.target.value)}>
+                        <option value="">{t.nrbc_substance_none}</option>
+                        {nrbcSubstances.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.labels[lang]} — UN {s.un}
+                          </option>
+                        ))}
+                      </select>
+                      {(() => {
+                        const sel = nrbcSubstances.find((s) => s.id === nrbcSubstance);
+                        return sel && !sel.ergVerified ? (
+                          <p className="mt-1 text-[10px] font-semibold text-or-500">{t.nrbc_unverified}</p>
+                        ) : null;
+                      })()}
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className={labelCls}>{t.nrbc_spill}</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {(
+                            [
+                              ["small", t.nrbc_spill_small],
+                              ["large", t.nrbc_spill_large],
+                            ] as ["small" | "large", string][]
+                          ).map(([v, label]) => (
+                            <button
+                              key={v}
+                              type="button"
+                              onClick={() => setNrbcSpill(v)}
+                              className={`rounded-lg border-2 px-2 py-2 text-xs font-semibold transition-colors ${
+                                nrbcSpill === v
+                                  ? "border-or-500 bg-or-500/10 text-or-500"
+                                  : "border-gray-200 text-gray-500 hover:border-or-500/40 dark:border-rdia-600 dark:text-rdia-300"
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className={labelCls}>{t.nrbc_release}</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {(
+                            [
+                              ["instant", t.nrbc_release_instant],
+                              ["continuous", t.nrbc_release_continuous],
+                            ] as ["instant" | "continuous", string][]
+                          ).map(([v, label]) => (
+                            <button
+                              key={v}
+                              type="button"
+                              onClick={() => setNrbcRelease(v)}
+                              className={`rounded-lg border-2 px-2 py-2 text-xs font-semibold transition-colors ${
+                                nrbcRelease === v
+                                  ? "border-or-500 bg-or-500/10 text-or-500"
+                                  : "border-gray-200 text-gray-500 hover:border-or-500/40 dark:border-rdia-600 dark:text-rdia-300"
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div>
               <label className={labelCls}>{t.f_attach}</label>
               <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 p-5 text-gray-400 transition-colors hover:border-or-500/50 hover:text-or-500 dark:border-rdia-600 dark:text-rdia-400">

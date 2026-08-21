@@ -2537,6 +2537,75 @@
           "aviation"
         ]
       }
+    },
+    "/api/nrbc/substances": {
+      "get": {
+        "description": "Distances d'isolement initial et d'action de protection par substance. `ergVerified` distingue les valeurs relevées sur l'ERG 2024 de celles restant à confirmer — l'interface l'affiche.",
+        "operationId": "NrbcController_substances",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Catalogue des substances chimiques (table 1 de l'ERG 2024).",
+        "tags": [
+          "nrbc"
+        ]
+      }
+    },
+    "/api/nrbc/plume/{incidentId}": {
+      "get": {
+        "description": "Gabarits ATP-45 et/ou ERG 2024 orientés par la PRÉVISION de vent au point du rejet, à l'échéance H+0 … H+6. C'est une estimation de planification, pas une mesure : la réponse transporte l'heure du pas de vent utilisé, et les zones directionnelles sont omises quand la prévision est indisponible.",
+        "operationId": "NrbcController_plume",
+        "parameters": [
+          {
+            "name": "incidentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "models",
+            "required": false,
+            "in": "query",
+            "description": "Référentiels, séparés par des virgules (atp45,erg). Défaut : les deux.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hour",
+            "required": false,
+            "in": "query",
+            "description": "Échéance 0–6 (H+n). Défaut : 0.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Panache chimique estimé d'un incident NRBC (GeoJSON).",
+        "tags": [
+          "nrbc"
+        ]
+      }
     }
   },
   "info": {
@@ -2885,7 +2954,8 @@
               "workorders",
               "seismic",
               "audit",
-              "aviation"
+              "aviation",
+              "nrbc"
             ]
           },
           "enabled": {
@@ -3001,6 +3071,45 @@
           "hospitals"
         ]
       },
+      "NrbcDto": {
+        "type": "object",
+        "properties": {
+          "family": {
+            "type": "string",
+            "enum": [
+              "N",
+              "R",
+              "B",
+              "C"
+            ],
+            "description": "Famille de menace"
+          },
+          "substanceId": {
+            "type": "string",
+            "example": "chlorine",
+            "description": "Substance du catalogue /nrbc/substances (famille C)"
+          },
+          "spill": {
+            "type": "string",
+            "enum": [
+              "small",
+              "large"
+            ],
+            "description": "Ampleur ERG : petit (≤ 208 L) ou grand déversement"
+          },
+          "release": {
+            "type": "string",
+            "enum": [
+              "instant",
+              "continuous"
+            ],
+            "description": "Mode de rejet ATP-45 : instantané ou continu"
+          }
+        },
+        "required": [
+          "family"
+        ]
+      },
       "CreateIncidentDto": {
         "type": "object",
         "properties": {
@@ -3061,6 +3170,14 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/RespondersDto"
+              }
+            ]
+          },
+          "nrbc": {
+            "description": "Volet NRBC (incidents de type nrbc)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NrbcDto"
               }
             ]
           }
@@ -3128,6 +3245,9 @@
           },
           "responders": {
             "$ref": "#/components/schemas/RespondersDto"
+          },
+          "nrbc": {
+            "$ref": "#/components/schemas/NrbcDto"
           }
         }
       },

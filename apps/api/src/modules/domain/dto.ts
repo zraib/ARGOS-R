@@ -21,6 +21,29 @@ export class RespondersDto {
   @ApiProperty({ type: [String], example: ["H2"] }) @IsArray() @IsString({ each: true }) hospitals!: string[];
 }
 
+/** Volet NRBC d'un incident (famille, substance du catalogue, ampleur, rejet). */
+export class NrbcDto {
+  @ApiProperty({ enum: ["N", "R", "B", "C"], description: "Famille de menace" })
+  @IsIn(["N", "R", "B", "C"])
+  family!: "N" | "R" | "B" | "C";
+
+  @ApiPropertyOptional({ example: "chlorine", description: "Substance du catalogue /nrbc/substances (famille C)" })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  substanceId?: string;
+
+  @ApiPropertyOptional({ enum: ["small", "large"], description: "Ampleur ERG : petit (≤ 208 L) ou grand déversement" })
+  @IsOptional()
+  @IsIn(["small", "large"])
+  spill?: "small" | "large";
+
+  @ApiPropertyOptional({ enum: ["instant", "continuous"], description: "Mode de rejet ATP-45 : instantané ou continu" })
+  @IsOptional()
+  @IsIn(["instant", "continuous"])
+  release?: "instant" | "continuous";
+}
+
 /** Corps de création d'un incident (déclaré depuis le wizard frontend). */
 export class CreateIncidentDto {
   @ApiProperty({ example: "earthquake", description: "Identifiant d'un type du catalogue /incident-types (validé côté service)" })
@@ -77,6 +100,12 @@ export class CreateIncidentDto {
   @ValidateNested()
   @Type(() => RespondersDto)
   responders?: RespondersDto;
+
+  @ApiPropertyOptional({ type: NrbcDto, description: "Volet NRBC (incidents de type nrbc)" })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => NrbcDto)
+  nrbc?: NrbcDto;
 }
 
 /** Mise à jour partielle d'un incident (édition / archivage). */
@@ -99,6 +128,9 @@ export class UpdateIncidentDto {
   @ApiPropertyOptional({ type: RespondersDto })
   @IsOptional() @ValidateNested() @Type(() => RespondersDto)
   responders?: RespondersDto;
+  @ApiPropertyOptional({ type: NrbcDto })
+  @IsOptional() @ValidateNested() @Type(() => NrbcDto)
+  nrbc?: NrbcDto;
 }
 
 /** Rattachement d'un sous-incident (aléa secondaire) à un incident. */

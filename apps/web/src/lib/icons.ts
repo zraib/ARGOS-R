@@ -121,6 +121,8 @@ export const UI_ICONS = {
   plane: "M10.5 13.5L3 11.5v-1.6l7.5 1.1V6a1.5 1.5 0 0 1 3 0v5l7.5-1.1v1.6l-7.5 2v4.2l2 1.3v1.5L12 19.6l-3.5 .9V19l2-1.3v-4.2z",
   /** Légende : liste à puces. */
   legend: "M8.5 6h12 M8.5 12h12 M8.5 18h12 M3.5 6h.01 M3.5 12h.01 M3.5 18h.01",
+  /** NRBC : losange danger (placard matières dangereuses) + point d'exclamation. */
+  nrbc: "M12 2l10 10-10 10L2 12z M12 8v5 M12 16h.01",
   /** Menu mobile : trois barres, convention universelle du tiroir de navigation. */
   menu: "M4 7h16 M4 12h16 M4 17h16",
   logout: "M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4 M16 17l5-5-5-5 M21 12H9",

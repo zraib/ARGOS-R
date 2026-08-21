@@ -103,6 +103,14 @@ const QUAKE_HALO_R: maplibregl.DataDrivenPropertyValueSpecification<number> =
 const QUAKE_DOT_R: maplibregl.DataDrivenPropertyValueSpecification<number> =
   ["interpolate", ["linear"], ["get", "mag"], 2, 5, 5, 13, 7, 22];
 
+// Couleur des zones du panache NRBC par sévérité (partagée setupStyle / applyPlume).
+const PLUME_LEVEL_COLOR: maplibregl.ExpressionSpecification = [
+  "match", ["get", "level"],
+  "danger", "#EF4444",
+  "protection", "#F97316",
+  "#FACC15",
+];
+
 // --- carte météo : RASTER interpolé (style carte météo pro) + animation ------
 // La température est interpolée (IDW) depuis la grille API vers une vraie image
 // (source canvas MapLibre) → champ CONTINU comme une carte météo NWS, avec les
@@ -379,6 +387,11 @@ export function MapCanvas() {
   const mapCenterRequest = useArgos((s) => s.mapCenterRequest);
   const setMapCenter = useArgos((s) => s.setMapCenter);
   const quakeSelected = useArgos((s) => s.quakeSelected);
+  // Panache NRBC (ADR 0005) : données + style de combinaison des référentiels.
+  const plumeData = useArgos((s) => s.plumeData);
+  const plumeModels = useArgos((s) => s.plumeModels);
+  const plumeEnvelope = useArgos((s) => s.plumeEnvelope);
+  const plumeIncidentId = useArgos((s) => s.plumeIncidentId);
   const wxGrid = useArgos((s) => s.wxGrid);
   const wxWorld = useArgos((s) => s.wxWorld);
   const wxLayers = useArgos((s) => s.wxLayers);
@@ -716,6 +729,39 @@ export function MapCanvas() {
     syncCityVisibility();
   };
 
+  /**
+   * Applique l'état courant du panache NRBC : données, style de combinaison
+   * (référentiel primaire rempli, secondaires en contour tireté) et enveloppe
+   * prudente (tout rouge, remplissage intégral). Appelée par setupStyle (le
+   * changement de fond repose le style) et par l'effet plumeData/plumeModels.
+   */
+  const applyPlume = () => {
+    const map = mapRef.current;
+    if (!map) return;
+    const src = map.getSource("nrbc-plume") as maplibregl.GeoJSONSource | undefined;
+    if (!src || !map.getLayer("nrbc-plume-fill")) return;
+    const { plumeData, plumeModels, plumeEnvelope, plumeIncidentId } = useArgos.getState();
+    const empty = { type: "FeatureCollection" as const, features: [] };
+    src.setData(plumeIncidentId && plumeData ? (plumeData.fc as GeoJSON.FeatureCollection) : empty);
+    // Primaire = premier référentiel actif (ordre de l'ADR : ATP-45 puis ERG).
+    const primary = plumeModels.atp45 ? "atp45" : "erg";
+    if (plumeEnvelope) {
+      // Enveloppe prudente : directive de STYLE, pas d'union géométrique —
+      // toutes les zones remplies de la même teinte, plus de hiérarchie.
+      map.setPaintProperty("nrbc-plume-fill", "fill-color", "#EF4444");
+      map.setPaintProperty("nrbc-plume-line", "line-color", "#EF4444");
+      map.setFilter("nrbc-plume-fill", null);
+      map.setFilter("nrbc-plume-line", null);
+      map.setFilter("nrbc-plume-line-2", ["==", ["get", "model"], "__none__"]);
+    } else {
+      map.setPaintProperty("nrbc-plume-fill", "fill-color", PLUME_LEVEL_COLOR);
+      map.setPaintProperty("nrbc-plume-line", "line-color", PLUME_LEVEL_COLOR);
+      map.setFilter("nrbc-plume-fill", ["==", ["get", "model"], primary]);
+      map.setFilter("nrbc-plume-line", ["==", ["get", "model"], primary]);
+      map.setFilter("nrbc-plume-line-2", ["!=", ["get", "model"], primary]);
+    }
+  };
+
   /** Visibilité des étiquettes de villes : couche température + zoom (nationales ≥ 4). */
   const syncCityVisibility = () => {
     const on = useArgos.getState().wxLayers.temp;
@@ -982,6 +1028,34 @@ export function MapCanvas() {
           quakeBound.current = true;
         }
       }
+      // Panache NRBC (ADR 0005) : zones remplies + contours. Le référentiel
+      // « primaire » est rempli, les secondaires en contour tireté — l'effet
+      // d'alimentation (plumeData) pilote données, filtres et opacités.
+      if (!map.getSource("nrbc-plume")) {
+        map.addSource("nrbc-plume", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addLayer({
+          id: "nrbc-plume-fill",
+          type: "fill",
+          source: "nrbc-plume",
+          paint: { "fill-color": PLUME_LEVEL_COLOR, "fill-opacity": 0.25 },
+        });
+        map.addLayer({
+          id: "nrbc-plume-line",
+          type: "line",
+          source: "nrbc-plume",
+          paint: { "line-color": PLUME_LEVEL_COLOR, "line-width": 1.5, "line-opacity": 0.9 },
+        });
+        // Référentiels secondaires : contour tireté, sans remplissage (le
+        // dasharray ne pouvant pas être piloté par feature, couche séparée).
+        map.addLayer({
+          id: "nrbc-plume-line-2",
+          type: "line",
+          source: "nrbc-plume",
+          filter: ["==", ["get", "model"], "__none__"],
+          paint: { "line-color": PLUME_LEVEL_COLOR, "line-width": 2, "line-dasharray": [2, 2], "line-opacity": 0.9 },
+        });
+        applyPlume(); // un panache déjà actif survit au changement de fond de carte
+      }
       const st = useArgos.getState();
       map.setLayoutProperty("routes-line", "visibility", st.layers.vehicles ? "visible" : "none");
       applyBase(st.mapSat);
@@ -1190,6 +1264,12 @@ export function MapCanvas() {
     if (map.getLayer("quakes-circle")) map.setLayoutProperty("quakes-circle", "visibility", vis);
     if (map.getLayer("quakes-pulse")) map.setLayoutProperty("quakes-pulse", "visibility", vis);
   }, [quakes, quakesOn]);
+
+  // --- panache NRBC : données + style au fil des choix de l'opérateur ---
+  useEffect(() => {
+    if (readyRef.current) applyPlume();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plumeData, plumeModels, plumeEnvelope, plumeIncidentId]);
 
   // --- grille NATIONALE dense chargée : séries par pas + villes + rendu ---
   useEffect(() => {

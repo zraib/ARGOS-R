@@ -5,6 +5,7 @@ import { EQUIPMENT, ORSEC_BOARD, SHELTERS, type EquipItem } from "@/modules/doma
 import { HOSPITALS_MA, type HospitalKind } from "@/modules/domain/hospitals.data";
 import { checkRecordUpdate } from "@/modules/domain/dvi.rules";
 import { loadDevState, saveDevState } from "@/common/dev-store";
+import type { NrbcDetails } from "@/modules/nrbc/nrbc.types";
 
 // ============================================================================
 // ARGOS — données de domaine (Phase 2, in-memory)
@@ -33,6 +34,8 @@ export interface Incident {
   responders?: { units: string[]; hospitals: string[] };
   /** Sous-incidents (aléas secondaires rattachés après la déclaration). */
   subIncidents?: SubIncident[];
+  /** Volet NRBC (famille, substance, ampleur) — incidents de type `nrbc`. */
+  nrbc?: NrbcDetails;
   /** Incident archivé (masqué de la liste active). */
   archived?: boolean;
 }

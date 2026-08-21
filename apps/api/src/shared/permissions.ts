@@ -64,6 +64,7 @@ export const LEGACY_FEATURES = [
   "seismic",    // Sismologie / météo
   "audit",      // Journal d'audit
   "aviation",   // Suivi aérien (feux de forêt) — absent de la matrice, à arbitrer
+  "nrbc",       // Capacité NRBC (panache chimique) — absent de la matrice, à arbitrer
 ] as const;
 
 export const FEATURES = [...MATRIX_FEATURES, ...LEGACY_FEATURES] as const;
@@ -103,6 +104,7 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   seismic: "Sismologie & météo",
   audit: "Journal d'audit",
   aviation: "Suivi aérien",
+  nrbc: "NRBC",
 };
 
 export type Permission = `${Feature}:${Action}`;
@@ -275,6 +277,14 @@ const LEGACY: Record<(typeof LEGACY_FEATURES)[number], Partial<Record<Role, Cell
   // opératif et tactique ; les cellules et l'état-major observent. Dotation
   // provisoire, à confirmer lors de l'arbitrage de la matrice.
   aviation: {
+    admin: ALL, opcom: AMV, tacom: AMV,
+    strategic: V, place_arme: V, wali: V, bluecell: V, greencell: V, orangecell: V,
+  },
+  // NRBC : même logique que l'aviation — la conduite (déclarer la substance,
+  // choisir le référentiel du panache) revient au commandement opératif et
+  // tactique ; l'état-major et les cellules consultent. Dotation provisoire,
+  // à confirmer lors de l'arbitrage de la matrice.
+  nrbc: {
     admin: ALL, opcom: AMV, tacom: AMV,
     strategic: V, place_arme: V, wali: V, bluecell: V, greencell: V, orangecell: V,
   },

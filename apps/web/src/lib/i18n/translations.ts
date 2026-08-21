@@ -304,5 +304,43 @@ export interface Dict {
   dash_closed: string;
   dash_hosp: string;
   dash_expand: string;
+  // --- capacité NRBC : wizard, fiche incident, panneau panache (ADR 0005) ---
+  nrbc_section: string;
+  nrbc_family: string;
+  nrbc_fam_n: string;
+  nrbc_fam_r: string;
+  nrbc_fam_b: string;
+  nrbc_fam_c: string;
+  nrbc_substance: string;
+  nrbc_substance_none: string;
+  nrbc_spill: string;
+  nrbc_spill_small: string;
+  nrbc_spill_large: string;
+  nrbc_release: string;
+  nrbc_release_instant: string;
+  nrbc_release_continuous: string;
+  nrbc_title: string;
+  nrbc_un: string;
+  nrbc_guide: string;
+  nrbc_iso: string;
+  nrbc_protect_day: string;
+  nrbc_protect_night: string;
+  nrbc_see_plume: string;
+  nrbc_unverified: string;
+  nrbc_panel: string;
+  nrbc_models: string;
+  nrbc_model_atp45: string;
+  nrbc_model_erg: string;
+  nrbc_envelope: string;
+  nrbc_hour: string;
+  nrbc_estimate: string;
+  nrbc_wind: string;
+  nrbc_wind_na: string;
+  nrbc_no_substance: string;
+  nrbc_lvl_danger: string;
+  nrbc_lvl_protection: string;
+  nrbc_lvl_vigilance: string;
+  nrbc_day: string;
+  nrbc_night: string;
 }
 

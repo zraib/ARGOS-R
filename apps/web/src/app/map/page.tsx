@@ -215,9 +215,28 @@ export default function MapPage() {
   /**
    * Panneau ouvert dans le trio de gauche (≥ lg) : couches, suivi aérien ou
    * légende — un seul à la fois, fermé par défaut. Les boutons répliquent le
-   * style des contrôles natifs MapLibre (blanc, 44 px, rayon 12).
+   * style des contrôles natifs MapLibre (blanc, 44 px, rayon 12). Le bouton
+   * « nrbc » ne rejoint la pile que lorsqu'un panache est actif.
    */
-  const [openPanel, setOpenPanel] = useState<"layers" | "air" | "legend" | null>(null);
+  const [openPanel, setOpenPanel] = useState<"layers" | "air" | "legend" | "nrbc" | null>(null);
+
+  // --- panache NRBC (ADR 0005) ---
+  const plumeIncidentId = useArgos((s) => s.plumeIncidentId);
+  const plumeData = useArgos((s) => s.plumeData);
+  const plumeModels = useArgos((s) => s.plumeModels);
+  const plumeEnvelope = useArgos((s) => s.plumeEnvelope);
+  const plumeHour = useArgos((s) => s.plumeHour);
+  const plumeBusy = useArgos((s) => s.plumeBusy);
+  const setPlumeModels = useArgos((s) => s.setPlumeModels);
+  const setPlumeEnvelope = useArgos((s) => s.setPlumeEnvelope);
+  const setPlumeHour = useArgos((s) => s.setPlumeHour);
+  const hidePlume = useArgos((s) => s.hidePlume);
+
+  // L'opérateur arrive depuis « Voir le panache » : le panneau s'ouvre seul
+  // (et se referme si la couche est éteinte pendant qu'il est affiché).
+  useEffect(() => {
+    setOpenPanel((o) => (plumeIncidentId ? "nrbc" : o === "nrbc" ? null : o));
+  }, [plumeIncidentId]);
 
   // Échap quitte le plein écran.
   useEffect(() => {
@@ -417,6 +436,109 @@ export default function MapPage() {
     </div>
   );
 
+  /**
+   * Panneau du panache NRBC : choix des référentiels (combinables), enveloppe
+   * prudente, échéance H+0…H+6 et méta du vent. Le bandeau « Estimation — pas
+   * une mesure » est permanent (doctrine d'honnêteté) : un gabarit de
+   * planification n'est jamais présenté comme une observation.
+   */
+  const nrbcBody = plumeIncidentId && (
+    <div className="flex flex-col gap-3 text-[14px] text-white/80">
+      <div className="rounded-lg bg-or-500/20 px-2.5 py-1.5 text-[12px] font-bold uppercase tracking-wider text-or-300">
+        {t.nrbc_estimate}
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate font-semibold text-white">{plumeIncidentId}</span>
+        {plumeData?.substance && (
+          <span className="shrink-0 text-[12px] text-white/60">
+            {plumeData.substance.labels[lang]} · UN {plumeData.substance.un}
+          </span>
+        )}
+      </div>
+      {plumeData?.substance && !plumeData.substance.ergVerified && (
+        <div className="text-[11px] font-semibold text-or-300">{t.nrbc_unverified}</div>
+      )}
+
+      <div>
+        <div className="mb-1.5 text-[12px] font-bold uppercase tracking-wider text-white/50">{t.nrbc_models}</div>
+        <div className="flex flex-col gap-1.5">
+          <button className="flex min-h-11 items-center justify-between gap-2 lg:min-h-0" onClick={() => setPlumeModels({ atp45: !plumeModels.atp45 })}>
+            <span>{t.nrbc_model_atp45}</span>
+            <Switch on={plumeModels.atp45} />
+          </button>
+          <button
+            className="flex min-h-11 items-center justify-between gap-2 disabled:opacity-40 lg:min-h-0"
+            disabled={plumeData !== null && plumeData.substance === null}
+            title={plumeData && plumeData.substance === null ? t.nrbc_no_substance : undefined}
+            onClick={() => setPlumeModels({ erg: !plumeModels.erg })}
+          >
+            <span>{t.nrbc_model_erg}</span>
+            <Switch on={plumeModels.erg} />
+          </button>
+          <button className="flex min-h-11 items-center justify-between gap-2 lg:min-h-0" onClick={() => setPlumeEnvelope(!plumeEnvelope)}>
+            <span>{t.nrbc_envelope}</span>
+            <Switch on={plumeEnvelope} />
+          </button>
+        </div>
+        {plumeData && plumeData.substance === null && (
+          <div className="mt-1.5 text-[11px] text-white/50">{t.nrbc_no_substance}</div>
+        )}
+      </div>
+
+      <div>
+        <div className="mb-1 flex items-center justify-between">
+          <span className="text-[12px] font-bold uppercase tracking-wider text-white/50">{t.nrbc_hour}</span>
+          <span className="font-mono text-[13px] font-bold text-or-300">H+{plumeHour}{plumeBusy ? "…" : ""}</span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={6}
+          step={1}
+          value={plumeHour}
+          onChange={(e) => setPlumeHour(Number(e.target.value))}
+          className="w-full accent-or-500"
+          aria-label={t.nrbc_hour}
+        />
+      </div>
+
+      {plumeData &&
+        (plumeData.wind ? (
+          <div className="flex items-center gap-2 rounded-lg bg-white/5 px-2.5 py-2 text-[13px]">
+            {/* La flèche pointe VERS où va le vent (direction météo + 180°). */}
+            <svg width={16} height={16} viewBox="0 0 24 24" className="shrink-0 text-or-300" style={{ transform: `rotate(${(plumeData.wind.fromDeg + 180) % 360}deg)` }}>
+              <path d="M12 3v18 M6 9l6-6 6 6" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="min-w-0 flex-1">
+              {t.nrbc_wind} {plumeData.wind.speedKmh} km/h · {plumeData.wind.fromDeg}° · {plumeData.wind.isDay ? t.nrbc_day : t.nrbc_night}
+            </span>
+            <span className="shrink-0 font-mono text-[11px] text-white/45">{plumeData.wind.time.slice(11, 16)} UTC</span>
+          </div>
+        ) : (
+          <div className="rounded-lg bg-white/5 px-2.5 py-2 text-[12px] text-white/60">{t.nrbc_wind_na}</div>
+        ))}
+
+      <div className="flex flex-col gap-1.5 border-t border-white/12 pt-2">
+        {(
+          [
+            ["#EF4444", t.nrbc_lvl_danger],
+            ["#F97316", t.nrbc_lvl_protection],
+            ["#FACC15", t.nrbc_lvl_vigilance],
+          ] as const
+        ).map(([color, label]) => (
+          <div key={label} className="flex items-center gap-2 text-[13px]">
+            <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: color, opacity: 0.75 }} />
+            <span>{label}</span>
+          </div>
+        ))}
+      </div>
+
+      <button className="btn-secondaire min-h-11 w-full text-[14px] lg:min-h-0" onClick={hidePlume}>
+        {t.flt_clear}
+      </button>
+    </div>
+  );
+
   const selectionBody = selInfo && (
     <div className="flex flex-col gap-2">
       <div className="text-[14px] text-white/60">{selInfo.sub}</div>
@@ -472,6 +594,8 @@ export default function MapPage() {
                 { key: "layers" as const, icon: UI_ICONS.layers, label: t.layers },
                 { key: "air" as const, icon: UI_ICONS.plane, label: t.acft_panel },
                 { key: "legend" as const, icon: UI_ICONS.legend, label: t.legend },
+                // Le bouton NRBC n'existe que lorsqu'un panache est actif.
+                ...(plumeIncidentId ? [{ key: "nrbc" as const, icon: UI_ICONS.nrbc, label: t.nrbc_panel }] : []),
               ]
             ).map((b) => (
               <button
@@ -494,12 +618,12 @@ export default function MapPage() {
             <div key={openPanel} className="anim-bulle panneau-sombre pointer-events-auto w-[300px] overflow-hidden rounded-xl shadow-lg" style={GLASS}>
               <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
                 <Icon
-                  path={openPanel === "layers" ? UI_ICONS.layers : openPanel === "air" ? UI_ICONS.plane : UI_ICONS.legend}
+                  path={openPanel === "layers" ? UI_ICONS.layers : openPanel === "air" ? UI_ICONS.plane : openPanel === "nrbc" ? UI_ICONS.nrbc : UI_ICONS.legend}
                   size={14}
                   className="shrink-0 text-or-400"
                 />
                 <span className="min-w-0 flex-1 truncate text-[13px] font-bold uppercase tracking-wider text-white/85">
-                  {openPanel === "layers" ? t.layers : openPanel === "air" ? t.acft_panel : t.legend}
+                  {openPanel === "layers" ? t.layers : openPanel === "air" ? t.acft_panel : openPanel === "nrbc" ? t.nrbc_panel : t.legend}
                 </span>
                 <button
                   onClick={() => setOpenPanel(null)}
@@ -510,11 +634,29 @@ export default function MapPage() {
                 </button>
               </div>
               <div className="max-h-[62vh] overflow-y-auto px-3 pb-3 pt-2">
-                {openPanel === "layers" ? layersBody : openPanel === "air" ? <AircraftPanel /> : legendBody}
+                {openPanel === "layers" ? layersBody : openPanel === "air" ? <AircraftPanel /> : openPanel === "nrbc" ? nrbcBody : legendBody}
               </div>
             </div>
           )}
         </div>
+
+        {/* Panache actif sous lg : la feuille ne porte pas (encore) ses réglages,
+            mais le bandeau d'honnêteté et l'extinction restent accessibles. */}
+        {plumeIncidentId && (
+          <div className="pointer-events-auto absolute inset-x-3 top-16 z-30 flex items-center gap-2 rounded-xl px-3 py-2 shadow-lg lg:hidden" style={GLASS}>
+            <Icon path={UI_ICONS.nrbc} size={16} className="shrink-0 text-or-400" />
+            <span className="min-w-0 flex-1 truncate text-[12px] font-bold uppercase tracking-wider text-or-300">
+              {t.nrbc_estimate}
+            </span>
+            <button
+              onClick={hidePlume}
+              aria-label={t.flt_clear}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[16px] leading-none text-white/60 transition-colors hover:text-or-400"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         {/* Colonne droite : contrôles de carte (toutes tailles) + sélection (≥ lg) */}
         <div className="absolute top-3 flex max-w-[calc(100%-1.5rem)] flex-col items-end gap-2 lg:w-[300px]" style={{ insetInlineEnd: 12 }}>

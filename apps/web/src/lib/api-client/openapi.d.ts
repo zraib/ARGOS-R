@@ -1217,6 +1217,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/nrbc/substances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Catalogue des substances chimiques (table 1 de l'ERG 2024).
+         * @description Distances d'isolement initial et d'action de protection par substance. `ergVerified` distingue les valeurs relevées sur l'ERG 2024 de celles restant à confirmer — l'interface l'affiche.
+         */
+        get: operations["NrbcController_substances"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/nrbc/plume/{incidentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Panache chimique estimé d'un incident NRBC (GeoJSON).
+         * @description Gabarits ATP-45 et/ou ERG 2024 orientés par la PRÉVISION de vent au point du rejet, à l'échéance H+0 … H+6. C'est une estimation de planification, pas une mesure : la réponse transporte l'heure du pas de vent utilisé, et les zones directionnelles sont omises quand la prévision est indisponible.
+         */
+        get: operations["NrbcController_plume"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1329,7 +1369,7 @@ export interface components {
         };
         ToggleRoleFeatureDto: {
             /** @enum {string} */
-            feature: "dashboard" | "dash_incident" | "dash_hospital" | "dash_shelter" | "dash_morgue" | "dash_unit" | "map" | "incidents" | "subincidents" | "hospinet" | "shelters" | "morgue" | "units" | "equipment" | "teams" | "comms" | "reports" | "analytics" | "assistant" | "users" | "settings" | "dispatch" | "triage" | "ics" | "damage" | "orsec" | "plans" | "personnel" | "workorders" | "seismic" | "audit" | "aviation";
+            feature: "dashboard" | "dash_incident" | "dash_hospital" | "dash_shelter" | "dash_morgue" | "dash_unit" | "map" | "incidents" | "subincidents" | "hospinet" | "shelters" | "morgue" | "units" | "equipment" | "teams" | "comms" | "reports" | "analytics" | "assistant" | "users" | "settings" | "dispatch" | "triage" | "ics" | "damage" | "orsec" | "plans" | "personnel" | "workorders" | "seismic" | "audit" | "aviation" | "nrbc";
             enabled: boolean;
         };
         ToggleFlagDto: {
@@ -1373,6 +1413,28 @@ export interface components {
              */
             hospitals: string[];
         };
+        NrbcDto: {
+            /**
+             * @description Famille de menace
+             * @enum {string}
+             */
+            family: "N" | "R" | "B" | "C";
+            /**
+             * @description Substance du catalogue /nrbc/substances (famille C)
+             * @example chlorine
+             */
+            substanceId?: string;
+            /**
+             * @description Ampleur ERG : petit (≤ 208 L) ou grand déversement
+             * @enum {string}
+             */
+            spill?: "small" | "large";
+            /**
+             * @description Mode de rejet ATP-45 : instantané ou continu
+             * @enum {string}
+             */
+            release?: "instant" | "continuous";
+        };
         CreateIncidentDto: {
             /**
              * @description Identifiant d'un type du catalogue /incident-types (validé côté service)
@@ -1395,6 +1457,8 @@ export interface components {
             casualties?: components["schemas"]["CasualtiesDto"];
             /** @description Premiers intervenants (IDs d'unités et d'hôpitaux) */
             responders?: components["schemas"]["RespondersDto"];
+            /** @description Volet NRBC (incidents de type nrbc) */
+            nrbc?: components["schemas"]["NrbcDto"];
         };
         UpdateIncidentDto: {
             titre?: string;
@@ -1412,6 +1476,7 @@ export interface components {
             ll?: number[];
             casualties?: components["schemas"]["CasualtiesDto"];
             responders?: components["schemas"]["RespondersDto"];
+            nrbc?: components["schemas"]["NrbcDto"];
         };
         CreateSubIncidentDto: {
             /**
@@ -3466,6 +3531,47 @@ export interface operations {
         requestBody?: never;
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    NrbcController_substances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    NrbcController_plume: {
+        parameters: {
+            query?: {
+                /** @description Référentiels, séparés par des virgules (atp45,erg). Défaut : les deux. */
+                models?: string;
+                /** @description Échéance 0–6 (H+n). Défaut : 0. */
+                hour?: string;
+            };
+            header?: never;
+            path: {
+                incidentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -105,6 +105,8 @@ const TTL_MS = 600_000; // 10 min
 export class WeatherService {
   private readonly logger = new Logger(WeatherService.name);
   private readonly cache = new Map<string, { at: number; data: WeatherForecast }>();
+  /** Séries horaires par point (panache NRBC) — même TTL que les prévisions. */
+  private readonly pointCache = new Map<string, { at: number; data: WeatherGridPointSeries & { times: string[] } }>();
   private gridAt = 0;
   private gridData: WeatherGridSeries | null = null;
   private gridWorldAt = 0;
@@ -246,6 +248,29 @@ export class WeatherService {
       this.logger.warn(`Open-Meteo (grille) injoignable : ${(e as Error).message}`);
       this.gridCoolUntil = Date.now() + 60_000;
       return this.gridData ?? { times: [], points: [] }; // dernier cache, sinon vide
+    }
+  }
+
+  /**
+   * Série HORAIRE (7 j) en un point arbitraire — l'entrée vent du panache NRBC
+   * (le point d'un incident ne tombe presque jamais sur la grille). Une seule
+   * localisation par appel, cache 10 min par point arrondi ; en cas d'échec
+   * Open-Meteo, dernier état connu, sinon `null` (le panache dégrade alors en
+   * zones non directionnelles plutôt que d'inventer un vent).
+   */
+  async pointSeries(lat: number, lon: number): Promise<WeatherGridPointSeries & { times: string[] } | null> {
+    const key = `pt:${lat.toFixed(2)},${lon.toFixed(2)}`;
+    const hit = this.pointCache.get(key);
+    if (hit && Date.now() - hit.at < TTL_MS) return hit.data;
+    try {
+      const { times, points } = await this.fetchHourlySeries([[lat, lon]]);
+      if (points.length === 0 || times.length === 0) throw new Error("série vide");
+      const data = { ...points[0], times };
+      this.pointCache.set(key, { at: Date.now(), data });
+      return data;
+    } catch (e) {
+      this.logger.warn(`Open-Meteo (point ${key}) injoignable : ${(e as Error).message}`);
+      return hit?.data ?? null;
     }
   }
 

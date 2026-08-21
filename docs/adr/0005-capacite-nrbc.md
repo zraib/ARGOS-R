@@ -1,6 +1,7 @@
 # ADR 0005 — Capacité NRBC : déclaration outillée et panache chimique sur carte
 
-- **Statut : PROPOSÉ — en attente de validation utilisateur (aucun code écrit)**
+- **Statut : ACCEPTÉ — phases 1 à 3 implémentées et vérifiées (2026-08-21) ;
+  phase 4 (Gauss) non engagée, derrière le même port**
 - **Date :** 2026-08-21
 - **Portée :** `apps/api` (module `nrbc`), assistant de déclaration d'incident,
   fiche incident, carte opérationnelle, `/parametres`
@@ -172,3 +173,36 @@ déterminisme et bornes, comme risk.engine — et vérification navigateur).
 - ATP-45, OTAN — Warning and Reporting and Hazard Prediction of CBRN Incidents
 - ERG 2024, PHMSA/DOT — tables des distances d'isolement et de protection
 - ALOHA (NOAA/EPA) — documentation technique du modèle gaussien
+
+## Note d'implémentation (2026-08-21, phases 1-3)
+
+Réalisé conformément au plan, avec les précisions suivantes :
+
+- **Module API** `apps/api/src/modules/nrbc/` sur le patron hexagonal de
+  l'ADR-0004 : port `SubstanceCatalog` + adaptateur in-memory (11 substances,
+  chlore et ammoniac relevés sur CAMEO/NOAA → `ergVerified: true`, les autres
+  `false` et l'interface l'affiche), moteurs purs `plume/plume.engine.ts`
+  (géométrie sphérique, gabarits ATP-45 et ERG), 10 tests (seuil 10 km/h,
+  jour/nuit, orientation sous le vent, fermeture des anneaux, déterminisme).
+- **Endpoints** : `GET /nrbc/substances` et `GET /nrbc/plume/:incidentId`
+  (`models=atp45,erg`, `hour=0..6`) → FeatureCollection GeoJSON directement
+  consommable par la source MapLibre, + méta (vent du pas horaire, jour/nuit,
+  heure UTC). Permission `nrbc` (table LEGACY, dotation calquée sur l'aviation).
+- **Vent** : `WeatherService.pointSeries(lat, lon)` — série horaire 7 j au
+  point exact de l'incident (cache 10 min) ; sans prévision, les zones
+  directionnelles sont **omises** plutôt qu'inventées.
+- **Wizard** : section conditionnelle à l'étape 2 (famille N/R/B/C ; substance,
+  ampleur, mode de rejet pour la famille C) — pas d'étape nouvelle.
+- **Carte** : source `nrbc-plume` + 3 couches (remplissage du référentiel
+  primaire, contours, contours tiretés des secondaires) ; panneau dans le trio
+  natif (4e bouton n'existant que panache actif, auto-ouvert à l'arrivée) ;
+  bandeau « Estimation — pas une mesure » permanent, y compris sous `lg`.
+- **Écarts assumés** : ATP-45 vent faible rend le cercle 10 km en niveau
+  `vigilance` (pas `protection`) — sémantiquement plus juste ; jour/nuit tranché
+  par l'heure locale approchée UTC+1 (documenté dans `nrbc.service.ts`) ;
+  l'enveloppe prudente est une directive de style (teinte unique), pas une
+  union géométrique.
+- **Vérifié** : 106/106 tests API, typecheck web+API, RBAC (403 hors dotation),
+  et navigateur — panache chlore INC-2613 à Casablanca orienté sous le vent
+  réel (11 km/h du 354° → extension plein sud), évolution H+3 (16 km/h du 347°),
+  enveloppe, wizard et fiche.

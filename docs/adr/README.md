@@ -10,7 +10,7 @@ dépendance runtime.
 | [0002](0002-flux-externes-sismologie-meteo.md) | Flux externes : sismologie (EMSC) et météo (Open-Meteo) | accepté | `apps/api` modules `seismic`/`weather`, pages `/seismologie`, `/meteo` |
 | [0003](0003-module-orders-architecture-hexagonale.md) | Module `orders` : architecture hexagonale et inversion des dépendances | accepté | `apps/api/src/modules/orders`, schéma `work_orders`, permissions `workorders:*` |
 | [0004](0004-suivi-aerien-ads-b.md) | Suivi aérien : flux ADS-B filtré sur liste de suivi | accepté | `apps/api/src/modules/aviation`, carte `/map`, permissions `aviation:*` |
-| [0005](0005-capacite-nrbc.md) | Capacité NRBC : déclaration outillée et panache chimique sur carte | **proposé** | wizard incident, module `nrbc`, carte, `/parametres` |
+| [0005](0005-capacite-nrbc.md) | Capacité NRBC : déclaration outillée et panache chimique sur carte | **accepté** (phases 1-3) | wizard incident, module `nrbc`, carte, `/parametres` |
 
 ## Écrire un ADR
 
