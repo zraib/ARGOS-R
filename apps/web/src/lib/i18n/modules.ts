@@ -249,6 +249,7 @@ export interface ModulesDict {
     sim_reset: string;
     sim_active: string;
     weights_title: string;
+    weights_eta_unit: string;
   };
   ai: {
     subtitle: string;

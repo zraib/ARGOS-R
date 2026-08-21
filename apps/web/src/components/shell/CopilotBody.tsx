@@ -1309,7 +1309,9 @@ function BlockTable({
         {title}
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-xs">{children}</table>
+        <table className="w-full border-collapse text-xs">
+          {children}
+        </table>
       </div>
     </div>
   );

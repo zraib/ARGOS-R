@@ -185,46 +185,70 @@ const f3Hospitals = (inc: Incident, hospitals: Hospital[]): EvolutionFactor => {
 };
 
 // ========================================================================
-// F4 · Déploiement unités (poids 0.10) — readiness moyenne pondérée
+// F4 · Déploiement unités (poids 0.1087)
+// RÈGLE MÉTIER CONTRAIGNANTE (UX) — RESPECT OBLIGATOIRE :
+//   1. AUCUNE unité explicitement affectée (responders.units vide) → F4 = 100 %
+//      (on ne suppose JAMAIS de moyens locaux non déclarés — pire cas.)
+//   2. À chaque unité ajoutée → F4 DIMINUE strictement (fonction monotone ↓)
+//   3. Besoin = f(gravité) : LOW=2 / MEDIUM=4 / HIGH=6
+//   4. Suréquipement (>besoin) → F4 tend vers plancher 5 % (jamais 0 — marge de sécurité)
 // ========================================================================
+const UNIT_NEED: Record<Severity, number> = { high: 6, medium: 4, low: 2 };
+const PLANNER_FLOOR = 0.05;
+
 const f4Units = (inc: Incident, units: Unit[]): EvolutionFactor => {
   const selIds = inc.responders?.units ?? [];
   const sel = selIds.map((id) => units.find((u) => u.id === id)).filter(Boolean) as Unit[];
   const count = sel.length;
+  const need = UNIT_NEED[inc.sev] ?? 4;
+  let raw = 1; // = 100 % par défaut (pire cas : aucune unité)
+  const w = F_WEIGHTS[3];
+
   if (count === 0) {
-    const w = F_WEIGHTS[3];
-    // Pas d'unités déployées = risque moyen (manque de moyens)
+    // Règle n°1 : aucune unité déclarée → 100%
     return {
       label: F_LABELS[3],
       weight: w,
       sources: F_SOURCES[3],
-      rawValue: "aucune unité",
-      rawScore: 0.4,
-      weightedScore: clamp100(0.4 * w * 100),
+      rawValue: "aucune unité déclarée",
+      rawScore: 1,
+      weightedScore: clamp100(1 * w * 100),
     };
   }
+
+  // Règle n°2 : pondération qualité (readiness + distance + effectif)
+  //   meilleure unité = readiness 100% + distance<30km + eff>=120 → score QUALITÉ max = 1.0
+  //   F4 = (1 − qualité × coverage) amorti avec PLANNER_FLOOR
+  //   coverage = min(1, count / need)
+  //   Plus count est haut, plus coverage → plus F4 ↓ (monotone)
+  const coverage = Math.min(1, count / need);
+  let bestQuality = 0;
   let totalEff = 0;
-  let weightScore = 0;
   for (const u of sel) {
     totalEff += safeNum(u.eff);
     const readiness = clamp01(safeNum(u.readiness) / 100);
-    // readiness faible = facteur haut (risque)
-    const local = 1 - readiness;
     const km = haversineKm(inc.ll, u.ll);
-    const distFactor = clamp01(km / 120); // >120km = moins disponible
+    const distFactor = 1 - clamp01(km / 120); // 0km=1, 120km+=0
     const effNorm = clamp01(safeNum(u.eff) / 120);
-    const contribution = local * (0.5 + 0.3 * distFactor + 0.2 * (1 - effNorm));
-    weightScore = Math.max(weightScore, contribution);
+    // Qualité locale : 50% readiness + 30% proximité + 20% effectif
+    const localQ = 0.5 * readiness + 0.3 * distFactor + 0.2 * effNorm;
+    bestQuality = Math.max(bestQuality, localQ);
   }
-  const raw = clamp01(weightScore);
-  const w = F_WEIGHTS[3];
+  // Si surplus d'unités (count > need) → bonus de réduction proportionnel
+  const surplusBonus = count > need ? Math.min(0.35, (count - need) * 0.1) : 0;
+  const coverageFinal = Math.min(1, coverage + surplusBonus);
+  const reduction = bestQuality * coverageFinal;
+  raw = clamp01(1 - reduction);
+  // Règle n°4 : plancher 5 % (jamais 0)
+  raw = Math.max(PLANNER_FLOOR, raw);
+
   return {
     label: F_LABELS[3],
     weight: w,
     sources: F_SOURCES[3],
-    rawValue: `${count} unités · ~${totalEff} pers.`,
-    rawScore: raw,
-    weightedScore: clamp100(raw * w * 100),
+    rawValue: `${count}/${need} unités · ~${totalEff} pers.`,
+    rawScore: clamp01(raw),
+    weightedScore: clamp100(clamp01(raw) * w * 100),
   };
 };
 
@@ -502,24 +526,87 @@ export function predictIncidentEvolution(ctx: IncidentEvolutionCtx): IncidentEvo
   else if (level === "modere") scenario = `Risque modéré, surveillance renforcée · pilotes : ${topDrivers.join(" · ")}`;
   else scenario = `Risque faible, stabilisation probable · pilotes : ${topDrivers.join(" · ")}`;
 
-  // --- 3 actions recommandées (1 immédiate, 2 conseils) — phrases COMPLÈTES, finies, compréhensibles sans contexte. ---
-  const a1 = level === "critique"
-            ? "Déclencher immédiatement un renfort des moyens humains et matériels sur la zone d'intervention."
-            : level === "eleve"
-            ? "Anticiper un pré-positionnement de renforts opérationnels à proximité immédiate de l'incident."
-            : level === "modere"
-            ? "Maintenir une surveillance régulière et un reporting cadencé sur l'évolution de la situation."
-            : "Conserver les moyens actuellement engagés et suivre la tendance d'amélioration en cours.";
-  const a2 = nearbyHospitalsCount === 0
-            ? "Identifier un hôpital de référence accessible et préparer le plan d'évacuation des victimes."
-            : deployedUnits === 0
-            ? "Déclencher un premier déploiement d'une unité de secours pour évaluer et sécuriser la zone."
-            : "Contrôler en temps réel la saturation réelle des structures sanitaires et des services de réanimation proches.";
-  const a3 = (f7.weightedScore > 8 || f8.weightedScore > 6)
-            ? "Prendre en compte les signaux météorologiques et sismiques pour planifier les rotations des équipes et l'évacuation."
-            : f6.weightedScore > 7
-            ? "Cartographier précisément l'ensemble des sous-incidents pour éviter la dispersion des moyens de secours."
-            : "Consolider la fiche incident (bilan humain, position exacte, moyens déployés) pour garantir la cohérence du commandement.";
+  // --- 3 actions recommandées ADAPTÉES aux 3 pilotes (triées par impact estimé). ---
+  // Règle : CHAQUE pilote → une action DISTINCTE, jamais le même catalogue pour tous.
+  // Chaque action porte un « impact » = gain théorique max sur le score si l'action est menée (0..100).
+  type ActionCandidate = { impact: number; text: string };
+  const actionFor = (driverLabel: string, weightedScore: number, sev: Severity, incType: string): ActionCandidate | null => {
+    const hasDeployedUnits = deployedUnits > 0;
+    switch (driverLabel) {
+      case "Sévérité initiale": {
+        if (sev === "high" || weightedScore >= 15) return { impact: 14, text: "Réévaluer la gravité par un responsable terrain et confirmer le niveau de crise." };
+        return { impact: 6, text: "Confirmer la qualification de gravité auprès du correspondant local." };
+      }
+      case "Bilan humain": {
+        if (weightedScore >= 10) return { impact: 22, text: "Consolider en temps réel le bilan humain (décès, blessés, disparus) et qualifier les priorités médicales." };
+        return { impact: 8, text: "Mettre en place une cellule d'écoute et de recensement des personnes affectées." };
+      }
+      case "Saturation hôpitaux proches": {
+        if (weightedScore >= 14) return { impact: 20, text: "Déclencher le plan Hôpital Blanc et ouvrir les lits de reconversion pour éviter la saturation." };
+        if (weightedScore >= 7) return { impact: 12, text: "Contrôler en temps réel la saturation des structures sanitaires et des services de réanimation proches." };
+        return { impact: 5, text: "Vérifier la disponibilité des hôpitaux de référence et préparer les circuits d'évacuation." };
+      }
+      case "Déploiement unités": {
+        if (!hasDeployedUnits) return { impact: 25, text: "Déclencher immédiatement un premier déploiement d'une unité de secours pour évaluer et sécuriser la zone." };
+        if (weightedScore >= 12) return { impact: 18, text: "Renforcer le dispositif par une unité supplémentaire pour couvrir le sous-effectif identifié." };
+        return { impact: 7, text: "Réaliser un point d'avancement avec les commandants d'unité et ajuster le dispositif." };
+      }
+      case "Durée écoulée": {
+        if (weightedScore >= 8) return { impact: 9, text: "Préparer les rotations des équipes et prévoir la relève des moyens engagés au-delà de 24 heures." };
+        return { impact: 4, text: "Maintenir une cadence de point situation adaptée à la durée de gestion." };
+      }
+      case "Sous-incidents": {
+        if (weightedScore >= 5) return { impact: 16, text: "Cartographier précisément l'ensemble des sous-incidents pour éviter la dispersion des moyens de secours." };
+        return { impact: 4, text: "Rechercher des sous-incidents éventuels non encore déclarés autour de la zone principale." };
+      }
+      case "Sismicité EMSC (72h)": {
+        if (weightedScore >= 5) return { impact: 11, text: "Intégrer l'activité sismique régionale dans l'évaluation du risque et renforcer la vigilance des équipes sur zone." };
+        return { impact: 3, text: "Consulter la sismicité régionale sur 72 heures avant d'engager des opérations lourdes en zone instable." };
+      }
+      case "Météo pondérée type": {
+        const t = incType.toLowerCase();
+        if (/feu|incendie|wildfire|flammes/.test(t)) return { impact: weightedScore >= 5 ? 15 : 6, text: "Anticiper les évolutions de vent et de température pour sécuriser les équipes de lutte contre l'incendie." };
+        if (/inond|cru|flood|eau|hydro/.test(t)) return { impact: weightedScore >= 5 ? 17 : 7, text: "Surveiller en continu les précipitations et les niveaux des cours d'eau pour déclencher les évacuations préventives." };
+        if (/temp[eê]t|orage|vent|cyclon|ouragan|storm/.test(t)) return { impact: weightedScore >= 5 ? 14 : 6, text: "Prendre en compte les rafales et le vent pour sécuriser les zones d'intervention." };
+        return { impact: 5, text: "Prendre en compte les conditions météorologiques pour planifier les rotations des équipes." };
+      }
+      default:
+        return null;
+    }
+  };
+  const usedLabels = new Set<string>();
+  const candidates: ActionCandidate[] = [];
+  for (const f of sorted.slice(0, 5)) {
+    if (usedLabels.has(f.label)) continue;
+    const a = actionFor(f.label, f.weightedScore, inc.sev, inc.type);
+    if (a) {
+      candidates.push(a);
+      usedLabels.add(f.label);
+      if (candidates.length >= 4) break;
+    }
+  }
+  const genericFallback: ActionCandidate[] = [
+    { impact: 3, text: "Consolider la fiche incident (bilan humain, position exacte, moyens déployés) pour garantir la cohérence du commandement." },
+    { impact: 2, text: "Maintenir une surveillance régulière et un reporting cadencé sur l'évolution de la situation." },
+    { impact: 1, text: "Préparer un point situation à transmettre à la cellule de crise." },
+  ];
+  for (const g of genericFallback) if (candidates.length < 3) candidates.push(g);
+  candidates.sort((a, b) => b.impact - a.impact);
+  if (level === "critique") candidates.unshift({ impact: 99, text: "Déclencher immédiatement un renfort des moyens humains et matériels sur la zone d'intervention." });
+  if (level === "eleve" && candidates[0].impact < 20) candidates.unshift({ impact: 30, text: "Anticiper un pré-positionnement de renforts opérationnels à proximité immédiate de l'incident." });
+  const seenText = new Set<string>();
+  const actions: [string, string, string] = ["", "", ""] as unknown as [string, string, string];
+  let k = 0;
+  for (const c of candidates) {
+    if (seenText.has(c.text)) continue;
+    seenText.add(c.text);
+    actions[k] = c.text;
+    k++;
+    if (k >= 3) break;
+  }
+  if (!actions[0]) actions[0] = genericFallback[1].text;
+  if (!actions[1]) actions[1] = genericFallback[0].text;
+  if (!actions[2]) actions[2] = genericFallback[2].text;
 
   return {
     id: `evo:${inc.id}:${Math.floor(nowMs / 60000)}`,
@@ -530,7 +617,7 @@ export function predictIncidentEvolution(ctx: IncidentEvolutionCtx): IncidentEvo
     probabilityPct,
     horizonMin,
     scenario,
-    actions: [a1, a2, a3],
+    actions,
     factors,
     sources,
     durationMinutes,
