@@ -34,9 +34,51 @@ Trois référentiels se dégagent, et ils se complètent au lieu de se concurren
   mais avec des hypothèses fortes assumées par ALOHA lui-même : vent constant,
   validité ≤ 1 h et ≤ 10 km. Pertinent en **V2**, pas comme fondation.
 
-**Recommandation : ATP-45 comme moteur V1** (doctrine militaire, déterministe,
-temps réel, explicable à un opérateur), **enrichi des distances ERG** par
-substance pour dimensionner les rayons. Gauss en V2 pour l'analyse fine.
+**Décision de conception (à la demande de l'utilisateur) : les TROIS
+référentiels sont offerts au choix de l'opérateur, et combinables.**
+
+La clé qui rend cela propre : ils ne se concurrencent pas, ils répondent à
+trois questions différentes —
+
+| Vue | Question | Forme |
+|---|---|---|
+| **ATP-45** (doctrine) | Quelle zone d'alerte selon la procédure OTAN ? | Cercle / cercle + triangle sous le vent, gabarit 2 h |
+| **ERG 2024** (réglementaire) | Quelles distances d'isolement et de protection pour cette substance ? | Cercle d'isolement + zone d'action sous le vent, jour/nuit |
+| **Gauss / Pasquill** (physique) | Où la concentration sera-t-elle réellement dangereuse ? | Panache continu en gradient |
+
+### Choix et combinaison — règles retenues
+
+- **Port unique `PlumeModel`, trois moteurs purs** (`atp45.engine`,
+  `erg.engine`, `gauss.engine`) : même entrée (point, substance, vent,
+  heure), même sortie (zones GeoJSON étiquetées `model`). Le sélecteur
+  d'interface ne coûte presque rien parce que l'architecture hexagonale du
+  dépôt est déjà faite pour ça — ajouter Gauss plus tard n'ouvrira AUCUN
+  chantier d'interface : il apparaîtra comme troisième option du même port.
+- **Sélection par l'opérateur** dans le panneau panache de la carte
+  (par incident, mémorisée en session) ; **vue par défaut réglable** dans
+  `/parametres` (défaut proposé : ATP-45, la doctrine du poste).
+- **Combinaison lisible** : UNE vue primaire **remplie** (couleurs pleines
+  semi-transparentes), les vues secondaires en **contours seuls** — jamais
+  deux remplissages superposés, sinon la carte devient une soupe. La légende
+  attribue chaque tracé à son référentiel.
+- **« Enveloppe prudente »** (option de combinaison recommandée pour la
+  décision de protection) : l'**union** des zones des vues actives — la
+  lecture la plus conservatrice. Le désaccord entre modèles n'est pas masqué :
+  c'est une **information d'incertitude**, affichée comme telle.
+- **Honnêteté par vue** : chaque tracé porte son étiquette (« Gabarit ATP-45 »,
+  « Distances ERG 2024 », « Modèle gaussien — estimation ») et l'heure du vent
+  utilisé. Même doctrine que l'estime aérienne : une estimation se présente
+  comme une estimation.
+
+### Coût de ce choix (honnête)
+
+- ATP-45 et ERG : bon marché — géométrie + données seedées.
+- **Gauss est le seul morceau lourd** : il exige la classe de stabilité
+  Pasquill (jour/nuit + couverture nuageuse). Open-Meteo fournit la couverture
+  nuageuse mais le `WeatherService` ne la récupère pas encore — extension
+  mineure du proxy (un champ horaire de plus, dans le cadre ADR-0002).
+- Le sélecteur et la combinaison se construisent **dès la phase 2** avec deux
+  moteurs (ATP-45 + ERG) ; Gauss arrive en phase 4 derrière le même port.
 
 ## Ce qu'ARGOS possède déjà (vérifié dans le code)
 
@@ -108,9 +150,9 @@ dupliquerait la carte et créerait un silo de navigation. Proposition :
 | Phase | Contenu | Complexité |
 |---|---|---|
 | **1 — Déclaratif** | Catalogue substances API + champs incident + étape wizard + bloc fiche + distances ERG affichées | MEDIUM |
-| **2 — Panache** | Moteur ATP-45 pur + endpoint GeoJSON + couche carte colorée + flèche vent + bandeau estimation | MEDIUM |
-| **3 — Évolution & intelligence** | Timeline H+1…H+6 sur vent prévu + croisement dispositif (impactés listés) + intent Copilot + accroche What-If | MEDIUM |
-| **4 — V2 modèle** | Option Gauss/Pasquill (classes de stabilité jour/nuit), comparaison des deux gabarits | HIGH |
+| **2 — Panache & sélecteur** | Port `PlumeModel` + moteurs ATP-45 et ERG + endpoint GeoJSON multi-modèles + couche carte (primaire remplie / secondaires en contours) + enveloppe prudente + flèche vent + étiquettes par vue | MEDIUM |
+| **3 — Évolution & intelligence** | Timeline H+1…H+6 sur vent prévu + croisement dispositif (impactés listés, par vue et par enveloppe) + intent Copilot + accroche What-If | MEDIUM |
+| **4 — Gauss** | Troisième moteur derrière le même port : couverture nuageuse ajoutée au proxy météo, classes de stabilité Pasquill, gradient de concentration | HIGH |
 
 Chaque phase est livrable et vérifiable seule (typecheck, tests du moteur pur —
 déterminisme et bornes, comme risk.engine — et vérification navigateur).
