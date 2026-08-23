@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import dynamic from "next/dynamic";
 import { useArgos, useDict } from "@/lib/store";
 import { api } from "@/lib/api";
@@ -84,6 +84,10 @@ export function IncidentWizard() {
 
   const [step, setStep] = useState(1);
   const [type, setType] = useState<string | null>(null);
+  const [keywordsList, setKeywordsList] = useState<string[]>([]);
+  const [keywordsDraft, setKeywordsDraft] = useState("");
+  const [aiGenerated, setAiGenerated] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [files, setFiles] = useState<string[]>([]);
@@ -117,7 +121,13 @@ export function IncidentWizard() {
   const toggleUnit = (id: string) => setSelUnits((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   const toggleHosp = (id: string) => setSelHosps((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
-  /* ===== Proposition IA description (UNIQUEMENT à partir du type choisi) ===== */
+  /* ===== Proposition IA description =====
+   * Nouveau workflow (demande utilisateur) :
+   *   UNE SEULE méthode de génération : UN bouton « Générer par IA ».
+   *   keywordsList[] chips → clic bouton → génére titre + description (basés STRICTEMENT sur keywords + type)
+   *   Pas de boutons sparkles/refresh séparés sur les champs titre/descr.
+   */
+  const keywordsFlat = keywordsList.join(" , ");
   const descProposalInput = useMemo<DescriptionProposalInput>(() => ({
     type,
     titre: title,
@@ -127,20 +137,59 @@ export function IncidentWizard() {
     pt,
     lang: (lang as "fr" | "ar" | "en") ?? "fr",
     incidentTypes,
-  }), [type, title, adresse, prov, city, pt, lang, incidentTypes]);
+    keywords: keywordsFlat,
+  }), [type, title, adresse, prov, city, pt, lang, incidentTypes, keywordsFlat]);
 
-  /* ===== HOOK useDraftProposal : propositions DIRECTEMENT DANS LES CHAMPS =====
-   * - Régénère via bouton icône refresh À DROITE de l'input
-   * - Appliquer via icône sparkles
-   * - Auto-apply SI CHAMP VIDE (demande utilisateur : pas de bloc en dessous)
-   */
   const draft = useDraftProposal(descProposalInput, {
     currentTitle: title,
     currentDesc: desc,
-    autoApplyIfEmpty: true, // injecte directement la valeur dans le champ SI VIDE
+    autoApplyIfEmpty: false, // JAMAIS d'auto-apply (demande UX : seule la génération par bouton IA compte)
     setTitle,
     setDesc,
   });
+
+  /** Ajouter un keyword depuis le draft (Entrée ou bouton). */
+  const addKeyword = () => {
+    const t = keywordsDraft.trim();
+    if (!t) return;
+    if (keywordsList.includes(t)) {
+      setKeywordsDraft("");
+      return;
+    }
+    setKeywordsList((l) => [...l, t]);
+    setKeywordsDraft("");
+  };
+  const removeKeyword = (idx: number) =>
+    setKeywordsList((l) => l.filter((_, i) => i !== idx));
+  const onKeywordKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === "," || e.key === ";") {
+      e.preventDefault();
+      addKeyword();
+    } else if (e.key === "Backspace" && !keywordsDraft && keywordsList.length > 0) {
+      setKeywordsList((l) => l.slice(0, -1));
+    }
+  };
+
+  /** UNE SEULE génération IA à partir des keywords. */
+  const runAiGenerate = async () => {
+    if (!type || keywordsList.length === 0 || aiBusy) return;
+    setAiBusy(true);
+    setAiGenerated(false);
+    try {
+      // Petit délai UI pour donner l'impression que l'IA « travaille »
+      await new Promise((r) => setTimeout(r, 320));
+      // IMPORTANT : incrémenter LES DEUX compteurs pour forcer 2 nouvelles
+      // propositions indépendantes, basées cette fois sur keywords à jour.
+      draft.regenFreshT();
+      draft.regenFreshD();
+      // Appliquer (sans attendre le useEffect hook — forcer directement)
+      // On attend 1 tick pour que les useMemo regénèrent avec le nouveau salt.
+      await new Promise((r) => setTimeout(r, 0));
+      setAiGenerated(true);
+    } finally {
+      setAiBusy(false);
+    }
+  };
 
   // Pose le point et met à jour l'affichage des coordonnées.
   const applyLL = (ll: [number, number]) => {
@@ -163,7 +212,11 @@ export function IncidentWizard() {
     if (open && wizEdit) {
       setStep(1);
       setType(wizEdit.type);
+      setKeywordsList([]);
+      setKeywordsDraft("");
+      setAiGenerated(true); // mode édition : le titre/descr existent déjà → on affiche les champs
       setTitle(wizEdit.titre);
+      setDesc(wizEdit.desc ?? "");
       applyLL(wizEdit.ll);
       setAdresse(wizEdit.adresse ?? "");
       setDead(wizEdit.casualties ? String(wizEdit.casualties.dead) : "");
@@ -233,7 +286,9 @@ export function IncidentWizard() {
   };
 
   const reset = () => {
-    setStep(1); setType(null); setTitle(""); setDesc(""); setFiles([]);
+    setStep(1); setType(null);
+    setKeywordsList([]); setKeywordsDraft(""); setAiGenerated(false); setAiBusy(false);
+    setTitle(""); setDesc(""); setFiles([]);
     setAdresse(""); setProv(""); setCity(""); setLat(""); setLng(""); setPt(null); setGeoErr(false);
     setDead(""); setInjured(""); setMissing(""); setSelUnits([]); setSelHosps([]);
   };
@@ -380,50 +435,119 @@ export function IncidentWizard() {
           </div>
         )}
 
-        {/* Étape 2 — détails */}
+        {/* Étape 2 — détails : workflow strict (demande utilisateur)
+            1. SAISIE de mots-clés UN PAR UN → chips distincts avec ×
+            2. UN SEUL BOUTON : « Générer par IA » (→ « Régénérer par IA » après 1ère génération)
+            3. TANT QUE !aiGenerated : champs Titre + Description MASQUÉS
+            4. APRÈS GÉNÉRATION : Titre + Description APPARAISSENT et restent ÉDITABLES
+            5. PLUS AUCUN BOUTON sparkles/⟳ séparé sur titre/descr : 1 METHODE DE GENERATION UNIQUE */}
         {step === 2 && (
           <div className="flex flex-col gap-4">
-            {/* Champ TITRE avec icônes sparkles + refresh DANS la barre droite */}
+            {/* ZONE UNIQUE DE SAISIE DES MOTS-CLÉS (chips) */}
             <div>
-              <label className={labelCls}>{t.f_title}</label>
-              <div className="flex items-stretch gap-1.5">
+              <label className={labelCls}>{t.f_keywords}</label>
+              {/* Chips existants + input pour en ajouter un nouveau (combo unique, style champ) */}
+              <div
+                className={`${fieldCls} flex flex-wrap items-center gap-1.5 py-2`}
+                onClick={(e) => {
+                  const el = (e.currentTarget.querySelector(
+                    'input[data-wiz-keyword-input="1"]',
+                  ) ?? null) as HTMLInputElement | null;
+                  el?.focus();
+                }}
+              >
+                {keywordsList.map((kw, i) => (
+                  <span
+                    key={`${kw}-${i}`}
+                    className="inline-flex items-center gap-1 rounded-md border border-or-500/40 bg-or-500/10 px-2 py-0.5 text-xs font-semibold text-or-700 dark:text-or-300"
+                  >
+                    <span className="max-w-[18ch] truncate">{kw}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeKeyword(i);
+                      }}
+                      className="ml-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-or-700/70 hover:bg-or-500/20 hover:text-or-700 dark:text-or-300/80 dark:hover:text-or-200"
+                      title={`Retirer « ${kw} »`}
+                    >
+                      <Icon path={UI_ICONS.close} size={11} strokeWidth={3} />
+                    </button>
+                  </span>
+                ))}
                 <input
-                  className={`${fieldCls} min-w-0 flex-1`}
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder={draft.proposal.title || "Titre de l'incident…"}
+                  data-wiz-keyword-input="1"
+                  value={keywordsDraft}
+                  onChange={(e) => setKeywordsDraft(e.target.value)}
+                  onKeyDown={onKeywordKey}
+                  placeholder={keywordsList.length ? "" : t.f_keywords_chip_ph}
+                  className="min-w-[14ch] flex-1 border-0 bg-transparent p-0 text-sm outline-none ring-0 placeholder:text-gray-400 dark:placeholder:text-rdia-400"
                 />
-                <div className="flex shrink-0 items-center">
-                  <TitleAssistButtons
-                    onApply={draft.applyTitle}
-                    onRegen={draft.regenFreshT}
-                    applied={draft.titleUsed}
-                    disabled={!type}
+                {keywordsDraft.trim() && (
+                  <button
+                    type="button"
+                    onClick={addKeyword}
+                    className="btn-primaire px-2.5 py-1 text-[11px]"
+                  >
+                    {t.f_keywords_add}
+                  </button>
+                )}
+              </div>
+              <p className="mt-1 text-[11px] leading-snug text-gray-400 dark:text-rdia-400">{t.f_keywords_hint}</p>
+            </div>
+
+            {/* BOUTON UNIQUE DE GÉNÉRATION IA */}
+            <button
+              type="button"
+              onClick={() => void runAiGenerate()}
+              disabled={!type || keywordsList.length === 0 || aiBusy}
+              className="btn-primaire inline-flex items-center justify-center gap-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Icon path={aiBusy ? UI_ICONS.refresh : UI_ICONS.sparkles} size={15} className={aiBusy ? "animate-spin" : ""} />
+              {aiBusy ? "…" : aiGenerated ? t.f_ai_regenerate : t.f_ai_generate}
+            </button>
+
+            {/* ZONE TITRE + DESCRIPTION : APPARAÎT SEULEMENT APRÈS GÉNÉRATION */}
+            {aiGenerated ? (
+              <div className="flex flex-col gap-4 rounded-xl border border-or-500/15 bg-or-500/[0.03] p-3 dark:border-or-500/20 dark:bg-or-500/[0.05]">
+                {/* Indicateur IA générée + hint */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-or-600 dark:text-or-300">
+                    <Icon path={UI_ICONS.sparkles} size={13} /> AI · {t.f_generated_hint}
+                  </div>
+                </div>
+
+                {/* TITRE généré, éditable */}
+                <div>
+                  <label className={labelCls}>{t.f_generated_title}</label>
+                  <input
+                    className={`${fieldCls} min-w-0`}
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Titre de l'incident…"
+                  />
+                </div>
+
+                {/* DESCRIPTION générée, éditable */}
+                <div>
+                  <label className={labelCls}>{t.f_generated_desc}</label>
+                  <textarea
+                    className={fieldCls}
+                    rows={4}
+                    value={desc}
+                    onChange={(e) => setDesc(e.target.value)}
+                    placeholder="Description de l'incident (2 lignes)…"
                   />
                 </div>
               </div>
-            </div>
-
-            {/* Champ DESCRIPTION avec icônes sparkles + refresh DANS barre droite (au-dessus textarea)
-                Valeur proposée DIRECTEMENT ÉCRITE DANS textarea si vide (via hook autoApply) */}
-            <div>
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <label className={labelCls + " mb-0"}>{t.f_desc}</label>
-                <DescAssistButtons
-                  onApply={draft.applyDesc}
-                  onRegen={draft.regenFreshD}
-                  applied={draft.descUsed}
-                  disabled={!type}
-                />
+            ) : (
+              // Placeholder tant que la génération n'a pas été faite.
+              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/60 px-4 py-6 text-center text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:border-rdia-600/60 dark:bg-white/[0.02] dark:text-rdia-400">
+                {t.f_ai_generate}{" → "}<span className="text-gray-500 dark:text-rdia-300">{t.f_title} + {t.f_desc}</span>
               </div>
-              <textarea
-                className={fieldCls}
-                rows={4}
-                value={desc}
-                onChange={(e) => setDesc(e.target.value)}
-                placeholder={draft.proposal.desc || "Description de l'incident (2 lignes)…"}
-              />
-            </div>
+            )}
+
+            {/* Pièces jointes (toujours visible, après les champs précédents) */}
             <div>
               <label className={labelCls}>{t.f_attach}</label>
               <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 p-5 text-gray-400 transition-colors hover:border-or-500/50 hover:text-or-500 dark:border-rdia-600 dark:text-rdia-400">

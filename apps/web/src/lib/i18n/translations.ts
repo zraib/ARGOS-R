@@ -128,6 +128,15 @@ export interface Dict {
   wz3: string;
   f_title: string;
   f_desc: string;
+  f_keywords: string;
+  f_keywords_chip_ph: string;
+  f_keywords_add: string;
+  f_keywords_hint: string;
+  f_ai_generate: string;
+  f_ai_regenerate: string;
+  f_generated_title: string;
+  f_generated_desc: string;
+  f_generated_hint: string;
   f_attach: string;
   f_attach_hint: string;
   f_prov: string;
