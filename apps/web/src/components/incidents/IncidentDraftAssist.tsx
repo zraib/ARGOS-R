@@ -215,7 +215,8 @@ function detectIncidentType(tokens: string[], fallbackType: string | null): stri
   if (hit(EXPLOSION_WORDS)) return "explosion";
   if (hit(FIRE_WORDS)) return "wildfire";
   if (hit(STORM_WORDS)) return "storm";
-  if (hit(MEDICAL_WORDS.filter((w) => ["epidemie", "epidemies", "cluster", "clusters", "foyer", "infectieux", "contamine", "sanitaire"].includes(w))) return "epidemic";
+  const EPIDEMIC_SUB = ["epidemie", "epidemies", "cluster", "clusters", "foyer", "infectieux", "contamine", "sanitaire"];
+  if (hit(MEDICAL_WORDS.filter((w) => EPIDEMIC_SUB.includes(w)))) return "epidemic";
   if (hit(ROAD_WORDS)) return "road";
   if (hit(INDUSTRIAL_WORDS)) return "industrial";
   if (fallbackType) return fallbackType;
