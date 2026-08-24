@@ -89,6 +89,8 @@ export const EN_DICT: Dict = {
     nrbc_no_substance: "Without a declared substance the ERG template is unavailable",
     nrbc_lvl_danger: "Danger", nrbc_lvl_protection: "Protective action", nrbc_lvl_vigilance: "Vigilance",
     nrbc_day: "day", nrbc_night: "night",
+    map_tiles_external: "External basemap — development mode, not sovereign",
+    map_tiles_none: "No sovereign basemap configured",
     nrbc_pick: "Ongoing chemical incidents — pick one to display its plume:",
     nrbc_none_active: "No active chemical CBRN incident.",
 };

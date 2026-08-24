@@ -1,3 +1,77 @@
+// ============================================================================
+// ARGOS — configuration Next.js
+//
+// La CSP est le MÉCANISME D'APPLICATION de la souveraineté (ADR 0006,
+// MASTER_PLAN §4.3). Sans elle, « pas d'appel externe » n'est qu'une
+// convention que le prochain commit peut contourner sans bruit ; avec elle,
+// le navigateur refuse la connexion et la violation apparaît en console.
+// ============================================================================
+
+/** Mode des tuiles — doit rester cohérent avec `src/lib/map/tiles.ts`. */
+const IS_PROD = process.env.NODE_ENV === "production";
+const TILES_MODE = IS_PROD ? "sovereign" : (process.env.NEXT_PUBLIC_MAP_TILES ?? "external");
+
+/** Hôtes de tuiles externes — tolérés uniquement hors production. */
+const EXTERNAL_TILE_HOSTS = [
+  "https://server.arcgisonline.com",
+  "https://tile.openstreetmap.org",
+  "https://s3.amazonaws.com",
+];
+
+const tileHosts = TILES_MODE === "external" ? EXTERNAL_TILE_HOSTS : [];
+
+/**
+ * `connect-src` : l'API ARGOS n'est PAS same-origin (web 3004, API 3005), il
+ * faut donc l'autoriser explicitement. En développement on tolère largement
+ * localhost et le LAN privé (moteurs LLM locaux, API servie sur l'IP de la
+ * machine, websocket HMR) ; en production, seule l'origine de l'API déclarée
+ * est admise.
+ */
+const apiOrigin = process.env.NEXT_PUBLIC_API_URL ?? "";
+//
+// La CSP n'autorise le joker QUE comme premier label de domaine (`*.exemple.fr`)
+// — `http://192.168.*:*` est une source INVALIDE, silencieusement ignorée par le
+// navigateur. Or l'API est servie sur l'IP LAN de la machine en développement
+// (test depuis un téléphone), adresse qu'aucune règle CSP ne sait décrire.
+// En dev on autorise donc les SCHÉMAS `http:` et `ws:` : la politique de
+// développement vérifie la FORME de la CSP, elle n'est pas la frontière de
+// sécurité. La frontière, c'est la politique de production, exacte et stricte.
+const connectSrc = IS_PROD
+  ? ["'self'", apiOrigin].filter(Boolean)
+  : ["'self'", "http:", "https:", "ws:", "wss:"];
+
+/**
+ * `script-src` : Next injecte des scripts en ligne pour l'hydratation, et le
+ * mode dev exige `unsafe-eval` (HMR / React Refresh).
+ *
+ * HONNÊTETÉ SUR LA PORTÉE : `'unsafe-inline'` en production affaiblit la
+ * protection contre le XSS. Le durcir suppose une CSP à nonce, donc un
+ * middleware Next — travail distinct, hors de la phase 1. Cette phase traite
+ * l'EXFILTRATION (`connect-src`, `img-src`), pas l'injection de script.
+ */
+const scriptSrc = IS_PROD
+  ? ["'self'", "'unsafe-inline'"]
+  : ["'self'", "'unsafe-inline'", "'unsafe-eval'"];
+
+const csp = [
+  `default-src 'self'`,
+  `script-src ${scriptSrc.join(" ")}`,
+  // Tailwind et MapLibre posent des styles en ligne.
+  `style-src 'self' 'unsafe-inline'`,
+  // Polices AUTO-HÉBERGÉES uniquement (public/fonts) — aucun CDN.
+  `font-src 'self'`,
+  // `blob:` et `data:` : tuiles décodées et icônes générées côté client.
+  `img-src 'self' data: blob: ${tileHosts.join(" ")}`.trim(),
+  `connect-src ${connectSrc.join(" ")}`,
+  // MapLibre exécute ses workers depuis un blob.
+  `worker-src 'self' blob:`,
+  `object-src 'none'`,
+  `base-uri 'self'`,
+  `form-action 'self'`,
+  // Aucune mise en cadre : le poste de commandement ne s'embarque pas.
+  `frame-ancestors 'none'`,
+].join("; ");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -5,6 +79,19 @@ const nextConfig = {
   // Autorise l'accès aux ressources de dev (HMR) depuis l'aperçu navigateur
   // servi sur 127.0.0.1 en plus de localhost (Next 16 bloque par défaut).
   allowedDevOrigins: ["127.0.0.1", "localhost"],
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: csp },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Frame-Options", value: "DENY" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

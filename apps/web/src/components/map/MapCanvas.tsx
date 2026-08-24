@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { TILES_MODE } from "@/lib/map/tiles";
 import { useArgos, useDict } from "@/lib/store";
 import { FLUX } from "@/lib/i18n/flux";
 import { canReportIncident } from "@/lib/roles";
@@ -50,6 +51,13 @@ async function demElevation(lng: number, lat: number): Promise<number | null> {
   const { xt, yt, px, py } = lngLatToTile(lng, lat, DEM_Z);
   const key = `${DEM_Z}/${xt}/${yt}`;
   if (!demCache.has(key)) {
+    // Tuiles d'altitude : source EXTERNE (AWS). En mode souverain on ne les
+    // demande pas du tout — l'altitude affichée devient « — » plutôt que de
+    // révéler à un tiers les points que l'opérateur interroge (ADR 0006).
+    if (TILES_MODE !== "external") {
+      demCache.set(key, null);
+      return null;
+    }
     try {
       // Passer par fetch + blob : un <img crossOrigin> sur ce bucket ne résout
       // pas, alors que fetch aboutit ; le blob est same-origin donc le canvas

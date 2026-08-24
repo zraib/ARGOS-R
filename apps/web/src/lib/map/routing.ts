@@ -1,21 +1,45 @@
 // ============================================================================
 // ARGOS — calcul d'itinéraire (réseau routier)
-// Deux moteurs supportés, sélectionnés par NEXT_PUBLIC_ROUTING_ENGINE :
+//
+// Ce flux est de CLASSE B au sens de l'ADR 0006 : il transporte la position
+// réelle d'un incident. Il ne doit JAMAIS sortir du système — un serveur de
+// routage public apprendrait, requête après requête, où se déroulent les
+// opérations.
+//
+// Deux moteurs, sélectionnés par NEXT_PUBLIC_ROUTING_ENGINE :
 //   • "valhalla" — moteur AUTO-HÉBERGÉ (MASTER_PLAN §4.2, infra/compose).
-//                  C'est la cible de production : aucun appel sortant.
-//                  NEXT_PUBLIC_ROUTING_URL=http://localhost:8002
-//   • "osrm"     — service OSRM (compatible /route/v1). Par défaut en dev, il
-//                  pointe sur la démo publique pour que la carte fonctionne
-//                  sans Docker. À NE PAS utiliser en production (souveraineté).
+//                  DÉFAUT, et seul mode autorisé en production.
+//   • "osrm"     — service compatible OSRM. À réserver au développement, et
+//                  uniquement contre une instance locale.
+//
+// La production IMPOSE valhalla : aucune variable d'environnement ne permet de
+// pointer un routeur public depuis un déploiement (voir `resolveEngine`).
 // En cas d'échec (hors ligne, air-gap, moteur non démarré) on retombe sur la
 // distance orthodromique : l'outil de mesure reste utilisable.
 // ============================================================================
 
 type Engine = "valhalla" | "osrm";
 
-const ENGINE: Engine = (process.env.NEXT_PUBLIC_ROUTING_ENGINE as Engine) ?? "osrm";
-const ROUTER_URL =
-  process.env.NEXT_PUBLIC_ROUTING_URL ?? (ENGINE === "valhalla" ? "http://localhost:8002" : "https://router.project-osrm.org");
+const IS_PROD = process.env.NODE_ENV === "production";
+
+/**
+ * Moteur effectif. En production, `valhalla` est imposé quoi qu'annonce
+ * l'environnement : la souveraineté du calcul d'itinéraire n'est pas
+ * configurable depuis un déploiement.
+ */
+function resolveEngine(): Engine {
+  if (IS_PROD) return "valhalla";
+  return (process.env.NEXT_PUBLIC_ROUTING_ENGINE as Engine) ?? "valhalla";
+}
+
+const ENGINE: Engine = resolveEngine();
+
+/**
+ * URL du moteur. Le défaut est TOUJOURS local — plus aucun repli implicite
+ * vers un service public. Un routeur injoignable dégrade proprement sur la
+ * distance orthodromique ; un routeur public, lui, fuiterait en silence.
+ */
+const ROUTER_URL = process.env.NEXT_PUBLIC_ROUTING_URL ?? (ENGINE === "valhalla" ? "http://localhost:8002" : "http://localhost:5000");
 
 /** Distance géodésique (haversine) en km entre deux points [lng, lat]. */
 export function haversineKm(a: [number, number], b: [number, number]): number {

@@ -74,7 +74,10 @@ services:
     depends_on: [db]
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-argos}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-argos}
-    ports: ["3005:3000"]
+    # 3007 et non 3005 : ce dernier est le port de l'API ARGOS en dev
+    # (apps/api) — les publier tous deux sur 3005 empêchait de lancer la pile
+    # Docker et `npm run dev` en même temps.
+    ports: ["3007:3000"]
     restart: unless-stopped
 
   # --- Routage : Valhalla (MASTER_PLAN §4.2) --------------------------------

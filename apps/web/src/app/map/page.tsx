@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useArgos, useDict } from "@/lib/store";
+import { TILES_AVAILABLE, TILES_MODE } from "@/lib/map/tiles";
 import { Badge, type BadgeType } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
@@ -671,6 +672,20 @@ export default function MapPage() {
             </div>
           )}
         </div>
+
+        {/* Origine du fond de carte (ADR 0006). Une carte servie par un
+            fournisseur étranger doit se VOIR : la fuite de profil d'activité est
+            invisible par nature, le bandeau la rend constatable. La production
+            impose le mode souverain, ce bandeau n'y apparaît donc jamais. */}
+        {(TILES_MODE === "external" || !TILES_AVAILABLE) && (
+          <div
+            className="pointer-events-none absolute bottom-3 z-30 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-or-300 shadow-lg"
+            style={{ ...GLASS, insetInlineStart: 12 }}
+          >
+            <Icon path={UI_ICONS.shield} size={13} className="shrink-0" />
+            <span>{TILES_AVAILABLE ? t.map_tiles_external : t.map_tiles_none}</span>
+          </div>
+        )}
 
         {/* Panache actif sous lg : la feuille ne porte pas (encore) ses réglages,
             mais le bandeau d'honnêteté et l'extinction restent accessibles. */}

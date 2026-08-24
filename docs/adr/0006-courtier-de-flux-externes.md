@@ -1,6 +1,7 @@
 # ADR 0006 — Courtier de flux externes : séparer ARGOS de ses fournisseurs
 
-- **Statut :** proposé
+- **Statut :** accepté — **phase 1 livrée** (CSP, routage souverain,
+  origine des tuiles) ; phases 2-4 à venir
 - **Date :** 2026-08-21
 - **Portée :** nouveau service `apps/broker` ; adaptateurs sortants de
   `apps/api` (`aviation`, `seismic`, `weather`) ; CSP et fond de carte de
