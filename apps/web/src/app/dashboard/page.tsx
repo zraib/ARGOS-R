@@ -10,10 +10,17 @@ import { LineAreaChart } from "@/components/charts/LineAreaChart";
 import { DonutChart } from "@/components/charts/DonutChart";
 import { ListCard } from "@/components/charts/ListCard";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { occBarClass } from "@/lib/helpers";
+import { occBarClass, sevBadge, typeLabel } from "@/lib/helpers";
 import { HealthGlyph } from "@/components/health/HealthGlyph";
-import type { HospitalKind } from "@/lib/types";
+import { aggregateCasualties, incidentColor, semanticChipsForType } from "@/lib/derive";
+import type { HospitalKind, Incident, Lang } from "@/lib/types";
 import SituationalAwarenessPanel from "@/components/dashboard/SituationalAwarenessPanel";
+import { IncidentsPanel } from "@/components/dashboard/DashboardIncidentBlocks";
+import { IncidentDetailModal } from "@/components/dashboard/IncidentDetailModal";
+
+function cn(...parts: Array<string | false | null | undefined>) {
+  return parts.filter(Boolean).join(" ");
+}
 
 interface Kpi {
   label: string;
@@ -24,7 +31,7 @@ interface Kpi {
   iconWrap: string;
 }
 
-type TileId = "evolution" | "casualties" | "moyens" | "hospitals" | "severity" | "feed";
+type TileId = "evolution" | "casualties" | "moyens" | "hospitals" | "severity" | "feed" | "incidents";
 
 /**
  * Tableau de bord national (disposition A) : grille compacte tenant sur un
@@ -40,8 +47,12 @@ export default function DashboardPage() {
   const feed = useArgos((s) => s.feed);
   const dashStats = useArgos((s) => s.dashStats);
   const situational = useArgos((s) => s.situationalAwareness);
+  const incidentTypes = useArgos((s) => s.incidentTypes);
+  const lang = useArgos((s) => s.lang) as Lang;
 
   const [expanded, setExpanded] = useState<TileId | null>(null);
+  const [selIncident, setSelIncident] = useState<Incident | null>(null);
+  const [filterType, setFilterType] = useState<string | null>(null);
   /**
    * Onglet actif : vue opérationnelle (tuiles) ou analyse IA (conscience
    * situationnelle). La tuile IA occupait une rangée entière de la grille avec
@@ -97,6 +108,18 @@ export default function DashboardPage() {
     { id: 4, title: "Rétablissement axes RN7 / RP2010", color: "#10B981", progression: 30 },
   ];
 
+  // ===== Bilan humain · 1 useMemo via helper source unique (derive.ts)
+  //      → par type, top incidents, totaux et KPIs dynamiques (4 KPI slots, sémantiques)
+  const { casualtiesByType, topImpactIncidents, casualtiesTotals, semKpis } = useMemo(() => {
+    const { byType, topImpact, totals, kpis } = aggregateCasualties(incidents, dashStats);
+    return {
+      casualtiesByType: byType,
+      topImpactIncidents: topImpact.map((x) => ({ i: x.incident, impact: x.impact })),
+      casualtiesTotals: totals,
+      semKpis: kpis,
+    };
+  }, [incidents, dashStats]);
+
   const titleOf: Record<TileId, string> = {
     evolution: t.dash_evolution,
     casualties: m.orsec.casualties,
@@ -104,6 +127,7 @@ export default function DashboardPage() {
     hospitals: t.dash_hosp,
     severity: m.analytics.severity_dist,
     feed: t.feed,
+    incidents: t.dash_incidents ?? "Incidents",
   };
 
   /** Corps (bare) d'une tuile, réutilisé dans la grille et dans la modale. */
@@ -113,24 +137,172 @@ export default function DashboardPage() {
         return dashStats ? (
           <LineAreaChart bare titre={t.dash_evolution} data={dashStats.evolution} labelOpened={t.dash_opened} labelClosed={t.dash_closed} />
         ) : <Empty />;
-      case "casualties":
-        return dashStats ? (
-          <div className="grid h-full grid-cols-2 gap-2.5">
-            {[
-              { label: m.orsec.n_dead, val: dashStats.casualties.dead, cls: "text-danger-500" },
-              { label: m.orsec.n_injured, val: dashStats.casualties.injured, cls: "text-or-500" },
-              { label: m.orsec.n_missing, val: dashStats.casualties.missing, cls: "text-gray-500 dark:text-rdia-300" },
-              { label: m.orsec.n_rescued, val: dashStats.casualties.rescued, cls: "text-green-600 dark:text-green-400" },
-            ].map((c) => (
-              <div key={c.label} className="flex min-w-0 flex-col justify-center rounded-lg bg-gray-50 px-3 py-2 dark:bg-rdia-800/50">
-                <span className={`text-2xl font-bold leading-tight tabular-nums ${c.cls}`}>{c.val}</span>
-                <span className="truncate text-[11px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 sm:text-[10px]">{c.label}</span>
+      case "casualties": {
+        const maxCat = Math.max(1, ...casualtiesByType.map((r) => r.total));
+
+        return (
+          <div className="flex h-full min-h-0 w-full flex-col gap-2">
+            {/* ==== 4 KPIs SÉMANTIQUES DYNAMIQUES ==== */}
+            <div className="grid grid-cols-4 gap-1.5">
+              {semKpis.map((k) => {
+                const shortLabel = k.label.length > 7 ? k.label.slice(0, 7) : k.label;
+                return (
+                  <div
+                    key={k.key}
+                    className={`flex min-w-0 flex-col items-center justify-center rounded-md border-t-2 ${k.color.br} ${k.color.bg} px-1.5 py-1.5 text-center`}
+                  >
+                    <span className={`text-[22px] font-black leading-none tabular-nums ${k.color.text}`}>{k.value}</span>
+                    <span className={`mt-1 truncate text-[10px] font-bold uppercase tracking-wider ${k.color.text}`}>
+                      {shortLabel}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ==== Répartition par CATEGORIE + Top incidents (2 cols) ==== */}
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 min-h-0 flex-1 overflow-hidden">
+              {/* Colonne gauche · Répartition par catégorie scroll */}
+              <div className="min-h-0 flex flex-col gap-1 overflow-hidden">
+                <div className="flex items-center justify-between px-0.5">
+                  <span className="text-[10.5px] font-black uppercase tracking-[0.12em] text-gray-500 dark:text-rdia-400">
+                    Par type
+                  </span>
+                  {filterType && (
+                    <button
+                      type="button"
+                      onClick={() => setFilterType(null)}
+                      className="text-[10px] font-bold text-gray-400 hover:text-gray-600 dark:hover:text-rdia-300"
+                    >
+                      ← tous
+                    </button>
+                  )}
+                </div>
+                <div className="min-h-0 flex-1 flex flex-col gap-1 overflow-y-auto pr-0.5">
+                  {casualtiesByType.length === 0 ? (
+                    <div className="flex h-full items-center justify-center text-[11px] text-gray-400 dark:text-rdia-400">
+                      Pas de victimes
+                    </div>
+                  ) : casualtiesByType.map((r) => {
+                    const hex = incidentColor(r.type);
+                    const active = filterType === r.type;
+                    const { main: mainDim, secondary: secondaryDimChips } = semanticChipsForType(r);
+                    return (
+                      <button
+                        key={r.type}
+                        type="button"
+                        onClick={() => setFilterType(active ? null : r.type)}
+                        className={cn(
+                          "flex flex-col gap-1.5 rounded-md border px-1.5 py-1.5 text-left transition-all duration-150",
+                          active
+                            ? "border-transparent text-white shadow-sm"
+                            : "border-gray-200/60 bg-white/70 hover:border-gray-300 dark:border-white/10 dark:bg-white/[0.04]",
+                        )}
+                        style={active ? { backgroundColor: hex } : undefined}
+                      >
+                        {/* Ligne 1 · type + Σ total */}
+                        <div className="flex w-full items-center gap-1.5">
+                          <span
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: active ? "rgba(255,255,255,0.9)" : hex }}
+                          />
+                          <span className={cn(
+                            "min-w-0 flex-1 truncate text-[11.5px] font-extrabold leading-snug",
+                            active ? "text-white" : "text-gray-800 dark:text-rdia-100",
+                          )}>
+                            {typeLabel(r.type, incidentTypes, lang)}
+                          </span>
+                          <span
+                            className={cn(
+                              "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-black tabular-nums",
+                              active ? "bg-white/25 text-white" : "text-white",
+                            )}
+                            style={!active ? { backgroundColor: hex } : undefined}
+                          >
+                            Σ{r.total}
+                          </span>
+                        </div>
+                        {/* Ligne 2 · chips sémantiques détail */}
+                        <div className="flex w-full flex-wrap items-center gap-1">
+                          {mainDim && (
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-bold leading-none",
+                                active ? "bg-white/25 text-white" : "text-white",
+                              )}
+                              style={!active ? { backgroundColor: mainDim.hex } : undefined}
+                            >
+                              {mainDim.label} <span className="font-mono tabular-nums">{mainDim.v}</span>
+                            </span>
+                          )}
+                          {secondaryDimChips.map((ch) => (
+                            <span
+                              key={ch.label}
+                              className={cn(
+                                "inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[8.5px] font-bold leading-none",
+                                active ? "bg-white/20 text-white/90" : "",
+                              )}
+                              style={!active ? { backgroundColor: `${ch.hex}16`, color: ch.hex } : undefined}
+                            >
+                              {ch.label} <span className="font-mono tabular-nums">{ch.v}</span>
+                            </span>
+                          ))}
+                          {!mainDim && secondaryDimChips.length === 0 && r.total === 0 && (
+                            <span className="text-[9px] font-semibold text-gray-400 dark:text-rdia-500">pas de données</span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            ))}
+
+              {/* Colonne droite · Top incidents par impact scroll */}
+              <div className="min-h-0 flex flex-col gap-1 overflow-hidden">
+                <span className="px-0.5 text-[10.5px] font-black uppercase tracking-[0.12em] text-gray-500 dark:text-rdia-400">
+                  Top · impact
+                </span>
+                <div className="min-h-0 flex-1 flex flex-col gap-1 overflow-y-auto pr-0.5">
+                  {topImpactIncidents.length === 0 ? (
+                    <div className="flex h-full items-center justify-center text-[11px] text-gray-400 dark:text-rdia-400">
+                      (pas d'incidents)
+                    </div>
+                  ) : topImpactIncidents.map(({ i: inc, impact }, idx) => {
+                    const sev = sevBadge(inc.sev, t);
+                    const sevC = sev.type === "high" ? "bg-danger-500" : sev.type === "medium" ? "bg-or-500" : "bg-green-500";
+                    return (
+                      <button
+                        key={inc.id}
+                        type="button"
+                        onClick={() => setSelIncident(inc)}
+                        className="group flex items-center gap-1.5 rounded-md border border-gray-200/60 bg-white/70 px-1.5 py-1.5 text-left transition hover:border-gray-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.04]"
+                      >
+                        <span className="w-4 shrink-0 text-center font-mono text-[10px] font-black tabular-nums text-gray-400 dark:text-rdia-500">
+                          {idx + 1}
+                        </span>
+                        <span className={`h-2 w-2 shrink-0 rounded-full ${sevC}`} />
+                        <span className="min-w-0 flex-1 truncate text-[11.5px] font-bold leading-snug text-gray-800 dark:text-rdia-100">
+                          {inc.titre}
+                        </span>
+                        <span className="shrink-0 rounded-md bg-gray-900/90 px-1.5 py-0.5 font-mono text-[10px] font-black tabular-nums text-white dark:bg-white dark:text-gray-900">
+                          Σ{impact}
+                        </span>
+                        <Icon
+                          path={UI_ICONS.chevronRight}
+                          size={11}
+                          className="shrink-0 text-gray-400 group-hover:text-rdia-500 dark:group-hover:text-rdia-300"
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
-        ) : <Empty />;
+        );
+      }
       case "moyens":
-        return <DonutChart bare titre={t.chart_moyens} data={chartMoyens} />;
+        return <DonutChart compact bare titre={t.chart_moyens} data={chartMoyens} />;
       case "hospitals":
         return dashStats ? (
           // Réseau militaire en tête, puis le civil trié par saturation
@@ -172,6 +344,18 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
+        );
+      case "incidents":
+        return (
+          <IncidentsPanel
+            incidents={incidents}
+            types={incidentTypes}
+            lang={lang}
+            t={t}
+            onOpen={(i) => setSelIncident(i)}
+            filterType={filterType}
+            onFilterChange={setFilterType}
+          />
         );
     }
   };
@@ -229,19 +413,26 @@ export default function DashboardPage() {
         </div>
       ) : (
       <>
-      {/* Grille de tuiles : remplit l'écran restant à partir de `lg`.
-           - Téléphone : une colonne, hauteurs naturelles (les graphiques
-             gardent une hauteur explicite pour ne pas s'écraser).
-           - Tablette (`md`) : deux colonnes, les blocs larges s'étendent.
-           - Rangée 3 = CONSCIENCE SITUATIONNELLE IA (lg:col-span-4)
-           - ratios : row1 (1.22fr) + row2 (1.22fr) + row3 (1.15fr) → blocs du haut PLUS GRANDS */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:min-h-0 lg:flex-1 lg:grid-cols-4 lg:grid-rows-[minmax(0,1.1fr)_minmax(0,1fr)]">
-        <DashTile id="evolution" title={titleOf.evolution} className="h-64 sm:h-72 md:col-span-2 lg:h-auto lg:col-span-2" onExpand={setExpanded} label={t.dash_expand}>{body("evolution")}</DashTile>
-        <DashTile id="casualties" title={titleOf.casualties} onExpand={setExpanded} label={t.dash_expand}>{body("casualties")}</DashTile>
-        <DashTile id="moyens" title={titleOf.moyens} className="h-60 sm:h-64 lg:h-auto" onExpand={setExpanded} label={t.dash_expand}>{body("moyens")}</DashTile>
-        <DashTile id="hospitals" title={titleOf.hospitals} className="md:col-span-2 lg:col-span-2" onExpand={setExpanded} label={t.dash_expand}>{body("hospitals")}</DashTile>
-        <DashTile id="severity" title={titleOf.severity} className="h-44 sm:h-48 lg:h-auto" onExpand={setExpanded} label={t.dash_expand}>{body("severity")}</DashTile>
-        <DashTile id="feed" title={titleOf.feed} className="h-64 lg:h-auto" onExpand={setExpanded} label={t.dash_expand}>{body("feed")}</DashTile>
+      {/* Grille de tuiles ops : casualties (2 cols / row1), puis toutes les 5 autres
+           - Mobile : 1 colonne · hauteurs naturelles
+           - Tablette md : 2 colonnes
+           - Desktop lg : 3 colonnes × 3 rows (row1=row2=1fr, row3=1.35fr incidents)
+           - Layout : R1 · casualties(2) + moyens(1)
+                      R2 · evolution(1) + hospitals(1) + severity(1)
+                      R3 · feed(1) + incidents(2) */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-3 lg:gap-5 lg:grid-rows-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.35fr)]">
+        {/* Row 1 */}
+        <DashTile id="casualties" title={titleOf.casualties} onExpand={setExpanded} label={t.dash_expand} className="lg:col-span-2">{body("casualties")}</DashTile>
+        <DashTile id="moyens" title={titleOf.moyens} onExpand={setExpanded} label={t.dash_expand}>{body("moyens")}</DashTile>
+        {/* Row 2 — 3 tuiles égales */}
+        <DashTile id="evolution" title={titleOf.evolution} onExpand={setExpanded} label={t.dash_expand}>{body("evolution")}</DashTile>
+        <DashTile id="hospitals" title={titleOf.hospitals} onExpand={setExpanded} label={t.dash_expand}>{body("hospitals")}</DashTile>
+        <DashTile id="severity" title={titleOf.severity} onExpand={setExpanded} label={t.dash_expand}>{body("severity")}</DashTile>
+        {/* Row 3 — feed 1 col · incidents 2 cols (total 3 → affiche correctement) */}
+        <DashTile id="feed" title={titleOf.feed} onExpand={setExpanded} label={t.dash_expand}>{body("feed")}</DashTile>
+        <DashTile id="incidents" title={titleOf.incidents} className="lg:col-span-2 min-h-[320px] sm:min-h-[360px] lg:min-h-0" onExpand={setExpanded} label={t.dash_expand}>
+          {body("incidents")}
+        </DashTile>
       </div>
       </>
       )}
@@ -251,6 +442,13 @@ export default function DashboardPage() {
       <Modal open={expanded !== null} size="2xl" title={expanded ? titleOf[expanded] : ""} onClose={() => setExpanded(null)}>
         <div className="h-[65dvh] sm:h-[72dvh] lg:h-[85dvh]">{expanded && body(expanded)}</div>
       </Modal>
+
+      {/* Modale détail d'incident (clic ligne / clic catégorie) */}
+      <IncidentDetailModal
+        open={selIncident !== null}
+        incident={selIncident}
+        onClose={() => setSelIncident(null)}
+      />
     </section>
   );
 }
@@ -259,7 +457,8 @@ function Empty() {
   return <div className="flex h-full items-center justify-center text-xs text-gray-400 dark:text-rdia-400">…</div>;
 }
 
-/** Cadre de tuile : carte + titre + bouton « Agrandir » en haut à droite. */
+/** Cadre de tuile : carte + titre + bouton « Agrandir » en haut à droite.
+ *  Design neutre · sans cadre coloré. */
 function DashTile({
   id,
   title,
@@ -276,20 +475,34 @@ function DashTile({
   children: ReactNode;
 }) {
   return (
-    <div className={`carte flex min-h-0 flex-col p-3 sm:p-4 ${className}`}>
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="min-w-0 truncate text-sm font-semibold text-rdia-600 dark:text-rdia-50">{title}</h3>
+    <div
+      className={cn(
+        "group flex min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-rdia-800/60 dark:hover:border-white/20",
+        className,
+      )}
+    >
+      {/* ===== HEADER ===== */}
+      <header className="flex items-center justify-between gap-2 border-b border-gray-100 px-3.5 pb-2 pt-2.5 dark:border-white/5 sm:px-4">
+        <div className="flex min-w-0 items-center gap-2">
+          <h3 className="min-w-0 truncate text-[12.5px] font-bold text-gray-800 dark:text-rdia-50 sm:text-[13px]">
+            {title}
+          </h3>
+        </div>
+
         <button
           onClick={() => onExpand(id)}
           title={label}
           aria-label={label}
-          // `cible-tactile` : 44 px au doigt sous `lg`, densité d'origine ensuite.
-          className="cible-tactile -me-1 flex shrink-0 items-center justify-center rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600 dark:hover:text-or-400"
+          className="cible-tactile shrink-0 inline-flex items-center justify-center rounded-full border border-gray-200 p-1.5 text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-800 dark:border-white/10 dark:text-rdia-300 dark:hover:bg-white/5 dark:hover:text-white"
         >
-          <Icon path={UI_ICONS.expand} size={14} strokeWidth={2} />
+          <Icon path={UI_ICONS.expand} size={12} strokeWidth={2.25} />
         </button>
+      </header>
+
+      {/* ===== CONTENU ===== */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-3.5 py-2.5 sm:px-4 sm:py-3">
+        {children}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto pe-1">{children}</div>
     </div>
   );
 }

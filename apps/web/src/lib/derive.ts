@@ -8,10 +8,108 @@
 
 import type { Dict } from "@/lib/i18n/translations";
 import type { BadgeType } from "@/components/ui/Badge";
-import type { FieldHospital, Hospital, HospitalKind, Unit } from "@/lib/types";
+import type { DashStats, FieldHospital, Hospital, HospitalKind, HospitalServiceKey, HospitalStoredService, Incident, IncidentType, Unit } from "@/lib/types";
 import { MED_GRADES, MED_GRADES_CIV, MED_SPECS, POOLS } from "@/lib/data/seed";
 import { occBarClass, persStatut } from "@/lib/helpers";
 import { fieldKind, hospKind } from "@/lib/hospitals";
+
+// ============================================================================
+// Services hospitaliers · source unique de résolution
+// ============================================================================
+// 1) Si l'hôpital a `services[]` saisis (nouveau flux AddHospital) → utilisés tels quels
+// 2) Sinon → fallback dérivation statistique (rétrocompat. hôpitaux créés avant)
+// Les clés sont triées dans un ordre stable : REA / Chirurgie / Médecine / Urgences / Pédiatrie.
+
+export const SVC_ORDER: HospitalServiceKey[] = ["rea", "chirurgie", "medecine", "urgences", "pediatrie"];
+const SVC_FALLBACK_NAMES: Record<HospitalServiceKey, string> = {
+  rea: "Réanimation",
+  chirurgie: "Chirurgie",
+  medecine: "Médecine interne",
+  urgences: "Urgences",
+  pediatrie: "Pédiatrie",
+};
+const SVC_SHARES: Record<HospitalServiceKey, number> = {
+  rea: 0.09,
+  chirurgie: 0.28,
+  medecine: 0.32,
+  urgences: 0.18,
+  pediatrie: 0.14,
+};
+const SVC_OCC_PERT: Record<HospitalServiceKey, number> = {
+  rea: 1.0,
+  chirurgie: 1.05,
+  medecine: 0.95,
+  urgences: 1.1,
+  pediatrie: 0.8,
+};
+
+export interface ResolvedHospitalService {
+  key: HospitalServiceKey;
+  name: string;
+  total: number;
+  occ: number;
+  free: number;
+  pct: number;
+  source: "stored" | "derived";
+}
+
+/**
+ * Résout les 5 services d'un hôpital :
+ *  · PRIORITÉ 1 : `h.services[]` saisis manuellement → retournés en `source: "stored"`
+ *  · PRIORITÉ 2 : dérivation statistique depuis `h.lits` / `h.occ` / `h.rea` / `h.reaOcc` → `source: "derived"`
+ * REA est toujours pris depuis h.rea/h.reaOcc si pas de valeur stockée (jamais inventé partagé).
+ */
+export function resolveHospitalServices(h: Hospital): ResolvedHospitalService[] {
+  const globalRatio = h.lits > 0 ? h.occ / h.lits : 0;
+  return SVC_ORDER.map((key): ResolvedHospitalService => {
+    // 1) stocké ?
+    const stored = (h.services ?? []).find((s) => s.key === key);
+    if (stored && stored.total >= 0) {
+      const total = Math.max(0, stored.total);
+      const occ = Math.max(0, Math.min(total, stored.occ));
+      const pct = total > 0 ? Math.round((occ / total) * 100) : 0;
+      return {
+        key,
+        name: stored.name || SVC_FALLBACK_NAMES[key],
+        total,
+        occ,
+        free: Math.max(0, total - occ),
+        pct,
+        source: "stored",
+      };
+    }
+
+    // 2) fallback dérivation
+    if (key === "rea") {
+      const total = Math.max(0, h.rea ?? 0);
+      const occ = Math.max(0, Math.min(total, h.reaOcc ?? 0));
+      const pct = total > 0 ? Math.round((occ / total) * 100) : 0;
+      return {
+        key,
+        name: SVC_FALLBACK_NAMES[key],
+        total,
+        occ,
+        free: Math.max(0, total - occ),
+        pct,
+        source: "derived",
+      };
+    }
+    const share = SVC_SHARES[key];
+    const total = Math.max(0, Math.round(h.lits * share));
+    const r = Math.min(1, globalRatio * SVC_OCC_PERT[key]);
+    const occ = Math.max(0, Math.min(total, Math.round(total * r)));
+    const pct = total > 0 ? Math.round((occ / total) * 100) : 0;
+    return {
+      key,
+      name: SVC_FALLBACK_NAMES[key],
+      total,
+      occ,
+      free: Math.max(0, total - occ),
+      pct,
+      source: "derived",
+    };
+  });
+}
 
 /**
  * Index déterministe dérivé de l'identifiant (ex. « U3 » → 2), pour reproduire à
@@ -126,20 +224,19 @@ export function hospitalDetail(h: Hospital, fieldHosps: FieldHospital[], t: Dict
     return { grade: grades[(idx + j) % 6], nom: POOLS.names[(idx * 5 + j * 2) % 12], spec: MED_SPECS[(idx * 2 + j) % 6], stType: s[1], stLabel: s[0] };
   });
 
-  const ratio = h.occ / h.lits;
-  const mkSvc = (name: string, share: number, r: number): BedService => {
-    const total = Math.round(h.lits * share);
-    const occ = Math.min(total, Math.round(total * r));
-    const pct = total > 0 ? Math.round((occ / total) * 100) : 0;
-    return { name, total: String(total), occ: String(occ), pct: `${pct} %`, pctNum: pct, barCls: occBarClass(pct) };
-  };
-  const beds: BedService[] = [
-    mkSvc(t.icu, h.rea / h.lits, h.reaOcc / h.rea),
-    mkSvc("Chirurgie", 0.28, ratio * 1.05),
-    mkSvc("Médecine interne", 0.32, ratio * 0.95),
-    mkSvc("Urgences", 0.18, ratio * 1.1),
-    mkSvc("Pédiatrie", 0.14, ratio * 0.8),
-  ];
+  // Services : utilise ceux saisis si renseignés, sinon dérivation.
+  const resolved = resolveHospitalServices(h);
+  const beds: BedService[] = resolved.map((r): BedService => {
+    const name = r.key === "rea" ? t.icu : r.name;
+    return {
+      name,
+      total: String(r.total),
+      occ: String(r.occ),
+      pct: `${r.pct} %`,
+      pctNum: r.pct,
+      barCls: occBarClass(r.pct),
+    };
+  });
 
   const vehRows: HospVehRow[] = [
     { type: "Ambulance médicalisée", qty: String(h.amb), assign: h.ville, etat: "Opérationnel", maint: false },
@@ -166,3 +263,227 @@ export function hospitalDetail(h: Hospital, fieldHosps: FieldHospital[], t: Dict
 
   return { staffRows, beds, vehRows, fields };
 }
+
+// ============================================================================
+// Palette sémantique · types d'incident → couleur hex
+// Source unique (UI Bilan humain, bloc Incidents, modales, SA Panel)
+// ============================================================================
+export const INCIDENT_TYPE_COLORS: Record<IncidentType | string, string> = {
+  earthquake: "#F87171",
+  flood: "#3B82F6",
+  wildfire: "#F59E0B",
+  landslide: "#CA8A04",
+  epidemic: "#EC4899",
+  industrial: "#A855F7",
+};
+
+export function incidentColor(type: string): string {
+  return INCIDENT_TYPE_COLORS[type] ?? "#4B5563";
+}
+
+// ============================================================================
+// Bilan humain · dimensions sémantiques par type d'incident
+// ============================================================================
+// - earthquake/flood/wildfire/landslide : traumatique → injured = blessés
+// - epidemic : infection → infected (injured aliasé retro-compat)
+// - industrial : NRBC/CBRN → contaminated + exposed (injured aliasé retro)
+// ============================================================================
+
+/** Une dimension bilan humain avec sa couleur hex. */
+export interface CasualtyDim {
+  key: "dead" | "injured" | "missing" | "rescued" | "infected" | "exposed" | "contaminated";
+  label: string;
+  value: number;
+  color: {
+    /** ex: "text-pink-600 dark:text-pink-400" */
+    text: string;
+    /** ex: "bg-pink-500/10" */
+    bg: string;
+    /** ex: "border-t-pink-500/50" */
+    br: string;
+    /** hex (pour bg inline chips) */
+    hex: string;
+  };
+}
+
+/** Une ligne agrégée PAR TYPE d'incident (pour la colonne par type). */
+export interface CasualtyPerType {
+  type: string;
+  dead: number;
+  injured: number;
+  missing: number;
+  infected: number;
+  exposed: number;
+  contaminated: number;
+  rescued: number;
+  /** Σ toutes dimensions victimaires */
+  total: number;
+}
+
+/** Totaux bilan humain + 4 KPIs dynamiques pour la tuile casualties. */
+export interface CasualtyAggregate {
+  byType: CasualtyPerType[];
+  topImpact: Array<{ incident: Incident; impact: number }>;
+  totals: {
+    dead: number; injured: number; missing: number; rescued: number;
+    infected: number; exposed: number; contaminated: number;
+  };
+  kpis: CasualtyDim[];
+  flags: { hasEpidemic: boolean; hasNrb: boolean; hasTrauma: boolean };
+}
+
+/**
+ * Agrège les victimes des incidents + DashStats vers une structure
+ * sémantique unique (1 appel useMemo côté UI).
+ *
+ * @param incidents Liste des incidents du store.
+ * @param dashStats Stats globales API (champs casualties optionnels).
+ * @param topLimit Nombre max d'incidents dans topImpact.
+ * @param perTypeLimit Nombre max de types dans byType.
+ */
+export function aggregateCasualties(
+  incidents: Incident[],
+  dashStats: DashStats | null | undefined,
+  topLimit = 4,
+  perTypeLimit = 6,
+): CasualtyAggregate {
+  const byType = new Map<string, CasualtyPerType>();
+  const totals = { dead: 0, injured: 0, missing: 0, infected: 0, exposed: 0, contaminated: 0, rescued: 0 };
+  const topImpact: Array<{ incident: Incident; impact: number }> = [];
+
+  for (const inc of incidents) {
+    const c = inc.casualties;
+    const d = c?.dead ?? 0;
+    const miss = c?.missing ?? 0;
+    const resc = c?.rescued ?? 0;
+    const injuredRaw = c?.injured ?? 0;
+    // infected: champ explicite → sinon alias injured pour type epidemic
+    const infected = c?.infected ?? (inc.type === "epidemic" ? injuredRaw : 0);
+    // contaminated: champ explicite → sinon alias injured pour type industrial
+    const contaminated = c?.contaminated ?? (inc.type === "industrial" ? injuredRaw : 0);
+    const exposed = c?.exposed ?? 0;
+    // Compteur principal "victime principale" de ce type (pour label UI)
+    const semanticInjured =
+      inc.type === "epidemic"
+        ? c?.infected ?? injuredRaw
+        : inc.type === "industrial"
+          ? c?.contaminated ?? exposed ?? injuredRaw
+          : injuredRaw;
+
+    const impact = d + semanticInjured + miss + infected + exposed + contaminated;
+
+    totals.dead += d;
+    totals.injured += injuredRaw; // blessés "brut" pour stats trauma
+    totals.missing += miss;
+    totals.infected += infected;
+    totals.exposed += exposed;
+    totals.contaminated += contaminated;
+    totals.rescued += resc;
+
+    if (impact > 0) topImpact.push({ incident: inc, impact });
+
+    const cur = byType.get(inc.type) ?? {
+      type: inc.type,
+      dead: 0, injured: 0, missing: 0, infected: 0, exposed: 0, contaminated: 0, rescued: 0, total: 0,
+    };
+    cur.dead += d; cur.injured += injuredRaw; cur.missing += miss;
+    cur.infected += infected; cur.exposed += exposed; cur.contaminated += contaminated;
+    cur.rescued += resc; cur.total += impact;
+    byType.set(inc.type, cur);
+  }
+
+  const sortedTypes = [...byType.values()].sort((a, b) => b.total - a.total).slice(0, perTypeLimit);
+  const sortedTop = [...topImpact].sort((a, b) => b.impact - a.impact).slice(0, topLimit);
+
+  // Fusion DashStats.casualties dans totaux (valeurs globales API ≥ local incident)
+  const fromDash = dashStats?.casualties;
+  const aggTotals = {
+    dead: Math.max(totals.dead, fromDash?.dead ?? 0),
+    injured: Math.max(totals.injured, fromDash?.injured ?? 0),
+    missing: Math.max(totals.missing, fromDash?.missing ?? 0),
+    rescued: fromDash?.rescued ?? (dashStats ? 0 : totals.rescued),
+    infected: totals.infected + (fromDash?.infected ?? 0),
+    exposed: totals.exposed + (fromDash?.exposed ?? 0),
+    contaminated: totals.contaminated + (fromDash?.contaminated ?? 0),
+  };
+
+  const hasEpi = aggTotals.infected > 0 || incidents.some((i) => i.type === "epidemic");
+  const hasNrb = aggTotals.contaminated > 0 || aggTotals.exposed > 0 || incidents.some((i) => i.type === "industrial");
+  const hasTrauma = aggTotals.injured > 0 && !hasEpi && !hasNrb;
+  const flags = { hasEpidemic: hasEpi, hasNrb: hasNrb, hasTrauma };
+
+  // Candidates sémantiques (hors décès, triées par priorité)
+  const candidates: CasualtyDim[] = [];
+  const pushDim = (
+    key: CasualtyDim["key"],
+    label: string,
+    value: number,
+    text: string,
+    bg: string,
+    br: string,
+    hex: string,
+  ) => candidates.push({ key, label, value, color: { text, bg, br, hex } });
+
+  if (hasEpi) pushDim("infected", "Infectés", aggTotals.infected, "text-pink-600 dark:text-pink-400", "bg-pink-500/10", "border-t-pink-500/50", "#EC4899");
+  if (hasNrb) pushDim("contaminated", "Contaminés", aggTotals.contaminated, "text-purple-600 dark:text-purple-400", "bg-purple-500/10", "border-t-purple-500/50", "#A855F7");
+  if (hasNrb) pushDim("exposed", "Exposés", aggTotals.exposed, "text-indigo-600 dark:text-indigo-400", "bg-indigo-500/10", "border-t-indigo-500/50", "#6366F1");
+  if (aggTotals.injured > 0 || !hasEpi) {
+    const label = hasTrauma ? "Blessés" : hasEpi ? "Blessés (trauma)" : "Blessés";
+    pushDim("injured", label, aggTotals.injured, "text-or-500", "bg-or-500/10", "border-t-or-500/50", "#F59E0B");
+  }
+  pushDim("missing", "Disparus", aggTotals.missing, "text-gray-600 dark:text-rdia-300", "bg-gray-500/10", "border-t-gray-400/50", "#64748B");
+  pushDim("rescued", "Secourus", aggTotals.rescued, "text-green-600 dark:text-green-400", "bg-green-500/10", "border-t-green-500/50", "#10B981");
+
+  // Toujours 1er KPI = Décès
+  const deadKpi: CasualtyDim = {
+    key: "dead", label: "Décès", value: aggTotals.dead,
+    color: { text: "text-danger-500", bg: "bg-danger-500/10", br: "border-t-danger-500/50", hex: "#EF4444" },
+  };
+  const selected = candidates.filter((c) => c.value > 0).slice(0, 3);
+  const fallbacks: CasualtyDim[] = candidates; // fallback pool
+  for (const fb of fallbacks) {
+    if (selected.length >= 3) break;
+    if (!selected.some((s) => s.key === fb.key)) selected.push(fb);
+  }
+  const kpis = [deadKpi, ...selected.slice(0, 3)];
+
+  return {
+    byType: sortedTypes,
+    topImpact: sortedTop,
+    totals: aggTotals,
+    kpis,
+    flags,
+  };
+}
+
+/**
+ * Retourne la dimension PRINCIPALE + chips détails sémantiques pour un type
+ * d'incident (utilisée dans les lignes « par type » de la tuile casualties).
+ */
+export function semanticChipsForType(
+  r: CasualtyPerType,
+): { main?: { label: string; v: number; hex: string }; secondary: Array<{ label: string; v: number; hex: string }> } {
+  const secondary: Array<{ label: string; v: number; hex: string }> = [];
+  if (r.dead > 0) secondary.push({ label: "Déc", v: r.dead, hex: "#EF4444" });
+
+  let main: { label: string; v: number; hex: string } | undefined;
+
+  if (r.type === "epidemic") {
+    if (r.infected > 0) main = { label: "Inf", v: r.infected, hex: "#EC4899" };
+    if (r.injured > 0) secondary.push({ label: "Bles", v: r.injured, hex: "#F59E0B" });
+    if (r.exposed > 0) secondary.push({ label: "Exp", v: r.exposed, hex: "#6366F1" });
+  } else if (r.type === "industrial") {
+    if (r.contaminated > 0) main = { label: "Cont", v: r.contaminated, hex: "#A855F7" };
+    else if (r.exposed > 0) main = { label: "Exp", v: r.exposed, hex: "#6366F1" };
+    if (r.injured > 0) secondary.push({ label: "Bles", v: r.injured, hex: "#F59E0B" });
+    if (r.exposed > 0 && r.contaminated > 0) {
+      // exposé déjà en main → doublon évité ci-dessus
+    }
+  } else {
+    if (r.injured > 0) secondary.push({ label: "Bles", v: r.injured, hex: "#F59E0B" });
+  }
+
+  if (r.missing > 0) secondary.push({ label: "Disp", v: r.missing, hex: "#64748B" });
+  return { main, secondary };
+}
+

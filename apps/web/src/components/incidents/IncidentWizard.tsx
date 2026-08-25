@@ -15,6 +15,11 @@ import {
   DescAssistButtons,
   type DescriptionProposalInput,
 } from "@/components/incidents/IncidentDraftAssist";
+import {
+  generateIncidentDraft,
+  paraphraseIncidentDraft,
+  type IncidentDraftResult,
+} from "@/lib/ai/llmIncidentDraft";
 
 // Aperçu carte réel chargé côté client uniquement (MapLibre accède à window).
 const LocationPreviewMap = dynamic(
@@ -88,6 +93,10 @@ export function IncidentWizard() {
   const [keywordsDraft, setKeywordsDraft] = useState("");
   const [aiGenerated, setAiGenerated] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
+  const [aiBusyT, setAiBusyT] = useState(false);
+  const [aiBusyD, setAiBusyD] = useState(false);
+  const [aiFallback, setAiFallback] = useState(false);
+  const [aiSalt, setAiSalt] = useState(1);
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [files, setFiles] = useState<string[]>([]);
@@ -170,24 +179,69 @@ export function IncidentWizard() {
     }
   };
 
-  /** UNE SEULE génération IA à partir des keywords. */
+  /** Appliquer un résultat de draft aux états title/desc + hint fallback. */
+  const applyDraft = (r: IncidentDraftResult) => {
+    if (r.title) setTitle(r.title);
+    if (r.desc) setDesc(r.desc);
+    setAiFallback(Boolean(r.fallback));
+  };
+
+  /** Génération initiale / régénération globale via LLM + fallback. */
   const runAiGenerate = async () => {
     if (!type || keywordsList.length === 0 || aiBusy) return;
     setAiBusy(true);
     setAiGenerated(false);
+    setAiFallback(false);
     try {
-      // Petit délai UI pour donner l'impression que l'IA « travaille »
-      await new Promise((r) => setTimeout(r, 320));
-      // IMPORTANT : incrémenter LES DEUX compteurs pour forcer 2 nouvelles
-      // propositions indépendantes, basées cette fois sur keywords à jour.
-      draft.regenFreshT();
-      draft.regenFreshD();
-      // Appliquer (sans attendre le useEffect hook — forcer directement)
-      // On attend 1 tick pour que les useMemo regénèrent avec le nouveau salt.
-      await new Promise((r) => setTimeout(r, 0));
+      const nextSalt = aiSalt + 1;
+      setAiSalt(nextSalt);
+      const result = await generateIncidentDraft(keywordsList, descProposalInput, { salt: nextSalt });
+      applyDraft(result);
       setAiGenerated(true);
     } finally {
       setAiBusy(false);
+    }
+  };
+
+  /** Paraphrase seulement le titre. */
+  const regenTitle = async () => {
+    if (!aiGenerated || aiBusyT) return;
+    setAiBusyT(true);
+    try {
+      const nextSalt = aiSalt + 1;
+      setAiSalt(nextSalt);
+      const result = await paraphraseIncidentDraft({
+        keywords: keywordsList,
+        input: descProposalInput,
+        currentTitle: title,
+        currentDesc: desc,
+        field: "title",
+        salt: nextSalt,
+      });
+      applyDraft(result);
+    } finally {
+      setAiBusyT(false);
+    }
+  };
+
+  /** Paraphrase seulement la description. */
+  const regenDesc = async () => {
+    if (!aiGenerated || aiBusyD) return;
+    setAiBusyD(true);
+    try {
+      const nextSalt = aiSalt + 1;
+      setAiSalt(nextSalt);
+      const result = await paraphraseIncidentDraft({
+        keywords: keywordsList,
+        input: descProposalInput,
+        currentTitle: title,
+        currentDesc: desc,
+        field: "desc",
+        salt: nextSalt,
+      });
+      applyDraft(result);
+    } finally {
+      setAiBusyD(false);
     }
   };
 
@@ -510,16 +564,29 @@ export function IncidentWizard() {
             {/* ZONE TITRE + DESCRIPTION : APPARAÎT SEULEMENT APRÈS GÉNÉRATION */}
             {aiGenerated ? (
               <div className="flex flex-col gap-4 rounded-xl border border-or-500/15 bg-or-500/[0.03] p-3 dark:border-or-500/20 dark:bg-or-500/[0.05]">
-                {/* Indicateur IA générée + hint */}
+                {/* Indicateur IA générée + hint fallback */}
                 <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-or-600 dark:text-or-300">
-                    <Icon path={UI_ICONS.sparkles} size={13} /> AI · {t.f_generated_hint}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-or-600 dark:text-or-300">
+                      <Icon path={UI_ICONS.sparkles} size={13} /> AI · {t.f_generated_hint}
+                    </div>
                   </div>
                 </div>
 
-                {/* TITRE généré, éditable */}
-                <div>
-                  <label className={labelCls}>{t.f_generated_title}</label>
+                {/* TITRE généré, éditable + bouton paraphraser */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className={labelCls}>{t.f_generated_title}</label>
+                    <button
+                      type="button"
+                      onClick={() => void regenTitle()}
+                      disabled={aiBusyT || aiBusy || !aiGenerated}
+                      className="inline-flex items-center gap-1 rounded-md border border-or-500/30 bg-or-500/10 px-2 py-0.5 text-[10px] font-semibold text-or-700 transition-colors hover:bg-or-500/20 disabled:cursor-not-allowed disabled:opacity-40 dark:text-or-300"
+                    >
+                      <Icon path={aiBusyT ? UI_ICONS.refresh : UI_ICONS.sparkles} size={11} className={aiBusyT ? "animate-spin" : ""} />
+                      {aiBusyT ? t.f_ai_busy_title : t.f_ai_regen_title}
+                    </button>
+                  </div>
                   <input
                     className={`${fieldCls} min-w-0`}
                     value={title}
@@ -528,9 +595,20 @@ export function IncidentWizard() {
                   />
                 </div>
 
-                {/* DESCRIPTION générée, éditable */}
-                <div>
-                  <label className={labelCls}>{t.f_generated_desc}</label>
+                {/* DESCRIPTION générée, éditable + bouton paraphraser */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className={labelCls}>{t.f_generated_desc}</label>
+                    <button
+                      type="button"
+                      onClick={() => void regenDesc()}
+                      disabled={aiBusyD || aiBusy || !aiGenerated}
+                      className="inline-flex items-center gap-1 rounded-md border border-or-500/30 bg-or-500/10 px-2 py-0.5 text-[10px] font-semibold text-or-700 transition-colors hover:bg-or-500/20 disabled:cursor-not-allowed disabled:opacity-40 dark:text-or-300"
+                    >
+                      <Icon path={aiBusyD ? UI_ICONS.refresh : UI_ICONS.sparkles} size={11} className={aiBusyD ? "animate-spin" : ""} />
+                      {aiBusyD ? t.f_ai_busy_desc : t.f_ai_regen_desc}
+                    </button>
+                  </div>
                   <textarea
                     className={fieldCls}
                     rows={4}

@@ -375,6 +375,7 @@ export function MapCanvas() {
   const quakeFocus = useArgos((s) => s.quakeFocus);
   const focusQuake = useArgos((s) => s.focusQuake);
   const incidentFocus = useArgos((s) => s.incidentFocus);
+  const incidentFocusAt = useArgos((s) => s.incidentFocusAt);
   const focusIncident = useArgos((s) => s.focusIncident);
   const mapCenterRequest = useArgos((s) => s.mapCenterRequest);
   const setMapCenter = useArgos((s) => s.setMapCenter);
@@ -1269,7 +1270,10 @@ export function MapCanvas() {
     focusQuake(null);
   }, [quakeFocus, focusQuake]);
 
-  // --- centrage sur un incident (Copilot « Afficher sur la carte ») ---
+  // --- centrage sur un incident (Copilot / modale « Voir sur la carte »)
+  // Inclut `incidentFocusAt` : ce compteur change CHAQUE demande, ce qui permet
+  // au useEffect de se déclencher aussi quand MapCanvas monte (route /map
+  // visitée APRÈS focusIncident appelé sur une autre page comme /dashboard).
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !incidentFocus) return;
@@ -1277,7 +1281,7 @@ export function MapCanvas() {
     if (!ll || ll.length !== 2) { focusIncident(null); return; }
     map.flyTo({ center: ll, zoom: Math.max(map.getZoom(), 10), duration: 1300 });
     focusIncident(null);
-  }, [incidentFocus, focusIncident]);
+  }, [incidentFocus, incidentFocusAt, focusIncident]);
 
   // --- centrage GÉNÉRIQUE carte: Copilot zone/ville ---
   useEffect(() => {

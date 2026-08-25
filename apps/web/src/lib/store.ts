@@ -288,6 +288,8 @@ interface ArgosState {
   quakeFocus: SeismicEvent | null;
   /** incident à centrer sur la carte (même pattern que quakeFocus) ; consommé puis remis à null */
   incidentFocus: Incident | null;
+  /** incrémentée à chaque demande focusIncident, utilisée par MapCanvas pour détecter un focus arrivé avant son mount */
+  incidentFocusAt: number;
   /** centrage générique carte : demandé par un composant (Copilot) ; consommé par MapCanvas puis remis à null */
   mapCenterRequest: { ll: [number, number]; zoom: number; at: number; label?: string } | null;
   /** séisme sélectionné (bandeau de détail flottant sur la carte) ; null = aucun */
@@ -437,6 +439,8 @@ interface ArgosState {
 
   addIncident: (inc: Incident) => void;
   deployFieldHospital: (h: Hospital) => void;
+  /** Mise à jour locale optimiste d'un hôpital (services, capacités…) */
+  patchHospital: (id: string, patch: Partial<Hospital>) => void;
 
   selectChannel: (id: string) => void;
   sendMessage: (txt: string) => void;
@@ -526,6 +530,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
   seisConfig: null,
   quakeFocus: null,
   incidentFocus: null,
+  incidentFocusAt: 0,
   mapCenterRequest: null,
   quakeSelected: null,
 
@@ -783,7 +788,12 @@ export const useArgos = create<ArgosState>((set, get) => ({
   focusIncident: (inc) => set((s) => {
     if (!inc) return { incidentFocus: null };
     const layers = s.layers.incidents ? s.layers : { ...s.layers, incidents: true };
-    return { incidentFocus: inc, selMarker: { kind: "inc", id: inc.id }, layers };
+    return {
+      incidentFocus: inc,
+      incidentFocusAt: Date.now(),
+      selMarker: { kind: "inc", id: inc.id },
+      layers,
+    };
   }),
 
   // Centre générique carte (ex: zone géographique, ville) — consommé par MapCanvas useEffect
@@ -1146,6 +1156,13 @@ export const useArgos = create<ArgosState>((set, get) => ({
       };
       return { fieldHosps: [...s.fieldHosps, entry] };
     });
+    get().recomputeRiskPredictions();
+  },
+
+  patchHospital: (id, patch) => {
+    set((s) => ({
+      hospitals: s.hospitals.map((h) => (h.id === id ? { ...h, ...patch } : h)),
+    }));
     get().recomputeRiskPredictions();
   },
 

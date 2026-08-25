@@ -185,4 +185,6 @@ export const UI_ICONS = {
   package: "M16.5 9.4L21 7v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7l4.5 2.4 M12 3l9 6-9 6-9-6 9-6z M7 16l5-3 5 3 M12 12v10",
   // Ramification (sous-incidents rattachés à un incident principal).
   branch: "M6 3a3 3 0 100 6 3 3 0 000-6z M6 9v6 M6 15a3 3 0 100 6 3 3 0 000-6z M18 4a3 3 0 100 6 3 3 0 000-6z M18 10c0 5-4 6-9 6.6",
+  // 🎯 Cible / point d'évacuation (croix de visée)
+  target: "M12 3a9 9 0 100 18 9 9 0 000-18z M12 8a4 4 0 100 8 4 4 0 000-8z M12 2v3 M12 19v3 M2 12h3 M19 12h3",
 } as const;

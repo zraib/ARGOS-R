@@ -40,8 +40,19 @@ export interface Incident {
   ll: [number, number];
   /** Adresse / lieu-dit saisi à la déclaration (optionnel) */
   adresse?: string;
-  /** Bilan humain saisi à la déclaration (optionnel) */
-  casualties?: { dead: number; injured: number; missing: number };
+  /** Bilan humain saisi à la déclaration (optionnel).
+   *  Sémantique selon type d'incident :
+   *    - traumatique (séisme/inondation/…) : injured = blessés
+   *    - épidémiologique : injured peut être alias de infected
+   *    - NRBC / industriel chimique : contaminated, exposed
+   */
+  casualties?: {
+    dead: number; injured: number; missing: number;
+    infected?: number;
+    exposed?: number;
+    contaminated?: number;
+    rescued?: number;
+  };
   /** Premiers intervenants rattachés : identifiants d'unités / d'hôpitaux */
   responders?: { units: string[]; hospitals: string[] };
   /** Sous-incidents (aléas secondaires rattachés après la déclaration) */
@@ -58,7 +69,10 @@ export interface SubIncident {
   note?: string;
   time: string;
   ll?: [number, number];
-  casualties?: { dead: number; injured: number; missing: number };
+  casualties?: {
+    dead: number; injured: number; missing: number;
+    infected?: number; exposed?: number; contaminated?: number; rescued?: number;
+  };
   responders?: { units: string[]; hospitals: string[] };
 }
 
@@ -97,6 +111,54 @@ export interface Unit {
  */
 export type HospitalKind = "mil" | "mil_field" | "civ" | "civ_reg" | "civ_univ" | "civ_field";
 
+export type HospitalServiceKey = "rea" | "chirurgie" | "medecine" | "urgences" | "pediatrie" | string;
+
+export interface HospitalStoredService {
+  key: HospitalServiceKey;
+  name: string;
+  total: number;
+  occ: number;
+}
+
+export type WardStatus = "open" | "saturated" | "closed";
+
+export interface HospitalWard {
+  id: string;
+  key: HospitalServiceKey;
+  name: string;
+  lits: number;
+  occ: number;
+  statut: WardStatus;
+  chef?: string | null;
+}
+
+/**
+ * Référentiel ARGOS des types de services hospitaliers (~20 familles).
+ * L'opérateur choisit depuis ce dropdown ; le type peut aussi être libre.
+ */
+export const ARGOS_WARD_REFERENCE: { key: HospitalServiceKey; label: string; default?: boolean }[] = [
+  { key: "rea",           label: "Réanimation / USIC", default: true },
+  { key: "chirurgie",     label: "Chirurgie générale", default: true },
+  { key: "chir_digest",   label: "Chirurgie digestive" },
+  { key: "orthopedie",    label: "Orthopédie - Traumatologie" },
+  { key: "cardio",        label: "Cardiologie" },
+  { key: "pneumo",        label: "Pneumologie" },
+  { key: "medecine",      label: "Médecine interne", default: true },
+  { key: "urgences",      label: "Urgences", default: true },
+  { key: "pediatrie",     label: "Pédiatrie", default: true },
+  { key: "maternite",     label: "Maternité / Obstétrique" },
+  { key: "geriatrie",     label: "Gériatrie / SSR" },
+  { key: "neuro",         label: "Neurologie" },
+  { key: "hepato",        label: "Hépato-gastro-entérologie" },
+  { key: "nephro",        label: "Néphrologie / Dialyse" },
+  { key: "rhumato",       label: "Rhumatologie" },
+  { key: "orl",           label: "ORL" },
+  { key: "ophtalmo",      label: "Ophtalmologie" },
+  { key: "oncologie",     label: "Oncologie / Hémato" },
+  { key: "psychiatrie",   label: "Psychiatrie" },
+  { key: "reeducation",   label: "Rééducation / MPR" },
+];
+
 export interface Hospital {
   id: string;
   nom: string;
@@ -109,6 +171,12 @@ export interface Hospital {
   kind?: HospitalKind;
   /** Nature de la structure (CHU militaire, hôpital général, régional…). */
   type?: string;
+  /**
+   * Services (wards) renseignés localement côté frontend,
+   * transitoire, en attendant la saisie réelle via le endpoint `/hospitals/:id/wards`
+   * du backend NestJS. Si absent → dérivation statistique rétrocompat.
+   */
+  services?: HospitalStoredService[];
   lits: number;
   occ: number;
   rea: number;
@@ -209,7 +277,13 @@ export interface DashStats {
   evolution: { d: string; opened: number; closed: number }[];
   severity: { high: number; medium: number; low: number };
   status: { open: number; prog: number; closed: number };
-  casualties: { dead: number; injured: number; missing: number; rescued: number };
+  casualties: {
+    dead: number; injured: number; missing: number; rescued: number;
+    /** Champs optionnels (NRBC / épidémiologique) */
+    infected?: number;
+    exposed?: number;
+    contaminated?: number;
+  };
   hospitals: { id: string; nom: string; ville: string; kind?: HospitalKind; occPct: number; icuPct: number }[];
   units: { total: number; deployed: number; ready: number; avgReadiness: number };
 }

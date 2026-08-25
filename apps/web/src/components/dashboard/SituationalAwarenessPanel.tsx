@@ -13,69 +13,85 @@ function cn(...parts: Array<string | false | null | undefined>) {
 }
 
 // ========================================================================
-// Conscience Situationnelle IA — design ARGOS (palette rdia/or/danger)
-// Règles appliquées :
-//  - Zéro police grande taille : max 14 px (souvent 10→12 px)
-//  - Barres graphiques partout (anticiations → bars, facteurs → bars, risques → bars, hotspots → bars)
-//  - Palette EXCLUSIVE : rdia.X (vert militaire) + or.X + danger.X + gray.X + green 500/600
+// Conscience Situationnelle IA · REDESIGN (version 2)
+// ------------------------------------------------------------------------
+// Direction · COMMAND-CENTER (militaire ARGOS) :
+//   - Header MAITRISÉ : bandeau niveau global + score GAUGE circulaire + synthèse
+//   - Panneaux encadrés (style panels command) · chaque section = panel indépendant
+//   - Header panel : badge id · title · right meta
+//   - Texture grid fine + halo accent glow hover + micro-interactions
+//   - Palette stricte : rdia · or · danger · green · gray (inchangée)
 // ========================================================================
 
 const LEVEL_META: Record<
   GlobalAlertLevel,
-  { dot: string; tint: string; border: string; bg: string; label: string; scoreFill: string }
+  {
+    dot: string; tint: string; border: string; bg: string; label: string; scoreFill: string; scoreHex: string;
+    banner: string; bannerBg: string; bannerText: string;
+    accent: string;
+  }
 > = {
   calme: {
-    dot: "bg-green-500",
-    tint: "text-green-700 dark:text-green-400",
-    bg: "bg-green-50/50 dark:bg-green-500/[0.05]",
-    border: "border-green-500/[0.14]",
-    label: "Calme",
-    scoreFill: "bg-green-500",
+    dot: "bg-green-500", tint: "text-green-700 dark:text-green-400",
+    bg: "bg-green-50/40 dark:bg-green-500/[0.05]",
+    border: "border-green-500/[0.22]",
+    label: "Calme", scoreFill: "bg-green-500", scoreHex: "#10B981",
+    banner: "border-green-500/30",
+    bannerBg: "bg-gradient-to-r from-green-500/10 via-green-500/5 to-transparent dark:from-green-500/15 dark:via-green-500/5",
+    bannerText: "text-green-800 dark:text-green-300",
+    accent: "#10B981",
   },
   surveillance: {
-    dot: "bg-or-400",
-    tint: "text-or-600 dark:text-or-400",
-    bg: "bg-or-50/50 dark:bg-or-500/[0.05]",
-    border: "border-or-500/[0.16]",
-    label: "Surveillance",
-    scoreFill: "bg-or-400",
+    dot: "bg-or-400", tint: "text-or-600 dark:text-or-400",
+    bg: "bg-or-50/50 dark:bg-or-500/[0.06]",
+    border: "border-or-500/[0.24]",
+    label: "Surveillance", scoreFill: "bg-or-400", scoreHex: "#F59E0B",
+    banner: "border-or-500/40",
+    bannerBg: "bg-gradient-to-r from-or-500/12 via-or-500/6 to-transparent dark:from-or-500/20 dark:via-or-500/8",
+    bannerText: "text-or-800 dark:text-or-300",
+    accent: "#F59E0B",
   },
   vigilance: {
-    dot: "bg-or-400",
-    tint: "text-or-600 dark:text-or-300",
-    bg: "bg-or-50/60 dark:bg-or-500/[0.08]",
-    border: "border-or-500/[0.18]",
-    label: "Vigilance renforcée",
-    scoreFill: "bg-or-500",
+    dot: "bg-or-500", tint: "text-or-700 dark:text-or-300",
+    bg: "bg-or-50/70 dark:bg-or-500/[0.1]",
+    border: "border-or-500/[0.3]",
+    label: "Vigilance renforcée", scoreFill: "bg-or-500", scoreHex: "#D97706",
+    banner: "border-or-500/50",
+    bannerBg: "bg-gradient-to-r from-or-500/18 via-or-500/8 to-transparent dark:from-or-500/25 dark:via-or-500/10",
+    bannerText: "text-or-800 dark:text-or-200",
+    accent: "#D97706",
   },
   alerte_rouge: {
-    dot: "bg-danger-400",
-    tint: "text-danger-600 dark:text-danger-400",
-    bg: "bg-danger-50/50 dark:bg-danger-500/[0.05]",
-    border: "border-danger-500/[0.16]",
-    label: "Alerte rouge",
-    scoreFill: "bg-danger-400",
+    dot: "bg-danger-500", tint: "text-danger-700 dark:text-danger-400",
+    bg: "bg-danger-50/70 dark:bg-danger-500/[0.08]",
+    border: "border-danger-500/[0.3]",
+    label: "Alerte rouge", scoreFill: "bg-danger-500", scoreHex: "#EF4444",
+    banner: "border-danger-500/60",
+    bannerBg: "bg-gradient-to-r from-danger-500/22 via-danger-500/10 to-transparent dark:from-danger-500/30 dark:via-danger-500/12",
+    bannerText: "text-danger-800 dark:text-danger-200",
+    accent: "#EF4444",
   },
 };
 
 const NIV_COLORS: Record<"faible" | "modere" | "eleve" | "critique", string> = {
-  faible: "bg-green-500",
-  modere: "bg-rdia-400",
-  eleve: "bg-or-400",
-  critique: "bg-danger-400",
+  faible: "#10B981", modere: "#4B5563", eleve: "#F59E0B", critique: "#EF4444",
 };
 const NIV_TXT: Record<"faible" | "modere" | "eleve" | "critique", string> = {
   faible: "Faible", modere: "Modéré", eleve: "Élevé", critique: "Critique",
 };
-const IMPACT_FILL: Record<"haut" | "moyen" | "faible", string> = {
-  haut: "bg-danger-400",
-  moyen: "bg-or-400",
-  faible: "bg-green-500",
+const NIV_TXT_CLS: Record<"faible" | "modere" | "eleve" | "critique", string> = {
+  faible: "bg-green-500/10 text-green-700 dark:text-green-400",
+  modere: "bg-rdia-500/10 text-rdia-700 dark:text-rdia-300",
+  eleve: "bg-or-500/10 text-or-700 dark:text-or-300",
+  critique: "bg-danger-500/10 text-danger-700 dark:text-danger-300",
 };
-const IMPACT_TEXT: Record<"haut" | "moyen" | "faible", string> = {
-  haut: "text-danger-600 dark:text-danger-400 bg-danger-500/[0.08]",
-  moyen: "text-or-600 dark:text-or-400 bg-or-500/[0.08]",
-  faible: "text-green-600 dark:text-green-400 bg-green-500/[0.08]",
+const IMPACT_FILL: Record<"haut" | "moyen" | "faible", string> = {
+  haut: "#EF4444", moyen: "#F59E0B", faible: "#10B981",
+};
+const IMPACT_CLS: Record<"haut" | "moyen" | "faible", string> = {
+  haut: "bg-danger-500/12 text-danger-700 dark:text-danger-300",
+  moyen: "bg-or-500/12 text-or-700 dark:text-or-300",
+  faible: "bg-green-500/12 text-green-700 dark:text-green-400",
 };
 
 function Icon({ name, className }: { name: IconName; className?: string }) {
@@ -90,20 +106,84 @@ function Bar({ value, max = 100, fill, className }: { value: number; max?: numbe
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
   return (
     <div className={cn("w-full overflow-hidden rounded-full bg-gray-100 dark:bg-white/8", className)}>
-      <div className={cn("h-full rounded-full transition-[width] duration-500", fill)} style={{ width: `${pct}%` }} />
+      <div
+        className="h-full rounded-full transition-[width] duration-700 ease-out"
+        style={{ width: `${pct}%`, backgroundColor: fill }}
+      />
     </div>
   );
 }
 
-function Section({ title, right, children }: { title: string; children: ReactNode; right?: ReactNode }) {
+// ---------- Panel (Section encadrée redesign style command-center) ----------
+type PanelId = "A" | "B" | "C" | "D" | "E" | "F" | "G";
+function Panel({
+  id, title, right, accent = "#4B5563", children, className,
+}: {
+  id: PanelId;
+  title: string;
+  right?: ReactNode;
+  accent?: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="flex w-full flex-col gap-2.5 min-w-0">
-      <div className="flex items-center justify-between gap-2 w-full min-w-0 px-0.5">
-        <h3 className="shrink-0 text-[10.5px] font-bold uppercase tracking-[0.06em] text-gray-500 dark:text-rdia-300/80 leading-none">{title}</h3>
-        {right !== undefined && <div className="shrink-0 text-[10px] font-medium text-gray-400 dark:text-rdia-400 leading-none whitespace-nowrap">{right}</div>}
+    <section
+      className={cn(
+        "group relative isolate flex min-h-0 w-full flex-col overflow-hidden rounded-xl border border-gray-200/80 bg-white/95 shadow-sm ring-1 ring-gray-900/[0.025] transition-all duration-300 hover:-translate-y-0.5 hover:border-gray-300 dark:border-white/10 dark:bg-white/[0.04] dark:ring-white/[0.03] dark:hover:border-white/20",
+        className,
+      )}
+      style={{
+        boxShadow: `0 6px 20px -18px ${accent}77`,
+      }}
+    >
+      {/* déco fond · accent grid fine */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.22] dark:opacity-[0.1]"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, rgba(75,85,99,0.055) 1px, transparent 1px), linear-gradient(to bottom, rgba(75,85,99,0.055) 1px, transparent 1px)",
+          backgroundSize: "14px 14px",
+          maskImage: "radial-gradient(ellipse at 0% 0%, rgba(0,0,0,0.9) 0%, transparent 60%)",
+        }}
+      />
+      {/* accent top bar 3px */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute left-0 top-0 h-[3px] w-20 rounded-br-full"
+        style={{ backgroundColor: accent }}
+      />
+      {/* soft halo hover */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -bottom-14 -left-10 h-36 w-36 rounded-full opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-40"
+        style={{ backgroundColor: accent }}
+      />
+
+      {/* HEADER panel */}
+      <header className="relative z-10 flex items-center justify-between gap-2 border-b border-gray-100/90 px-3.5 pb-2.5 pt-3 dark:border-white/5 sm:px-4.5">
+        <div className="flex min-w-0 items-center gap-2">
+          {/* badge ID panneau mono */}
+          <span
+            className="shrink-0 rounded-md border px-1.5 py-0.5 font-mono text-[9.5px] font-black tabular-nums"
+            style={{ color: accent, borderColor: `${accent}30` }}
+          >
+            {id}
+          </span>
+          <h3 className="min-w-0 truncate text-[12px] font-extrabold uppercase tracking-[0.1em] text-gray-800 dark:text-rdia-50 sm:text-[12.5px]">
+            {title}
+          </h3>
+        </div>
+        <div className="shrink-0 text-[10px] font-semibold text-gray-400 dark:text-rdia-400 sm:text-[10.5px]">
+          {right}
+        </div>
+      </header>
+
+      {/* CONTENU panel */}
+      <div className="relative z-10 min-h-0 flex-1 px-3.5 py-3 sm:px-4.5 sm:py-3.5">
+        {children}
       </div>
-      <div className="w-full min-w-0">{children}</div>
-    </div>
+    </section>
   );
 }
 
@@ -141,23 +221,23 @@ export default function SituationalAwarenessPanel({ className, bare }: Props) {
 
   const shell = (children: ReactNode) =>
     bare ? (
-      <div className={cn("flex h-full w-full flex-col gap-3.5 p-3 md:p-4.5", className)}>{children}</div>
+      <div className={cn("flex h-full w-full flex-col gap-4 p-3 md:p-4.5", className)}>{children}</div>
     ) : (
       <section className={cn("rounded-2xl border border-gray-200 bg-white p-4.5 shadow-sm dark:border-white/5 dark:bg-rdia-800/40 md:p-5", className)}>
-        <div className="flex h-full flex-col gap-3.5">{children}</div>
+        <div className="flex h-full flex-col gap-4">{children}</div>
       </section>
     );
 
   if (!sa) {
     return shell(
-      <div className="flex h-full flex-col items-center justify-center gap-2.5 text-[12px] text-gray-500 dark:text-rdia-300">
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-[12px] text-gray-500 dark:text-rdia-300">
         <div className="flex items-center gap-2">
-          <span className={cn("h-2 w-2 animate-pulse rounded-full", loading ? "bg-or-500" : "bg-rdia-400")} />
+          <span className={cn("h-2.5 w-2.5 animate-pulse rounded-full", loading ? "bg-or-500" : "bg-rdia-400")} />
           <span className={cn("font-semibold", loading ? "text-or-600 dark:text-or-400" : "text-rdia-500 dark:text-rdia-300")}>
-            {loading ? "Analyse en cours" : "Initialisation"}
+            {loading ? "Analyse en cours…" : "Initialisation"}
           </span>
         </div>
-        <Bar value={60} className="h-1.5 w-56" fill={loading ? "bg-or-500" : "bg-rdia-400"} />
+        <Bar value={60} className="h-1.5 w-56" fill={loading ? "#F59E0B" : "#4B5563"} />
       </div>,
     );
   }
@@ -175,229 +255,323 @@ function ShellInner({
   onRefresh: () => void;
   shell: (children: ReactNode) => ReactNode;
 }) {
-  const levelMeta = LEVEL_META[sa.niveauGlobal];
-
-  /* ===== Données EN-TÊTE (demande user) ===== */
-  const nIncidentsCritiques = useMemo(() => {
-    const nFacteursImpactHaut = sa.facteursCritiques.filter((f) => f.impact === "haut").length;
-    const nRisquesElevOuCrit = sa.risquesProchaines.filter((r) => r.niveau === "critique" || r.niveau === "eleve").length;
-    return Math.max(nFacteursImpactHaut, nRisquesElevOuCrit, sa.pointsChauds.filter((p) => p.sev === "high").length);
-  }, [sa]);
-  const zonesConcernees = sa.pointsChauds.length
-    ? sa.pointsChauds.slice(0, 4).map((p) => p.region).join(" · ")
-    : "National";
-  const zonePrincipale = sa.pointsChauds[0]?.region ?? sa.risquesProchaines.find((r) => r.zone !== "National")?.zone ?? "National";
-
-  /* ===== Graph Points chauds COMPACT ===== */
-  const graphHeightPx = 54;
-  const hotspotsColLayout = sa.pointsChauds.length <= 2
-    ? "grid-cols-2"
-    : sa.pointsChauds.length <= 3
-    ? "grid-cols-3"
-    : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4";
+  const lm = LEVEL_META[sa.niveauGlobal];
+  const score = Math.max(0, Math.min(100, Math.round(sa.scoreGlobal)));
 
   return shell(
     <>
+      {/* ===================================================================
+          HEADER PRINCIPAL · bandeau niveau global + score gauge + synthèse
+          =================================================================== */}
       <header
         className={cn(
-          "w-full rounded-xl border px-3.5 py-3 shadow-sm dark:shadow-none flex flex-col gap-2.5 min-w-0",
-          levelMeta.bg,
-          levelMeta.border,
+          "group relative isolate overflow-hidden rounded-2xl border bg-white shadow-sm dark:border-white/10 dark:bg-rdia-800/50",
+          lm.banner,
         )}
       >
-        <div className="flex flex-wrap items-center gap-2">
-          <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border", levelMeta.bg, levelMeta.border)}>
-            <div className={cn("h-3 w-3 rounded-full", levelMeta.dot, loading ? "animate-pulse" : "")} />
-          </div>
-          <div className="min-w-0 flex-1 flex flex-col gap-0.5 leading-none">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className={cn("text-[13px] font-extrabold uppercase tracking-[0.03em] leading-none", levelMeta.tint)}>
-                {sa.niveauGlobal === "alerte_rouge" ? "ALERTE ROUGE" : sa.niveauGlobal === "vigilance" ? "VIGILANCE RENFORCÉE" : sa.niveauGlobal === "surveillance" ? "SURVEILLANCE" : "SITUATION CALME"}
-              </span>
-              {sa.fromAI ? (
-                <span className="inline-flex items-center gap-1 rounded-md border border-rdia-500/15 bg-rdia-50/70 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-rdia-600 dark:bg-rdia-500/10 dark:text-rdia-300">
-                  <Icon name="sparkles" className="h-2.5 w-2.5" />
-                  IA{model ? ` · ${model}` : ""}
+        {/* dégradé bandeau */}
+        <div className={cn("pointer-events-none absolute inset-0", lm.bannerBg)} />
+        {/* texture grille fine */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-[0.18] dark:opacity-[0.08]"
+          style={{
+            backgroundImage:
+              "linear-gradient(to right, rgba(75,85,99,0.07) 1px, transparent 1px), linear-gradient(to bottom, rgba(75,85,99,0.07) 1px, transparent 1px)",
+            backgroundSize: "16px 16px",
+          }}
+        />
+        {/* halo accent bas gauche */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -bottom-24 -left-20 h-56 w-56 rounded-full opacity-40 blur-3xl"
+          style={{ backgroundColor: lm.accent }}
+        />
+        {/* top bar 3px accent */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute left-0 top-0 h-[3px] w-28 rounded-br-full"
+          style={{ backgroundColor: lm.accent }}
+        />
+
+        <div className="relative z-10 flex flex-col gap-3 px-4 pb-4 pt-4 sm:flex-row sm:items-stretch sm:gap-4 sm:px-5 sm:pb-5 sm:pt-4.5">
+          {/* ==== COLONNE GAUCHE : NIVEAU GLOBAL ==== */}
+          <div className="flex shrink-0 flex-col gap-2.5 sm:w-[28%]">
+            <div className="flex items-center gap-2.5">
+              <div
+                className={cn(
+                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border shadow-inner",
+                  lm.bg, lm.border,
+                )}
+                style={{
+                  boxShadow: `inset 0 0 0 1px ${lm.accent}18, 0 4px 16px -10px ${lm.accent}55`,
+                }}
+              >
+                <span className="relative inline-flex h-3.5 w-3.5">
+                  <span
+                    className={cn("absolute inline-flex h-full w-full animate-ping rounded-full opacity-60", lm.dot)}
+                  />
+                  <span className={cn("relative inline-flex h-3.5 w-3.5 rounded-full", lm.dot)} />
                 </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50/60 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-gray-600 dark:border-white/10 dark:bg-white/5 dark:text-rdia-300">
-                  <Icon name="scale" className="h-2.5 w-2.5" />
-                  Temps réel
+              </div>
+              <div className="min-w-0 flex-1 flex flex-col gap-0.5 leading-none">
+                <span className="text-[9.5px] font-black uppercase tracking-[0.18em] text-gray-400 dark:text-rdia-400">
+                  Niveau global
                 </span>
-              )}
-              {loading && (
-                <span className="inline-flex items-center gap-1 rounded-md border border-rdia-400/15 bg-rdia-500/8 px-1.5 py-0.5 text-[9.5px] font-semibold text-rdia-500">
-                  <Icon name="refresh-cw" className="h-2.5 w-2.5 animate-spin" />
-                  MAJ
+                <span className={cn("text-[18px] font-black leading-tight", lm.bannerText)}>
+                  {lm.label}
                 </span>
-              )}
+                {sa.fromAI ? (
+                  <span className="mt-0.5 inline-flex w-fit items-center gap-1 rounded-md border border-rdia-500/20 bg-rdia-50/70 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-rdia-700 dark:border-rdia-500/30 dark:bg-rdia-500/10 dark:text-rdia-300">
+                    <Icon name="sparkles" className="h-2.5 w-2.5" />
+                    IA{model ? ` · ${model}` : ""}
+                  </span>
+                ) : (
+                  <span className="mt-0.5 inline-flex w-fit items-center gap-1 rounded-md border border-gray-200/80 bg-gray-50/80 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gray-600 dark:border-white/10 dark:bg-white/5 dark:text-rdia-300">
+                    <Icon name="scale" className="h-2.5 w-2.5" />
+                    Temps réel
+                  </span>
+                )}
+              </div>
             </div>
-            <p className="mt-0.5 text-[11.5px] leading-snug text-gray-700 dark:text-rdia-100/95 min-w-0">{sa.synthese}</p>
+            {/* sous-label synthèse tag */}
+            <div className={cn("rounded-lg border p-2.5 sm:p-3", lm.bg, lm.border)}>
+              <div className="flex items-start gap-2">
+                <Icon name="info" className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", lm.tint)} />
+                <p className="text-[11.5px] leading-relaxed text-gray-700 dark:text-rdia-100/95">
+                  {sa.synthese}
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="hidden sm:flex items-center gap-1.5 shrink-0">
-            <span className="text-[9.5px] font-bold uppercase tracking-widest text-gray-400 dark:text-rdia-400">Score</span>
-            <Bar value={sa.scoreGlobal} className="h-1.5 w-[140px]" fill={levelMeta.scoreFill} />
-            <span className={cn("w-9 text-right font-mono text-[12px] font-extrabold leading-none tabular-nums", levelMeta.tint)}>{Math.round(sa.scoreGlobal)}</span>
+
+          {/* ==== COLONNE CENTRE : SCORE GAUGE CIRULAIRE ==== */}
+          <div className="flex items-center justify-center shrink-0 sm:w-[36%]">
+            <ScoreGauge value={score} accent={lm.accent} />
           </div>
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={loading}
-            className="shrink-0 inline-flex h-7 items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-0.5 text-[10.5px] font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-rdia-100 dark:hover:bg-white/10"
-          >
-            <Icon name="refresh-cw" className={cn("h-3 w-3", loading && "animate-spin")} />
-            Actualiser
-          </button>
-        </div>
-        {/* Row 2 · 4 KPIs compactes */}
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-          {/* KPI 1 — Score global (chiffre mobile) */}
-          <div className="flex flex-col rounded-lg border border-white/40 bg-white/70 px-2.5 py-1.5 dark:border-white/10 dark:bg-white/[0.04] min-w-0">
-            <span className="text-[9.5px] font-bold uppercase tracking-wide text-gray-400 dark:text-rdia-400 leading-none">Score global</span>
-            <div className="mt-0.5 flex items-baseline gap-1">
-              <span className={cn("text-[17px] font-black tabular-nums leading-none", levelMeta.tint)}>{Math.round(sa.scoreGlobal)}</span>
-              <span className="text-[10px] font-bold text-gray-400">/ 100</span>
+
+          {/* ==== COLONNE DROITE : 3 INDICATEURS COURTS + refresh ==== */}
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <div className="flex items-end justify-between gap-2">
+              <div className="min-w-0 flex-1 grid grid-cols-3 gap-1.5 sm:gap-2">
+                {/* KPI · incidents actifs */}
+                <MiniKpi
+                  icon="activity"
+                  label="Incidents"
+                  big={sa.pointsChauds.reduce((a, h) => a + h.nIncidents, 0)}
+                  sub={`${sa.pointsChauds.length} zones`}
+                  accent="#F59E0B"
+                />
+                {/* KPI · risque critique */}
+                <MiniKpi
+                  icon="alert-triangle"
+                  label="Facteurs"
+                  big={sa.facteursCritiques.length}
+                  sub={
+                    sa.facteursCritiques.filter((f) => f.impact === "haut").length > 0
+                      ? `${sa.facteursCritiques.filter((f) => f.impact === "haut").length} impact haut`
+                      : "impact maîtrisé"
+                  }
+                  accent="#EF4444"
+                />
+                {/* KPI · risque prochain */}
+                <MiniKpi
+                  icon="clock"
+                  label="H 24"
+                  big={(() => {
+                    const r = sa.risquesProchaines.find((x) => x.horizon === "24h");
+                    return r ? `${r.probabilitePct}%` : "—";
+                  })()}
+                  sub={(() => {
+                    const r = sa.risquesProchaines.find((x) => x.horizon === "24h");
+                    return r ? NIV_TXT[r.niveau] : "Sans risque";
+                  })()}
+                  accent="#4B5563"
+                />
+              </div>
+              {/* Bouton refresh */}
+              <button
+                type="button"
+                onClick={onRefresh}
+                disabled={loading}
+                className="shrink-0 inline-flex items-center gap-1 rounded-xl border border-gray-200/80 bg-white/90 px-2.5 py-2 text-[10px] font-black uppercase tracking-wider text-gray-700 transition hover:-translate-y-0.5 hover:border-gray-300 hover:bg-white hover:shadow-sm disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-rdia-100 dark:hover:border-white/20 dark:hover:bg-white/10"
+              >
+                <Icon name="refresh-cw" className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+                {loading ? "MAJ…" : "Actualiser"}
+              </button>
             </div>
-            <Bar value={sa.scoreGlobal} className="mt-1 h-1" fill={levelMeta.scoreFill} />
-          </div>
-          {/* KPI 2 — Incidents critiques */}
-          <div className="flex flex-col rounded-lg border border-white/40 bg-white/70 px-2.5 py-1.5 dark:border-white/10 dark:bg-white/[0.04] min-w-0">
-            <span className="text-[9.5px] font-bold uppercase tracking-wide text-gray-400 dark:text-rdia-400 leading-none">Incidents critiques</span>
-            <div className="mt-0.5 flex items-baseline gap-1">
-              <span className="text-[17px] font-black tabular-nums leading-none text-danger-700 dark:text-danger-400">{nIncidentsCritiques}</span>
-              <span className="text-[10px] font-bold text-gray-400">signalés</span>
-            </div>
-            <Bar value={Math.min(100, nIncidentsCritiques * 15)} className="mt-1 h-1" fill="bg-danger-400" />
-          </div>
-          {/* KPI 3 — Zones concernées */}
-          <div className="flex flex-col rounded-lg border border-white/40 bg-white/70 px-2.5 py-1.5 dark:border-white/10 dark:bg-white/[0.04] min-w-0">
-            <span className="text-[9.5px] font-bold uppercase tracking-wide text-gray-400 dark:text-rdia-400 leading-none">Zones concernées</span>
-            <div className="mt-0.5 truncate text-[11px] font-bold text-gray-900 dark:text-rdia-50 leading-snug min-w-0" title={zonesConcernees}>
-              {zonesConcernees}
-            </div>
-            <div className="text-[9.5px] text-gray-500 dark:text-rdia-300/80 mt-0.5 leading-none">{sa.pointsChauds.length} zone(s) · {sa.pointsChauds.reduce((a, b) => a + b.nIncidents, 0)} incident(s)</div>
-          </div>
-          {/* KPI 4 — Zone principale */}
-          <div className="flex flex-col rounded-lg border border-white/40 bg-white/70 px-2.5 py-1.5 dark:border-white/10 dark:bg-white/[0.04] min-w-0">
-            <span className="text-[9.5px] font-bold uppercase tracking-wide text-gray-400 dark:text-rdia-400 leading-none">Zone principale</span>
-            <div className="mt-0.5 truncate text-[11px] font-extrabold text-or-700 dark:text-or-300 leading-snug min-w-0" title={zonePrincipale}>
-              {zonePrincipale}
-            </div>
-            <div className="text-[9.5px] text-gray-500 dark:text-rdia-300/80 mt-0.5 leading-none">
-              Focus {sa.risquesProchaines[0]?.horizon ?? "24h"} · {sa.risquesProchaines[0]?.type ?? "Risque global"}
-            </div>
+            {loading && (
+              <div className="mt-1.5 flex items-center gap-1.5 rounded-md bg-rdia-500/[0.07] px-2 py-1 text-[9.5px] font-semibold text-rdia-700 dark:bg-rdia-500/10 dark:text-rdia-300">
+                <span className="relative inline-flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-or-500 opacity-60" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-or-500" />
+                </span>
+                Analyse en cours…
+              </div>
+            )}
           </div>
         </div>
       </header>
 
-      {/* =============================================================
-          2. PREMIÈRE LIGNE — 2 COLONNES ÉQUILIBRÉES
-             GAUCHE : Facteurs critiques  |  DROITE : Points chauds (hauteur graph ↓)
-          ============================================================= */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <Section title="Facteurs critiques" right={`${sa.facteursCritiques.length} détecté(s) · tri impact`}>
-          <FactorBars data={sa.facteursCritiques} />
-        </Section>
-        <Section title="Points chauds" right={`${sa.pointsChauds.length} zone(s) · focus géographique`}>
-          {/* Hauteur graph comprimée (graphHeightPx = 54 au lieu 88) + labels compacts */}
-          {!sa.pointsChauds.length ? (
-            <div className="rounded-md border border-dashed border-gray-200/80 p-2.5 text-center text-[10.5px] text-gray-400 dark:border-white/10">
-              Aucun point chaud (zone stable)
-            </div>
-          ) : (
-            <div className="flex flex-col gap-1.5 rounded-md border border-gray-200/70 bg-white/60 p-2 dark:border-white/10 dark:bg-white/[0.04] w-full min-w-0">
-              <div className={`relative flex w-full items-end`} style={{ height: `${graphHeightPx}px` }}>
-                <div className="absolute bottom-0 left-0 h-px w-full bg-gray-200/70 dark:bg-white/10" />
-                <div className={cn("relative z-10 grid h-full w-full items-end justify-items-center gap-x-2", hotspotsColLayout)} style={{ height: `${graphHeightPx}px` }}>
-                  {(() => {
-                    const max = Math.max(...sa.pointsChauds.map((d) => d.poids), 0.3);
-                    return sa.pointsChauds.map((h) => {
-                      const fill =
-                        h.sev === "high" ? "bg-danger-400" :
-                        h.sev === "medium" ? "bg-or-400" :
-                        "bg-rdia-400";
-                      const hPct = (h.poids / max) * 100;
-                      return (
-                        <div
-                          key={h.id}
-                          className="group relative flex h-full w-full items-end justify-center min-w-0"
-                          title={`${h.region} · ${h.nIncidents} incident(s)`}
-                        >
-                          <div
-                            className={cn(
-                              "relative z-10 w-[36px] shrink-0 rounded-t-sm transition-all duration-500 group-hover:brightness-105",
-                              fill,
-                            )}
-                            style={{ height: `${Math.max(6, hPct)}%` }}
-                          />
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              </div>
-              <div className={cn("grid w-full items-start justify-items-center gap-x-2 mt-0.5", hotspotsColLayout)}>
-                {sa.pointsChauds.map((h) => (
-                  <div key={`lbl-${h.id}`} className="w-full text-center leading-snug whitespace-normal break-words max-w-[64px] mx-auto min-w-0">
-                    <div className="text-[10.5px] font-bold text-gray-700 dark:text-rdia-100/95 break-all">{h.region}</div>
-                    <div className="text-[9px] font-mono font-bold text-gray-400 dark:text-rdia-400 leading-none mt-0.5">
-                      {h.nIncidents} inc.
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </Section>
+      {/* ===================================================================
+          CORPS : 3 étages (panneau A·B · 2 cols puis C·D · 2 cols puis E · full)
+          =================================================================== */}
+
+      {/* ==== ÉTAGE 1 · Panneaux A (Points chauds) ==== */}
+      <Panel id="A" title="Points chauds" right={`${sa.pointsChauds.length} zone(s)`} accent="#3B82F6">
+        <HotspotsBars data={sa.pointsChauds} />
+      </Panel>
+
+      {/* ==== ÉTAGE 2 · 2 colonnes ==== */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-4.5 lg:gap-5">
+        {/* colonne gauche */}
+        <div className="flex min-w-0 flex-col gap-4">
+          <Panel id="B" title="Anticipations" right="30 min → 12 h" accent="#D97706">
+            <ForeBars forecasts={sa.predictions} generatedAt={sa.generatedAt} debug={sa as unknown as { _debugLitsTot?: number; _debugLitsOcc?: number }} />
+          </Panel>
+          <Panel id="C" title="Flux 6 h" right={sa.predictions.flux6h.tendance} accent="#F59E0B">
+            <MetricBar
+              icon="activity"
+              title={`${sa.predictions.flux6h.tendance}`}
+              subtitle={`Pic dans ${fmtDur(sa.predictions.flux6h.picDansMinutes)}`}
+              big={`+${sa.predictions.flux6h.total}`}
+              bigUnit="patients"
+              pct={Math.max(0, Math.min(100, (sa.predictions.flux6h.total / 300) * 100))}
+              accent={sa.predictions.flux6h.tendance === "↗ en hausse" ? "#F59E0B" : "#4B5563"}
+            />
+          </Panel>
+        </div>
+        {/* colonne droite */}
+        <div className="flex min-w-0 flex-col gap-4">
+          <Panel id="D" title="Facteurs critiques" right={`${sa.facteursCritiques.length} détecté(s)`} accent="#EF4444">
+            <FactorBars data={sa.facteursCritiques} />
+          </Panel>
+          <Panel id="E" title="Risques imminents" right="H2 · H6 · H24" accent="#7C3AED">
+            <RiskBars risks={sa.risquesProchaines} />
+          </Panel>
+        </div>
       </div>
 
-      {/* =============================================================
-          3. DEUXIÈME LIGNE — 2 COLONNES ÉQUILIBRÉES
-             GAUCHE : Anticipations IA (ForeBars)  |  DROITE : Risques imminents (RiskBars)
-          ============================================================= */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <Section title="Anticipations IA" right="Horizons 30 min – 12 h">
-          <ForeBars forecasts={sa.predictions} generatedAt={sa.generatedAt} debug={sa as unknown as { _debugLitsTot?: number; _debugLitsOcc?: number }} />
-        </Section>
-        <Section title="Risques imminents" right="2h / 6h / 24h">
-          <RiskBars risks={sa.risquesProchaines} />
-        </Section>
-      </div>
+      {/* ==== ÉTAGE 3 · Ruptures stock (pleine largeur) ==== */}
+      <Panel id="F" title="Ruptures stock" right={sa.predictions.stockCritique.niveau} accent="#059669">
+        <MetricBar
+          icon="package"
+          title={sa.predictions.stockCritique.niveau === "alerte" ? "Ruptures critiques" : sa.predictions.stockCritique.niveau === "attention" ? "Ruptures modérées" : "Stock nominal"}
+          subtitle={sa.predictions.stockCritique.ruptures.length ? sa.predictions.stockCritique.ruptures.slice(0, 3).join(" · ") : "Stock nominal"}
+          big={String(sa.predictions.stockCritique.ruptures.length)}
+          bigUnit={sa.predictions.stockCritique.ruptures.length > 1 ? "ruptures" : sa.predictions.stockCritique.ruptures.length === 1 ? "rupture" : ""}
+          pct={sa.predictions.stockCritique.niveau === "alerte" ? 95 : sa.predictions.stockCritique.niveau === "attention" ? 65 : 15}
+          accent={sa.predictions.stockCritique.niveau === "alerte" ? "#EF4444" : sa.predictions.stockCritique.niveau === "attention" ? "#F59E0B" : "#059669"}
+        />
+      </Panel>
 
-      {/* =============================================================
-          4. DERNIÈRE LIGNE — 2 COLONNES ÉQUILIBRÉES
-             GAUCHE : Flux 6 h  |  DROITE : Ruptures / Capacités (RUPTURES STOCK)
-          ============================================================= */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <Section title="Flux 6 h" right={sa.predictions.flux6h.tendance}>
-          <MetricBar
-            icon="activity"
-            title={`${sa.predictions.flux6h.tendance} sur 6 heures`}
-            subtitle={`Pic prévu dans ${fmtDur(sa.predictions.flux6h.picDansMinutes)}`}
-            big={`+${sa.predictions.flux6h.total}`}
-            bigUnit="patients estimés"
-            pct={Math.max(0, Math.min(100, (sa.predictions.flux6h.total / 300) * 100))}
-            tone={sa.predictions.flux6h.tendance === "↗ en hausse" ? "or" : sa.predictions.flux6h.tendance === "↘ en baisse" ? "rdia" : "rdia"}
-          />
-        </Section>
-        <Section title="Ruptures / Capacités" right={`${sa.predictions.stockCritique.niveau} · stocks`}>
-          <MetricBar
-            icon="package"
-            title={sa.predictions.stockCritique.niveau === "alerte" ? "Ruptures critiques" : sa.predictions.stockCritique.niveau === "attention" ? "Ruptures modérées" : "Stock nominal · capacités OK"}
-            subtitle={sa.predictions.stockCritique.ruptures.length ? sa.predictions.stockCritique.ruptures.slice(0, 4).join(" · ") : "Stock nominal · aucune rupture anticipée"}
-            big={String(sa.predictions.stockCritique.ruptures.length)}
-            bigUnit={sa.predictions.stockCritique.ruptures.length > 1 ? "ruptures" : sa.predictions.stockCritique.ruptures.length === 1 ? "rupture" : "0 rupture"}
-            pct={sa.predictions.stockCritique.niveau === "alerte" ? 95 : sa.predictions.stockCritique.niveau === "attention" ? 65 : 15}
-            tone={sa.predictions.stockCritique.niveau === "alerte" ? "danger" : sa.predictions.stockCritique.niveau === "attention" ? "or" : "rdia"}
-          />
-        </Section>
-      </div>
-
-      {/* ===== Footer ===== */}
-      <footer className="mt-0 flex items-center justify-between text-[9.5px] text-gray-400 dark:text-rdia-400 leading-none">
-        <span>Mis à jour : {new Date(sa.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+      {/* ==== FOOTER horodatage ==== */}
+      <footer className="flex items-center justify-between text-[10px] text-gray-400 dark:text-rdia-400 sm:text-[10.5px]">
+        <div className="flex items-center gap-1.5">
+          <span className="inline-flex h-1.5 w-1.5 rounded-full bg-rdia-400 dark:bg-rdia-500" />
+          <span className="font-bold uppercase tracking-[0.15em]">
+            SITREP · Mis à jour {new Date(sa.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </span>
+        </div>
+        <span className="font-mono tabular-nums opacity-80">
+          ARGOS · CONSCIENCE SITUATIONNELLE
+        </span>
       </footer>
     </>,
+  );
+}
+
+// ---------------- helpers score gauge circulaire ----------------
+function ScoreGauge({ value, accent }: { value: number; accent: string }) {
+  const R = 54;
+  const STROKE = 10;
+  const C = 2 * Math.PI * R;
+  const len = (value / 100) * C;
+  return (
+    <div className="relative flex items-center justify-center">
+      <svg width="150" height="150" viewBox="0 0 140 140" className="h-[115px] w-[115px] sm:h-[130px] sm:w-[130px]">
+        <defs>
+          <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={accent} stopOpacity={0.95} />
+            <stop offset="100%" stopColor={accent} stopOpacity={0.55} />
+          </linearGradient>
+          <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2.5" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        {/* track fond */}
+        <g transform="rotate(-90 70 70)">
+          <circle
+            cx={70} cy={70} r={R} fill="none"
+            stroke="currentColor" strokeOpacity={0.07} strokeWidth={STROKE}
+          />
+          {/* segment progression */}
+          <circle
+            cx={70} cy={70} r={R} fill="none"
+            stroke="url(#scoreGrad)" strokeWidth={STROKE} strokeLinecap="round"
+            strokeDasharray={`${len} ${C - len}`} filter="url(#softGlow)"
+            style={{ transition: "stroke-dasharray 900ms ease" }}
+          />
+        </g>
+        {/* point accent début */}
+        <circle
+          cx={70} cy={16} r={4.5}
+          fill={accent} fillOpacity={0.9}
+        />
+        <text x={70} y={64} textAnchor="middle" fontSize={28} fontWeight={900} fill={accent} className="tabular-nums">
+          {value}
+        </text>
+        <text x={70} y={84} textAnchor="middle" fontSize={9} fontWeight={800} fill="currentColor" fillOpacity={0.5} letterSpacing={3}>
+          SCORE / 100
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+// ---------------- Mini KPI header colonne droite ----------------
+function MiniKpi({ icon, label, big, sub, accent }: {
+  icon: IconName; label: string; big: string | number; sub: string; accent: string;
+}) {
+  return (
+    <div
+      className="flex flex-col gap-1 rounded-lg border p-2 transition-all duration-300 hover:-translate-y-0.5"
+      style={{
+        borderColor: `${accent}25`,
+        backgroundColor: `${accent}08`,
+        boxShadow: `0 8px 22px -22px ${accent}66`,
+      }}
+    >
+      <div className="flex items-center gap-1.5">
+        <span
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md"
+          style={{ backgroundColor: `${accent}18`, color: accent }}
+        >
+          <Icon name={icon} className="h-3 w-3" />
+        </span>
+        <span
+          className="min-w-0 truncate text-[9px] font-bold uppercase tracking-wider"
+          style={{ color: `${accent}cc` }}
+        >
+          {label}
+        </span>
+      </div>
+      <div className="flex items-baseline gap-1.5 leading-none pl-0.5">
+        <span
+          className="font-mono text-[17px] font-black tabular-nums leading-none"
+          style={{ color: accent }}
+        >
+          {big}
+        </span>
+      </div>
+      <div className="truncate text-[9px] font-semibold text-gray-500 dark:text-rdia-400 pl-0.5">
+        {sub}
+      </div>
+    </div>
   );
 }
 
@@ -415,88 +589,86 @@ function fmtTimeHhMm(tsMs: number): string {
   return new Date(tsMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-// ---------- Hotspots : barres verticales (palette ARGOS) ----------
+// ---------- Hotspots bars redesign · cartes + bars ----------------
 function HotspotsBars({ data }: { data: SituationalAwareness["pointsChauds"] }) {
   if (!data.length) {
     return (
-      <div className="rounded-md border border-dashed border-gray-200/80 p-3 text-center text-[10.5px] text-gray-400 dark:border-white/10">
-        Aucun point chaud (zone stable)
+      <div className="rounded-xl border border-dashed border-gray-200/80 p-5 text-center text-[11px] text-gray-400 dark:border-white/10">
+        Aucun point chaud détecté
       </div>
     );
   }
   const max = Math.max(...data.map((d) => d.poids), 0.3);
-  const cols = data.length <= 2 ? "grid-cols-2" : data.length <= 3 ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4";
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-gray-200/70 bg-white/60 p-2.5 dark:border-white/10 dark:bg-white/[0.04] w-full min-w-0">
-      <div className="relative flex h-[88px] w-full items-end">
-        <div className="absolute bottom-0 left-0 h-px w-full bg-gray-200/70 dark:bg-white/10" />
-        <div className={cn("relative z-10 grid h-[88px] w-full items-end justify-items-center gap-x-2.5", cols)}>
-          {data.map((h) => {
-            const fill =
-              h.sev === "high" ? "bg-danger-400" :
-              h.sev === "medium" ? "bg-or-400" :
-              "bg-rdia-400";
-            const hPct = (h.poids / max) * 100;
-            return (
-              <div
-                key={h.id}
-                className="group relative flex h-full w-full items-end justify-center min-w-0"
-                title={`${h.region} · ${h.nIncidents} incident(s)`}
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+      {data.map((h, i) => {
+        const hex =
+          h.sev === "high" ? "#EF4444" :
+          h.sev === "medium" ? "#F59E0B" :
+          "#4B5563";
+        const hPct = Math.max(8, (h.poids / max) * 100);
+        return (
+          <div
+            key={h.id}
+            className="group relative flex flex-col items-stretch gap-2 rounded-xl border p-2.5 transition-all duration-300 hover:-translate-y-0.5"
+            style={{
+              borderColor: `${hex}30`,
+              backgroundColor: `${hex}08`,
+              boxShadow: `0 6px 22px -22px ${hex}99`,
+            }}
+          >
+            {/* rang label + n° rank */}
+            <div className="flex items-center justify-between gap-1.5">
+              <span
+                className="font-mono text-[9px] font-black tabular-nums"
+                style={{ color: `${hex}cc` }}
               >
-                <div
-                  className={cn(
-                    "relative z-10 w-[44px] shrink-0 rounded-t-sm transition-all duration-500 group-hover:brightness-105",
-                    fill,
-                  )}
-                  style={{ height: `${Math.max(8, hPct)}%` }}
-                />
+                0{i + 1}
+              </span>
+              <span
+                className="flex h-1.5 w-1.5 shrink-0 rounded-full"
+                style={{ backgroundColor: hex }}
+              />
+            </div>
+            {/* barre verticale container */}
+            <div className="relative flex h-[76px] w-full items-end justify-center rounded-md bg-gray-100/60 dark:bg-white/6">
+              <div
+                className="relative w-[38px] shrink-0 rounded-t-md transition-all duration-700 ease-out group-hover:brightness-110"
+                style={{
+                  height: `${hPct}%`,
+                  backgroundColor: hex,
+                  boxShadow: `inset 0 1px 0 rgba(255,255,255,0.4), 0 0 0 1px ${hex}22, 0 4px 18px -6px ${hex}aa`,
+                }}
+              />
+            </div>
+            {/* label région */}
+            <div className="min-w-0 text-center">
+              <div className="min-w-0 truncate text-[11px] font-extrabold leading-snug text-gray-800 dark:text-rdia-100" title={h.region}>
+                {h.region}
               </div>
-            );
-          })}
-        </div>
-      </div>
-      <div className={cn("grid w-full items-start justify-items-center gap-x-2.5", cols)}>
-        {data.map((h) => (
-          <div key={`lbl-${h.id}`} className="w-full text-center text-[11px] font-semibold leading-snug text-gray-700 dark:text-rdia-100/90 whitespace-normal break-words max-w-[68px] mx-auto min-w-0">
-            {h.region}
-            <div className="mt-0.5 text-[9px] font-mono font-bold text-gray-400 dark:text-rdia-400 leading-none">
-              {h.nIncidents} incident{h.nIncidents > 1 ? "s" : ""}
+              <div className="mt-0.5 flex items-center justify-center gap-1">
+                <span className="font-mono text-[9.5px] font-bold tabular-nums" style={{ color: `${hex}cc` }}>
+                  {h.nIncidents}
+                </span>
+                <span className="text-[9px] text-gray-400 dark:text-rdia-400">incident{h.nIncidents > 1 ? "s" : ""}</span>
+              </div>
             </div>
           </div>
-        ))}
-      </div>
+        );
+      })}
     </div>
   );
 }
 
-// ---------- Anticipations IA remplacées par 4 BARRES HORIZONTALES (plus de chips texte) ----------
+// ---------- Anticipations ForeBars redesign · cartes 4 rows ----------------
 type ToneFill = "rdia" | "or" | "danger" | "green";
-const TONE_FILL: Record<ToneFill, string> = {
-  rdia: "bg-rdia-500",
-  or: "bg-or-400",
-  danger: "bg-danger-400",
-  green: "bg-green-500",
-};
-const TONE_TEXT: Record<ToneFill, string> = {
-  rdia: "text-rdia-600 dark:text-rdia-300",
-  or: "text-or-600 dark:text-or-400",
-  danger: "text-danger-600 dark:text-danger-400",
-  green: "text-green-700 dark:text-green-400",
-};
-const TONE_BG: Record<ToneFill, string> = {
-  rdia: "bg-rdia-50/60 border-rdia-500/[0.12]",
-  or: "bg-or-50/60 border-or-500/[0.14]",
-  danger: "bg-danger-50/60 border-danger-500/[0.14]",
-  green: "bg-green-50/60 border-green-500/[0.14]",
+const TONE_HEX: Record<ToneFill, string> = {
+  rdia: "#4B5563", or: "#F59E0B", danger: "#EF4444", green: "#10B981",
 };
 
 type BarRow = {
-  icon: IconName;
-  label: string;
-  main: string;
-  sub?: string;
-  pct: number;
-  tone: ToneFill;
+  icon: IconName; label: string; main: string; sub?: string;
+  pct: number; tone: ToneFill;
 };
 
 function ForeBars({ forecasts, generatedAt, debug }: {
@@ -551,28 +723,54 @@ function ForeBars({ forecasts, generatedAt, debug }: {
   ];
 
   return (
-    <div className="flex flex-col gap-1.5">
-      {rows.map((r) => (
-        <div key={r.id} className={cn("flex flex-col gap-1 rounded-md border px-2.5 py-1.5", TONE_BG[r.tone])}>
-          <div className="flex items-center gap-2 w-full min-w-0">
-            <div className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-md", TONE_BG[r.tone], TONE_TEXT[r.tone])}>
-              <Icon name={r.icon} className="h-3.5 w-3.5" />
+    <div className="flex flex-col gap-2">
+      {rows.map((r, i) => {
+        const hex = TONE_HEX[r.tone];
+        return (
+          <div
+            key={r.id}
+            className="group flex flex-col gap-1.5 rounded-xl border p-2.5 transition-all duration-300 hover:-translate-y-0.5"
+            style={{
+              borderColor: `${hex}28`,
+              backgroundColor: `${hex}09`,
+              boxShadow: `0 6px 22px -22px ${hex}aa`,
+            }}
+          >
+            <div className="flex items-center gap-2.5 w-full min-w-0">
+              <span
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                style={{ backgroundColor: `${hex}18`, color: hex }}
+              >
+                <Icon name={r.icon} className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1 flex flex-col gap-0.5 leading-tight">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[9.5px] font-bold uppercase tracking-wider" style={{ color: `${hex}cc` }}>
+                    0{i + 1} · {r.label}
+                  </span>
+                  <span className="shrink-0 font-mono text-[11px] font-black tabular-nums text-gray-800 dark:text-rdia-100">
+                    {Math.round(r.pct)}%
+                  </span>
+                </div>
+                <div className="truncate text-[12px] font-extrabold leading-snug text-gray-900 dark:text-rdia-50">
+                  {r.main}
+                </div>
+                {r.sub && (
+                  <div className="truncate text-[10px] leading-snug text-gray-500 dark:text-rdia-300/85">
+                    {r.sub}
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="min-w-0 flex-1 flex flex-col gap-0.5 leading-none">
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-rdia-300/80">{r.label}</div>
-              <div className={cn("text-[12px] font-bold leading-snug truncate", TONE_TEXT[r.tone])}>{r.main}</div>
-            </div>
-            <div className="shrink-0 font-mono text-[11px] font-bold text-gray-700 dark:text-rdia-100 tabular-nums">{Math.round(r.pct)}%</div>
+            <Bar value={r.pct} className="h-1.5" fill={hex} />
           </div>
-          <Bar value={r.pct} className="h-1.5" fill={TONE_FILL[r.tone]} />
-          {r.sub && <div className="text-[10px] leading-snug text-gray-500 dark:text-rdia-300/85 truncate">{r.sub}</div>}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
-// ---------- Facteurs critiques (barres horizontales ARGOS) ----------
+// ---------- Facteurs critiques (barres horizontales) · redesign ----------------
 function FactorBars({ data }: { data: CriticalFactor[] }) {
   const sorted = useMemo(
     () => [...data].sort((a, b) => {
@@ -582,27 +780,43 @@ function FactorBars({ data }: { data: CriticalFactor[] }) {
     [data],
   );
   if (!sorted.length) {
-    return <div className="rounded-md border border-dashed border-gray-200/80 p-2.5 text-center text-[10.5px] text-gray-400 dark:border-white/10">Aucun facteur critique (situation maîtrisée)</div>;
+    return <div className="rounded-xl border border-dashed border-gray-200/80 p-5 text-center text-[11px] text-gray-400 dark:border-white/10">Aucun facteur critique</div>;
   }
   return (
-    <div className="flex flex-col gap-1.5 w-full min-w-0">
-      {sorted.slice(0, 5).map((f) => {
+    <div className="flex flex-col gap-2 w-full min-w-0">
+      {sorted.slice(0, 5).map((f, i) => {
         const pct = f.impact === "haut" ? 92 : f.impact === "moyen" ? 62 : 30;
-        const fill = IMPACT_FILL[f.impact];
+        const hex = IMPACT_FILL[f.impact];
         return (
-          <div key={f.id} className="flex flex-col gap-1 rounded-md border border-gray-200/70 bg-white/60 px-2 py-1.5 dark:border-white/10 dark:bg-white/[0.04] min-w-0">
+          <div
+            key={f.id}
+            className="flex flex-col gap-1 rounded-xl border p-2.5 transition-all duration-300 hover:-translate-y-0.5"
+            style={{
+              borderColor: `${hex}28`,
+              backgroundColor: `${hex}08`,
+              boxShadow: `0 6px 22px -22px ${hex}aa`,
+            }}
+          >
             <div className="flex items-center gap-1.5 w-full min-w-0">
-              <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide leading-none", IMPACT_TEXT[f.impact])}>
+              <span
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md font-mono text-[9.5px] font-black tabular-nums"
+                style={{ color: hex, backgroundColor: `${hex}18` }}
+              >
+                0{i + 1}
+              </span>
+              <span className={cn("shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide leading-none", IMPACT_CLS[f.impact])}>
                 {f.impact}
               </span>
-              <span className="min-w-0 flex-1 truncate text-[11px] font-semibold leading-snug text-gray-800 dark:text-rdia-100">
+              <span className="min-w-0 flex-1 truncate text-[12px] font-extrabold leading-snug text-gray-800 dark:text-rdia-100">
                 {f.label}
               </span>
               {f.value !== undefined && (
-                <span className="shrink-0 font-mono text-[11px] font-bold text-gray-900 dark:text-rdia-50 tabular-nums leading-none">{String(f.value)}</span>
+                <span className="shrink-0 font-mono text-[11px] font-black tabular-nums text-gray-900 dark:text-rdia-50 leading-none">
+                  {String(f.value)}
+                </span>
               )}
             </div>
-            <Bar value={pct} className="h-1.5" fill={fill} />
+            <Bar value={pct} className="h-1.5" fill={hex} />
           </div>
         );
       })}
@@ -610,47 +824,67 @@ function FactorBars({ data }: { data: CriticalFactor[] }) {
   );
 }
 
-// ---------- Risques imminents 2h/6h/24h en 3 BARRES HORIZONTALES (pas de cartes colonnes) ----------
+// ---------- Risques imminents 2h/6h/24h (cards redesign) ----------------
 function RiskBars({ risks }: { risks: NextRisk[] }) {
   const order: Array<"2h" | "6h" | "24h"> = ["2h", "6h", "24h"];
   const byHorizon = new Map(risks.map((r) => [r.horizon, r]));
   return (
-    <div className="flex flex-col gap-1.5">
-      {order.map((h) => {
+    <div className="flex flex-col gap-2">
+      {order.map((h, i) => {
         const r = byHorizon.get(h);
         if (!r) {
           return (
-            <div key={h} className="flex items-center gap-2 rounded-md border border-dashed border-gray-200/80 bg-white/50 px-2 py-1.5 dark:border-white/10 dark:bg-white/0">
-              <span className="w-9 shrink-0 text-[10px] font-bold uppercase tracking-wide text-gray-400">H {h}</span>
+            <div key={h} className="flex items-center gap-2.5 rounded-xl border border-dashed border-gray-200/70 bg-white/50 px-2.5 py-2 dark:border-white/10 dark:bg-white/0">
+              <span className="flex h-7 w-10 shrink-0 items-center justify-center rounded-md border border-gray-200/80 bg-white/90 font-mono text-[9.5px] font-black uppercase tracking-wide text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-rdia-400">
+                H{h}
+              </span>
               <div className="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-white/8" />
-              <span className="text-[10px] text-gray-400">risque nul</span>
+              <span className="text-[10px] font-semibold text-gray-400 dark:text-rdia-400">sans risque</span>
             </div>
           );
         }
-        const fill = NIV_COLORS[r.niveau];
+        const hex = NIV_COLORS[r.niveau];
         return (
-          <div key={h} className="flex flex-col gap-1 rounded-md border border-gray-200/70 bg-white/60 px-2 py-1.5 dark:border-white/10 dark:bg-white/[0.04] min-w-0">
+          <div
+            key={h}
+            className="flex flex-col gap-1.5 rounded-xl border p-2.5 transition-all duration-300 hover:-translate-y-0.5"
+            style={{
+              borderColor: `${hex}30`,
+              backgroundColor: `${hex}09`,
+              boxShadow: `0 6px 22px -22px ${hex}aa`,
+            }}
+          >
             <div className="flex items-center gap-1.5 w-full min-w-0">
-              <span className="flex h-5.5 w-9 shrink-0 items-center justify-center rounded border border-gray-200/80 bg-white/80 text-[9.5px] font-bold uppercase tracking-wide text-gray-600 dark:border-white/10 dark:bg-white/5 dark:text-rdia-300">
-                H {h}
+              <span
+                className="flex h-7 w-10 shrink-0 items-center justify-center rounded-md border font-mono text-[9.5px] font-black uppercase tracking-wide"
+                style={{
+                  color: hex,
+                  borderColor: `${hex}30`,
+                  backgroundColor: `${hex}15`,
+                }}
+              >
+                H{h}
               </span>
-              <div className={cn("h-1.5 w-1.5 shrink-0 rounded-full", fill)} />
-              <div className="min-w-0 flex-1 flex flex-col gap-0.5">
-                <div className="truncate text-[11px] font-bold leading-snug text-gray-900 dark:text-rdia-50">{r.type}</div>
-                <div className="truncate text-[9.5px] leading-snug text-gray-500 dark:text-rdia-300/85">{r.zone}</div>
+              <span className="font-mono text-[9px] font-black tabular-nums text-gray-400 dark:text-rdia-400">
+                0{i + 1}
+              </span>
+              <div className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: hex }} />
+              <div className="min-w-0 flex-1 flex flex-col gap-0.5 leading-tight">
+                <div className="truncate text-[12px] font-extrabold leading-snug text-gray-900 dark:text-rdia-50">{r.type}</div>
+                <div className="truncate text-[10px] leading-snug text-gray-500 dark:text-rdia-300/85">{r.zone}</div>
               </div>
-              <span className="shrink-0 text-right font-mono text-[10.5px] font-bold text-gray-800 dark:text-rdia-50 tabular-nums leading-none">
-                <span className={cn(
-                  "rounded px-1.5 py-0.5 text-[9px] font-bold",
-                  r.niveau === "critique" ? "bg-danger-500/[0.08] text-danger-600 dark:text-danger-400" :
-                  r.niveau === "eleve" ? "bg-or-500/[0.08] text-or-600 dark:text-or-400" :
-                  r.niveau === "modere" ? "bg-rdia-500/[0.08] text-rdia-600 dark:text-rdia-300" :
-                  "bg-green-500/[0.08] text-green-700 dark:text-green-400",
-                )}>{NIV_TXT[r.niveau]}</span>
-                <span className="ml-1">{r.probabilitePct}%</span>
-              </span>
+              <div className="shrink-0 flex flex-col items-end gap-0.5 leading-none">
+                <span
+                  className={cn("rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase", NIV_TXT_CLS[r.niveau])}
+                >
+                  {NIV_TXT[r.niveau]}
+                </span>
+                <span className="font-mono text-[11px] font-black tabular-nums" style={{ color: hex }}>
+                  {r.probabilitePct}%
+                </span>
+              </div>
             </div>
-            <Bar value={r.probabilitePct} className="h-1.5" fill={fill} />
+            <Bar value={r.probabilitePct} className="h-1.5" fill={hex} />
           </div>
         );
       })}
@@ -658,9 +892,9 @@ function RiskBars({ risks }: { risks: NextRisk[] }) {
   );
 }
 
-// ---------- Carte métrique bottom (Flux 6h / Ruptures stock) — style ARGOS, chiffre non géant ----------
+// ---------- Carte métrique (Flux 6h / Ruptures stock) redesign ----------------
 function MetricBar({
-  icon, title, subtitle, big, bigUnit, pct, tone,
+  icon, title, subtitle, big, bigUnit, pct, accent,
 }: {
   icon: IconName;
   title: string;
@@ -668,46 +902,48 @@ function MetricBar({
   big: string;
   bigUnit?: string;
   pct: number;
-  tone: "rdia" | "or" | "danger";
+  accent: string;
 }) {
   const safePct = Math.max(0, Math.min(100, pct));
   return (
-    <div className={cn(
-      "flex flex-col gap-1.5 rounded-lg border p-2.5 w-full min-w-0",
-      tone === "danger" ? "bg-danger-50/60 border-danger-500/[0.16] dark:bg-danger-500/[0.05] dark:border-danger-500/[0.18]"
-        : tone === "or" ? "bg-or-50/60 border-or-500/[0.16] dark:bg-or-500/[0.05] dark:border-or-500/[0.18]"
-        : "bg-rdia-50/60 border-rdia-500/[0.16] dark:bg-rdia-500/[0.05] dark:border-rdia-500/[0.18]",
-    )}>
-      <div className="flex items-center gap-2 w-full min-w-0">
-        <div className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
-          tone === "danger" ? "bg-danger-500/[0.12] text-danger-700 dark:text-danger-300"
-            : tone === "or" ? "bg-or-500/[0.12] text-or-700 dark:text-or-300"
-            : "bg-rdia-500/[0.12] text-rdia-700 dark:text-rdia-300",
-        )}>
-          <Icon name={icon} className="h-[15px] w-[15px]" />
-        </div>
-        <div className="min-w-0 flex-1 flex flex-col gap-0.5">
-          <div className="text-[11.5px] font-bold leading-snug text-gray-900 dark:text-rdia-50 truncate">{title}</div>
-          <div className="text-[9.5px] leading-snug text-gray-600 dark:text-rdia-300/90 truncate">{subtitle}</div>
+    <div
+      className="group flex flex-col gap-2.5 rounded-2xl border p-3.5 w-full min-w-0 transition-all duration-300 hover:-translate-y-0.5 sm:p-4"
+      style={{
+        borderColor: `${accent}30`,
+        backgroundColor: `${accent}0A`,
+        boxShadow: `0 8px 28px -24px ${accent}bb`,
+      }}
+    >
+      <div className="flex items-center gap-3 w-full min-w-0">
+        <span
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+          style={{ backgroundColor: `${accent}1A`, color: accent }}
+        >
+          <Icon name={icon} className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1 flex flex-col gap-0.5 leading-tight">
+          <div className="truncate text-[13px] font-extrabold leading-snug text-gray-900 dark:text-rdia-50">
+            {title}
+          </div>
+          <div className="truncate text-[10.5px] leading-snug text-gray-500 dark:text-rdia-300/90">
+            {subtitle}
+          </div>
         </div>
         <div className="shrink-0 text-right flex flex-col items-end justify-center leading-none">
-          <div className={cn(
-            "text-[14.5px] font-black tracking-tight tabular-nums leading-none",
-            tone === "danger" ? "text-danger-700 dark:text-danger-300"
-              : tone === "or" ? "text-or-700 dark:text-or-300"
-              : "text-rdia-700 dark:text-rdia-300",
-          )}>
+          <div
+            className="text-[22px] font-black tracking-tight tabular-nums leading-none"
+            style={{ color: accent }}
+          >
             {big}
           </div>
           {bigUnit && (
-            <div className="mt-0.5 text-[9px] font-semibold leading-none text-gray-500 dark:text-rdia-300/90">
+            <div className="mt-0.5 text-[9.5px] font-bold uppercase tracking-wider text-gray-500 dark:text-rdia-300/90">
               {bigUnit}
             </div>
           )}
         </div>
       </div>
-      <Bar value={safePct} className="h-1.5" fill={TONE_FILL[tone]} />
+      <Bar value={safePct} className="h-2" fill={accent} />
     </div>
   );
 }
