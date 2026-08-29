@@ -293,6 +293,7 @@ export default function CopilotBody() {
         currentPath: path,
         currentIncidentId,
         riskPredictions,
+        analytics: catalog.analytics ?? null,
       };
       const answer = interpret(q, ctx);
 

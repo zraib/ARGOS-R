@@ -22,6 +22,48 @@ function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
+function DatedBadge({children}:{children:ReactNode}){
+  return (<span className="inline-flex items-center gap-1.5 rounded-full border" style={{borderColor:"rgba(201,168,76,0.35)", background:"rgba(251,248,239,0.8)", padding:"6px 12px"}}>
+    <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{background:"#C9A84C"}}/>
+    <span className="font-serif text-[10px] font-semibold uppercase tracking-[0.22em]" style={{color:"#8A6D1B"}}>{children}</span>
+  </span>);
+}
+
+function SectionLabel({label, eyebrow}:{label:string; eyebrow?:string}){
+  return (
+    <div className="flex items-center gap-3">
+      {eyebrow ? <span className="font-serif text-[10px] font-semibold uppercase tracking-[0.28em]" style={{color:"#8A6D1B"}}>{eyebrow}</span> : null}
+      <span className="h-px flex-1" style={{background:"linear-gradient(90deg,rgba(201,168,76,0.5),transparent)"}}/>
+      <span className="font-serif text-[10px] font-bold uppercase tracking-[0.28em]" style={{color:"#8A6D1B"}}>{label}</span>
+      <span className="h-px flex-1" style={{background:"linear-gradient(90deg,transparent,rgba(201,168,76,0.5))"}}/>
+    </div>
+  );
+}
+
+function PremiumCard({tone, children, className = ""}:{tone?:"light"|"dark"|"ivory"; children: ReactNode; className?:string}){
+  const surfaces = {
+    light: "bg-white/85",
+    dark: "bg-[#1C1A17]/95",
+    ivory: "bg-[#FBF8EF]",
+  } as const;
+  return (
+    <div
+      className={`group relative h-full w-full overflow-hidden rounded-xl backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 ${surfaces[tone ?? "light"]} ${className}`}
+      style={{
+        border: "1px solid rgba(175,140,60,0.14)",
+        boxShadow: "0 1px 0 rgba(255,255,255,0.6) inset, 0 20px 40px -24px rgba(30,20,0,0.08)",
+      }}
+    >
+      <span aria-hidden className="pointer-events-none absolute left-4 top-0 h-[3px] w-14" style={{ background: "linear-gradient(90deg,#C9A84C,transparent)" }} />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-[#C9A84C]/10 to-transparent opacity-0 transition-opacity duration-700 group-hover:translate-x-full group-hover:opacity-100 duration-1400ms ease-out"
+      />
+      {children}
+    </div>
+  );
+}
+
 interface Kpi {
   label: string;
   val: string;
@@ -360,57 +402,148 @@ export default function DashboardPage() {
     }
   };
 
+  const dateHero = useMemo(() => {
+    const d = new Date();
+    const j = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    return `${j} · ${mm} · ${d.getFullYear()}`;
+  }, []);
+
   return (
     // Sous `lg`, la grille ne peut plus tenir dans une seule hauteur d'écran :
     // la page reprend un flux vertical normal et c'est `<main>` qui défile.
-    <section className="flex flex-col gap-3 animate-fade-in lg:h-full">
-      {/* Rangée de KPI (compacte) — 2 colonnes tiennent dès 375 px */}
-      <div className="grid shrink-0 grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
-        {kpis.map((k) => (
-          <div key={k.label} className="carte flex items-center gap-2.5 p-3 sm:gap-3">
-            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 ${k.iconWrap}`}>
-              <Icon path={k.icon} size={20} />
+    <section className="flex flex-col gap-4 animate-fade-in lg:h-full">
+      {/* ===== HERO PREMIUM · Hero compact + onglets ===== */}
+      <header className="shrink-0 space-y-3">
+        <div className="grid gap-3 lg:grid-cols-[1.6fr_1fr] lg:items-stretch">
+          {/* HERO gauche · titre ops opérationnel + KPIs micro inline */}
+          <PremiumCard tone="light" className="p-4 sm:p-5 lg:p-6">
+            <div className="flex flex-wrap items-center gap-2">
+              <DatedBadge>{dateHero}</DatedBadge>
+              <span className="font-serif italic text-[12px]" style={{color:"#8A6D1B"}}>
+                {t.dash_tab_ops ?? "Vue opérationnelle"} et Analyse IA
+              </span>
             </div>
-            <div className="min-w-0">
-              <div className="truncate text-xs text-gray-500 dark:text-rdia-300">{k.label}</div>
-              {/* `flex-wrap` + `whitespace-nowrap` : sur une demi-largeur de
-                  téléphone, le delta passe à la ligne au lieu de couper le
-                  nombre en deux. */}
-              <div className="flex flex-wrap items-end gap-x-2">
-                <span className="whitespace-nowrap text-xl font-bold leading-none tabular-nums text-rdia-600 dark:text-rdia-50 sm:text-2xl">{k.val}</span>
-                <span className={`whitespace-nowrap text-[11px] font-semibold sm:text-[10px] ${k.subColor}`}>{k.sub}</span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
 
-      {/* Onglets : même langage visuel que ceux de /utilisateurs (cohérence de
-          navigation). L'état actif est marqué par fond + couleur, pas par la
-          couleur seule. */}
-      <div role="tablist" aria-label={t.nav_dash} className="flex w-fit max-w-full shrink-0 gap-1 overflow-hidden rounded-lg bg-gray-100 p-1 dark:bg-rdia-800/60">
-        {([["ops", t.dash_tab_ops], ["ia", t.dash_tab_ai]] as const).map(([id, label]) => (
-          <button
-            key={id}
-            role="tab"
-            aria-selected={view === id}
-            onClick={() => setView(id)}
-            className={`min-h-11 rounded-md px-3 py-2.5 text-xs font-semibold transition-colors lg:min-h-0 lg:py-1.5 ${
-              view === id ? "bg-white text-or-600 shadow-sm dark:bg-rdia-600 dark:text-or-400" : "text-gray-500 hover:text-or-500 dark:text-rdia-300"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+            <div className="mt-3 flex items-end gap-3">
+              <h1 className="font-serif tracking-tight text-[44px] leading-[1.02] text-[#1C1A17] sm:text-[38px]">
+                Tableau de bord
+                <span className="ml-2 font-serif italic text-[18px] sm:text-[16px]" style={{color:"#8A6D1B"}}>
+                  général
+                </span>
+              </h1>
+            </div>
+
+            <p className="mt-2 max-w-[62ch] font-serif text-[13px] leading-[1.65] text-[#1C1A17]/70">
+              Synthèse en temps réel des incidents, des ressources et du réseau hospitalier.
+              Conscience situationnelle IA intégrée dans l'onglet « Analyse IA ».
+            </p>
+
+            {/* ===== 4 KPIs micro inline hero ===== */}
+            <div className="mt-4 grid grid-cols-4 items-stretch gap-2 overflow-hidden sm:gap-3">
+              {kpis.map((k, i) => (
+                <div key={k.label} className={cn("relative flex min-w-0 flex-col gap-1 py-1 sm:py-1.5", i > 0 ? "pl-2 sm:pl-4" : "")}>
+                  {i > 0 ? (
+                    <span
+                      aria-hidden
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-px"
+                      style={{ background: "linear-gradient(180deg,transparent,rgba(201,168,76,0.55) 40%,rgba(201,168,76,0.55) 60%,transparent)", height: "24px" }}
+                    />
+                  ) : null}
+                  <span className="truncate font-serif text-[9px] font-semibold uppercase tracking-[0.22em]" style={{color:"#8A6D1B"}}>{k.label}</span>
+                  <div className="flex flex-wrap items-end gap-x-1.5">
+                    <span className="whitespace-nowrap font-serif text-[22px] font-semibold leading-none tabular-nums text-[#1C1A17] sm:text-[20px]">{k.val}</span>
+                    <span className={cn("whitespace-nowrap text-[9.5px] font-semibold", k.subColor)}>{k.sub}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </PremiumCard>
+
+          {/* HERO droite · Onglets premium ops / Analyse IA + situation actuelle */}
+          <PremiumCard tone="ivory" className="flex flex-col justify-between p-4 sm:p-5 lg:p-6">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="font-serif italic text-[13px]" style={{color:"#8A6D1B"}}>
+                  {t.dash_tab_ai ?? "Analyse IA"}
+                </span>
+                {kpiSA ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border px-2 py-[4px]" style={{borderColor:"rgba(201,168,76,0.35)", background:"rgba(255,255,255,0.55)"}}>
+                    <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full", kpiSA.subColor === "text-red-500" ? "bg-red-500" : kpiSA.subColor === "text-amber-500" ? "bg-or-500" : kpiSA.subColor === "text-green-600" ? "bg-green-500" : "bg-blue-500")}/>
+                    <span className={cn("font-serif text-[9px] font-bold uppercase tracking-[0.2em]", kpiSA.subColor)}>
+                      {kpiSA.sub.split("·")[0].trim()}
+                    </span>
+                  </span>
+                ) : null}
+              </div>
+
+              <p className="mt-3 font-serif text-[17px] leading-snug text-[#1C1A17] sm:text-[15.5px]">
+                {kpiSA
+                  ? kpiSA.sub.includes("point(s)")
+                    ? kpiSA.sub
+                    : `${kpiSA.sub} · Score global ${kpiSA.score} / 100`
+                  : "Conscience situationnelle en cours de calcul..."}
+              </p>
+            </div>
+
+            {/* ===== Onglets premium ops / IA (même langage visuel) ===== */}
+            <div
+              role="tablist"
+              aria-label={t.nav_dash}
+              className="mt-4 flex w-full overflow-hidden rounded-lg p-1"
+              style={{background:"rgba(28,26,23,0.05)", border:"1px solid rgba(175,140,60,0.18)"}}
+            >
+              {([
+                ["ops", t.dash_tab_ops ?? "Vue opérationnelle"],
+                ["ia", t.dash_tab_ai ?? "Analyse IA"],
+              ] as const).map(([id, label]) => (
+                <button
+                  key={id}
+                  role="tab"
+                  aria-selected={view === id}
+                  onClick={() => setView(id)}
+                  className={cn(
+                    "flex min-h-[40px] flex-1 items-center justify-center rounded-md px-2 py-2 text-center font-serif text-[11.5px] font-bold uppercase tracking-[0.18em] transition-all duration-200",
+                    view === id
+                      ? "shadow-sm"
+                      : "hover:text-[#8A6D1B]",
+                  )}
+                  style={view === id
+                    ? {background:"#FFFFFF", color:"#8A6D1B", border:"1px solid rgba(201,168,76,0.38)", boxShadow:"0 8px 24px -14px rgba(138,109,27,0.55)"}
+                    : {color:"#1C1A17/55"}
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </PremiumCard>
+        </div>
+      </header>
+
+      {/* ===== Section label : grilles de tuiles ===== */}
+      <div className="shrink-0 px-0.5">
+        <SectionLabel eyebrow="TABLEAU DE BORD" label={view === "ops" ? "CARTOGRAPHIE OPÉRATIONNELLE" : "CONSCIENCE SITUATIONNELLE IA"} />
       </div>
 
       {view === "ia" ? (
-        <div role="tabpanel" className="carte flex min-h-0 flex-1 flex-col p-3 sm:p-4">
-          <h3 className="mb-2 shrink-0 text-sm font-semibold text-rdia-600 dark:text-rdia-50">{t.dash_ai_title}</h3>
+        <PremiumCard tone="light" className="flex min-h-0 flex-1 flex-col p-3 sm:p-4 lg:p-5">
+          <header className="mb-2 shrink-0 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <h3 className="font-serif text-[13px] font-semibold text-[#1C1A17] sm:text-[14px]">
+                {t.dash_ai_title}
+              </h3>
+              {kpiSA ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-serif text-[9.5px] font-bold uppercase tracking-[0.22em]" style={{background: kpiSA.subColor === "text-red-500" ? "rgba(239,68,68,0.09)" : kpiSA.subColor === "text-amber-500" ? "rgba(245,158,11,0.11)" : kpiSA.subColor === "text-green-600" ? "rgba(16,185,129,0.11)" : "rgba(59,130,246,0.1)", color: kpiSA.subColor === "text-red-500" ? "#B91C1C" : kpiSA.subColor === "text-amber-500" ? "#B45309" : kpiSA.subColor === "text-green-600" ? "#047857" : "#1D4ED8"}}>
+                  Score {kpiSA.score} / 100
+                </span>
+              ) : null}
+            </div>
+          </header>
           <div className="min-h-0 flex-1 overflow-y-auto pe-1">
             <SituationalAwarenessPanel bare />
           </div>
-        </div>
+        </PremiumCard>
       ) : (
       <>
       {/* Grille de tuiles ops : casualties (2 cols / row1), puis toutes les 5 autres
@@ -457,8 +590,6 @@ function Empty() {
   return <div className="flex h-full items-center justify-center text-xs text-gray-400 dark:text-rdia-400">…</div>;
 }
 
-/** Cadre de tuile : carte + titre + bouton « Agrandir » en haut à droite.
- *  Design neutre · sans cadre coloré. */
 function DashTile({
   id,
   title,
@@ -475,16 +606,12 @@ function DashTile({
   children: ReactNode;
 }) {
   return (
-    <div
-      className={cn(
-        "group flex min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-rdia-800/60 dark:hover:border-white/20",
-        className,
-      )}
-    >
+    <PremiumCard tone="light" className={cn("flex min-h-0 flex-col", className)}>
       {/* ===== HEADER ===== */}
-      <header className="flex items-center justify-between gap-2 border-b border-gray-100 px-3.5 pb-2 pt-2.5 dark:border-white/5 sm:px-4">
+      <header className="flex items-center justify-between gap-2 border-b px-4 pb-2.5 pt-3 sm:px-5" style={{borderColor:"rgba(175,140,60,0.14)"}}>
         <div className="flex min-w-0 items-center gap-2">
-          <h3 className="min-w-0 truncate text-[12.5px] font-bold text-gray-800 dark:text-rdia-50 sm:text-[13px]">
+          <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full" style={{background:"#C9A84C"}}/>
+          <h3 className="min-w-0 truncate font-serif text-[12.5px] font-bold tracking-tight text-[#1C1A17] sm:text-[13px]">
             {title}
           </h3>
         </div>
@@ -493,16 +620,29 @@ function DashTile({
           onClick={() => onExpand(id)}
           title={label}
           aria-label={label}
-          className="cible-tactile shrink-0 inline-flex items-center justify-center rounded-full border border-gray-200 p-1.5 text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-800 dark:border-white/10 dark:text-rdia-300 dark:hover:bg-white/5 dark:hover:text-white"
+          className="cible-tactile shrink-0 inline-flex items-center justify-center rounded-full p-1.5 transition-colors"
+          style={{
+            border: "1px solid rgba(175,140,60,0.22)",
+            background: "rgba(251,248,239,0.55)",
+            color: "#8A6D1B",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(201,168,76,0.12)";
+            e.currentTarget.style.color = "#6B4F10";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(251,248,239,0.55)";
+            e.currentTarget.style.color = "#8A6D1B";
+          }}
         >
           <Icon path={UI_ICONS.expand} size={12} strokeWidth={2.25} />
         </button>
       </header>
 
       {/* ===== CONTENU ===== */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-3.5 py-2.5 sm:px-4 sm:py-3">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-2.5 sm:px-5 sm:py-3">
         {children}
       </div>
-    </div>
+    </PremiumCard>
   );
 }

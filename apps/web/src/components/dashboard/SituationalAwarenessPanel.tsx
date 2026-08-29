@@ -29,6 +29,7 @@ const LEVEL_META: Record<
     dot: string; tint: string; border: string; bg: string; label: string; scoreFill: string; scoreHex: string;
     banner: string; bannerBg: string; bannerText: string;
     accent: string;
+    badgeTint: string;
   }
 > = {
   calme: {
@@ -36,40 +37,44 @@ const LEVEL_META: Record<
     bg: "bg-green-50/40 dark:bg-green-500/[0.05]",
     border: "border-green-500/[0.22]",
     label: "Calme", scoreFill: "bg-green-500", scoreHex: "#10B981",
-    banner: "border-green-500/30",
-    bannerBg: "bg-gradient-to-r from-green-500/10 via-green-500/5 to-transparent dark:from-green-500/15 dark:via-green-500/5",
-    bannerText: "text-green-800 dark:text-green-300",
-    accent: "#10B981",
+    banner: "border-[#4B7A51]/50",
+    bannerBg: "bg-gradient-to-r from-[#4B7A51]/10 via-[#C9A84C]/6 to-transparent dark:from-[#4B7A51]/15 dark:via-[#C9A84C]/8",
+    bannerText: "text-[#2E5332] dark:text-[#BFDCC4]",
+    accent: "#4B7A51",
+    badgeTint: "rgba(16,185,129,0.16)",
   },
   surveillance: {
-    dot: "bg-or-400", tint: "text-or-600 dark:text-or-400",
-    bg: "bg-or-50/50 dark:bg-or-500/[0.06]",
-    border: "border-or-500/[0.24]",
-    label: "Surveillance", scoreFill: "bg-or-400", scoreHex: "#F59E0B",
-    banner: "border-or-500/40",
-    bannerBg: "bg-gradient-to-r from-or-500/12 via-or-500/6 to-transparent dark:from-or-500/20 dark:via-or-500/8",
-    bannerText: "text-or-800 dark:text-or-300",
-    accent: "#F59E0B",
+    dot: "bg-[#D9A749]", tint: "text-[#8A6D1B]",
+    bg: "bg-[#FBF8EF] dark:bg-[#C9A84C]/[0.08]",
+    border: "border-[#C9A84C]/[0.36]",
+    label: "Surveillance", scoreFill: "bg-[#C9A84C]", scoreHex: "#C9A84C",
+    banner: "border-[#C9A84C]/50",
+    bannerBg: "bg-gradient-to-r from-[#C9A84C]/12 via-[#FBF8EF] to-transparent dark:from-[#C9A84C]/20 dark:via-[#C9A84C]/8",
+    bannerText: "text-[#8A6D1B] dark:text-[#EFD9A4]",
+    accent: "#C9A84C",
+    badgeTint: "rgba(201,168,76,0.20)",
   },
   vigilance: {
-    dot: "bg-or-500", tint: "text-or-700 dark:text-or-300",
-    bg: "bg-or-50/70 dark:bg-or-500/[0.1]",
-    border: "border-or-500/[0.3]",
-    label: "Vigilance renforcée", scoreFill: "bg-or-500", scoreHex: "#D97706",
-    banner: "border-or-500/50",
-    bannerBg: "bg-gradient-to-r from-or-500/18 via-or-500/8 to-transparent dark:from-or-500/25 dark:via-or-500/10",
-    bannerText: "text-or-800 dark:text-or-200",
+    dot: "bg-[#D97706]", tint: "text-[#8A4A06]",
+    bg: "bg-[#FBF8EF] dark:bg-[#D97706]/[0.08]",
+    border: "border-[#C9A84C]/[0.48]",
+    label: "Vigilance renforcée", scoreFill: "bg-[#D97706]", scoreHex: "#D97706",
+    banner: "border-[#C9A84C]/60",
+    bannerBg: "bg-gradient-to-r from-[#D97706]/18 via-[#C9A84C]/10 to-transparent dark:from-[#D97706]/25 dark:via-[#C9A84C]/12",
+    bannerText: "text-[#8A4A06] dark:text-[#F6D28A]",
     accent: "#D97706",
+    badgeTint: "rgba(217,119,6,0.22)",
   },
   alerte_rouge: {
-    dot: "bg-danger-500", tint: "text-danger-700 dark:text-danger-400",
-    bg: "bg-danger-50/70 dark:bg-danger-500/[0.08]",
-    border: "border-danger-500/[0.3]",
-    label: "Alerte rouge", scoreFill: "bg-danger-500", scoreHex: "#EF4444",
-    banner: "border-danger-500/60",
-    bannerBg: "bg-gradient-to-r from-danger-500/22 via-danger-500/10 to-transparent dark:from-danger-500/30 dark:via-danger-500/12",
-    bannerText: "text-danger-800 dark:text-danger-200",
-    accent: "#EF4444",
+    dot: "bg-[#B91C1C]", tint: "text-[#7F1D1D]",
+    bg: "bg-[#FBF8EF] dark:bg-[#B91C1C]/[0.09]",
+    border: "border-[#C9A84C]/[0.36]",
+    label: "Alerte rouge", scoreFill: "bg-[#EF4444]", scoreHex: "#B91C1C",
+    banner: "border-[#C9A84C]/50",
+    bannerBg: "bg-gradient-to-r from-[#B91C1C]/14 via-[#C9A84C]/9 to-transparent dark:from-[#B91C1C]/26 dark:via-[#C9A84C]/10",
+    bannerText: "text-[#7F1D1D] dark:text-[#F6BABA]",
+    accent: "#B91C1C",
+    badgeTint: "rgba(185,28,28,0.20)",
   },
 };
 
@@ -114,10 +119,10 @@ function Bar({ value, max = 100, fill, className }: { value: number; max?: numbe
   );
 }
 
-// ---------- Panel (Section encadrée redesign style command-center) ----------
+// ---------- Panel (Section encadrée PREMIUM Editorial Executive) ----------
 type PanelId = "A" | "B" | "C" | "D" | "E" | "F" | "G";
 function Panel({
-  id, title, right, accent = "#4B5563", children, className,
+  id, title, right, accent = "#C9A84C", children, className,
 }: {
   id: PanelId;
   title: string;
@@ -129,58 +134,48 @@ function Panel({
   return (
     <section
       className={cn(
-        "group relative isolate flex min-h-0 w-full flex-col overflow-hidden rounded-xl border border-gray-200/80 bg-white/95 shadow-sm ring-1 ring-gray-900/[0.025] transition-all duration-300 hover:-translate-y-0.5 hover:border-gray-300 dark:border-white/10 dark:bg-white/[0.04] dark:ring-white/[0.03] dark:hover:border-white/20",
+        "group relative isolate flex min-h-0 w-full flex-col overflow-hidden rounded-xl backdrop-blur-md bg-white/85 transition-all duration-300 hover:-translate-y-0.5",
         className,
       )}
       style={{
-        boxShadow: `0 6px 20px -18px ${accent}77`,
+        border: "1px solid rgba(175,140,60,0.18)",
+        boxShadow: "0 1px 0 rgba(255,255,255,0.6) inset, 0 22px 38px -24px rgba(30,20,0,0.12)",
       }}
     >
-      {/* déco fond · accent grid fine */}
+      {/* accent chevelure top-left bronze (signature premium) */}
+      <span aria-hidden className="pointer-events-none absolute left-4 top-0 h-[3px] w-14" style={{background:"linear-gradient(90deg,#C9A84C,transparent)"}}/>
+      {/* shimmer bronze hover premium */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.22] dark:opacity-[0.1]"
-        style={{
-          backgroundImage:
-            "linear-gradient(to right, rgba(75,85,99,0.055) 1px, transparent 1px), linear-gradient(to bottom, rgba(75,85,99,0.055) 1px, transparent 1px)",
-          backgroundSize: "14px 14px",
-          maskImage: "radial-gradient(ellipse at 0% 0%, rgba(0,0,0,0.9) 0%, transparent 60%)",
-        }}
+        className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-[#C9A84C]/10 to-transparent opacity-0 transition-opacity duration-700 group-hover:translate-x-full group-hover:opacity-100 duration-1400ms ease-out"
       />
-      {/* accent top bar 3px */}
+      {/* soft halo hover accent */}
       <span
         aria-hidden
-        className="pointer-events-none absolute left-0 top-0 h-[3px] w-20 rounded-br-full"
-        style={{ backgroundColor: accent }}
-      />
-      {/* soft halo hover */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute -bottom-14 -left-10 h-36 w-36 rounded-full opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-40"
+        className="pointer-events-none absolute -bottom-14 -left-10 h-36 w-36 rounded-full opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-35"
         style={{ backgroundColor: accent }}
       />
 
       {/* HEADER panel */}
-      <header className="relative z-10 flex items-center justify-between gap-2 border-b border-gray-100/90 px-3.5 pb-2.5 pt-3 dark:border-white/5 sm:px-4.5">
+      <header className="relative z-10 flex items-center justify-between gap-2 border-b px-4 pb-2.5 pt-3 sm:px-5" style={{borderColor:"rgba(175,140,60,0.14)"}}>
         <div className="flex min-w-0 items-center gap-2">
-          {/* badge ID panneau mono */}
           <span
-            className="shrink-0 rounded-md border px-1.5 py-0.5 font-mono text-[9.5px] font-black tabular-nums"
-            style={{ color: accent, borderColor: `${accent}30` }}
+            className="shrink-0 rounded-md border px-1.5 py-0.5 font-serif text-[9.5px] font-black uppercase tracking-[0.2em]"
+            style={{ color: "#8A6D1B", borderColor: "rgba(175,140,60,0.35)", background: "rgba(251,248,239,0.6)"}}
           >
             {id}
           </span>
-          <h3 className="min-w-0 truncate text-[12px] font-extrabold uppercase tracking-[0.1em] text-gray-800 dark:text-rdia-50 sm:text-[12.5px]">
+          <h3 className="min-w-0 truncate font-serif text-[12.5px] font-bold tracking-tight text-[#1C1A17] sm:text-[13px]">
             {title}
           </h3>
         </div>
-        <div className="shrink-0 text-[10px] font-semibold text-gray-400 dark:text-rdia-400 sm:text-[10.5px]">
+        <div className="shrink-0 font-serif text-[10px] font-semibold text-[#8A6D1B]/85 sm:text-[10.5px]" style={{color:"rgba(138,109,27,0.85)"}}>
           {right}
         </div>
       </header>
 
       {/* CONTENU panel */}
-      <div className="relative z-10 min-h-0 flex-1 px-3.5 py-3 sm:px-4.5 sm:py-3.5">
+      <div className="relative z-10 min-h-0 flex-1 px-4 py-3 sm:px-5 sm:py-3.5">
         {children}
       </div>
     </section>
@@ -221,9 +216,11 @@ export default function SituationalAwarenessPanel({ className, bare }: Props) {
 
   const shell = (children: ReactNode) =>
     bare ? (
-      <div className={cn("flex h-full w-full flex-col gap-4 p-3 md:p-4.5", className)}>{children}</div>
+      <div className={cn("flex h-full w-full flex-col gap-4 p-3 md:p-5", className)}>{children}</div>
     ) : (
-      <section className={cn("rounded-2xl border border-gray-200 bg-white p-4.5 shadow-sm dark:border-white/5 dark:bg-rdia-800/40 md:p-5", className)}>
+      <section className={cn("rounded-2xl border bg-white p-4.5 shadow-sm backdrop-blur-md dark:border-white/5 md:p-6", className)}
+        style={{border:"1px solid rgba(175,140,60,0.18)", boxShadow:"0 1px 0 rgba(255,255,255,0.6) inset, 0 24px 44px -26px rgba(30,20,0,0.12)"}}
+      >
         <div className="flex h-full flex-col gap-4">{children}</div>
       </section>
     );
@@ -261,36 +258,31 @@ function ShellInner({
   return shell(
     <>
       {/* ===================================================================
-          HEADER PRINCIPAL · bandeau niveau global + score gauge + synthèse
+          HEADER PRINCIPAL PREMIUM · bandeau niveau global + score gauge + synthèse
           =================================================================== */}
       <header
         className={cn(
-          "group relative isolate overflow-hidden rounded-2xl border bg-white shadow-sm dark:border-white/10 dark:bg-rdia-800/50",
+          "group relative isolate overflow-hidden rounded-xl border backdrop-blur-md bg-[#FBF8EF] shadow-sm",
           lm.banner,
         )}
+        style={{
+          border: "1px solid rgba(175,140,60,0.22)",
+          boxShadow: "0 1px 0 rgba(255,255,255,0.7) inset, 0 26px 50px -28px rgba(30,20,0,0.14)",
+        }}
       >
         {/* dégradé bandeau */}
         <div className={cn("pointer-events-none absolute inset-0", lm.bannerBg)} />
-        {/* texture grille fine */}
+        {/* accent chevelure top-left bronze signature premium */}
+        <span aria-hidden className="pointer-events-none absolute left-5 top-0 h-[3px] w-16" style={{background:"linear-gradient(90deg,#C9A84C,transparent)"}}/>
+        {/* shimmer bronze hover premium */}
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.18] dark:opacity-[0.08]"
-          style={{
-            backgroundImage:
-              "linear-gradient(to right, rgba(75,85,99,0.07) 1px, transparent 1px), linear-gradient(to bottom, rgba(75,85,99,0.07) 1px, transparent 1px)",
-            backgroundSize: "16px 16px",
-          }}
+          className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-[#C9A84C]/12 to-transparent opacity-0 transition-opacity duration-700 group-hover:translate-x-full group-hover:opacity-100 duration-1400ms ease-out"
         />
         {/* halo accent bas gauche */}
         <span
           aria-hidden
-          className="pointer-events-none absolute -bottom-24 -left-20 h-56 w-56 rounded-full opacity-40 blur-3xl"
-          style={{ backgroundColor: lm.accent }}
-        />
-        {/* top bar 3px accent */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute left-0 top-0 h-[3px] w-28 rounded-br-full"
+          className="pointer-events-none absolute -bottom-24 -left-20 h-56 w-56 rounded-full opacity-35 blur-3xl"
           style={{ backgroundColor: lm.accent }}
         />
 
@@ -304,7 +296,7 @@ function ShellInner({
                   lm.bg, lm.border,
                 )}
                 style={{
-                  boxShadow: `inset 0 0 0 1px ${lm.accent}18, 0 4px 16px -10px ${lm.accent}55`,
+                  boxShadow: "inset 0 0 0 1px rgba(201,168,76,0.18), 0 4px 16px -10px " + lm.accent + "66",
                 }}
               >
                 <span className="relative inline-flex h-3.5 w-3.5">
@@ -315,30 +307,30 @@ function ShellInner({
                 </span>
               </div>
               <div className="min-w-0 flex-1 flex flex-col gap-0.5 leading-none">
-                <span className="text-[9.5px] font-black uppercase tracking-[0.18em] text-gray-400 dark:text-rdia-400">
+                <span className="font-serif text-[9.5px] font-semibold uppercase tracking-[0.22em]" style={{color:"#8A6D1B"}}>
                   Niveau global
                 </span>
-                <span className={cn("text-[18px] font-black leading-tight", lm.bannerText)}>
+                <span className={cn("font-serif text-[18px] font-bold leading-tight tracking-tight", lm.bannerText)}>
                   {lm.label}
                 </span>
                 {sa.fromAI ? (
-                  <span className="mt-0.5 inline-flex w-fit items-center gap-1 rounded-md border border-rdia-500/20 bg-rdia-50/70 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-rdia-700 dark:border-rdia-500/30 dark:bg-rdia-500/10 dark:text-rdia-300">
+                  <span className="mt-0.5 inline-flex w-fit items-center gap-1 rounded-md border px-1.5 py-0.5 font-serif text-[9px] font-bold uppercase tracking-[0.2em]" style={{borderColor:"rgba(201,168,76,0.35)",background:"rgba(251,248,239,0.7)",color:"#8A6D1B"}}>
                     <Icon name="sparkles" className="h-2.5 w-2.5" />
                     IA{model ? ` · ${model}` : ""}
                   </span>
                 ) : (
-                  <span className="mt-0.5 inline-flex w-fit items-center gap-1 rounded-md border border-gray-200/80 bg-gray-50/80 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gray-600 dark:border-white/10 dark:bg-white/5 dark:text-rdia-300">
+                  <span className="mt-0.5 inline-flex w-fit items-center gap-1 rounded-md border px-1.5 py-0.5 font-serif text-[9px] font-bold uppercase tracking-[0.2em]" style={{borderColor:"rgba(175,140,60,0.22)",background:"rgba(251,248,239,0.55)",color:"#8A6D1B"}}>
                     <Icon name="scale" className="h-2.5 w-2.5" />
                     Temps réel
                   </span>
                 )}
               </div>
             </div>
-            {/* sous-label synthèse tag */}
-            <div className={cn("rounded-lg border p-2.5 sm:p-3", lm.bg, lm.border)}>
+            {/* sous-label synthèse tag premium */}
+            <div className={cn("rounded-lg border p-2.5 sm:p-3", lm.bg, lm.border)} style={{background: lm.badgeTint}}>
               <div className="flex items-start gap-2">
                 <Icon name="info" className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", lm.tint)} />
-                <p className="text-[11.5px] leading-relaxed text-gray-700 dark:text-rdia-100/95">
+                <p className="font-serif text-[11.5px] leading-relaxed text-[#1C1A17]/90 dark:text-[#FBF8EF]/95">
                   {sa.synthese}
                 </p>
               </div>
@@ -533,42 +525,47 @@ function ScoreGauge({ value, accent }: { value: number; accent: string }) {
   );
 }
 
-// ---------------- Mini KPI header colonne droite ----------------
+// ---------------- Mini KPI header colonne droite · PREMIUM ----------------
 function MiniKpi({ icon, label, big, sub, accent }: {
   icon: IconName; label: string; big: string | number; sub: string; accent: string;
 }) {
   return (
     <div
-      className="flex flex-col gap-1 rounded-lg border p-2 transition-all duration-300 hover:-translate-y-0.5"
+      className="group relative isolate overflow-hidden flex flex-col gap-1 rounded-xl border p-2 transition-all duration-300 hover:-translate-y-0.5"
       style={{
-        borderColor: `${accent}25`,
-        backgroundColor: `${accent}08`,
-        boxShadow: `0 8px 22px -22px ${accent}66`,
+        borderColor: "rgba(175,140,60,0.18)",
+        background: "rgba(255,255,255,0.85)",
+        boxShadow: "0 1px 0 rgba(255,255,255,0.6) inset, 0 10px 22px -18px rgba(30,20,0,0.12)",
       }}
     >
-      <div className="flex items-center gap-1.5">
+      <span aria-hidden className="pointer-events-none absolute left-3 top-0 h-[3px] w-10" style={{background:"linear-gradient(90deg,#C9A84C,transparent)"}}/>
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-[#C9A84C]/10 to-transparent opacity-0 transition-opacity duration-700 group-hover:translate-x-full group-hover:opacity-100 duration-1400ms ease-out"
+      />
+      <div className="relative z-10 flex items-center gap-1.5">
         <span
           className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md"
-          style={{ backgroundColor: `${accent}18`, color: accent }}
+          style={{ backgroundColor: "rgba(201,168,76,0.14)", color: "#8A6D1B" }}
         >
           <Icon name={icon} className="h-3 w-3" />
         </span>
         <span
-          className="min-w-0 truncate text-[9px] font-bold uppercase tracking-wider"
-          style={{ color: `${accent}cc` }}
+          className="min-w-0 truncate font-serif text-[9px] font-semibold uppercase tracking-[0.18em]"
+          style={{ color: "#8A6D1B" }}
         >
           {label}
         </span>
       </div>
-      <div className="flex items-baseline gap-1.5 leading-none pl-0.5">
+      <div className="relative z-10 flex items-baseline gap-1.5 leading-none pl-0.5">
         <span
-          className="font-mono text-[17px] font-black tabular-nums leading-none"
+          className="font-serif text-[17px] font-bold tabular-nums leading-none"
           style={{ color: accent }}
         >
           {big}
         </span>
       </div>
-      <div className="truncate text-[9px] font-semibold text-gray-500 dark:text-rdia-400 pl-0.5">
+      <div className="relative z-10 truncate font-serif text-[9px] font-semibold pl-0.5" style={{color:"rgba(28,26,23,0.60)"}}>
         {sub}
       </div>
     </div>

@@ -819,9 +819,18 @@ export class DomainService {
     const eqPct = pct(eqOk, this.equipment.length);
 
     // Hôpitaux = moyenne des taux d'occupation (réseau MIL prioritaires + top 6)
+    // IMPORTANT: l'id hôpital est gardé dans `satByH` car plusieurs établissements
+    // peuvent porter le même nom (« Hôpital Mohammed V » existe dans plusieurs
+    // villes). On préfixe le label par `[id]` pour l'unicité React keys, ET on
+    // ajoute systématiquement ` · Ville` pour lever l'ambiguïté nom + ville.
     const satByH = this.hospitals
       .filter((h) => (h.kind ?? "civ") === "mil" || h.occ > 0)
-      .map((h) => ({ nom: h.nom, sat: pct(h.occ, h.lits) }))
+      .map((h) => ({
+        id: h.id,
+        nom: h.nom,
+        ville: h.ville,
+        sat: pct(h.occ, h.lits),
+      }))
       .sort((a, b) => b.sat - a.sat)
       .slice(0, 6);
     const hospPct = satByH.length === 0
@@ -897,8 +906,12 @@ export class DomainService {
 
     // ---- Graphique G5 · hospitalSat (top 6 par saturation) ---------------
     // Palette adaptative : >90 rouge, >75 orange, >60 jaune, reste vert/bleu
+    // Label = [id] Nom · Ville · SANS TRONCATURE (affichage texte intégral dans
+    // la légende, avec word-wrap côté front). Priorité au contenu complet.
+    // L'ajout systématique de la ville évite l'ambiguïté Hôpital Mohammed V qui
+    // existe dans plusieurs villes marocaines (Casablanca, Rabat, Fès…).
     const hospitalSat = satByH.map((h) => ({
-      label: h.nom.length > 22 ? `${h.nom.slice(0, 20)}…` : h.nom,
+      label: `[${h.id}] ${h.nom} · ${h.ville}`,
       value: h.sat,
       couleur: h.sat >= 90 ? "#EF4444" : h.sat >= 75 ? "#F59E0B" : h.sat >= 60 ? "#C9A84C" : h.sat >= 40 ? "#3B82F6" : "#10B981",
     }));

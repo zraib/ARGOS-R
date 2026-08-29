@@ -12,7 +12,7 @@
 
 import type { DashStats, Hospital, Incident, SeismicEvent, Unit } from "@/lib/types";
 import type { TransportMovement } from "@/lib/data/dispatch";
-import type { EquipItem, OrsecBoard } from "@/lib/data/modules";
+import type { Analytics, Bar, EquipItem, OrsecBoard } from "@/lib/data/modules";
 import { etaMinutes, UNIT_CAPS, CAP_LABELS, type Capability, recommend, needFromIncident, haversineKm } from "@/lib/reco";
 import { cleanFinalText } from "@/lib/ai/config";
 import type { RiskPrediction } from "@/lib/ai/risk/types";
@@ -200,6 +200,11 @@ export interface AiAnswer {
   quakes?: { id: string; region: string; mag: number; depth: number; time: string }[];
   suggestions?: (string | AiSuggestion)[];
   cross?: AiCrossBlock;
+  /** Module Analytique opérationnelle (KPI + graphiques calculés DomainService).
+   *  Injecté systématiquement dans TOUTES les réponses (même unknown / fallback).
+   *  → permet au LLM de répondre : taux clôture, délai réponse, tendance 7j,
+   *     saturation hôpital, triage zone, utilisation des moyens. */
+  analytics?: Analytics | null;
 }
 
 export interface AiContext {
@@ -215,6 +220,11 @@ export interface AiContext {
   currentIncidentId?: string | null;
   /** Module prédictions risques IA (100% réel). Peut être vide si module désactivé. */
   riskPredictions?: RiskPrediction[];
+  /** Module Analytique (100% réel, calculé DomainService NestJS). Données KPI
+   *  + graphiques calculés temps réel → LLM peut répondre sur tendances 7 j,
+   *  saturation hôpitaux TOP 6, temps de réponse, utilisation des moyens,
+   *  triage zones, KPI taux clôture/réponse/moyens. */
+  analytics?: Analytics | null;
 }
 
 // --- Utilitaires ----------------------------------------------------------
@@ -997,6 +1007,7 @@ function globalOverview(_q: string, ctx: AiContext): AiAnswer {
       "Quelles unités mobiliser en moins d'une heure pour INC-2607 ?",
       "Rapport de situation (SITREP)",
     ],
+    analytics: ctx.analytics ?? null,
   };
 }
 
@@ -1058,6 +1069,7 @@ function trends(_q: string, ctx: AiContext): AiAnswer {
       "Liste les incidents en sévérité élevée",
       "Quels hôpitaux sont saturés ?",
     ],
+    analytics: ctx.analytics ?? null,
   };
 }
 
@@ -1094,6 +1106,7 @@ function casualtiesSummary(q: string, ctx: AiContext): AiAnswer {
     stats: { dead: b.dead, injured: b.injured, missing: b.missing, rescued: b.rescued },
     incidents: withCas.slice(0, 8),
     suggestions: ["Situation globale", "Détail INC-2607"],
+    analytics: ctx.analytics ?? null,
   };
 }
 
@@ -1141,6 +1154,7 @@ function hospitalsStatus(_q: string, ctx: AiContext): AiAnswer {
       "Hôpitaux les plus proches d'Al Haouz",
       "Croise hôpitaux + incident INC-2607",
     ],
+    analytics: ctx.analytics ?? null,
   };
 }
 
@@ -2537,6 +2551,7 @@ export function interpret(q: string, ctx: AiContext): AiAnswer {
     quakes: overview.quakes,
     topEquip: overview.topEquip,
     stats: overview.stats,
+    analytics: overview.analytics ?? ctx.analytics ?? null,
     cross: undefined,
     suggestions: [
       { label: "Situation globale", query: "Situation globale opérationnelle", priority: "primary" as const },
@@ -2610,6 +2625,46 @@ export function buildLlmUserMessage(query: string, answer: AiAnswer, lang: "fr" 
     seuil_alerte: e.seuil, unite: e.unit,
   }));
   if (answer.quakes?.length) data.seismes = answer.quakes.slice(0, LLM_MAX_ROWS);
+
+  // 🔥🔥 NOUVEAU : Module Analytique opérationnelle (100% calcul temps réel NestJS
+  //    DomainService.computeAnalytics()). Injecté systématiquement dans le JSON
+  //    transmis au LLM. Permet au LLM de répondre à : taux clôture, délai
+  //    réponse (alerte→site, évac→admission), tendance 7 derniers jours,
+  //    saturation hospitalière TOP 6 avec ville, utilisation des moyens par
+  //    ressource (Pers / Véh / Eq / Hôp), agrégat zones TRIAGE (rouge/jaune/
+  //    vert/noir). Token safe : ~1500 caractères max pour tout analytics.
+  if (answer.analytics) {
+    const a = answer.analytics;
+    type AnalytiqueBar = { label?: string; nom?: string; ville?: string; valeur: number; couleur: string };
+    const cleanBar = (b: Bar, removeId = true): AnalytiqueBar => {
+      let lbl = b.label.replace(/\s*…\s*$/g, "").replace(/\.{3,}\s*$/g, "").trim();
+      if (removeId) lbl = lbl.replace(/^\[[^\]]+\]\s*/g, "");
+      const idx = lbl.lastIndexOf("·");
+      if (idx > -1) {
+        return {
+          nom: lbl.slice(0, idx).trim(),
+          ville: lbl.slice(idx + 1).trim(),
+          valeur: b.value,
+          couleur: b.couleur,
+        };
+      }
+      return { label: lbl, valeur: b.value, couleur: b.couleur };
+    };
+    data.analytique = {
+      kpis: {
+        delai_reponse_moyen_min: a.kpis.avgResponse,
+        delai_evac_vers_admission_min: a.kpis.evacAdmit,
+        taux_cloture_pct: a.kpis.closedRate,
+        utilisation_moyens_pct: a.kpis.util,
+      },
+      temps_reponse_etapes: a.responseTimes.map((b) => cleanBar(b, true)),
+      tendance_incidents_7j: a.incidentTrend.map((b) => cleanBar(b, true)),
+      utilisation_des_moyens: a.resourceUtil.map((b) => cleanBar(b, true)),
+      saturation_hospitaliere_top6: a.hospitalSat.map((b) => cleanBar(b, true)),
+      resultat_zones_triage: a.triageOutcomes.map((b) => cleanBar(b, true)),
+    };
+  }
+
   if (answer.cross) {
     const croppedCross: Partial<AiCrossBlock> = {};
     if (answer.cross.incident) croppedCross.incident = answer.cross.incident;

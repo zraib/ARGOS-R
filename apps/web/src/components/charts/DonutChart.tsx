@@ -51,9 +51,9 @@ export function DonutChart({ titre, data, bare = false, compact = false }: { tit
         </div>
         <div className={`flex min-w-0 flex-col gap-1.5 ${compact ? "w-[62%] flex-1" : bare ? "w-full" : "flex-1"}`}>
           {data.map((d) => (
-            <div key={d.label} className={compact ? "flex items-center gap-1.5 text-[10.5px]" : "flex items-center gap-2 text-xs"}>
-              <span className={compact ? "h-2 w-2 shrink-0 rounded-sm" : "h-2.5 w-2.5 shrink-0 rounded-sm"} style={{ backgroundColor: d.couleur }} />
-              <span className={compact ? "min-w-0 flex-1 truncate font-semibold text-gray-700 dark:text-rdia-200" : "min-w-0 flex-1 truncate text-gray-600 dark:text-rdia-200"} title={d.label}>
+            <div key={d.label} className={compact ? "flex items-start gap-1.5 text-[10.5px]" : "flex items-start gap-2 text-xs"}>
+              <span className={`${compact ? "mt-[4px] h-2 w-2 shrink-0 rounded-sm" : "mt-[4px] h-2.5 w-2.5 shrink-0 rounded-sm"}`} style={{ backgroundColor: d.couleur }} />
+              <span className={compact ? "min-w-0 flex-1 break-words font-semibold leading-tight text-gray-700 dark:text-rdia-200 hyphens-auto" : "min-w-0 flex-1 break-words leading-tight text-gray-600 dark:text-rdia-200 hyphens-auto"}>
                 {d.label}
               </span>
               <span className={compact ? "shrink-0 font-mono text-[10px] font-bold tabular-nums text-gray-800 dark:text-rdia-100" : "shrink-0 font-mono font-semibold tabular-nums text-gray-700 dark:text-rdia-50"}>
