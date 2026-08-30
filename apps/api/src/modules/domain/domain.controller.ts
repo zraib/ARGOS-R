@@ -1,5 +1,5 @@
 import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
-import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { RiskService } from "@/modules/domain/risk.service";
 import { DomainService } from "@/modules/domain/domain.service";
 import { CatalogService } from "@/modules/domain/catalog.service";
@@ -12,6 +12,8 @@ import { WeatherService } from "@/modules/domain/weather.service";
 import {
   CreateCategoryDto,
   CreateChannelDto,
+  UpdateChannelDto,
+  ChannelMembersDto,
   CreateHospitalDto,
   CreateIncidentDto,
   CreateSubIncidentDto,
@@ -101,6 +103,68 @@ export class DomainController {
   @ApiOperation({ summary: "Liste des incidents" })
   incidents() {
     return this.domain.listIncidents();
+  }
+
+  @Delete("incidents/:id")
+  @RequirePermission("incidents:delete")
+  @ApiOperation({
+    summary: "Supprimer définitivement un incident — SUPERADMIN uniquement.",
+    description:
+      "La matrice n'accorde `incidents:delete` à personne : seul le joker du Super Administrateur la détient. " +
+      "L'archivage reste le geste par défaut de tous les autres rôles. La suppression cascade sur les " +
+      "sous-incidents, les boucles (annulées avec motif puis purgées) et le canal de l'incident.",
+  })
+  @ApiResponse({ status: 403, description: "Réservé au Super Administrateur." })
+  @ApiResponse({ status: 404, description: "Incident inconnu." })
+  async deleteIncident(@Param("id") id: string, @CurrentUser() user: AuthUser) {
+    const inc = this.domain.listIncidents().find((i) => i.id === id);
+    if (!inc) throw new NotFoundException(`Incident inconnu : ${id}`);
+    const res = await this.domain.deleteIncident(id, user.username);
+    // Le canal part avec son incident : le garder orphelin ne servirait
+    // personne, et la conversation n'a plus d'objet.
+    const chan = this.comms.findChannel(`c-${id.toLowerCase()}`);
+    if (chan) this.comms.deleteChannel(chan.id, () => false);
+    return { deleted: res.id, cascades: res.cascades };
+  }
+
+  @Patch("comms/channels/:id")
+  @RequirePermission("comms:update")
+  @ApiOperation({ summary: "Renommer un canal / changer son sujet." })
+  @ApiResponse({ status: 404, description: "Canal inconnu." })
+  updateChannel(@Param("id") id: string, @Body() dto: UpdateChannelDto) {
+    return this.comms.updateChannel(id, dto);
+  }
+
+  @Post("comms/channels/:id/members")
+  @RequirePermission("comms:update")
+  @ApiOperation({
+    summary: "Ajouter des membres à un canal.",
+    description: "Un canal OUVERT devient restreint dès son premier membre — le geste est explicite.",
+  })
+  addChannelMembers(@Param("id") id: string, @Body() dto: ChannelMembersDto) {
+    return this.comms.addMembers(id, dto.matricules);
+  }
+
+  @Delete("comms/channels/:id/members/:matricule")
+  @RequirePermission("comms:update")
+  @ApiOperation({ summary: "Retirer un membre d'un canal." })
+  removeChannelMember(@Param("id") id: string, @Param("matricule") matricule: string) {
+    return this.comms.removeMember(id, matricule);
+  }
+
+  @Delete("comms/channels/:id")
+  @RequirePermission("comms:delete")
+  @ApiOperation({
+    summary: "Supprimer définitivement un canal — SUPERADMIN uniquement.",
+    description:
+      "Refusé tant que l'incident porteur est actif : effacer la conversation d'une opération en cours " +
+      "détruirait la trace au moment où elle sert le plus. Archiver l'incident d'abord.",
+  })
+  @ApiResponse({ status: 400, description: "L'incident porteur est encore actif." })
+  @ApiResponse({ status: 403, description: "Réservé au Super Administrateur." })
+  deleteChannel(@Param("id") id: string) {
+    this.comms.deleteChannel(id, (incidentId) => this.domain.isIncidentActive(incidentId));
+    return { deleted: id };
   }
 
   @Post("incidents")

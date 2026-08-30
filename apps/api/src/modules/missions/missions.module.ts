@@ -25,6 +25,7 @@ import { MISSION_EVENT_PUBLISHER } from "@/modules/missions/ports/mission-events
 import { InMemoryMissionRepository } from "@/modules/missions/infrastructure/in-memory-mission.repository";
 import { SystemClock } from "@/modules/missions/infrastructure/system-clock";
 import { SequentialMissionIdGenerator } from "@/modules/missions/infrastructure/sequential-mission-id.generator";
+import { IncidentCascadeRegistrar } from "@/modules/missions/infrastructure/incident-cascade.registrar";
 import { OperationalMissionEventPublisher } from "@/modules/missions/infrastructure/operational-mission-event.publisher";
 
 @Module({
@@ -32,6 +33,7 @@ import { OperationalMissionEventPublisher } from "@/modules/missions/infrastruct
   controllers: [MissionsController],
   providers: [
     MissionService,
+    IncidentCascadeRegistrar,
     { provide: MISSION_REPOSITORY, useClass: InMemoryMissionRepository },
     { provide: MISSION_CLOCK, useClass: SystemClock },
     { provide: MISSION_ID_GENERATOR, useClass: SequentialMissionIdGenerator },

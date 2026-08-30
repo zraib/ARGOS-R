@@ -150,16 +150,72 @@ aux intervenants d'un incident.
 La création est **idempotente** : redemander le canal d'un incident déjà pourvu
 rend l'existant plutôt que d'en empiler un second.
 
-**Gouvernance des canaux** (voir la matrice complète dans le plan d'exécution) :
+### Membres d'un canal
 
-| Geste | Qui |
+| `members` | Sens |
 | --- | --- |
-| Création du canal d'incident | **automatique**, à la déclaration |
-| Renommer, sujet, membres | administration ; conduite sur *ses* incidents |
-| Archiver | avec l'incident, ou administration |
-| **Supprimer** | **superadmin uniquement** — comme toute suppression dans ARGOS |
+| **absent** | canal **ouvert** — c'est le cas des canaux thématiques historiques (état-major, logistique…), qui ne changent donc pas de comportement |
+| **défini** | canal **restreint** — seuls les membres le voient et y écrivent |
 
-## 7. Le parcours à l'écran
+Un canal ouvert **devient restreint dès son premier membre** : le geste qui le
+referme doit être explicite. Les canaux d'incident, eux, naissent restreints et
+se peuplent au fil des engagements.
+
+### Qui fait quoi
+
+| Geste | Système | Conduite | Admin | Superadmin |
+| --- | :---: | :---: | :---: | :---: |
+| Créer le canal d'un incident | ✅ à la déclaration | — | ✅ | ✅ |
+| Renommer, sujet | — | — | ✅ | ✅ |
+| Ajouter / retirer des membres | ✅ convocation | ✅ sur *ses* incidents | ✅ | ✅ |
+| Archiver | ✅ avec l'incident | — | ✅ | ✅ |
+| **Supprimer** | — | ❌ | **❌ jamais** | ✅ **seul** |
+
+**Garde-fou.** La suppression d'un canal est refusée tant que l'incident
+porteur est **actif** : effacer la conversation d'une opération en cours
+détruirait la trace au moment où elle sert le plus. Il faut archiver l'incident
+d'abord — et le message d'erreur le dit.
+
+## 7. Supprimer un incident — le superadmin, et personne d'autre
+
+La règle du dépôt est **monolithique et sans exception** : personne ne
+supprime, sauf le Super Administrateur. `expand()` n'émet jamais `delete` ;
+seul le joker `*` du superadmin porte ces permissions. L'archivage reste le
+geste par défaut de tous les autres rôles — la suppression est l'exception
+outillée, pas le raccourci.
+
+`DELETE /api/incidents/:id` est gardé par `incidents:delete`, que la matrice
+n'accorde à personne. **L'administrateur reçoit 403**, par construction et par
+test.
+
+### La cascade
+
+| Emporté | Comment |
+| --- | --- |
+| Les boucles de l'incident | **annulées avec motif** (« Incident supprimé »), *puis* purgées |
+| Le canal et ses messages | supprimés avec l'incident |
+| Une ligne de fil | `INC-… — SUPPRIMÉ par …`, couleur danger |
+
+**Annuler avant de purger** n'est pas un détail : l'annulation trace le motif
+dans le fil et dans le canal ; une purge sèche ne laisserait rien. On veut
+pouvoir savoir *pourquoi* des boucles ont disparu.
+
+> **Limite assumée.** En dépôt mémoire, la suppression n'est **pas atomique** :
+> si une cascade échoue, l'incident est déjà retiré. Le passage à PostgreSQL
+> apportera la transaction.
+
+### Pourquoi la cascade s'inscrit au lieu d'être appelée
+
+Supprimer un incident doit toucher aux missions — mais le module `missions`
+importe déjà `domain`. Un appel direct de `domain` vers `missions` créerait un
+**cycle de modules**, et `forwardRef` ne ferait que le masquer.
+
+L'inversion est donc franche : le domaine expose un point d'accroche
+(`registerIncidentCascade`), et c'est le module **dépendant** qui vient s'y
+inscrire au démarrage (`IncidentCascadeRegistrar`, `OnModuleInit`). Le domaine
+continue d'ignorer ce qu'est une mission ; aucun cycle n'est créé.
+
+## 8. Le parcours à l'écran
 
 ### Côté conduite — engager
 
@@ -228,7 +284,7 @@ doit montrer les deux.
 
 L'interrupteur de l'arbre des couches éteint les deux traits d'un coup.
 
-## 8. Les endpoints
+## 9. Les endpoints
 
 | Méthode | Route | Permission | Qui, en pratique |
 | --- | --- | --- | --- |
@@ -246,7 +302,7 @@ L'interrupteur de l'arbre des couches éteint les deux traits d'un coup.
 Aucun rôle ne détient `missions:delete` — `expand()` n'émet jamais `delete`,
 et aucune route ne l'expose.
 
-## 9. Un cycle complet, au curl
+## 10. Un cycle complet, au curl
 
 ```bash
 # La conduite émet un ordre vers l'unité U3
@@ -268,7 +324,7 @@ curl -X POST localhost:3005/api/missions/$MID/milestone -H "Authorization: Beare
 curl -X POST localhost:3005/api/missions/$MID/complete  -H "Authorization: Bearer $U3"
 ```
 
-## 10. Ce qui reste à construire
+## 11. Ce qui reste à construire
 
 Le workflow est posé ; ces maillons le compléteront (voir le plan d'exécution) :
 

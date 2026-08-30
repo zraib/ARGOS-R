@@ -187,6 +187,24 @@ export class RegisterIncidentTypeDto {
   icon?: string;
 }
 
+/** Renommage / changement de sujet d'un canal. */
+export class UpdateChannelDto {
+  @ApiPropertyOptional({ example: "coordination-nord" })
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(60)
+  name?: string;
+
+  @ApiPropertyOptional({ example: "Coordination secteur nord" })
+  @IsOptional() @IsString() @MaxLength(160)
+  topic?: string;
+}
+
+/** Ajout de membres à un canal (matricules). */
+export class ChannelMembersDto {
+  @ApiProperty({ type: [String], example: ["i.benfares", "n.fassi"] })
+  @IsArray() @ArrayMaxSize(200) @IsString({ each: true })
+  matricules!: string[];
+}
+
 /** Envoi d'un message dans un canal. */
 export class SendMessageDto {
   @ApiProperty({ example: "c1" })

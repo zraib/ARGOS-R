@@ -238,7 +238,7 @@ const DOMAIN_SEED_VERSION = 4;
 
 @Injectable()
 export class DomainService {
-  private readonly incidents: Incident[] = [
+  private incidents: Incident[] = [
     { id: "INC-2607", type: "earthquake", titre: "Séisme M5.9 — Province d'Al Haouz", region: "Marrakech-Safi", sev: "high", st: "prog", time: "06:42", x: 188, y: 286, ll: [-8.44, 31.06] },
     { id: "INC-2606", type: "flood", titre: "Crues de l'oued Ourika", region: "Marrakech-Safi", sev: "high", st: "prog", time: "05:10", x: 196, y: 276, ll: [-7.79, 31.32] },
     { id: "INC-2604", type: "wildfire", titre: "Feu de forêt — Chefchaouen", region: "Tanger-Tétouan-Al Hoceïma", sev: "medium", st: "prog", time: "J-1", x: 248, y: 82, ll: [-5.27, 35.17] },
@@ -430,6 +430,54 @@ export class DomainService {
   }
 
   /** Détache un sous-incident d'un incident. */
+  /**
+   * Cascades à exécuter lors de la suppression d'un incident.
+   *
+   * POURQUOI UN REGISTRE plutôt qu'un appel direct : la suppression doit
+   * annuler puis purger les missions de l'incident, mais le module `missions`
+   * importe DÉJÀ `domain`. Un appel direct créerait un cycle de modules, et
+   * `forwardRef` ne ferait que le masquer.
+   *
+   * Ici, l'inversion est franche : le domaine expose un point d'accroche, et
+   * c'est le module qui dépend de lui (missions) qui vient s'y inscrire au
+   * démarrage. Le domaine ignore toujours ce qu'est une mission.
+   */
+  private readonly cascades: ((incidentId: string) => Promise<void>)[] = [];
+
+  /** Inscrit une cascade de suppression (appelé par les modules dépendants). */
+  registerIncidentCascade(fn: (incidentId: string) => Promise<void>): void {
+    this.cascades.push(fn);
+  }
+
+  /**
+   * Suppression DÉFINITIVE d'un incident — réservée au superadmin par le RBAC
+   * (`incidents:delete`, que la matrice n'accorde à personne).
+   *
+   * L'archivage reste le geste par défaut de tous les autres rôles : la
+   * suppression est l'exception outillée, pas le raccourci.
+   *
+   * NON ATOMIQUE en dépôt mémoire : si une cascade échoue, l'incident est
+   * déjà retiré. Le passage à PostgreSQL apportera la transaction.
+   */
+  async deleteIncident(id: string, actor: string): Promise<{ id: string; cascades: number }> {
+    const inc = this.incidents.find((i) => i.id === id);
+    if (!inc) return { id, cascades: 0 };
+
+    // Les cascades D'ABORD : elles ont besoin de l'incident pour le retrouver.
+    for (const fn of this.cascades) await fn(id);
+
+    this.incidents = this.incidents.filter((i) => i.id !== id);
+    this.pushFeed(`${id} — SUPPRIMÉ par ${actor}`, "bg-danger-500");
+    this.persist();
+    return { id, cascades: this.cascades.length };
+  }
+
+  /** Un incident est-il encore actif (non archivé, non clos) ? */
+  isIncidentActive(id: string): boolean {
+    const inc = this.incidents.find((i) => i.id === id);
+    return !!inc && !inc.archived && inc.st !== "closed";
+  }
+
   removeSubIncident(id: string, subId: string): Incident | undefined {
     const inc = this.incidents.find((i) => i.id === id);
     if (!inc) return undefined;

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 
 // ============================================================================
 // ARGOS — centre de communication (Phase 2, in-memory)
@@ -20,6 +20,21 @@ interface Channel {
   name: string;
   kind: "text" | "voice";
   topic?: string;
+  /**
+   * Membres autorisés (matricules).
+   *
+   * ABSENT = canal OUVERT — c'est le cas des canaux thématiques historiques
+   * (état-major, logistique…), qui ne changent donc pas de comportement.
+   * DÉFINI = canal restreint : seuls les membres le voient et y écrivent.
+   *
+   * Les canaux d'incident naissent restreints et se peuplent au fil des
+   * engagements (lot G1).
+   */
+  members?: string[];
+  /** Incident porteur, pour les canaux créés à la déclaration. */
+  incidentId?: string;
+  /** Canal archivé avec son incident — conservé, masqué de la liste active. */
+  archived?: boolean;
 }
 interface CommCategory {
   id: string;
@@ -135,9 +150,80 @@ export class CommsService {
       name: slug,
       kind: "text",
       topic: `Coordination — ${incidentId}`,
+      incidentId,
+      // Naît restreint : la convocation des intervenants le peuplera.
+      members: [],
     };
     ops.chans.push(chan);
     this.messages[chan.id] = [];
+    return chan;
+  }
+
+  /** Retrouve un canal par identifiant, ou `undefined`. */
+  findChannel(channelId: string): Channel | undefined {
+    return this.categories.flatMap((c) => c.chans).find((ch) => ch.id === channelId);
+  }
+
+  /** Renomme un canal / change son sujet. */
+  updateChannel(channelId: string, patch: { name?: string; topic?: string }): Channel {
+    const chan = this.requireChannel(channelId);
+    if (patch.name !== undefined) {
+      const slug = patch.name.trim().toLowerCase().replace(/\s+/g, "-");
+      if (!slug) throw new BadRequestException("Le nom du canal ne peut pas être vide.");
+      chan.name = slug;
+    }
+    if (patch.topic !== undefined) chan.topic = patch.topic.trim();
+    return chan;
+  }
+
+  /**
+   * Ajoute des membres. Un canal jusque-là OUVERT devient restreint dès qu'on
+   * lui donne un premier membre — c'est le geste qui le referme, et il doit
+   * être explicite.
+   */
+  addMembers(channelId: string, matricules: string[]): Channel {
+    const chan = this.requireChannel(channelId);
+    const set = new Set([...(chan.members ?? []), ...matricules.map((m) => m.trim()).filter(Boolean)]);
+    chan.members = [...set];
+    return chan;
+  }
+
+  /** Retire un membre. Le canal reste restreint, même vidé de ses membres. */
+  removeMember(channelId: string, matricule: string): Channel {
+    const chan = this.requireChannel(channelId);
+    if (!chan.members) throw new BadRequestException("Ce canal est ouvert : il n'a pas de liste de membres.");
+    chan.members = chan.members.filter((m) => m !== matricule);
+    return chan;
+  }
+
+  /** Archive le canal d'un incident (appelé avec l'archivage de l'incident). */
+  archiveChannelForIncident(incidentId: string, archived = true): void {
+    const chan = this.categories.flatMap((c) => c.chans).find((ch) => ch.incidentId === incidentId);
+    if (chan) chan.archived = archived;
+  }
+
+  /**
+   * Suppression DÉFINITIVE d'un canal — réservée au superadmin par le RBAC
+   * (`comms:delete`, que la matrice n'accorde à personne).
+   *
+   * Garde-fou métier : on refuse de supprimer le canal d'un incident encore
+   * actif. Effacer la conversation d'une opération en cours détruirait la
+   * trace au moment où elle sert le plus ; il faut archiver l'incident d'abord.
+   */
+  deleteChannel(channelId: string, isIncidentActive: (incidentId: string) => boolean): void {
+    const chan = this.requireChannel(channelId);
+    if (chan.incidentId && isIncidentActive(chan.incidentId)) {
+      throw new BadRequestException(
+        `Le canal appartient à l'incident actif ${chan.incidentId} : archivez l'incident avant de supprimer son canal.`,
+      );
+    }
+    for (const cat of this.categories) cat.chans = cat.chans.filter((c) => c.id !== channelId);
+    delete this.messages[channelId];
+  }
+
+  private requireChannel(channelId: string): Channel {
+    const chan = this.findChannel(channelId);
+    if (!chan) throw new NotFoundException(`Canal inconnu : ${channelId}`);
     return chan;
   }
 
