@@ -61,9 +61,57 @@ export class OperationalMissionEventPublisher implements MissionEventPublisher {
       this.domain.pushFeed(txt, TINT[event.type]);
       this.comms.postSystem(mission.incidentId, txt);
       this.syncUnitPosture(event);
+      this.applyTransfer(event);
     } catch (e) {
       // La diffusion ne fait jamais échouer le métier — mais elle se signale.
       this.logger.warn(`Diffusion de ${event.type} impossible : ${(e as Error).message}`);
+    }
+  }
+
+  /**
+   * Effets d'un TRANSFERT de personne (lot P2-b).
+   *
+   * Deux chaînes, jusque-là rompues :
+   *
+   *  • EVASAN vers un hôpital — l'acceptation RÉSERVE un lit, l'arrivée le
+   *    convertit en occupation, un refus le libère. Avant, une évacuation
+   *    n'engageait rien : deux transferts pouvaient viser le dernier lit.
+   *
+   *  • Décès vers une morgue — l'acceptation PRÉ-REMPLIT le registre DVI
+   *    (référence, incident d'origine, sexe et âge estimés). Avant, le
+   *    responsable morgue ressaisissait tout à partir d'une fiche vierge, sans
+   *    lien avec l'incident.
+   *
+   * DONNÉES DE SANTÉ : la catégorie de triage et les champs déjà présents au
+   * registre DVI, rien de plus. Aucune donnée nominative ne traverse une
+   * boucle — le domaine ne peut pas en transporter, son type ne le permet pas.
+   */
+  private applyTransfer(event: MissionEvent): void {
+    const { mission } = event;
+    if (mission.payload.kind !== "transfer") return;
+    const p = mission.payload;
+
+    if (p.subject === "casualty") {
+      if (event.type === "mission.accepted") this.domain.reserveBed(p.toEntity);
+      else if (event.type === "mission.completed") this.domain.admitReservedBed(p.toEntity);
+      else if (event.type === "mission.declined" || event.type === "mission.cancelled") {
+        // Une réservation n'est libérée que si elle avait été prise : un refus
+        // sur une boucle encore « émise » n'a rien à rendre.
+        if (mission.milestones.length > 0 || event.from === "accepted" || event.from === "in_progress") {
+          this.domain.releaseBed(p.toEntity);
+        }
+      }
+      return;
+    }
+
+    if (p.subject === "body" && event.type === "mission.accepted") {
+      this.domain.admitBody(p.toEntity, {
+        // Référence provisoire dérivée de la mission : elle relie le corps à
+        // la boucle qui l'a amené, donc à son incident.
+        reference: `AH-${mission.id}`,
+        incidentId: mission.incidentId,
+        ...(p.fromEntity ? { foundAt: p.fromEntity } : {}),
+      });
     }
   }
 

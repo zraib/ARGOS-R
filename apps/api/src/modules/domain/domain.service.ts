@@ -83,6 +83,14 @@ export interface Hospital {
    * retombe alors sur « civil » (voir lib/hospitals.ts, hospKind).
    */
   kind?: HospitalKind;
+  /**
+   * Lits RÉSERVÉS par une EVASAN acceptée mais pas encore arrivée (lot P2-b).
+   *
+   * Sans ce compteur, deux transferts pouvaient viser le dernier lit libre :
+   * chacun le voyait disponible puisque l'occupation ne bouge qu'à l'arrivée.
+   * Libres = armés − occupés − réservés.
+   */
+  reserved?: number;
   /** Nature de la structure (CHU militaire, hôpital général, régional…). */
   type?: string;
   lits: number;
@@ -470,6 +478,37 @@ export class DomainService {
     this.pushFeed(`${id} — SUPPRIMÉ par ${actor}`, "bg-danger-500");
     this.persist();
     return { id, cascades: this.cascades.length };
+  }
+
+  /**
+   * Réserve un lit à l'acceptation d'une EVASAN.
+   *
+   * La réservation ne consomme rien : elle rend le lit invisible aux autres
+   * transferts tant que le patient n'est pas là. C'est ce qui empêche deux
+   * évacuations de viser le même dernier lit.
+   */
+  reserveBed(hospitalId: string, n = 1): void {
+    const h = this.hospitals.find((x) => x.id === hospitalId);
+    if (!h) return;
+    h.reserved = Math.max(0, (h.reserved ?? 0) + n);
+    this.persist();
+  }
+
+  /** Convertit une réservation en occupation réelle (arrivée confirmée). */
+  admitReservedBed(hospitalId: string, n = 1): void {
+    const h = this.hospitals.find((x) => x.id === hospitalId);
+    if (!h) return;
+    h.reserved = Math.max(0, (h.reserved ?? 0) - n);
+    h.occ = Math.min(h.lits, h.occ + n);
+    this.persist();
+  }
+
+  /** Libère une réservation sans admission (refus, annulation). */
+  releaseBed(hospitalId: string, n = 1): void {
+    const h = this.hospitals.find((x) => x.id === hospitalId);
+    if (!h) return;
+    h.reserved = Math.max(0, (h.reserved ?? 0) - n);
+    this.persist();
   }
 
   /** Un incident est-il encore actif (non archivé, non clos) ? */

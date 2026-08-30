@@ -276,6 +276,8 @@ export interface Hospital {
   x: number;
   y: number;
   ll: [number, number];
+  /** Lits réservés par une EVASAN acceptée mais pas encore arrivée (P2-b). */
+  reserved?: number;
 }
 
 export type FieldHospStatus = "op" | "partial";

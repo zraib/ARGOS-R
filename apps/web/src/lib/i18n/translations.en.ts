@@ -160,4 +160,5 @@ export const EN_DICT: Dict = {
     rq_low: "Low", rq_medium: "Medium", rq_high: "High",
     rq_sent: "Request sent to the dispatcher", rq_failed: "Request not sent",
     rq_pending: "request(s) pending", rq_queue_field: "Field request",
+    beds_reserved: "reserved",
   };

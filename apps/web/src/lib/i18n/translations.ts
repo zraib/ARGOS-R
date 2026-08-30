@@ -432,6 +432,7 @@ export interface Dict {
   rq_failed: string;
   rq_pending: string;
   rq_queue_field: string;
+  beds_reserved: string;
   ms_layer: string;
   nrbc_pick: string;
   nrbc_none_active: string;

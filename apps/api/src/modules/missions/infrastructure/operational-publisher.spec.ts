@@ -105,6 +105,93 @@ describe("Publieur opérationnel — la boucle devient visible", () => {
     expect(domain.listUnits().map((u) => u.dispo)).toEqual(before);
   });
 
+  // --- Chaîne des personnes (lot P2-b) ------------------------------------
+
+  it("EVASAN acceptée : le lit est RÉSERVÉ, pas encore occupé", async () => {
+    const { publisher, domain } = await build();
+    const h = domain.listHospitals()[0];
+    const occAvant = h.occ;
+
+    await publisher.publish(ev("mission.accepted", snap({
+      kind: "transfer", state: "accepted",
+      payload: { kind: "transfer", subject: "casualty", toEntity: h.id, triage: "red" },
+    })));
+
+    const apres = domain.listHospitals().find((x) => x.id === h.id)!;
+    expect(apres.reserved).toBe(1);
+    // La réservation ne consomme rien : l'occupation ne bouge qu'à l'arrivée.
+    expect(apres.occ).toBe(occAvant);
+  });
+
+  it("arrivée confirmée : la réservation devient occupation", async () => {
+    const { publisher, domain } = await build();
+    const h = domain.listHospitals()[0];
+    const occAvant = h.occ;
+    const base = snap({
+      kind: "transfer",
+      payload: { kind: "transfer", subject: "casualty", toEntity: h.id, triage: "red" },
+    });
+
+    await publisher.publish(ev("mission.accepted", { ...base, state: "accepted" }));
+    await publisher.publish(ev("mission.completed", { ...base, state: "completed" }));
+
+    const apres = domain.listHospitals().find((x) => x.id === h.id)!;
+    expect(apres.reserved).toBe(0);
+    expect(apres.occ).toBe(occAvant + 1);
+  });
+
+  it("EVASAN refusée APRÈS acceptation : le lit est rendu", async () => {
+    const { publisher, domain } = await build();
+    const h = domain.listHospitals()[0];
+    const base = snap({
+      kind: "transfer",
+      payload: { kind: "transfer", subject: "casualty", toEntity: h.id, triage: "yellow" },
+    });
+
+    await publisher.publish(ev("mission.accepted", { ...base, state: "accepted" }));
+    expect(domain.listHospitals().find((x) => x.id === h.id)!.reserved).toBe(1);
+
+    await publisher.publish({
+      ...ev("mission.cancelled", { ...base, state: "cancelled", reason: "patient décédé sur place" }),
+      from: "accepted",
+    });
+    expect(domain.listHospitals().find((x) => x.id === h.id)!.reserved).toBe(0);
+  });
+
+  it("refus d'une EVASAN JAMAIS acceptée : rien à rendre, aucun compteur négatif", async () => {
+    const { publisher, domain } = await build();
+    const h = domain.listHospitals()[0];
+    await publisher.publish({
+      ...ev("mission.declined", snap({
+        kind: "transfer", state: "declined", reason: "aucun lit de réanimation",
+        payload: { kind: "transfer", subject: "casualty", toEntity: h.id, triage: "red" },
+      })),
+      from: "issued",
+    });
+    const apres = domain.listHospitals().find((x) => x.id === h.id)!;
+    expect(apres.reserved ?? 0).toBe(0);
+  });
+
+  it("décès accepté : le registre DVI est PRÉ-REMPLI, relié à son incident", async () => {
+    const { publisher, domain } = await build();
+    const morgue = domain.listMorgues()[0];
+    const avant = domain.listMortuaryRecords(morgue.id).length;
+
+    await publisher.publish(ev("mission.accepted", snap({
+      id: "M-0042", kind: "transfer", state: "accepted", incidentId: "INC-2613",
+      payload: { kind: "transfer", subject: "body", toEntity: morgue.id, fromEntity: "H1" },
+    })));
+
+    const recs = domain.listMortuaryRecords(morgue.id);
+    expect(recs).toHaveLength(avant + 1);
+    const rec = recs.find((r) => r.reference === "AH-M-0042")!;
+    expect(rec).toBeDefined();
+    // Relié à l'incident d'origine : c'est ce qui manquait à la saisie vierge.
+    expect(rec.incidentId).toBe("INC-2613");
+    expect(rec.foundAt).toBe("H1");
+    expect(rec.status).toBe("unidentified");
+  });
+
   it("une diffusion qui échoue ne remonte JAMAIS d'erreur au métier", async () => {
     const { publisher } = await build();
     // Mission volontairement malformée : le publieur doit encaisser.

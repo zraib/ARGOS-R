@@ -770,6 +770,37 @@
       }
     },
     "/api/incidents/{id}": {
+      "delete": {
+        "description": "La matrice n'accorde `incidents:delete` à personne : seul le joker du Super Administrateur la détient. L'archivage reste le geste par défaut de tous les autres rôles. La suppression cascade sur les sous-incidents, les boucles (annulées avec motif puis purgées) et le canal de l'incident.",
+        "operationId": "DomainController_deleteIncident",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Réservé au Super Administrateur."
+          },
+          "404": {
+            "description": "Incident inconnu."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Supprimer définitivement un incident — SUPERADMIN uniquement.",
+        "tags": [
+          "domain"
+        ]
+      },
       "patch": {
         "operationId": "DomainController_updateIncident",
         "parameters": [
@@ -803,6 +834,153 @@
           }
         ],
         "summary": "Modifier ou archiver un incident (audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/comms/channels/{id}": {
+      "patch": {
+        "operationId": "DomainController_updateChannel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateChannelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "404": {
+            "description": "Canal inconnu."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Renommer un canal / changer son sujet.",
+        "tags": [
+          "domain"
+        ]
+      },
+      "delete": {
+        "description": "Refusé tant que l'incident porteur est actif : effacer la conversation d'une opération en cours détruirait la trace au moment où elle sert le plus. Archiver l'incident d'abord.",
+        "operationId": "DomainController_deleteChannel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "L'incident porteur est encore actif."
+          },
+          "403": {
+            "description": "Réservé au Super Administrateur."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Supprimer définitivement un canal — SUPERADMIN uniquement.",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/comms/channels/{id}/members": {
+      "post": {
+        "description": "Un canal OUVERT devient restreint dès son premier membre — le geste est explicite.",
+        "operationId": "DomainController_addChannelMembers",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelMembersDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ajouter des membres à un canal.",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/comms/channels/{id}/members/{matricule}": {
+      "delete": {
+        "operationId": "DomainController_removeChannelMember",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "matricule",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Retirer un membre d'un canal.",
         "tags": [
           "domain"
         ]
@@ -3361,6 +3539,37 @@
         "required": [
           "id",
           "labels"
+        ]
+      },
+      "UpdateChannelDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "coordination-nord"
+          },
+          "topic": {
+            "type": "string",
+            "example": "Coordination secteur nord"
+          }
+        }
+      },
+      "ChannelMembersDto": {
+        "type": "object",
+        "properties": {
+          "matricules": {
+            "example": [
+              "i.benfares",
+              "n.fassi"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "matricules"
         ]
       },
       "CasualtiesDto": {

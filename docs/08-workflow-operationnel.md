@@ -215,7 +215,42 @@ L'inversion est donc franche : le domaine expose un point d'accroche
 inscrire au démarrage (`IncidentCascadeRegistrar`, `OnModuleInit`). Le domaine
 continue d'ignorer ce qu'est une mission ; aucun cycle n'est créé.
 
-## 8. Le parcours à l'écran
+## 8. La chaîne des personnes
+
+Triage, Hospinet, morgue et abris étaient **quatre tronçons sans référence
+partagée** : l'évacuation ne réservait rien à l'hôpital, le décès hospitalier
+ne créait pas d'admission en morgue. Un `transfer` relie ces maillons — et
+comme tout `transfer` est une boucle, chaque maillon **s'accepte**.
+
+### EVASAN — la réservation de lit
+
+| Transition | Effet sur l'hôpital destinataire |
+| --- | --- |
+| `accepted` | **+1 réservé** — l'occupation ne bouge pas |
+| `completed` (arrivée) | −1 réservé, **+1 occupé** |
+| `declined` / `cancelled` *après acceptation* | −1 réservé, le lit est rendu |
+| `declined` sur une boucle jamais acceptée | rien — il n'y avait rien à rendre |
+
+**Libres = armés − occupés − réservés.** Sans ce compteur, deux transferts
+pouvaient viser le dernier lit libre : chacun le voyait disponible, puisque
+l'occupation ne bouge qu'à l'arrivée. Hospinet affiche la réserve à côté du
+nombre de libres.
+
+### Décès — le registre DVI pré-rempli
+
+Accepter un transfert de corps **crée la fiche** dans le registre de la morgue :
+référence dérivée de la mission (`AH-M-0012`), **incident d'origine**, lieu de
+provenance, statut `unidentified`. Le responsable morgue ressaisissait jusque-là
+tout depuis une fiche vierge, sans lien avec l'incident.
+
+### Données de santé — le périmètre, arrêté
+
+Une boucle de transfert transporte **la catégorie de triage**
+(`red`/`yellow`/`green`/`black`) et les champs déjà présents au registre DVI
+(sexe, tranche d'âge estimée). **Aucune donnée nominative.** Ce n'est pas une
+convention : le type du domaine ne permet pas d'en transporter.
+
+## 9. Le parcours à l'écran
 
 ### Côté conduite — engager
 
@@ -307,7 +342,7 @@ doit montrer les deux.
 
 L'interrupteur de l'arbre des couches éteint les deux traits d'un coup.
 
-## 9. Les endpoints
+## 10. Les endpoints
 
 | Méthode | Route | Permission | Qui, en pratique |
 | --- | --- | --- | --- |
@@ -325,7 +360,7 @@ L'interrupteur de l'arbre des couches éteint les deux traits d'un coup.
 Aucun rôle ne détient `missions:delete` — `expand()` n'émet jamais `delete`,
 et aucune route ne l'expose.
 
-## 10. Un cycle complet, au curl
+## 11. Un cycle complet, au curl
 
 ```bash
 # La conduite émet un ordre vers l'unité U3
@@ -347,13 +382,12 @@ curl -X POST localhost:3005/api/missions/$MID/milestone -H "Authorization: Beare
 curl -X POST localhost:3005/api/missions/$MID/complete  -H "Authorization: Bearer $U3"
 ```
 
-## 11. Ce qui reste à construire
+## 12. Ce qui reste à construire
 
 Le workflow est posé ; ces maillons le compléteront (voir le plan d'exécution) :
 
 | Lot | Ce qu'il ferme |
 | --- | --- |
-| **P2-b** | EVASAN avec réservation de lit ; décès pré-remplissant le registre DVI |
 | **P3** | SITREP cadencés par niveau d'alerte, le compte rendu manquant devenant un signal |
 
 **Limite connue.** Le dépôt en mémoire ne connaît pas les transactions : la

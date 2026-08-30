@@ -146,7 +146,16 @@ export default function HospinetPage() {
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-gray-500 dark:text-rdia-300">{t.beds_free}</span>
-                  <span className="font-semibold tabular-nums text-gray-800 dark:text-rdia-50">{h.lits - h.occ}</span>
+                  {/* Libres = armés − occupés − RÉSERVÉS : une EVASAN acceptée
+                      mais pas encore arrivée tient déjà son lit (P2-b). */}
+                  <span className="font-semibold tabular-nums text-gray-800 dark:text-rdia-50">
+                    {h.lits - h.occ - (h.reserved ?? 0)}
+                    {(h.reserved ?? 0) > 0 && (
+                      <span className="ms-1.5 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                        {h.reserved} {t.beds_reserved}
+                      </span>
+                    )}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-gray-500 dark:text-rdia-300">{t.icu}</span>

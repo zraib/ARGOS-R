@@ -160,4 +160,5 @@ export const FR_DICT: Dict = {
     rq_low: "Faible", rq_medium: "Moyenne", rq_high: "Haute",
     rq_sent: "Demande transmise au répartiteur", rq_failed: "Demande non transmise",
     rq_pending: "demande(s) en cours", rq_queue_field: "Demande du terrain",
+    beds_reserved: "réservés",
   };

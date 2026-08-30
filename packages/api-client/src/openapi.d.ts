@@ -447,11 +447,73 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Supprimer définitivement un incident — SUPERADMIN uniquement.
+         * @description La matrice n'accorde `incidents:delete` à personne : seul le joker du Super Administrateur la détient. L'archivage reste le geste par défaut de tous les autres rôles. La suppression cascade sur les sous-incidents, les boucles (annulées avec motif puis purgées) et le canal de l'incident.
+         */
+        delete: operations["DomainController_deleteIncident"];
         options?: never;
         head?: never;
         /** Modifier ou archiver un incident (audité) */
         patch: operations["DomainController_updateIncident"];
+        trace?: never;
+    };
+    "/api/comms/channels/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Supprimer définitivement un canal — SUPERADMIN uniquement.
+         * @description Refusé tant que l'incident porteur est actif : effacer la conversation d'une opération en cours détruirait la trace au moment où elle sert le plus. Archiver l'incident d'abord.
+         */
+        delete: operations["DomainController_deleteChannel"];
+        options?: never;
+        head?: never;
+        /** Renommer un canal / changer son sujet. */
+        patch: operations["DomainController_updateChannel"];
+        trace?: never;
+    };
+    "/api/comms/channels/{id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ajouter des membres à un canal.
+         * @description Un canal OUVERT devient restreint dès son premier membre — le geste est explicite.
+         */
+        post: operations["DomainController_addChannelMembers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/comms/channels/{id}/members/{matricule}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Retirer un membre d'un canal. */
+        delete: operations["DomainController_removeChannelMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/sub-incident-types": {
@@ -1554,6 +1616,21 @@ export interface components {
             /** @description Tracé SVG 24×24 (icône en trait) */
             icon?: string;
         };
+        UpdateChannelDto: {
+            /** @example coordination-nord */
+            name?: string;
+            /** @example Coordination secteur nord */
+            topic?: string;
+        };
+        ChannelMembersDto: {
+            /**
+             * @example [
+             *       "i.benfares",
+             *       "n.fassi"
+             *     ]
+             */
+            matricules: string[];
+        };
         CasualtiesDto: {
             dead: number;
             injured: number;
@@ -2620,6 +2697,33 @@ export interface operations {
             };
         };
     };
+    DomainController_deleteIncident: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Réservé au Super Administrateur. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Incident inconnu. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     DomainController_updateIncident: {
         parameters: {
             query?: never;
@@ -2634,6 +2738,100 @@ export interface operations {
                 "application/json": components["schemas"]["UpdateIncidentDto"];
             };
         };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_deleteChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description L'incident porteur est encore actif. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Réservé au Super Administrateur. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_updateChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateChannelDto"];
+            };
+        };
+        responses: {
+            /** @description Canal inconnu. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_addChannelMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelMembersDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_removeChannelMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                matricule: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {

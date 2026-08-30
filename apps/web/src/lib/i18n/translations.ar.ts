@@ -160,4 +160,5 @@ export const AR_DICT: Dict = {
     rq_low: "منخفض", rq_medium: "متوسط", rq_high: "عالٍ",
     rq_sent: "تم إرسال الطلب", rq_failed: "لم يتم إرسال الطلب",
     rq_pending: "طلب قيد المعالجة", rq_queue_field: "طلب ميداني",
+    beds_reserved: "محجوز",
   };
