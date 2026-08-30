@@ -144,4 +144,13 @@ export const FR_DICT: Dict = {
     map_tiles_none: "Aucun fond de carte souverain configuré",
     nrbc_pick: "Incidents chimiques en cours — choisir pour afficher le panache :",
     nrbc_none_active: "Aucun incident NRBC chimique actif.",
+    // --- missions : la boucle fermée (ADR 0007) ---
+    ms_inbox: "Ordres reçus", ms_empty: "Aucun ordre en attente.",
+    ms_accept: "Accepter", ms_decline: "Refuser", ms_decline_reason: "Motif du refus (obligatoire)",
+    ms_en_route: "En route", ms_on_site: "Sur zone", ms_handover: "Relève",
+    ms_complete: "Terminer", ms_cancel: "Annuler",
+    ms_state_issued: "Émis", ms_state_accepted: "Accepté", ms_state_progress: "En cours",
+    ms_state_declined: "Refusé", ms_state_completed: "Terminé", ms_state_cancelled: "Annulé",
+    ms_pending: "en attente", ms_since: "depuis", ms_outbox: "Ordres émis",
+    ms_reason_required: "Le motif est obligatoire — il rend le refus exploitable.",
   };

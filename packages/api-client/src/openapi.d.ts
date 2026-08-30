@@ -1257,6 +1257,166 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/missions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Missions filtrées (incident, nature, état, boucles ouvertes). */
+        get: operations["MissionsController_list"];
+        put?: never;
+        /**
+         * Émettre une mission (ordre, demande de moyen, transfert).
+         * @description Ouvre une boucle : le destinataire devra l'accepter ou la refuser avec motif.
+         */
+        post: operations["MissionsController_issue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/missions/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Boucles ouvertes attendant un geste de moi.
+         * @description Ce que l'écran « Ordres reçus » affiche et ce que compte la pastille de la barre haute. Le destinataire est résolu depuis la session (rôle + entité affectée), jamais depuis la requête.
+         */
+        get: operations["MissionsController_inbox"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/missions/outbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Boucles ouvertes que j'ai émises — le suivi de mes demandes. */
+        get: operations["MissionsController_outbox"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/missions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Une mission par son identifiant. */
+        get: operations["MissionsController_byId"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/missions/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accuser réception — réservé au destinataire. */
+        post: operations["MissionsController_accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/missions/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refuser avec motif — réservé au destinataire. */
+        post: operations["MissionsController_decline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/missions/{id}/milestone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Franchir un jalon (en route, sur zone, relève) — réservé au destinataire. */
+        post: operations["MissionsController_milestone"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/missions/{id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Clore la boucle — réservé au destinataire. */
+        post: operations["MissionsController_complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/missions/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Annuler avec motif — réservé à l'émetteur. */
+        post: operations["MissionsController_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1369,7 +1529,7 @@ export interface components {
         };
         ToggleRoleFeatureDto: {
             /** @enum {string} */
-            feature: "dashboard" | "dash_incident" | "dash_hospital" | "dash_shelter" | "dash_morgue" | "dash_unit" | "map" | "incidents" | "subincidents" | "hospinet" | "shelters" | "morgue" | "units" | "equipment" | "teams" | "comms" | "reports" | "analytics" | "assistant" | "users" | "settings" | "dispatch" | "triage" | "ics" | "damage" | "orsec" | "plans" | "personnel" | "workorders" | "seismic" | "audit" | "aviation" | "nrbc";
+            feature: "dashboard" | "dash_incident" | "dash_hospital" | "dash_shelter" | "dash_morgue" | "dash_unit" | "map" | "incidents" | "subincidents" | "hospinet" | "shelters" | "morgue" | "units" | "equipment" | "teams" | "comms" | "reports" | "analytics" | "assistant" | "users" | "settings" | "dispatch" | "triage" | "ics" | "damage" | "orsec" | "plans" | "personnel" | "workorders" | "seismic" | "audit" | "aviation" | "nrbc" | "missions";
             enabled: boolean;
         };
         ToggleFlagDto: {
@@ -1800,6 +1960,81 @@ export interface components {
             role?: "waterbomber" | "helicopter" | "observation" | "transport" | "medevac";
             incidentId?: string;
             archived?: boolean;
+        };
+        PartyDto: {
+            /**
+             * @description Rôle attendu du côté concerné
+             * @example resp_unit
+             */
+            role: string;
+            /**
+             * @description Matricule, si la partie nomme une personne
+             * @example m.zraib
+             */
+            userId?: string;
+            /**
+             * @description Entité concernée (unité, hôpital, abri, morgue)
+             * @example U2
+             */
+            entity?: string;
+        };
+        MissionPayloadDto: {
+            /** @enum {string} */
+            kind: "order" | "resource_request" | "transfer";
+            /**
+             * @description Unité engagée (kind=order)
+             * @example U2
+             */
+            unitId?: string;
+            /** @description Temps de trajet estimé, minutes (kind=order) */
+            etaMin?: number;
+            /**
+             * @description Capacité demandée (kind=resource_request)
+             * @example eau
+             */
+            capability?: string;
+            /**
+             * @description Urgence (kind=resource_request)
+             * @enum {string}
+             */
+            urgency?: "low" | "medium" | "high";
+            /**
+             * @description Objet du transfert
+             * @enum {string}
+             */
+            subject?: "casualty" | "body" | "displaced";
+            /** @description Entité de départ (kind=transfer) */
+            fromEntity?: string;
+            /** @description Entité d'arrivée (kind=transfer) */
+            toEntity?: string;
+            /**
+             * @description Catégorie de triage. AUCUNE donnée nominative ne transite par un transfert (arbitrage Q3 du plan d'exécution).
+             * @enum {string}
+             */
+            triage?: "red" | "yellow" | "green" | "black";
+            /** @description Précision libre */
+            note?: string;
+        };
+        IssueMissionDto: {
+            /**
+             * @description Incident de rattachement — toute mission y est ancrée
+             * @example INC-2613
+             */
+            incidentId: string;
+            /** @example 1er GI — renfort sur zone */
+            label: string;
+            to: components["schemas"]["PartyDto"];
+            /** @description Émetteur — déduit de la session si absent */
+            from?: components["schemas"]["PartyDto"];
+            payload: components["schemas"]["MissionPayloadDto"];
+        };
+        ReasonDto: {
+            /** @example Unité déjà engagée sur INC-2607 */
+            reason: string;
+        };
+        MilestoneDto: {
+            /** @enum {string} */
+            key: "en_route" | "on_site" | "handover";
         };
     };
     responses: never;
@@ -3572,6 +3807,245 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MissionsController_list: {
+        parameters: {
+            query?: {
+                incidentId?: string;
+                /** @description order · resource_request · transfer */
+                kind?: string;
+                state?: string;
+                openOnly?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MissionsController_issue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IssueMissionDto"];
+            };
+        };
+        responses: {
+            /** @description Corps invalide ou nature de mission inconnue. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MissionsController_inbox: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MissionsController_outbox: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MissionsController_byId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Mission introuvable. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MissionsController_accept: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Vous n'êtes pas le destinataire de cette mission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Transition impossible dans l'état courant. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MissionsController_decline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonDto"];
+            };
+        };
+        responses: {
+            /** @description Motif manquant. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Vous n'êtes pas le destinataire de cette mission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MissionsController_milestone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MilestoneDto"];
+            };
+        };
+        responses: {
+            /** @description Vous n'êtes pas le destinataire de cette mission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description La mission doit d'abord être acceptée. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MissionsController_complete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Vous n'êtes pas le destinataire de cette mission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MissionsController_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonDto"];
+            };
+        };
+        responses: {
+            /** @description Motif manquant. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Seul l'émetteur peut annuler. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

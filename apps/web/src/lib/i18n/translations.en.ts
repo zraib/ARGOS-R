@@ -144,4 +144,13 @@ export const EN_DICT: Dict = {
     map_tiles_none: "No sovereign basemap configured",
     nrbc_pick: "Ongoing chemical incidents — pick one to display its plume:",
     nrbc_none_active: "No active chemical CBRN incident.",
+    // --- missions: the closed loop (ADR 0007) ---
+    ms_inbox: "Orders received", ms_empty: "No pending order.",
+    ms_accept: "Accept", ms_decline: "Decline", ms_decline_reason: "Reason for declining (required)",
+    ms_en_route: "En route", ms_on_site: "On site", ms_handover: "Handover",
+    ms_complete: "Complete", ms_cancel: "Cancel",
+    ms_state_issued: "Issued", ms_state_accepted: "Accepted", ms_state_progress: "In progress",
+    ms_state_declined: "Declined", ms_state_completed: "Completed", ms_state_cancelled: "Cancelled",
+    ms_pending: "pending", ms_since: "since", ms_outbox: "Orders issued",
+    ms_reason_required: "A reason is required — it is what makes a refusal actionable.",
   };

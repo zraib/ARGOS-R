@@ -25,6 +25,40 @@ export interface IncidentTypeDef {
 export type Severity = "high" | "medium" | "low";
 export type IncidentStatus = "open" | "prog" | "closed";
 
+
+// --- Missions : la boucle fermée (ADR 0007, docs/08-workflow-operationnel.md) ---
+
+/** Nature de la boucle. Le cycle de vie est le même pour les trois. */
+export type MissionKind = "order" | "resource_request" | "transfer";
+/** États de la boucle. */
+export type MissionState = "issued" | "accepted" | "declined" | "in_progress" | "completed" | "cancelled";
+/** Jalons d'exécution. */
+export type MissionMilestoneKey = "en_route" | "on_site" | "handover";
+
+/** Partie prenante (émetteur ou destinataire). */
+export interface MissionParty {
+  role: string;
+  userId?: string;
+  entity?: string;
+}
+
+/** Mission telle que servie par l'API. */
+export interface Mission {
+  id: string;
+  kind: MissionKind;
+  incidentId: string;
+  label: string;
+  from: MissionParty;
+  to: MissionParty;
+  state: MissionState;
+  milestones: { key: MissionMilestoneKey; at: string; by: string }[];
+  /** Motif — présent au refus et à l'annulation. */
+  reason?: string;
+  payload: Record<string, unknown> & { kind: MissionKind };
+  issuedAt: string;
+  updatedAt: string;
+}
+
 /** Familles de menace NRBC (volet déclaratif d'un incident de type nrbc). */
 export type NrbcFamily = "N" | "R" | "B" | "C";
 

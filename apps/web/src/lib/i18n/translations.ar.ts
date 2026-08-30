@@ -144,4 +144,13 @@ export const AR_DICT: Dict = {
     map_tiles_none: "لم يتم تكوين خريطة أساس سيادية",
     nrbc_pick: "الحوادث الكيميائية الجارية — اختر واحدة لعرض سحابتها:",
     nrbc_none_active: "لا يوجد حادث كيميائي نشط.",
+    // --- المهام (ADR 0007) ---
+    ms_inbox: "الأوامر الواردة", ms_empty: "لا توجد أوامر معلقة.",
+    ms_accept: "قبول", ms_decline: "رفض", ms_decline_reason: "سبب الرفض (إلزامي)",
+    ms_en_route: "في الطريق", ms_on_site: "في الموقع", ms_handover: "تسليم",
+    ms_complete: "إنهاء", ms_cancel: "إلغاء",
+    ms_state_issued: "مرسل", ms_state_accepted: "مقبول", ms_state_progress: "جارٍ",
+    ms_state_declined: "مرفوض", ms_state_completed: "منجز", ms_state_cancelled: "ملغى",
+    ms_pending: "معلق", ms_since: "منذ", ms_outbox: "الأوامر الصادرة",
+    ms_reason_required: "السبب إلزامي — فهو ما يجعل الرفض قابلا للاستثمار.",
   };

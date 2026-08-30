@@ -89,6 +89,18 @@ export function AppFrame({ children }: { children: ReactNode }) {
     if (ready) void loadDomain();
   }, [ready, loadDomain]);
 
+  // Boucles ouvertes : effet PROPRE, lié à la session et non à la simulation.
+  // Les greffer sur le tick de simulation les aurait éteintes avec elle —
+  // or un ordre reçu doit apparaître même simulation coupée (ADR 0007, P1-b).
+  // Pas de WebSocket ni de dépendance nouvelle ; EMQX prendra le relais en
+  // production sans changer le contrat de `/missions/inbox`.
+  useEffect(() => {
+    if (!ready) return;
+    void useArgos.getState().loadMissions();
+    const missionsId = setInterval(() => void useArgos.getState().loadMissions(), 15_000);
+    return () => clearInterval(missionsId);
+  }, [ready]);
+
   useEffect(() => {
     if (!LIVE_SIM) return;
     const id = setInterval(simTick, SIM_INTERVAL);

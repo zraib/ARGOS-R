@@ -397,6 +397,27 @@ export interface Dict {
   nrbc_night: string;
   map_tiles_external: string;
   map_tiles_none: string;
+  // --- missions : la boucle fermée (ADR 0007) ---
+  ms_inbox: string;
+  ms_empty: string;
+  ms_accept: string;
+  ms_decline: string;
+  ms_decline_reason: string;
+  ms_en_route: string;
+  ms_on_site: string;
+  ms_handover: string;
+  ms_complete: string;
+  ms_cancel: string;
+  ms_state_issued: string;
+  ms_state_accepted: string;
+  ms_state_progress: string;
+  ms_state_declined: string;
+  ms_state_completed: string;
+  ms_state_cancelled: string;
+  ms_pending: string;
+  ms_since: string;
+  ms_outbox: string;
+  ms_reason_required: string;
   nrbc_pick: string;
   nrbc_none_active: string;
 }

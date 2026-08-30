@@ -159,7 +159,51 @@ rend l'existant plutôt que d'en empiler un second.
 | Archiver | avec l'incident, ou administration |
 | **Supprimer** | **superadmin uniquement** — comme toute suppression dans ARGOS |
 
-## 7. Les endpoints
+## 7. Le parcours à l'écran
+
+### Côté conduite — engager
+
+Dans **Répartition** : sélectionner un incident → *Traiter* une demande de la
+file → *Engager* une unité → saisir le **motif** → *Confirmer l'engagement*.
+
+L'engagement ne vit plus seulement dans le navigateur : il **ouvre une boucle**
+côté serveur (`POST /api/missions`, `kind: "order"`). Avant, il n'existait que
+dans le store — l'unité n'était jamais prévenue, et rien n'en restait au
+rechargement. La mission est désormais la trace qui fait foi.
+
+L'affichage local reste immédiat : le répartiteur voit son geste pris en compte
+sans attendre le réseau. Si l'émission échoue (droits, incident inconnu), un
+message le dit — plutôt que de laisser croire qu'un ordre est parti.
+
+### Côté terrain — répondre
+
+Dans **Ma responsabilité**, la bannière **« Ordres reçus »** passe *avant* le
+tableau de bord de l'entité : ce qui attend un geste doit se voir avant ce qui
+informe. Elle ne s'affiche que s'il y a quelque chose à faire — un panneau vide
+en permanence apprend à l'opérateur à ne plus le regarder.
+
+Chaque ordre porte sa référence, son incident, son âge (`depuis 4 min` — un
+ordre émis qui vieillit est un signal), ses jalons franchis, et les seuls
+gestes légitimes dans son état.
+
+Deux règles d'interface qui découlent du domaine :
+
+- **le motif de refus est bloquant dans l'écran comme dans l'API.** Le bouton
+  *Refuser* reste désarmé tant que le motif est vide : l'API le rejetterait
+  (400), autant ne pas le proposer ;
+- **les jalons sont offerts dans l'ordre.** On ne montre pas *Sur zone* à
+  quelqu'un qui n'a pas déclaré *En route* — une action visible qui échoue est
+  pire qu'une action absente.
+
+### Le rafraîchissement
+
+Les corbeilles se rechargent toutes les **15 s**, dans un effet **lié à la
+session** — délibérément séparé du tick de simulation : les greffer dessus les
+aurait éteintes avec lui, alors qu'un ordre reçu doit apparaître même
+simulation coupée. Pas de WebSocket, pas de dépendance nouvelle ; EMQX prendra
+le relais en production sans changer le contrat de `/missions/inbox`.
+
+## 8. Les endpoints
 
 | Méthode | Route | Permission | Qui, en pratique |
 | --- | --- | --- | --- |
@@ -177,7 +221,7 @@ rend l'existant plutôt que d'en empiler un second.
 Aucun rôle ne détient `missions:delete` — `expand()` n'émet jamais `delete`,
 et aucune route ne l'expose.
 
-## 8. Un cycle complet, au curl
+## 9. Un cycle complet, au curl
 
 ```bash
 # La conduite émet un ordre vers l'unité U3
@@ -199,13 +243,12 @@ curl -X POST localhost:3005/api/missions/$MID/milestone -H "Authorization: Beare
 curl -X POST localhost:3005/api/missions/$MID/complete  -H "Authorization: Bearer $U3"
 ```
 
-## 9. Ce qui reste à construire
+## 10. Ce qui reste à construire
 
 Le workflow est posé ; ces maillons le compléteront (voir le plan d'exécution) :
 
 | Lot | Ce qu'il ferme |
 | --- | --- |
-| **P1-b** | Bannière « Ordres reçus » côté responsable, états côté répartiteur, pastille de barre haute |
 | **P1-c** | Couche « boucles » sur la carte : liens unité → incident colorés par état |
 | **P2-a** | « Demander un moyen » : la file du répartiteur alimentée depuis le terrain |
 | **P2-b** | EVASAN avec réservation de lit ; décès pré-remplissant le registre DVI |

@@ -30,6 +30,8 @@ import type {
   SeismicEvent,
   AircraftRole,
   TrackedAircraftState,
+  Mission,
+  MissionMilestoneKey,
   NrbcPlume,
   NrbcSubstance,
   Unit,
@@ -299,6 +301,14 @@ interface ArgosState {
   /** configuration des alertes (seuils + autorités), chargée depuis l'API */
   seisConfig: SeismicAlertConfig | null;
 
+  // --- missions : la boucle fermée (ADR 0007) ---
+  /** Boucles ouvertes attendant MON geste — alimente « Ordres reçus ». */
+  missionInbox: Mission[];
+  /** Boucles ouvertes que j'ai émises — suivi côté répartiteur. */
+  missionOutbox: Mission[];
+  /** Vrai pendant un geste de boucle, pour désarmer les boutons. */
+  missionBusy: boolean;
+
   // --- capacité NRBC : catalogue de substances + panache carte (ADR 0005) ---
   /** Catalogue des substances chimiques (API /nrbc/substances), chargé au besoin. */
   nrbcSubstances: NrbcSubstance[];
@@ -402,6 +412,16 @@ interface ArgosState {
   loadAircraft: () => Promise<void>;
   addAircraft: (input: { code: string; label: string; role: AircraftRole }) => Promise<boolean>;
   removeAircraft: (id: string) => Promise<void>;
+  // --- missions ---
+  /** Recharge inbox + outbox (appelé au tick de la coquille). */
+  loadMissions: () => Promise<void>;
+  /** Accepter / refuser / jalonner / clore / annuler — recharge ensuite. */
+  actOnMission: (
+    id: string,
+    action: "accept" | "decline" | "milestone" | "complete" | "cancel",
+    arg?: string,
+  ) => Promise<boolean>;
+
   // --- capacité NRBC ---
   /** Charge le catalogue de substances une seule fois (idempotent). */
   ensureNrbcSubstances: () => Promise<void>;
@@ -561,6 +581,10 @@ export const useArgos = create<ArgosState>((set, get) => ({
   incidentFocusAt: 0,
   mapCenterRequest: null,
   quakeSelected: null,
+
+  missionInbox: [],
+  missionOutbox: [],
+  missionBusy: false,
 
   nrbcSubstances: [],
   plumeIncidentId: null,
@@ -741,6 +765,39 @@ export const useArgos = create<ArgosState>((set, get) => ({
     const data = res.data as { feed?: string; aircraft?: TrackedAircraftState[] } | undefined;
     if (!data) return;
     set({ aircraft: data.aircraft ?? [], aircraftFeed: data.feed ?? "" });
+  },
+
+  // --- missions : la boucle fermée (ADR 0007) ---
+  loadMissions: async () => {
+    // Les deux corbeilles dégradent indépendamment : un rôle sans droit de
+    // lecture rend simplement une liste vide, jamais une erreur bloquante.
+    const [inbox, outbox] = await Promise.allSettled([api.getMissionInbox(), api.getMissionOutbox()]);
+    const pick = (r: PromiseSettledResult<{ data?: unknown }>): Mission[] => {
+      if (r.status !== "fulfilled") return [];
+      const d = r.value.data as { missions?: Mission[] } | undefined;
+      return d?.missions ?? [];
+    };
+    set({ missionInbox: pick(inbox), missionOutbox: pick(outbox) });
+  },
+
+  actOnMission: async (id, action, arg) => {
+    set({ missionBusy: true });
+    try {
+      const res =
+        action === "accept" ? await api.acceptMission(id)
+        : action === "decline" ? await api.declineMission(id, arg ?? "")
+        : action === "milestone" ? await api.missionMilestone(id, (arg ?? "en_route") as MissionMilestoneKey)
+        : action === "complete" ? await api.completeMission(id)
+        : await api.cancelMission(id, arg ?? "");
+      if (res.error) return false;
+      // La boucle a bougé : les corbeilles ET le domaine (posture d'unité,
+      // fil d'événements) sont rafraîchis.
+      await get().loadMissions();
+      await get().loadDomain();
+      return true;
+    } finally {
+      set({ missionBusy: false });
+    }
   },
 
   // --- capacité NRBC (ADR 0005) ---
@@ -1313,17 +1370,40 @@ export const useArgos = create<ArgosState>((set, get) => ({
 
   toggleCategory: (id) => set((s) => ({ comCollapsed: { ...s.comCollapsed, [id]: !s.comCollapsed[id] } })),
 
-  engageUnit: (unitId, incidentId, reason, via, score) =>
-    set((s) => {
-      const d = new Date();
-      const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-      const others = s.engagements.filter((e) => e.unitId !== unitId);
-      const eng: Engagement = { id: `ENG-${Date.now()}`, unitId, incidentId, reason, via, score, time };
-      return {
-        engagements: [eng, ...others],
-        feed: [{ time, c: "bg-or-500", txt: `Unité ${unitId} engagée sur ${incidentId}${via === "reco" ? " (reco appliquée)" : ""}` }, ...s.feed].slice(0, 8),
-      };
-    }),
+  engageUnit: (unitId, incidentId, reason, via, score) => {
+    const s = get();
+    const d = new Date();
+    const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const others = s.engagements.filter((e) => e.unitId !== unitId);
+    const eng: Engagement = { id: `ENG-${Date.now()}`, unitId, incidentId, reason, via, score, time };
+    // Affichage immédiat : le répartiteur ne doit pas attendre le réseau pour
+    // voir son geste pris en compte.
+    set({ engagements: [eng, ...others] });
+
+    // ...et l'engagement OUVRE UNE BOUCLE côté serveur (ADR 0007, P1-b).
+    // Avant, il ne vivait que dans ce store : l'unité n'était jamais prévenue,
+    // et rien n'en restait au rechargement. La mission est désormais la trace
+    // qui fait foi ; le fil et le canal de l'incident sont alimentés par
+    // l'API, d'où l'absence de ligne de fil locale ici.
+    const unit = s.units.find((u) => u.id === unitId);
+    void api
+      .issueMission({
+        incidentId,
+        label: `${unit?.nom ?? unitId} — ${reason}`,
+        to: { role: "resp_unit", entity: unitId },
+        payload: { kind: "order", unitId, ...(score !== undefined ? { etaMin: Math.round(score) } : {}) },
+      })
+      .then((res) => {
+        if (res.error) {
+          // Émission refusée (droits, incident inconnu) : on le dit plutôt que
+          // de laisser croire qu'un ordre est parti.
+          get().showToast(`Ordre non émis pour ${unitId}`);
+          return;
+        }
+        void get().loadMissions();
+        void get().loadDomain();
+      });
+  },
 
   relieveUnit: (unitId) => set((s) => ({ engagements: s.engagements.filter((e) => e.unitId !== unitId) })),
 

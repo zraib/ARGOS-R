@@ -37,6 +37,7 @@ export type UpdateEquipBody = Json<NonNullable<paths["/api/equipment-parks/{id}/
 export type CreateWardBody = Json<NonNullable<paths["/api/hospitals/{id}/wards"]["post"]["requestBody"]>>;
 export type UpdateWardBody = Json<NonNullable<paths["/api/hospitals/{id}/wards/{wid}"]["patch"]["requestBody"]>>;
 export type AddAircraftBody = Json<NonNullable<paths["/api/aviation/aircraft"]["post"]["requestBody"]>>;
+export type IssueMissionBody = Json<NonNullable<paths["/api/missions"]["post"]["requestBody"]>>;
 
 export interface ArgosClientOptions {
   /** Origine de l'API, SANS le préfixe /api (ex. http://localhost:4000). */
@@ -170,6 +171,26 @@ export function createArgosClient(opts: ArgosClientOptions) {
       client.POST("/api/aviation/aircraft/{id}/archive", { params: { path: { id } } }),
     deleteAircraft: (id: string) =>
       client.DELETE("/api/aviation/aircraft/{id}", { params: { path: { id } } }),
+    // --- missions : la boucle fermée (ADR 0007) ---
+    /** Boucles ouvertes attendant MON geste (destinataire résolu côté serveur). */
+    getMissionInbox: () => client.GET("/api/missions/inbox", {}),
+    /** Boucles ouvertes que j'ai émises — le suivi de mes demandes. */
+    getMissionOutbox: () => client.GET("/api/missions/outbox", {}),
+    /** Missions d'un incident (couche carte, fiche incident). */
+    getMissions: (incidentId?: string, openOnly = false) =>
+      client.GET("/api/missions", {
+        params: { query: { ...(incidentId ? { incidentId } : {}), ...(openOnly ? { openOnly: true } : {}) } },
+      }),
+    issueMission: (body: IssueMissionBody) => client.POST("/api/missions", { body }),
+    acceptMission: (id: string) => client.POST("/api/missions/{id}/accept", { params: { path: { id } } }),
+    declineMission: (id: string, reason: string) =>
+      client.POST("/api/missions/{id}/decline", { params: { path: { id } }, body: { reason } }),
+    missionMilestone: (id: string, key: "en_route" | "on_site" | "handover") =>
+      client.POST("/api/missions/{id}/milestone", { params: { path: { id } }, body: { key } }),
+    completeMission: (id: string) => client.POST("/api/missions/{id}/complete", { params: { path: { id } } }),
+    cancelMission: (id: string, reason: string) =>
+      client.POST("/api/missions/{id}/cancel", { params: { path: { id } }, body: { reason } }),
+
     // --- capacité NRBC (panache chimique, ADR 0005) ---
     /** Catalogue des substances chimiques (table 1 de l'ERG 2024). */
     getNrbcSubstances: () => client.GET("/api/nrbc/substances", {}),

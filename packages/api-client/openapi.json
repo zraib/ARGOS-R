@@ -2606,6 +2606,346 @@
           "nrbc"
         ]
       }
+    },
+    "/api/missions": {
+      "get": {
+        "operationId": "MissionsController_list",
+        "parameters": [
+          {
+            "name": "incidentId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "required": false,
+            "in": "query",
+            "description": "order · resource_request · transfer",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "openOnly",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Missions filtrées (incident, nature, état, boucles ouvertes).",
+        "tags": [
+          "missions"
+        ]
+      },
+      "post": {
+        "description": "Ouvre une boucle : le destinataire devra l'accepter ou la refuser avec motif.",
+        "operationId": "MissionsController_issue",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueMissionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Corps invalide ou nature de mission inconnue."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Émettre une mission (ordre, demande de moyen, transfert).",
+        "tags": [
+          "missions"
+        ]
+      }
+    },
+    "/api/missions/inbox": {
+      "get": {
+        "description": "Ce que l'écran « Ordres reçus » affiche et ce que compte la pastille de la barre haute. Le destinataire est résolu depuis la session (rôle + entité affectée), jamais depuis la requête.",
+        "operationId": "MissionsController_inbox",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Boucles ouvertes attendant un geste de moi.",
+        "tags": [
+          "missions"
+        ]
+      }
+    },
+    "/api/missions/outbox": {
+      "get": {
+        "operationId": "MissionsController_outbox",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Boucles ouvertes que j'ai émises — le suivi de mes demandes.",
+        "tags": [
+          "missions"
+        ]
+      }
+    },
+    "/api/missions/{id}": {
+      "get": {
+        "operationId": "MissionsController_byId",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Mission introuvable."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Une mission par son identifiant.",
+        "tags": [
+          "missions"
+        ]
+      }
+    },
+    "/api/missions/{id}/accept": {
+      "post": {
+        "operationId": "MissionsController_accept",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Vous n'êtes pas le destinataire de cette mission."
+          },
+          "409": {
+            "description": "Transition impossible dans l'état courant."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Accuser réception — réservé au destinataire.",
+        "tags": [
+          "missions"
+        ]
+      }
+    },
+    "/api/missions/{id}/decline": {
+      "post": {
+        "operationId": "MissionsController_decline",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Motif manquant."
+          },
+          "403": {
+            "description": "Vous n'êtes pas le destinataire de cette mission."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Refuser avec motif — réservé au destinataire.",
+        "tags": [
+          "missions"
+        ]
+      }
+    },
+    "/api/missions/{id}/milestone": {
+      "post": {
+        "operationId": "MissionsController_milestone",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MilestoneDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Vous n'êtes pas le destinataire de cette mission."
+          },
+          "409": {
+            "description": "La mission doit d'abord être acceptée."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Franchir un jalon (en route, sur zone, relève) — réservé au destinataire.",
+        "tags": [
+          "missions"
+        ]
+      }
+    },
+    "/api/missions/{id}/complete": {
+      "post": {
+        "operationId": "MissionsController_complete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Vous n'êtes pas le destinataire de cette mission."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Clore la boucle — réservé au destinataire.",
+        "tags": [
+          "missions"
+        ]
+      }
+    },
+    "/api/missions/{id}/cancel": {
+      "post": {
+        "operationId": "MissionsController_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Motif manquant."
+          },
+          "403": {
+            "description": "Seul l'émetteur peut annuler."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Annuler avec motif — réservé à l'émetteur.",
+        "tags": [
+          "missions"
+        ]
+      }
     }
   },
   "info": {
@@ -2955,7 +3295,8 @@
               "seismic",
               "audit",
               "aviation",
-              "nrbc"
+              "nrbc",
+              "missions"
             ]
           },
           "enabled": {
@@ -4086,6 +4427,161 @@
             "type": "boolean"
           }
         }
+      },
+      "PartyDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "example": "resp_unit",
+            "description": "Rôle attendu du côté concerné"
+          },
+          "userId": {
+            "type": "string",
+            "example": "m.zraib",
+            "description": "Matricule, si la partie nomme une personne"
+          },
+          "entity": {
+            "type": "string",
+            "example": "U2",
+            "description": "Entité concernée (unité, hôpital, abri, morgue)"
+          }
+        },
+        "required": [
+          "role"
+        ]
+      },
+      "MissionPayloadDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "order",
+              "resource_request",
+              "transfer"
+            ]
+          },
+          "unitId": {
+            "type": "string",
+            "example": "U2",
+            "description": "Unité engagée (kind=order)"
+          },
+          "etaMin": {
+            "type": "number",
+            "description": "Temps de trajet estimé, minutes (kind=order)"
+          },
+          "capability": {
+            "type": "string",
+            "example": "eau",
+            "description": "Capacité demandée (kind=resource_request)"
+          },
+          "urgency": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "description": "Urgence (kind=resource_request)"
+          },
+          "subject": {
+            "type": "string",
+            "enum": [
+              "casualty",
+              "body",
+              "displaced"
+            ],
+            "description": "Objet du transfert"
+          },
+          "fromEntity": {
+            "type": "string",
+            "description": "Entité de départ (kind=transfer)"
+          },
+          "toEntity": {
+            "type": "string",
+            "description": "Entité d'arrivée (kind=transfer)"
+          },
+          "triage": {
+            "type": "string",
+            "enum": [
+              "red",
+              "yellow",
+              "green",
+              "black"
+            ],
+            "description": "Catégorie de triage. AUCUNE donnée nominative ne transite par un transfert (arbitrage Q3 du plan d'exécution)."
+          },
+          "note": {
+            "type": "string",
+            "description": "Précision libre"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "IssueMissionDto": {
+        "type": "object",
+        "properties": {
+          "incidentId": {
+            "type": "string",
+            "example": "INC-2613",
+            "description": "Incident de rattachement — toute mission y est ancrée"
+          },
+          "label": {
+            "type": "string",
+            "example": "1er GI — renfort sur zone"
+          },
+          "to": {
+            "$ref": "#/components/schemas/PartyDto"
+          },
+          "from": {
+            "description": "Émetteur — déduit de la session si absent",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PartyDto"
+              }
+            ]
+          },
+          "payload": {
+            "$ref": "#/components/schemas/MissionPayloadDto"
+          }
+        },
+        "required": [
+          "incidentId",
+          "label",
+          "to",
+          "payload"
+        ]
+      },
+      "ReasonDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "example": "Unité déjà engagée sur INC-2607"
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "MilestoneDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "en_route",
+              "on_site",
+              "handover"
+            ]
+          }
+        },
+        "required": [
+          "key"
+        ]
       }
     }
   }
