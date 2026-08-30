@@ -65,6 +65,7 @@ export const LEGACY_FEATURES = [
   "audit",      // Journal d'audit
   "aviation",   // Suivi aérien (feux de forêt) — absent de la matrice, à arbitrer
   "nrbc",       // Capacité NRBC (panache chimique) — absent de la matrice, à arbitrer
+  "missions",   // Boucles opérationnelles (ordres, demandes, transferts) — à arbitrer
 ] as const;
 
 export const FEATURES = [...MATRIX_FEATURES, ...LEGACY_FEATURES] as const;
@@ -105,6 +106,7 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   audit: "Journal d'audit",
   aviation: "Suivi aérien",
   nrbc: "NRBC",
+  missions: "Missions (boucles opérationnelles)",
 };
 
 export type Permission = `${Feature}:${Action}`;
@@ -287,6 +289,17 @@ const LEGACY: Record<(typeof LEGACY_FEATURES)[number], Partial<Record<Role, Cell
   nrbc: {
     admin: ALL, opcom: AMV, tacom: AMV,
     strategic: V, place_arme: V, wali: V, bluecell: V, greencell: V, orangecell: V,
+  },
+  // Missions : la CONDUITE émet les boucles (opcom, tacom, cellule bleue) ;
+  // les RESPONSABLES d'entité doivent pouvoir accepter, refuser, jalonner —
+  // d'où `update` pour eux, sans `create` tant que les demandes montantes
+  // (lot P2-a) ne sont pas ouvertes. Qui peut agir sur QUELLE mission reste
+  // tranché par le domaine, pas par cette table. Dotation provisoire, à
+  // confirmer lors de l'arbitrage de la matrice.
+  missions: {
+    admin: ALL, opcom: AMV, tacom: AMV, bluecell: AMV,
+    strategic: V, place_arme: V, wali: V, greencell: V, orangecell: V,
+    resp_hospital: VM, resp_shelter: VM, resp_morgue: VM, resp_unit: VM, resp_equipment: VM,
   },
 };
 
