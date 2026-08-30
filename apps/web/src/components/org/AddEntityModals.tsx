@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useArgos, useDict } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { svgToLL } from "@/lib/helpers";
 import { HOSPITAL_KINDS, kindDef } from "@/lib/hospitals";
 import { HealthGlyph } from "@/components/health/HealthGlyph";
+import { WardsEditor, autosumServices, type WardsEditorValue } from "@/components/health/WardsEditor";
+import { ARGOS_WARD_REFERENCE } from "@/lib/types";
 import type { HospitalKind, UnitReadiness } from "@/lib/types";
 
 // ============================================================================
@@ -137,18 +139,33 @@ export function AddHospitalModal({ open, onClose }: { open: boolean; onClose: ()
 
   const [nom, setNom] = useState("");
   const [ville, setVille] = useState("");
-  // Catégorie de l'établissement — détermine le symbole cartographique.
-  // Les hôpitaux de campagne se déclarent depuis la fiche Hospinet, pas ici.
   const [kind, setKind] = useState<HospitalKind>("mil");
-  const [lits, setLits] = useState(200);
-  const [rea, setRea] = useState(16);
   const [staff, setStaff] = useState(250);
   const [amb, setAmb] = useState(10);
   const [heli, setHeli] = useState(1);
   const [prov, setProv] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const canSubmit = !!(nom.trim() && ville.trim() && lits > 0);
+  // Valeurs par défaut = les 5 services flagués `default` du référentiel ARGOS (~50% part marché hospitalier).
+  const defaultSvcs = (): WardsEditorValue[] =>
+    ARGOS_WARD_REFERENCE.filter((r) => r.default)
+      .map((r, i): WardsEditorValue => {
+        // Presets réalistes pour un hôpital 200 lits :
+        const presets: Record<string, [number, number]> = {
+          rea:       [16, 11],
+          chirurgie: [56, 46],
+          medecine:  [64, 50],
+          urgences:  [36, 28],
+          pediatrie: [28, 20],
+        };
+        const [total, occ] = presets[r.key] ?? [10, 4];
+        return { key: r.key, name: r.label, total, occ };
+      });
+
+  const [svcs, setSvcs] = useState<WardsEditorValue[]>(defaultSvcs());
+
+  const { lits, occ, rea, reaOcc } = useMemo(() => autosumServices(svcs), [svcs]);
+  const canSubmit = !!(nom.trim() && ville.trim() && lits > 0 && svcs.every((s) => s.occ <= s.total));
 
   const submit = async () => {
     if (!canSubmit || busy) return;
@@ -172,9 +189,19 @@ export function AddHospitalModal({ open, onClose }: { open: boolean; onClose: ()
         ll: svgToLL(p.x, p.y),
       });
       if (res.error) return;
+      // Services de soins et taux d'occupation ne font PAS partie du contrat de
+      // CRÉATION d'un établissement : l'API valide en `forbidNonWhitelisted`, les
+      // envoyer ici faisait échouer la requête en 400. Les services ont leur
+      // propre sous-ressource — on crée l'établissement, puis ses services.
+      const created = res.data as { id?: string } | undefined;
+      if (created?.id) {
+        for (const svc of svcs) {
+          await api.createWard(created.id, { nom: svc.name, lits: svc.total, occ: svc.occ, statut: "open" });
+        }
+      }
       await loadDomain();
       showToast(t.toast_hosp);
-      setNom(""); setVille("");
+      setNom(""); setVille(""); setSvcs(defaultSvcs());
       onClose();
     } finally {
       setBusy(false);
@@ -216,15 +243,10 @@ export function AddHospitalModal({ open, onClose }: { open: boolean; onClose: ()
           </div>
           <ProvinceSelect value={prov} onChange={setProv} />
         </div>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-          <div>
-            <label className={labelCls}>{t.beds_total}</label>
-            <input type="number" min={1} className={inputCls} value={lits} onChange={(e) => setLits(num(e.target.value, 1))} />
-          </div>
-          <div>
-            <label className={labelCls}>{t.icu}</label>
-            <input type="number" min={0} className={inputCls} value={rea} onChange={(e) => setRea(num(e.target.value))} />
-          </div>
+
+        <WardsEditor value={svcs} onChange={setSvcs} />
+
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
           <div>
             <label className={labelCls}>{t.staff}</label>
             <input type="number" min={0} className={inputCls} value={staff} onChange={(e) => setStaff(num(e.target.value))} />

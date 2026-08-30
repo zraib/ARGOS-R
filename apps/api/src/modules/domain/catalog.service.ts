@@ -1,6 +1,5 @@
 import { Injectable } from "@nestjs/common";
 import {
-  ANALYTICS,
   DAMAGE,
   ICS_FORMS,
   MOVEMENTS,
@@ -42,7 +41,7 @@ export class CatalogService {
       plans: PLANS,
       ics: ICS_FORMS,
       reports: REPORTS,
-      analytics: ANALYTICS,
+      analytics: this.domain.computeAnalytics(),
     };
   }
 }

@@ -55,3 +55,14 @@ export function hospKind(h: Pick<Hospital, "kind" | "nom">): HospitalKind {
 export function fieldKind(f: Pick<FieldHospital, "kind" | "nom">): HospitalKind {
   return f.kind ?? (/^HCC/i.test(f.nom) ? "civ_field" : "mil_field");
 }
+
+/**
+ * Identifiant d'un établissement, quel que soit son réseau.
+ *
+ * Les hôpitaux de campagne portent `hid` là où les établissements fixes
+ * portent `id` : sans cet accesseur, tout code manipulant l'union des deux
+ * types compile mal ou lit `undefined` sur les structures de campagne.
+ */
+export function hospId(h: Hospital | FieldHospital): string {
+  return "id" in h ? h.id : h.hid;
+}

@@ -10,10 +10,59 @@ import { LineAreaChart } from "@/components/charts/LineAreaChart";
 import { DonutChart } from "@/components/charts/DonutChart";
 import { ListCard } from "@/components/charts/ListCard";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { occBarClass } from "@/lib/helpers";
+import { occBarClass, sevBadge, typeLabel } from "@/lib/helpers";
 import { HealthGlyph } from "@/components/health/HealthGlyph";
-import type { HospitalKind } from "@/lib/types";
+import { aggregateCasualties, incidentColor, semanticChipsForType } from "@/lib/derive";
+import type { HospitalKind, Incident, Lang } from "@/lib/types";
 import SituationalAwarenessPanel from "@/components/dashboard/SituationalAwarenessPanel";
+import { IncidentsPanel } from "@/components/dashboard/DashboardIncidentBlocks";
+import { IncidentDetailModal } from "@/components/dashboard/IncidentDetailModal";
+
+function cn(...parts: Array<string | false | null | undefined>) {
+  return parts.filter(Boolean).join(" ");
+}
+
+function DatedBadge({children}:{children:ReactNode}){
+  return (<span className="inline-flex items-center gap-1.5 rounded-full border" style={{borderColor:"rgba(201,168,76,0.35)", background:"rgba(251,248,239,0.8)", padding:"6px 12px"}}>
+    <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{background:"#C9A84C"}}/>
+    <span className="font-serif text-[10px] font-semibold uppercase tracking-[0.22em]" style={{color:"#8A6D1B"}}>{children}</span>
+  </span>);
+}
+
+function SectionLabel({label, eyebrow}:{label:string; eyebrow?:string}){
+  return (
+    <div className="flex items-center gap-3">
+      {eyebrow ? <span className="font-serif text-[10px] font-semibold uppercase tracking-[0.28em]" style={{color:"#8A6D1B"}}>{eyebrow}</span> : null}
+      <span className="h-px flex-1" style={{background:"linear-gradient(90deg,rgba(201,168,76,0.5),transparent)"}}/>
+      <span className="font-serif text-[10px] font-bold uppercase tracking-[0.28em]" style={{color:"#8A6D1B"}}>{label}</span>
+      <span className="h-px flex-1" style={{background:"linear-gradient(90deg,transparent,rgba(201,168,76,0.5))"}}/>
+    </div>
+  );
+}
+
+function PremiumCard({tone, children, className = ""}:{tone?:"light"|"dark"|"ivory"; children: ReactNode; className?:string}){
+  const surfaces = {
+    light: "bg-white/85",
+    dark: "bg-[#1C1A17]/95",
+    ivory: "bg-[#FBF8EF]",
+  } as const;
+  return (
+    <div
+      className={`group relative h-full w-full overflow-hidden rounded-xl backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 ${surfaces[tone ?? "light"]} ${className}`}
+      style={{
+        border: "1px solid rgba(175,140,60,0.14)",
+        boxShadow: "0 1px 0 rgba(255,255,255,0.6) inset, 0 20px 40px -24px rgba(30,20,0,0.08)",
+      }}
+    >
+      <span aria-hidden className="pointer-events-none absolute left-4 top-0 h-[3px] w-14" style={{ background: "linear-gradient(90deg,#C9A84C,transparent)" }} />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-[#C9A84C]/10 to-transparent opacity-0 transition-opacity duration-700 group-hover:translate-x-full group-hover:opacity-100 duration-1400ms ease-out"
+      />
+      {children}
+    </div>
+  );
+}
 
 interface Kpi {
   label: string;
@@ -24,7 +73,7 @@ interface Kpi {
   iconWrap: string;
 }
 
-type TileId = "evolution" | "casualties" | "moyens" | "hospitals" | "severity" | "feed";
+type TileId = "evolution" | "casualties" | "moyens" | "hospitals" | "severity" | "feed" | "incidents";
 
 /**
  * Tableau de bord national (disposition A) : grille compacte tenant sur un
@@ -40,8 +89,12 @@ export default function DashboardPage() {
   const feed = useArgos((s) => s.feed);
   const dashStats = useArgos((s) => s.dashStats);
   const situational = useArgos((s) => s.situationalAwareness);
+  const incidentTypes = useArgos((s) => s.incidentTypes);
+  const lang = useArgos((s) => s.lang) as Lang;
 
   const [expanded, setExpanded] = useState<TileId | null>(null);
+  const [selIncident, setSelIncident] = useState<Incident | null>(null);
+  const [filterType, setFilterType] = useState<string | null>(null);
   /**
    * Onglet actif : vue opérationnelle (tuiles) ou analyse IA (conscience
    * situationnelle). La tuile IA occupait une rangée entière de la grille avec
@@ -97,6 +150,18 @@ export default function DashboardPage() {
     { id: 4, title: "Rétablissement axes RN7 / RP2010", color: "#10B981", progression: 30 },
   ];
 
+  // ===== Bilan humain · 1 useMemo via helper source unique (derive.ts)
+  //      → par type, top incidents, totaux et KPIs dynamiques (4 KPI slots, sémantiques)
+  const { casualtiesByType, topImpactIncidents, casualtiesTotals, semKpis } = useMemo(() => {
+    const { byType, topImpact, totals, kpis } = aggregateCasualties(incidents, dashStats);
+    return {
+      casualtiesByType: byType,
+      topImpactIncidents: topImpact.map((x) => ({ i: x.incident, impact: x.impact })),
+      casualtiesTotals: totals,
+      semKpis: kpis,
+    };
+  }, [incidents, dashStats]);
+
   const titleOf: Record<TileId, string> = {
     evolution: t.dash_evolution,
     casualties: m.orsec.casualties,
@@ -104,6 +169,7 @@ export default function DashboardPage() {
     hospitals: t.dash_hosp,
     severity: m.analytics.severity_dist,
     feed: t.feed,
+    incidents: t.dash_incidents ?? "Incidents",
   };
 
   /** Corps (bare) d'une tuile, réutilisé dans la grille et dans la modale. */
@@ -113,24 +179,172 @@ export default function DashboardPage() {
         return dashStats ? (
           <LineAreaChart bare titre={t.dash_evolution} data={dashStats.evolution} labelOpened={t.dash_opened} labelClosed={t.dash_closed} />
         ) : <Empty />;
-      case "casualties":
-        return dashStats ? (
-          <div className="grid h-full grid-cols-2 gap-2.5">
-            {[
-              { label: m.orsec.n_dead, val: dashStats.casualties.dead, cls: "text-danger-500" },
-              { label: m.orsec.n_injured, val: dashStats.casualties.injured, cls: "text-or-500" },
-              { label: m.orsec.n_missing, val: dashStats.casualties.missing, cls: "text-gray-500 dark:text-rdia-300" },
-              { label: m.orsec.n_rescued, val: dashStats.casualties.rescued, cls: "text-green-600 dark:text-green-400" },
-            ].map((c) => (
-              <div key={c.label} className="flex min-w-0 flex-col justify-center rounded-lg bg-gray-50 px-3 py-2 dark:bg-rdia-800/50">
-                <span className={`text-2xl font-bold leading-tight tabular-nums ${c.cls}`}>{c.val}</span>
-                <span className="truncate text-[11px] uppercase tracking-wider text-gray-400 dark:text-rdia-400 sm:text-[10px]">{c.label}</span>
+      case "casualties": {
+        const maxCat = Math.max(1, ...casualtiesByType.map((r) => r.total));
+
+        return (
+          <div className="flex h-full min-h-0 w-full flex-col gap-2">
+            {/* ==== 4 KPIs SÉMANTIQUES DYNAMIQUES ==== */}
+            <div className="grid grid-cols-4 gap-1.5">
+              {semKpis.map((k) => {
+                const shortLabel = k.label.length > 7 ? k.label.slice(0, 7) : k.label;
+                return (
+                  <div
+                    key={k.key}
+                    className={`flex min-w-0 flex-col items-center justify-center rounded-md border-t-2 ${k.color.br} ${k.color.bg} px-1.5 py-1.5 text-center`}
+                  >
+                    <span className={`text-[22px] font-black leading-none tabular-nums ${k.color.text}`}>{k.value}</span>
+                    <span className={`mt-1 truncate text-[10px] font-bold uppercase tracking-wider ${k.color.text}`}>
+                      {shortLabel}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ==== Répartition par CATEGORIE + Top incidents (2 cols) ==== */}
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 min-h-0 flex-1 overflow-hidden">
+              {/* Colonne gauche · Répartition par catégorie scroll */}
+              <div className="min-h-0 flex flex-col gap-1 overflow-hidden">
+                <div className="flex items-center justify-between px-0.5">
+                  <span className="text-[10.5px] font-black uppercase tracking-[0.12em] text-gray-500 dark:text-rdia-400">
+                    Par type
+                  </span>
+                  {filterType && (
+                    <button
+                      type="button"
+                      onClick={() => setFilterType(null)}
+                      className="text-[10px] font-bold text-gray-400 hover:text-gray-600 dark:hover:text-rdia-300"
+                    >
+                      ← tous
+                    </button>
+                  )}
+                </div>
+                <div className="min-h-0 flex-1 flex flex-col gap-1 overflow-y-auto pr-0.5">
+                  {casualtiesByType.length === 0 ? (
+                    <div className="flex h-full items-center justify-center text-[11px] text-gray-400 dark:text-rdia-400">
+                      Pas de victimes
+                    </div>
+                  ) : casualtiesByType.map((r) => {
+                    const hex = incidentColor(r.type);
+                    const active = filterType === r.type;
+                    const { main: mainDim, secondary: secondaryDimChips } = semanticChipsForType(r);
+                    return (
+                      <button
+                        key={r.type}
+                        type="button"
+                        onClick={() => setFilterType(active ? null : r.type)}
+                        className={cn(
+                          "flex flex-col gap-1.5 rounded-md border px-1.5 py-1.5 text-left transition-all duration-150",
+                          active
+                            ? "border-transparent text-white shadow-sm"
+                            : "border-gray-200/60 bg-white/70 hover:border-gray-300 dark:border-white/10 dark:bg-white/[0.04]",
+                        )}
+                        style={active ? { backgroundColor: hex } : undefined}
+                      >
+                        {/* Ligne 1 · type + Σ total */}
+                        <div className="flex w-full items-center gap-1.5">
+                          <span
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: active ? "rgba(255,255,255,0.9)" : hex }}
+                          />
+                          <span className={cn(
+                            "min-w-0 flex-1 truncate text-[11.5px] font-extrabold leading-snug",
+                            active ? "text-white" : "text-gray-800 dark:text-rdia-100",
+                          )}>
+                            {typeLabel(r.type, incidentTypes, lang)}
+                          </span>
+                          <span
+                            className={cn(
+                              "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-black tabular-nums",
+                              active ? "bg-white/25 text-white" : "text-white",
+                            )}
+                            style={!active ? { backgroundColor: hex } : undefined}
+                          >
+                            Σ{r.total}
+                          </span>
+                        </div>
+                        {/* Ligne 2 · chips sémantiques détail */}
+                        <div className="flex w-full flex-wrap items-center gap-1">
+                          {mainDim && (
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-bold leading-none",
+                                active ? "bg-white/25 text-white" : "text-white",
+                              )}
+                              style={!active ? { backgroundColor: mainDim.hex } : undefined}
+                            >
+                              {mainDim.label} <span className="font-mono tabular-nums">{mainDim.v}</span>
+                            </span>
+                          )}
+                          {secondaryDimChips.map((ch) => (
+                            <span
+                              key={ch.label}
+                              className={cn(
+                                "inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[8.5px] font-bold leading-none",
+                                active ? "bg-white/20 text-white/90" : "",
+                              )}
+                              style={!active ? { backgroundColor: `${ch.hex}16`, color: ch.hex } : undefined}
+                            >
+                              {ch.label} <span className="font-mono tabular-nums">{ch.v}</span>
+                            </span>
+                          ))}
+                          {!mainDim && secondaryDimChips.length === 0 && r.total === 0 && (
+                            <span className="text-[9px] font-semibold text-gray-400 dark:text-rdia-500">pas de données</span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            ))}
+
+              {/* Colonne droite · Top incidents par impact scroll */}
+              <div className="min-h-0 flex flex-col gap-1 overflow-hidden">
+                <span className="px-0.5 text-[10.5px] font-black uppercase tracking-[0.12em] text-gray-500 dark:text-rdia-400">
+                  Top · impact
+                </span>
+                <div className="min-h-0 flex-1 flex flex-col gap-1 overflow-y-auto pr-0.5">
+                  {topImpactIncidents.length === 0 ? (
+                    <div className="flex h-full items-center justify-center text-[11px] text-gray-400 dark:text-rdia-400">
+                      (pas d'incidents)
+                    </div>
+                  ) : topImpactIncidents.map(({ i: inc, impact }, idx) => {
+                    const sev = sevBadge(inc.sev, t);
+                    const sevC = sev.type === "high" ? "bg-danger-500" : sev.type === "medium" ? "bg-or-500" : "bg-green-500";
+                    return (
+                      <button
+                        key={inc.id}
+                        type="button"
+                        onClick={() => setSelIncident(inc)}
+                        className="group flex items-center gap-1.5 rounded-md border border-gray-200/60 bg-white/70 px-1.5 py-1.5 text-left transition hover:border-gray-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.04]"
+                      >
+                        <span className="w-4 shrink-0 text-center font-mono text-[10px] font-black tabular-nums text-gray-400 dark:text-rdia-500">
+                          {idx + 1}
+                        </span>
+                        <span className={`h-2 w-2 shrink-0 rounded-full ${sevC}`} />
+                        <span className="min-w-0 flex-1 truncate text-[11.5px] font-bold leading-snug text-gray-800 dark:text-rdia-100">
+                          {inc.titre}
+                        </span>
+                        <span className="shrink-0 rounded-md bg-gray-900/90 px-1.5 py-0.5 font-mono text-[10px] font-black tabular-nums text-white dark:bg-white dark:text-gray-900">
+                          Σ{impact}
+                        </span>
+                        <Icon
+                          path={UI_ICONS.chevronRight}
+                          size={11}
+                          className="shrink-0 text-gray-400 group-hover:text-rdia-500 dark:group-hover:text-rdia-300"
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
-        ) : <Empty />;
+        );
+      }
       case "moyens":
-        return <DonutChart bare titre={t.chart_moyens} data={chartMoyens} />;
+        return <DonutChart compact bare titre={t.chart_moyens} data={chartMoyens} />;
       case "hospitals":
         return dashStats ? (
           // Réseau militaire en tête, puis le civil trié par saturation
@@ -173,75 +387,185 @@ export default function DashboardPage() {
             ))}
           </div>
         );
+      case "incidents":
+        return (
+          <IncidentsPanel
+            incidents={incidents}
+            types={incidentTypes}
+            lang={lang}
+            t={t}
+            onOpen={(i) => setSelIncident(i)}
+            filterType={filterType}
+            onFilterChange={setFilterType}
+          />
+        );
     }
   };
+
+  const dateHero = useMemo(() => {
+    const d = new Date();
+    const j = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    return `${j} · ${mm} · ${d.getFullYear()}`;
+  }, []);
 
   return (
     // Sous `lg`, la grille ne peut plus tenir dans une seule hauteur d'écran :
     // la page reprend un flux vertical normal et c'est `<main>` qui défile.
-    <section className="flex flex-col gap-3 animate-fade-in lg:h-full">
-      {/* Rangée de KPI (compacte) — 2 colonnes tiennent dès 375 px */}
-      <div className="grid shrink-0 grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
-        {kpis.map((k) => (
-          <div key={k.label} className="carte flex items-center gap-2.5 p-3 sm:gap-3">
-            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 ${k.iconWrap}`}>
-              <Icon path={k.icon} size={20} />
+    <section className="flex flex-col gap-4 animate-fade-in lg:h-full">
+      {/* ===== HERO PREMIUM · Hero compact + onglets ===== */}
+      <header className="shrink-0 space-y-3">
+        <div className="grid gap-3 lg:grid-cols-[1.6fr_1fr] lg:items-stretch">
+          {/* HERO gauche · titre ops opérationnel + KPIs micro inline */}
+          <PremiumCard tone="light" className="p-4 sm:p-5 lg:p-6">
+            <div className="flex flex-wrap items-center gap-2">
+              <DatedBadge>{dateHero}</DatedBadge>
+              <span className="font-serif italic text-[12px]" style={{color:"#8A6D1B"}}>
+                {t.dash_tab_ops ?? "Vue opérationnelle"} et Analyse IA
+              </span>
             </div>
-            <div className="min-w-0">
-              <div className="truncate text-xs text-gray-500 dark:text-rdia-300">{k.label}</div>
-              {/* `flex-wrap` + `whitespace-nowrap` : sur une demi-largeur de
-                  téléphone, le delta passe à la ligne au lieu de couper le
-                  nombre en deux. */}
-              <div className="flex flex-wrap items-end gap-x-2">
-                <span className="whitespace-nowrap text-xl font-bold leading-none tabular-nums text-rdia-600 dark:text-rdia-50 sm:text-2xl">{k.val}</span>
-                <span className={`whitespace-nowrap text-[11px] font-semibold sm:text-[10px] ${k.subColor}`}>{k.sub}</span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
 
-      {/* Onglets : même langage visuel que ceux de /utilisateurs (cohérence de
-          navigation). L'état actif est marqué par fond + couleur, pas par la
-          couleur seule. */}
-      <div role="tablist" aria-label={t.nav_dash} className="flex w-fit max-w-full shrink-0 gap-1 overflow-hidden rounded-lg bg-gray-100 p-1 dark:bg-rdia-800/60">
-        {([["ops", t.dash_tab_ops], ["ia", t.dash_tab_ai]] as const).map(([id, label]) => (
-          <button
-            key={id}
-            role="tab"
-            aria-selected={view === id}
-            onClick={() => setView(id)}
-            className={`min-h-11 rounded-md px-3 py-2.5 text-xs font-semibold transition-colors lg:min-h-0 lg:py-1.5 ${
-              view === id ? "bg-white text-or-600 shadow-sm dark:bg-rdia-600 dark:text-or-400" : "text-gray-500 hover:text-or-500 dark:text-rdia-300"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+            <div className="mt-3 flex items-end gap-3">
+              <h1 className="font-serif tracking-tight text-[44px] leading-[1.02] text-[#1C1A17] sm:text-[38px]">
+                Tableau de bord
+                <span className="ml-2 font-serif italic text-[18px] sm:text-[16px]" style={{color:"#8A6D1B"}}>
+                  général
+                </span>
+              </h1>
+            </div>
+
+            <p className="mt-2 max-w-[62ch] font-serif text-[13px] leading-[1.65] text-[#1C1A17]/70">
+              Synthèse en temps réel des incidents, des ressources et du réseau hospitalier.
+              Conscience situationnelle IA intégrée dans l'onglet « Analyse IA ».
+            </p>
+
+            {/* ===== 4 KPIs micro inline hero ===== */}
+            <div className="mt-4 grid grid-cols-4 items-stretch gap-2 overflow-hidden sm:gap-3">
+              {kpis.map((k, i) => (
+                <div key={k.label} className={cn("relative flex min-w-0 flex-col gap-1 py-1 sm:py-1.5", i > 0 ? "pl-2 sm:pl-4" : "")}>
+                  {i > 0 ? (
+                    <span
+                      aria-hidden
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-px"
+                      style={{ background: "linear-gradient(180deg,transparent,rgba(201,168,76,0.55) 40%,rgba(201,168,76,0.55) 60%,transparent)", height: "24px" }}
+                    />
+                  ) : null}
+                  <span className="truncate font-serif text-[9px] font-semibold uppercase tracking-[0.22em]" style={{color:"#8A6D1B"}}>{k.label}</span>
+                  <div className="flex flex-wrap items-end gap-x-1.5">
+                    <span className="whitespace-nowrap font-serif text-[22px] font-semibold leading-none tabular-nums text-[#1C1A17] sm:text-[20px]">{k.val}</span>
+                    <span className={cn("whitespace-nowrap text-[9.5px] font-semibold", k.subColor)}>{k.sub}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </PremiumCard>
+
+          {/* HERO droite · Onglets premium ops / Analyse IA + situation actuelle */}
+          <PremiumCard tone="ivory" className="flex flex-col justify-between p-4 sm:p-5 lg:p-6">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="font-serif italic text-[13px]" style={{color:"#8A6D1B"}}>
+                  {t.dash_tab_ai ?? "Analyse IA"}
+                </span>
+                {kpiSA ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border px-2 py-[4px]" style={{borderColor:"rgba(201,168,76,0.35)", background:"rgba(255,255,255,0.55)"}}>
+                    <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full", kpiSA.subColor === "text-red-500" ? "bg-red-500" : kpiSA.subColor === "text-amber-500" ? "bg-or-500" : kpiSA.subColor === "text-green-600" ? "bg-green-500" : "bg-blue-500")}/>
+                    <span className={cn("font-serif text-[9px] font-bold uppercase tracking-[0.2em]", kpiSA.subColor)}>
+                      {kpiSA.sub.split("·")[0].trim()}
+                    </span>
+                  </span>
+                ) : null}
+              </div>
+
+              <p className="mt-3 font-serif text-[17px] leading-snug text-[#1C1A17] sm:text-[15.5px]">
+                {kpiSA
+                  ? kpiSA.sub.includes("point(s)")
+                    ? kpiSA.sub
+                    : `${kpiSA.sub} · Score global ${kpiSA.score} / 100`
+                  : "Conscience situationnelle en cours de calcul..."}
+              </p>
+            </div>
+
+            {/* ===== Onglets premium ops / IA (même langage visuel) ===== */}
+            <div
+              role="tablist"
+              aria-label={t.nav_dash}
+              className="mt-4 flex w-full overflow-hidden rounded-lg p-1"
+              style={{background:"rgba(28,26,23,0.05)", border:"1px solid rgba(175,140,60,0.18)"}}
+            >
+              {([
+                ["ops", t.dash_tab_ops ?? "Vue opérationnelle"],
+                ["ia", t.dash_tab_ai ?? "Analyse IA"],
+              ] as const).map(([id, label]) => (
+                <button
+                  key={id}
+                  role="tab"
+                  aria-selected={view === id}
+                  onClick={() => setView(id)}
+                  className={cn(
+                    "flex min-h-[40px] flex-1 items-center justify-center rounded-md px-2 py-2 text-center font-serif text-[11.5px] font-bold uppercase tracking-[0.18em] transition-all duration-200",
+                    view === id
+                      ? "shadow-sm"
+                      : "hover:text-[#8A6D1B]",
+                  )}
+                  style={view === id
+                    ? {background:"#FFFFFF", color:"#8A6D1B", border:"1px solid rgba(201,168,76,0.38)", boxShadow:"0 8px 24px -14px rgba(138,109,27,0.55)"}
+                    : {color:"#1C1A17/55"}
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </PremiumCard>
+        </div>
+      </header>
+
+      {/* ===== Section label : grilles de tuiles ===== */}
+      <div className="shrink-0 px-0.5">
+        <SectionLabel eyebrow="TABLEAU DE BORD" label={view === "ops" ? "CARTOGRAPHIE OPÉRATIONNELLE" : "CONSCIENCE SITUATIONNELLE IA"} />
       </div>
 
       {view === "ia" ? (
-        <div role="tabpanel" className="carte flex min-h-0 flex-1 flex-col p-3 sm:p-4">
-          <h3 className="mb-2 shrink-0 text-sm font-semibold text-rdia-600 dark:text-rdia-50">{t.dash_ai_title}</h3>
+        <PremiumCard tone="light" className="flex min-h-0 flex-1 flex-col p-3 sm:p-4 lg:p-5">
+          <header className="mb-2 shrink-0 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <h3 className="font-serif text-[13px] font-semibold text-[#1C1A17] sm:text-[14px]">
+                {t.dash_ai_title}
+              </h3>
+              {kpiSA ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-serif text-[9.5px] font-bold uppercase tracking-[0.22em]" style={{background: kpiSA.subColor === "text-red-500" ? "rgba(239,68,68,0.09)" : kpiSA.subColor === "text-amber-500" ? "rgba(245,158,11,0.11)" : kpiSA.subColor === "text-green-600" ? "rgba(16,185,129,0.11)" : "rgba(59,130,246,0.1)", color: kpiSA.subColor === "text-red-500" ? "#B91C1C" : kpiSA.subColor === "text-amber-500" ? "#B45309" : kpiSA.subColor === "text-green-600" ? "#047857" : "#1D4ED8"}}>
+                  Score {kpiSA.score} / 100
+                </span>
+              ) : null}
+            </div>
+          </header>
           <div className="min-h-0 flex-1 overflow-y-auto pe-1">
             <SituationalAwarenessPanel bare />
           </div>
-        </div>
+        </PremiumCard>
       ) : (
       <>
-      {/* Grille de tuiles : remplit l'écran restant à partir de `lg`.
-           - Téléphone : une colonne, hauteurs naturelles (les graphiques
-             gardent une hauteur explicite pour ne pas s'écraser).
-           - Tablette (`md`) : deux colonnes, les blocs larges s'étendent.
-           - Rangée 3 = CONSCIENCE SITUATIONNELLE IA (lg:col-span-4)
-           - ratios : row1 (1.22fr) + row2 (1.22fr) + row3 (1.15fr) → blocs du haut PLUS GRANDS */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:min-h-0 lg:flex-1 lg:grid-cols-4 lg:grid-rows-[minmax(0,1.1fr)_minmax(0,1fr)]">
-        <DashTile id="evolution" title={titleOf.evolution} className="h-64 sm:h-72 md:col-span-2 lg:h-auto lg:col-span-2" onExpand={setExpanded} label={t.dash_expand}>{body("evolution")}</DashTile>
-        <DashTile id="casualties" title={titleOf.casualties} onExpand={setExpanded} label={t.dash_expand}>{body("casualties")}</DashTile>
-        <DashTile id="moyens" title={titleOf.moyens} className="h-60 sm:h-64 lg:h-auto" onExpand={setExpanded} label={t.dash_expand}>{body("moyens")}</DashTile>
-        <DashTile id="hospitals" title={titleOf.hospitals} className="md:col-span-2 lg:col-span-2" onExpand={setExpanded} label={t.dash_expand}>{body("hospitals")}</DashTile>
-        <DashTile id="severity" title={titleOf.severity} className="h-44 sm:h-48 lg:h-auto" onExpand={setExpanded} label={t.dash_expand}>{body("severity")}</DashTile>
-        <DashTile id="feed" title={titleOf.feed} className="h-64 lg:h-auto" onExpand={setExpanded} label={t.dash_expand}>{body("feed")}</DashTile>
+      {/* Grille de tuiles ops : casualties (2 cols / row1), puis toutes les 5 autres
+           - Mobile : 1 colonne · hauteurs naturelles
+           - Tablette md : 2 colonnes
+           - Desktop lg : 3 colonnes × 3 rows (row1=row2=1fr, row3=1.35fr incidents)
+           - Layout : R1 · casualties(2) + moyens(1)
+                      R2 · evolution(1) + hospitals(1) + severity(1)
+                      R3 · feed(1) + incidents(2) */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-3 lg:gap-5 lg:grid-rows-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.35fr)]">
+        {/* Row 1 */}
+        <DashTile id="casualties" title={titleOf.casualties} onExpand={setExpanded} label={t.dash_expand} className="lg:col-span-2">{body("casualties")}</DashTile>
+        <DashTile id="moyens" title={titleOf.moyens} onExpand={setExpanded} label={t.dash_expand}>{body("moyens")}</DashTile>
+        {/* Row 2 — 3 tuiles égales */}
+        <DashTile id="evolution" title={titleOf.evolution} onExpand={setExpanded} label={t.dash_expand}>{body("evolution")}</DashTile>
+        <DashTile id="hospitals" title={titleOf.hospitals} onExpand={setExpanded} label={t.dash_expand}>{body("hospitals")}</DashTile>
+        <DashTile id="severity" title={titleOf.severity} onExpand={setExpanded} label={t.dash_expand}>{body("severity")}</DashTile>
+        {/* Row 3 — feed 1 col · incidents 2 cols (total 3 → affiche correctement) */}
+        <DashTile id="feed" title={titleOf.feed} onExpand={setExpanded} label={t.dash_expand}>{body("feed")}</DashTile>
+        <DashTile id="incidents" title={titleOf.incidents} className="lg:col-span-2 min-h-[320px] sm:min-h-[360px] lg:min-h-0" onExpand={setExpanded} label={t.dash_expand}>
+          {body("incidents")}
+        </DashTile>
       </div>
       </>
       )}
@@ -251,6 +575,13 @@ export default function DashboardPage() {
       <Modal open={expanded !== null} size="2xl" title={expanded ? titleOf[expanded] : ""} onClose={() => setExpanded(null)}>
         <div className="h-[65dvh] sm:h-[72dvh] lg:h-[85dvh]">{expanded && body(expanded)}</div>
       </Modal>
+
+      {/* Modale détail d'incident (clic ligne / clic catégorie) */}
+      <IncidentDetailModal
+        open={selIncident !== null}
+        incident={selIncident}
+        onClose={() => setSelIncident(null)}
+      />
     </section>
   );
 }
@@ -259,7 +590,6 @@ function Empty() {
   return <div className="flex h-full items-center justify-center text-xs text-gray-400 dark:text-rdia-400">…</div>;
 }
 
-/** Cadre de tuile : carte + titre + bouton « Agrandir » en haut à droite. */
 function DashTile({
   id,
   title,
@@ -276,20 +606,43 @@ function DashTile({
   children: ReactNode;
 }) {
   return (
-    <div className={`carte flex min-h-0 flex-col p-3 sm:p-4 ${className}`}>
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="min-w-0 truncate text-sm font-semibold text-rdia-600 dark:text-rdia-50">{title}</h3>
+    <PremiumCard tone="light" className={cn("flex min-h-0 flex-col", className)}>
+      {/* ===== HEADER ===== */}
+      <header className="flex items-center justify-between gap-2 border-b px-4 pb-2.5 pt-3 sm:px-5" style={{borderColor:"rgba(175,140,60,0.14)"}}>
+        <div className="flex min-w-0 items-center gap-2">
+          <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full" style={{background:"#C9A84C"}}/>
+          <h3 className="min-w-0 truncate font-serif text-[12.5px] font-bold tracking-tight text-[#1C1A17] sm:text-[13px]">
+            {title}
+          </h3>
+        </div>
+
         <button
           onClick={() => onExpand(id)}
           title={label}
           aria-label={label}
-          // `cible-tactile` : 44 px au doigt sous `lg`, densité d'origine ensuite.
-          className="cible-tactile -me-1 flex shrink-0 items-center justify-center rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600 dark:hover:text-or-400"
+          className="cible-tactile shrink-0 inline-flex items-center justify-center rounded-full p-1.5 transition-colors"
+          style={{
+            border: "1px solid rgba(175,140,60,0.22)",
+            background: "rgba(251,248,239,0.55)",
+            color: "#8A6D1B",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(201,168,76,0.12)";
+            e.currentTarget.style.color = "#6B4F10";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(251,248,239,0.55)";
+            e.currentTarget.style.color = "#8A6D1B";
+          }}
         >
-          <Icon path={UI_ICONS.expand} size={14} strokeWidth={2} />
+          <Icon path={UI_ICONS.expand} size={12} strokeWidth={2.25} />
         </button>
+      </header>
+
+      {/* ===== CONTENU ===== */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-2.5 sm:px-5 sm:py-3">
+        {children}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto pe-1">{children}</div>
-    </div>
+    </PremiumCard>
   );
 }

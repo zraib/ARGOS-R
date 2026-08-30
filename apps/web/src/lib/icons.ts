@@ -159,6 +159,14 @@ export const UI_ICONS = {
   map: "M9 20l-6 2V6l6-2m0 16l6-2m-6 2V4m6 14l6 2V6l-6-2m0 16V4",
   archive: "M2 4h20v4H2z M4 8v11a2 2 0 002 2h12a2 2 0 002-2V8 M10 12h4",
   caretDown: "M6 9l6 6 6-6",
+  /** Alias de `caretDown` — nom attendu par les panneaux Hospinet IA. */
+  chevronDown: "M6 9l6 6 6-6",
+  /** Indicateur de traitement en cours (arc de cercle, animé par la vue). */
+  loading: "M21 12a9 9 0 11-6.2-8.6",
+  /** Établissement de santé — repris de NAV_ICONS (même raison). */
+  hospitals: "M3 21h18M5 21V7l7-4 7 4v14M12 9v6M9 12h6",
+  /** Réglages — repris de NAV_ICONS pour que UI_ICONS soit autosuffisant. */
+  settings: "M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z",
   copy: "M20 9h-9a2 2 0 00-2 2v9a2 2 0 002 2h9a2 2 0 002-2v-9a2 2 0 00-2-2z M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1",
   sliders: "M4 6h16 M4 12h16 M4 18h16 M9 4v4 M15 10v4 M7 16v4",
   refresh: "M21 12a9 9 0 11-3.2-6.9 M21 3v6h-6",
@@ -187,4 +195,6 @@ export const UI_ICONS = {
   package: "M16.5 9.4L21 7v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7l4.5 2.4 M12 3l9 6-9 6-9-6 9-6z M7 16l5-3 5 3 M12 12v10",
   // Ramification (sous-incidents rattachés à un incident principal).
   branch: "M6 3a3 3 0 100 6 3 3 0 000-6z M6 9v6 M6 15a3 3 0 100 6 3 3 0 000-6z M18 4a3 3 0 100 6 3 3 0 000-6z M18 10c0 5-4 6-9 6.6",
+  // 🎯 Cible / point d'évacuation (croix de visée)
+  target: "M12 3a9 9 0 100 18 9 9 0 000-18z M12 8a4 4 0 100 8 4 4 0 000-8z M12 2v3 M12 19v3 M2 12h3 M19 12h3",
 } as const;

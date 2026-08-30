@@ -9,7 +9,10 @@ import { UI_ICONS } from "@/lib/icons";
 import { occBarClass } from "@/lib/helpers";
 import { hospitalDetail } from "@/lib/derive";
 import { AddHospitalModal } from "@/components/org/AddEntityModals";
+import { Modal } from "@/components/ui/Modal";
 import { HealthGlyph } from "@/components/health/HealthGlyph";
+import { HospinetIAPanel } from "@/components/health/HospinetIAPanel";
+import { HospinetAffecteurIA } from "@/components/health/HospinetAffecteurIA";
 import { HOSPITAL_KINDS, hospKind, kindDef } from "@/lib/hospitals";
 import type { HospitalKind } from "@/lib/types";
 
@@ -29,6 +32,7 @@ export default function HospinetPage() {
   const showToast = useArgos((s) => s.showToast);
   const [tab, setTab] = useState<"staff" | "beds" | "veh" | "field">("staff");
   const [adding, setAdding] = useState(false);
+  const [affecteurOpen, setAffecteurOpen] = useState(false);
   // Filtres de la vue liste : le référentiel compte plus de cent
   // établissements — catégorie et recherche libre les rendent exploitables.
   const [kindFilter, setKindFilter] = useState<HospitalKind | "all">("all");
@@ -67,6 +71,9 @@ export default function HospinetPage() {
 
     return (
       <section className="flex flex-col gap-4 animate-fade-in">
+        {/* Synthèse IA · panneau d'information globale */}
+        <HospinetIAPanel />
+
         <div className="carte flex flex-col gap-3 p-3 sm:p-4">
           <div className="flex flex-wrap items-center gap-3">
             {/* Le `min-w-[240px]` d'origine bloquait le rétrécissement : sous
@@ -86,6 +93,14 @@ export default function HospinetPage() {
                 {t.add_hosp}
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => setAffecteurOpen(true)}
+              className="group inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-or-500 to-or-600 px-3.5 py-2 text-[12.5px] font-bold text-rdia-600 shadow-[0_4px_12px_-2px_rgba(234,140,14,0.45)] transition-all duration-200 hover:from-or-500 hover:to-or-500 hover:shadow-[0_6px_16px_-2px_rgba(234,140,14,0.6)] hover:scale-[1.02] active:scale-[0.98] sm:ms-auto lg:ms-0"
+            >
+              <Icon path={UI_ICONS.target} size={15} strokeWidth={2} />
+              <span className="tracking-wide">Affecteur IA</span>
+            </button>
           </div>
           {/* Sept puces de catégorie : bandeau défilable sous `sm` plutôt que
               quatre lignes de repli qui repoussent la liste hors de l'écran. */}
@@ -147,6 +162,9 @@ export default function HospinetPage() {
           })}
         </div>
         <AddHospitalModal open={adding} onClose={() => setAdding(false)} />
+        <Modal open={affecteurOpen} onClose={() => setAffecteurOpen(false)} size="2xl" title="Affecteur IA · Hospinet">
+          <HospinetAffecteurIA />
+        </Modal>
       </section>
     );
   }
@@ -154,6 +172,7 @@ export default function HospinetPage() {
   // ---- vue détail ----
   const { staffRows, beds, vehRows, fields } = hospitalDetail(hosp, fieldHosps, t);
   const tabs: [typeof tab, string][] = [["staff", t.med_staff], ["beds", t.beds], ["veh", t.vehicles], ["field", t.field]];
+
   const tabCls = (k: string) =>
     `min-h-[44px] shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors lg:min-h-0 ${
       tab === k ? "bg-or-500 text-rdia-600" : "bg-gray-100 text-gray-500 hover:text-or-500 dark:bg-rdia-600 dark:text-rdia-300"
