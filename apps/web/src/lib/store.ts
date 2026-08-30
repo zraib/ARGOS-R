@@ -317,6 +317,14 @@ interface ArgosState {
    */
   resourceRequests: Mission[];
 
+  // --- niveau d'alerte et comptes rendus (lot P3) ---
+  /** Niveau d'alerte national, servi par l'API (plus une constante figée). */
+  alertLevel: 1 | 2 | 3 | 4;
+  /** Entités en retard de compte rendu — le silence rendu visible. */
+  sitrepMissing: { entityKind: string; entityId: string; nom: string; lastAt: string | null; overdueMin: number }[];
+  /** Cadence attendue en minutes, dérivée du niveau d'alerte. */
+  sitrepCadenceMin: number;
+
   // --- capacité NRBC : catalogue de substances + panache carte (ADR 0005) ---
   /** Catalogue des substances chimiques (API /nrbc/substances), chargé au besoin. */
   nrbcSubstances: NrbcSubstance[];
@@ -423,6 +431,17 @@ interface ArgosState {
   // --- missions ---
   /** Recharge inbox + outbox (appelé au tick de la coquille). */
   loadMissions: () => Promise<void>;
+  /** Recharge le niveau d'alerte et les comptes rendus manquants. */
+  loadPosture: () => Promise<void>;
+  /** Publie un compte rendu pour son entité. */
+  publishSitrep: (input: {
+    entityKind: "hospital" | "unit" | "shelter" | "morgue";
+    entityId: string;
+    state: "nominal" | "strained" | "overwhelmed";
+    needs?: string;
+    nextPoint?: string;
+  }) => Promise<boolean>;
+
   /** Demander un moyen depuis son entité — entre dans la file du répartiteur. */
   requestResource: (input: {
     incidentId: string;
@@ -602,6 +621,9 @@ export const useArgos = create<ArgosState>((set, get) => ({
   missionOutbox: [],
   missionBusy: false,
   resourceRequests: [],
+  alertLevel: 3,
+  sitrepMissing: [],
+  sitrepCadenceMin: 240,
 
   nrbcSubstances: [],
   plumeIncidentId: null,
@@ -805,6 +827,28 @@ export const useArgos = create<ArgosState>((set, get) => ({
       missionOutbox: pick(outbox),
       resourceRequests: pick(open).filter((m) => m.kind === "resource_request"),
     });
+  },
+
+  loadPosture: async () => {
+    const [lvl, missing] = await Promise.allSettled([api.getAlertLevel(), api.getMissingSitreps()]);
+    const patch: Partial<{ alertLevel: 1 | 2 | 3 | 4; sitrepMissing: never[]; sitrepCadenceMin: number }> = {};
+    if (lvl.status === "fulfilled") {
+      const d = lvl.value.data as { level?: 1 | 2 | 3 | 4 } | undefined;
+      if (d?.level) patch.alertLevel = d.level;
+    }
+    if (missing.status === "fulfilled") {
+      const d = missing.value.data as { missing?: never[]; cadenceMin?: number } | undefined;
+      if (d?.missing) patch.sitrepMissing = d.missing;
+      if (d?.cadenceMin) patch.sitrepCadenceMin = d.cadenceMin;
+    }
+    set(patch);
+  },
+
+  publishSitrep: async (input) => {
+    const res = await api.publishSitrep(input);
+    if (res.error) return false;
+    await get().loadPosture();
+    return true;
   },
 
   requestResource: async (input) => {

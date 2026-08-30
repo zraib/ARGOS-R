@@ -769,6 +769,134 @@
         ]
       }
     },
+    "/api/sitreps": {
+      "get": {
+        "operationId": "DomainController_sitreps",
+        "parameters": [
+          {
+            "name": "entityId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Comptes rendus de situation, du plus récent au plus ancien.",
+        "tags": [
+          "domain"
+        ]
+      },
+      "post": {
+        "description": "Trois champs saisis ; les chiffres de l'entité sont photographiés automatiquement.",
+        "operationId": "DomainController_publishSitrep",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishSitrepDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Publier un compte rendu — IMMUABLE et numéroté une fois publié.",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/sitreps/missing": {
+      "get": {
+        "description": "Le silence devient un signal : une entité sans compte rendu depuis plus que la cadence attendue apparaît ici, ainsi que celles qui n'en ont jamais rendu (`overdueMin: -1`). La cadence découle du niveau d'alerte national — N1 quotidien, N2 8 h, N3 4 h, N4 horaire.",
+        "operationId": "DomainController_missingSitreps",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Entités EN RETARD de compte rendu.",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/alert-level": {
+      "get": {
+        "operationId": "DomainController_alertLevel",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Niveau d'alerte national courant (1 à 4).",
+        "tags": [
+          "domain"
+        ]
+      },
+      "patch": {
+        "description": "Le niveau cadence les comptes rendus attendus (SITREP) : N1 quotidien, N2 8 h, N3 4 h, N4 horaire. Le changement est journalisé dans le fil et dans le journal d'audit.",
+        "operationId": "DomainController_setAlertLevel",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertLevelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Changer le niveau d'alerte national — décision de commandement.",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/incidents/{id}": {
       "delete": {
         "description": "La matrice n'accorde `incidents:delete` à personne : seul le joker du Super Administrateur la détient. L'archivage reste le geste par défaut de tous les autres rôles. La suppression cascade sur les sous-incidents, les boucles (annulées avec motif puis purgées) et le canal de l'incident.",
@@ -3539,6 +3667,62 @@
         "required": [
           "id",
           "labels"
+        ]
+      },
+      "PublishSitrepDto": {
+        "type": "object",
+        "properties": {
+          "entityKind": {
+            "type": "string",
+            "enum": [
+              "hospital",
+              "unit",
+              "shelter",
+              "morgue"
+            ]
+          },
+          "entityId": {
+            "type": "string",
+            "example": "H1"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "nominal",
+              "strained",
+              "overwhelmed"
+            ],
+            "description": "État général en un mot"
+          },
+          "needs": {
+            "type": "string",
+            "description": "Besoins exprimés",
+            "maxLength": 400
+          },
+          "nextPoint": {
+            "type": "string",
+            "description": "Prochain point / action en cours",
+            "maxLength": 400
+          }
+        },
+        "required": [
+          "entityKind",
+          "entityId",
+          "state"
+        ]
+      },
+      "AlertLevelDto": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 4,
+            "description": "1 routine · 2 vigilance · 3 vigilance renforcée · 4 urgence nationale"
+          }
+        },
+        "required": [
+          "level"
         ]
       },
       "UpdateChannelDto": {

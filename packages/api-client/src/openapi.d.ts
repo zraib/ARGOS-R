@@ -437,6 +437,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sitreps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Comptes rendus de situation, du plus récent au plus ancien. */
+        get: operations["DomainController_sitreps"];
+        put?: never;
+        /**
+         * Publier un compte rendu — IMMUABLE et numéroté une fois publié.
+         * @description Trois champs saisis ; les chiffres de l'entité sont photographiés automatiquement.
+         */
+        post: operations["DomainController_publishSitrep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sitreps/missing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Entités EN RETARD de compte rendu.
+         * @description Le silence devient un signal : une entité sans compte rendu depuis plus que la cadence attendue apparaît ici, ainsi que celles qui n'en ont jamais rendu (`overdueMin: -1`). La cadence découle du niveau d'alerte national — N1 quotidien, N2 8 h, N3 4 h, N4 horaire.
+         */
+        get: operations["DomainController_missingSitreps"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alert-level": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Niveau d'alerte national courant (1 à 4). */
+        get: operations["DomainController_alertLevel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Changer le niveau d'alerte national — décision de commandement.
+         * @description Le niveau cadence les comptes rendus attendus (SITREP) : N1 quotidien, N2 8 h, N3 4 h, N4 horaire. Le changement est journalisé dans le fil et dans le journal d'audit.
+         */
+        patch: operations["DomainController_setAlertLevel"];
+        trace?: never;
+    };
     "/api/incidents/{id}": {
         parameters: {
             query?: never;
@@ -1616,6 +1678,25 @@ export interface components {
             /** @description Tracé SVG 24×24 (icône en trait) */
             icon?: string;
         };
+        PublishSitrepDto: {
+            /** @enum {string} */
+            entityKind: "hospital" | "unit" | "shelter" | "morgue";
+            /** @example H1 */
+            entityId: string;
+            /**
+             * @description État général en un mot
+             * @enum {string}
+             */
+            state: "nominal" | "strained" | "overwhelmed";
+            /** @description Besoins exprimés */
+            needs?: string;
+            /** @description Prochain point / action en cours */
+            nextPoint?: string;
+        };
+        AlertLevelDto: {
+            /** @description 1 routine · 2 vigilance · 3 vigilance renforcée · 4 urgence nationale */
+            level: number;
+        };
         UpdateChannelDto: {
             /** @example coordination-nord */
             name?: string;
@@ -2690,6 +2771,101 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_sitreps: {
+        parameters: {
+            query?: {
+                entityId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_publishSitrep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishSitrepDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_missingSitreps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_alertLevel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_setAlertLevel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertLevelDto"];
+            };
+        };
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

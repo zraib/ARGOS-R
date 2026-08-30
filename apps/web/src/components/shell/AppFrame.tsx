@@ -97,7 +97,12 @@ export function AppFrame({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!ready) return;
     void useArgos.getState().loadMissions();
-    const missionsId = setInterval(() => void useArgos.getState().loadMissions(), 15_000);
+    // Posture nationale + comptes rendus manquants (lot P3).
+    void useArgos.getState().loadPosture();
+    const missionsId = setInterval(() => {
+      void useArgos.getState().loadMissions();
+      void useArgos.getState().loadPosture();
+    }, 15_000);
     return () => clearInterval(missionsId);
   }, [ready]);
 

@@ -161,4 +161,12 @@ export const FR_DICT: Dict = {
     rq_sent: "Demande transmise au répartiteur", rq_failed: "Demande non transmise",
     rq_pending: "demande(s) en cours", rq_queue_field: "Demande du terrain",
     beds_reserved: "réservés",
+    sit_title: "Compte rendu de situation", sit_publish: "Rendre compte", sit_state: "État général",
+    sit_nominal: "Nominal", sit_strained: "Tendu", sit_overwhelmed: "Débordé",
+    sit_needs: "Besoins", sit_next: "Prochain point", sit_send: "Publier",
+    sit_sent: "Compte rendu publié", sit_failed: "Compte rendu non publié",
+    sit_every: "attendu toutes les", sit_daily: "24 h",
+    sit_late: "en retard de", sit_never: "jamais rendu compte",
+    sit_immutable: "Une fois publié, le compte rendu est numéroté et ne peut plus être modifié.",
+    sit_missing_title: "Comptes rendus manquants",
   };

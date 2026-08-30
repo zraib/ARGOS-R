@@ -8,7 +8,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { LanguageMenu } from "@/components/shell/LanguageMenu";
 import { UI_ICONS } from "@/lib/icons";
 import { ROLE_ICONS, type Role } from "@/lib/roles";
-import { ALERT_LEVEL } from "@/lib/config";
+
 import { screenTitle } from "@/lib/nav";
 import type { Dict } from "@/lib/i18n/translations";
 
@@ -38,8 +38,13 @@ const ALERT_STYLES: Record<number, string> = {
   4: "bg-danger-500/15 text-danger-500",
 };
 
-function alertLabel(t: Dict) {
-  return { 1: t.lvl1, 2: t.lvl2, 3: t.lvl3, 4: t.lvl4 }[ALERT_LEVEL];
+/**
+ * Libellé du niveau d'alerte. Le niveau vient désormais du SERVEUR (lot P3-a)
+ * et non plus d'une constante figée : un changement de posture atteint tous
+ * les postes sans redéploiement, et c'est lui qui cadence les comptes rendus.
+ */
+function alertLabel(t: Dict, level: 1 | 2 | 3 | 4) {
+  return { 1: t.lvl1, 2: t.lvl2, 3: t.lvl3, 4: t.lvl4 }[level];
 }
 
 /**
@@ -175,6 +180,8 @@ function UserMenu() {
 
 export function Header() {
   const t = useDict();
+  // Niveau d'alerte servi par l'API (lot P3-a) — plus une constante figée.
+  const alertLevel = useArgos((s) => s.alertLevel);
   const m = useModules();
   const pathname = usePathname();
   const dark = useArgos((s) => s.dark);
@@ -224,8 +231,8 @@ export function Header() {
             {ticker ? `${ticker.time} — ${ticker.txt}` : ""}
           </span>
         </div>
-        <span className={`whitespace-nowrap rounded-md px-2.5 py-1 text-[10px] font-bold ${ALERT_STYLES[ALERT_LEVEL]}`}>
-          {alertLabel(t)}
+        <span className={`whitespace-nowrap rounded-md px-2.5 py-1 text-[10px] font-bold ${ALERT_STYLES[alertLevel]}`}>
+          {alertLabel(t, alertLevel)}
         </span>
         <Clock />
       </div>
@@ -233,9 +240,9 @@ export function Header() {
       {/* Sous md, le bandeau central disparaît : on garde tout de même le niveau
           d'alerte, seule information du bandeau qui engage une conduite. */}
       <span
-        className={`ms-auto whitespace-nowrap rounded-md px-2 py-1 text-[10px] font-bold md:hidden ${ALERT_STYLES[ALERT_LEVEL]}`}
+        className={`ms-auto whitespace-nowrap rounded-md px-2 py-1 text-[10px] font-bold md:hidden ${ALERT_STYLES[alertLevel]}`}
       >
-        {alertLabel(t)}
+        {alertLabel(t, alertLevel)}
       </span>
 
       {/* Droite : langue (globe) + thème + menu utilisateur */}

@@ -69,6 +69,28 @@ export interface Unit {
   ll: [number, number];
 }
 
+/**
+ * Compte rendu de situation d'une entité. Trois champs saisis, le reste
+ * photographié : un compte rendu long n'est pas rendu.
+ */
+export interface Sitrep {
+  id: string;
+  /** Numéro d'ordre — un compte rendu publié est immuable et numéroté. */
+  number: number;
+  entityKind: "hospital" | "unit" | "shelter" | "morgue";
+  entityId: string;
+  /** État général en un mot : nominal, tendu, débordé. */
+  state: "nominal" | "strained" | "overwhelmed";
+  /** Besoins exprimés en clair. */
+  needs?: string;
+  /** Prochain point attendu / action en cours. */
+  nextPoint?: string;
+  /** Photographie automatique des chiffres de l'entité au moment du rendu. */
+  snapshot?: Record<string, number>;
+  author: string;
+  publishedAt: string;
+}
+
 export interface Hospital {
   id: string;
   nom: string;
@@ -509,6 +531,113 @@ export class DomainService {
     if (!h) return;
     h.reserved = Math.max(0, (h.reserved ?? 0) - n);
     this.persist();
+  }
+
+  // ==========================================================================
+  // Comptes rendus de situation — SITREP (lot P3-b)
+  //
+  // L'état-major lisait des jauges, jamais des comptes rendus : impossible de
+  // savoir si le silence d'un abri voulait dire « rien à signaler » ou
+  // « débordé ». Le SITREP est volontairement LÉGER — trois champs saisis,
+  // le reste photographié automatiquement — parce qu'un compte rendu long
+  // n'est pas rendu.
+  //
+  // Publié = IMMUABLE et numéroté (MASTER_PLAN § rapports) : un compte rendu
+  // qu'on peut réécrire après coup ne prouve rien.
+  // ==========================================================================
+
+  private sitreps: Sitrep[] = loadDevState<Sitrep[]>("sitreps", []);
+
+  /** Cadence attendue, en minutes, selon le niveau d'alerte national. */
+  private cadenceMinutes(): number {
+    return { 1: 24 * 60, 2: 8 * 60, 3: 4 * 60, 4: 60 }[this.alertLevel];
+  }
+
+  /** Publie un compte rendu — immuable une fois écrit. */
+  publishSitrep(input: Omit<Sitrep, "id" | "number" | "publishedAt">): Sitrep {
+    const number = this.sitreps.length + 1;
+    const rec: Sitrep = {
+      ...input,
+      id: `SIT-${String(number).padStart(4, "0")}`,
+      number,
+      publishedAt: new Date().toISOString(),
+    };
+    this.sitreps.unshift(rec);
+    saveDevState("sitreps", this.sitreps);
+    this.pushFeed(`${rec.id} — compte rendu de ${rec.entityId} (${rec.state})`, "bg-blue-500");
+    return rec;
+  }
+
+  /** Comptes rendus, du plus récent au plus ancien. */
+  listSitreps(entityId?: string): Sitrep[] {
+    return entityId ? this.sitreps.filter((r) => r.entityId === entityId) : this.sitreps;
+  }
+
+  /**
+   * Entités EN RETARD de compte rendu.
+   *
+   * C'est le cœur du lot : le silence devient un signal. Une entité qui n'a
+   * jamais rendu compte est en retard dès qu'elle est engagée — sinon un
+   * abri muet depuis toujours passerait pour à jour.
+   */
+  missingSitreps(): { entityKind: string; entityId: string; nom: string; lastAt: string | null; overdueMin: number }[] {
+    const cadence = this.cadenceMinutes();
+    const now = Date.now();
+    const watched: { kind: string; id: string; nom: string }[] = [
+      ...this.hospitals.map((h) => ({ kind: "hospital", id: h.id, nom: h.nom })),
+      ...this.units.map((u) => ({ kind: "unit", id: u.id, nom: u.nom })),
+      ...this.shelters.map((s) => ({ kind: "shelter", id: s.id, nom: s.nom })),
+      ...this.morgues.map((m) => ({ kind: "morgue", id: m.id, nom: m.nom })),
+    ];
+    return watched
+      .map((e) => {
+        const last = this.sitreps.find((r) => r.entityId === e.id);
+        const lastMs = last ? Date.parse(last.publishedAt) : null;
+        const elapsed = lastMs === null ? Number.POSITIVE_INFINITY : Math.round((now - lastMs) / 60_000);
+        return {
+          entityKind: e.kind,
+          entityId: e.id,
+          nom: e.nom,
+          lastAt: last?.publishedAt ?? null,
+          overdueMin: elapsed === Number.POSITIVE_INFINITY ? -1 : Math.max(0, elapsed - cadence),
+        };
+      })
+      .filter((e) => e.lastAt === null || e.overdueMin > 0);
+  }
+
+  /** Cadence attendue en minutes (exposée à l'IHM). */
+  sitrepCadence(): number {
+    return this.cadenceMinutes();
+  }
+
+  // ==========================================================================
+  // Niveau d'alerte national (lot P3-a)
+  //
+  // Il vivait dans une CONSTANTE du frontend (`lib/config.ts`) : chaque poste
+  // affichait la même valeur figée, et rien ne permettait de la changer sans
+  // redéployer. C'est pourtant une décision de commandement — et c'est elle
+  // qui cadence les comptes rendus (P3-b).
+  // ==========================================================================
+
+  private alertLevel: 1 | 2 | 3 | 4 = loadDevState<1 | 2 | 3 | 4>("alert-level", 3);
+
+  /** Niveau d'alerte national courant. */
+  getAlertLevel(): 1 | 2 | 3 | 4 {
+    return this.alertLevel;
+  }
+
+  /** Change le niveau — décision de commandement, auditée par l'intercepteur. */
+  setAlertLevel(level: 1 | 2 | 3 | 4, actor: string): 1 | 2 | 3 | 4 {
+    const before = this.alertLevel;
+    this.alertLevel = level;
+    saveDevState("alert-level", level);
+    if (before !== level) {
+      this.pushFeed(
+        `NIVEAU D'ALERTE ${before} → ${level} — décidé par ${actor}`,
+        level >= 3 ? "bg-danger-500" : "bg-or-500",
+      );
+    }
+    return this.alertLevel;
   }
 
   /** Un incident est-il encore actif (non archivé, non clos) ? */

@@ -12,6 +12,7 @@
 import { useResponsibility } from "@/lib/responsibility";
 import { OrdersInbox } from "@/components/missions/OrdersInbox";
 import { RequestResource } from "@/components/missions/RequestResource";
+import { SitrepForm } from "@/components/missions/SitrepForm";
 import { NoResponsibility } from "@/components/responsibility/Shared";
 import { HospitalDashboard } from "@/components/responsibility/HospitalViews";
 import { UnitDashboard } from "@/components/responsibility/UnitViews";
@@ -32,6 +33,8 @@ export default function MaResponsabilitePage() {
       <OrdersInbox />
       {/* Le sens montant : demander un moyen depuis son entité (lot P2-a). */}
       <RequestResource entityLabel={entityId} />
+      {/* Le battement : rendre compte à la cadence du niveau d'alerte (P3-b). */}
+      {kind !== "equipment" && <SitrepForm entityKind={kind} entityId={entityId} />}
       <EntityView kind={kind} entityId={entityId} />
     </div>
   );

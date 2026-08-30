@@ -187,6 +187,36 @@ export class RegisterIncidentTypeDto {
   icon?: string;
 }
 
+/** Publication d'un compte rendu de situation (SITREP). */
+export class PublishSitrepDto {
+  @ApiProperty({ enum: ["hospital", "unit", "shelter", "morgue"] })
+  @IsIn(["hospital", "unit", "shelter", "morgue"])
+  entityKind!: "hospital" | "unit" | "shelter" | "morgue";
+
+  @ApiProperty({ example: "H1" })
+  @IsString() @MinLength(1) @MaxLength(40)
+  entityId!: string;
+
+  @ApiProperty({ enum: ["nominal", "strained", "overwhelmed"], description: "État général en un mot" })
+  @IsIn(["nominal", "strained", "overwhelmed"])
+  state!: "nominal" | "strained" | "overwhelmed";
+
+  @ApiPropertyOptional({ description: "Besoins exprimés", maxLength: 400 })
+  @IsOptional() @IsString() @MaxLength(400)
+  needs?: string;
+
+  @ApiPropertyOptional({ description: "Prochain point / action en cours", maxLength: 400 })
+  @IsOptional() @IsString() @MaxLength(400)
+  nextPoint?: string;
+}
+
+/** Changement du niveau d'alerte national. */
+export class AlertLevelDto {
+  @ApiProperty({ minimum: 1, maximum: 4, description: "1 routine · 2 vigilance · 3 vigilance renforcée · 4 urgence nationale" })
+  @IsInt() @Min(1) @Max(4)
+  level!: 1 | 2 | 3 | 4;
+}
+
 /** Renommage / changement de sujet d'un canal. */
 export class UpdateChannelDto {
   @ApiPropertyOptional({ example: "coordination-nord" })

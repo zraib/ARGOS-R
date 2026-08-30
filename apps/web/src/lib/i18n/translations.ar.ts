@@ -161,4 +161,12 @@ export const AR_DICT: Dict = {
     rq_sent: "تم إرسال الطلب", rq_failed: "لم يتم إرسال الطلب",
     rq_pending: "طلب قيد المعالجة", rq_queue_field: "طلب ميداني",
     beds_reserved: "محجوز",
+    sit_title: "تقرير الوضع", sit_publish: "تقديم تقرير", sit_state: "الحالة العامة",
+    sit_nominal: "عادي", sit_strained: "متوتر", sit_overwhelmed: "مثقل",
+    sit_needs: "الاحتياجات", sit_next: "النقطة المقبلة", sit_send: "نشر",
+    sit_sent: "تم نشر التقرير", sit_failed: "لم يُنشر التقرير",
+    sit_every: "مطلوب كل", sit_daily: "24 س",
+    sit_late: "متأخر بـ", sit_never: "لم يقدم تقريرا قط",
+    sit_immutable: "بعد النشر، يرقّم التقرير ولا يمكن تعديله.",
+    sit_missing_title: "التقارير الناقصة",
   };

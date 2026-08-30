@@ -1,5 +1,5 @@
 import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { RiskService } from "@/modules/domain/risk.service";
 import { DomainService } from "@/modules/domain/domain.service";
 import { CatalogService } from "@/modules/domain/catalog.service";
@@ -13,6 +13,8 @@ import {
   CreateCategoryDto,
   CreateChannelDto,
   UpdateChannelDto,
+  AlertLevelDto,
+  PublishSitrepDto,
   ChannelMembersDto,
   CreateHospitalDto,
   CreateIncidentDto,
@@ -103,6 +105,62 @@ export class DomainController {
   @ApiOperation({ summary: "Liste des incidents" })
   incidents() {
     return this.domain.listIncidents();
+  }
+
+  @Get("sitreps")
+  // Le compte rendu est le volet « rendre compte » de la BOUCLE (ADR 0007),
+  // pas un rapport d'incident : la ligne `reports` de la matrice ne comprend
+  // aucun responsable d'entité, or ce sont précisément eux qui rendent compte.
+  // Il suit donc la permission des missions.
+  @RequirePermission("missions:view")
+  @ApiOperation({ summary: "Comptes rendus de situation, du plus récent au plus ancien." })
+  @ApiQuery({ name: "entityId", required: false })
+  sitreps(@Query("entityId") entityId?: string) {
+    return { sitreps: this.domain.listSitreps(entityId), cadenceMin: this.domain.sitrepCadence() };
+  }
+
+  @Get("sitreps/missing")
+  @RequirePermission("missions:view")
+  @ApiOperation({
+    summary: "Entités EN RETARD de compte rendu.",
+    description:
+      "Le silence devient un signal : une entité sans compte rendu depuis plus que la cadence attendue " +
+      "apparaît ici, ainsi que celles qui n'en ont jamais rendu (`overdueMin: -1`). La cadence découle du " +
+      "niveau d'alerte national — N1 quotidien, N2 8 h, N3 4 h, N4 horaire.",
+  })
+  missingSitreps() {
+    return { missing: this.domain.missingSitreps(), cadenceMin: this.domain.sitrepCadence() };
+  }
+
+  @Post("sitreps")
+  @RequirePermission("missions:create")
+  @ApiOperation({
+    summary: "Publier un compte rendu — IMMUABLE et numéroté une fois publié.",
+    description: "Trois champs saisis ; les chiffres de l'entité sont photographiés automatiquement.",
+  })
+  publishSitrep(@Body() dto: PublishSitrepDto, @CurrentUser() user: AuthUser) {
+    return this.domain.publishSitrep({ ...dto, author: user.username });
+  }
+
+  @Get("alert-level")
+  // Lue par TOUS les postes : le niveau s'affiche dans la barre haute quel que
+  // soit le rôle, et il cadence les comptes rendus de chaque entité.
+  @RequirePermission("missions:view")
+  @ApiOperation({ summary: "Niveau d'alerte national courant (1 à 4)." })
+  alertLevel() {
+    return { level: this.domain.getAlertLevel() };
+  }
+
+  @Patch("alert-level")
+  @RequirePermission("orsec:update")
+  @ApiOperation({
+    summary: "Changer le niveau d'alerte national — décision de commandement.",
+    description:
+      "Le niveau cadence les comptes rendus attendus (SITREP) : N1 quotidien, N2 8 h, N3 4 h, N4 horaire. " +
+      "Le changement est journalisé dans le fil et dans le journal d'audit.",
+  })
+  setAlertLevel(@Body() dto: AlertLevelDto, @CurrentUser() user: AuthUser) {
+    return { level: this.domain.setAlertLevel(dto.level, user.username) };
   }
 
   @Delete("incidents/:id")

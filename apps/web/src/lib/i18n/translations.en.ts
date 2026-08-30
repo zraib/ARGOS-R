@@ -161,4 +161,12 @@ export const EN_DICT: Dict = {
     rq_sent: "Request sent to the dispatcher", rq_failed: "Request not sent",
     rq_pending: "request(s) pending", rq_queue_field: "Field request",
     beds_reserved: "reserved",
+    sit_title: "Situation report", sit_publish: "Report", sit_state: "Overall state",
+    sit_nominal: "Nominal", sit_strained: "Strained", sit_overwhelmed: "Overwhelmed",
+    sit_needs: "Needs", sit_next: "Next update", sit_send: "Publish",
+    sit_sent: "Report published", sit_failed: "Report not published",
+    sit_every: "expected every", sit_daily: "24 h",
+    sit_late: "overdue by", sit_never: "never reported",
+    sit_immutable: "Once published, a report is numbered and can no longer be edited.",
+    sit_missing_title: "Missing reports",
   };

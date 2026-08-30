@@ -250,7 +250,60 @@ Une boucle de transfert transporte **la catégorie de triage**
 (sexe, tranche d'âge estimée). **Aucune donnée nominative.** Ce n'est pas une
 convention : le type du domaine ne permet pas d'en transporter.
 
-## 9. Le parcours à l'écran
+## 9. Le battement — niveau d'alerte et comptes rendus
+
+### Le niveau d'alerte est un état du serveur
+
+Il vivait dans une **constante du frontend** : chaque poste affichait la même
+valeur figée, et rien ne permettait de la changer sans redéployer. C'est
+pourtant une décision de commandement — et c'est elle qui **cadence** les
+comptes rendus.
+
+`PATCH /api/alert-level` (permission `orsec:update`, donc la conduite) le
+change pour tous les postes ; le changement s'inscrit dans le fil et dans le
+journal d'audit. `GET /api/alert-level` est lisible par tout poste : le niveau
+s'affiche dans la barre haute quel que soit le rôle.
+
+### La cadence attendue
+
+| Niveau | Posture | Compte rendu attendu |
+| :---: | --- | --- |
+| 1 | routine | toutes les **24 h** |
+| 2 | vigilance | toutes les **8 h** |
+| 3 | vigilance renforcée | toutes les **4 h** |
+| 4 | urgence nationale | toutes les **heures** |
+
+Passer de N3 à N4 resserre la cadence **sans redéploiement** — et fait
+mécaniquement apparaître des entités en retard.
+
+### Le compte rendu
+
+Trois champs saisis — état général (*nominal* / *tendu* / *débordé*), besoins,
+prochain point — et rien d'autre : les chiffres de l'entité sont déjà connus de
+la plateforme, les redemander serait faire ressaisir ce qu'elle sait. **Un
+compte rendu long n'est pas rendu.**
+
+Publié = **numéroté et immuable** (`SIT-0001`, `SIT-0002`…). Un compte rendu
+qu'on peut réécrire après coup ne prouve rien.
+
+### Le silence devient un signal
+
+`GET /api/sitreps/missing` liste les entités **en retard**, et surtout celles
+qui **n'ont jamais rendu compte** (`overdueMin: -1`). C'était le manque de
+départ : l'état-major lisait des jauges, jamais des comptes rendus — impossible
+de savoir si le silence d'un abri voulait dire « rien à signaler » ou
+« débordé ».
+
+Le responsable voit son propre retard sur le même écran où il rend compte : le
+signal est le même des deux côtés.
+
+> **Rattachement des permissions.** Le SITREP suit la permission des
+> **missions**, pas celle des rapports d'incidents : la ligne `reports` de la
+> matrice ne comprend aucun responsable d'entité — or ce sont précisément eux
+> qui rendent compte. Le compte rendu est le volet « rendre compte » de la
+> boucle, pas un rapport d'incident.
+
+## 10. Le parcours à l'écran
 
 ### Côté conduite — engager
 
@@ -342,7 +395,7 @@ doit montrer les deux.
 
 L'interrupteur de l'arbre des couches éteint les deux traits d'un coup.
 
-## 10. Les endpoints
+## 11. Les endpoints
 
 | Méthode | Route | Permission | Qui, en pratique |
 | --- | --- | --- | --- |
@@ -360,7 +413,7 @@ L'interrupteur de l'arbre des couches éteint les deux traits d'un coup.
 Aucun rôle ne détient `missions:delete` — `expand()` n'émet jamais `delete`,
 et aucune route ne l'expose.
 
-## 11. Un cycle complet, au curl
+## 12. Un cycle complet, au curl
 
 ```bash
 # La conduite émet un ordre vers l'unité U3
@@ -382,13 +435,12 @@ curl -X POST localhost:3005/api/missions/$MID/milestone -H "Authorization: Beare
 curl -X POST localhost:3005/api/missions/$MID/complete  -H "Authorization: Bearer $U3"
 ```
 
-## 12. Ce qui reste à construire
+## 13. Ce qui reste à construire
 
 Le workflow est posé ; ces maillons le compléteront (voir le plan d'exécution) :
 
 | Lot | Ce qu'il ferme |
 | --- | --- |
-| **P3** | SITREP cadencés par niveau d'alerte, le compte rendu manquant devenant un signal |
 
 **Limite connue.** Le dépôt en mémoire ne connaît pas les transactions : la
 cascade de suppression d'incident (annulation des boucles puis purge) n'est pas

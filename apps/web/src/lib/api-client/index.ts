@@ -37,6 +37,7 @@ export type UpdateEquipBody = Json<NonNullable<paths["/api/equipment-parks/{id}/
 export type CreateWardBody = Json<NonNullable<paths["/api/hospitals/{id}/wards"]["post"]["requestBody"]>>;
 export type UpdateWardBody = Json<NonNullable<paths["/api/hospitals/{id}/wards/{wid}"]["patch"]["requestBody"]>>;
 export type AddAircraftBody = Json<NonNullable<paths["/api/aviation/aircraft"]["post"]["requestBody"]>>;
+export type PublishSitrepBody = Json<NonNullable<paths["/api/sitreps"]["post"]["requestBody"]>>;
 export type IssueMissionBody = Json<NonNullable<paths["/api/missions"]["post"]["requestBody"]>>;
 
 export interface ArgosClientOptions {
@@ -171,6 +172,14 @@ export function createArgosClient(opts: ArgosClientOptions) {
       client.POST("/api/aviation/aircraft/{id}/archive", { params: { path: { id } } }),
     deleteAircraft: (id: string) =>
       client.DELETE("/api/aviation/aircraft/{id}", { params: { path: { id } } }),
+    // --- niveau d'alerte + comptes rendus (ADR 0007, P3) ---
+    getAlertLevel: () => client.GET("/api/alert-level", {}),
+    setAlertLevel: (level: 1 | 2 | 3 | 4) => client.PATCH("/api/alert-level", { body: { level } }),
+    getSitreps: (entityId?: string) =>
+      client.GET("/api/sitreps", { params: { query: entityId ? { entityId } : {} } }),
+    getMissingSitreps: () => client.GET("/api/sitreps/missing", {}),
+    publishSitrep: (body: PublishSitrepBody) => client.POST("/api/sitreps", { body }),
+
     // --- missions : la boucle fermée (ADR 0007) ---
     /** Boucles ouvertes attendant MON geste (destinataire résolu côté serveur). */
     getMissionInbox: () => client.GET("/api/missions/inbox", {}),
