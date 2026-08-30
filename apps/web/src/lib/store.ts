@@ -169,6 +169,8 @@ export interface LayerState {
   field: boolean;
   /** Aéronefs inscrits au suivi (bombardiers d'eau, hélicoptères…). */
   aircraft: boolean;
+  /** Boucles opérationnelles : liens unité → incident des ordres en cours. */
+  missions: boolean;
 }
 
 interface NavGroups {
@@ -606,7 +608,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
 
   // Le réseau civil (106 établissements) est masqué par défaut : il se
   // rallume d'un clic quand l'opérateur cherche une capacité d'accueil.
-  layers: { units: true, hospitals: true, hospitalsCiv: false, incidents: true, vehicles: true, field: true, aircraft: true },
+  layers: { units: true, hospitals: true, hospitalsCiv: false, incidents: true, vehicles: true, field: true, aircraft: true, missions: true },
   map3d: false,
   mapSat: true,
   selMarker: null,

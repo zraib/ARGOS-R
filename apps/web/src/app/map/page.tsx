@@ -233,6 +233,18 @@ export default function MapPage() {
   const setPlumeHour = useArgos((s) => s.setPlumeHour);
   const hidePlume = useArgos((s) => s.hidePlume);
   const showPlume = useArgos((s) => s.showPlume);
+  /** Ordres en cours tracés sur la carte (inbox + outbox, sans doublon). */
+  const missionInbox = useArgos((s) => s.missionInbox);
+  const missionOutbox = useArgos((s) => s.missionOutbox);
+  const missionLines = useMemo(() => {
+    const seen = new Set<string>();
+    return [...missionInbox, ...missionOutbox].filter((m) => {
+      if (seen.has(m.id) || m.payload.kind !== "order") return false;
+      seen.add(m.id);
+      return true;
+    });
+  }, [missionInbox, missionOutbox]);
+
   /** Incidents chimiques actifs : rendent le bouton NRBC découvrable depuis la carte. */
   const nrbcIncidents = useMemo(
     () => incidents.filter((i) => !i.archived && i.nrbc?.family === "C"),
@@ -268,6 +280,13 @@ export default function MapPage() {
       layers: [
         { key: "units", label: t.lg_units, leaves: units.map((u) => ({ id: u.id, label: u.nom, kind: "unit" })) },
         { key: "vehicles", label: t.lg_veh, leaves: vehRoutes.map((v) => ({ id: v.id, label: `${v.label} · ${v.kind}`, kind: "veh" })) },
+        {
+          // Ce qui SE JOUE, à côté de ce qui EST : les boucles engagent des
+          // unités, leur place est donc dans « Forces », pas ailleurs.
+          key: "missions",
+          label: t.ms_layer,
+          leaves: missionLines.map((m) => ({ id: m.id, label: `${m.id} · ${m.label}`, kind: "inc" as const })),
+        },
       ],
     },
     {

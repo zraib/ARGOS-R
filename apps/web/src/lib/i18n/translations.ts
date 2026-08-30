@@ -418,6 +418,7 @@ export interface Dict {
   ms_since: string;
   ms_outbox: string;
   ms_reason_required: string;
+  ms_layer: string;
   nrbc_pick: string;
   nrbc_none_active: string;
 }

@@ -153,4 +153,5 @@ export const EN_DICT: Dict = {
     ms_state_declined: "Declined", ms_state_completed: "Completed", ms_state_cancelled: "Cancelled",
     ms_pending: "pending", ms_since: "since", ms_outbox: "Orders issued",
     ms_reason_required: "A reason is required — it is what makes a refusal actionable.",
+    ms_layer: "Active loops",
   };

@@ -203,6 +203,31 @@ aurait éteintes avec lui, alors qu'un ordre reçu doit apparaître même
 simulation coupée. Pas de WebSocket, pas de dépendance nouvelle ; EMQX prendra
 le relais en production sans changer le contrat de `/missions/inbox`.
 
+### Sur la carte — voir ce qui se joue
+
+La carte cesse d'être une photographie des positions pour devenir le **théâtre**
+de ce qui se joue. La couche **« Boucles en cours »** (famille *Forces*, aux
+côtés des unités et des convois — une boucle engage une unité) trace un segment
+de l'unité vers son incident, pour chaque ordre ouvert.
+
+| Aspect du trait | État |
+| --- | --- |
+| tireté, ambre | `issued` — l'appel est parti, personne n'a répondu |
+| plein, bleu | `accepted` — pris en charge |
+| plein, vert | `in_progress` — en route ou sur zone |
+
+**Le plein/tireté n'est pas décoratif** : il distingue l'engagement réel de
+l'appel sans réponse *avant* toute lecture de couleur — utile en vision
+nocturne, et pour les opérateurs daltoniens. La couleur confirme, la forme
+informe.
+
+Seuls les **ordres** sont tracés : une demande de moyen ou un transfert n'ont
+pas de trajet d'unité à montrer. Les deux corbeilles sont fusionnées sans
+doublon — selon son rôle on est d'un côté ou de l'autre de la boucle, la carte
+doit montrer les deux.
+
+L'interrupteur de l'arbre des couches éteint les deux traits d'un coup.
+
 ## 8. Les endpoints
 
 | Méthode | Route | Permission | Qui, en pratique |
@@ -249,7 +274,6 @@ Le workflow est posé ; ces maillons le compléteront (voir le plan d'exécution
 
 | Lot | Ce qu'il ferme |
 | --- | --- |
-| **P1-c** | Couche « boucles » sur la carte : liens unité → incident colorés par état |
 | **P2-a** | « Demander un moyen » : la file du répartiteur alimentée depuis le terrain |
 | **P2-b** | EVASAN avec réservation de lit ; décès pré-remplissant le registre DVI |
 | **P3** | SITREP cadencés par niveau d'alerte, le compte rendu manquant devenant un signal |

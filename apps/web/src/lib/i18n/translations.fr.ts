@@ -153,4 +153,5 @@ export const FR_DICT: Dict = {
     ms_state_declined: "Refusé", ms_state_completed: "Terminé", ms_state_cancelled: "Annulé",
     ms_pending: "en attente", ms_since: "depuis", ms_outbox: "Ordres émis",
     ms_reason_required: "Le motif est obligatoire — il rend le refus exploitable.",
+    ms_layer: "Boucles en cours",
   };

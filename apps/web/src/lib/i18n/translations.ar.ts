@@ -153,4 +153,5 @@ export const AR_DICT: Dict = {
     ms_state_declined: "مرفوض", ms_state_completed: "منجز", ms_state_cancelled: "ملغى",
     ms_pending: "معلق", ms_since: "منذ", ms_outbox: "الأوامر الصادرة",
     ms_reason_required: "السبب إلزامي — فهو ما يجعل الرفض قابلا للاستثمار.",
+    ms_layer: "المهام الجارية",
   };
