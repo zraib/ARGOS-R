@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PROVINCES_MA, llToSvg } from "@/modules/domain/provinces.data";
 import { CITIES_MA } from "@/modules/domain/cities.data";
-import { EQUIPMENT, ORSEC_BOARD, SHELTERS, TRIAGE_ZONES, type EquipItem } from "@/modules/domain/catalog.data";
+import { EQUIPMENT, ORSEC_BOARD, ROSTER, SHELTERS, TRIAGE_ZONES, type EquipItem } from "@/modules/domain/catalog.data";
 import { HOSPITALS_MA, type HospitalKind } from "@/modules/domain/hospitals.data";
 import { checkRecordUpdate } from "@/modules/domain/dvi.rules";
 import { loadDevState, saveDevState } from "@/common/dev-store";
@@ -807,15 +807,28 @@ export class DomainService {
     const closedInc = this.incidents.filter((i) => i.st === "closed").length;
     const closedRate = totalIncidents === 0 ? 0 : Math.round((closedInc / totalIncidents) * 100);
 
-    // Personnel déployé vs total (basé roster catalog.data ROSTER + units.eff)
-    const rosterTotal = 87; // seed catalog.data.ts ROSTER.length (fixe)
-    const rosterDeployed = 38; // nombre PersonRecord.av === deployed (dans seed)
+    // Personnel déployé vs total — COMPTÉ sur le roster, pas figé.
+    // Les deux constantes précédentes (87 / 38) annonçaient venir du seed alors
+    // qu'il compte 14 entrées : elles auraient dérivé en silence au premier
+    // ajout de personnel, dans une fonction dont tout l'intérêt est de ne rien
+    // inventer.
+    const rosterTotal = ROSTER.length;
+    const rosterDeployed = ROSTER.filter((p) => p.av === "deployed").length;
     const personnelPct = pct(rosterDeployed, rosterTotal);
 
-    // Véhicules = ambulances des hôpitaux + readiness des unités déployées
+    // Véhicules : ARGOS ne tient pas d'état d'engagement du parc roulant. Ce
+    // taux est donc une ESTIMATION à partir du parc d'ambulances et des unités
+    // déployées, pas une mesure — les coefficients ci-dessous sont des
+    // hypothèses de cadrage, à remplacer par un vrai suivi de parc.
+    const AMB_ENGAGED_RATIO = 0.72;   // part d'ambulances supposée engagée
+    const VEH_PER_DEPLOYED_UNIT = 3;  // véhicules par unité déployée
+    const FLEET_MULTIPLIER = 1.8;     // parc total estimé / parc d'ambulances
     const totalAmb = this.hospitals.reduce((s, h) => s + (h.amb ?? 0), 0);
-    const vehDeployedEst = Math.min(100, Math.round(totalAmb * 0.72) + this.units.filter((u) => u.dispo === "deployed").length * 3);
-    const vehPct = Math.min(100, Math.round((vehDeployedEst / Math.max(1, totalAmb * 1.8)) * 100));
+    const vehDeployedEst = Math.min(
+      100,
+      Math.round(totalAmb * AMB_ENGAGED_RATIO) + this.units.filter((u) => u.dispo === "deployed").length * VEH_PER_DEPLOYED_UNIT,
+    );
+    const vehPct = Math.min(100, Math.round((vehDeployedEst / Math.max(1, totalAmb * FLEET_MULTIPLIER)) * 100));
 
     // Équipements = part stock OK vs seuil + cond === repair
     const eqOk = this.equipment.filter((e) => e.stock >= e.threshold && e.cond === "ok").length;
