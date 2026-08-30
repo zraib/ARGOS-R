@@ -338,6 +338,16 @@ interface ArgosState {
   plumeHour: number;
   /** Dernier panache reçu de l'API — consommé par MapCanvas et le panneau. */
   plumeData: NrbcPlume | null;
+  /**
+   * Les 7 échéances PRÉ-CHARGÉES (H+0…H+6) — la lecture animée interpole
+   * entre elles. Sans préchargement, chaque pas déclencherait un aller-retour
+   * réseau et l'animation saccaderait (lot V1).
+   */
+  plumeSteps: (NrbcPlume | null)[];
+  /** Lecture en cours : le panache défile dans le temps. */
+  plumePlaying: boolean;
+  /** Rendu volumique : nappe 3D quand la carte est inclinée (lot V2). */
+  plume3d: boolean;
   plumeBusy: boolean;
 
   // --- couches météo de la carte opérationnelle (grille de prévisions 24 h) ---
@@ -466,6 +476,13 @@ interface ArgosState {
   setPlumeModels: (patch: Partial<{ atp45: boolean; erg: boolean }>) => void;
   setPlumeEnvelope: (v: boolean) => void;
   setPlumeHour: (h: number) => void;
+  /** Précharge les 7 échéances pour permettre la lecture animée (V1). */
+  loadPlumeSteps: () => Promise<void>;
+  /** Démarre / arrête la lecture animée du panache. */
+  setPlumePlaying: (v: boolean) => void;
+  /** Bascule le rendu volumique (nappe 3D). */
+  setPlume3d: (v: boolean) => void;
+
   /** (Re)charge le panache selon l'état courant (incident, modèles, échéance). */
   loadPlume: () => Promise<void>;
   loadQuakes: () => Promise<void>;
@@ -634,6 +651,9 @@ export const useArgos = create<ArgosState>((set, get) => ({
   plumeEnvelope: false,
   plumeHour: 0,
   plumeData: null,
+  plumeSteps: [],
+  plumePlaying: false,
+  plume3d: true,
   plumeBusy: false,
 
   wxGrid: null,
@@ -899,15 +919,18 @@ export const useArgos = create<ArgosState>((set, get) => ({
   },
 
   showPlume: (incidentId) => {
-    set({ plumeIncidentId: incidentId, plumeData: null, plumeHour: 0 });
+    set({ plumeIncidentId: incidentId, plumeData: null, plumeSteps: [], plumePlaying: false, plumeHour: 0 });
     // Le cadrage n'est PAS demandé ici : un panache de quelques kilomètres est
     // invisible à l'échelle nationale, mais c'est MapCanvas qui ajuste la
     // caméra sur l'emprise réelle des zones dès qu'elles arrivent — seul
     // endroit qui connaisse l'état du canevas (voir fitPlumeRef).
     void get().loadPlume();
+    // Préchargement en tâche de fond : la lecture animée est prête quand
+    // l'opérateur appuie sur ▶, sans l'avoir fait attendre.
+    void get().loadPlumeSteps();
   },
 
-  hidePlume: () => set({ plumeIncidentId: null, plumeData: null }),
+  hidePlume: () => set({ plumeIncidentId: null, plumeData: null, plumeSteps: [], plumePlaying: false }),
 
   setPlumeModels: (patch) => {
     const models = { ...get().plumeModels, ...patch };
@@ -924,6 +947,25 @@ export const useArgos = create<ArgosState>((set, get) => ({
     set({ plumeHour: Math.max(0, Math.min(6, h)) });
     void get().loadPlume();
   },
+
+  loadPlumeSteps: async () => {
+    const { plumeIncidentId, plumeModels } = get();
+    if (!plumeIncidentId) return;
+    const models = [plumeModels.atp45 ? "atp45" : null, plumeModels.erg ? "erg" : null].filter(Boolean).join(",");
+    // Les 7 échéances en parallèle : l'API les sert depuis son cache météo,
+    // donc c'est une seule fenêtre d'attente et non sept.
+    const res = await Promise.allSettled(
+      Array.from({ length: 7 }, (_, h) => api.getNrbcPlume(plumeIncidentId, models, h)),
+    );
+    const steps = res.map((r) =>
+      r.status === "fulfilled" ? ((r.value.data as unknown as NrbcPlume) ?? null) : null,
+    );
+    // Réponse d'un panache abandonné entre-temps : ignorée.
+    if (get().plumeIncidentId === plumeIncidentId) set({ plumeSteps: steps });
+  },
+
+  setPlumePlaying: (v) => set({ plumePlaying: v }),
+  setPlume3d: (v) => set({ plume3d: v }),
 
   loadPlume: async () => {
     const { plumeIncidentId, plumeModels, plumeHour } = get();

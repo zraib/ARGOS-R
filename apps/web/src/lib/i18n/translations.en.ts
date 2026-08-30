@@ -169,4 +169,5 @@ export const EN_DICT: Dict = {
     sit_late: "overdue by", sit_never: "never reported",
     sit_immutable: "Once published, a report is numbered and can no longer be edited.",
     sit_missing_title: "Missing reports",
+    nrbc_play: "Play", nrbc_stop: "Stop", nrbc_volume: "3D layer",
   };

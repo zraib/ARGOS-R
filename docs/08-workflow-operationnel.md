@@ -303,7 +303,49 @@ signal est le même des deux côtés.
 > qui rendent compte. Le compte rendu est le volet « rendre compte » de la
 > boucle, pas un rapport d'incident.
 
-## 10. Le parcours à l'écran
+## 10. Le panache en lecture — la fumée dans le temps
+
+Le panache montrait une échéance à la fois, choisie au curseur. Deux lots le
+mettent en mouvement, **sans aucune dépendance nouvelle**.
+
+### ▶ Lecture (V1)
+
+La caméra passe en **théâtre** — inclinaison 60°, zoom serré sur le point de
+rejet — puis les sept échéances H+0 → H+6 défilent en interpolant la géométrie.
+
+L'interpolation est possible sans ruse : les anneaux produits par le moteur ont
+un **nombre de sommets constant** par type de zone (64 pour un cercle, 4 pour un
+triangle, 5 pour un carré). L'interpolation se fait sommet à sommet, et le
+gabarit **pivote continûment** avec le vent au lieu de sauter d'heure en heure.
+
+Les zones sont appariées par `model` + `level`. Si une échéance perd une zone
+— le vent tombe sous le seuil ATP-45 de 10 km/h, et le triangle sous le vent
+cède la place à un cercle de vigilance — la géométrie de départ est conservée
+plutôt qu'une transition inventée.
+
+`prefers-reduced-motion` supprime l'interpolation : le panache avance alors pas
+à pas, ce qui reste lisible sans mouvement continu.
+
+### Nappe 3D (V2)
+
+En vue inclinée, les zones prennent du volume (`fill-extrusion`, natif
+MapLibre). La **hauteur porte du sens** : le danger immédiat monte plus haut
+que la vigilance, si bien que la silhouette se lit avant la couleur. À plat, la
+nappe disparaît — elle n'ajouterait rien et masquerait les remplissages.
+
+### Ce que ce n'est pas
+
+> **La lecture anime des GABARITS DE PLANIFICATION, pas une simulation
+> physique de dispersion.** Le bandeau « Estimation — pas une mesure » reste
+> affiché pendant toute la lecture, et le rendu évite délibérément le
+> réalisme : pas de volutes photoréalistes sur une forme géométrique.
+>
+> La vraie fumée — des particules advectées dans un champ de concentration —
+> attend le moteur Gauss (phase 4 de l'ADR 0005). L'ordonner ainsi est un choix
+> de doctrine : animer des particules sur un gabarit donnerait l'illusion d'une
+> simulation que la plateforme n'a pas encore.
+
+## 11. Le parcours à l'écran
 
 ### Côté conduite — engager
 
@@ -395,7 +437,7 @@ doit montrer les deux.
 
 L'interrupteur de l'arbre des couches éteint les deux traits d'un coup.
 
-## 11. Les endpoints
+## 12. Les endpoints
 
 | Méthode | Route | Permission | Qui, en pratique |
 | --- | --- | --- | --- |
@@ -413,7 +455,7 @@ L'interrupteur de l'arbre des couches éteint les deux traits d'un coup.
 Aucun rôle ne détient `missions:delete` — `expand()` n'émet jamais `delete`,
 et aucune route ne l'expose.
 
-## 12. Un cycle complet, au curl
+## 13. Un cycle complet, au curl
 
 ```bash
 # La conduite émet un ordre vers l'unité U3
@@ -435,7 +477,7 @@ curl -X POST localhost:3005/api/missions/$MID/milestone -H "Authorization: Beare
 curl -X POST localhost:3005/api/missions/$MID/complete  -H "Authorization: Bearer $U3"
 ```
 
-## 13. Ce qui reste à construire
+## 14. Ce qui reste à construire
 
 Le workflow est posé ; ces maillons le compléteront (voir le plan d'exécution) :
 

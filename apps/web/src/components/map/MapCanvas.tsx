@@ -26,7 +26,7 @@ import {
   acftMarkerHTML,
   vehPos,
 } from "@/lib/map/markers";
-import type { MarkerKind, WeatherGridSeries } from "@/lib/types";
+import type { MarkerKind, WeatherGridSeries, NrbcPlume, NrbcPlumeZoneProps } from "@/lib/types";
 
 interface VehMarker {
   mk: maplibregl.Marker;
@@ -110,6 +110,52 @@ const QUAKE_HALO_R: maplibregl.DataDrivenPropertyValueSpecification<number> =
   ["interpolate", ["linear"], ["get", "mag"], 3, 12, 5, 30, 7, 52];
 const QUAKE_DOT_R: maplibregl.DataDrivenPropertyValueSpecification<number> =
   ["interpolate", ["linear"], ["get", "mag"], 2, 5, 5, 13, 7, 22];
+
+/**
+ * Interpole la géométrie du panache entre deux échéances horaires (lot V1).
+ *
+ * POURQUOI C'EST POSSIBLE SANS RUSE : les anneaux produits par le moteur ont
+ * un nombre de sommets CONSTANT par type de zone (64 pour un cercle, 4 pour un
+ * triangle, 5 pour un carré) — l'interpolation se fait donc sommet à sommet.
+ * Le triangle sous le vent pivote continûment au lieu de sauter d'heure en
+ * heure.
+ *
+ * Les zones sont appariées par `model` + `level` : si une échéance perd une
+ * zone (vent tombé sous le seuil ATP-45, par exemple), on garde la géométrie
+ * de l'échéance de départ plutôt que d'inventer une transition.
+ */
+function interpolatePlume(
+  steps: (NrbcPlume | null)[],
+  frame: number,
+): GeoJSON.FeatureCollection | null {
+  const i = Math.floor(frame);
+  const a = steps[i];
+  if (!a) return null;
+  const b = steps[Math.min(i + 1, steps.length - 1)] ?? a;
+  const k = frame - i;
+
+  const key = (f: { properties: NrbcPlumeZoneProps }) => `${f.properties.model}|${f.properties.level}`;
+  const bByKey = new Map(b.fc.features.map((f) => [key(f), f]));
+
+  return {
+    type: "FeatureCollection",
+    features: a.fc.features.map((fa) => {
+      const fb = bByKey.get(key(fa));
+      const ra = fa.geometry.coordinates[0];
+      const rb = fb?.geometry.coordinates[0];
+      // Sans correspondance, ou nombre de sommets différent : on garde la
+      // géométrie de départ. Mieux vaut un pas figé qu'une forme inventée.
+      if (!rb || rb.length !== ra.length) return fa;
+      return {
+        ...fa,
+        geometry: {
+          type: "Polygon" as const,
+          coordinates: [ra.map(([x, y], n) => [x + (rb[n][0] - x) * k, y + (rb[n][1] - y) * k] as [number, number])],
+        },
+      };
+    }),
+  };
+}
 
 // Couleur des zones du panache NRBC par sévérité (partagée setupStyle / applyPlume).
 const PLUME_LEVEL_COLOR: maplibregl.ExpressionSpecification = [
@@ -326,6 +372,9 @@ export function MapCanvas() {
   const readyRef = useRef(false);
   /** Panache déjà cadré — évite de recadrer à chaque échéance ou bascule. */
   const fitPlumeRef = useRef<string | null>(null);
+  /** Échéance FRACTIONNAIRE en cours de lecture (ex. 2,4) ; null = pas de lecture. */
+  const plumeFrameRef = useRef<number | null>(null);
+  const plumeRafRef = useRef<number>(0);
   const quakeBound = useRef(false); // handlers hover/clic de la couche séismes posés une fois
   const quakePopupRef = useRef<maplibregl.Popup | null>(null); // bandeau collé au séisme
   // --- météo UNIFIÉE : canvas planétaires + séries par pas + villes ---
@@ -406,6 +455,9 @@ export function MapCanvas() {
   const plumeModels = useArgos((s) => s.plumeModels);
   const plumeEnvelope = useArgos((s) => s.plumeEnvelope);
   const plumeIncidentId = useArgos((s) => s.plumeIncidentId);
+  const plumeSteps = useArgos((s) => s.plumeSteps);
+  const plumePlaying = useArgos((s) => s.plumePlaying);
+  const plume3d = useArgos((s) => s.plume3d);
   const wxGrid = useArgos((s) => s.wxGrid);
   const wxWorld = useArgos((s) => s.wxWorld);
   const wxLayers = useArgos((s) => s.wxLayers);
@@ -754,9 +806,16 @@ export function MapCanvas() {
     if (!map) return;
     const src = map.getSource("nrbc-plume") as maplibregl.GeoJSONSource | undefined;
     if (!src || !map.getLayer("nrbc-plume-fill")) return;
-    const { plumeData, plumeModels, plumeEnvelope, plumeIncidentId } = useArgos.getState();
+    const { plumeData, plumeModels, plumeEnvelope, plumeIncidentId, plumeSteps, plume3d } = useArgos.getState();
     const empty = { type: "FeatureCollection" as const, features: [] };
-    src.setData(plumeIncidentId && plumeData ? (plumeData.fc as GeoJSON.FeatureCollection) : empty);
+
+    // Pendant la lecture, la géométrie est INTERPOLÉE entre deux échéances :
+    // le triangle pivote avec le vent au lieu de sauter d'heure en heure.
+    // `plumeFrameRef` porte l'échéance fractionnaire courante (ex. 2,4).
+    const frame = plumeFrameRef.current;
+    const interpolated = frame !== null ? interpolatePlume(plumeSteps, frame) : null;
+    const data = interpolated ?? (plumeIncidentId && plumeData ? (plumeData.fc as GeoJSON.FeatureCollection) : empty);
+    src.setData(data);
 
     // Cadrage sur l'emprise RÉELLE des zones, une seule fois par panache : à
     // l'échelle nationale un panache de quelques kilomètres est un point
@@ -795,6 +854,15 @@ export function MapCanvas() {
       map.setFilter("nrbc-plume-fill", ["==", ["get", "model"], primary]);
       map.setFilter("nrbc-plume-line", ["==", ["get", "model"], primary]);
       map.setFilter("nrbc-plume-line-2", ["!=", ["get", "model"], primary]);
+    }
+
+    // La nappe volumique n'apparaît qu'inclinée : à plat elle n'ajouterait
+    // rien et masquerait les remplissages.
+    if (map.getLayer("nrbc-plume-3d")) {
+      const tilted = map.getPitch() > 30;
+      map.setLayoutProperty("nrbc-plume-3d", "visibility", plume3d && tilted && plumeIncidentId ? "visible" : "none");
+      map.setFilter("nrbc-plume-3d", plumeEnvelope ? null : ["==", ["get", "model"], primary]);
+      map.setPaintProperty("nrbc-plume-3d", "fill-extrusion-color", plumeEnvelope ? "#EF4444" : PLUME_LEVEL_COLOR);
     }
   };
 
@@ -948,6 +1016,9 @@ export function MapCanvas() {
     // Les marqueurs sont des surcouches DOM indépendantes du chargement des
     // tuiles : on les ajoute tout de suite — la carte reste utilisable même là où
     // les tuiles de fond externes sont lentes ou injoignables (air-gap, réseaux restreints).
+    // La nappe volumique apparaît/disparaît avec l'inclinaison : on écoute
+    // la fin de mouvement de caméra plutôt que chaque frame.
+    map.on("pitchend", () => applyPlume());
     readyRef.current = true;
     syncMarkers();
     startVehAnim();
@@ -1167,6 +1238,29 @@ export function MapCanvas() {
           filter: ["==", ["get", "model"], "__none__"],
           paint: { "line-color": PLUME_LEVEL_COLOR, "line-width": 2, "line-dasharray": [2, 2], "line-opacity": 0.9 },
         });
+        // NAPPE VOLUMIQUE (lot V2) : jumelle 3D des couches plates, visible
+        // quand la carte est inclinée. `fill-extrusion` est natif MapLibre —
+        // aucune dépendance, et la hauteur porte du SENS : un gaz dense comme
+        // le chlore rampe, sa nappe est basse.
+        map.addLayer({
+          id: "nrbc-plume-3d",
+          type: "fill-extrusion",
+          source: "nrbc-plume",
+          layout: { visibility: "none" },
+          paint: {
+            "fill-extrusion-color": PLUME_LEVEL_COLOR,
+            // Le danger immédiat monte plus haut que la vigilance : la
+            // silhouette se lit avant la couleur.
+            "fill-extrusion-height": [
+              "match", ["get", "level"],
+              "danger", 420,
+              "protection", 240,
+              120,
+            ],
+            "fill-extrusion-base": 0,
+            "fill-extrusion-opacity": 0.45,
+          },
+        });
         applyPlume(); // un panache déjà actif survit au changement de fond de carte
       }
       const st = useArgos.getState();
@@ -1384,11 +1478,59 @@ export function MapCanvas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [missionInbox, missionOutbox, incidents, layers]);
 
+  // --- LECTURE ANIMÉE du panache (lot V1) ---
+  //
+  // La caméra se place en « théâtre » (inclinée, zoomée sur la fuite) puis les
+  // sept échéances défilent, interpolées. On respecte `prefers-reduced-motion`
+  // en supprimant l'interpolation : le panache avance alors pas à pas, ce qui
+  // reste lisible sans mouvement continu.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !readyRef.current) return;
+
+    if (!plumePlaying) {
+      cancelAnimationFrame(plumeRafRef.current);
+      plumeFrameRef.current = null;
+      applyPlume();
+      return;
+    }
+    if (plumeSteps.length === 0) return;
+
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    // Caméra de théâtre : on incline et on serre sur la zone de rejet.
+    const first = plumeSteps.find(Boolean);
+    const anchor = first?.fc.features[0]?.geometry.coordinates[0]?.[0];
+    if (anchor) {
+      map.easeTo({ center: anchor as [number, number], zoom: Math.max(map.getZoom(), 11.5), pitch: 60, duration: 1200 });
+    }
+
+    const SEC_PER_STEP = 1.4;
+    const last = plumeSteps.length - 1;
+    let t0 = 0;
+    const tick = (t: number) => {
+      if (t0 === 0) t0 = t;
+      const elapsed = (t - t0) / 1000;
+      const raw = Math.min(elapsed / SEC_PER_STEP, last);
+      plumeFrameRef.current = reduced ? Math.floor(raw) : raw;
+      applyPlume();
+      // L'échéance affichée par le panneau suit la lecture.
+      useArgos.setState({ plumeHour: Math.round(plumeFrameRef.current) });
+      if (raw >= last) {
+        useArgos.getState().setPlumePlaying(false);
+        return;
+      }
+      plumeRafRef.current = requestAnimationFrame(tick);
+    };
+    plumeRafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(plumeRafRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plumePlaying, plumeSteps]);
+
   // --- panache NRBC : données + style au fil des choix de l'opérateur ---
   useEffect(() => {
     if (readyRef.current) applyPlume();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plumeData, plumeModels, plumeEnvelope, plumeIncidentId]);
+  }, [plumeData, plumeModels, plumeEnvelope, plumeIncidentId, plume3d]);
 
   // --- grille NATIONALE dense chargée : séries par pas + villes + rendu ---
   useEffect(() => {

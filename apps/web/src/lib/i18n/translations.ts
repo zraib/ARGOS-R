@@ -451,6 +451,9 @@ export interface Dict {
   sit_missing_title: string;
   beds_reserved: string;
   ms_layer: string;
+  nrbc_play: string;
+  nrbc_stop: string;
+  nrbc_volume: string;
   nrbc_pick: string;
   nrbc_none_active: string;
 }

@@ -169,4 +169,5 @@ export const AR_DICT: Dict = {
     sit_late: "متأخر بـ", sit_never: "لم يقدم تقريرا قط",
     sit_immutable: "بعد النشر، يرقّم التقرير ولا يمكن تعديله.",
     sit_missing_title: "التقارير الناقصة",
+    nrbc_play: "تشغيل", nrbc_stop: "إيقاف", nrbc_volume: "طبقة ثلاثية",
   };

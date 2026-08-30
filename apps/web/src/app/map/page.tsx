@@ -232,6 +232,11 @@ export default function MapPage() {
   const setPlumeEnvelope = useArgos((s) => s.setPlumeEnvelope);
   const setPlumeHour = useArgos((s) => s.setPlumeHour);
   const hidePlume = useArgos((s) => s.hidePlume);
+  const plumePlaying = useArgos((s) => s.plumePlaying);
+  const setPlumePlaying = useArgos((s) => s.setPlumePlaying);
+  const plume3d = useArgos((s) => s.plume3d);
+  const setPlume3d = useArgos((s) => s.setPlume3d);
+  const plumeSteps = useArgos((s) => s.plumeSteps);
   const showPlume = useArgos((s) => s.showPlume);
   /** Ordres en cours tracés sur la carte (inbox + outbox, sans doublon). */
   const missionInbox = useArgos((s) => s.missionInbox);
@@ -531,6 +536,24 @@ export default function MapPage() {
         {plumeData && plumeData.substance === null && (
           <div className="mt-1.5 text-[11px] text-white/50">{t.nrbc_no_substance}</div>
         )}
+      </div>
+
+      {/* Lecture animée + nappe 3D (lots V1 et V2). Le bouton ▶ n'apparaît
+          qu'une fois les sept échéances préchargées : proposer une lecture qui
+          n'a rien à lire serait pire que de la cacher. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          className="btn-primaire cible-tactile flex items-center gap-1.5 text-xs disabled:opacity-40"
+          disabled={plumeSteps.length === 0}
+          onClick={() => setPlumePlaying(!plumePlaying)}
+        >
+          <Icon path={plumePlaying ? UI_ICONS.close : UI_ICONS.plane} size={13} />
+          {plumePlaying ? t.nrbc_stop : t.nrbc_play}
+        </button>
+        <button className="flex min-h-11 items-center gap-2 lg:min-h-0" onClick={() => setPlume3d(!plume3d)}>
+          <span className="text-[13px]">{t.nrbc_volume}</span>
+          <Switch on={plume3d} />
+        </button>
       </div>
 
       <div>

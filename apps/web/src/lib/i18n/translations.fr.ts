@@ -169,4 +169,5 @@ export const FR_DICT: Dict = {
     sit_late: "en retard de", sit_never: "jamais rendu compte",
     sit_immutable: "Une fois publié, le compte rendu est numéroté et ne peut plus être modifié.",
     sit_missing_title: "Comptes rendus manquants",
+    nrbc_play: "Lecture", nrbc_stop: "Arrêter", nrbc_volume: "Nappe 3D",
   };
