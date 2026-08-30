@@ -82,18 +82,35 @@ describe("Missions — RBAC, règle de boucle et cycle de vie via HTTP", () => {
     await base().delete("/api/missions/M-0001").set("Authorization", `Bearer ${tok}`).expect(404);
   });
 
-  it("un responsable d'unité ne peut pas ÉMETTRE une mission (pas de create)", async () => {
+  it("un responsable PEUT émettre une demande de moyen (lot P2-a)", async () => {
+    // À S1, les responsables n'avaient pas `create` : le sens montant de la
+    // file n'existait pas encore. P2-a le leur accorde délibérément — un
+    // hôpital saturé doit pouvoir réclamer. Ce test enregistre ce changement
+    // de règle plutôt que de perpétuer l'ancienne.
     const tok = await devToken("resp.u2", "resp_unit");
-    await base()
+    const res = await base()
       .post("/api/missions")
       .set("Authorization", `Bearer ${tok}`)
       .send({
         incidentId: "INC-2613",
-        label: "tentative",
-        to: { role: "resp_unit", entity: "U5" },
-        payload: { kind: "order", unitId: "U5" },
+        label: "U2 — Eau / potabilisation",
+        to: { role: "tacom" },
+        payload: { kind: "resource_request", capability: "eau", urgency: "high" },
       })
-      .expect(403);
+      .expect(201);
+    expect(res.body.kind).toBe("resource_request");
+    expect(res.body.state).toBe("issued");
+  });
+
+  it("mais la RÈGLE D'ACTEUR tient toujours : il n'agit pas sur la boucle d'autrui", async () => {
+    // Le droit d'émettre n'ouvre aucun droit sur les missions des autres :
+    // c'est le domaine qui tranche, pas la table de permissions.
+    const tacom = await devToken("c.tacom", "tacom");
+    const id = await issueOrderToU2(tacom);
+    const autre = await devToken("resp.u5", "resp_unit");
+    const res = await base().post(`/api/missions/${id}/accept`).set("Authorization", `Bearer ${autre}`).send({});
+    expect(res.status).toBe(403);
+    expect(String(res.body.message)).toMatch(/destinataire/i);
   });
 
   it("la conduite (tacom) émet une mission (201)", async () => {

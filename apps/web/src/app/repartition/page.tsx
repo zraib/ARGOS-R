@@ -32,7 +32,35 @@ export default function RepartitionPage() {
   const incidents = useArgos((s) => s.incidents);
   const engagements = useArgos((s) => s.engagements);
   const movements = useArgos((s) => s.movements);
-  const queue = useArgos((s) => s.queue);
+  const seededQueue = useArgos((s) => s.queue);
+  const resourceRequests = useArgos((s) => s.resourceRequests);
+  /**
+   * La file du répartiteur, DANS LES DEUX SENS (lot P2-a).
+   *
+   * Aux besoins de démonstration s'ajoutent les demandes réellement émises
+   * depuis le terrain — hôpital saturé, abri à court d'eau. Elles arrivent au
+   * MÊME endroit : un répartiteur n'a pas deux files à surveiller.
+   */
+  const queue = useMemo(() => {
+    const fromField: QueueItem[] = resourceRequests.map((m) => {
+      const cap = typeof m.payload.capability === "string" ? m.payload.capability : "";
+      const urg = typeof m.payload.urgency === "string" ? m.payload.urgency : "medium";
+      const inc = incidents.find((i) => i.id === m.incidentId);
+      return {
+        id: m.id,
+        kind: "logistics",
+        label: m.label,
+        incidentId: m.incidentId,
+        target: inc?.ll ?? [-7.6, 31.9],
+        type: inc?.type ?? "industrial",
+        // La reco ne connaît que 4 niveaux ; « high » d'une demande devient
+        // « urgent » côté file pour ne pas la faire disparaître sous les
+        // besoins seedés.
+        urgency: urg === "high" ? "urgent" : urg === "low" ? "medium" : "high",
+      } as QueueItem;
+    });
+    return [...fromField, ...seededQueue];
+  }, [resourceRequests, seededQueue, incidents]);
   const engageUnit = useArgos((s) => s.engageUnit);
   const relieveUnit = useArgos((s) => s.relieveUnit);
   const resolveQueueItem = useArgos((s) => s.resolveQueueItem);

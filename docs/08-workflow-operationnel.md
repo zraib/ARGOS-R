@@ -231,6 +231,29 @@ L'affichage local reste immédiat : le répartiteur voit son geste pris en compt
 sans attendre le réseau. Si l'émission échoue (droits, incident inconnu), un
 message le dit — plutôt que de laisser croire qu'un ordre est parti.
 
+### Côté terrain — demander
+
+Dans **Ma responsabilité**, le bouton **« Demander un moyen »** ouvre le sens
+*montant* de la file : incident concerné, moyen demandé, urgence, précision.
+Le nombre de demandes en cours s'affiche à côté — le demandeur suit son geste,
+c'est ce que promet la boucle.
+
+Jusque-là, la file du répartiteur était **strictement descendante** : alimentée
+par des données de démonstration, elle ne recevait rien du terrain. Un hôpital
+saturé ou un abri à court d'eau n'avait aucun geste pour réclamer quoi que ce
+soit — le champ `needs` d'un abri était un texte libre que personne ne
+consommait.
+
+Le catalogue de moyens est celui du **moteur de recommandation**
+(`lib/reco.ts`) : demander « eau » signifie exactement la même chose des deux
+côtés de la file, et la reco sait déjà classer les unités qui portent cette
+capacité.
+
+Côté **Répartition**, les demandes du terrain arrivent au **même endroit** que
+les besoins existants — un répartiteur n'a pas deux files à surveiller. Les
+traiter engage une unité, ce qui ouvre un *ordre* : **les boucles s'enchaînent**,
+et le demandeur voit l'état de bout en bout.
+
 ### Côté terrain — répondre
 
 Dans **Ma responsabilité**, la bannière **« Ordres reçus »** passe *avant* le
@@ -330,7 +353,6 @@ Le workflow est posé ; ces maillons le compléteront (voir le plan d'exécution
 
 | Lot | Ce qu'il ferme |
 | --- | --- |
-| **P2-a** | « Demander un moyen » : la file du répartiteur alimentée depuis le terrain |
 | **P2-b** | EVASAN avec réservation de lit ; décès pré-remplissant le registre DVI |
 | **P3** | SITREP cadencés par niveau d'alerte, le compte rendu manquant devenant un signal |
 

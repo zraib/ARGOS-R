@@ -11,6 +11,7 @@
 
 import { useResponsibility } from "@/lib/responsibility";
 import { OrdersInbox } from "@/components/missions/OrdersInbox";
+import { RequestResource } from "@/components/missions/RequestResource";
 import { NoResponsibility } from "@/components/responsibility/Shared";
 import { HospitalDashboard } from "@/components/responsibility/HospitalViews";
 import { UnitDashboard } from "@/components/responsibility/UnitViews";
@@ -29,6 +30,8 @@ export default function MaResponsabilitePage() {
   return (
     <div className="flex flex-col gap-4">
       <OrdersInbox />
+      {/* Le sens montant : demander un moyen depuis son entité (lot P2-a). */}
+      <RequestResource entityLabel={entityId} />
       <EntityView kind={kind} entityId={entityId} />
     </div>
   );

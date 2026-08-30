@@ -154,4 +154,10 @@ export const AR_DICT: Dict = {
     ms_pending: "معلق", ms_since: "منذ", ms_outbox: "الأوامر الصادرة",
     ms_reason_required: "السبب إلزامي — فهو ما يجعل الرفض قابلا للاستثمار.",
     ms_layer: "المهام الجارية",
+    rq_ask: "طلب وسيلة", rq_title: "طلب وسيلة",
+    rq_incident: "الحادث المعني", rq_capability: "الوسيلة المطلوبة", rq_urgency: "الاستعجال",
+    rq_note: "توضيح (اختياري)", rq_send: "إرسال الطلب",
+    rq_low: "منخفض", rq_medium: "متوسط", rq_high: "عالٍ",
+    rq_sent: "تم إرسال الطلب", rq_failed: "لم يتم إرسال الطلب",
+    rq_pending: "طلب قيد المعالجة", rq_queue_field: "طلب ميداني",
   };

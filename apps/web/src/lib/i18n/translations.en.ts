@@ -154,4 +154,10 @@ export const EN_DICT: Dict = {
     ms_pending: "pending", ms_since: "since", ms_outbox: "Orders issued",
     ms_reason_required: "A reason is required — it is what makes a refusal actionable.",
     ms_layer: "Active loops",
+    rq_ask: "Request a resource", rq_title: "Request a resource",
+    rq_incident: "Related incident", rq_capability: "Resource requested", rq_urgency: "Urgency",
+    rq_note: "Detail (optional)", rq_send: "Send request",
+    rq_low: "Low", rq_medium: "Medium", rq_high: "High",
+    rq_sent: "Request sent to the dispatcher", rq_failed: "Request not sent",
+    rq_pending: "request(s) pending", rq_queue_field: "Field request",
   };

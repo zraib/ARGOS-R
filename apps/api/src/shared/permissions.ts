@@ -299,7 +299,11 @@ const LEGACY: Record<(typeof LEGACY_FEATURES)[number], Partial<Record<Role, Cell
   missions: {
     admin: ALL, opcom: AMV, tacom: AMV, bluecell: AMV,
     strategic: V, place_arme: V, wali: V, greencell: V, orangecell: V,
-    resp_hospital: VM, resp_shelter: VM, resp_morgue: VM, resp_unit: VM, resp_equipment: VM,
+    // `A` accordé aux responsables au lot P2-a : ils DEMANDENT un moyen depuis
+    // leur entité. C'est le sens montant de la file — jusque-là, un hôpital
+    // saturé ne pouvait rien réclamer. Ce qu'ils peuvent demander, et pour
+    // quelle entité, reste tranché par le domaine, pas par cette table.
+    resp_hospital: AMV, resp_shelter: AMV, resp_morgue: AMV, resp_unit: AMV, resp_equipment: AMV,
   },
 };
 

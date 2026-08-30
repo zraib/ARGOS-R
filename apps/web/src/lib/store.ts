@@ -310,6 +310,12 @@ interface ArgosState {
   missionOutbox: Mission[];
   /** Vrai pendant un geste de boucle, pour désarmer les boutons. */
   missionBusy: boolean;
+  /**
+   * Demandes de moyens OUVERTES, toutes entités confondues — la file
+   * montante du répartiteur (lot P2-a). Distinctes de l'inbox : une demande
+   * concerne la conduite dans son ensemble, pas une personne nommée.
+   */
+  resourceRequests: Mission[];
 
   // --- capacité NRBC : catalogue de substances + panache carte (ADR 0005) ---
   /** Catalogue des substances chimiques (API /nrbc/substances), chargé au besoin. */
@@ -417,6 +423,14 @@ interface ArgosState {
   // --- missions ---
   /** Recharge inbox + outbox (appelé au tick de la coquille). */
   loadMissions: () => Promise<void>;
+  /** Demander un moyen depuis son entité — entre dans la file du répartiteur. */
+  requestResource: (input: {
+    incidentId: string;
+    label: string;
+    capability: string;
+    urgency: "low" | "medium" | "high";
+  }) => Promise<boolean>;
+
   /** Accepter / refuser / jalonner / clore / annuler — recharge ensuite. */
   actOnMission: (
     id: string,
@@ -587,6 +601,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
   missionInbox: [],
   missionOutbox: [],
   missionBusy: false,
+  resourceRequests: [],
 
   nrbcSubstances: [],
   plumeIncidentId: null,
@@ -773,13 +788,42 @@ export const useArgos = create<ArgosState>((set, get) => ({
   loadMissions: async () => {
     // Les deux corbeilles dégradent indépendamment : un rôle sans droit de
     // lecture rend simplement une liste vide, jamais une erreur bloquante.
-    const [inbox, outbox] = await Promise.allSettled([api.getMissionInbox(), api.getMissionOutbox()]);
+    const [inbox, outbox, open] = await Promise.allSettled([
+      api.getMissionInbox(),
+      api.getMissionOutbox(),
+      // Toutes les boucles ouvertes : on y puise les demandes de moyens, qui
+      // s'adressent à la conduite en général et non à un destinataire nommé.
+      api.getMissions(undefined, true),
+    ]);
     const pick = (r: PromiseSettledResult<{ data?: unknown }>): Mission[] => {
       if (r.status !== "fulfilled") return [];
       const d = r.value.data as { missions?: Mission[] } | undefined;
       return d?.missions ?? [];
     };
-    set({ missionInbox: pick(inbox), missionOutbox: pick(outbox) });
+    set({
+      missionInbox: pick(inbox),
+      missionOutbox: pick(outbox),
+      resourceRequests: pick(open).filter((m) => m.kind === "resource_request"),
+    });
+  },
+
+  requestResource: async (input) => {
+    set({ missionBusy: true });
+    try {
+      const res = await api.issueMission({
+        incidentId: input.incidentId,
+        label: input.label,
+        // La demande s'adresse à la CONDUITE, pas à quelqu'un en particulier :
+        // c'est une file partagée, pas un message privé.
+        to: { role: "tacom" },
+        payload: { kind: "resource_request", capability: input.capability, urgency: input.urgency },
+      });
+      if (res.error) return false;
+      await get().loadMissions();
+      return true;
+    } finally {
+      set({ missionBusy: false });
+    }
   },
 
   actOnMission: async (id, action, arg) => {
