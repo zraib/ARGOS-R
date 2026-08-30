@@ -44,19 +44,19 @@ const LEVEL_META: Record<
     badgeTint: "rgba(16,185,129,0.16)",
   },
   surveillance: {
-    dot: "bg-[#D9A749]", tint: "text-[#8A6D1B]",
-    bg: "bg-[#FBF8EF] dark:bg-[#C9A84C]/[0.08]",
+    dot: "bg-or-500", tint: "text-or-600 dark:text-or-400",
+    bg: "bg-or-500/5 dark:bg-or-500/[0.08]",
     border: "border-[#C9A84C]/[0.36]",
     label: "Surveillance", scoreFill: "bg-[#C9A84C]", scoreHex: "#C9A84C",
     banner: "border-[#C9A84C]/50",
-    bannerBg: "bg-gradient-to-r from-[#C9A84C]/12 via-[#FBF8EF] to-transparent dark:from-[#C9A84C]/20 dark:via-[#C9A84C]/8",
-    bannerText: "text-[#8A6D1B] dark:text-[#EFD9A4]",
+    bannerBg: "bg-gradient-to-r from-or-500/15 to-transparent dark:from-or-500/20",
+    bannerText: "text-or-600 dark:text-or-300",
     accent: "#C9A84C",
     badgeTint: "rgba(201,168,76,0.20)",
   },
   vigilance: {
     dot: "bg-[#D97706]", tint: "text-[#8A4A06]",
-    bg: "bg-[#FBF8EF] dark:bg-[#D97706]/[0.08]",
+    bg: "bg-amber-500/5 dark:bg-amber-500/[0.08]",
     border: "border-[#C9A84C]/[0.48]",
     label: "Vigilance renforcée", scoreFill: "bg-[#D97706]", scoreHex: "#D97706",
     banner: "border-[#C9A84C]/60",
@@ -67,7 +67,7 @@ const LEVEL_META: Record<
   },
   alerte_rouge: {
     dot: "bg-[#B91C1C]", tint: "text-[#7F1D1D]",
-    bg: "bg-[#FBF8EF] dark:bg-[#B91C1C]/[0.09]",
+    bg: "bg-danger-500/5 dark:bg-danger-500/[0.09]",
     border: "border-[#C9A84C]/[0.36]",
     label: "Alerte rouge", scoreFill: "bg-[#EF4444]", scoreHex: "#B91C1C",
     banner: "border-[#C9A84C]/50",
@@ -160,16 +160,15 @@ function Panel({
       <header className="relative z-10 flex items-center justify-between gap-2 border-b px-4 pb-2.5 pt-3 sm:px-5" style={{borderColor:"rgba(175,140,60,0.14)"}}>
         <div className="flex min-w-0 items-center gap-2">
           <span
-            className="shrink-0 rounded-md border px-1.5 py-0.5 font-serif text-[9.5px] font-black uppercase tracking-[0.2em]"
-            style={{ color: "#8A6D1B", borderColor: "rgba(175,140,60,0.35)", background: "rgba(251,248,239,0.6)"}}
+            className="shrink-0 rounded-md border border-or-500/40 bg-or-500/10 px-1.5 py-0.5 text-[9.5px] font-black uppercase tracking-[0.2em] text-or-600 dark:text-or-400"
           >
             {id}
           </span>
-          <h3 className="min-w-0 truncate font-serif text-[12.5px] font-bold tracking-tight text-[#1C1A17] sm:text-[13px]">
+          <h3 className="min-w-0 truncate text-[12.5px] font-bold tracking-tight text-rdia-600 dark:text-rdia-50 sm:text-[13px]">
             {title}
           </h3>
         </div>
-        <div className="shrink-0 font-serif text-[10px] font-semibold text-[#8A6D1B]/85 sm:text-[10.5px]" style={{color:"rgba(138,109,27,0.85)"}}>
+        <div className="shrink-0 text-[10px] font-semibold text-or-600/85 dark:text-or-400/85 sm:text-[10.5px]">
           {right}
         </div>
       </header>
@@ -262,7 +261,7 @@ function ShellInner({
           =================================================================== */}
       <header
         className={cn(
-          "group relative isolate overflow-hidden rounded-xl border backdrop-blur-md bg-[#FBF8EF] shadow-sm",
+          "group relative isolate overflow-hidden rounded-xl border bg-white shadow-sm dark:bg-rdia-700",
           lm.banner,
         )}
         style={{
@@ -307,19 +306,19 @@ function ShellInner({
                 </span>
               </div>
               <div className="min-w-0 flex-1 flex flex-col gap-0.5 leading-none">
-                <span className="font-serif text-[9.5px] font-semibold uppercase tracking-[0.22em]" style={{color:"#8A6D1B"}}>
+                <span className="text-[9.5px] font-semibold uppercase tracking-[0.22em] text-or-600 dark:text-or-400">
                   Niveau global
                 </span>
-                <span className={cn("font-serif text-[18px] font-bold leading-tight tracking-tight", lm.bannerText)}>
+                <span className={cn("text-[18px] font-bold leading-tight tracking-tight", lm.bannerText)}>
                   {lm.label}
                 </span>
                 {sa.fromAI ? (
-                  <span className="mt-0.5 inline-flex w-fit items-center gap-1 rounded-md border px-1.5 py-0.5 font-serif text-[9px] font-bold uppercase tracking-[0.2em]" style={{borderColor:"rgba(201,168,76,0.35)",background:"rgba(251,248,239,0.7)",color:"#8A6D1B"}}>
+                  <span className="mt-0.5 inline-flex w-fit items-center gap-1 rounded-md border border-or-500/30 bg-or-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-or-600 dark:text-or-400">
                     <Icon name="sparkles" className="h-2.5 w-2.5" />
                     IA{model ? ` · ${model}` : ""}
                   </span>
                 ) : (
-                  <span className="mt-0.5 inline-flex w-fit items-center gap-1 rounded-md border px-1.5 py-0.5 font-serif text-[9px] font-bold uppercase tracking-[0.2em]" style={{borderColor:"rgba(175,140,60,0.22)",background:"rgba(251,248,239,0.55)",color:"#8A6D1B"}}>
+                  <span className="mt-0.5 inline-flex w-fit items-center gap-1 rounded-md border border-or-500/30 bg-or-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-or-600 dark:text-or-400">
                     <Icon name="scale" className="h-2.5 w-2.5" />
                     Temps réel
                   </span>
@@ -330,7 +329,7 @@ function ShellInner({
             <div className={cn("rounded-lg border p-2.5 sm:p-3", lm.bg, lm.border)} style={{background: lm.badgeTint}}>
               <div className="flex items-start gap-2">
                 <Icon name="info" className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", lm.tint)} />
-                <p className="font-serif text-[11.5px] leading-relaxed text-[#1C1A17]/90 dark:text-[#FBF8EF]/95">
+                <p className="text-[11.5px] leading-relaxed text-gray-700 dark:text-rdia-100">
                   {sa.synthese}
                 </p>
               </div>
@@ -545,27 +544,25 @@ function MiniKpi({ icon, label, big, sub, accent }: {
       />
       <div className="relative z-10 flex items-center gap-1.5">
         <span
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md"
-          style={{ backgroundColor: "rgba(201,168,76,0.14)", color: "#8A6D1B" }}
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-or-500/15 text-or-600 dark:text-or-400"
         >
           <Icon name={icon} className="h-3 w-3" />
         </span>
         <span
-          className="min-w-0 truncate font-serif text-[9px] font-semibold uppercase tracking-[0.18em]"
-          style={{ color: "#8A6D1B" }}
+          className="min-w-0 truncate text-[9px] font-semibold uppercase tracking-[0.18em] text-or-600 dark:text-or-400"
         >
           {label}
         </span>
       </div>
       <div className="relative z-10 flex items-baseline gap-1.5 leading-none pl-0.5">
         <span
-          className="font-serif text-[17px] font-bold tabular-nums leading-none"
+          className="text-[17px] font-bold tabular-nums leading-none"
           style={{ color: accent }}
         >
           {big}
         </span>
       </div>
-      <div className="relative z-10 truncate font-serif text-[9px] font-semibold pl-0.5" style={{color:"rgba(28,26,23,0.60)"}}>
+      <div className="relative z-10 truncate text-[9px] font-semibold pl-0.5" style={{color:"rgba(28,26,23,0.60)"}}>
         {sub}
       </div>
     </div>
