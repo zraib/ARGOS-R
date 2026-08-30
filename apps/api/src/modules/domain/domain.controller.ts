@@ -110,7 +110,12 @@ export class DomainController {
     if (!this.incidentTypes.isValid(dto.type)) {
       throw new BadRequestException(`Type d'incident inconnu : ${dto.type}`);
     }
-    return this.domain.createIncident(dto);
+    const inc = this.domain.createIncident(dto);
+    // Tout incident naît avec son canal de coordination (ADR 0007, P1-a) : les
+    // intervenants ont un lieu pour se parler dès la déclaration, et les jalons
+    // de boucle viendront s'y inscrire tout seuls.
+    this.comms.channelForIncident(inc.id);
+    return inc;
   }
 
   @Patch("incidents/:id")

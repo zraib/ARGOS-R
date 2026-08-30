@@ -112,6 +112,55 @@ export class CommsService {
     return cat;
   }
 
+  /**
+   * Canal d'un incident, créé À LA DÉCLARATION (ADR 0007, lot P1-a).
+   *
+   * Avant, le seul canal d'opération (`op-salama`) avait été créé à la main :
+   * rien dans la plateforme ne donnait un lieu de conversation aux
+   * intervenants d'un incident. Désormais chaque incident naît avec le sien,
+   * dans le groupe OPÉRATIONS, nommé par sa référence.
+   *
+   * Idempotent : rappeler la méthode pour un incident déjà pourvu rend le
+   * canal existant plutôt que d'en empiler un second.
+   */
+  channelForIncident(incidentId: string): Channel {
+    // L'identifiant porte déjà son préfixe (« INC-2614 ») : le re-préfixer
+    // donnerait « inc-inc-2614 ». Le slug est l'identifiant, en minuscules.
+    const slug = incidentId.toLowerCase();
+    const existing = this.categories.flatMap((c) => c.chans).find((ch) => ch.name === slug);
+    if (existing) return existing;
+    const ops = this.categories.find((c) => c.id === "g1") ?? this.categories[0];
+    const chan: Channel = {
+      id: `c-${slug}`,
+      name: slug,
+      kind: "text",
+      topic: `Coordination — ${incidentId}`,
+    };
+    ops.chans.push(chan);
+    this.messages[chan.id] = [];
+    return chan;
+  }
+
+  /**
+   * Message SYSTÈME dans le canal d'un incident : les jalons de boucle s'y
+   * inscrivent tout seuls. `mine: false` — ce n'est pas l'opérateur qui parle,
+   * c'est la plateforme qui rend compte.
+   */
+  postSystem(incidentId: string, txt: string): void {
+    const chan = this.channelForIncident(incidentId);
+    const d = new Date();
+    const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    (this.messages[chan.id] ??= []).push({
+      id: Date.now(),
+      who: "ARGOS",
+      initials: "AR",
+      av: "bg-rdia-500",
+      txt,
+      time,
+      mine: false,
+    });
+  }
+
   /** Crée un canal texte dans un groupe existant (slug à la Discord). */
   addChannel(categoryId: string, name: string): Channel {
     const cat = this.categories.find((c) => c.id === categoryId);

@@ -560,6 +560,20 @@ export class DomainService {
   }
 
   /** Mise à jour d'une unité par son responsable (cantonnement : ScopeGuard). */
+  /**
+   * Ajoute une ligne au fil d'événements du poste de commandement.
+   *
+   * Point d'entrée unique : le fil est un tableau privé, et un adaptateur
+   * extérieur (comme le publieur d'événements des missions) n'a pas à savoir
+   * comment il est ordonné ni persisté.
+   */
+  pushFeed(txt: string, colorClass = "bg-or-500"): void {
+    const d = new Date();
+    const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    this.feed.unshift({ time, c: colorClass, txt });
+    this.persist();
+  }
+
   updateUnit(id: string, patch: Partial<Omit<Unit, "id">>): Unit | undefined {
     const u = this.units.find((x) => x.id === id);
     if (!u) return undefined;

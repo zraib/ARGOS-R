@@ -14,6 +14,7 @@ Index de la documentation technique. Point d'entrée du dépôt :
 | 5 | [Application web](05-frontend.md) | écrans, store, i18n, carte, conventions front |
 | 6 | [Guide de développement](06-developpement.md) | commandes, variables, tests, dépannage |
 | 7 | [Performance](07-performance.md) | la campagne d'optimisation : méthode de mesure, leviers, avant/après |
+| 8 | [Workflow opérationnel](08-workflow-operationnel.md) | **la boucle fermée** : comment le travail circule entre l'état-major et le terrain |
 
 ## Décisions d'architecture
 
