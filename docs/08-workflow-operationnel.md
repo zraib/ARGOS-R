@@ -703,7 +703,91 @@ curl -X POST localhost:3005/api/incidents/INC-2607/deployments \
 14 tests couvrent le lot (`modules/domain/deployment.spec.ts`), dont la jonction
 avec V-1 : déployé, le compte voit exactement une opération ; retiré, plus aucune.
 
-## 16. Ce qui reste à construire
+## 16. Le tableau de bord d'une opération (lot V-3)
+
+Le tableau de bord national répond à « comment va le pays ? ». Un OPCOM qui
+prend son poste ne pose pas cette question : il veut le bilan, qui est engagé,
+ce qui est en vol, et ce qui s'est passé depuis. D'où une page par opération,
+`/incidents/[id]/dashboard`.
+
+### 16.1 La double garde — enfin utilisée
+
+C'est ici que `canSeeIncident`, écrite au lot V-1, sert. `dash_incident:view`
+dit « ce rôle peut lire un tableau de bord d'incident » ; elle ne dit pas
+**lequel**. Sans la seconde garde, un OPCOM ouvrirait celui d'une autre
+opération en devinant son identifiant — et les identifiants sont séquentiels.
+
+```
+GET /incidents/:id/dashboard
+  → RequirePermission("dash_incident:view")   le rôle
+  → canSeeIncident(incident, portée)          l'opération
+```
+
+Un incident hors portée répond **404, comme un inconnu**. Distinguer les deux
+apprendrait qu'une opération existe.
+
+### 16.2 Calculé côté serveur, et pourquoi
+
+L'agrégat aurait été plus simple à reconstruire dans le navigateur depuis les
+listes déjà chargées. Il n'aurait alors **rien gardé** : il aurait suffi d'un
+identifiant deviné. Le calcul serveur est ce qui rend la garde effective.
+
+Le module `incident-dashboard` lit le domaine **et** les missions. Or
+`MissionsModule` importe déjà `DomainModule` (pour enregistrer sa cascade de
+suppression) : injecter `MissionService` dans le domaine aurait fermé le cycle.
+D'où un module de **lecture** qui dépend des deux et dont personne ne dépend. Il
+n'exporte rien et n'écrit rien — un agrégat de lecture ne doit pas devenir un
+point d'écriture par commodité.
+
+### 16.3 Ce que la page montre
+
+| Bloc | Contenu |
+|---|---|
+| Bandeau | Bilan humain, personnel engagé, boucles (total · en cours) |
+| Situation | La description libre — la seule prose de la fiche |
+| Moyens engagés | Unités (effectif, disponibilité) et hôpitaux (**lits libres = armés − occupés − réservés**, barre de saturation) |
+| Boucles opérationnelles | Les dernières, avec leur état |
+| Postes déployés | Le composant V-2, avec le geste d'armement |
+| Fil de l'opération | Les événements de CET incident |
+
+Les lits **réservés** sont retranchés : une EVASAN acceptée mais pas encore
+arrivée immobilise un lit que l'occupation ne montre pas (lot P2-b). Les taire
+ferait viser deux transferts sur le même.
+
+### 16.4 Le fil repose sur un lien, pas sur une recherche de texte
+
+`FeedItem` ne portait aucun rattachement. Reconstituer le fil d'une opération
+aurait obligé à chercher son identifiant **dans le texte** — une heuristique qui
+rate dès qu'une formulation change, et qui rate **en silence**. Sur une
+plateforme de commandement, une ligne de journal manquante ne se remarque pas.
+
+`FeedItem.incidentId` a donc été ajouté, et `pushFeed` accepte le rattachement.
+Six sites d'appel seulement : le coût était moindre que celui de l'heuristique.
+
+### 16.5 Deux défauts corrigés en chemin
+
+**La description était perdue.** L'assistant de création collectait un champ
+`desc` depuis toujours — saisi à la main ou proposé par l'assistant — et ne
+l'envoyait **jamais**. Le seul récit de l'événement disparaissait à
+l'enregistrement, et un commentaire dans le code constatait le fait sans le
+corriger. `Incident.desc` est désormais persisté, envoyé à la création, rechargé
+à l'édition, et affiché en tête du tableau de bord.
+
+**La modification pouvait écrire une région hors référentiel.** Le lot V-1 avait
+contraint `CreateIncidentDto.region` mais pas `UpdateIncidentDto.region` :
+modifier un incident pouvait encore y inscrire « Oriental » et le soustraire au
+wali de « L'Oriental ». Fermer la porte d'entrée sans fermer celle de service ne
+protège rien.
+
+### 16.6 Un élargissement de matrice nécessaire
+
+`resp_hospital` et `resp_unit` étaient **absents** de la ligne `dash_incident`.
+Ils voyaient leurs incidents dans la liste (portée `entity`, V-1) et recevaient
+403 en ouvrant l'un d'eux — la portée existait, la permission manquait. Les deux
+cellules sont ajoutées ; le cantonnement reste appliqué : ils n'ouvrent que les
+opérations où **leur** entité sert.
+
+## 17. Ce qui reste à construire
 
 Le workflow est posé ; ces maillons le compléteront (voir le plan d'exécution) :
 

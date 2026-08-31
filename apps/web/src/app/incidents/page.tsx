@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
-import { UI_ICONS } from "@/lib/icons";
+import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
 import { sevBadge, stBadge, subTypeLabel, typeLabel } from "@/lib/helpers";
 import { canReportIncident } from "@/lib/roles";
 import type { Incident, IncidentStatus, Severity, SubIncident, WeatherForecast } from "@/lib/types";
@@ -531,6 +531,7 @@ function Detail({ label, value }: { label: string; value: ReactNode }) {
 
 /** Modale de détails enrichie (bilan humain, moyens, personnel, véhicules, sous-incidents + IA évolution). */
 function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddSub }: { incident: Incident; onClose: () => void; onMap: (id: string) => void; onEdit: (inc: Incident) => void; onAddSub: (inc: Incident) => void }) {
+  const router = useRouter();
   const t = useDict();
   const lang = useArgos((s) => s.lang);
   const incidentTypes = useArgos((s) => s.incidentTypes);
@@ -598,6 +599,7 @@ function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddSub }: {
     <Modal open title={`${incident.id} — ${incident.titre}`} onClose={onClose} size="xl">
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-3 dark:border-rdia-700/50">
+          <button className="btn-primaire cible-tactile flex items-center gap-1.5 text-xs" onClick={() => router.push(`/incidents/${incident.id}/dashboard`)}><Icon path={NAV_ICONS.dashboard} size={14} /> {t.idash_open}</button>
           <button className="btn-secondaire cible-tactile flex items-center gap-1.5 text-xs" onClick={() => onMap(incident.id)}><Icon path={UI_ICONS.map} size={14} /> {t.to_map}</button>
           <button className="btn-secondaire cible-tactile flex items-center gap-1.5 text-xs" onClick={() => onEdit(incident)}><Icon path={UI_ICONS.edit} size={14} /> {t.act_edit}</button>
         </div>

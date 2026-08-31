@@ -116,6 +116,9 @@ export function createArgosClient(opts: ArgosClientOptions) {
     // Armer une opération est un acte de commandement, pas une modification de
     // fiche : d'où des routes dédiées plutôt qu'un PATCH sur le compte.
     getDeployments: (id: string) => client.GET("/api/incidents/{id}/deployments", { params: { path: { id } } }),
+    /** Tableau de bord d'UNE opération (V-3) — gardé par la portée, pas seulement par le rôle. */
+    getIncidentDashboard: (id: string) =>
+      client.GET("/api/incidents/{id}/dashboard", { params: { path: { id } } }),
     getDeployablePosts: () => client.GET("/api/deployable-posts"),
     deployPost: (id: string, matricule: string) =>
       client.POST("/api/incidents/{id}/deployments", { params: { path: { id } }, body: { matricule } }),

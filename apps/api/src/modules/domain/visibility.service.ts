@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { DEPLOYABLE_ROLES, PLACE_ARME_RADIUS_KM, type Assignments } from "@/shared/responsibilities";
 import type { Role } from "@/shared/permissions";
 import type { Incident, Unit, FieldHospital } from "@/modules/domain/domain.service";
+import { CITIES_MA } from "@/modules/domain/cities.data";
 
 // ============================================================================
 // ARGOS — DOCTRINE DE VISIBILITÉ : qui voit quoi (lot V-1)
@@ -112,6 +113,17 @@ export class VisibilityService {
     // Rôle inconnu de la doctrine : rien. Ajouter un rôle sans le classer ici
     // le prive d'accès plutôt que de lui en ouvrir un par inadvertance.
     return { kind: "entity", entities: [] };
+  }
+
+  /**
+   * Portée d'un compte, référentiel des villes résolu ici.
+   *
+   * Sans ce raccourci, chaque contrôleur recopiait la recherche dans
+   * `CITIES_MA` — deux copies qui finissent par diverger, et une divergence de
+   * portée est une fuite ou un écran vide.
+   */
+  scopeOfUser(role: Role, assignments: Assignments | undefined): VisibilityScope {
+    return this.scopeOf(role, assignments, (city) => CITIES_MA.find((c) => c.v === city)?.ll);
   }
 
   /**

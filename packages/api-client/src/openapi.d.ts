@@ -1614,6 +1614,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/incidents/{id}/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tableau de bord d'UNE opération.
+         * @description Double garde : la permission `dash_incident:view` (le rôle peut-il lire un tableau de bord d'incident ?) ET la portée de visibilité (celui-CI est-il le sien ?). La première seule laisserait un OPCOM ouvrir le tableau de bord d'une autre opération en devinant son identifiant.
+         */
+        get: operations["IncidentDashboardController_incidentDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1862,6 +1882,8 @@ export interface components {
             y: number;
             /** @description [lng, lat] */
             ll: number[];
+            /** @description Description libre de la situation. L'assistant de création la collectait déjà sans jamais l'envoyer : le récit de l'événement était perdu à l'enregistrement (corrigé au lot V-3). */
+            desc?: string;
             /** @description Adresse / lieu-dit (localisation fine) */
             adresse?: string;
             /** @description Bilan humain (décès, blessés, disparus) */
@@ -1874,7 +1896,10 @@ export interface components {
         UpdateIncidentDto: {
             titre?: string;
             type?: string;
-            region?: string;
+            /** @enum {string} */
+            region?: "Béni Mellal-Khénifra" | "Casablanca-Settat" | "Dakhla-Oued Ed-Dahab" | "Drâa-Tafilalet" | "Fès-Meknès" | "Guelmim-Oued Noun" | "L'Oriental" | "Laâyoune-Sakia El Hamra" | "Marrakech-Safi" | "Rabat-Salé-Kénitra" | "Souss-Massa" | "Tanger-Tétouan-Al Hoceïma";
+            /** @description Description libre de la situation. */
+            desc?: string;
             /** @enum {string} */
             sev?: "high" | "medium" | "low";
             /** @enum {string} */
@@ -4623,6 +4648,26 @@ export interface operations {
             };
             /** @description Seul l'émetteur peut annuler. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IncidentDashboardController_incidentDashboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Incident inconnu — ou hors de la portée du compte. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

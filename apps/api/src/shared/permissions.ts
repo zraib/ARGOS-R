@@ -187,6 +187,13 @@ const MATRIX: Record<(typeof MATRIX_FEATURES)[number], Partial<Record<Role, Cell
   dash_incident: {
     admin: ALL, strategic: V, place_arme: V, wali: V, opcom: V, tacom: V,
     bluecell: V, greencell: V, orangecell: V, resp_shelter: V, resp_morgue: V,
+    // V-3 : les responsables d'HÔPITAL et d'UNITÉ manquaient à cette ligne alors
+    // qu'ils servent PLUSIEURS opérations à la fois — la portée `entity` de la
+    // doctrine V-1 est faite pour eux. Sans ces deux cellules, un responsable
+    // d'hôpital voyait ses incidents dans la liste mais recevait 403 en ouvrant
+    // le tableau de bord de l'un d'eux. La portée reste appliquée : il n'ouvre
+    // que les opérations où SON établissement sert.
+    resp_hospital: V, resp_unit: V,
   },
   dash_hospital: {
     admin: ALL, strategic: V, place_arme: V, wali: V, opcom: V, tacom: V,

@@ -127,6 +127,11 @@ export interface Incident {
   ll: [number, number];
   /** Adresse / lieu-dit saisi à la déclaration (optionnel) */
   adresse?: string;
+  /**
+   * Description libre de la situation, saisie à la déclaration.
+   * Persistée par l'API depuis le lot V-3 — auparavant collectée puis perdue.
+   */
+  desc?: string;
   /** Bilan humain saisi à la déclaration (optionnel).
    *  Sémantique selon type d'incident :
    *    - traumatique (séisme/inondation/…) : injured = blessés

@@ -470,5 +470,23 @@ export interface Dict {
   dep_hint: string;
   dep_offline: string;
   toast_fail: string;
+  // --- tableau de bord par incident (lot V-3) ---
+  idash_title: string;
+  idash_open: string;
+  idash_back: string;
+  idash_situation: string;
+  idash_engagement: string;
+  idash_loops: string;
+  idash_loops_none: string;
+  idash_open_count: string;
+  idash_timeline: string;
+  idash_timeline_none: string;
+  idash_beds_free: string;
+  idash_saturation: string;
+  idash_reserved: string;
+  idash_denied: string;
+  idash_units: string;
+  idash_hospitals: string;
+  idash_loading: string;
 }
 

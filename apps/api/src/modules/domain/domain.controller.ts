@@ -162,9 +162,7 @@ export class DomainController {
    * jamais depuis la requête : un client ne peut pas revendiquer une portée.
    */
   private scopeFor(user: AuthUser) {
-    return this.visibility.scopeOf(user.role, user.scope, (city) =>
-      CITIES_MA.find((c) => c.v === city)?.ll,
-    );
+    return this.visibility.scopeOfUser(user.role, user.scope);
   }
 
   /**
@@ -173,10 +171,7 @@ export class DomainController {
    * service de visibilité reçoit cette réponse plutôt que d'importer missions,
    * ce qui éviterait un cycle de modules.
    */
-  private entitiesOn = (incidentId: string): string[] => {
-    const inc = this.domain.listIncidents().find((i) => i.id === incidentId);
-    return [...(inc?.responders?.units ?? []), ...(inc?.responders?.hospitals ?? [])];
-  };
+  private entitiesOn = (id: string): string[] => this.domain.entitiesOnIncident(id);
 
   @Get("alert-level")
   // Lue par TOUS les postes : le niveau s'affiche dans la barre haute quel que

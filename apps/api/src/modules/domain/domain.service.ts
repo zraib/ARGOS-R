@@ -22,6 +22,15 @@ export interface Incident {
   region: string;
   /** Adresse / lieu-dit saisi à la déclaration (optionnel). */
   adresse?: string;
+  /**
+   * Description libre de la situation, saisie (ou proposée par l'assistant) à la
+   * déclaration.
+   *
+   * L'assistant de création la collectait depuis toujours et ne l'envoyait
+   * JAMAIS : le récit de ce qui se passait était perdu à l'enregistrement. C'est
+   * pourtant la seule prose de la fiche — tout le reste est chiffré ou codé.
+   */
+  desc?: string;
   sev: "high" | "medium" | "low";
   st: "open" | "prog" | "closed";
   time: string;
@@ -232,6 +241,15 @@ export interface FeedItem {
   time: string;
   c: string;
   txt: string;
+  /**
+   * Incident concerné, quand la ligne en concerne un.
+   *
+   * Sans ce champ, reconstituer le fil d'une opération obligerait à chercher son
+   * identifiant DANS le texte — une heuristique qui rate dès qu'une formulation
+   * change, et qui rate en silence. Sur une plateforme de commandement, une
+   * ligne de journal manquante ne se remarque pas.
+   */
+  incidentId?: string;
 }
 
 export interface QueueItem {
@@ -518,7 +536,7 @@ export class DomainService {
     for (const fn of this.cascades) await fn(id);
 
     this.incidents = this.incidents.filter((i) => i.id !== id);
-    this.pushFeed(`${id} — SUPPRIMÉ par ${actor}`, "bg-danger-500");
+    this.pushFeed(`${id} — SUPPRIMÉ par ${actor}`, "bg-danger-500", id);
     this.persist();
     return { id, cascades: this.cascades.length };
   }
@@ -675,6 +693,18 @@ export class DomainService {
     return inc;
   }
 
+  /**
+   * Entités engagées sur un incident — unités ET hôpitaux confondus.
+   *
+   * Sert la portée « entity » : un responsable d'hôpital voit les opérations où
+   * SON établissement sert. La liste vit ici parce que la donnée y vit ; la
+   * doctrine de visibilité la reçoit sans connaître la forme d'un incident.
+   */
+  entitiesOnIncident(incidentId: string): string[] {
+    const inc = this.incidents.find((i) => i.id === incidentId);
+    return [...(inc?.responders?.units ?? []), ...(inc?.responders?.hospitals ?? [])];
+  }
+
   listUnits(): Unit[] {
     return this.units;
   }
@@ -804,10 +834,10 @@ export class DomainService {
    * extérieur (comme le publieur d'événements des missions) n'a pas à savoir
    * comment il est ordonné ni persisté.
    */
-  pushFeed(txt: string, colorClass = "bg-or-500"): void {
+  pushFeed(txt: string, colorClass = "bg-or-500", incidentId?: string): void {
     const d = new Date();
     const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-    this.feed.unshift({ time, c: colorClass, txt });
+    this.feed.unshift({ time, c: colorClass, txt, incidentId });
     this.persist();
   }
 

@@ -58,7 +58,7 @@ export class OperationalMissionEventPublisher implements MissionEventPublisher {
       const reason = mission.reason ? ` — ${mission.reason}` : "";
       const txt = `${mission.id} · ${LABEL[event.type]}${detail} — ${mission.label}${reason}`;
 
-      this.domain.pushFeed(txt, TINT[event.type]);
+      this.domain.pushFeed(txt, TINT[event.type], mission.incidentId);
       this.comms.postSystem(mission.incidentId, txt);
       this.syncUnitPosture(event);
       this.applyTransfer(event);

@@ -283,10 +283,11 @@ export function IncidentWizard() {
       setKeywordsDraft("");
       setAiGenerated(true); // mode édition : le titre/descr existent déjà → on affiche les champs
       setTitle(wizEdit.titre);
-      // La description n'est PAS persistée par l'API (absente du contrat
-      // Incident) : en édition il n'y a rien à recharger. Champ laissé vide
-      // plutôt que de laisser croire qu'une saisie antérieure a été conservée.
-      setDesc("");
+      // Persistée depuis le lot V-3 : on la recharge. Auparavant le champ était
+      // laissé vide — non par choix d'ergonomie mais parce que l'API ne la
+      // gardait pas, et rouvrir une fiche effaçait donc le récit à la première
+      // modification.
+      setDesc(wizEdit.desc ?? "");
       applyLL(wizEdit.ll);
       setAdresse(wizEdit.adresse ?? "");
       setDead(wizEdit.casualties ? String(wizEdit.casualties.dead) : "");
@@ -405,6 +406,11 @@ export function IncidentWizard() {
         titre: title.trim() || typeLabel(type ?? "", incidentTypes, lang) + (place ? ` — ${place}` : ""),
         region,
         adresse: adresse.trim() || undefined,
+        // La description était SAISIE depuis toujours et n'était jamais envoyée :
+        // le seul récit de l'événement disparaissait à l'enregistrement. L'API la
+        // conserve depuis le lot V-3, et le tableau de bord de l'opération
+        // l'affiche.
+        desc: desc.trim() || undefined,
         x,
         y,
         ll: pt,

@@ -128,6 +128,7 @@ export class DeploymentService {
         ? `${who} (${roles}) redéployé de ${previous} vers ${incidentId} — par ${actor}`
         : `${who} (${roles}) déployé sur ${incidentId} — par ${actor}`,
       "bg-or-500",
+      incidentId,
     );
     return { matricule, incidentId, previousIncidentId: previous, changed: true };
   }
@@ -142,7 +143,7 @@ export class DeploymentService {
     }
 
     this.users.setDeployment(matricule, null);
-    this.domain.pushFeed(`${toPost(target).nom} retiré de ${incidentId} — par ${actor}`, "bg-rdia-500");
+    this.domain.pushFeed(`${toPost(target).nom} retiré de ${incidentId} — par ${actor}`, "bg-rdia-500", incidentId);
     return { matricule, incidentId, previousIncidentId: incidentId, changed: true };
   }
 

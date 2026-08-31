@@ -90,6 +90,15 @@ export class CreateIncidentDto {
   @IsNumber({}, { each: true })
   ll!: [number, number];
 
+  @ApiPropertyOptional({
+    description:
+      "Description libre de la situation. L'assistant de création la collectait déjà sans jamais " +
+      "l'envoyer : le récit de l'événement était perdu à l'enregistrement (corrigé au lot V-3).",
+  })
+  @IsOptional()
+  @IsString()
+  desc?: string;
+
   @ApiPropertyOptional({ description: "Adresse / lieu-dit (localisation fine)" })
   @IsOptional()
   @IsString()
@@ -118,7 +127,13 @@ export class CreateIncidentDto {
 export class UpdateIncidentDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1) titre?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1) type?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1) region?: string;
+  // La contrainte du référentiel manquait ICI alors qu'elle était posée à la
+  // création (V-1) : une MODIFICATION pouvait encore écrire « Oriental » et
+  // soustraire l'incident au wali de « L'Oriental ». Fermer la porte d'entrée
+  // sans fermer celle de service ne protège rien.
+  @ApiPropertyOptional({ enum: REGIONS_MA }) @IsOptional() @IsIn(REGIONS_MA) region?: string;
+  @ApiPropertyOptional({ description: "Description libre de la situation." })
+  @IsOptional() @IsString() desc?: string;
   @ApiPropertyOptional({ enum: SEV }) @IsOptional() @IsIn(SEV as unknown as string[]) sev?: (typeof SEV)[number];
   @ApiPropertyOptional({ enum: ST }) @IsOptional() @IsIn(ST as unknown as string[]) st?: (typeof ST)[number];
   @ApiPropertyOptional() @IsOptional() @IsString() adresse?: string;
