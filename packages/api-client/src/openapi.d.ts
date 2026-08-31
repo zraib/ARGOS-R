@@ -1434,6 +1434,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/nrbc/library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bibliothèque de substances dangereuses — recherche et provenance (lot N-3).
+         * @description Recherche libre sur le nom, les SYNONYMES, le numéro ONU et le numéro CAS : sur intervention, ce qui est lu sur l'étiquette orange d'une citerne est un numéro, pas un nom. La réponse porte l'état de provenance de TOUTE la bibliothèque — combien de fiches ont été confrontées à CAMEO Chemicals, combien de jeux de distances relevés sur l'ERG 2024. ARGOS n'interroge aucun service tiers à l'exécution (ADR 0006).
+         */
+        get: operations["NrbcController_library"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/nrbc/substances/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fiche opérationnelle d'une substance.
+         * @description Aspect, densité de vapeur, comportement du nuage, effets, réactivité et protection. `sheetVerified` porte sur la FICHE, `ergVerified` sur les DISTANCES : ce sont deux sources distinctes, et une fiche juste n'implique pas des distances justes.
+         */
+        get: operations["NrbcController_substance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/nrbc/plume/{incidentId}": {
         parameters: {
             query?: never;
@@ -4385,6 +4425,46 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    NrbcController_library: {
+        parameters: {
+            query?: {
+                /** @description Nom, synonyme, n° ONU ou n° CAS. Vide = toute la bibliothèque. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    NrbcController_substance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Substance inconnue. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

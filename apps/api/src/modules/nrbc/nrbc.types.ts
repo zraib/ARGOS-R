@@ -39,17 +39,70 @@ export interface ErgDistances {
 }
 
 /** Substance chimique du catalogue (source : table 1 de l'ERG 2024). */
+/**
+ * Fiche opérationnelle d'une substance — dimension « CAMEO Chemicals » (lot N-3).
+ *
+ * L'ERG donne des DISTANCES ; CAMEO Chemicals donne le COMPORTEMENT : à quoi
+ * ressemble le produit, où va son nuage, ce qu'il fait aux poumons, ce qu'il
+ * fait au contact de l'eau. Ce sont deux jeux de données distincts, et les
+ * confondre conduirait à croire qu'une fiche vérifiée vaut distance vérifiée.
+ *
+ * Tous les champs sont en français : ils sont lus par l'intervenant, pas par une
+ * machine.
+ */
+export interface SubstanceSheet {
+  /** Aspect et odeur — la reconnaissance sur zone commence par là. */
+  appearance: string;
+  /**
+   * Densité de vapeur rapportée à l'air.
+   * `> 1` : le nuage rampe et s'accumule dans les points bas, les caves, les
+   * fosses. `< 1` : il s'élève. Ce seul chiffre change le sens d'évacuation.
+   */
+  vaporDensity?: number;
+  boilingPointC?: number;
+  /** Comportement au rejet — ce que l'intervenant doit anticiper. */
+  behaviour: string;
+  health: string;
+  fire: string;
+  /** Réactivité et incompatibilités — l'eau en est souvent une. */
+  reactivity: string;
+  /** Protection individuelle minimale. */
+  ppe: string;
+}
+
 export interface Substance {
   id: string;
   /** Numéro ONU (étiquette orange des transports de matières dangereuses). */
   un: string;
+  /** Numéro CAS — clé de recherche dans les bases chimiques. */
+  cas?: string;
   /** Guide orange ERG correspondant (consignes d'intervention). */
   ergGuide: string;
   labels: { fr: string; ar: string; en: string };
+  /** Synonymes et noms commerciaux — la recherche doit les trouver. */
+  synonyms?: string[];
+  /** Classe de danger ADR (pilote le pictogramme, lot N-1). */
+  hazardClass?: string;
   /** État physique au rejet — pilote le symbole et le vocabulaire de l'UI. */
   state: "gas" | "liquid";
-  small: ErgDistances;
-  large: ErgDistances;
+  /**
+   * Distances de la table 1 de l'ERG — ABSENTES tant qu'elles n'ont pas été
+   * relevées. Une substance peut figurer au catalogue avec sa fiche
+   * opérationnelle sans porter de distances : le gabarit ERG du panache est
+   * alors indisponible pour elle, et l'interface le dit. Inventer un ordre de
+   * grandeur plausible serait pire que ne rien afficher.
+   */
+  small?: ErgDistances;
+  large?: ErgDistances;
+  /** Fiche opérationnelle (lot N-3). */
+  sheet?: SubstanceSheet;
+  /**
+   * La FICHE a-t-elle été confrontée à la fiche CAMEO Chemicals (NOAA) ?
+   *
+   * Distinct de `ergVerified`, qui ne porte que sur les distances. Une fiche
+   * juste n'implique pas des distances justes, et l'inverse non plus.
+   */
+  sheetVerified?: boolean;
   /**
    * `true` = distances relevées sur la fiche CAMEO Chemicals (NOAA) alignée
    * ERG 2024. `false` = ordres de grandeur d'éditions antérieures, à confirmer
@@ -93,7 +146,7 @@ export interface PlumeWind {
 /** Panache complet d'un incident à une échéance donnée. */
 export interface PlumeResult {
   incidentId: string;
-  substance: Pick<Substance, "id" | "un" | "ergGuide" | "labels" | "ergVerified"> | null;
+  substance: (Pick<Substance, "id" | "un" | "ergGuide" | "labels" | "ergVerified"> & { hasErgDistances: boolean }) | null;
   spill: NrbcSpill;
   /** Échéance : H+0 … H+6 (heures de prévision). */
   hour: number;

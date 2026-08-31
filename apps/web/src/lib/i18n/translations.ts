@@ -493,5 +493,29 @@ export interface Dict {
   hz_radioactive: string;
   hz_biohazard: string;
   hz_drum: string;
+  // --- bibliothèque de substances dangereuses (lot N-3) ---
+  nav_chemlib: string;
+  cl_title: string;
+  cl_search: string;
+  cl_count: string;
+  cl_none: string;
+  cl_provenance: string;
+  cl_sheet_unverified: string;
+  cl_erg_missing: string;
+  cl_erg_unverified: string;
+  cl_erg_verified: string;
+  cl_appearance: string;
+  cl_behaviour: string;
+  cl_health: string;
+  cl_fire: string;
+  cl_reactivity: string;
+  cl_ppe: string;
+  cl_vapor: string;
+  cl_boiling: string;
+  cl_heavier: string;
+  cl_lighter: string;
+  cl_un: string;
+  cl_cas: string;
+  cl_guide: string;
 }
 

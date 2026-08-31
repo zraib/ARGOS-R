@@ -120,6 +120,11 @@ export function createArgosClient(opts: ArgosClientOptions) {
     getIncidentDashboard: (id: string) =>
       client.GET("/api/incidents/{id}/dashboard", { params: { path: { id } } }),
     getDeployablePosts: () => client.GET("/api/deployable-posts"),
+
+    // --- bibliothèque de substances dangereuses (N-3) ---
+    getChemLibrary: (q?: string) =>
+      client.GET("/api/nrbc/library", { params: { query: q ? { q } : {} } }),
+    getSubstance: (id: string) => client.GET("/api/nrbc/substances/{id}", { params: { path: { id } } }),
     deployPost: (id: string, matricule: string) =>
       client.POST("/api/incidents/{id}/deployments", { params: { path: { id } }, body: { matricule } }),
     withdrawPost: (id: string, matricule: string) =>

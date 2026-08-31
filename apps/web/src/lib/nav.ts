@@ -16,7 +16,9 @@ export type NavKey =
   | "hospitals" | "ics" | "damage" | "shelters"
   | "orsec" | "plans" | "comms" | "reports" | "analytics" | "assistant" | "simulation"
   | "users" | "settings"
-  | "myresp" | "myrespManage" | "supervision";
+  | "myresp" | "myrespManage" | "supervision"
+  // Bibliothèque de substances dangereuses (lot N-3).
+  | "chemlib";
 
 export type GroupKey = "res" | "dis" | "cmd";
 
@@ -67,6 +69,7 @@ export const HREF: Record<NavKey, string> = {
   myresp: "/ma-responsabilite",
   myrespManage: "/ma-responsabilite/gestion",
   supervision: "/responsabilites",
+  chemlib: "/substances",
 };
 
 export const NAV: NavEntry[] = [
@@ -83,7 +86,7 @@ export const NAV: NavEntry[] = [
     kind: "group",
     key: "res",
     icon: NAV_ICONS.res,
-    children: [item("equip", HREF.equip), item("units", HREF.units), item("personnel", HREF.personnel), item("workorders", HREF.workorders)],
+    children: [item("equip", HREF.equip), item("units", HREF.units), item("personnel", HREF.personnel), item("workorders", HREF.workorders), item("chemlib", HREF.chemlib)],
   },
   item("hospitals", HREF.hospitals),
   { kind: "group", key: "dis", icon: NAV_ICONS.dis, children: [item("ics", HREF.ics)] },
@@ -132,7 +135,7 @@ const LABEL_KEYS: Record<NavKey | GroupKey, keyof Dict> = {
   equip: "nav_equip", units: "nav_units", personnel: "nav_pers", workorders: "nav_wo",
   hospitals: "nav_hosp", ics: "nav_ics", damage: "nav_damage", shelters: "nav_shelters",
   orsec: "nav_orsec", plans: "nav_plans", comms: "nav_comms", reports: "nav_reports", analytics: "nav_analytics", assistant: "nav_assistant", simulation: "nav_simulation", users: "nav_users", settings: "nav_settings", myresp: "nav_myresp", myrespManage: "nav_myresp_manage", supervision: "nav_supervision",
-  res: "nav_res", dis: "nav_dis", cmd: "nav_cmd",
+  res: "nav_res", dis: "nav_dis", cmd: "nav_cmd", chemlib: "nav_chemlib",
 };
 
 export function navLabel(key: NavKey | GroupKey, t: Dict): string {

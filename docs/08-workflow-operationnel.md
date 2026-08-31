@@ -956,7 +956,81 @@ par le commentaire qui énonce la contrainte de cadre, et par l'œil. Le défaut
 débordement a d'ailleurs été trouvé en regardant une planche de rendu, pas en
 lisant le code — c'est dire ce que vaut ici une relecture.
 
-## 19. Ce qui reste à construire
+## 19. La bibliothèque de substances dangereuses (lot N-3)
+
+### 19.1 Ce que c'est, et ce que ce n'est pas
+
+CAMEO Chemicals (NOAA) publie environ six mille fiches. **ARGOS ne peut pas les
+interroger** : aucun appel sortant vers un tiers n'est admis à l'exécution
+(ADR 0006, MASTER_PLAN §4.3). Ce module n'est donc pas une copie de CAMEO. C'est
+**la forme de ses données**, remplie de ce qu'on peut honnêtement affirmer, avec
+un chemin explicite pour y verser les fiches réelles.
+
+Trente et une substances toxiques par inhalation — industrie, ports,
+agriculture — chacune avec sa fiche opérationnelle : aspect et odeur, densité de
+vapeur, comportement du nuage, effets sur la santé, incendie, réactivité,
+protection.
+
+### 19.2 Deux jeux de données, deux provenances, jamais fondues
+
+| Donnée | Source | Drapeau |
+|---|---|---|
+| Fiche — comportement, effets, réactivité | CAMEO Chemicals (NOAA) | `sheetVerified` |
+| Distances d'isolement et de protection | Table 1 de l'ERG 2024 | `ergVerified` |
+
+Les confondre ferait croire qu'une fiche juste vaut distance juste. Ce sont deux
+documents et deux autorités. L'écran affiche les deux **séparément**, et en
+tête — une bibliothèque dont on ignore ce qui a été vérifié se lit comme si tout
+l'était.
+
+État à la livraison : **31/31 fiches, 0 confrontée à CAMEO · 11/31 jeux de
+distances, 2 relevés sur l'ERG 2024.** Ce n'est pas satisfaisant ; c'est exact,
+et le dire est la seule façon que ça le devienne.
+
+### 19.3 Pourquoi vingt substances n'ont PAS de distances
+
+Leurs valeurs n'ont pas été relevées sur la table 1. **Une distance d'isolement
+plausible mais fausse est le genre d'erreur qui ne se découvre qu'une fois le
+périmètre posé trop court.** Le gabarit ERG du panache leur est donc
+indisponible, et l'interface le dit ; le gabarit ATP-45, qui ne dépend que du
+vent, reste utilisable.
+
+Le service en tire la conséquence : `hasErgDistances` accompagne chaque réponse
+de panache, pour que le client distingue « gabarit non demandé » de « gabarit
+demandé, distances inconnues ». Sans ce drapeau, une carte sans cercle
+laisserait croire à une panne.
+
+### 19.4 La recherche cherche des NUMÉROS
+
+Sur intervention, ce qui est lu sur une citerne est une étiquette orange — un
+numéro, pas un nom français. La recherche porte donc sur le numéro ONU (avec ou
+sans le préfixe « UN »), le numéro CAS, les synonymes et les trois langues.
+`1017`, `UN 1017` et `gaz des égouts` trouvent tous ce qu'il faut.
+
+### 19.5 Compléter la bibliothèque (procédure d'état-major)
+
+1. ouvrir la fiche CAMEO Chemicals de la substance (numéro CAS dans le fichier) ;
+2. confronter `sheet`, corriger, passer `sheetVerified: true` ;
+3. relever la table 1 de l'ERG 2024 (petit et grand déversement), renseigner
+   `small`/`large`, passer `ergVerified: true`.
+
+Tout est dans `apps/api/src/modules/nrbc/infrastructure/substances.data.ts`. Le
+port `SubstanceCatalog` permettra d'y substituer une table PostgreSQL alimentée
+par l'état-major sans qu'une ligne du service ne bouge.
+
+**« Grand déversement »** : retenir le PIRE CAS de la ligne (wagon /
+semi-remorque), pas la citerne moyenne — un état-major planifie sur l'enveloppe.
+
+### 19.6 Ce que les tests protègent
+
+Pas le contenu des fiches, qui évoluera à chaque vérification, mais les
+propriétés dont dépend la sûreté : unicité des identifiants ONU et CAS (un
+doublon ferait remonter la mauvaise fiche à la recherche par étiquette),
+distances renseignées **par paire**, aucune substance marquée vérifiée sans
+porter de distances, et surtout : une substance sans distances ne fait dessiner
+**aucune** zone.
+
+## 20. Ce qui reste à construire
 
 Le workflow est posé ; ces maillons le compléteront (voir le plan d'exécution) :
 

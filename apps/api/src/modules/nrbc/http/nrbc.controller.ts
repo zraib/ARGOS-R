@@ -1,5 +1,5 @@
-import { BadRequestException, Controller, Get, Param, Query } from "@nestjs/common";
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from "@nestjs/swagger";
+import { BadRequestException, Controller, Get, NotFoundException, Param, Query } from "@nestjs/common";
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import { NrbcService, PLUME_MAX_HOUR } from "@/modules/nrbc/nrbc.service";
 import { PLUME_MODELS, type PlumeModelId } from "@/modules/nrbc/nrbc.types";
@@ -28,6 +28,38 @@ export class NrbcController {
   })
   async substances() {
     return { substances: await this.nrbc.substances() };
+  }
+
+  @Get("library")
+  @RequirePermission("nrbc:view")
+  @ApiOperation({
+    summary: "Bibliothèque de substances dangereuses — recherche et provenance (lot N-3).",
+    description:
+      "Recherche libre sur le nom, les SYNONYMES, le numéro ONU et le numéro CAS : sur intervention, " +
+      "ce qui est lu sur l'étiquette orange d'une citerne est un numéro, pas un nom. " +
+      "La réponse porte l'état de provenance de TOUTE la bibliothèque — combien de fiches ont été " +
+      "confrontées à CAMEO Chemicals, combien de jeux de distances relevés sur l'ERG 2024. " +
+      "ARGOS n'interroge aucun service tiers à l'exécution (ADR 0006).",
+  })
+  @ApiQuery({ name: "q", required: false, description: "Nom, synonyme, n° ONU ou n° CAS. Vide = toute la bibliothèque." })
+  async library(@Query("q") q?: string) {
+    return this.nrbc.library(q);
+  }
+
+  @Get("substances/:id")
+  @RequirePermission("nrbc:view")
+  @ApiOperation({
+    summary: "Fiche opérationnelle d'une substance.",
+    description:
+      "Aspect, densité de vapeur, comportement du nuage, effets, réactivité et protection. " +
+      "`sheetVerified` porte sur la FICHE, `ergVerified` sur les DISTANCES : ce sont deux sources " +
+      "distinctes, et une fiche juste n'implique pas des distances justes.",
+  })
+  @ApiResponse({ status: 404, description: "Substance inconnue." })
+  async substance(@Param("id") id: string) {
+    const s = await this.nrbc.substance(id);
+    if (!s) throw new NotFoundException(`Substance inconnue : ${id}`);
+    return s;
   }
 
   @Get("plume/:incidentId")

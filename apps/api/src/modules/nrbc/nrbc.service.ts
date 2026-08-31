@@ -2,6 +2,7 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from "@nes
 import { DomainService } from "@/modules/domain/domain.service";
 import { WeatherService } from "@/modules/domain/weather.service";
 import { SUBSTANCE_CATALOG, type SubstanceCatalog } from "@/modules/nrbc/ports/substance-catalog.port";
+import { libraryProvenance } from "@/modules/nrbc/infrastructure/substances.data";
 import { atp45Zones, ergZones } from "@/modules/nrbc/plume/plume.engine";
 import {
   PLUME_MODELS,
@@ -55,6 +56,47 @@ export class NrbcService {
   }
 
   /**
+   * Bibliothèque consultable (lot N-3) : recherche libre + état de provenance.
+   *
+   * La recherche porte AUSSI sur les synonymes, le numéro ONU et le CAS : sur
+   * une intervention, ce qui est lu sur l'étiquette orange d'une citerne est un
+   * numéro, pas un nom français. Chercher « 1017 » ou « UN1017 » doit trouver le
+   * chlore.
+   *
+   * L'état de provenance est renvoyé AVEC la liste, jamais séparément : une
+   * bibliothèque dont on ignore ce qui est vérifié se lit comme si tout l'était.
+   */
+  async library(query?: string): Promise<{ substances: Substance[]; provenance: ReturnType<typeof libraryProvenance> }> {
+    const all = await this.catalog.list();
+    const q = query?.trim().toLowerCase().replace(/^un\s*/i, "");
+    const substances = !q
+      ? all
+      : all.filter((x) =>
+          [
+            x.un,
+            x.cas ?? "",
+            x.ergGuide,
+            x.labels.fr,
+            x.labels.en,
+            x.labels.ar,
+            ...(x.synonyms ?? []),
+          ]
+            .join(" ")
+            .toLowerCase()
+            .includes(q),
+        );
+    // La provenance décrit TOUTE la bibliothèque, pas la seule page filtrée :
+    // sinon une recherche qui ne ramène que des fiches vérifiées laisserait
+    // croire que la bibliothèque entière l'est.
+    return { substances, provenance: libraryProvenance(all) };
+  }
+
+  /** Fiche d'une substance, ou `null` si l'identifiant est inconnu. */
+  async substance(id: string): Promise<Substance | null> {
+    return this.catalog.findById(id);
+  }
+
+  /**
    * Panache d'un incident NRBC à l'échéance H+`hour`, pour les référentiels
    * demandés. La direction retenue est celle du pas de prévision correspondant
    * — c'est ce qui fait « évoluer » le panache quand l'opérateur balaie les
@@ -83,14 +125,31 @@ export class NrbcService {
       zones.push(...atp45Zones([lon, lat], wind?.speedKmh ?? null, wind?.fromDeg ?? null));
     }
     if (wanted.includes("erg") && substance) {
+      // Une substance du catalogue peut ne PAS porter de distances ERG : sa
+      // fiche opérationnelle est renseignée, la table 1 ne l'est pas encore
+      // (lot N-3). Le gabarit ERG est alors simplement indisponible pour elle —
+      // on ne dessine pas un périmètre inventé sous prétexte d'avoir quelque
+      // chose à montrer.
       const distances = spill === "small" ? substance.small : substance.large;
-      zones.push(...ergZones([lon, lat], distances, wind?.isDay ?? true, wind?.fromDeg ?? null));
+      if (distances) {
+        zones.push(...ergZones([lon, lat], distances, wind?.isDay ?? true, wind?.fromDeg ?? null));
+      }
     }
 
     return {
       incidentId,
       substance: substance
-        ? { id: substance.id, un: substance.un, ergGuide: substance.ergGuide, labels: substance.labels, ergVerified: substance.ergVerified }
+        ? {
+            id: substance.id,
+            un: substance.un,
+            ergGuide: substance.ergGuide,
+            labels: substance.labels,
+            ergVerified: substance.ergVerified,
+            // Le client doit pouvoir distinguer « pas de gabarit ERG demandé »
+            // de « gabarit demandé mais distances inconnues » : sans cela, une
+            // carte sans cercle laisse croire à une panne.
+            hasErgDistances: !!(substance.small && substance.large),
+          }
         : null,
       spill,
       hour,

@@ -3004,6 +3004,67 @@
         ]
       }
     },
+    "/api/nrbc/library": {
+      "get": {
+        "description": "Recherche libre sur le nom, les SYNONYMES, le numéro ONU et le numéro CAS : sur intervention, ce qui est lu sur l'étiquette orange d'une citerne est un numéro, pas un nom. La réponse porte l'état de provenance de TOUTE la bibliothèque — combien de fiches ont été confrontées à CAMEO Chemicals, combien de jeux de distances relevés sur l'ERG 2024. ARGOS n'interroge aucun service tiers à l'exécution (ADR 0006).",
+        "operationId": "NrbcController_library",
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Nom, synonyme, n° ONU ou n° CAS. Vide = toute la bibliothèque.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Bibliothèque de substances dangereuses — recherche et provenance (lot N-3).",
+        "tags": [
+          "nrbc"
+        ]
+      }
+    },
+    "/api/nrbc/substances/{id}": {
+      "get": {
+        "description": "Aspect, densité de vapeur, comportement du nuage, effets, réactivité et protection. `sheetVerified` porte sur la FICHE, `ergVerified` sur les DISTANCES : ce sont deux sources distinctes, et une fiche juste n'implique pas des distances justes.",
+        "operationId": "NrbcController_substance",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Substance inconnue."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Fiche opérationnelle d'une substance.",
+        "tags": [
+          "nrbc"
+        ]
+      }
+    },
     "/api/nrbc/plume/{incidentId}": {
       "get": {
         "description": "Gabarits ATP-45 et/ou ERG 2024 orientés par la PRÉVISION de vent au point du rejet, à l'échéance H+0 … H+6. C'est une estimation de planification, pas une mesure : la réponse transporte l'heure du pas de vent utilisé, et les zones directionnelles sont omises quand la prévision est indisponible.",

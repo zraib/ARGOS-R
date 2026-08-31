@@ -10,6 +10,8 @@ export const NAV_ICONS = {
   units: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
   hospitals: "M3 21h18M5 21V7l7-4 7 4v14M12 9v6M9 12h6",
   triage: "M22 12h-4l-3 9L9 3l-3 9H2",
+  // Bibliothèque de substances (lot N-3) : une fiole, pas un flacon générique.
+  chemlib: "M9 3h6 M10 3v6.5L4.6 18a2 2 0 001.7 3h11.4a2 2 0 001.7-3L14 9.5V3 M7.5 14h9",
   res: "M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z M3.3 7L12 12l8.7-5 M12 22V12",
   dis: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2 M9 3h6v4H9z M12 11v4 M12 17.5h.01",
   damage: "M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z M9 21V12l3 3 3-3v9",
