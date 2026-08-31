@@ -62,6 +62,8 @@ interface Provenance {
   withErgDistances: number;
   sheetVerified: number;
   withSheet: number;
+  /** Jeu SOUS LICENCE chargé par-dessus la bibliothèque livrée (lot N-3b). */
+  origin: { source: string; retrievedAt: string; authorization: string } | null;
 }
 
 /** Classe ADR → pictogramme réglementaire (lot N-1). */
@@ -154,6 +156,14 @@ export default function SubstancesPage() {
                   prov.ergVerified > 1 ? "s" : ""
                 } sur la table 1 de l'ERG 2024.`}
               </li>
+              {/* Un jeu versé par l'état-major dit d'où il vient ET à quel
+                  titre il est détenu : une bibliothèque enrichie dont on ignore
+                  l'origine de l'enrichissement aurait l'air complète. */}
+              {prov.origin && (
+                <li className="mt-1 border-t border-or-500/20 pt-1">
+                  {`Jeu versé : ${prov.origin.source} — relevé le ${prov.origin.retrievedAt}, détenu au titre : ${prov.origin.authorization}.`}
+                </li>
+              )}
             </ul>
           </div>
         )}

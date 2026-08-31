@@ -8,3 +8,10 @@ npm-debug.log*
 
 # Persistance dev (instantané in-memory, poste local — jamais commité)
 .dev-data/
+
+# Jeux de substances SOUS LICENCE (lot N-3b) — jamais commités.
+# CAMEO Chemicals interdit la duplication des données de ses contributeurs sans
+# autorisation écrite de CEUX-CI (CAS, DuPont, NFPA, AEGL, ERPG). Un dépôt cloné
+# ailleurs ne doit pas devenir le vecteur d'une redistribution non autorisée :
+# la donnée concédée reste sur la machine à laquelle elle a été concédée.
+data/

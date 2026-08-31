@@ -12,6 +12,16 @@ import type { Substance } from "@/modules/nrbc/nrbc.types";
 export interface SubstanceCatalog {
   list(): Promise<Substance[]>;
   findById(id: string): Promise<Substance | null>;
+  /**
+   * Origine d'un jeu SOUS LICENCE chargé par-dessus la bibliothèque livrée
+   * (lot N-3b), ou `null`. Facultatif : un adaptateur qui n'en charge aucun n'a
+   * rien à déclarer.
+   *
+   * La provenance appartient au CONTRAT, pas à l'implémentation : une
+   * bibliothèque enrichie dont on ignore d'où vient l'enrichissement aurait
+   * l'air complète, ce qui est pire que d'être incomplète.
+   */
+  origin?(): { source: string; retrievedAt: string; authorization: string } | null;
 }
 
 /** Jeton d'injection Nest. */

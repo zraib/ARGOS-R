@@ -66,7 +66,12 @@ export class NrbcService {
    * L'état de provenance est renvoyé AVEC la liste, jamais séparément : une
    * bibliothèque dont on ignore ce qui est vérifié se lit comme si tout l'était.
    */
-  async library(query?: string): Promise<{ substances: Substance[]; provenance: ReturnType<typeof libraryProvenance> }> {
+  async library(query?: string): Promise<{
+    substances: Substance[];
+    provenance: ReturnType<typeof libraryProvenance> & {
+      origin: { source: string; retrievedAt: string; authorization: string } | null;
+    };
+  }> {
     const all = await this.catalog.list();
     const q = query?.trim().toLowerCase().replace(/^un\s*/i, "");
     const substances = !q
@@ -88,7 +93,13 @@ export class NrbcService {
     // La provenance décrit TOUTE la bibliothèque, pas la seule page filtrée :
     // sinon une recherche qui ne ramène que des fiches vérifiées laisserait
     // croire que la bibliothèque entière l'est.
-    return { substances, provenance: libraryProvenance(all) };
+    return {
+      substances,
+      // L'origine du jeu SOUS LICENCE voyage avec la provenance : une
+      // bibliothèque enrichie dont on ignore d'où vient l'enrichissement aurait
+      // l'air complète, ce qui est pire que d'être incomplète.
+      provenance: { ...libraryProvenance(all), origin: this.catalog.origin?.() ?? null },
+    };
   }
 
   /** Fiche d'une substance, ou `null` si l'identifiant est inconnu. */

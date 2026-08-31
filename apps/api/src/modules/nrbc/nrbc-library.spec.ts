@@ -4,6 +4,12 @@ import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { AppModule } from "@/app.module";
 import { SUBSTANCES } from "@/modules/nrbc/infrastructure/substances.data";
+import {
+  IMPORT_FORMAT,
+  mergeLibrary,
+  SubstanceImportError,
+  validateImport,
+} from "@/modules/nrbc/infrastructure/substance-import";
 
 // ============================================================================
 // N-3 — la bibliothèque de substances
@@ -100,7 +106,9 @@ describe("N-3 — bibliothèque de substances dangereuses", () => {
     const one = await base().get("/api/nrbc/library?q=chlore").set(auth()).expect(200);
     expect(one.body.substances.length).toBeLessThan(all.body.substances.length);
     expect(one.body.provenance).toEqual(all.body.provenance);
-    expect(all.body.provenance.total).toBe(SUBSTANCES.length);
+    // Pas d'égalité stricte au décompte livré : un poste peut avoir un jeu
+    // sous licence versé (lot N-3b), et le test doit rester vrai chez lui.
+    expect(all.body.provenance.total).toBeGreaterThanOrEqual(SUBSTANCES.length);
   });
 
   it("une substance inconnue répond 404, pas une fiche vide", async () => {
@@ -169,5 +177,98 @@ describe("N-3 — bibliothèque de substances dangereuses", () => {
     const res = await base().get(`/api/nrbc/plume/${inc.body.id}?models=erg`).set(auth()).expect(200);
     expect(res.body.substance.hasErgDistances).toBe(true);
     expect(res.body.fc.features.length).toBeGreaterThan(0);
+  });
+
+  // --- la chaîne d'import (lot N-3b) ---------------------------------------
+  //
+  // Ce que ces tests protègent : qu'un fichier douteux soit REFUSÉ EN ENTIER.
+  // Charger la moitié d'un référentiel de sécurité est pire que n'en charger
+  // aucun — on croit consulter la base complète.
+
+  describe("import d'un jeu sous licence", () => {
+    const ok = {
+      format: IMPORT_FORMAT,
+      source: "Essai",
+      retrievedAt: "2026-08-31",
+      authorization: "essai",
+      substances: [
+        {
+          id: "a",
+          un: "9001",
+          ergGuide: "124",
+          labels: { fr: "A", ar: "A", en: "A" },
+          state: "gas" as const,
+          ergVerified: false,
+        },
+      ],
+    };
+
+    it("accepte un fichier conforme", () => {
+      expect(() => validateImport(ok)).not.toThrow();
+    });
+
+    it("refuse un format inconnu plutôt que de le deviner", () => {
+      expect(() => validateImport({ ...ok, format: "autre.v9" })).toThrow(SubstanceImportError);
+    });
+
+    it("EXIGE le titre de détention — d'où vient la donnée et à quel droit", () => {
+      // Champ délibérément libre mais obligatoire : il force celui qui verse la
+      // donnée à écrire sous quel droit il le fait. C'est la seule trace qui
+      // restera d'une question qui est juridique avant d'être technique.
+      expect(() => validateImport({ ...ok, authorization: "  " })).toThrow(/authorization/);
+      expect(() => validateImport({ ...ok, source: "" })).toThrow(/source/);
+    });
+
+    it("refuse deux substances portant le MÊME numéro ONU", () => {
+      // L'étiquette orange d'une citerne est un numéro : un doublon ferait
+      // remonter la mauvaise fiche à l'usage le plus probable sur intervention.
+      const dup = { ...ok, substances: [ok.substances[0], { ...ok.substances[0], id: "b" }] };
+      expect(() => validateImport(dup)).toThrow(/ONU 9001 en double/);
+    });
+
+    it("refuse un seul déversement renseigné", () => {
+      const half = {
+        ...ok,
+        substances: [{ ...ok.substances[0], small: { isolationM: 61, protectDayKm: 0.3, protectNightKm: 1.4 } }],
+      };
+      expect(() => validateImport(half)).toThrow(/DEUX déversements/);
+    });
+
+    it("refuse des distances hors de tout ordre de grandeur — colonnes inversées", () => {
+      // Le défaut le plus probable d'un tableur converti à la main : mètres et
+      // kilomètres permutés. Sans ce garde-fou il donne un périmètre absurde
+      // que rien ne signale.
+      const swapped = {
+        ...ok,
+        substances: [
+          {
+            ...ok.substances[0],
+            small: { isolationM: 0.32, protectDayKm: 61, protectNightKm: 145 },
+            large: { isolationM: 9.65, protectDayKm: 914, protectNightKm: 1127 },
+          },
+        ],
+      };
+      expect(() => validateImport(swapped)).toThrow(/ordre de grandeur/);
+    });
+
+    it("refuse `ergVerified` sans distances", () => {
+      expect(() => validateImport({ ...ok, substances: [{ ...ok.substances[0], ergVerified: true }] })).toThrow(
+        /ergVerified/,
+      );
+    });
+
+    it("le jeu importé PRIME sur la bibliothèque livrée, par identifiant", () => {
+      // L'ordre inverse rendrait l'import sans effet sur les substances
+      // d'origine — précisément celles qu'on veut voir vérifiées en premier.
+      const releve = { ...SUBSTANCES[0], labels: { ...SUBSTANCES[0].labels, fr: "Chlore (relevé)" } };
+      const merged = mergeLibrary(SUBSTANCES, [releve]);
+      expect(merged).toHaveLength(SUBSTANCES.length);
+      expect(merged.find((s) => s.id === SUBSTANCES[0].id)?.labels.fr).toBe("Chlore (relevé)");
+    });
+
+    it("une substance inconnue de la bibliothèque livrée est AJOUTÉE", () => {
+      const merged = mergeLibrary(SUBSTANCES, [ok.substances[0] as never]);
+      expect(merged).toHaveLength(SUBSTANCES.length + 1);
+    });
   });
 });

@@ -1030,6 +1030,79 @@ distances renseignées **par paire**, aucune substance marquée vérifiée sans
 porter de distances, et surtout : une substance sans distances ne fait dessiner
 **aucune** zone.
 
+### 19.7 Verser un référentiel complet — et pourquoi il n'est pas livré
+
+**La limite n'est pas technique, elle est juridique.** Les conditions
+d'utilisation de CAMEO Chemicals disent, mot pour mot :
+
+> « Data from the above organizations shall not be duplicated by the recipient,
+> without written permission from those organizations. »
+
+Et plusieurs composants appartiennent à des tiers : informations de protection
+DuPont, **numéros et synonymes CAS** (Chemical Abstracts Service), cotations
+NFPA, seuils AEGL et ERPG. Une autorisation valable doit émaner de **ces
+organisations-là** — un service utilisateur de CAMEO, fût-il d'un État,
+ne peut pas concéder ce qu'il ne détient pas. Il n'existe par ailleurs aucun
+export en masse ni API publiés.
+
+La voie ouverte est l'**ERG 2024** : diffusé gratuitement aux services de
+secours par le PHMSA, Transports Canada et le SCT, avec les fichiers de
+production (`.xlsx`, `.docx`) fournis sur demande à `ERGComments@dot.gov`. C'est
+le jeu qui porte les distances d'isolement pour environ 3 500 numéros ONU.
+
+*(Décision tracée : les 31 numéros CAS de la bibliothèque livrée sont conservés
+sur arbitrage de l'état-major — identifiants publiés dans d'innombrables sources
+ouvertes, et indispensables à la recherche par étiquette.)*
+
+**La chaîne d'import (lot N-3b).** Quel que soit le jeu obtenu — ERG, export
+CAMEO autorisé, référentiel national marocain — il se charge sans toucher au
+code :
+
+```bash
+npm run nrbc:import -- chemin/vers/erg2024.json   # depuis apps/api
+```
+
+Le format, `argos.substances.v1` :
+
+```json
+{
+  "format": "argos.substances.v1",
+  "source": "ERG 2024, table 1 — PHMSA / Transports Canada / SCT",
+  "retrievedAt": "2026-09-15",
+  "authorization": "diffusion libre aux services de secours (PHMSA)",
+  "substances": [ { "id": "…", "un": "…", "ergGuide": "…", "labels": {…}, "state": "gas", "small": {…}, "large": {…} } ]
+}
+```
+
+`authorization` est **obligatoire** et volontairement libre : il force celui qui
+verse la donnée à écrire sous quel droit il le fait. C'est la seule trace qui
+restera d'une question juridique avant d'être technique. Un champ vide est un
+refus.
+
+**Trois garanties :**
+
+- **La donnée sous licence n'entre pas dans git.** Elle est déposée dans
+  `apps/api/data/` (ignoré), pour qu'un dépôt cloné ailleurs ne devienne pas le
+  vecteur d'une redistribution non autorisée.
+- **Le fichier est refusé EN ENTIER** s'il cloche : format inconnu, numéro ONU
+  en double, un seul déversement renseigné, `ergVerified` sans distances, ou
+  distances hors de tout ordre de grandeur — le défaut le plus probable d'un
+  tableur converti à la main étant des colonnes mètres/kilomètres permutées.
+  Charger la moitié d'un référentiel de sécurité est pire que n'en charger
+  aucun : on croit consulter la base complète.
+- **La provenance voyage avec la donnée** et s'affiche : source, date de relevé,
+  titre de détention. Une bibliothèque enrichie dont on ignore d'où vient
+  l'enrichissement aurait l'air complète.
+
+Le jeu versé **prime** sur la bibliothèque livrée, par identifiant : l'ordre
+inverse rendrait l'import sans effet sur les 31 substances d'origine —
+précisément celles qu'on veut voir vérifiées en premier.
+
+*(Un défaut trouvé en éprouvant la chaîne : le répertoire était résolu depuis
+`process.cwd()`, qui diffère entre la commande d'import et le serveur. Un jeu
+« installé » restait invisible, sans le moindre message. Il est désormais ancré
+sur la racine du paquet.)*
+
 ## 20. Ce qui reste à construire
 
 Le workflow est posé ; ces maillons le compléteront (voir le plan d'exécution) :
