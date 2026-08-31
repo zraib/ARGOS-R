@@ -266,13 +266,32 @@ export interface TransportMovement {
  */
 const DOMAIN_SEED_VERSION = 4;
 
+/**
+ * Régions non canoniques déjà écrites sur disque → valeur du référentiel.
+ *
+ * Corriger le seed ne répare que les installations neuves : un instantané écrit
+ * avant le lot V-1 porte encore « Oriental ». Or la région est devenue une CLÉ
+ * DE VISIBILITÉ — un wali affecté à « L'Oriental » ne verrait pas un incident
+ * libellé « Oriental », et la liste des filtres afficherait deux entrées pour
+ * une même région. La reprise se fait donc à la lecture, comme `LEGACY_ROLE_MAP`
+ * le fait pour les rôles renommés.
+ */
+const LEGACY_REGION_MAP: Record<string, string> = {
+  Oriental: "L'Oriental",
+};
+
+function canonicalizeRegion(inc: Incident): Incident {
+  const fixed = LEGACY_REGION_MAP[inc.region];
+  return fixed ? { ...inc, region: fixed } : inc;
+}
+
 @Injectable()
 export class DomainService {
   private incidents: Incident[] = [
     { id: "INC-2607", type: "earthquake", titre: "Séisme M5.9 — Province d'Al Haouz", region: "Marrakech-Safi", sev: "high", st: "prog", time: "06:42", x: 188, y: 286, ll: [-8.44, 31.06] },
     { id: "INC-2606", type: "flood", titre: "Crues de l'oued Ourika", region: "Marrakech-Safi", sev: "high", st: "prog", time: "05:10", x: 196, y: 276, ll: [-7.79, 31.32] },
     { id: "INC-2604", type: "wildfire", titre: "Feu de forêt — Chefchaouen", region: "Tanger-Tétouan-Al Hoceïma", sev: "medium", st: "prog", time: "J-1", x: 248, y: 82, ll: [-5.27, 35.17] },
-    { id: "INC-2601", type: "landslide", titre: "Glissement de terrain — Al Hoceïma", region: "Oriental", sev: "medium", st: "open", time: "J-1", x: 300, y: 94, ll: [-3.93, 35.25] },
+    { id: "INC-2601", type: "landslide", titre: "Glissement de terrain — Al Hoceïma", region: "L'Oriental", sev: "medium", st: "open", time: "J-1", x: 300, y: 94, ll: [-3.93, 35.25] },
     { id: "INC-2598", type: "industrial", titre: "Fuite chimique — Port de Mohammedia", region: "Casablanca-Settat", sev: "low", st: "closed", time: "J-2", x: 182, y: 168, ll: [-7.38, 33.69] },
     { id: "INC-2595", type: "epidemic", titre: "Foyer choléra suspecté — Zagora", region: "Drâa-Tafilalet", sev: "medium", st: "open", time: "J-3", x: 300, y: 420, ll: [-5.84, 30.33] },
   ];
@@ -372,7 +391,9 @@ export class DomainService {
       equipment?: EquipItem[];
       feed?: FeedItem[];
     }>("domain", {});
-    if (snap.incidents) this.incidents.splice(0, this.incidents.length, ...snap.incidents);
+    if (snap.incidents) {
+      this.incidents.splice(0, this.incidents.length, ...snap.incidents.map(canonicalizeRegion));
+    }
     if (snap.units) this.units.splice(0, this.units.length, ...snap.units);
     // Référentiel hospitalier : repris du disque UNIQUEMENT si l'instantané a
     // été écrit avec la version de seed courante. Sinon (mise à jour du réseau

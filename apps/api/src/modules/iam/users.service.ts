@@ -17,6 +17,10 @@ import {
 } from "@/shared/permissions";
 import {
   isResponsibilityKind,
+  isScopeKey,
+  mandatoryScopeKeysOf,
+  scopeKeysOf,
+  SCOPE_LABELS,
   requiredAssignments,
   RESPONSIBILITY_LABELS,
   type Assignments,
@@ -252,6 +256,7 @@ export class UsersService implements ScopeResolver {
     explicit: boolean,
   ): Assignments | undefined {
     const needed = requiredAssignments(roles);
+    const allowedScopes = scopeKeysOf(roles);
     const provided = input ?? {};
 
     if (explicit) {
@@ -259,6 +264,16 @@ export class UsersService implements ScopeResolver {
       // le DTO, l'objet porte toutes les natures, la plupart à `undefined`.
       for (const [key, value] of Object.entries(provided)) {
         if (value === undefined || value === null || String(value).trim() === "") continue;
+        // Périmètre (région / ville / incident) : autorisé si un rôle du compte
+        // le porte. Un OPCOM n'a pas de région, un wali n'a pas d'incident.
+        if (isScopeKey(key)) {
+          if (!allowedScopes.includes(key)) {
+            throw new BadRequestException(
+              `Rattachement « ${SCOPE_LABELS[key]} » impossible : aucun rôle du compte n'en relève.`,
+            );
+          }
+          continue;
+        }
         if (!isResponsibilityKind(key)) {
           throw new BadRequestException(`Nature de responsabilité inconnue : ${key}`);
         }
@@ -280,7 +295,21 @@ export class UsersService implements ScopeResolver {
       }
       out[kind] = id;
     }
-    return needed.length > 0 ? out : undefined;
+
+    // Les périmètres sont reportés au même titre que les entités : les omettre
+    // ici les effacerait silencieusement à chaque modification du compte.
+    const mandatory = mandatoryScopeKeysOf(roles);
+    for (const key of allowedScopes) {
+      const value = provided[key]?.trim();
+      if (value) {
+        out[key] = value;
+      } else if (mandatory.includes(key)) {
+        throw new BadRequestException(
+          `Le rattachement « ${SCOPE_LABELS[key]} » est exigé par les rôles de ce compte.`,
+        );
+      }
+    }
+    return Object.keys(out).length > 0 ? out : undefined;
   }
 
   // --- écriture ------------------------------------------------------------

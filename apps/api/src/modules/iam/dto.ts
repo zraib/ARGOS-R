@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { REGIONS_MA } from "@/modules/domain/provinces.data";
 import { Type } from "class-transformer";
 import { ArrayMinSize, IsArray, IsBoolean, IsIn, IsOptional, IsString, MinLength, ValidateNested } from "class-validator";
 import { MODULE_FEATURES, ROLES, type Role } from "@/shared/permissions";
@@ -9,6 +10,32 @@ import { MODULE_FEATURES, ROLES, type Role } from "@/shared/permissions";
  * pour que le contrat OpenAPI — et donc le client généré — soit typé.
  */
 export class AssignmentsDto {
+  // --- Rattachements NON-ENTITÉ (lot V-1) -----------------------------------
+  // Tous les rôles ne répondent pas d'un établissement : le wali répond d'un
+  // territoire, la place d'armes d'une zone, la conduite d'une opération.
+
+  @ApiPropertyOptional({
+    example: "Casablanca-Settat",
+    enum: REGIONS_MA,
+    description: "Région administrative (Wali) — doit appartenir au référentiel des 12 régions.",
+  })
+  @IsOptional() @IsIn(REGIONS_MA)
+  region?: string;
+
+  @ApiPropertyOptional({
+    example: "Casablanca",
+    description: "Ville de rattachement (Place d'Armes) — la zone de compétence est un rayon de 40 km autour.",
+  })
+  @IsOptional() @IsString()
+  city?: string;
+
+  @ApiPropertyOptional({
+    example: "INC-2607",
+    description: "Incident de déploiement (OPCOM, TACOM, cellules, resp. abri et équipement). UN SEUL à la fois.",
+  })
+  @IsOptional() @IsString()
+  incident?: string;
+
   @ApiPropertyOptional({ example: "H4", description: "Hôpital militaire (Responsable Hôpital)" })
   @IsOptional() @IsString()
   hospital?: string;

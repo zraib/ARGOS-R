@@ -477,7 +477,126 @@ curl -X POST localhost:3005/api/missions/$MID/milestone -H "Authorization: Beare
 curl -X POST localhost:3005/api/missions/$MID/complete  -H "Authorization: Bearer $U3"
 ```
 
-## 14. Ce qui reste à construire
+## 14. Qui voit quoi — la doctrine de visibilité (lot V-1)
+
+Le RBAC répond « ce rôle peut-il lire des incidents ? ». Il ne répond pas
+« LESQUELS ». Jusqu'à ce lot, la réponse implicite était « tous, pour tout le
+monde » : un wali de Casablanca voyait les crues de Zagora, un OPCOM déployé sur
+un séisme voyait un feu de forêt à 300 km. La doctrine ci-dessous répond à la
+question manquante, et un seul fichier y répond —
+`apps/api/src/modules/domain/visibility.service.ts`. Un filtrage dispersé dans
+les contrôleurs finit toujours par diverger d'une route à l'autre.
+
+### 14.1 Les cinq portées
+
+| Portée | Rôles | Ce qu'ils voient |
+|---|---|---|
+| `global` | superadmin, admin, stratégique | Le pays entier. La vue d'ensemble EST la fonction du rôle stratégique. |
+| `region` | wali | Les incidents de **sa** région administrative. Unités et réseau hospitalier restent nationaux (voir 15.3). |
+| `zone` | place d'armes | Incidents, unités et hôpitaux de campagne dans un rayon de **40 km** autour de sa ville. |
+| `incident` | OPCOM, TACOM, cellules bleue/verte/orange, resp. abri, resp. équipement | **Un seul** incident : celui sur lequel le compte est déployé. |
+| `entity` | resp. hôpital, resp. unité, resp. morgue | Tous les incidents où **leur** entité est engagée — ils servent plusieurs opérations à la fois. |
+
+Le filtrage est **serveur**. `GET /incidents`, `/units` et `/field-hospitals`
+passent par le service de visibilité : la carte, les listes et les compteurs du
+tableau de bord en héritent sans une ligne modifiée côté web. C'est ce qui évite
+qu'un écran oublié ne devienne une fuite.
+
+### 14.2 Default-deny, jusqu'au bout
+
+Un rôle cantonné **sans affectation ne voit rien**. Un wali sans région, un OPCOM
+non déployé : liste vide, jamais la liste entière. Le silence d'une affectation
+ne vaut pas permission.
+
+Deux garde-fous complètent la règle à la saisie, pour que l'oubli soit visible
+plutôt que dangereux :
+
+- **Région et ville sont exigées à la création** du compte. Un wali sans région
+  serait aveugle, ce qui se lit comme une panne et non comme un oubli
+  d'administration — mieux vaut refuser le compte.
+- **L'incident ne l'est pas.** On crée un OPCOM bien avant de le déployer ; le
+  déploiement est un acte distinct et tracé (lot V-2).
+- **Une portée orpheline est refusée** : affecter une région à un OPCOM renvoie
+  400. Chaque rôle ne porte que le périmètre dont il relève
+  (`ROLE_SCOPE_KEY`, `apps/api/src/shared/responsibilities.ts`).
+
+Un responsable d'abri ou d'équipement **cumule** les deux rattachements — son
+entité *et* son incident : contrairement à l'hôpital ou à l'unité, il est armé
+pour une opération donnée.
+
+### 14.3 Deux décisions à expliciter
+
+**Le wali voit les moyens du pays entier.** Seuls ses *incidents* sont filtrés.
+C'est délibéré : un wali doit pouvoir demander des renforts **hors** de sa
+région, ce qu'il ne pourrait pas faire s'il ne voyait que ses propres unités.
+
+**La zone n'est pas une frontière administrative** mais un cercle de 40 km : une
+place d'armes commande ce qu'elle peut *atteindre*, pas ce qui relève de sa
+préfecture. Un incident à 23 km mais dans la région voisine lui est visible ; un
+incident à 87 km dans sa propre région ne l'est pas. La distance l'emporte sur
+l'étiquette.
+
+### 14.4 La région comme clé — reprise des données
+
+La région est devenue une **clé de visibilité**, plus un simple libellé. Deux
+conséquences :
+
+- `CreateIncidentDto.region` est contraint au référentiel des 12 régions
+  (`REGIONS_MA`). Sans cela, « Oriental » et « L'Oriental » coexistaient : le
+  filtre en affichait deux entrées, et un wali affecté à l'une ne voyait pas les
+  incidents libellés de l'autre.
+- Les instantanés disque écrits **avant** ce lot sont canonicalisés à la lecture
+  (`LEGACY_REGION_MAP`, `domain.service.ts`), comme `LEGACY_ROLE_MAP` le fait
+  pour les rôles renommés. Corriger le seed n'aurait réparé que les
+  installations neuves.
+
+### 14.5 Élargissements de la matrice
+
+`strategic`, `wali` et `place_arme` étaient **absents** des lignes `incidents`,
+`teams`, `hospinet`, `shelters` et `equipment` de `docs/MATRICE ROLES.xlsx` :
+ils recevaient 403 avant même que le filtrage ne s'applique. Les cellules
+ajoutées sont annotées une à une dans `shared/permissions.ts`. Aucun des trois ne
+reçoit `A`, `M` ni `R` — **ils observent, ils ne conduisent pas**.
+
+### 14.6 Ce que ce lot ne fait pas
+
+Trois limites, assumées et non masquées :
+
+- **Les hôpitaux de campagne ne sont pas filtrés par zone.** Le modèle API
+  `FieldHospital` ne porte aucune coordonnée : il n'y a rien à comparer à un
+  rayon. Inventer une position pour *faire semblant* de filtrer serait pire que
+  de ne pas filtrer sur une plateforme de commandement. À traiter quand
+  `FieldHospital` portera `ll`.
+- **Le tableau de bord global reste fermé au wali et à la place d'armes.**
+  `GET /dashboard/stats` agrège le pays entier sans paramètre de portée : leur
+  ouvrir la route leur montrerait des chiffres **nationaux** sur une page censée
+  montrer leur territoire — pire qu'un refus. Les compteurs qu'ils voient
+  aujourd'hui sont dérivés côté client des listes déjà filtrées, donc justes ;
+  les panneaux nationaux (fil des événements, analyse de risque) restent vides.
+  Résolu par le tableau de bord par incident (V-3) et les vues par portée (V-4).
+- **Le jeu de démonstration est trop clairsemé pour éprouver la zone.** L'unité
+  la plus proche de Casablanca est à 85 km : une place d'armes y voit 3 incidents
+  et **zéro** unité. Le filtre est juste, les données ne le sont pas encore
+  (lot V-4).
+
+### 14.7 Éprouver la doctrine
+
+```bash
+# Un wali de Casablanca-Settat, un commandant de place d'armes, un OPCOM déployé
+SU=$(curl -s -X POST localhost:3005/api/auth/dev-token -H 'Content-Type: application/json' \
+  -d '{"username":"m.zraib","role":"superadmin"}' | python3 -c "import json,sys;print(json.load(sys.stdin)['access_token'])")
+
+curl -s -X POST localhost:3005/api/iam/users -H "Authorization: Bearer $SU" \
+  -H 'Content-Type: application/json' \
+  -d '{"matricule":"wali.demo","nom":"Bennani","roles":["wali"],
+       "assignments":{"region":"Casablanca-Settat"}}'
+```
+
+Le code temporaire est renvoyé par la création. Connecté à l'écran, le wali doit
+voir **3 incidents** (tous Casablanca-Settat) là où le superadmin en voit 10 —
+sur le tableau de bord, dans la liste et sur la carte.
+
+## 15. Ce qui reste à construire
 
 Le workflow est posé ; ces maillons le compléteront (voir le plan d'exécution) :
 

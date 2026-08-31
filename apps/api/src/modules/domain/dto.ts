@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
+import { REGIONS_MA } from "@/modules/domain/provinces.data";
 
 const SEV = ["high", "medium", "low"] as const;
 const ST = ["open", "prog", "closed"] as const;
@@ -56,9 +57,14 @@ export class CreateIncidentDto {
   @MinLength(1)
   titre!: string;
 
-  @ApiProperty()
-  @IsString()
-  @MinLength(1)
+  @ApiProperty({
+    enum: REGIONS_MA,
+    description:
+      "Région administrative — DOIT appartenir au référentiel des 12 régions. Sans cette contrainte, " +
+      "« Oriental » et « L'Oriental » coexistaient et apparaissaient comme deux filtres distincts, " +
+      "et un wali affecté à l'une ne voyait pas les incidents libellés de l'autre.",
+  })
+  @IsIn(REGIONS_MA)
   region!: string;
 
   @ApiProperty({ enum: SEV })

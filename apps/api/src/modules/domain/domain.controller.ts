@@ -2,6 +2,8 @@ import { BadRequestException, Body, ConflictException, Controller, Delete, Get, 
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { RiskService } from "@/modules/domain/risk.service";
 import { DomainService } from "@/modules/domain/domain.service";
+import { VisibilityService } from "@/modules/domain/visibility.service";
+import { CITIES_MA } from "@/modules/domain/cities.data";
 import { CatalogService } from "@/modules/domain/catalog.service";
 import { CommsService } from "@/modules/domain/comms.service";
 import { IncidentTypesService } from "@/modules/domain/incident-types.service";
@@ -51,6 +53,7 @@ export class DomainController {
   constructor(
     private readonly risk: RiskService,
     private readonly domain: DomainService,
+    private readonly visibility: VisibilityService,
     private readonly catalog: CatalogService,
     private readonly comms: CommsService,
     private readonly incidentTypes: IncidentTypesService,
@@ -102,9 +105,15 @@ export class DomainController {
 
   @Get("incidents")
   @RequirePermission("incidents:view")
-  @ApiOperation({ summary: "Liste des incidents" })
-  incidents() {
-    return this.domain.listIncidents();
+  @ApiOperation({
+    summary: "Liste des incidents VISIBLES par le compte.",
+    description:
+      "Filtrée par la doctrine de visibilité (lot V-1) : globale pour l'état-major, la région pour un wali, " +
+      "la zone de 40 km pour une place d'armes, l'incident de déploiement pour la conduite, les incidents " +
+      "servis pour un responsable d'entité. Un rôle cantonné SANS affectation ne voit rien.",
+  })
+  incidents(@CurrentUser() user: AuthUser) {
+    return this.visibility.filterIncidents(this.domain.listIncidents(), this.scopeFor(user), this.entitiesOn);
   }
 
   @Get("sitreps")
@@ -141,6 +150,29 @@ export class DomainController {
   publishSitrep(@Body() dto: PublishSitrepDto, @CurrentUser() user: AuthUser) {
     return this.domain.publishSitrep({ ...dto, author: user.username });
   }
+
+  /**
+   * Portée du compte courant — doctrine de visibilité (lot V-1).
+   *
+   * Résolue à CHAQUE requête depuis le rôle et les affectations de la session,
+   * jamais depuis la requête : un client ne peut pas revendiquer une portée.
+   */
+  private scopeFor(user: AuthUser) {
+    return this.visibility.scopeOf(user.role, user.scope, (city) =>
+      CITIES_MA.find((c) => c.v === city)?.ll,
+    );
+  }
+
+  /**
+   * Entités servant un incident : intervenants déclarés. Les boucles ouvertes
+   * y seront ajoutées quand le rattachement par mission sera branché — le
+   * service de visibilité reçoit cette réponse plutôt que d'importer missions,
+   * ce qui éviterait un cycle de modules.
+   */
+  private entitiesOn = (incidentId: string): string[] => {
+    const inc = this.domain.listIncidents().find((i) => i.id === incidentId);
+    return [...(inc?.responders?.units ?? []), ...(inc?.responders?.hospitals ?? [])];
+  };
 
   @Get("alert-level")
   // Lue par TOUS les postes : le niveau s'affiche dans la barre haute quel que
@@ -282,9 +314,12 @@ export class DomainController {
 
   @Get("units")
   @RequirePermission("teams:view")
-  @ApiOperation({ summary: "Liste des unités" })
-  units() {
-    return this.domain.listUnits();
+  @ApiOperation({
+    summary: "Liste des unités visibles.",
+    description: "Seule la place d'armes est restreinte — à sa zone de compétence.",
+  })
+  units(@CurrentUser() user: AuthUser) {
+    return this.visibility.filterUnits(this.domain.listUnits(), this.scopeFor(user));
   }
 
   @Post("units")
@@ -484,9 +519,12 @@ export class DomainController {
 
   @Get("field-hospitals")
   @RequirePermission("hospinet:view")
-  @ApiOperation({ summary: "Hôpitaux de campagne déployés" })
-  fieldHospitals() {
-    return this.domain.listFieldHospitals();
+  @ApiOperation({
+    summary: "Hôpitaux de campagne visibles.",
+    description: "Seule la place d'armes est restreinte — à sa zone de compétence.",
+  })
+  fieldHospitals(@CurrentUser() user: AuthUser) {
+    return this.visibility.filterFieldHospitals(this.domain.listFieldHospitals(), this.scopeFor(user));
   }
 
   @Get("feed")

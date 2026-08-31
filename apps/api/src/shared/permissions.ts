@@ -209,9 +209,17 @@ const MATRIX: Record<(typeof MATRIX_FEATURES)[number], Partial<Record<Role, Cell
     bluecell: V, greencell: V, orangecell: V,
     resp_hospital: V, resp_shelter: V, resp_unit: V,
   },
+  // Lecture élargie au lot V-1 : `strategic`, `wali` et `place_arme` étaient
+  // ABSENTS de cette ligne — ils recevaient donc 403 sur la liste des incidents,
+  // ce qui rendait la doctrine de visibilité inatteignable. La permission dit
+  // seulement « peut lire des incidents » ; LESQUELS reste l'affaire du
+  // `VisibilityService` (région pour le wali, zone de 40 km pour la place
+  // d'armes, tout le pays pour le stratégique). Aucun ne reçoit `M`, `A` ni `R` :
+  // ces trois rôles observent, ils ne conduisent pas.
   incidents: {
     admin: ALL, opcom: ALL, tacom: VM,
     bluecell: V, greencell: V, orangecell: V, resp_hospital: V,
+    strategic: V, wali: V, place_arme: V,
   },
   subincidents: {
     admin: ALL, opcom: ALL, tacom: ALL, bluecell: AMV, greencell: V, orangecell: V,
@@ -219,8 +227,14 @@ const MATRIX: Record<(typeof MATRIX_FEATURES)[number], Partial<Record<Role, Cell
   hospinet: {
     admin: ALL, opcom: V, tacom: V, bluecell: V, greencell: AMV, orangecell: V,
     resp_hospital: AMV,
+    // V-1 : le stratégique suit le réseau hospitalier par fonction ; le wali
+    // doit pouvoir demander des renforts HORS de sa région, donc il voit le
+    // réseau entier ; la place d'armes ne voit que sa zone (filtrée en aval).
+    strategic: V, wali: V, place_arme: V,
   },
-  shelters: { admin: ALL, opcom: V, tacom: V, resp_shelter: AMV },
+  // V-1 : « situation et déploiement des abris » relève de la vue d'ensemble
+  // demandée au rôle stratégique.
+  shelters: { admin: ALL, opcom: V, tacom: V, resp_shelter: AMV, strategic: V },
   morgue: {
     admin: ALL, opcom: V, tacom: V, bluecell: V, greencell: V, orangecell: V,
     resp_morgue: AMV,
@@ -228,14 +242,25 @@ const MATRIX: Record<(typeof MATRIX_FEATURES)[number], Partial<Record<Role, Cell
   units: {
     admin: ALL, opcom: V, tacom: V, bluecell: V, greencell: V, orangecell: V,
     resp_unit: AMV,
+    // V-1 : « niveau de disponibilité et déploiement des unités » pour le
+    // stratégique ; pour le wali et la place d'armes, l'état des moyens
+    // engageables sur leur territoire.
+    strategic: V, wali: V, place_arme: V,
   },
   equipment: {
     admin: ALL, opcom: V, tacom: V, bluecell: V, greencell: V, orangecell: V,
     resp_unit: V, resp_equipment: AMV,
+    // V-1 : « les moyens déployés de sa zone de compétence » — spécification
+    // explicite de la place d'armes.
+    place_arme: V,
   },
   teams: {
     admin: ALL, opcom: V, tacom: V, bluecell: V, greencell: V, orangecell: V,
     resp_unit: V,
+    // V-1 : c'est CETTE ligne qui garde `GET /units` (et non `units:`, qui
+    // gouverne la page de gestion). Sans elle, le filtrage de zone de la place
+    // d'armes n'aurait jamais été atteint — la requête échouait avant.
+    strategic: V, wali: V, place_arme: V,
   },
   comms: {
     admin: ALL, strategic: VM, place_arme: VM, wali: VM, opcom: VM, tacom: VM,

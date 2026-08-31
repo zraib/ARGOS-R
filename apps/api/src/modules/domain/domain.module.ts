@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { DomainService } from "@/modules/domain/domain.service";
+import { VisibilityService } from "@/modules/domain/visibility.service";
 import { RiskService } from "@/modules/domain/risk.service";
 import { CatalogService } from "@/modules/domain/catalog.service";
 import { CommsService } from "@/modules/domain/comms.service";
@@ -12,7 +13,7 @@ import { DomainController } from "@/modules/domain/domain.controller";
 
 @Module({
   controllers: [DomainController],
-  providers: [DomainService, RiskService, CatalogService, CommsService, IncidentTypesService, SubIncidentTypesService, SeismicService, SeismicAlertsService, WeatherService],
-  exports: [DomainService, RiskService, CatalogService, CommsService, IncidentTypesService, SubIncidentTypesService, SeismicService, SeismicAlertsService, WeatherService],
+  providers: [DomainService, VisibilityService, RiskService, CatalogService, CommsService, IncidentTypesService, SubIncidentTypesService, SeismicService, SeismicAlertsService, WeatherService],
+  exports: [DomainService, VisibilityService, RiskService, CatalogService, CommsService, IncidentTypesService, SubIncidentTypesService, SeismicService, SeismicAlertsService, WeatherService],
 })
 export class DomainModule {}

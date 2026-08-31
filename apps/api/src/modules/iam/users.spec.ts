@@ -165,4 +165,96 @@ describe("IAM users — RBAC + règles d'attribution (Phase 2)", () => {
     await base().delete(`/api/iam/users/${id}`).set(auth(adminTok)).expect(403);
   });
 
+
+  // --- RATTACHEMENTS DE PORTÉE (lot V-1) ------------------------------------
+  // Le wali, la place d'armes et la conduite déployée ne répondent pas d'une
+  // ENTITÉ mais d'un PÉRIMÈTRE. Ces règles décident ce que le compte verra :
+  // une portée mal posée est une fuite ou un écran vide, jamais un simple
+  // détail de saisie.
+
+  it("V-1 : un wali SANS région est refusé — sinon il ne verrait rien du tout", async () => {
+    const t = await token("m.zraib", "superadmin");
+    const res = await base()
+      .post("/api/iam/users")
+      .set(auth(t))
+      .send({ matricule: `w.sansregion.${Date.now()}`, nom: "Wali", roles: ["wali"], assignments: {} })
+      .expect(400);
+    expect(String(res.body.message)).toContain("Région administrative");
+  });
+
+  it("V-1 : une région hors référentiel est refusée — « Oriental » n'est pas « L'Oriental »", async () => {
+    const t = await token("m.zraib", "superadmin");
+    await base()
+      .post("/api/iam/users")
+      .set(auth(t))
+      .send({
+        matricule: `w.faux.${Date.now()}`,
+        nom: "Wali",
+        roles: ["wali"],
+        assignments: { region: "Oriental" },
+      })
+      .expect(400);
+  });
+
+  it("V-1 : un OPCOM ne peut pas se voir affecter une RÉGION (portée orpheline)", async () => {
+    const t = await token("m.zraib", "superadmin");
+    const res = await base()
+      .post("/api/iam/users")
+      .set(auth(t))
+      .send({
+        matricule: `o.faux.${Date.now()}`,
+        nom: "OPCOM",
+        roles: ["opcom"],
+        assignments: { region: "Casablanca-Settat" },
+      })
+      .expect(400);
+    expect(String(res.body.message)).toContain("aucun rôle du compte n'en relève");
+  });
+
+  it("V-1 : un OPCOM est créé SANS incident — le déploiement est un acte distinct", async () => {
+    const t = await token("m.zraib", "superadmin");
+    await base()
+      .post("/api/iam/users")
+      .set(auth(t))
+      .send({ matricule: `o.libre.${Date.now()}`, nom: "OPCOM", roles: ["opcom"] })
+      .expect(201);
+  });
+
+  it("V-1 : modifier un compte n'EFFACE PAS sa portée (le piège du normalisateur)", async () => {
+    const t = await token("m.zraib", "superadmin");
+    const created = await base()
+      .post("/api/iam/users")
+      .set(auth(t))
+      .send({
+        matricule: `w.persist.${Date.now()}`,
+        nom: "Wali",
+        roles: ["wali"],
+        assignments: { region: "Souss-Massa" },
+      })
+      .expect(201);
+    const id = created.body.user.id as string;
+
+    // Un patch qui ne parle QUE du grade : la région doit survivre. Le
+    // normalisateur reconstruit l'objet d'affectation à chaque écriture — omettre
+    // les périmètres l'aurait vidé sans le moindre message d'erreur, et le wali
+    // se serait retrouvé aveugle après une modification anodine.
+    const patched = await base().patch(`/api/iam/users/${id}`).set(auth(t)).send({ grade: "Général" }).expect(200);
+    expect(patched.body.assignments?.region).toBe("Souss-Massa");
+  });
+
+  it("V-1 : un responsable d'abri cumule SON abri ET son incident de déploiement", async () => {
+    const t = await token("m.zraib", "superadmin");
+    const res = await base()
+      .post("/api/iam/users")
+      .set(auth(t))
+      .send({
+        matricule: `r.abri.${Date.now()}`,
+        nom: "Resp Abri",
+        roles: ["resp_shelter"],
+        assignments: { shelter: "AB-04", incident: "INC-2607" },
+      })
+      .expect(201);
+    expect(res.body.user.assignments).toMatchObject({ shelter: "AB-04", incident: "INC-2607" });
+  });
+
 });

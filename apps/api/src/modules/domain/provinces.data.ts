@@ -106,3 +106,14 @@ export const PROVINCES_MA: ProvinceDef[] = [
   { v: "Oued Ed-Dahab (Dakhla)", region: "Dakhla-Oued Ed-Dahab", ll: [-15.94, 23.68] },
   { v: "Aousserd", region: "Dakhla-Oued Ed-Dahab", ll: [-14.33, 22.55] },
 ];
+
+/**
+ * Les 12 régions administratives du Maroc, dérivées du référentiel ci-dessus.
+ *
+ * La liste n'existait qu'implicitement : chaque province porte sa région, mais
+ * rien n'énumérait l'ensemble. Sans énumération, `Incident.region` restait une
+ * chaîne libre — et le seed contenait déjà « Oriental » là où le référentiel
+ * dit « L'Oriental », ce qui produisait deux entrées distinctes dans les
+ * filtres. La constante ferme cette porte.
+ */
+export const REGIONS_MA: string[] = [...new Set(PROVINCES_MA.map((p) => p.region))].sort();
