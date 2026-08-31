@@ -13,7 +13,8 @@
     "openapi": "ts-node -T -r tsconfig-paths/register src/openapi-export.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "nrbc:import": "ts-node -T -r tsconfig-paths/register scripts/import-substances.ts"
+    "nrbc:import": "ts-node -T -r tsconfig-paths/register scripts/import-substances.ts",
+    "nrbc:extract-erg": "ts-node -T -r tsconfig-paths/register scripts/extract-erg-from-cameo.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",

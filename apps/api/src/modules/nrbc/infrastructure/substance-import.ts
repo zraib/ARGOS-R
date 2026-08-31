@@ -79,8 +79,17 @@ function packageRoot(from: string): string {
   return from;
 }
 
-/** Répertoire des jeux sous licence — hors du suivi de version. */
-export const IMPORT_DIR = process.env.NRBC_DATA_DIR ?? resolve(packageRoot(__dirname), "data");
+/**
+ * Répertoire des jeux sous licence — hors du suivi de version.
+ *
+ * FONCTION et non constante : évaluée à l'appel, elle permet aux tests de
+ * pointer un répertoire vide et de rester vrais quelle que soit la donnée
+ * versée sur la machine. Une constante figée à l'import faisait dépendre le
+ * résultat des tests de ce que l'opérateur avait chargé la veille.
+ */
+export function importDir(): string {
+  return process.env.NRBC_DATA_DIR ?? resolve(packageRoot(__dirname), "data");
+}
 export const IMPORT_FILE = "substances.json";
 
 export class SubstanceImportError extends Error {}
@@ -158,7 +167,7 @@ export function validateImport(raw: unknown): SubstanceImportFile {
  * référentiel de sécurité à moitié chargé est un piège : on croit consulter la
  * base complète.
  */
-export function loadImportedLibrary(dir = IMPORT_DIR): ImportedLibrary | null {
+export function loadImportedLibrary(dir = importDir()): ImportedLibrary | null {
   const path = resolve(dir, IMPORT_FILE);
   if (!existsSync(path)) return null;
   const file = validateImport(JSON.parse(readFileSync(path, "utf8")));
@@ -180,6 +189,21 @@ export function loadImportedLibrary(dir = IMPORT_DIR): ImportedLibrary | null {
  */
 export function mergeLibrary(builtin: Substance[], imported: Substance[]): Substance[] {
   const byId = new Map(builtin.map((s) => [s.id, s]));
-  for (const s of imported) byId.set(s.id, s);
+  for (const s of imported) {
+    const existing = byId.get(s.id);
+    // FUSION CHAMP PAR CHAMP, pas remplacement en bloc. Un fichier ne porte
+    // souvent qu'une partie de l'information — un extrait de la table 1 de
+    // l'ERG apporte des DISTANCES, pas des fiches. Remplacer l'enregistrement
+    // entier effacerait la fiche opérationnelle française déjà rédigée, en
+    // échange de rien. Les champs absents du fichier gardent leur valeur.
+    byId.set(s.id, existing ? { ...existing, ...prune(s) } : s);
+  }
   return [...byId.values()];
+}
+
+/** Retire les champs absents pour qu'ils n'écrasent pas l'existant par `undefined`. */
+function prune(s: Substance): Partial<Substance> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(s)) if (v !== undefined && v !== null) out[k] = v;
+  return out as Partial<Substance>;
 }

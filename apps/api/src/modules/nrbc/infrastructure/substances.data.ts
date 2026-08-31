@@ -104,7 +104,10 @@ export const SUBSTANCES: Substance[] = [
     hazardClass: "2.3",
     state: "gas",
     small: { isolationM: 30, protectDayKm: 0.16, protectNightKm: 0.16 },
-    large: { isolationM: 305, protectDayKm: 4.18, protectNightKm: 4.18 },
+    // Jour 1,0 mille = 1,61 km ; nuit 2,6 milles = 4,18 km (table 3, wagon-citerne,
+    // vent faible). La valeur de jour recopiait CELLE DE NUIT jusqu'au lot N-3c :
+    // erreur trouvée en confrontant la saisie à la base ERG, pas en la relisant.
+    large: { isolationM: 305, protectDayKm: 1.61, protectNightKm: 4.18 },
     ergVerified: true,
     sheetVerified: false,
     sheet: {

@@ -1103,6 +1103,60 @@ précisément celles qu'on veut voir vérifiées en premier.
 « installé » restait invisible, sans le moindre message. Il est désormais ancré
 sur la racine du paquet.)*
 
+### 19.8 Extraire les distances ERG de l'application CAMEO de bureau
+
+L'application CAMEO Chemicals de bureau embarque sa base : un fichier SQLite de
+32 Mo, `Resources/server/CAMEOChemicalsServer/_internal/cameo.sqlite`. Elle
+mélange **des jeux de statuts juridiques différents** :
+
+| Tables | Origine | Statut |
+|---|---|---|
+| `unna_actiondistances`, `unna_table3`, `unnas`, `erg_guides`, `unna_cfr49s` | ERG 2024, 49 CFR | Publication gouvernementale, **diffusion libre aux secours** |
+| `lol`, `cfats` | EPA, CISA | Publications gouvernementales |
+| `dupont` | DuPont | **Propriété tierce, nommée dans les conditions** |
+| `chemical_cas` | Chemical Abstracts Service | **Propriété tierce, nommée** |
+| `aegls`, `erpgs` | NACA, AIHA | **Propriété tierce, nommées** |
+| `chemicals` (5 094 fiches) | Compilation NOAA + contributeurs | **Interdiction de duplication** |
+
+**Posséder l'application ne donne pas le droit d'en verser la base dans une
+autre.** Le script `nrbc:extract-erg` ne lit donc QUE les tables ERG :
+
+```bash
+npm run nrbc:extract-erg -- "/chemin/vers/CAMEO CHEMICALS"   # depuis apps/api
+npm run nrbc:import -- data/erg2024-extrait.json
+```
+
+Résultat : **272 matières avec distances complètes** — 30 qui complètent les
+fiches françaises existantes, 242 nouvelles. La bibliothèque passe de 11 jeux de
+distances (2 relevés) à 272 sur 273, tous relevés.
+
+**Le pire cas est retenu.** La table 3 ventile le grand déversement par
+CONTENANT — wagon-citerne, camion, bouteilles : un facteur 6 entre les extrêmes —
+et par force de vent. ARGOS ne portant qu'une valeur, on prend le wagon-citerne
+par vent faible. Un état-major planifie sur l'enveloppe.
+
+**La fusion est champ par champ.** Un extrait de la table 1 apporte des
+DISTANCES, pas des fiches : remplacer l'enregistrement entier effacerait la fiche
+opérationnelle française contre rien. Les 30 substances complétées gardent leur
+libellé, leurs synonymes, leur fiche — et gagnent des distances vérifiées.
+
+#### Ce que l'extraction a corrigé
+
+La confrontation à la base a révélé une **erreur dans une donnée que j'avais
+marquée « relevée sur l'ERG »** : la distance de protection de jour de
+l'ammoniac (grand déversement) valait 4,18 km, recopie de la valeur de NUIT. La
+table 3 donne 1,0 mille de jour, soit **1,61 km**. Corrigée à la source.
+
+C'est l'argument du lot en une ligne : *une saisie manuelle relue reste fausse ;
+seule la confrontation à la source la corrige.* Les 272 distances ne sont plus
+saisies, elles sont extraites.
+
+#### Ce qui reste en anglais
+
+Les noms des 242 nouvelles matières viennent de la base en anglais. Ils sont
+recopiés tels quels dans les trois langues : une traduction automatique de nom
+chimique serait une invention. Le français reste à faire par l'état-major.
+
 ## 20. Ce qui reste à construire
 
 Le workflow est posé ; ces maillons le compléteront (voir le plan d'exécution) :

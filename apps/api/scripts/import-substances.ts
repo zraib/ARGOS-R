@@ -2,7 +2,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import {
-  IMPORT_DIR,
+  importDir,
   IMPORT_FILE,
   SubstanceImportError,
   validateImport,
@@ -55,10 +55,10 @@ function main() {
   const avecDistances = file.substances.filter((s) => s.small && s.large).length;
   const ergVerifiees = file.substances.filter((s) => s.ergVerified).length;
 
-  mkdirSync(IMPORT_DIR, { recursive: true });
-  copyFileSync(path, resolve(IMPORT_DIR, IMPORT_FILE));
+  mkdirSync(importDir(), { recursive: true });
+  copyFileSync(path, resolve(importDir(), IMPORT_FILE));
 
-  console.log(`\n  ${basename(path)} → ${resolve(IMPORT_DIR, IMPORT_FILE)}\n`);
+  console.log(`\n  ${basename(path)} → ${resolve(importDir(), IMPORT_FILE)}\n`);
   console.log(`  source          ${file.source}`);
   console.log(`  relevé le       ${file.retrievedAt}`);
   console.log(`  détenu au titre ${file.authorization}\n`);
