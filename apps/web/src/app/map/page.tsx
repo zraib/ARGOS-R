@@ -7,8 +7,10 @@ import { useArgos, useDict } from "@/lib/store";
 import { TILES_AVAILABLE, TILES_MODE } from "@/lib/map/tiles";
 import { Badge, type BadgeType } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
+import { HazardIcon } from "@/components/ui/HazardIcon";
+import { FAMILY_PICTOGRAM } from "@/lib/hazard/pictograms";
 import { UI_ICONS } from "@/lib/icons";
-import { sevBadge, stBadge, typeLabel } from "@/lib/helpers";
+import { sevBadge, stBadge, typeLabel, hazardLabel} from "@/lib/helpers";
 import { FLUX } from "@/lib/i18n/flux";
 import type { LayerState } from "@/lib/store";
 
@@ -487,7 +489,13 @@ export default function MapPage() {
           onClick={() => showPlume(i.id)}
           className="flex min-h-11 w-full items-center gap-2 rounded-lg border border-white/12 px-2.5 py-2 text-start transition-colors hover:border-or-400/60 hover:bg-white/5 lg:min-h-0"
         >
-          <Icon path={UI_ICONS.nrbc} size={15} className="shrink-0 text-or-400" />
+          {/* La liste des panaches disponibles : le pictogramme y dit la
+              famille sans qu'il faille ouvrir la fiche. */}
+          {i.nrbc ? (
+            <HazardIcon kind={FAMILY_PICTOGRAM[i.nrbc.family]} size={20} className="shrink-0" label={hazardLabel(FAMILY_PICTOGRAM[i.nrbc.family], t)} />
+          ) : (
+            <Icon path={UI_ICONS.nrbc} size={15} className="shrink-0 text-or-400" />
+          )}
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[13px] font-semibold text-white">{i.titre}</span>
             <span className="block text-[11px] text-white/50">{i.id} · {i.region}</span>

@@ -8,12 +8,14 @@ import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
 import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
-import { sevBadge, stBadge, subTypeLabel, typeLabel } from "@/lib/helpers";
+import { sevBadge, stBadge, subTypeLabel, typeLabel, hazardLabel} from "@/lib/helpers";
 import { canReportIncident } from "@/lib/roles";
 import type { Incident, IncidentStatus, Severity, SubIncident, WeatherForecast } from "@/lib/types";
 import { predictIncidentEvolution, type IncidentEvolution } from "@/lib/ai/risk/incidentEvolution";
 import { IncidentEvolutionCard } from "@/components/incidents/IncidentEvolutionCard";
 import { DeployedPosts } from "@/components/incidents/DeployedPosts";
+import { HazardIcon } from "@/components/ui/HazardIcon";
+import { FAMILY_PICTOGRAM } from "@/lib/hazard/pictograms";
 
 const TH = "px-4 py-3 text-start text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400";
 const TD = "px-4 py-2.5";
@@ -636,7 +638,9 @@ function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddSub }: {
           <div className="rounded-xl border-2 border-or-500/30 bg-or-500/5 p-3">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-wider text-gray-500 dark:text-rdia-300/80">
-                <Icon path={UI_ICONS.nrbc} size={13} className="text-or-500" />
+                {/* Le pictogramme RÉGLEMENTAIRE plutôt qu'un glyphe maison :
+                    c'est le symbole que porte le fût sur le terrain. */}
+                <HazardIcon kind={FAMILY_PICTOGRAM[incident.nrbc.family]} size={18} label={hazardLabel(FAMILY_PICTOGRAM[incident.nrbc.family], t)} />
                 {t.nrbc_title}
                 <span className="rounded-md bg-or-500/15 px-1.5 py-0.5 text-[10px] font-bold text-or-500">
                   {incident.nrbc.family} — {incident.nrbc.family === "N" ? t.nrbc_fam_n : incident.nrbc.family === "R" ? t.nrbc_fam_r : incident.nrbc.family === "B" ? t.nrbc_fam_b : t.nrbc_fam_c}

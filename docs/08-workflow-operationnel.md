@@ -886,7 +886,77 @@ o.chraibi / OPCOM-2026    → AUCUN incident, tant qu'il n'est pas déployé
 Puis, depuis la fiche d'une opération, déployer `o.chraibi` : il voit
 immédiatement cette opération, et elle seule.
 
-## 18. Ce qui reste à construire
+## 18. Les insignes NRBC (lot N-1)
+
+Sur la carte, **tout incident portait le même triangle « ! »** : une fuite de
+chlore ne se distinguait pas d'une crue. C'est l'information la plus coûteuse à
+ne pas voir — la nature du danger décide des distances d'isolement, de la tenue
+de protection et du sens d'approche.
+
+### 18.1 Ce qui est dessiné, et selon quoi
+
+Les pictogrammes suivent la signalisation **ADR/ONU**, pas une interprétation :
+
+| Famille NRBC | Pictogramme | Référence |
+|---|---|---|
+| C — chimique | Losange **blanc**, tête de mort et tibias noirs | ADR 6.1 / 2.3 |
+| N — nucléaire · R — radiologique | Moitié haute **jaune**, moitié basse blanche, trèfle noir | ADR 7 |
+| B — biologique | Losange blanc, symbole de danger biologique | ADR 6.2 |
+| — | Fût de matière dangereuse avec flaque | usage interne |
+
+`N` et `R` partagent le trèfle : la signalisation ne distingue pas l'origine du
+rayonnement (arme ou source industrielle). Les séparer inventerait un symbole
+qui n'existe pas.
+
+**Une réserve, assumée.** La demande décrivait « un losange jaune avec crâne et
+deux os ». Ce signal n'existe pas dans l'ADR : le jaune y désigne la
+radioactivité (classe 7) et les comburants (5.1) ; la tête de mort se porte sur
+fond **blanc**. Sur une plateforme de commandement, un pictogramme faux est pire
+qu'un pictogramme générique — il *affirme*. Le repère jaune est donc porté par
+l'**anneau du marqueur** cartographique : signal coloré à distance, symbole
+exact de près. Basculer le fond en jaune reste une constante à changer.
+
+### 18.2 Une géométrie, deux rendus
+
+Les marqueurs MapLibre sont construits en **chaînes HTML**, l'interface en
+**React**. Décrire les formes en données (`lib/hazard/pictograms.ts`) plutôt
+qu'en JSX permet aux deux de partager la même source. Deux jeux de tracés
+auraient fini par diverger, et c'est précisément le genre de divergence qu'on ne
+remarque pas : le pictogramme resterait *plausible*.
+
+### 18.3 La contrainte qui a fait défaut deux fois
+
+À une hauteur `y`, la demi-largeur intérieure du losange vaut `24,5 − |y − 32|`
+sur une grille de 64. Le premier dessin employait un rayon de 19 : **les tibias
+sortaient du cadre**, et le trèfle touchait les bords au point que ses trois
+vides — ce qui le fait reconnaître — cessaient de se lire. Une signalisation qui
+déborde de son étiquette n'est plus une signalisation.
+
+La géométrie est désormais bornée à ~15 de rayon, et les tibias croisent
+**derrière** le crâne à hauteur de ses tempes (disposition de la planche ADR)
+plutôt qu'en dessous : les placer dessous obligeait à les allonger pour qu'ils se
+voient, donc à sortir du cadre.
+
+### 18.4 Où ils apparaissent
+
+- **Marqueur cartographique** — le pictogramme dans un anneau teinté par la
+  **gravité** : le symbole dit de quoi il s'agit, l'anneau à quel point c'est
+  grave. Les deux se lisent d'un coup d'œil sans se gêner.
+- **Fiche d'incident**, en-tête du volet NRBC.
+- **Tableau de bord de l'opération**, en-tête.
+- **Panneau NRBC de la carte**, liste des panaches.
+
+L'`aria-label` est traduit (FR/EN/AR) : c'est le seul contenu du pictogramme pour
+qui ne le voit pas.
+
+### 18.5 Ce qui n'est pas couvert
+
+`apps/web` n'a **toujours aucune suite de tests** : cette géométrie est gardée
+par le commentaire qui énonce la contrainte de cadre, et par l'œil. Le défaut de
+débordement a d'ailleurs été trouvé en regardant une planche de rendu, pas en
+lisant le code — c'est dire ce que vaut ici une relecture.
+
+## 19. Ce qui reste à construire
 
 Le workflow est posé ; ces maillons le compléteront (voir le plan d'exécution) :
 

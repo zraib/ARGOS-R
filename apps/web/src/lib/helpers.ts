@@ -16,6 +16,7 @@ import type {
   UnitReadiness,
 } from "@/lib/types";
 import type { BadgeType } from "@/components/ui/Badge";
+import type { HazardKind } from "@/lib/hazard/pictograms";
 
 /** Icône de repli (triangle d'alerte) pour un type absent du catalogue. */
 export const TYPE_FALLBACK_ICON =
@@ -99,4 +100,21 @@ export function persStatut(j: number): { label: string; type: BadgeType } {
     ["Repos", "on_hold"],
   ];
   return { label: table[j % 3][0], type: table[j % 3][1] };
+}
+
+/**
+ * Libellé traduit d'un pictogramme de danger.
+ *
+ * Le `ref` porté par la géométrie est une référence de classe en français : il
+ * sert de repli, mais un `aria-label` doit être dans la langue de l'utilisateur
+ * — c'est le seul contenu du pictogramme pour qui ne le voit pas.
+ */
+export function hazardLabel(kind: HazardKind, t: Dict): string {
+  const map: Record<HazardKind, string> = {
+    toxic: t.hz_toxic,
+    radioactive: t.hz_radioactive,
+    biohazard: t.hz_biohazard,
+    drum: t.hz_drum,
+  };
+  return map[kind];
 }

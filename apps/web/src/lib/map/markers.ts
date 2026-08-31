@@ -13,6 +13,7 @@ import type {
 } from "@/lib/types";
 import { incidentFill } from "@/lib/helpers";
 import { fieldKind, hospKind, kindDef } from "@/lib/hospitals";
+import { FAMILY_PICTOGRAM, hazardSvgString } from "@/lib/hazard/pictograms";
 
 export function selRing(sel: boolean): string {
   return sel ? "box-shadow: 0 0 0 3px #C9A84C, 0 0 12px rgba(201,168,76,0.8); border-radius: 9999px;" : "";
@@ -101,6 +102,28 @@ export function incMarkerHTML(i: Incident, sel: boolean): string {
   const ping = i.st !== "closed"
     ? `<div style="position:absolute;inset:-4px;border-radius:9999px;background:${fill};opacity:.5;animation:cgc-ping 1.8s ease-out infinite;"></div>`
     : "";
+
+  // --- INCIDENT NRBC : le pictogramme réglementaire, pas le triangle générique
+  //
+  // Tous les incidents portaient le même triangle « ! » : sur la carte, une
+  // fuite de chlore ne se distinguait pas d'une crue. Or c'est la NATURE du
+  // danger qui décide des distances d'isolement, de la tenue de protection et
+  // du sens d'approche — l'information la plus coûteuse à ne pas voir.
+  //
+  // L'anneau reste teinté par la GRAVITÉ : le symbole dit de quoi il s'agit,
+  // l'anneau dit à quel point c'est grave. Les deux se lisent d'un coup d'œil
+  // sans se gêner.
+  const kind = i.nrbc ? FAMILY_PICTOGRAM[i.nrbc.family] : undefined;
+  if (kind) {
+    const glyph = hazardSvgString(kind, 22);
+    return (
+      `<div style="position:relative;width:30px;height:30px;${selRing(sel)}">${ping}` +
+      `<div style="position:relative;width:30px;height:30px;border-radius:9999px;background:${fill};` +
+      "border:2px solid #0f1f14;box-sizing:border-box;display:flex;align-items:center;justify-content:center;" +
+      `box-shadow:0 1px 4px rgba(0,0,0,.6);">${glyph}</div></div>`
+    );
+  }
+
   return (
     `<div style="position:relative;width:22px;height:20px;${selRing(sel)}">${ping}` +
     `<svg width="22" height="20" viewBox="0 0 22 20" style="position:relative;"><path d="M11,1 L21,19 L1,19 Z" fill="${fill}" stroke="#0f1f14" stroke-width="1.5"></path>` +

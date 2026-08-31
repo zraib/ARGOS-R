@@ -8,7 +8,9 @@ import { Icon } from "@/components/ui/Icon";
 import { StatTile } from "@/components/ui/StatTile";
 import { UI_ICONS } from "@/lib/icons";
 import { DeployedPosts } from "@/components/incidents/DeployedPosts";
-import { subTypeLabel, typeLabel } from "@/lib/helpers";
+import { HazardIcon } from "@/components/ui/HazardIcon";
+import { FAMILY_PICTOGRAM } from "@/lib/hazard/pictograms";
+import { subTypeLabel, typeLabel, hazardLabel} from "@/lib/helpers";
 
 // ============================================================================
 // Tableau de bord d'UNE opération (lot V-3)
@@ -31,6 +33,7 @@ import { subTypeLabel, typeLabel } from "@/lib/helpers";
 interface Dash {
   incident: {
     id: string;
+    nrbc?: { family: string };
     titre: string;
     type: string;
     region: string;
@@ -149,6 +152,9 @@ export default function IncidentDashboardPage() {
             <span className="rounded-md bg-rdia-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-rdia-500 dark:text-rdia-200">
               {typeLabel(i.type, incidentTypes, lang)}
             </span>
+            {/* La nature du danger décide des distances d'isolement et de la
+                tenue : elle appartient à l'en-tête, pas à un volet plus bas. */}
+            {i.nrbc && <HazardIcon kind={FAMILY_PICTOGRAM[i.nrbc.family]} size={26} label={hazardLabel(FAMILY_PICTOGRAM[i.nrbc.family], t)} />}
           </div>
           <h1 className="truncate text-lg font-bold text-rdia-600 dark:text-rdia-50">{i.titre}</h1>
           <p className="mt-0.5 text-xs text-gray-500 dark:text-rdia-300">

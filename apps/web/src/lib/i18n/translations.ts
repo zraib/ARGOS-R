@@ -488,5 +488,10 @@ export interface Dict {
   idash_units: string;
   idash_hospitals: string;
   idash_loading: string;
+  // --- pictogrammes de danger réglementaires (lot N-1) ---
+  hz_toxic: string;
+  hz_radioactive: string;
+  hz_biohazard: string;
+  hz_drum: string;
 }
 
