@@ -24,8 +24,9 @@ describe("V-3 — tableau de bord par incident", () => {
   };
   const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
 
-  const CASA = "INC-2598"; // Casablanca-Settat
-  const ORIENTAL = "INC-2601"; // L'Oriental
+  const CASA = "INC-2612"; // Casablanca-Settat — en cours
+  // Une AUTRE région, et une opération ouverte : le test y déploie un poste.
+  const ELSEWHERE = "INC-2620"; // Drâa-Tafilalet — en cours
   let su: string;
 
   beforeAll(async () => {
@@ -59,7 +60,7 @@ describe("V-3 — tableau de bord par incident", () => {
     await base().get(`/api/incidents/${CASA}/dashboard`).set(auth(t)).expect(200);
     // 404 et non 403 : « interdit » confirmerait l'existence de l'opération à
     // quelqu'un qui n'a pas à la connaître.
-    await base().get(`/api/incidents/${ORIENTAL}/dashboard`).set(auth(t)).expect(404);
+    await base().get(`/api/incidents/${ELSEWHERE}/dashboard`).set(auth(t)).expect(404);
   });
 
   it("un OPCOM n'ouvre que le tableau de bord de l'opération où il est déployé", async () => {
@@ -69,8 +70,8 @@ describe("V-3 — tableau de bord par incident", () => {
     // Non déployé : aucun tableau de bord, pas même celui d'un incident réel.
     await base().get(`/api/incidents/${CASA}/dashboard`).set(auth(t)).expect(404);
 
-    await base().post(`/api/incidents/${ORIENTAL}/deployments`).set(auth(su)).send({ matricule: m }).expect(201);
-    await base().get(`/api/incidents/${ORIENTAL}/dashboard`).set(auth(t)).expect(200);
+    await base().post(`/api/incidents/${ELSEWHERE}/deployments`).set(auth(su)).send({ matricule: m }).expect(201);
+    await base().get(`/api/incidents/${ELSEWHERE}/dashboard`).set(auth(t)).expect(200);
     await base().get(`/api/incidents/${CASA}/dashboard`).set(auth(t)).expect(404);
   });
 
@@ -169,16 +170,16 @@ describe("V-3 — tableau de bord par incident", () => {
     const m = `f.v3.${Date.now()}`;
     await base().post("/api/iam/users").set(auth(su)).send({ matricule: m, nom: "Essai", roles: ["opcom"] }).expect(201);
 
-    const beforeMine = (await base().get(`/api/incidents/${ORIENTAL}/dashboard`).set(auth(su)).expect(200)).body
+    const beforeMine = (await base().get(`/api/incidents/${ELSEWHERE}/dashboard`).set(auth(su)).expect(200)).body
       .timeline.length as number;
     const beforeOther = (await base().get(`/api/incidents/${CASA}/dashboard`).set(auth(su)).expect(200)).body
       .timeline.length as number;
 
-    // ORIENTAL et non CASA : ce dernier est CLOS dans le seed, et la règle V-2
+    // ELSEWHERE et non CASA : ce dernier est CLOS dans le seed, et la règle V-2
     // refuse d'armer une opération close — la règle vaut aussi pour les tests.
-    await base().post(`/api/incidents/${ORIENTAL}/deployments`).set(auth(su)).send({ matricule: m }).expect(201);
+    await base().post(`/api/incidents/${ELSEWHERE}/deployments`).set(auth(su)).send({ matricule: m }).expect(201);
 
-    const mine = await base().get(`/api/incidents/${ORIENTAL}/dashboard`).set(auth(su)).expect(200);
+    const mine = await base().get(`/api/incidents/${ELSEWHERE}/dashboard`).set(auth(su)).expect(200);
     const other = await base().get(`/api/incidents/${CASA}/dashboard`).set(auth(su)).expect(200);
 
     // Le geste s'inscrit dans le fil de SON opération, et n'y touche qu'elle.
@@ -187,7 +188,7 @@ describe("V-3 — tableau de bord par incident", () => {
     // Et chaque ligne porte le rattachement : le fil n'est pas reconstitué en
     // cherchant l'identifiant dans le texte, ce qui raterait en silence dès
     // qu'une formulation change.
-    for (const f of mine.body.timeline) expect(f.incidentId).toBe(ORIENTAL);
+    for (const f of mine.body.timeline) expect(f.incidentId).toBe(ELSEWHERE);
   });
 
   // --- la description, enfin conservée --------------------------------------

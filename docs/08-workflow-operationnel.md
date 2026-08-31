@@ -787,7 +787,106 @@ Ils voyaient leurs incidents dans la liste (portée `entity`, V-1) et recevaient
 cellules sont ajoutées ; le cantonnement reste appliqué : ils n'ouvrent que les
 opérations où **leur** entité sert.
 
-## 17. Ce qui reste à construire
+## 17. Le jeu de démonstration (lot V-4)
+
+Un jeu de données de démonstration n'est pas un décor : c'est lui qui décide si
+un défaut de portée **se voit** ou passe inaperçu. Le jeu précédent l'illustrait
+à l'envers — l'unité la plus proche de Casablanca stationnait à 85 km, si bien
+qu'une place d'armes y voyait **zéro** moyen. Une liste vide et un filtre cassé
+se ressemblent beaucoup.
+
+### 17.1 Construit pour être éprouvé — et démenti
+
+| Portée | Ce que le jeu permet de démontrer |
+|---|---|
+| **région** (wali) | Casablanca-Settat porte **4** opérations, les autres régions les 7 restantes |
+| **zone** (place d'armes, 40 km) | 3 des 4 opérations de Casablanca-Settat sont dans la zone |
+| **entité** (resp. hôpital/unité/morgue) | H2 sert **4** opérations, H1 en sert 3 |
+| **incident** (conduite) | Chaque opération ouverte a bilan, moyens, sous-incidents |
+
+Le point qui compte est le **cas limite**. Autour de Casablanca :
+
+```
+Casablanca      0,0 km   ✓        Benslimane     43,8 km   ✗   ← ici
+Mohammedia     23,6 km   ✓        Settat         63 km     ✗
+Berrechid      33,4 km   ✓
+```
+
+L'incident de Benslimane et l'unité U10 sont placés à **43,8 km** : même région,
+même province, hors de portée de 4 km. Un filtre approximatif — par province,
+par région, « à peu près » — les inclurait. Sans ce point, une erreur de 20 %
+sur le rayon passerait inaperçue, et les portées « région » et « zone »
+seraient indiscernables à la démonstration.
+
+### 17.2 Ce que le jeu contient
+
+**11 opérations** sur 5 régions canoniques, chacune avec description, bilan
+humain et intervenants — le jeu précédent n'avait ni l'un ni l'autre, d'où des
+tableaux de bord vides. Une opération est **close** (elle éprouve le refus de
+déploiement de V-2), une est **NRBC** (elle alimente le panache).
+
+**12 unités.** `U1`..`U6` gardent leur identité : `catalog.data.ts` rattache
+douze matériels à ces identifiants, et les renuméroter aurait réaffecté, sans un
+mot, le parc du Génie à une unité NRBC. **Un identifiant est une référence : on
+l'étend, on ne le réattribue pas.** Les unités de l'axe Casablanca sont `U7`..`U10`.
+
+**4 comptes de démonstration**, dans le seed :
+
+| Matricule | Rôle | Portée | Code |
+|---|---|---|---|
+| `w.casa` | Wali | Casablanca-Settat | `WALI-2026` |
+| `p.casa` | Place d'Armes | Casablanca (40 km) | `ZONE-2026` |
+| `o.chraibi` | OPCOM | **non déployé** | `OPCOM-2026` |
+| `s.moutaouakil` | Resp. Hôpital | H2 | `HOSP-2026` |
+
+L'OPCOM est créé **non déployé** : un compte sans affectation ne voit rien, et
+c'est la première chose à démontrer. Le changement de mot de passe au premier
+login reste obligatoire, comme pour tout compte.
+
+### 17.3 Reprise des installations existantes
+
+Un nouveau jeu de données doit prendre effet là où il en faut un, sans effacer
+le travail d'une séance. Trois mécanismes :
+
+- **`seeded: true`** marque les lignes de démonstration. Une montée de
+  `DOMAIN_SEED_VERSION` les reconstruit et conserve ce qu'un utilisateur a créé.
+- **Reprise ponctuelle** : les lignes déjà sur disque sont antérieures au
+  marqueur, d'où `LEGACY_SEED_INCIDENT_IDS` / `LEGACY_SEED_UNIT_IDS`. Les montées
+  suivantes s'appuieront sur le marqueur seul.
+- **Comptes** : ajout purement **additif**. Le registre disque fait autorité — un
+  compte modifié, désactivé ou supprimé le reste ; un compte du seed absent du
+  disque est simplement ajouté.
+
+### 17.4 Deux défauts que le jeu a révélés
+
+**La numérotation des incidents reprenait des identifiants existants.** Elle
+faisait `2608 + nombre d'incidents` : compter rendait un identifiant déjà pris
+dès qu'un incident avait été supprimé — et, avec onze lignes amorcées à partir
+de `INC-2612`, dès la **première** création. Deux incidents de même identifiant,
+c'est une boucle adressée à la mauvaise opération. La numérotation part
+désormais du **rang maximal**.
+
+**Les doublons d'identifiant survivaient à la reprise.** Ils ne sont jamais
+valides, mais rien ne les écartait hors d'une reconstruction — donc un
+instantané abîmé se restituait tel quel indéfiniment. Le dédoublonnage est
+maintenant appliqué à **chaque** lecture.
+
+*(Le second a été trouvé en observant l'application, pas en lisant le code : une
+reconstruction interrompue avait laissé quatre incidents en double sur le poste
+de développement.)*
+
+### 17.5 Éprouver, en trois connexions
+
+```
+w.casa / WALI-2026        → 4 incidents, tous Casablanca-Settat
+p.casa / ZONE-2026        → 3 incidents et 3 unités ; Benslimane (43,8 km) absente
+o.chraibi / OPCOM-2026    → AUCUN incident, tant qu'il n'est pas déployé
+```
+
+Puis, depuis la fiche d'une opération, déployer `o.chraibi` : il voit
+immédiatement cette opération, et elle seule.
+
+## 18. Ce qui reste à construire
 
 Le workflow est posé ; ces maillons le compléteront (voir le plan d'exécution) :
 

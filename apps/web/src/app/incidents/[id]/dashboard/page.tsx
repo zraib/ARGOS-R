@@ -8,7 +8,7 @@ import { Icon } from "@/components/ui/Icon";
 import { StatTile } from "@/components/ui/StatTile";
 import { UI_ICONS } from "@/lib/icons";
 import { DeployedPosts } from "@/components/incidents/DeployedPosts";
-import { typeLabel } from "@/lib/helpers";
+import { subTypeLabel, typeLabel } from "@/lib/helpers";
 
 // ============================================================================
 // Tableau de bord d'UNE opération (lot V-3)
@@ -87,6 +87,10 @@ export default function IncidentDashboardPage() {
   const t = useDict();
   const lang = useArgos((s) => s.lang);
   const incidentTypes = useArgos((s) => s.incidentTypes);
+  // Les SOUS-types ont leur propre catalogue. Les libeller avec celui des
+  // incidents ne rendait un intitulé que pour les rares clés présentes dans les
+  // deux — les autres s'affichaient en identifiant brut (« road_cut »).
+  const subCatalog = useArgos((s) => s.subCatalog);
 
   const [dash, setDash] = useState<Dash | null>(null);
   const [denied, setDenied] = useState(false);
@@ -305,7 +309,7 @@ export default function IncidentDashboardPage() {
             {dash.subIncidents.map((sub) => (
               <li key={sub.id} className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-2.5 py-1.5 dark:bg-rdia-900/40">
                 <span className="truncate text-xs text-gray-800 dark:text-rdia-100">
-                  {typeLabel(sub.type, incidentTypes, lang)}
+                  {subTypeLabel(sub.type, subCatalog.types, lang)}
                   {sub.note ? ` — ${sub.note}` : ""}
                 </span>
                 <span className="shrink-0 text-[10.5px] tabular-nums text-gray-400 dark:text-rdia-400">{sub.time}</span>

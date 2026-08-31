@@ -142,7 +142,7 @@ describe("ABAC — cantonnement des responsables à leur entité", () => {
     const admitted = await base()
       .post("/api/morgues/M3/records")
       .set("Authorization", `Bearer ${tok}`)
-      .send({ reference: "AH-2026-777", incidentId: "INC-2607", foundAt: "Douar Imi N'Tala", sex: "f" })
+      .send({ reference: "AH-2026-777", incidentId: "INC-2616", foundAt: "Douar Imi N'Tala", sex: "f" })
       .expect(201);
     expect(admitted.body.status).toBe("unidentified");
     const rid = admitted.body.id as string;

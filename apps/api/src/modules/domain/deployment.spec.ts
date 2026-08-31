@@ -24,9 +24,9 @@ describe("V-2 — déploiement d'un poste sur une opération", () => {
   const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
 
   // Données du seed (les tests n'héritent pas du dev-store : `NODE_ENV=test`).
-  const OPEN_A = "INC-2607"; // en cours
-  const OPEN_B = "INC-2606"; // en cours
-  const CLOSED = "INC-2598"; // clos
+  const OPEN_A = "INC-2616"; // séisme d'Al Haouz — en cours
+  const OPEN_B = "INC-2617"; // crues de l'Ourika — en cours
+  const CLOSED = "INC-2622"; // ammoniac d'Agadir — close
   const DEPLOYABLE = "y.tazi"; // cellule bleue — poste déployable
   const NOT_DEPLOYABLE = "n.fassi"; // responsable d'unité — sert plusieurs opérations
 

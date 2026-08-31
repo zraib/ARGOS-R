@@ -3,6 +3,12 @@ import { PROVINCES_MA, llToSvg } from "@/modules/domain/provinces.data";
 import { CITIES_MA } from "@/modules/domain/cities.data";
 import { EQUIPMENT, ORSEC_BOARD, ROSTER, SHELTERS, TRIAGE_ZONES, type EquipItem } from "@/modules/domain/catalog.data";
 import { HOSPITALS_MA, type HospitalKind } from "@/modules/domain/hospitals.data";
+import {
+  LEGACY_SEED_INCIDENT_IDS,
+  LEGACY_SEED_UNIT_IDS,
+  SEED_INCIDENTS,
+  SEED_UNITS,
+} from "@/modules/domain/seed.data";
 import { checkRecordUpdate } from "@/modules/domain/dvi.rules";
 import { loadDevState, saveDevState } from "@/common/dev-store";
 import type { NrbcDetails } from "@/modules/nrbc/nrbc.types";
@@ -47,6 +53,15 @@ export interface Incident {
   nrbc?: NrbcDetails;
   /** Incident archivé (masqué de la liste active). */
   archived?: boolean;
+  /**
+   * Ligne du jeu de DÉMONSTRATION (lot V-4).
+   *
+   * Une montée de version du seed reconstruit ces lignes et conserve ce qu'un
+   * utilisateur a créé. Sans ce marqueur, il aurait fallu choisir entre tout
+   * écraser — et perdre le travail d'une séance — ou ne rien écraser, auquel cas
+   * un nouveau jeu de données n'aurait aucun effet là où il en faut un.
+   */
+  seeded?: boolean;
 }
 
 /** Aléa secondaire rattaché à un incident principal (mêmes détails qu'un incident). */
@@ -67,6 +82,8 @@ export interface SubIncident {
 
 export interface Unit {
   id: string;
+  /** Ligne du jeu de démonstration — voir `Incident.seeded`. */
+  seeded?: boolean;
   nom: string;
   ville: string;
   cmdt: string;
@@ -282,7 +299,22 @@ export interface TransportMovement {
  * v3 — ajout du réseau hospitalier public civil (106 établissements) et du
  *      champ `kind` différenciant les symboles cartographiques.
  */
-const DOMAIN_SEED_VERSION = 4;
+const DOMAIN_SEED_VERSION = 6;
+
+/**
+ * Écarte les doublons d'identifiant, en gardant la PREMIÈRE occurrence.
+ *
+ * Appliqué à CHAQUE lecture du disque, et non seulement lors d'une montée de
+ * version du seed. Un instantané peut porter des doublons — écrit par une
+ * version antérieure, ou par une reconstruction interrompue — et la reprise
+ * suivante le restituerait tel quel, puisqu'aucune reconstruction ne serait
+ * déclenchée. Deux lignes de même identifiant ne sont jamais valides : une
+ * boucle adressée à l'une atteindrait l'autre.
+ */
+function dedupeById<T extends { id: string }>(rows: T[]): T[] {
+  const seen = new Set<string>();
+  return rows.filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
+}
 
 /**
  * Régions non canoniques déjà écrites sur disque → valeur du référentiel.
@@ -305,23 +337,9 @@ function canonicalizeRegion(inc: Incident): Incident {
 
 @Injectable()
 export class DomainService {
-  private incidents: Incident[] = [
-    { id: "INC-2607", type: "earthquake", titre: "Séisme M5.9 — Province d'Al Haouz", region: "Marrakech-Safi", sev: "high", st: "prog", time: "06:42", x: 188, y: 286, ll: [-8.44, 31.06] },
-    { id: "INC-2606", type: "flood", titre: "Crues de l'oued Ourika", region: "Marrakech-Safi", sev: "high", st: "prog", time: "05:10", x: 196, y: 276, ll: [-7.79, 31.32] },
-    { id: "INC-2604", type: "wildfire", titre: "Feu de forêt — Chefchaouen", region: "Tanger-Tétouan-Al Hoceïma", sev: "medium", st: "prog", time: "J-1", x: 248, y: 82, ll: [-5.27, 35.17] },
-    { id: "INC-2601", type: "landslide", titre: "Glissement de terrain — Al Hoceïma", region: "L'Oriental", sev: "medium", st: "open", time: "J-1", x: 300, y: 94, ll: [-3.93, 35.25] },
-    { id: "INC-2598", type: "industrial", titre: "Fuite chimique — Port de Mohammedia", region: "Casablanca-Settat", sev: "low", st: "closed", time: "J-2", x: 182, y: 168, ll: [-7.38, 33.69] },
-    { id: "INC-2595", type: "epidemic", titre: "Foyer choléra suspecté — Zagora", region: "Drâa-Tafilalet", sev: "medium", st: "open", time: "J-3", x: 300, y: 420, ll: [-5.84, 30.33] },
-  ];
+  private incidents: Incident[] = structuredClone(SEED_INCIDENTS);
 
-  private readonly units: Unit[] = [
-    { id: "U1", nom: "1er Groupement d'Intervention", ville: "Rabat", cmdt: "Col. Y. Benjelloun", eff: 420, dispo: "ready", readiness: 92, x: 196, y: 148, ll: [-6.84, 34.02] },
-    { id: "U2", nom: "3e Bataillon du Génie", ville: "Marrakech", cmdt: "Lt-Col. A. Tazi", eff: 365, dispo: "deployed", readiness: 78, x: 180, y: 262, ll: [-8.01, 31.63] },
-    { id: "U3", nom: "7e Régiment Aéroporté", ville: "Agadir", cmdt: "Col. M. El Fassi", eff: 510, dispo: "deployed", readiness: 85, x: 112, y: 330, ll: [-9.6, 30.42] },
-    { id: "U4", nom: "2e Groupe Logistique", ville: "Fès", cmdt: "Lt-Col. S. Amrani", eff: 290, dispo: "standby", readiness: 70, x: 268, y: 140, ll: [-5.0, 34.03] },
-    { id: "U5", nom: "5e Bataillon de Soutien", ville: "Oujda", cmdt: "Cdt. H. Berrada", eff: 245, dispo: "ready", readiness: 88, x: 378, y: 120, ll: [-1.91, 34.68] },
-    { id: "U6", nom: "4e Unité NRBC", ville: "Kénitra", cmdt: "Cdt. N. Chraibi", eff: 180, dispo: "standby", readiness: 81, x: 205, y: 132, ll: [-6.58, 34.26] },
-  ];
+  private readonly units: Unit[] = structuredClone(SEED_UNITS);
 
   // Référentiel hospitalier national : réseau militaire (7) + réseau public
   // civil (106). Voir hospitals.data.ts. x/y positionnent le marqueur sur la
@@ -409,15 +427,47 @@ export class DomainService {
       equipment?: EquipItem[];
       feed?: FeedItem[];
     }>("domain", {});
+    const sameSeed = snap.seedVersion === DOMAIN_SEED_VERSION;
+
+    // Incidents et unités : reprise INTÉGRALE tant que le seed n'a pas changé.
+    // Sur une montée de version, on reconstruit le jeu de démonstration et on
+    // CONSERVE ce qu'un utilisateur a créé pendant la séance — écraser les deux
+    // ferait perdre du travail, n'écraser ni l'un ni l'autre rendrait tout
+    // nouveau jeu de données sans effet là où il en faut un.
     if (snap.incidents) {
-      this.incidents.splice(0, this.incidents.length, ...snap.incidents.map(canonicalizeRegion));
+      const restored = snap.incidents.map(canonicalizeRegion);
+      const seedIds = new Set(SEED_INCIDENTS.map((i) => i.id));
+      const kept = sameSeed
+        ? restored
+        : [
+            // Ce qu'un utilisateur a créé est conservé — sauf si son identifiant
+            // heurte le nouveau jeu. Cela ne peut arriver qu'aux instantanés
+            // écrits AVANT la correction de la numérotation ci-dessus ; le seed
+            // fait alors foi, plutôt que de laisser deux incidents porter le
+            // même identifiant.
+            ...restored.filter(
+              (i) => !i.seeded && !LEGACY_SEED_INCIDENT_IDS.has(i.id) && !seedIds.has(i.id),
+            ),
+            ...structuredClone(SEED_INCIDENTS),
+          ];
+      this.incidents.splice(0, this.incidents.length, ...dedupeById(kept));
     }
-    if (snap.units) this.units.splice(0, this.units.length, ...snap.units);
+    if (snap.units) {
+      const seedUnitIds = new Set(SEED_UNITS.map((u) => u.id));
+      const kept = sameSeed
+        ? snap.units
+        : [
+            ...snap.units.filter(
+              (u) => !u.seeded && !LEGACY_SEED_UNIT_IDS.has(u.id) && !seedUnitIds.has(u.id),
+            ),
+            ...structuredClone(SEED_UNITS),
+          ];
+      this.units.splice(0, this.units.length, ...dedupeById(kept));
+    }
     // Référentiel hospitalier : repris du disque UNIQUEMENT si l'instantané a
     // été écrit avec la version de seed courante. Sinon (mise à jour du réseau
     // hospitalier officiel), les seeds du code font autorité et écrasent
     // l'ancienne liste — les incidents et unités, eux, sont conservés.
-    const sameSeed = snap.seedVersion === DOMAIN_SEED_VERSION;
     if (sameSeed && snap.hospitals) this.hospitals.splice(0, this.hospitals.length, ...snap.hospitals);
     if (sameSeed && snap.fieldHospitals) this.fieldHospitals.splice(0, this.fieldHospitals.length, ...snap.fieldHospitals);
     if (sameSeed && snap.wards) this.wards.splice(0, this.wards.length, ...snap.wards);
@@ -453,8 +503,17 @@ export class DomainService {
   createIncident(input: Omit<Incident, "id" | "time"> & { time?: string }): Incident {
     const d = new Date();
     const time = input.time ?? `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-    const n = 2608 + this.incidents.filter((i) => i.id.startsWith("INC-26")).length;
-    const inc: Incident = { ...input, id: `INC-${n}`, time };
+    // Numérotation par le PLUS GRAND rang existant, et non par le NOMBRE
+    // d'incidents. Compter produisait un identifiant déjà pris dès qu'un
+    // incident avait été supprimé — et, depuis le jeu de démonstration V-4 qui
+    // en amorce onze, dès la PREMIÈRE création. Deux incidents partageant un
+    // identifiant sur une plateforme de commandement, c'est une boucle adressée
+    // à la mauvaise opération.
+    const highest = this.incidents.reduce((max, i) => {
+      const n = Number.parseInt(i.id.replace(/^INC-/, ""), 10);
+      return Number.isFinite(n) && n > max ? n : max;
+    }, 2607);
+    const inc: Incident = { ...input, id: `INC-${highest + 1}`, time };
     this.incidents.unshift(inc);
     this.feed.unshift({ time, c: "bg-danger-500", txt: `${inc.id} — ${inc.titre}` });
     this.persist();

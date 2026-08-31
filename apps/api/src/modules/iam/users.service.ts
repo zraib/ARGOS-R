@@ -140,6 +140,18 @@ export class UsersService implements ScopeResolver {
     { id: "u-fassi", matricule: "n.fassi", nom: "Lt. N. Fassi", grade: "Lieutenant", roles: ["resp_unit"], assignments: { unit: "U3" }, passwordChanged: false, tempPassword: "A7X2-K9D3", activatedByAdmin: false, disabled: false, online: false, createdBy: "h.alami", createdAt: "2026-07-12T11:30:00Z", lastLogin: null },
     { id: "u-bennani", matricule: "s.bennani", nom: "Cdt. S. Bennani", grade: "Commandant", roles: ["tacom", "bluecell", "resp_unit"], assignments: { unit: "U2" }, passwordChanged: false, tempPassword: "Q4M8-P2L6", activatedByAdmin: false, disabled: false, online: false, createdBy: "k.benjelloun", createdAt: "2026-07-13T16:45:00Z", lastLogin: null },
     { id: "u-idrissi", matricule: "r.idrissi", nom: "Cne. R. Idrissi", grade: "Capitaine", roles: ["strategic"], passwordChanged: false, tempPassword: "Z9C1-H5R7", activatedByAdmin: true, disabled: false, online: false, createdBy: "k.benjelloun", createdAt: "2026-07-10T10:15:00Z", lastLogin: null },
+
+    // --- comptes de DÉMONSTRATION des portées (lot V-4) ---------------------
+    // Sans eux, éprouver la doctrine de visibilité imposait de créer trois
+    // comptes à la main à chaque installation neuve — assez fastidieux pour
+    // qu'on finisse par ne plus l'éprouver du tout. Mots de passe temporaires :
+    // le changement au premier login reste obligatoire, comme pour tout compte.
+    { id: "u-wali-casa", matricule: "w.casa", nom: "Bennani", prenom: "Karim", grade: "Wali", roles: ["wali"], assignments: { region: "Casablanca-Settat" }, passwordChanged: false, tempPassword: "WALI-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-08-01T08:00:00Z", lastLogin: null },
+    { id: "u-pa-casa", matricule: "p.casa", nom: "Sekkat", prenom: "Rachid", grade: "Colonel", roles: ["place_arme"], assignments: { city: "Casablanca" }, passwordChanged: false, tempPassword: "ZONE-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-08-01T08:00:00Z", lastLogin: null },
+    // OPCOM créé NON déployé : le déploiement est un acte distinct (V-2), et un
+    // compte non déployé ne voit rien — c'est la première chose à démontrer.
+    { id: "u-opcom-demo", matricule: "o.chraibi", nom: "Chraibi", prenom: "Nabil", grade: "Colonel", roles: ["opcom"], passwordChanged: false, tempPassword: "OPCOM-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-08-01T08:00:00Z", lastLogin: null },
+    { id: "u-resp-h2", matricule: "s.moutaouakil", nom: "Moutaouakil", prenom: "Salma", grade: "Médecin-Cdt", roles: ["resp_hospital"], assignments: { hospital: "H2" }, passwordChanged: false, tempPassword: "HOSP-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-08-01T08:00:00Z", lastLogin: null },
   ];
 
   private roleFeatures = defaultRoleFeatures();
@@ -158,7 +170,21 @@ export class UsersService implements ScopeResolver {
         const out = roles.map((r) => (isRole(r) ? r : LEGACY_ROLE_MAP[r] ?? "resp_unit"));
         return [...new Set(out)];
       };
+      const seeded = [...this.users];
       this.users.splice(0, this.users.length, ...snap.users.map((u) => ({ ...u, roles: migrate(u.roles), online: false })));
+
+      // Comptes du seed ABSENTS du disque : ajoutés, jamais substitués.
+      //
+      // Le registre disque fait autorité — un compte modifié, désactivé ou
+      // supprimé le reste. Mais un compte AJOUTÉ au seed (les comptes de
+      // démonstration des portées, lot V-4) n'apparaîtrait jamais sur une
+      // installation existante, et il faudrait le recréer à la main sur chaque
+      // poste. L'ajout est purement additif : rien n'est écrasé, rien n'est
+      // ressuscité — un matricule déjà connu du disque est laissé tel quel.
+      const known = new Set(this.users.map((u) => u.matricule.toLowerCase()));
+      for (const u of seeded) {
+        if (!known.has(u.matricule.toLowerCase())) this.users.push({ ...u });
+      }
       // Le compte fondateur reprend l'identité par défaut si elle n'a jamais été
       // renseignée (registre créé avant l'ajout prénom/téléphone). Le mot de
       // passe et l'historique du compte sont conservés.
