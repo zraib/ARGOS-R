@@ -21,6 +21,7 @@ import { Icon as IcoUI } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import { useArgos, useDict } from "@/lib/store";
 import { sevBadge, stBadge, typeIcon, typeLabel } from "@/lib/helpers";
+import { casualtyKind } from "@/lib/derive";
 import type { Incident, IncidentTypeDef, Lang, Severity, IncidentStatus, SubIncident, SubIncidentTypeDef } from "@/lib/types";
 
 function cn(...parts: Array<string | false | null | undefined>) {
@@ -98,18 +99,79 @@ export function IncidentDetailModal({ open, incident, onClose }: Props) {
   if (!incident) return null;
 
   const dead = incident.casualties?.dead ?? 0;
-  const injured = incident.casualties?.injured ?? 0;
   const missing = incident.casualties?.missing ?? 0;
+  const rescued = incident.casualties?.rescued ?? 0;
+  const injuredRaw = incident.casualties?.injured ?? 0;
+  const kind = casualtyKind(incident.type); // trauma | epidemic | hazmat
+
+  // — Alias sémantiques (même logique que aggregateCasualties)
+  // Règle : un nombre saisi "injured" sur un formulaire CBRN/NRBC/ÉPIDÉMIE
+  // correspond sémantiquement pas à des "blessés" mais contaminés/infectés.
+  // → S'il y a un champ explicite, on le prend. Sinon alias injured→sémantique
+  const infectedExplicit = incident.casualties?.infected ?? 0;
+  const contaminatedExplicit = incident.casualties?.contaminated ?? 0;
+  const exposedExplicit = incident.casualties?.exposed ?? 0;
+
+  let infected = infectedExplicit;
+  let contaminated = contaminatedExplicit;
+  let exposed = exposedExplicit;
+
+  if (kind === "epidemic" && infected === 0 && injuredRaw > 0) {
+    infected = injuredRaw;
+  }
+  if (kind === "hazmat") {
+    if (contaminated === 0 && injuredRaw > 0) contaminated = injuredRaw;
+    if (exposed === 0 && contaminated === 0 && injuredRaw > 0) exposed = injuredRaw;
+  }
+
+  // Victime sémantiquement "primaire" pour Total affiché & affichage KPI #2
+  const semanticVictim =
+    kind === "epidemic"
+      ? infected
+      : kind === "hazmat"
+        ? contaminated > 0
+          ? contaminated
+          : exposed
+        : injuredRaw;
+
+  // — Build liste KPI humain (ordre Décès → primaire → autres >0 puis Disparus/Secourus)
+  type KpiLine = { label: string; value: number; tint: "danger" | "or" | "rdia" | "purple" | "pink" | "indigo" | "green" | "blue" | "slate" };
+  const kpis: KpiLine[] = [];
+  const pushKpi = (label: string, value: number, tint: KpiLine["tint"]) => kpis.push({ label, value, tint });
+  pushKpi("Décès", dead, "danger");
+
+  if (kind === "epidemic") {
+    if (infected > 0) pushKpi("Infectés", infected, "pink");
+    if (injuredRaw > 0 && injuredRaw !== infected) pushKpi("Blessés", injuredRaw, "or");
+  } else if (kind === "hazmat") {
+    if (contaminated > 0) pushKpi("Contaminés", contaminated, "purple");
+    if (exposed > 0 && exposed !== contaminated) pushKpi("Exposés", exposed, "indigo");
+    if (injuredRaw > 0 && injuredRaw !== contaminated && injuredRaw !== exposed) pushKpi("Blessés", injuredRaw, "or");
+  } else {
+    if (injuredRaw > 0) pushKpi("Blessés", injuredRaw, "or");
+  }
+
+  if (missing > 0) pushKpi("Disparus", missing, "slate");
+  if (rescued > 0) pushKpi("Secourus", rescued, "green");
+  if (kpis.length < 4) pushKpi("Total", dead + semanticVictim + missing, "rdia");
+  // Limiter 4 KPIs (grille md:grid-cols-4)
+  const finalKpis = kpis.slice(0, 4);
+  // Si le Total n'est pas le 4e slot on l'ajoute en 5 (on le force 5 ? Non — max 4 → on le remplace le 4 si le Total est dedans)
+  // On préfère : si length>4 garder 4 indicateurs distincts, et on ajoute une ligne chips si besoin :
+  // Total = dead + semanticVictim + missing (valeur affichée en grand (même si pas dans les 4)
+  const totalValue = dead + semanticVictim + missing;
 
   const attachedUnits = (incident.responders?.units ?? [])
     .map((id) => (units ?? []).find((u) => u.id === id))
     .filter(Boolean) as NonNullable<(typeof units)[number]>[];
   const attachedHosps = (incident.responders?.hospitals ?? [])
-    .map(
-      (id) =>
-        (hospitals ?? []).find((h) => h.id === id) ??
-        (fieldHosps ?? []).find((h) => h.id === id),
-    )
+    .map<(NonNullable<(typeof hospitals)[number]> | NonNullable<(typeof fieldHosps)[number]>) | null>((id) => {
+      const h = (hospitals ?? []).find((x) => x.id === id);
+      if (h) return h;
+      const f = (fieldHosps ?? []).find((x) => x.hid === id);
+      if (f) return f;
+      return null;
+    })
     .filter(Boolean) as Array<NonNullable<(typeof hospitals)[number]> | NonNullable<(typeof fieldHosps)[number]>>;
 
   return (
@@ -169,27 +231,41 @@ export function IncidentDetailModal({ open, incident, onClose }: Props) {
 
         {/* ==== GRILLE 4 KPIs ==== */}
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-          <Kpi
-            label="Décès"
-            value={String(dead)}
-            tint={dead > 0 ? "danger" : "rdia"}
-          />
-          <Kpi
-            label="Blessés"
-            value={String(injured)}
-            tint={injured > 0 ? "or" : "rdia"}
-          />
-          <Kpi
-            label="Disparus"
-            value={String(missing)}
-            tint={missing > 0 ? "or" : "rdia"}
-          />
-          <Kpi
-            label="Total"
-            value={String(dead + injured + missing)}
-            tint="rdia"
-          />
+          {finalKpis.map((k, idx) => (
+            <Kpi
+              key={`${k.label}-${idx}`}
+              label={k.label}
+              value={String(k.value)}
+              tint={k.tint}
+            />
+          ))}
+          {finalKpis.length === 0 && (
+            <Kpi label="Bilan" value="0" tint="rdia" />
+          )}
         </div>
+        {/* Complément si plus de 4 dimensions : Total affiché en ligne chips */}
+        {kpis.length > 4 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white/60 p-2.5 dark:border-rdia-600 dark:bg-rdia-700/60">
+            <span className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-gray-500 dark:text-rdia-400">Total bilan humain</span>
+            <span className="tabular-nums text-[13px] font-extrabold text-gray-900 dark:text-white">{totalValue}</span>
+            {kpis.slice(4).map((k, idx) => (
+              <span
+                key={`${k.label}-extra-${idx}`}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
+                  k.tint === "pink" && "border-pink-500/30 bg-pink-500/10 text-pink-700 dark:text-pink-300",
+                  k.tint === "purple" && "border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300",
+                  k.tint === "indigo" && "border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300",
+                  k.tint === "green" && "border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-300",
+                  k.tint === "slate" && "border-gray-500/30 bg-gray-500/10 text-gray-700 dark:text-gray-300",
+                  k.tint === "or" && "border-or-500/30 bg-or-500/10 text-or-600 dark:text-or-300",
+                )}
+              >
+                {k.label} · {k.value}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* ==== GRILLE 2 colonnes : Localisation | Intervenants ==== */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -218,7 +294,7 @@ export function IncidentDetailModal({ open, incident, onClose }: Props) {
               <div className="flex flex-wrap gap-1 pl-2">
                 {attachedHosps.map((h) => (
                   <span
-                    key={h.id}
+                    key={"id" in h ? h.id : h.hid}
                     className="rounded-md border border-gray-200 bg-white px-1.5 py-0.5 text-[10.5px] font-semibold text-gray-700 dark:border-rdia-600 dark:bg-rdia-800 dark:text-rdia-200"
                   >
                     {h.nom}
@@ -305,9 +381,9 @@ function Row({
 function Kpi({
   label, value, tint,
 }: {
-  label: string; value: string; tint: "rdia" | "or" | "danger";
+  label: string; value: string; tint: "rdia" | "or" | "danger" | "purple" | "pink" | "indigo" | "green" | "blue" | "slate";
 }) {
-  const colors = {
+  const palette: Record<string, { txt: string; bg: string }> = {
     rdia: {
       txt: "text-rdia-700 dark:text-rdia-300",
       bg: "bg-rdia-50/60 border-rdia-500/[0.14] dark:bg-rdia-500/5",
@@ -320,7 +396,32 @@ function Kpi({
       txt: "text-danger-600 dark:text-danger-400",
       bg: "bg-danger-50/60 border-danger-500/[0.14] dark:bg-danger-500/5",
     },
-  }[tint];
+    pink: {
+      txt: "text-pink-700 dark:text-pink-300",
+      bg: "bg-pink-50/60 border-pink-500/[0.14] dark:bg-pink-500/5",
+    },
+    purple: {
+      txt: "text-purple-700 dark:text-purple-300",
+      bg: "bg-purple-50/60 border-purple-500/[0.14] dark:bg-purple-500/5",
+    },
+    indigo: {
+      txt: "text-indigo-700 dark:text-indigo-300",
+      bg: "bg-indigo-50/60 border-indigo-500/[0.14] dark:bg-indigo-500/5",
+    },
+    green: {
+      txt: "text-green-700 dark:text-green-400",
+      bg: "bg-green-50/60 border-green-500/[0.14] dark:bg-green-500/5",
+    },
+    blue: {
+      txt: "text-blue-700 dark:text-blue-300",
+      bg: "bg-blue-50/60 border-blue-500/[0.14] dark:bg-blue-500/5",
+    },
+    slate: {
+      txt: "text-slate-700 dark:text-slate-300",
+      bg: "bg-slate-50/60 border-slate-500/[0.14] dark:bg-slate-500/5",
+    },
+  };
+  const colors = palette[tint] ?? palette.rdia;
   return (
     <div className={cn("flex flex-col rounded-lg border px-2.5 py-2", colors.bg)}>
       <span className="text-[9.5px] font-bold uppercase tracking-wide text-gray-400 dark:text-rdia-400 leading-none">
