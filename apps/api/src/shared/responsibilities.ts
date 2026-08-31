@@ -146,6 +146,24 @@ export function mandatoryScopeKeysOf(roles: readonly Role[]): ScopeKey[] {
   return scopeKeysOf(roles).filter((k) => MANDATORY_SCOPE_KEYS.includes(k));
 }
 
+/**
+ * Rôles cantonnés à UN incident — les « postes déployables ».
+ *
+ * DÉRIVÉE de `ROLE_SCOPE_KEY`, jamais recopiée. Une seconde liste tenue à la
+ * main finirait par diverger, et la divergence serait silencieuse ET grave :
+ * un rôle déployable absent de la liste de visibilité pourrait être affecté à
+ * un incident sans être cantonné à lui — l'inverse exact de ce que le
+ * déploiement doit garantir.
+ */
+export const DEPLOYABLE_ROLES: readonly Role[] = (Object.keys(ROLE_SCOPE_KEY) as Role[]).filter(
+  (r) => ROLE_SCOPE_KEY[r] === "incident",
+);
+
+/** Ce rôle occupe-t-il un poste qu'on déploie sur une opération ? */
+export function isDeployableRole(role: Role): boolean {
+  return ROLE_SCOPE_KEY[role] === "incident";
+}
+
 /** Garde de type : la valeur est-elle une clé de périmètre connue ? */
 export function isScopeKey(v: unknown): v is ScopeKey {
   return typeof v === "string" && (SCOPE_KEYS as readonly string[]).includes(v);

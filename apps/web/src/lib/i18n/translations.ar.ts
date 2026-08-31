@@ -170,4 +170,5 @@ export const AR_DICT: Dict = {
     sit_immutable: "بعد النشر، يرقّم التقرير ولا يمكن تعديله.",
     sit_missing_title: "التقارير الناقصة",
     nrbc_play: "تشغيل", nrbc_stop: "إيقاف", nrbc_volume: "طبقة ثلاثية",
+    dep_title: "المناصب المنتشرة", dep_none: "لا يوجد منصب منتشر في هذه العملية", dep_add: "نشر", dep_pick: "اختر حسابًا…", dep_withdraw: "سحب", dep_on: "في", dep_free: "متاح", dep_ok: "تم نشر المنصب", dep_out: "تم سحب المنصب", dep_fail: "تم رفض النشر", dep_hint: "المنصب يخدم عملية واحدة في كل مرة: نشره هنا يسحبه من العملية السابقة.", dep_offline: "غير متصل", toast_fail: "فشل — تحقق من الإدخال",
   };

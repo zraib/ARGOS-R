@@ -456,5 +456,19 @@ export interface Dict {
   nrbc_volume: string;
   nrbc_pick: string;
   nrbc_none_active: string;
+  // --- déploiement des postes sur une opération (lot V-2) ---
+  dep_title: string;
+  dep_none: string;
+  dep_add: string;
+  dep_pick: string;
+  dep_withdraw: string;
+  dep_on: string;
+  dep_free: string;
+  dep_ok: string;
+  dep_out: string;
+  dep_fail: string;
+  dep_hint: string;
+  dep_offline: string;
+  toast_fail: string;
 }
 

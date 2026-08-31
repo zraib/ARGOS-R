@@ -170,4 +170,5 @@ export const EN_DICT: Dict = {
     sit_immutable: "Once published, a report is numbered and can no longer be edited.",
     sit_missing_title: "Missing reports",
     nrbc_play: "Play", nrbc_stop: "Stop", nrbc_volume: "3D layer",
+    dep_title: "Deployed posts", dep_none: "No post deployed on this operation", dep_add: "Deploy", dep_pick: "Choose an account…", dep_withdraw: "Withdraw", dep_on: "on", dep_free: "available", dep_ok: "Post deployed", dep_out: "Post withdrawn", dep_fail: "Deployment refused", dep_hint: "A post serves one operation at a time: deploying it here withdraws it from the previous one.", dep_offline: "offline", toast_fail: "Failed — check the entry",
   };

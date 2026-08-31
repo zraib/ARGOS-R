@@ -111,6 +111,17 @@ export function createArgosClient(opts: ArgosClientOptions) {
     /** Prédictions risques calculées côté serveur (moteur déterministe, F-04). */
     getDashboardRisk: () => client.GET("/api/dashboard/risk"),
     createIncident: (body: CreateIncidentBody) => client.POST("/api/incidents", { body }),
+
+    // --- déploiement des postes (V-2) ---
+    // Armer une opération est un acte de commandement, pas une modification de
+    // fiche : d'où des routes dédiées plutôt qu'un PATCH sur le compte.
+    getDeployments: (id: string) => client.GET("/api/incidents/{id}/deployments", { params: { path: { id } } }),
+    getDeployablePosts: () => client.GET("/api/deployable-posts"),
+    deployPost: (id: string, matricule: string) =>
+      client.POST("/api/incidents/{id}/deployments", { params: { path: { id } }, body: { matricule } }),
+    withdrawPost: (id: string, matricule: string) =>
+      client.DELETE("/api/incidents/{id}/deployments/{matricule}", { params: { path: { id, matricule } } }),
+
     updateIncident: (id: string, body: UpdateIncidentBody) => client.PATCH("/api/incidents/{id}", { params: { path: { id } }, body }),
     getUnits: () => client.GET("/api/units"),
     createUnit: (body: CreateUnitBody) => client.POST("/api/units", { body }),

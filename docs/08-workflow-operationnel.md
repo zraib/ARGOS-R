@@ -596,7 +596,114 @@ Le code temporaire est renvoyé par la création. Connecté à l'écran, le wali
 voir **3 incidents** (tous Casablanca-Settat) là où le superadmin en voit 10 —
 sur le tableau de bord, dans la liste et sur la carte.
 
-## 15. Ce qui reste à construire
+## 15. Armer une opération — le déploiement (lot V-2)
+
+Le lot V-1 a décidé qu'un OPCOM ne voit que l'incident sur lequel il est
+déployé. Restait à dire **comment il y est déployé**. Jusqu'ici : un champ parmi
+d'autres dans `PATCH /iam/users/:id`, entre le grade et le téléphone.
+
+Or ce champ décide de ce qu'un officier voit. Le poser est un acte de
+commandement — il a un auteur, une date, une opération, et il **retire**
+l'officier de celle qu'il servait.
+
+### 15.1 Trois routes, deux contrôles
+
+| Route | Permission | Effet |
+|---|---|---|
+| `GET /incidents/:id/deployments` | `incidents:view` | Les postes armés sur l'opération |
+| `GET /deployable-posts` | `incidents:update` | Les candidats, **avec leur affectation courante** |
+| `POST /incidents/:id/deployments` | `incidents:update` | Déploie ; remplace l'affectation précédente |
+| `DELETE /incidents/:id/deployments/:matricule` | `incidents:update` | Retire |
+
+Le contrôle est **double** : le RBAC (`incidents:update` — admin, OPCOM, TACOM)
+**puis** la visibilité de l'incident. Sans le second, un OPCOM déployé sur une
+opération pourrait armer celle d'un autre en devinant son identifiant. Avec lui,
+la propriété suivante tombe d'elle-même : **un OPCOM non déployé ne voit aucune
+opération, donc ne peut s'auto-déployer nulle part.** Le geste vient toujours
+d'en haut.
+
+Une opération hors portée répond **404, pas 403** : « interdit » confirmerait son
+existence à quelqu'un qui n'a pas à la connaître.
+
+### 15.2 Les règles du métier
+
+- **Un poste, une opération.** Redéployer retire de la précédente. Le retrait
+  implicite est *rendu* dans la réponse (`previousIncidentId`) et écrit au fil —
+  un retrait subi sans trace est le genre de chose qu'on découvre trop tard.
+- **On n'arme pas une opération close ou archivée** (409).
+- **Seuls les postes déployables** : OPCOM, TACOM, cellules bleue/verte/orange,
+  responsables abri et équipement. Un responsable d'hôpital, d'unité ou de morgue
+  est refusé (400) — il sert **plusieurs** opérations à la fois, l'y cantonner
+  l'aveuglerait sur les autres.
+- **Idempotent** : redéployer sur la même opération renvoie `changed: false` et
+  n'écrit rien au fil.
+- **La suppression d'un incident libère ses postes** (cascade). Sans elle, les
+  comptes resteraient affectés à un identifiant disparu : portée « incident »,
+  incident inexistant, plus rien de visible — un compte mort sans message
+  d'erreur.
+
+### 15.3 Ce que le journal d'audit dit désormais
+
+`AuditEntry.meta` existait depuis la Phase 0, chaîné dans le hash… et **rien ne
+le remplissait**. La route seule suffit pour un `PATCH /incidents/:id` ; elle ne
+dit rien pour un déploiement — ni qui, ni d'où.
+
+Le décorateur `@AuditMeta()` (`common/decorators/audit-meta.decorator.ts`) permet
+au gestionnaire d'enrichir l'entrée que l'intercepteur écrit déjà. **Une seule
+ligne par geste, avec son détail** — écrire une seconde entrée à la main aurait
+doublé chaque mutation du journal.
+
+```
+seq 3  m.zraib  POST /api/incidents/INC-2606/deployments
+       meta={ deployed: "y.tazi", onto: "INC-2606",
+              withdrawnFrom: "INC-2607", changed: true }
+```
+
+### 15.4 Une divergence supprimée en chemin
+
+`DEPLOYED_ROLES` (visibilité, V-1) recopiait à la main ce que `ROLE_SCOPE_KEY`
+encodait déjà. Les deux listes auraient fini par diverger, et la divergence
+aurait été silencieuse **et grave** : un rôle déployable absent de la liste de
+visibilité aurait été affecté à un incident **sans être cantonné à lui** —
+l'inverse exact de ce que le déploiement doit garantir. La liste est désormais
+`DEPLOYABLE_ROLES`, dérivée de la table unique.
+
+### 15.5 À l'écran
+
+La fiche d'incident porte une section **« Postes déployés »** : qui conduit
+l'opération, en ligne ou non, avec le geste pour armer et retirer quand le compte
+en a le droit. Deux choses y sont rendues visibles qui ne l'étaient pas :
+
+- **l'affectation courante de chaque candidat**, écrite dans l'option elle-même
+  (« Colonel Demo — OPCOM *(sur INC-2615)* ») : le seul moment où l'on peut
+  encore renoncer sans dégarnir un autre théâtre ;
+- **la conséquence du retrait** — un poste retiré ne voit plus aucune opération.
+
+Le masquage des boutons n'est pas le contrôle d'accès : l'API refuse déjà. Il
+évite seulement de proposer un geste voué au 403.
+
+### 15.6 Une conséquence de V-1 remontée jusqu'au web
+
+Contraindre `region` au référentiel a typé le champ en **énumération** dans
+l'OpenAPI. L'assistant de création passait une chaîne libre avec un repli
+`"—"` — désormais refusé en 400, et l'utilisateur aurait vu « échec » sans
+savoir pourquoi. Le champ est maintenant typé depuis le contrat, et la création
+s'arrête avec un message si la région n'est pas résolvable. **C'est le contrat
+qui a trouvé le défaut**, pas un test.
+
+### 15.7 Éprouver
+
+```bash
+# Déployer, puis constater que l'officier ne voit QUE cette opération
+curl -X POST localhost:3005/api/incidents/INC-2607/deployments \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"matricule":"y.tazi"}'
+```
+
+14 tests couvrent le lot (`modules/domain/deployment.spec.ts`), dont la jonction
+avec V-1 : déployé, le compte voit exactement une opération ; retiré, plus aucune.
+
+## 16. Ce qui reste à construire
 
 Le workflow est posé ; ces maillons le compléteront (voir le plan d'exécution) :
 

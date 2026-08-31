@@ -16,6 +16,7 @@ import {
   type Role,
 } from "@/shared/permissions";
 import {
+  isDeployableRole,
   isResponsibilityKind,
   isScopeKey,
   mandatoryScopeKeysOf,
@@ -458,6 +459,59 @@ export class UsersService implements ScopeResolver {
     this.roleFeatures[role] = { ...this.roleFeatures[role], [feature]: enabled };
     this.persist();
     return this.roleFeatures[role];
+  }
+
+  // --- déploiement sur incident (lot V-2) ----------------------------------
+  //
+  // Écriture ÉTROITE, volontairement distincte de `update()` : déployer n'est pas
+  // administrer un compte. `update()` exige d'être admin (`assertManageable`),
+  // alors qu'un OPCOM — qui n'a aucun droit sur les comptes — doit pouvoir armer
+  // SON opération. Le contrôle d'accès du geste vit donc sur la route
+  // (`incidents:update` + visibilité de l'incident), pas ici.
+
+  /**
+   * Pose ou retire l'incident de déploiement d'un compte.
+   *
+   * Passe par `normalizeAssignments` plutôt que d'écrire le champ directement :
+   * c'est lui qui tient les invariants. Un compte dont aucun rôle ne relève d'un
+   * incident sera donc refusé ici même, sans que l'appelant ait à y penser.
+   *
+   * UN SEUL incident à la fois : poser une nouvelle affectation REMPLACE la
+   * précédente. L'ancienne valeur est renvoyée pour que l'appelant puisse la
+   * tracer — un retrait implicite qui ne laisserait pas de trace serait le
+   * genre de chose qu'on ne découvre qu'après coup.
+   */
+  setDeployment(matricule: string, incidentId: string | null): { user: ManagedUser; previous: string | null } {
+    const u = this.byMatricule(matricule);
+    if (!u) throw new NotFoundException(`Compte inconnu : ${matricule}`);
+    const previous = u.assignments?.incident ?? null;
+    const next: Assignments = { ...(u.assignments ?? {}) };
+    if (incidentId) next.incident = incidentId;
+    else delete next.incident;
+    u.assignments = this.normalizeAssignments(u.roles, next, true);
+    this.persist();
+    return { user: u, previous };
+  }
+
+  /**
+   * Comptes actuellement déployés sur cet incident.
+   *
+   * `viewer` n'est PAS décoratif : la règle « un compte Super Administrateur est
+   * invisible à tout autre rôle » vaut ici comme partout ailleurs. Un superadmin
+   * cumulant un rôle déployable (le cas du compte de service) apparaîtrait
+   * autrement dans la fiche d'incident de n'importe quel OPCOM.
+   */
+  listDeployedOn(incidentId: string, viewer: Role = "superadmin"): ManagedUserPublic[] {
+    return this.users
+      .filter((u) => u.assignments?.incident === incidentId && this.isVisibleTo(viewer, u))
+      .map(toPublic);
+  }
+
+  /** Comptes occupant un poste déployable — les candidats au déploiement. */
+  listDeployable(viewer: Role = "superadmin"): ManagedUserPublic[] {
+    return this.users
+      .filter((u) => u.roles.some(isDeployableRole) && this.isVisibleTo(viewer, u))
+      .map(toPublic);
   }
 
   // --- cycle de vie / authentification -------------------------------------

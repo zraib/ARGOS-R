@@ -1,6 +1,7 @@
 import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { RiskService } from "@/modules/domain/risk.service";
+import { DeploymentService } from "@/modules/domain/deployment.service";
 import { DomainService } from "@/modules/domain/domain.service";
 import { VisibilityService } from "@/modules/domain/visibility.service";
 import { CITIES_MA } from "@/modules/domain/cities.data";
@@ -36,11 +37,13 @@ import {
   UpdateUnitDto,
   UpdateWardDto,
   UpdateSeismicAlertConfigDto,
+  DeployPostDto,
 } from "@/modules/domain/dto";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import { RequireScope } from "@/common/decorators/require-scope.decorator";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
+import { AuditMeta, type AuditMetaSetter } from "@/common/decorators/audit-meta.decorator";
 
 /**
  * Entités opérationnelles (Phase 2). Lecture protégée par le RBAC ; la création
@@ -54,6 +57,7 @@ export class DomainController {
     private readonly risk: RiskService,
     private readonly domain: DomainService,
     private readonly visibility: VisibilityService,
+    private readonly deployment: DeploymentService,
     private readonly catalog: CatalogService,
     private readonly comms: CommsService,
     private readonly incidentTypes: IncidentTypesService,
@@ -644,4 +648,99 @@ export class DomainController {
     if (!Number.isFinite(la) || !Number.isFinite(lo)) throw new BadRequestException("lat/lon requis");
     return this.weather.forecast(la, lo);
   }
+
+  // --- DÉPLOIEMENT DES POSTES (lot V-2) -------------------------------------
+  //
+  // Armer une opération est un acte de commandement, pas une modification de
+  // fiche : il a un auteur, il retire l'officier de l'opération précédente, et
+  // il décide de ce que cet officier VERRA (doctrine V-1). D'où trois routes
+  // dédiées plutôt qu'un champ noyé dans `PATCH /iam/users/:id`.
+  //
+  // Double contrôle : `incidents:update` (le RBAC — admin, OPCOM, TACOM) PUIS
+  // la visibilité de l'incident. Sans le second, un OPCOM déployé sur une
+  // opération pourrait armer celle d'un autre en devinant son identifiant. Avec
+  // lui, un OPCOM non déployé ne voit aucune opération et ne peut donc s'auto-
+  // déployer nulle part : le geste vient toujours d'en haut.
+
+  @Get("incidents/:id/deployments")
+  @RequirePermission("incidents:view")
+  @ApiOperation({
+    summary: "Postes déployés sur cette opération.",
+    description: "Visible par qui voit déjà l'incident — la section « Postes déployés » de la fiche.",
+  })
+  @ApiResponse({ status: 404, description: "Incident inconnu ou hors de la portée du compte." })
+  listDeployments(@Param("id") id: string, @CurrentUser() user: AuthUser) {
+    this.assertCanSee(id, user);
+    return this.deployment.listDeployed(id, user.role);
+  }
+
+  @Get("deployable-posts")
+  @RequirePermission("incidents:update")
+  @ApiOperation({
+    summary: "Comptes déployables, avec leur affectation courante.",
+    description:
+      "Renvoie AUSSI l'opération que chaque compte sert déjà : le commandement doit voir qui il " +
+      "s'apprête à retirer d'ailleurs avant de cliquer, et non le découvrir après.",
+  })
+  listDeployablePosts(@CurrentUser() user: AuthUser) {
+    return this.deployment.listDeployable(user.role);
+  }
+
+  @Post("incidents/:id/deployments")
+  @RequirePermission("incidents:update")
+  @ApiOperation({
+    summary: "Déployer un poste sur l'opération.",
+    description:
+      "UN SEUL incident à la fois : le compte est retiré de l'opération qu'il servait, et ce retrait " +
+      "figure dans le fil et dans le journal d'audit. Refusé si l'opération est close ou archivée, ou " +
+      "si le compte n'occupe pas un poste déployable.",
+  })
+  @ApiResponse({ status: 400, description: "Le compte n'occupe pas un poste déployable." })
+  @ApiResponse({ status: 404, description: "Incident ou compte inconnu." })
+  @ApiResponse({ status: 409, description: "Opération close ou archivée." })
+  deployPost(
+    @Param("id") id: string,
+    @Body() dto: DeployPostDto,
+    @CurrentUser() user: AuthUser,
+    @AuditMeta() audit: AuditMetaSetter,
+  ) {
+    this.assertCanSee(id, user);
+    const res = this.deployment.deploy(id, dto.matricule, user.username);
+    audit({ deployed: res.matricule, onto: res.incidentId, withdrawnFrom: res.previousIncidentId, changed: res.changed });
+    return res;
+  }
+
+  @Delete("incidents/:id/deployments/:matricule")
+  @RequirePermission("incidents:update")
+  @ApiOperation({
+    summary: "Retirer un poste de l'opération.",
+    description: "Le compte perd sa portée : il ne voit plus aucun incident tant qu'il n'est pas redéployé.",
+  })
+  @ApiResponse({ status: 404, description: "Incident ou compte inconnu." })
+  @ApiResponse({ status: 409, description: "Ce compte n'est pas déployé sur cette opération." })
+  withdrawPost(
+    @Param("id") id: string,
+    @Param("matricule") matricule: string,
+    @CurrentUser() user: AuthUser,
+    @AuditMeta() audit: AuditMetaSetter,
+  ) {
+    this.assertCanSee(id, user);
+    const res = this.deployment.withdraw(id, matricule, user.username);
+    audit({ withdrawn: res.matricule, from: res.incidentId });
+    return res;
+  }
+
+  /**
+   * L'incident est-il dans la portée de ce compte ? Renvoie 404 et non 403 :
+   * répondre « interdit » confirmerait l'existence d'une opération que le compte
+   * n'a pas à connaître.
+   */
+  private assertCanSee(id: string, user: AuthUser): void {
+    const inc = this.domain.listIncidents().find((i) => i.id === id);
+    if (!inc) throw new NotFoundException(`Incident inconnu : ${id}`);
+    if (!this.visibility.canSeeIncident(inc, this.scopeFor(user), this.entitiesOn)) {
+      throw new NotFoundException(`Incident inconnu : ${id}`);
+    }
+  }
+
 }

@@ -426,7 +426,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Liste des incidents */
+        /**
+         * Liste des incidents VISIBLES par le compte.
+         * @description Filtrée par la doctrine de visibilité (lot V-1) : globale pour l'état-major, la région pour un wali, la zone de 40 km pour une place d'armes, l'incident de déploiement pour la conduite, les incidents servis pour un responsable d'entité. Un rôle cantonné SANS affectation ne voit rien.
+         */
         get: operations["DomainController_incidents"];
         put?: never;
         /** Déclarer un incident (audité) — type validé contre le catalogue */
@@ -636,7 +639,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Liste des unités */
+        /**
+         * Liste des unités visibles.
+         * @description Seule la place d'armes est restreinte — à sa zone de compétence.
+         */
         get: operations["DomainController_units"];
         put?: never;
         /** Créer une unité (audité) */
@@ -881,7 +887,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Hôpitaux de campagne déployés */
+        /**
+         * Hôpitaux de campagne visibles.
+         * @description Seule la place d'armes est restreinte — à sa zone de compétence.
+         */
         get: operations["DomainController_fieldHospitals"];
         put?: never;
         post?: never;
@@ -1142,6 +1151,70 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/incidents/{id}/deployments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Postes déployés sur cette opération.
+         * @description Visible par qui voit déjà l'incident — la section « Postes déployés » de la fiche.
+         */
+        get: operations["DomainController_listDeployments"];
+        put?: never;
+        /**
+         * Déployer un poste sur l'opération.
+         * @description UN SEUL incident à la fois : le compte est retiré de l'opération qu'il servait, et ce retrait figure dans le fil et dans le journal d'audit. Refusé si l'opération est close ou archivée, ou si le compte n'occupe pas un poste déployable.
+         */
+        post: operations["DomainController_deployPost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/deployable-posts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Comptes déployables, avec leur affectation courante.
+         * @description Renvoie AUSSI l'opération que chaque compte sert déjà : le commandement doit voir qui il s'apprête à retirer d'ailleurs avant de cliquer, et non le découvrir après.
+         */
+        get: operations["DomainController_listDeployablePosts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/incidents/{id}/deployments/{matricule}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Retirer un poste de l'opération.
+         * @description Le compte perd sa portée : il ne voit plus aucun incident tant qu'il n'est pas redéployé.
+         */
+        delete: operations["DomainController_withdrawPost"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1575,6 +1648,22 @@ export interface components {
         };
         AssignmentsDto: {
             /**
+             * @description Région administrative (Wali) — doit appartenir au référentiel des 12 régions.
+             * @example Casablanca-Settat
+             * @enum {string}
+             */
+            region?: "Béni Mellal-Khénifra" | "Casablanca-Settat" | "Dakhla-Oued Ed-Dahab" | "Drâa-Tafilalet" | "Fès-Meknès" | "Guelmim-Oued Noun" | "L'Oriental" | "Laâyoune-Sakia El Hamra" | "Marrakech-Safi" | "Rabat-Salé-Kénitra" | "Souss-Massa" | "Tanger-Tétouan-Al Hoceïma";
+            /**
+             * @description Ville de rattachement (Place d'Armes) — la zone de compétence est un rayon de 40 km autour.
+             * @example Casablanca
+             */
+            city?: string;
+            /**
+             * @description Incident de déploiement (OPCOM, TACOM, cellules, resp. abri et équipement). UN SEUL à la fois.
+             * @example INC-2607
+             */
+            incident?: string;
+            /**
              * @description Hôpital militaire (Responsable Hôpital)
              * @example H4
              */
@@ -1760,7 +1849,11 @@ export interface components {
              */
             type: string;
             titre: string;
-            region: string;
+            /**
+             * @description Région administrative — DOIT appartenir au référentiel des 12 régions. Sans cette contrainte, « Oriental » et « L'Oriental » coexistaient et apparaissaient comme deux filtres distincts, et un wali affecté à l'une ne voyait pas les incidents libellés de l'autre.
+             * @enum {string}
+             */
+            region: "Béni Mellal-Khénifra" | "Casablanca-Settat" | "Dakhla-Oued Ed-Dahab" | "Drâa-Tafilalet" | "Fès-Meknès" | "Guelmim-Oued Noun" | "L'Oriental" | "Laâyoune-Sakia El Hamra" | "Marrakech-Safi" | "Rabat-Salé-Kénitra" | "Souss-Massa" | "Tanger-Tétouan-Al Hoceïma";
             /** @enum {string} */
             sev: "high" | "medium" | "low";
             /** @enum {string} */
@@ -2037,6 +2130,13 @@ export interface components {
             /** @description Seuil mondial (notification dans l'app uniquement) */
             globalMinMag: number;
             contacts: components["schemas"]["AuthorityContactDto"][];
+        };
+        DeployPostDto: {
+            /**
+             * @description Matricule du compte à déployer. Il doit occuper un poste déployable (OPCOM, TACOM, cellules, responsable abri ou équipement). Le déploiement REMPLACE l'opération qu'il servait.
+             * @example o.ziani
+             */
+            matricule: string;
         };
         CreateOrderDto: {
             /** @example Rétablir l'accès RP2010 (déblaiement) */
@@ -3821,6 +3921,109 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_listDeployments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Incident inconnu ou hors de la portée du compte. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_deployPost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeployPostDto"];
+            };
+        };
+        responses: {
+            /** @description Le compte n'occupe pas un poste déployable. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Incident ou compte inconnu. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Opération close ou archivée. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_listDeployablePosts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_withdrawPost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                matricule: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Incident ou compte inconnu. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Ce compte n'est pas déployé sur cette opération. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

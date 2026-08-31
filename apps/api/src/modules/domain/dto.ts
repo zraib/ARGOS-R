@@ -702,3 +702,16 @@ export class UpdateEquipDto {
   @IsOptional() @IsIn(EQUIP_CONDITIONS as unknown as string[])
   cond?: (typeof EQUIP_CONDITIONS)[number];
 }
+
+/** Déployer un poste sur une opération (lot V-2). */
+export class DeployPostDto {
+  @ApiProperty({
+    example: "o.ziani",
+    description:
+      "Matricule du compte à déployer. Il doit occuper un poste déployable (OPCOM, TACOM, cellules, " +
+      "responsable abri ou équipement). Le déploiement REMPLACE l'opération qu'il servait.",
+  })
+  @IsString()
+  @MinLength(1)
+  matricule!: string;
+}

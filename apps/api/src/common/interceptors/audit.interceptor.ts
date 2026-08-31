@@ -2,6 +2,7 @@ import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from "@nes
 import { Observable, concatMap } from "rxjs";
 import { AuditService } from "@/modules/audit/audit.service";
 import type { AuthUser } from "@/common/types/auth-user";
+import type { RequestWithAuditMeta } from "@/common/decorators/audit-meta.decorator";
 
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -15,7 +16,9 @@ export class AuditInterceptor implements NestInterceptor {
   constructor(private readonly audit: AuditService) {}
 
   intercept(ctx: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const req = ctx.switchToHttp().getRequest<{ method: string; originalUrl: string; url: string; user?: AuthUser }>();
+    const req = ctx
+      .switchToHttp()
+      .getRequest<{ method: string; originalUrl: string; url: string; user?: AuthUser } & RequestWithAuditMeta>();
     if (!MUTATING.has(req.method)) return next.handle();
 
     return next.handle().pipe(
@@ -28,6 +31,10 @@ export class AuditInterceptor implements NestInterceptor {
           method: req.method,
           path: req.originalUrl ?? req.url,
           status: res.statusCode,
+          // Détail éventuellement déposé par le gestionnaire (`@AuditMeta()`) :
+          // la route seule ne dit pas toujours ce qui a changé. Lu APRÈS
+          // l'exécution, donc il reflète bien ce que le geste a fait.
+          meta: req.auditMeta,
         });
         return data;
       }),

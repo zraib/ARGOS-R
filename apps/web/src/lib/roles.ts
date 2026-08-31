@@ -102,6 +102,16 @@ export function canReportIncident(role: Role): boolean {
   return role === "superadmin" || role === "tacom" || role === "bluecell";
 }
 
+/**
+ * Rôles autorisés à DÉPLOYER un poste sur une opération — miroir de la
+ * permission serveur `incidents:update`. L'API reste l'autorité : elle vérifie
+ * en plus que l'incident est dans la portée de l'appelant. Ceci ne fait que
+ * masquer un geste qui serait de toute façon refusé.
+ */
+export function canDeployPosts(role: Role): boolean {
+  return role === "superadmin" || role === "admin" || role === "opcom" || role === "tacom";
+}
+
 // ---------------------------------------------------------------------------
 // Responsabilités opérationnelles (miroir de shared/responsibilities.ts côté API)
 // Sert UNIQUEMENT à composer l'interface d'affectation. Le cantonnement réel

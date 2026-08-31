@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { PLACE_ARME_RADIUS_KM, type Assignments } from "@/shared/responsibilities";
+import { DEPLOYABLE_ROLES, PLACE_ARME_RADIUS_KM, type Assignments } from "@/shared/responsibilities";
 import type { Role } from "@/shared/permissions";
 import type { Incident, Unit, FieldHospital } from "@/modules/domain/domain.service";
 
@@ -62,12 +62,15 @@ const GLOBAL_ROLES: readonly Role[] = ["superadmin", "admin", "strategic"];
 
 /**
  * Rôles de conduite cantonnés à l'incident sur lequel ils sont déployés.
- * Le responsable d'abri et celui du parc y figurent : contrairement à
+ * Le responsable d'abri et celui du parc en font partie : contrairement à
  * l'hôpital ou l'unité, ils servent une opération à la fois.
+ *
+ * La liste n'est pas écrite ici mais DÉRIVÉE de `ROLE_SCOPE_KEY` : c'est la même
+ * table qui autorise l'affectation d'un incident (lot V-1) et qui décide du
+ * déploiement (V-2). Deux listes parallèles auraient fini par diverger, et un
+ * rôle déployable oublié ici aurait vu TOUS les incidents.
  */
-const DEPLOYED_ROLES: readonly Role[] = [
-  "opcom", "tacom", "bluecell", "greencell", "orangecell", "resp_shelter", "resp_equipment",
-];
+const DEPLOYED_ROLES = DEPLOYABLE_ROLES;
 
 /** Rôles dont le périmètre est l'ensemble des incidents où leur entité sert. */
 const MULTI_INCIDENT_ROLES: readonly Role[] = ["resp_hospital", "resp_unit", "resp_morgue"];

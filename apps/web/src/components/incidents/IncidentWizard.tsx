@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import dynamic from "next/dynamic";
 import { useArgos, useDict } from "@/lib/store";
 import { api } from "@/lib/api";
+import type { CreateIncidentBody } from "@/lib/api-client";
 import { Modal } from "@/components/ui/Modal";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
@@ -382,7 +383,18 @@ export function IncidentWizard() {
       const { x, y } = llToSvg(pt);
       const attachedProv = province ?? nearestProvince(pt, provinces);
       const place = selectedCity?.v ?? attachedProv?.v;
-      const region = selectedCity?.region ?? attachedProv?.region ?? "—";
+      // La région est devenue une CLÉ DE VISIBILITÉ (lot V-1) : l'API la
+      // contraint au référentiel des 12 régions. Le repli « — » d'avant serait
+      // désormais refusé en 400, et l'utilisateur verrait « échec » sans savoir
+      // pourquoi. On type donc depuis le contrat et on s'arrête ici si la
+      // région n'est pas résolvable — ce qui ne survient que si le référentiel
+      // géographique n'a pas été chargé, auquel cas la création échouerait de
+      // toute façon.
+      const region = (selectedCity?.region ?? attachedProv?.region) as CreateIncidentBody["region"] | undefined;
+      if (!region) {
+        showToast(t.toast_fail);
+        return;
+      }
       const d = Math.max(0, parseInt(dead, 10) || 0);
       const inj = Math.max(0, parseInt(injured, 10) || 0);
       const mis = Math.max(0, parseInt(missing, 10) || 0);

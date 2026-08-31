@@ -723,6 +723,7 @@
     },
     "/api/incidents": {
       "get": {
+        "description": "Filtrée par la doctrine de visibilité (lot V-1) : globale pour l'état-major, la région pour un wali, la zone de 40 km pour une place d'armes, l'incident de déploiement pour la conduite, les incidents servis pour un responsable d'entité. Un rôle cantonné SANS affectation ne voit rien.",
         "operationId": "DomainController_incidents",
         "parameters": [],
         "responses": {
@@ -735,7 +736,7 @@
             "bearer": []
           }
         ],
-        "summary": "Liste des incidents",
+        "summary": "Liste des incidents VISIBLES par le compte.",
         "tags": [
           "domain"
         ]
@@ -1212,6 +1213,7 @@
     },
     "/api/units": {
       "get": {
+        "description": "Seule la place d'armes est restreinte — à sa zone de compétence.",
         "operationId": "DomainController_units",
         "parameters": [],
         "responses": {
@@ -1224,7 +1226,7 @@
             "bearer": []
           }
         ],
-        "summary": "Liste des unités",
+        "summary": "Liste des unités visibles.",
         "tags": [
           "domain"
         ]
@@ -1913,6 +1915,7 @@
     },
     "/api/field-hospitals": {
       "get": {
+        "description": "Seule la place d'armes est restreinte — à sa zone de compétence.",
         "operationId": "DomainController_fieldHospitals",
         "parameters": [],
         "responses": {
@@ -1925,7 +1928,7 @@
             "bearer": []
           }
         ],
-        "summary": "Hôpitaux de campagne déployés",
+        "summary": "Hôpitaux de campagne visibles.",
         "tags": [
           "domain"
         ]
@@ -2318,6 +2321,142 @@
           }
         ],
         "summary": "Prévisions météo (Open-Meteo, proxy souverain) pour lat/lon",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/incidents/{id}/deployments": {
+      "get": {
+        "description": "Visible par qui voit déjà l'incident — la section « Postes déployés » de la fiche.",
+        "operationId": "DomainController_listDeployments",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Incident inconnu ou hors de la portée du compte."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Postes déployés sur cette opération.",
+        "tags": [
+          "domain"
+        ]
+      },
+      "post": {
+        "description": "UN SEUL incident à la fois : le compte est retiré de l'opération qu'il servait, et ce retrait figure dans le fil et dans le journal d'audit. Refusé si l'opération est close ou archivée, ou si le compte n'occupe pas un poste déployable.",
+        "operationId": "DomainController_deployPost",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeployPostDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Le compte n'occupe pas un poste déployable."
+          },
+          "404": {
+            "description": "Incident ou compte inconnu."
+          },
+          "409": {
+            "description": "Opération close ou archivée."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Déployer un poste sur l'opération.",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/deployable-posts": {
+      "get": {
+        "description": "Renvoie AUSSI l'opération que chaque compte sert déjà : le commandement doit voir qui il s'apprête à retirer d'ailleurs avant de cliquer, et non le découvrir après.",
+        "operationId": "DomainController_listDeployablePosts",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Comptes déployables, avec leur affectation courante.",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/incidents/{id}/deployments/{matricule}": {
+      "delete": {
+        "description": "Le compte perd sa portée : il ne voit plus aucun incident tant qu'il n'est pas redéployé.",
+        "operationId": "DomainController_withdrawPost",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "matricule",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Incident ou compte inconnu."
+          },
+          "409": {
+            "description": "Ce compte n'est pas déployé sur cette opération."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Retirer un poste de l'opération.",
         "tags": [
           "domain"
         ]
@@ -3400,6 +3539,35 @@
       "AssignmentsDto": {
         "type": "object",
         "properties": {
+          "region": {
+            "type": "string",
+            "example": "Casablanca-Settat",
+            "enum": [
+              "Béni Mellal-Khénifra",
+              "Casablanca-Settat",
+              "Dakhla-Oued Ed-Dahab",
+              "Drâa-Tafilalet",
+              "Fès-Meknès",
+              "Guelmim-Oued Noun",
+              "L'Oriental",
+              "Laâyoune-Sakia El Hamra",
+              "Marrakech-Safi",
+              "Rabat-Salé-Kénitra",
+              "Souss-Massa",
+              "Tanger-Tétouan-Al Hoceïma"
+            ],
+            "description": "Région administrative (Wali) — doit appartenir au référentiel des 12 régions."
+          },
+          "city": {
+            "type": "string",
+            "example": "Casablanca",
+            "description": "Ville de rattachement (Place d'Armes) — la zone de compétence est un rayon de 40 km autour."
+          },
+          "incident": {
+            "type": "string",
+            "example": "INC-2607",
+            "description": "Incident de déploiement (OPCOM, TACOM, cellules, resp. abri et équipement). UN SEUL à la fois."
+          },
           "hospital": {
             "type": "string",
             "example": "H4",
@@ -3856,7 +4024,22 @@
             "type": "string"
           },
           "region": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "Béni Mellal-Khénifra",
+              "Casablanca-Settat",
+              "Dakhla-Oued Ed-Dahab",
+              "Drâa-Tafilalet",
+              "Fès-Meknès",
+              "Guelmim-Oued Noun",
+              "L'Oriental",
+              "Laâyoune-Sakia El Hamra",
+              "Marrakech-Safi",
+              "Rabat-Salé-Kénitra",
+              "Souss-Massa",
+              "Tanger-Tétouan-Al Hoceïma"
+            ],
+            "description": "Région administrative — DOIT appartenir au référentiel des 12 régions. Sans cette contrainte, « Oriental » et « L'Oriental » coexistaient et apparaissaient comme deux filtres distincts, et un wali affecté à l'une ne voyait pas les incidents libellés de l'autre."
           },
           "sev": {
             "type": "string",
@@ -4638,6 +4821,19 @@
           "maMinMag",
           "globalMinMag",
           "contacts"
+        ]
+      },
+      "DeployPostDto": {
+        "type": "object",
+        "properties": {
+          "matricule": {
+            "type": "string",
+            "example": "o.ziani",
+            "description": "Matricule du compte à déployer. Il doit occuper un poste déployable (OPCOM, TACOM, cellules, responsable abri ou équipement). Le déploiement REMPLACE l'opération qu'il servait."
+          }
+        },
+        "required": [
+          "matricule"
         ]
       },
       "CreateOrderDto": {

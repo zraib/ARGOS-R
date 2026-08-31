@@ -13,6 +13,7 @@ import { canReportIncident } from "@/lib/roles";
 import type { Incident, IncidentStatus, Severity, SubIncident, WeatherForecast } from "@/lib/types";
 import { predictIncidentEvolution, type IncidentEvolution } from "@/lib/ai/risk/incidentEvolution";
 import { IncidentEvolutionCard } from "@/components/incidents/IncidentEvolutionCard";
+import { DeployedPosts } from "@/components/incidents/DeployedPosts";
 
 const TH = "px-4 py-3 text-start text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400";
 const TD = "px-4 py-2.5";
@@ -706,6 +707,9 @@ function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddSub }: {
             </div>
           )}
         </div>
+
+        {/* Qui conduit cette opération — et le geste pour l'armer (lot V-2). */}
+        <DeployedPosts incidentId={incident.id} />
 
         <SubIncidentSection incident={incident} onAdd={() => onAddSub(incident)} />
       </div>
