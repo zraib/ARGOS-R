@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useArgos, useDict } from "@/lib/store";
+import { useArgos, useDict, useModules } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { svgToLL } from "@/lib/helpers";
@@ -12,7 +12,7 @@ import { ARGOS_WARD_REFERENCE } from "@/lib/types";
 import type { HospitalKind, UnitReadiness } from "@/lib/types";
 
 // ============================================================================
-// ARGOS — modales de création d'entités organisationnelles (unité, hôpital)
+// ARGOS — modales de création d'entités organisationnelles (unité, hôpital, abri)
 // Création via l'API (RBAC org:*:manage appliqué serveur, mutation auditée),
 // puis rechargement du domaine. La position vient d'une province de référence
 // (coordonnées SVG → géographiques, comme le wizard incident).
@@ -264,6 +264,144 @@ export function AddHospitalModal({ open, onClose }: { open: boolean; onClose: ()
           <button className="btn-secondaire text-sm" onClick={onClose}>{t.cancel}</button>
           <button className="btn-primaire text-sm" onClick={() => void submit()} disabled={!canSubmit || busy}>
             {busy ? "…" : t.lbl_create}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * Modale « Ouvrir un abri » (OPSnet).
+ *
+ * La COMMUNE, et non une province, parce que c'est elle qui donne sa position à
+ * l'abri : l'affecteur résout le chef-lieu dans le référentiel souverain plutôt
+ * que d'inventer des coordonnées. Une commune absente du référentiel n'empêche
+ * pas d'ouvrir l'abri — elle le prive seulement du classement par trajet, ce
+ * que l'écran dit.
+ *
+ * Les répartitions par âge ne sont pas demandées : un abri qu'on ouvre n'a pas
+ * encore de recensement, et un champ pré-rempli se lirait comme un dénombrement.
+ */
+export function AddShelterModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const t = useDict();
+  const m = useModules();
+  const cities = useArgos((s) => s.cities);
+  const loadDomain = useArgos((s) => s.loadDomain);
+  const showToast = useArgos((s) => s.showToast);
+
+  const [nom, setNom] = useState("");
+  const [ville, setVille] = useState("");
+  const [capacity, setCapacity] = useState(300);
+  const [staff, setStaff] = useState(0);
+  const [supplies, setSupplies] = useState<"ok" | "low" | "critical">("ok");
+  const [needs, setNeeds] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const connue = useMemo(
+    () => cities.some((c) => c.v.trim().toLocaleLowerCase("fr") === ville.trim().toLocaleLowerCase("fr")),
+    [cities, ville],
+  );
+  const canSubmit = !!(nom.trim() && ville.trim() && capacity > 0);
+
+  const submit = async () => {
+    if (!canSubmit || busy) return;
+    setBusy(true);
+    try {
+      const res = await api.createShelter({
+        nom: nom.trim(),
+        ville: ville.trim(),
+        capacity,
+        staff,
+        supplies,
+        ...(needs.trim() ? { needs: needs.trim() } : {}),
+      });
+      if (res.error) return;
+      await loadDomain();
+      showToast(t.ops_shelter_created);
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal open={open} title={t.ops_add_shelter} onClose={onClose} size="md">
+      <div className="space-y-3">
+        <div>
+          <label className={labelCls}>{t.ops_shelter_name}</label>
+          <input className={inputCls + " w-full"} value={nom} onChange={(e) => setNom(e.target.value)} maxLength={80} />
+        </div>
+        <div>
+          <label className={labelCls}>{t.ops_shelter_city}</label>
+          {/* Saisie libre AVEC liste de suggestions : le référentiel aide sans
+              interdire — une commune absente doit rester ouvrable. */}
+          <input
+            className={inputCls + " w-full"}
+            value={ville}
+            onChange={(e) => setVille(e.target.value)}
+            list="ops-villes"
+            maxLength={60}
+          />
+          <datalist id="ops-villes">
+            {cities.map((c) => (
+              <option key={c.v} value={c.v} />
+            ))}
+          </datalist>
+          <p className="mt-1 text-[11px] leading-snug text-gray-500 dark:text-rdia-300">
+            {ville.trim() === "" ? t.ops_city_help : connue ? t.ops_city_known : t.ops_city_unknown}
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>{t.ops_capacity}</label>
+            <input
+              type="number"
+              min={1}
+              className={inputCls + " w-full"}
+              value={capacity}
+              onChange={(e) => setCapacity(Math.max(1, Number(e.target.value) || 0))}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>{t.ops_staff}</label>
+            <input
+              type="number"
+              min={0}
+              className={inputCls + " w-full"}
+              value={staff}
+              onChange={(e) => setStaff(Math.max(0, Number(e.target.value) || 0))}
+            />
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>{t.ops_supplies}</label>
+          <select
+            className={inputCls + " w-full"}
+            value={supplies}
+            onChange={(e) => setSupplies(e.target.value as "ok" | "low" | "critical")}
+          >
+            <option value="ok">{m.shelters.sup_ok}</option>
+            <option value="low">{m.shelters.sup_low}</option>
+            <option value="critical">{m.shelters.sup_critical}</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>{t.ops_needs}</label>
+          <input
+            className={inputCls + " w-full"}
+            value={needs}
+            onChange={(e) => setNeeds(e.target.value)}
+            maxLength={200}
+            placeholder={t.ops_needs_ph}
+          />
+        </div>
+        <div className="flex justify-end gap-2 pt-1">
+          <button className="btn-secondaire cible-tactile text-sm" onClick={onClose} disabled={busy}>
+            {t.cancel}
+          </button>
+          <button className="btn-primaire cible-tactile text-sm" onClick={() => void submit()} disabled={!canSubmit || busy}>
+            {busy ? t.trk_saving : t.ops_open_shelter}
           </button>
         </div>
       </div>

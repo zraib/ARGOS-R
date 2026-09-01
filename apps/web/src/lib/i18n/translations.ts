@@ -516,6 +516,33 @@ export interface Dict {
   trk_incident: string; trk_archive: string; trk_archive_help: string;
   trk_saving: string; trk_save_failed: string; trk_load_failed: string;
   trk_no_fix: string; trk_last_seen: string; trk_never_seen: string; trk_sats: string;
+  // OPSnet — réseau opérationnel (lot OPSnet)
+  nav_opsnet: string; ops_title: string; ops_tab_overview: string; ops_tab_units: string;
+  ops_tab_shelters: string; ops_tab_affect: string; ops_kpi_units: string; ops_kpi_available: string;
+  ops_kpi_shelters: string; ops_kpi_sheltered: string; ops_engagement_rate: string; ops_available_now: string;
+  ops_shelter_saturation: string; ops_places_left: string; ops_availability: string; ops_readiness_low: string;
+  ops_saturation: string; ops_supplies_state: string; ops_composition: string; ops_no_census: string;
+  ops_ready: string; ops_standby: string; ops_deployed: string; ops_unit: string;
+  ops_shelter: string; ops_commander: string; ops_strength: string; ops_status: string;
+  ops_readiness: string; ops_capacity: string; ops_occupants: string; ops_occupancy: string;
+  ops_staff: string; ops_supplies: string; ops_needs: string; ops_needs_ph: string;
+  ops_adults: string; ops_children: string; ops_elderly: string; ops_no_units: string;
+  ops_no_shelters: string; ops_search_units: string; ops_search_shelters: string; ops_add_unit: string;
+  ops_add_shelter: string; ops_open_shelter: string; ops_shelter_name: string; ops_shelter_city: string;
+  ops_shelter_created: string; ops_city_help: string; ops_city_known: string; ops_city_unknown: string;
+  ops_position: string; ops_pos_from_city: string; ops_pos_unresolved: string; ops_pos_unknown: string;
+  ops_critical_one: string; ops_critical_many: string; ops_affect_title: string; ops_mode_engage: string;
+  ops_mode_shelter: string; ops_affect_engage_help: string; ops_affect_shelter_help: string; ops_need_strength: string;
+  ops_need_people: string; ops_radius: string; ops_from_incident: string; ops_include_deployed: string;
+  ops_need_point: string; ops_no_candidate: string; ops_covered_at: string; ops_not_covered: string;
+  ops_rank: string; ops_ranks: string; ops_personnel: string; ops_people: string;
+  ops_eta: string; ops_distance: string; ops_free: string; ops_cumulative: string;
+  ops_score: string; ops_part_travel: string; ops_part_strength: string; ops_part_readiness: string;
+  ops_part_capacity: string; ops_part_supplies: string; ops_excluded: string; ops_excluded_why: string;
+  ops_excluded_shelter_why: string; ops_no_position_note: string;
+  // Formes du singulier — « 1 écarté », pas « 1 écartés »
+  ops_excluded_one: string; ops_excluded_why_one: string;
+  ops_excluded_shelter_why_one: string; ops_no_position_note_one: string;
   nav_chemlib: string;
   cl_title: string;
   // Bibliothèque des substances — refonte N-5

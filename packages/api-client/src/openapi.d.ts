@@ -680,7 +680,11 @@ export interface paths {
         /** Liste des abris d'hébergement */
         get: operations["DomainController_shelters"];
         put?: never;
-        post?: never;
+        /**
+         * Ouvrir un abri (audité).
+         * @description Comme pour les unités, la création d'une entité revient à son administrateur ou à son responsable — pas à la conduite opérative, qui la CONSULTE et l'emploie. Les répartitions par âge partent à zéro : un abri qu'on ouvre n'a pas encore de recensement.
+         */
+        post: operations["DomainController_createShelter"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2049,6 +2053,34 @@ export interface components {
             /** @description Taux de préparation (%) */
             readiness?: number;
         };
+        CreateShelterDto: {
+            /**
+             * @description Nom de l'abri
+             * @example Complexe sportif Amizmiz
+             */
+            nom: string;
+            /**
+             * @description Commune d'implantation
+             * @example Amizmiz
+             */
+            ville: string;
+            /** @description Capacité d'accueil, en personnes */
+            capacity: number;
+            /** @description Personnes déjà hébergées (défaut 0) */
+            occupants?: number;
+            /** @description Encadrement affecté */
+            staff?: number;
+            /**
+             * @description Niveau d'approvisionnement à l'ouverture
+             * @enum {string}
+             */
+            supplies?: "ok" | "low" | "critical";
+            /**
+             * @description Besoins exprimés
+             * @example Couvertures, eau
+             */
+            needs?: string;
+        };
         UpdateShelterDto: {
             /** @description Capacité d'accueil */
             capacity?: number;
@@ -3402,6 +3434,27 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DomainController_createShelter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateShelterDto"];
+            };
+        };
+        responses: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

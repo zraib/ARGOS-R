@@ -25,6 +25,7 @@ export type UpdateIncidentBody = Json<NonNullable<paths["/api/incidents/{id}"]["
 export type CreateSubIncidentBody = Json<NonNullable<paths["/api/incidents/{id}/sub-incidents"]["post"]["requestBody"]>>;
 export type RegisterIncidentTypeBody = Json<NonNullable<paths["/api/incident-types"]["post"]["requestBody"]>>;
 export type CreateUnitBody = Json<NonNullable<paths["/api/units"]["post"]["requestBody"]>>;
+export type CreateShelterBody = Json<NonNullable<paths["/api/shelters"]["post"]["requestBody"]>>;
 // Traceurs GPS FMC920 (lot N-2). Le type de la RÉPONSE est exporté aussi : la
 // carte et l'écran de gestion lisent la même forme, qui vient du contrat.
 export type DeclareTrackerBody = Json<NonNullable<paths["/api/tracking/trackers"]["post"]["requestBody"]>>;
@@ -115,6 +116,12 @@ export function createArgosClient(opts: ArgosClientOptions) {
     /** Prédictions risques calculées côté serveur (moteur déterministe, F-04). */
     getDashboardRisk: () => client.GET("/api/dashboard/risk"),
     createIncident: (body: CreateIncidentBody) => client.POST("/api/incidents", { body }),
+    /**
+     * Ouvrir un abri (OPSnet). Comme pour les unités, la création d'une entité
+     * revient à son administrateur ou à son responsable — pas à la conduite,
+     * qui la consulte et l'emploie.
+     */
+    createShelter: (body: CreateShelterBody) => client.POST("/api/shelters", { body }),
     /**
      * Suppression DÉFINITIVE d'un incident — `incidents:delete`, que la matrice
      * n'accorde à personne : seul le joker du Super Administrateur la détient.

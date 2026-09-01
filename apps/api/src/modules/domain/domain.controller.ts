@@ -33,6 +33,7 @@ import {
   UpdateEquipDto,
   UpdateMorgueDto,
   UpdateMortuaryRecordDto,
+  CreateShelterDto,
   UpdateShelterDto,
   UpdateUnitDto,
   UpdateWardDto,
@@ -345,6 +346,19 @@ export class DomainController {
   @ApiOperation({ summary: "Liste des abris d'hébergement" })
   shelters() {
     return this.domain.listShelters();
+  }
+
+  @Post("shelters")
+  @RequirePermission("shelters:create")
+  @ApiOperation({
+    summary: "Ouvrir un abri (audité).",
+    description:
+      "Comme pour les unités, la création d'une entité revient à son administrateur ou à son " +
+      "responsable — pas à la conduite opérative, qui la CONSULTE et l'emploie. Les répartitions " +
+      "par âge partent à zéro : un abri qu'on ouvre n'a pas encore de recensement.",
+  })
+  createShelter(@Body() dto: CreateShelterDto) {
+    return this.domain.createShelter(dto);
   }
 
   @Patch("shelters/:id")

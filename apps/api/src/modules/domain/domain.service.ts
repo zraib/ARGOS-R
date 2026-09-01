@@ -780,6 +780,44 @@ export class DomainService {
     return unit;
   }
 
+  /**
+   * Ouvre un abri (lot OPSnet).
+   *
+   * Les répartitions par âge partent à zéro plutôt que d'être devinées depuis
+   * les occupants : un abri qu'on ouvre n'a pas encore de recensement, et des
+   * chiffres inventés se liraient comme un dénombrement.
+   */
+  createShelter(input: {
+    nom: string;
+    ville: string;
+    capacity: number;
+    occupants?: number;
+    staff?: number;
+    supplies?: Shelter["supplies"];
+    needs?: string;
+  }): Shelter {
+    const n = Math.max(0, ...this.shelters.map((x) => parseInt(x.id.replace(/\D/g, ""), 10) || 0)) + 1;
+    const shelter: Shelter = {
+      id: `AB-${String(n).padStart(2, "0")}`,
+      nom: input.nom,
+      ville: input.ville,
+      capacity: input.capacity,
+      occupants: Math.min(input.occupants ?? 0, input.capacity),
+      staff: input.staff ?? 0,
+      supplies: input.supplies ?? "ok",
+      needs: input.needs?.trim() || "—",
+      adults: 0,
+      children: 0,
+      elderly: 0,
+    };
+    this.shelters.push(shelter);
+    const d = new Date();
+    const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    this.feed.unshift({ time, c: "bg-green-500", txt: `Abri ouvert : ${shelter.nom} (${shelter.ville})` });
+    this.persist();
+    return shelter;
+  }
+
   listHospitals(): Hospital[] {
     return this.hospitals;
   }

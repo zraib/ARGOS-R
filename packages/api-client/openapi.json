@@ -1317,6 +1317,35 @@
         "tags": [
           "domain"
         ]
+      },
+      "post": {
+        "description": "Comme pour les unités, la création d'une entité revient à son administrateur ou à son responsable — pas à la conduite opérative, qui la CONSULTE et l'emploie. Les répartitions par âge partent à zéro : un abri qu'on ouvre n'a pas encore de recensement.",
+        "operationId": "DomainController_createShelter",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateShelterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ouvrir un abri (audité).",
+        "tags": [
+          "domain"
+        ]
       }
     },
     "/api/shelters/{id}": {
@@ -4606,6 +4635,55 @@
             "description": "Taux de préparation (%)"
           }
         }
+      },
+      "CreateShelterDto": {
+        "type": "object",
+        "properties": {
+          "nom": {
+            "type": "string",
+            "description": "Nom de l'abri",
+            "example": "Complexe sportif Amizmiz"
+          },
+          "ville": {
+            "type": "string",
+            "description": "Commune d'implantation",
+            "example": "Amizmiz"
+          },
+          "capacity": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Capacité d'accueil, en personnes"
+          },
+          "occupants": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Personnes déjà hébergées (défaut 0)"
+          },
+          "staff": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Encadrement affecté"
+          },
+          "supplies": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "low",
+              "critical"
+            ],
+            "description": "Niveau d'approvisionnement à l'ouverture"
+          },
+          "needs": {
+            "type": "string",
+            "description": "Besoins exprimés",
+            "example": "Couvertures, eau"
+          }
+        },
+        "required": [
+          "nom",
+          "ville",
+          "capacity"
+        ]
       },
       "UpdateShelterDto": {
         "type": "object",

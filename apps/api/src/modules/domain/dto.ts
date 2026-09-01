@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength, ValidateNested } from "class-validator";
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Length, Max, MaxLength, Min, MinLength, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 import { REGIONS_MA } from "@/modules/domain/provinces.data";
 
@@ -559,6 +559,43 @@ export class UpdateUnitDto {
 export const SUPPLY_LEVELS = ["ok", "low", "critical"] as const;
 
 /** Mise à jour d'un abri par son responsable. */
+/**
+ * Ouverture d'un abri (lot OPSnet).
+ *
+ * La CAPACITÉ est obligatoire et les occupants partent de zéro : un abri qu'on
+ * ouvre est vide, et une capacité absente ferait afficher une saturation à
+ * 0 % qui se lirait comme « de la place », alors qu'on ne saurait rien.
+ */
+export class CreateShelterDto {
+  @ApiProperty({ description: "Nom de l'abri", example: "Complexe sportif Amizmiz" })
+  @IsString() @Length(2, 80)
+  nom!: string;
+
+  @ApiProperty({ description: "Commune d'implantation", example: "Amizmiz" })
+  @IsString() @Length(2, 60)
+  ville!: string;
+
+  @ApiProperty({ minimum: 1, description: "Capacité d'accueil, en personnes" })
+  @IsInt() @Min(1)
+  capacity!: number;
+
+  @ApiPropertyOptional({ minimum: 0, description: "Personnes déjà hébergées (défaut 0)" })
+  @IsOptional() @IsInt() @Min(0)
+  occupants?: number;
+
+  @ApiPropertyOptional({ minimum: 0, description: "Encadrement affecté" })
+  @IsOptional() @IsInt() @Min(0)
+  staff?: number;
+
+  @ApiPropertyOptional({ enum: SUPPLY_LEVELS, description: "Niveau d'approvisionnement à l'ouverture" })
+  @IsOptional() @IsIn(SUPPLY_LEVELS as unknown as string[])
+  supplies?: (typeof SUPPLY_LEVELS)[number];
+
+  @ApiPropertyOptional({ description: "Besoins exprimés", example: "Couvertures, eau" })
+  @IsOptional() @IsString() @Length(0, 200)
+  needs?: string;
+}
+
 export class UpdateShelterDto {
   @ApiPropertyOptional({ minimum: 0, description: "Capacité d'accueil" })
   @IsOptional() @IsInt() @Min(0)
