@@ -1373,6 +1373,62 @@ volumique 3D de 0,45 à 0,14** : à sa valeur d'origine elle dominait l'image d�
 que la caméra s'inclinait. C'est la fumée qui doit porter le volume — par la
 superposition des bouffées, pas par un aplat.
 
+### 20.7 Le nuage disparaissait pendant la lecture (N-4c)
+
+Trois défauts, dont deux de ma part.
+
+#### La taille des bouffées ne suivait pas l'échelle
+
+La taille était calée sur une courbe de zoom arbitraire : environ 10 px à zoom
+11,5. Or la caméra de lecture **zoome à 11,5 et incline à 60°** ; le gabarit
+occupait alors tout l'écran, et trois mille grains de 10 px éparpillés sur une
+nappe de 400 px ne se voyaient pas. **Le nuage semblait éteint alors qu'il
+tournait.**
+
+La taille suit désormais l'**emprise du gabarit à l'écran** : une unité mercator
+vaut 512 × 2^zoom pixels, la bouffée en fait un dixième. La nappe se couvre à
+toute échelle — d'un périmètre de 300 m à un panache de 10 km.
+
+#### Les bouffées débordaient du périmètre
+
+Leur CENTRE était confiné, pas leur DISQUE — large de plusieurs dizaines de
+pixels, et **quadruplant avec l'âge**. La promesse du lot était qu'elles ne
+sortent jamais.
+
+Quatre sondes par bouffée, au rayon RÉEL du disque (même formule d'âge que le
+nuanceur), fixent son opacité : chaque sonde hors gabarit en retire un quart.
+La bouffée **s'éteint** en approchant du bord au lieu de le franchir à moitié.
+Une première version employait un rayon fixe — elle laissait déborder les
+vieilles bouffées, c'est-à-dire les plus grandes, donc les plus visibles.
+
+#### La nappe volumique était trop effacée
+
+Ramenée de 0,45 à 0,14 au lot précédent, elle ne se voyait plus. Elle porte
+pourtant une information que des bouffées à plat ne rendent pas : la **hauteur**
+du nuage — un gaz dense rampe, un gaz léger monte. Rétablie à 0,32 sous la
+fumée : retenue pour ne pas l'écraser, pas effacée.
+
+### 20.8 Pourquoi le cône n'est pas là au début de l'animation
+
+**Ce n'est pas un défaut, c'est la doctrine.** L'ATP-45 ne trace de zone
+directionnelle qu'au-dessus de **10 km/h** : en deçà, le vent est jugé trop
+faible ou trop variable pour désigner un secteur, et le gabarit devient un
+**cercle de vigilance** omnidirectionnel.
+
+Sur l'incident de démonstration, le vent monte de 4 à 15 km/h sur les six
+échéances : la lecture commence donc en cercle et le cône apparaît à H+4. Le
+changement de forme en cours d'animation est le modèle qui parle.
+
+Ce que ce lot corrige, c'est l'**incohérence** qui l'accompagnait : la fumée
+partait sous le vent même dans le cercle de vigilance, n'en occupant qu'une
+moitié — une lecture qui contredisait le gabarit qu'elle habite. Elle s'y étend
+désormais **radialement**, et remplit le cercle. C'est bien ce que « dérive
+possible dans toutes les directions » veut dire.
+
+*(Pour une forme directionnelle continue sur les six échéances, le gabarit
+**ERG** convient : son carré sous le vent existe à chaque pas, quel que soit le
+vent. Il suffit de le passer en référentiel primaire.)*
+
 ## 21. Ce qui reste à construire
 
 Le workflow est posé ; ces maillons le compléteront (voir le plan d'exécution) :

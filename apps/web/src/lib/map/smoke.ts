@@ -50,10 +50,12 @@ const VERT = `
 attribute vec2 a_pos;      // position en coordonnées mercator [0..1]
 attribute float a_life;    // 0 = neuve, 1 = dissipée
 attribute float a_seed;    // graine par particule : taille, teinte, turbulence
+attribute float a_edge;    // 1 = au large, 0 = contre le bord du gabarit
 uniform mat4 u_matrix;
 uniform float u_scale;
 varying float v_life;
 varying float v_seed;
+varying float v_edge;
 void main() {
   gl_Position = u_matrix * vec4(a_pos, 0.0, 1.0);
   // GROSSISSEMENT FORT. Une bouffée qui garde sa taille se lit comme un objet
@@ -63,6 +65,7 @@ void main() {
   gl_PointSize = u_scale * (0.5 + 3.5 * a_life) * (0.75 + 0.5 * a_seed);
   v_life = a_life;
   v_seed = a_seed;
+  v_edge = a_edge;
 }`;
 
 const FRAG = `
@@ -72,6 +75,7 @@ uniform vec3 u_tail;     // teinte DÉRIVÉE — la fumée secondaire, diluée
 uniform float u_opacity;
 varying float v_life;
 varying float v_seed;
+varying float v_edge;
 void main() {
   // Bord TRÈS doux : un disque net donne un semis de pastilles, c'est
   // l'exposant élevé qui fait la limite floue d'un gaz.
@@ -90,7 +94,11 @@ void main() {
 
   // Opacité faible par bouffée : la densité vient de la SUPERPOSITION, pas de
   // chaque particule. C'est ce qui donne le grain d'un nuage.
-  float a = soft * fade * u_opacity * (0.45 + 0.55 * v_seed);
+  // EXTINCTION AU BORD DU GABARIT. Le centre de la bouffée est confiné, mais
+  // son disque, large de plusieurs dizaines de pixels, débordait. La promesse
+  // du lot est que la fumée ne sorte JAMAIS du périmètre : elle s'éteint donc
+  // en l'approchant, au lieu de le franchir à moitié.
+  float a = soft * fade * u_opacity * (0.45 + 0.55 * v_seed) * v_edge;
   gl_FragColor = vec4(col, a);
 }`;
 
@@ -133,6 +141,19 @@ export interface SmokeSettings {
   /** Teinte dérivée — la fumée secondaire, diluée. */
   tail: string;
   opacity: number;
+  /**
+   * Diffusion OMNIDIRECTIONNELLE.
+   *
+   * Vrai quand le gabarit est le cercle de VIGILANCE — c'est-à-dire quand
+   * l'ATP-45 juge le vent trop faible ou trop variable pour donner une
+   * direction. Le modèle refusant alors de désigner un secteur, la fumée ne doit
+   * pas en désigner un non plus : elle s'étend en nappe autour du rejet, et
+   * remplit le cercle au lieu d'en occuper une moitié.
+   *
+   * Sans cela, la lecture contredisait le gabarit qu'elle habite : un cercle
+   * « toutes directions » rempli d'un nuage qui part d'un côté.
+   */
+  omnidirectional: boolean;
 }
 
 export class SmokeLayer implements CustomLayerInterface {
@@ -149,7 +170,7 @@ export class SmokeLayer implements CustomLayerInterface {
   private readonly py = new Float32Array(MAX_PARTICLES);
   private readonly life = new Float32Array(MAX_PARTICLES);
   private readonly seed = new Float32Array(MAX_PARTICLES);
-  private readonly vertexData = new Float32Array(MAX_PARTICLES * 4);
+  private readonly vertexData = new Float32Array(MAX_PARTICLES * 5);
 
   /** Anneau de diffusion en mercator, à plat : [x0,y0,x1,y1,…]. */
   private ring = new Float64Array(0);
@@ -164,8 +185,12 @@ export class SmokeLayer implements CustomLayerInterface {
   private driftX = 0;
   private driftY = 0;
   private churn = 0;
+  /** Vitesse d'expansion radiale (diffusion omnidirectionnelle), en mercator/s. */
+  private radial = 0;
   /** Durée de vie de base, calée sur le temps de traversée du gabarit. */
   private lifeSpan = 7;
+  /** Demi-taille de la bouffée en mercator — sert aux sondes de bord. */
+  private spriteMerc = 0;
   private core: [number, number, number] = [0.96, 0.45, 0.27];
   private tail: [number, number, number] = [0.99, 0.85, 0.55];
   private opacity = 0;
@@ -243,14 +268,21 @@ export class SmokeLayer implements CustomLayerInterface {
     const kmh = s.windSpeedKmh ?? 0;
     const vMerc = (kmh / 3600) * mercPerKm * TIME_SCALE;
 
-    if (s.windFromDeg === null || kmh <= 0) {
-      // Sans prévision, la nappe respire sur place au lieu de dériver dans une
-      // direction inventée — même parti que les gabarits, qui omettent leurs
-      // zones directionnelles quand le vent est inconnu.
+    if (s.omnidirectional || s.windFromDeg === null || kmh <= 0) {
+      // AUCUNE DÉRIVE DIRECTIONNELLE. Soit la prévision manque, soit le gabarit
+      // lui-même est omnidirectionnel : dans les deux cas, désigner un secteur
+      // serait affirmer plus que le modèle.
+      //
+      // À la place, une expansion RADIALE calée pour traverser le rayon en une
+      // vie de particule : le nuage gonfle et remplit le cercle, ce qui est
+      // exactement ce que « dérive possible dans toutes les directions » veut
+      // dire.
       this.driftX = 0;
       this.driftY = 0;
-      this.churn = this.extent * 0.07;
+      this.churn = this.extent * 0.05;
+      this.radial = (this.extent / 2) / 14;
     } else {
+      this.radial = 0;
       const toRad = ((s.windFromDeg + 180) * Math.PI) / 180;
       this.driftX = Math.sin(toRad) * vMerc;
       // Mercator : y croît vers le SUD.
@@ -264,7 +296,7 @@ export class SmokeLayer implements CustomLayerInterface {
     // bouffées avant qu'elles n'atteignent le fond du gabarit : le nuage restait
     // massé sur le rejet et la nappe paraissait vide, alors qu'elle est
     // précisément ce que l'opérateur doit voir se remplir.
-    const speed = Math.hypot(this.driftX, this.driftY);
+    const speed = Math.hypot(this.driftX, this.driftY) + this.radial;
     this.lifeSpan = speed > 0 ? Math.min(26, Math.max(4, this.extent / speed)) : 9;
 
     if (this.active === 0) {
@@ -292,6 +324,11 @@ export class SmokeLayer implements CustomLayerInterface {
     this.lastFrame = now;
     const t = now / 1000;
 
+    // Rayon de BASE de la bouffée en mercator — la moitié du dixième d'emprise
+    // employé pour la taille à l'écran. Multiplié par le facteur d'âge dans la
+    // boucle, il donne le rayon réel du disque dessiné.
+    this.spriteMerc = this.extent * 0.05;
+
     let n = 0;
     for (let i = 0; i < this.active; i++) {
       const sd = this.seed[i];
@@ -309,8 +346,21 @@ export class SmokeLayer implements CustomLayerInterface {
       // vieille est brassée. C'est ce qui fait le bord effiloché.
       const grow = 0.35 + this.life[i] * 1.4;
 
-      this.px[i] += (this.driftX + wx * this.churn * grow) * dt;
-      this.py[i] += (this.driftY + wy * this.churn * grow) * dt;
+      let vx = this.driftX;
+      let vy = this.driftY;
+      if (this.radial > 0) {
+        // Expansion depuis le rejet. Le facteur d'âge fait accélérer la nappe
+        // en s'éloignant, ce qui donne un front qui s'ouvre au lieu d'un disque
+        // qui grossit uniformément.
+        const dx = this.px[i] - this.srcX;
+        const dy = this.py[i] - this.srcY;
+        const d = Math.hypot(dx, dy) || 1e-12;
+        const push = this.radial * (0.4 + this.life[i]);
+        vx += (dx / d) * push;
+        vy += (dy / d) * push;
+      }
+      this.px[i] += (vx + wx * this.churn * grow) * dt;
+      this.py[i] += (vy + wy * this.churn * grow) * dt;
       // Vie longue : la dissipation lente laisse les bouffées se superposer, et
       // c'est la superposition qui fait la matière du nuage.
       this.life[i] += dt / (this.lifeSpan * (0.75 + sd * 0.5));
@@ -323,20 +373,37 @@ export class SmokeLayer implements CustomLayerInterface {
         continue;
       }
 
-      const k = n * 4;
+      // Proximité du bord : quatre sondes à la distance du rayon de la bouffée.
+      // Chacune hors du gabarit ampute d'un quart l'opacité — la bouffée
+      // s'efface progressivement au lieu de déborder.
+      // Le rayon de la sonde suit la taille RÉELLE de la bouffée, qui quadruple
+      // avec l'âge (même formule que le nuanceur). Une sonde à rayon fixe
+      // laissait déborder les vieilles bouffées, les plus grandes — et donc les
+      // plus visibles.
+      const rad = this.spriteMerc * (0.5 + 3.5 * this.life[i]) * (0.75 + sd * 0.5);
+      let inside = 0;
+      for (let q = 0; q < 4; q++) {
+        const ang = (q * Math.PI) / 2;
+        if (inRing(this.ring, this.ringLen, this.px[i] + Math.cos(ang) * rad, this.py[i] + Math.sin(ang) * rad)) {
+          inside++;
+        }
+      }
+
+      const k = n * 5;
       this.vertexData[k] = this.px[i];
       this.vertexData[k + 1] = this.py[i];
       this.vertexData[k + 2] = this.life[i];
       this.vertexData[k + 3] = sd;
+      this.vertexData[k + 4] = inside / 4;
       n++;
     }
 
     if (n > 0) {
       gl.useProgram(this.program);
       gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
-      gl.bufferData(gl.ARRAY_BUFFER, this.vertexData.subarray(0, n * 4), gl.DYNAMIC_DRAW);
+      gl.bufferData(gl.ARRAY_BUFFER, this.vertexData.subarray(0, n * 5), gl.DYNAMIC_DRAW);
 
-      const stride = 4 * 4;
+      const stride = 5 * 4;
       const bind = (name: string, size: number, offset: number) => {
         const loc = gl.getAttribLocation(this.program!, name);
         gl.enableVertexAttribArray(loc);
@@ -345,13 +412,26 @@ export class SmokeLayer implements CustomLayerInterface {
       bind("a_pos", 2, 0);
       bind("a_life", 1, 8);
       bind("a_seed", 1, 12);
+      bind("a_edge", 1, 16);
 
       gl.uniformMatrix4fv(gl.getUniformLocation(this.program, "u_matrix"), false, matrix as Float32Array);
       gl.uniform3fv(gl.getUniformLocation(this.program, "u_core"), this.core);
       gl.uniform3fv(gl.getUniformLocation(this.program, "u_tail"), this.tail);
       gl.uniform1f(gl.getUniformLocation(this.program, "u_opacity"), this.opacity);
+      // TAILLE CALÉE SUR L'EMPRISE DU GABARIT À L'ÉCRAN, pas sur une courbe de
+      // zoom arbitraire.
+      //
+      // C'est le défaut qui faisait disparaître le nuage pendant la lecture : la
+      // caméra de théâtre zoome à 11,5, le gabarit occupait alors tout l'écran,
+      // et les bouffées restaient à 10 px — trois mille grains épars sur une
+      // nappe de 400 px, autant dire rien.
+      //
+      // Une unité mercator vaut 512 × 2^zoom pixels. La bouffée fait un dixième
+      // de l'emprise : la nappe se couvre à toute échelle, du périmètre de
+      // 300 m au panache de 10 km.
       const z = this.map?.getZoom() ?? 10;
-      gl.uniform1f(gl.getUniformLocation(this.program, "u_scale"), Math.max(10, Math.min(90, 4 * Math.pow(1.3, z - 8))));
+      const extentPx = this.extent * 512 * Math.pow(2, z);
+      gl.uniform1f(gl.getUniformLocation(this.program, "u_scale"), Math.max(12, Math.min(220, extentPx / 10)));
 
       gl.enable(gl.BLEND);
       // Mélange classique, NON additif : l'additif vire au blanc lumineux et

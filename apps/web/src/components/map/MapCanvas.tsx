@@ -891,7 +891,11 @@ export function MapCanvas() {
         windSpeedKmh: plumeData?.wind?.speedKmh ?? null,
         core,
         tail,
-        opacity: smokeOn ? 0.42 : 0,
+        opacity: smokeOn ? 0.30 : 0,
+        // Le cercle de VIGILANCE signifie « dérive possible dans toutes les
+        // directions » : la fumée s'y étend en nappe au lieu de partir d'un
+        // côté, sans quoi la lecture contredirait le gabarit qu'elle habite.
+        omnidirectional: level === "vigilance",
       });
     }
     // Remplissages ATTÉNUÉS : le gabarit doit se deviner sous le nuage sans le
@@ -906,11 +910,11 @@ export function MapCanvas() {
       map.setLayoutProperty("nrbc-plume-3d", "visibility", plume3d && tilted && plumeIncidentId ? "visible" : "none");
       map.setFilter("nrbc-plume-3d", plumeEnvelope ? null : ["==", ["get", "model"], primary]);
       map.setPaintProperty("nrbc-plume-3d", "fill-extrusion-color", plumeEnvelope ? "#EF4444" : PLUME_LEVEL_COLOR);
-      // Quand la fumée est active, la nappe volumique s'efface : à 0,45 elle
-      // dominait l'image dès que la caméra s'inclinait, et c'est la fumée qui
-      // doit porter le volume — elle le rend par la superposition des bouffées,
-      // pas par un aplat.
-      map.setPaintProperty("nrbc-plume-3d", "fill-extrusion-opacity", smokeOn ? 0.14 : 0.45);
+      // Les deux se complètent : la nappe volumique donne la HAUTEUR du nuage —
+      // un gaz dense rampe, un gaz léger monte — que des bouffées à plat ne
+      // peuvent pas rendre. Elle est seulement retenue sous la fumée pour ne pas
+      // l'écraser, pas effacée : à 0,14 on ne la voyait plus du tout.
+      map.setPaintProperty("nrbc-plume-3d", "fill-extrusion-opacity", smokeOn ? 0.32 : 0.45);
     }
   };
 
