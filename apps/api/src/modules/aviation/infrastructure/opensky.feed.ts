@@ -55,6 +55,20 @@ export class OpenSkyFeed implements FlightFeed {
   private cache: { at: number; data: AircraftPosition[] } | null = null;
   /** Horodatage jusqu'auquel on s'abstient d'interroger la source. */
   private mutedUntil = 0;
+  private derniereRaison: string | null = null;
+
+  /**
+   * Le flux est-il en service ? Rendue au contrôleur pour que l'écran sache
+   * distinguer « aucun appareil » de « fournisseur indisponible ».
+   */
+  health(): { available: boolean; reason?: string; retryAt?: string } {
+    if (Date.now() >= this.mutedUntil) return { available: true };
+    return {
+      available: false,
+      reason: this.derniereRaison ?? "indisponible",
+      retryAt: new Date(this.mutedUntil).toISOString(),
+    };
+  }
 
   async statesInBox(box: BoundingBox): Promise<AircraftPosition[]> {
     const fresh = this.cache && Date.now() - this.cache.at < this.ttl;
@@ -79,6 +93,7 @@ export class OpenSkyFeed implements FlightFeed {
 
       if (res.status === 429 || res.status >= 500) {
         this.mutedUntil = Date.now() + BACKOFF_MS;
+        this.derniereRaison = res.status === 429 ? "quota du fournisseur atteint" : `erreur ${res.status} du fournisseur`;
         this.logger.warn(`OpenSky ${res.status} — repli sur le cache pendant ${BACKOFF_MS / 1000} s.`);
         return this.cache?.data ?? [];
       }
@@ -87,6 +102,7 @@ export class OpenSkyFeed implements FlightFeed {
       const json = (await res.json()) as { states?: OpenSkyState[] | null };
       const data = (json.states ?? []).map(toPosition).filter((p): p is AircraftPosition => p !== null);
       this.cache = { at: Date.now(), data };
+      this.derniereRaison = null;
       return data;
     } catch (err) {
       // Dégradation : une carte sans avions reste exploitable, une carte en

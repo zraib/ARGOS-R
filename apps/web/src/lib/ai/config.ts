@@ -27,7 +27,11 @@ export const AI_ENABLED = true;
 export const AI_DEFAULT_PROVIDER: LlmProviderId = "ollama";
 
 export const AI_PROVIDERS: Record<LlmProviderId, LlmProviderConfig> = {
-  ollama: { id: "ollama", label: "Ollama (local)", endpoint: "http://127.0.0.1:11434", model: "qwen2.5:14b", local: true },
+  // Le modèle par DÉFAUT doit exister sur le poste, sinon chaque appel échoue
+  // en silence et l'assistant paraît simplement « ne pas marcher ». Le nom se
+  // règle à l'exécution (Paramètres, Super Admin) : cette valeur n'est qu'un
+  // point de départ, aligné sur ce qui est réellement servi ici.
+  ollama: { id: "ollama", label: "Ollama (local)", endpoint: "http://127.0.0.1:11434", model: "qwen3.6:latest", local: true },
   vllm: { id: "vllm", label: "vLLM (local)", endpoint: "http://127.0.0.1:8000", model: "qwen2.5:14b-instruct", local: true },
 };
 
@@ -58,8 +62,22 @@ export function resolveProvider(s: AiSettings): LlmProviderConfig {
   return { ...base, endpoint: s.endpoint.trim() || base.endpoint, model: s.model.trim() || base.model, temperature: s.temperature };
 }
 
-/** Délai maximal d'un appel LLM (ms) avant repli sur la réponse déterministe. */
-export const AI_TIMEOUT_MS = 12000;
+/**
+ * Délai maximal d'un appel LLM (ms) avant repli sur la réponse déterministe.
+ *
+ * PORTÉ DE 12 s À 60 s. Douze secondes conviennent à une API distante ; elles
+ * ne conviennent pas à un modèle open-weight AUTO-HÉBERGÉ, qui est précisément
+ * le défaut imposé par la souveraineté (MASTER_PLAN §4.3). Mesuré sur ce poste :
+ * une question simple prend ~9 s à modèle CHAUD, et le premier appel doit
+ * d'abord charger une vingtaine de gigaoctets en mémoire — bien au-delà de 12 s.
+ * L'assistant abandonnait donc avant que le modèle ait répondu, et se repliait
+ * en silence sur le moteur déterministe : de l'extérieur, « l'IA ne marche pas ».
+ *
+ * Soixante secondes restent une BORNE, pas une attente normale : au-delà, le
+ * repli déterministe vaut mieux qu'un écran qui tourne. Le réglage se change à
+ * l'exécution (Paramètres, Super Administrateur) selon le matériel du poste.
+ */
+export const AI_TIMEOUT_MS = 60000;
 
 /**
  * Consigne SYSTÈME — APPLICATION STRICTE ET SANS EXCEPTION.

@@ -63,6 +63,16 @@ export function openRealtimeStream(
         headers: { Authorization: `Bearer ${token}`, Accept: "text/event-stream" },
         signal: controller.signal,
       });
+      // UN REFUS PERMANENT NE SE RETENTE PAS. 403 : le compte n'a pas
+      // `comms:view` — réessayer toutes les secondes ne le lui donnera jamais,
+      // et martèlerait le serveur pour chaque utilisateur concerné jusqu'à la
+      // fermeture de l'onglet. 401 : la session est finie, le client HTTP la
+      // purge déjà de son côté. Dans les deux cas on s'arrête ET on le dit.
+      if (res.status === 401 || res.status === 403) {
+        vivant = false;
+        onStatus("closed");
+        return;
+      }
       if (!res.ok || !res.body) throw new Error(`flux refusé : ${res.status}`);
 
       onStatus("open");

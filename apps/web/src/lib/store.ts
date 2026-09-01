@@ -871,9 +871,23 @@ export const useArgos = create<ArgosState>((set, get) => ({
    */
   loadAircraft: async () => {
     const res = await api.getAircraftStates();
-    const data = res.data as { feed?: string; aircraft?: TrackedAircraftState[] } | undefined;
+    const data = res.data as
+      | {
+          feed?: string;
+          feedHealth?: { available: boolean; reason?: string; retryAt?: string } | null;
+          aircraft?: TrackedAircraftState[];
+        }
+      | undefined;
     if (!data) return;
-    set({ aircraft: data.aircraft ?? [], aircraftFeed: data.feed ?? "" });
+    // Une liste vide se lit « aucun appareil dans l'emprise » ; ce peut être
+    // « le fournisseur nous a refusés ». Deux situations opposées pour un
+    // état-major — on remonte donc l'indisponibilité au lieu de la taire.
+    const sante = data.feedHealth;
+    set({
+      aircraft: data.aircraft ?? [],
+      aircraftFeed: data.feed ?? "",
+      aircraftError: sante && !sante.available ? (sante.reason ?? "indisponible") : null,
+    });
   },
 
   // --- missions : la boucle fermée (ADR 0007) ---

@@ -53,6 +53,18 @@ export class AviationService {
     return this.feed.name;
   }
 
+  /**
+   * Santé du fournisseur, ou `null` s'il ne sait pas la dire.
+   *
+   * Le flux se dégrade en silence par conception (une carte en erreur est
+   * inutilisable) — mais le silence fait lire « aucun appareil » là où il faut
+   * lire « fournisseur indisponible ». Ce sont deux situations opposées pour
+   * un état-major.
+   */
+  get feedHealth(): { available: boolean; reason?: string; retryAt?: string } | null {
+    return this.feed.health?.() ?? null;
+  }
+
   /** Appareils inscrits. Les archivés sont masqués sauf demande explicite. */
   async list(includeArchived = false): Promise<TrackedAircraft[]> {
     const all = await this.watchlist.list();

@@ -106,7 +106,28 @@ export async function chatComplete(cfg: LlmProviderConfig, messages: LlmMessage[
       const r = await fetch(`${cfg.endpoint}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: cfg.model, messages, stream: false, options: { ...OLLAMA_OPTIONS, temperature: cfg.temperature ?? OLLAMA_OPTIONS.temperature } }),
+        // `think: false` — DÉCISIF. Les modèles à raisonnement (qwen3, gemma4…)
+        // écrivent leur réflexion dans un champ `thinking` SÉPARÉ et laissent
+        // `content` vide tant qu'ils n'ont pas conclu. ARGOS ne lit que
+        // `content` : l'assistant paraissait donc muet alors que le modèle
+        // répondait — l'un des symptômes les plus trompeurs qui soient, puisque
+        // rien n'échoue. Le drapeau est ignoré sans dommage par les modèles qui
+        // ne raisonnent pas ; il est donc envoyé dans tous les cas.
+        body: JSON.stringify({
+          model: cfg.model,
+          messages,
+          stream: false,
+          think: false,
+          // MAINTIEN EN MÉMOIRE. Ollama décharge le modèle après cinq minutes
+          // d'inactivité ; le rappel suivant doit alors relire une vingtaine de
+          // gigaoctets — mesuré ici à 84 s, contre 9 s à modèle chaud. Gonfler
+          // le délai d'attente pour l'absorber ferait tourner l'écran deux
+          // minutes sur un appel réellement cassé ; mieux vaut ne pas décharger.
+          // Un poste de commandement consulte l'assistant par salves, pas une
+          // fois par heure : garder le modèle résident correspond à l'usage.
+          keep_alive: "30m",
+          options: { ...OLLAMA_OPTIONS, temperature: cfg.temperature ?? OLLAMA_OPTIONS.temperature },
+        }),
         signal,
       });
       if (!r.ok) {
@@ -115,7 +136,18 @@ export async function chatComplete(cfg: LlmProviderConfig, messages: LlmMessage[
         return { ok: false, text: "", provider: cfg.id, error: simplifyOllamaError(r.status, body) };
       }
       const data = await r.json();
-      return { ok: true, text: data?.message?.content ?? "", provider: cfg.id };
+      const texte = (data?.message?.content ?? "") as string;
+      // UNE RÉPONSE VIDE N'EST PAS UNE RÉUSSITE. Rendre `ok: true` avec une
+      // chaîne vide fait paraître l'assistant cassé sans que rien ne le dise —
+      // exactement ce qui a rendu ce défaut difficile à trouver. On nomme la
+      // cause la plus probable plutôt que de laisser un blanc.
+      if (!texte.trim()) {
+        const raison = data?.message?.thinking
+          ? "le modèle a raisonné sans conclure (budget de jetons atteint)"
+          : "réponse vide du modèle";
+        return { ok: false, text: "", provider: cfg.id, error: `${cfg.model} : ${raison}` };
+      }
+      return { ok: true, text: texte, provider: cfg.id };
     }
     if (cfg.id === "vllm") {
       const r = await fetch(`${cfg.endpoint}/v1/chat/completions`, {

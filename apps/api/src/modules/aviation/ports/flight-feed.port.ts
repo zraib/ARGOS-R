@@ -27,6 +27,17 @@ export interface FlightFeed {
    * sans avions reste utilisable, une carte en erreur ne l'est pas.
    */
   statesInBox(box: BoundingBox): Promise<AircraftPosition[]>;
+
+  /**
+   * État du fournisseur, si l'implémentation sait le dire.
+   *
+   * La dégradation ci-dessus est juste — une carte en erreur est inutilisable —
+   * mais elle est MUETTE : un tableau vide se lit « aucun appareil dans
+   * l'emprise » alors qu'il peut signifier « le fournisseur nous a refusés ».
+   * Ce sont deux situations opposées pour un état-major, et rien ne les
+   * distinguait. Optionnelle : un flux d'exercice n'a rien à déclarer.
+   */
+  health?(): { available: boolean; reason?: string; retryAt?: string };
 }
 
 /** Jeton d'injection Nest (une interface TypeScript n'existe pas à l'exécution). */

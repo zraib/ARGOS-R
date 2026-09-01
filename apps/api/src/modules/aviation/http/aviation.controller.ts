@@ -43,6 +43,8 @@ export class AviationController {
     return {
       /** Fournisseur en service — un opérateur doit savoir si le flux est réel ou d'exercice. */
       feed: this.aviation.feedName,
+      /** Santé du fournisseur : distingue « aucun appareil » de « flux indisponible ». */
+      feedHealth: this.aviation.feedHealth,
       at: new Date().toISOString(),
       aircraft: await this.aviation.states(incidentId),
     };
