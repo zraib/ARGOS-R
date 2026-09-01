@@ -82,11 +82,27 @@ export const NAV: NavEntry[] = [
   item("seismic", HREF.seismic),
   item("dispatch", HREF.dispatch),
   item("triage", HREF.triage),
+  // Bibliothèque des substances dangereuses. SORTIE du groupe « Ressources »
+  // (lot N-5) : ce n'est pas un stock à gérer mais un référentiel qu'on
+  // consulte en intervention, et l'enfouir sous un groupe replié coûtait deux
+  // gestes au moment où l'on en a le moins. Posée juste au-dessus de son
+  // ancien emplacement, pour que ceux qui l'y connaissaient la retrouvent.
+  //
+  // Restreinte aux rôles détenant `nrbc:view` côté API — les cinq responsables
+  // d'entité ne l'ont pas, et l'écran leur renverrait 403 puis une liste vide.
+  // L'API reste l'autorité ; ceci ne fait que masquer un cul-de-sac.
+  {
+    kind: "item",
+    key: "chemlib",
+    href: HREF.chemlib,
+    icon: NAV_ICONS.chemlib,
+    roles: ["superadmin", "admin", "strategic", "place_arme", "wali", "opcom", "tacom", "bluecell", "greencell", "orangecell"],
+  },
   {
     kind: "group",
     key: "res",
     icon: NAV_ICONS.res,
-    children: [item("equip", HREF.equip), item("units", HREF.units), item("personnel", HREF.personnel), item("workorders", HREF.workorders), item("chemlib", HREF.chemlib)],
+    children: [item("equip", HREF.equip), item("units", HREF.units), item("personnel", HREF.personnel), item("workorders", HREF.workorders)],
   },
   item("hospitals", HREF.hospitals),
   { kind: "group", key: "dis", icon: NAV_ICONS.dis, children: [item("ics", HREF.ics)] },
