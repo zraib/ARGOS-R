@@ -238,6 +238,8 @@ export default function MapPage() {
   const setPlumePlaying = useArgos((s) => s.setPlumePlaying);
   const plume3d = useArgos((s) => s.plume3d);
   const plumeSmoke = useArgos((s) => s.plumeSmoke);
+  const plumeVigilance = useArgos((s) => s.plumeVigilance);
+  const setPlumeVigilance = useArgos((s) => s.setPlumeVigilance);
   const setPlumeSmoke = useArgos((s) => s.setPlumeSmoke);
   const setPlume3d = useArgos((s) => s.setPlume3d);
   const plumeSteps = useArgos((s) => s.plumeSteps);
@@ -562,6 +564,12 @@ export default function MapPage() {
         </button>
         {/* Fumée ou formes. Le CONTOUR du gabarit reste tracé dans les deux
             cas : le nuage se regarde, la ligne se mesure. */}
+        {/* Le grand cercle de vigilance recouvre tout à l'échelle d'une ville :
+            on doit pouvoir le retirer sans perdre le panache. */}
+        <button className="flex min-h-11 items-center gap-2 lg:min-h-0" onClick={() => setPlumeVigilance(!plumeVigilance)}>
+          <span className="text-[13px]">{t.nrbc_vigilance}</span>
+          <Switch on={plumeVigilance} />
+        </button>
         <button className="flex min-h-11 items-center gap-2 lg:min-h-0" onClick={() => setPlumeSmoke(!plumeSmoke)}>
           <span className="text-[13px]">{t.nrbc_smoke}</span>
           <Switch on={plumeSmoke} />

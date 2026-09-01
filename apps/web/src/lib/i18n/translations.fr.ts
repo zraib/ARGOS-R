@@ -169,7 +169,7 @@ export const FR_DICT: Dict = {
     sit_late: "en retard de", sit_never: "jamais rendu compte",
     sit_immutable: "Une fois publié, le compte rendu est numéroté et ne peut plus être modifié.",
     sit_missing_title: "Comptes rendus manquants",
-    nrbc_play: "Lecture", nrbc_stop: "Arrêter", nrbc_smoke: "Fumée", nrbc_volume: "Nappe 3D",
+    nrbc_play: "Lecture", nrbc_stop: "Arrêter", nrbc_vigilance: "Zone de vigilance", nrbc_smoke: "Fumée", nrbc_volume: "Nappe 3D",
     dep_title: "Postes déployés", dep_none: "Aucun poste déployé sur cette opération", dep_add: "Déployer", dep_pick: "Choisir un compte…", dep_withdraw: "Retirer", dep_on: "sur", dep_free: "disponible", dep_ok: "Poste déployé", dep_out: "Poste retiré", dep_fail: "Déploiement refusé", dep_hint: "Un poste ne sert qu'une opération à la fois : le déployer ici le retire de la précédente.", dep_offline: "hors ligne", toast_fail: "Échec — vérifiez la saisie",
     idash_title: "Tableau de bord de l'opération", idash_open: "Tableau de bord", idash_back: "Retour aux incidents", idash_situation: "Situation", idash_engagement: "Moyens engagés", idash_loops: "Boucles opérationnelles", idash_loops_none: "Aucune boucle sur cette opération", idash_open_count: "en cours", idash_timeline: "Fil de l'opération", idash_timeline_none: "Aucun événement enregistré", idash_beds_free: "Lits libres", idash_saturation: "Saturation", idash_reserved: "réservés", idash_denied: "Cette opération est hors de votre périmètre.", idash_units: "Unités", idash_hospitals: "Hôpitaux", idash_loading: "Chargement…",
     hz_toxic: "Danger — matière toxique (ADR 6.1)", hz_radioactive: "Danger — matière radioactive (ADR 7)", hz_biohazard: "Danger — matière infectieuse (ADR 6.2)", hz_drum: "Fût de matière dangereuse — fuite",

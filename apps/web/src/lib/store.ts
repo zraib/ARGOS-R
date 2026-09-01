@@ -354,6 +354,17 @@ interface ArgosState {
    * la ligne sur laquelle on pose le barrage.
    */
   plumeSmoke: boolean;
+  /**
+   * Zone de VIGILANCE affichée (le grand cercle jaune de l'ATP-45).
+   *
+   * L'ATP-45 la trace quand le vent est trop faible ou trop variable pour
+   * désigner un secteur : elle couvre 10 km dans TOUTES les directions. À
+   * l'échelle d'une ville elle recouvre tout le reste, et le commandement qui
+   * travaille sur la zone d'isolement veut pouvoir la retirer sans perdre le
+   * panache. C'est un choix d'AFFICHAGE : le modèle, lui, continue de la
+   * calculer, et la retirer de l'écran ne la retire pas de la doctrine.
+   */
+  plumeVigilance: boolean;
   plumeBusy: boolean;
 
   // --- couches météo de la carte opérationnelle (grille de prévisions 24 h) ---
@@ -489,6 +500,7 @@ interface ArgosState {
   /** Bascule le rendu volumique (nappe 3D). */
   setPlume3d: (v: boolean) => void;
   setPlumeSmoke: (v: boolean) => void;
+  setPlumeVigilance: (v: boolean) => void;
 
   /** (Re)charge le panache selon l'état courant (incident, modèles, échéance). */
   loadPlume: () => Promise<void>;
@@ -662,6 +674,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
   plumePlaying: false,
   plume3d: true,
   plumeSmoke: true,
+  plumeVigilance: true,
   plumeBusy: false,
 
   wxGrid: null,
@@ -975,6 +988,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
   setPlumePlaying: (v) => set({ plumePlaying: v }),
   setPlume3d: (v) => set({ plume3d: v }),
   setPlumeSmoke: (v) => set({ plumeSmoke: v }),
+  setPlumeVigilance: (v) => set({ plumeVigilance: v }),
 
   loadPlume: async () => {
     const { plumeIncidentId, plumeModels, plumeHour } = get();

@@ -142,7 +142,8 @@ export interface SmokeSettings {
   tail: string;
   opacity: number;
   /**
-   * Diffusion OMNIDIRECTIONNELLE.
+   * Diffusion OMNIDIRECTIONNELLE — employée seulement quand la DIRECTION du
+   * vent est inconnue. Dès qu'une direction existe, le cône prend le relais.
    *
    * Vrai quand le gabarit est le cercle de VIGILANCE — c'est-à-dire quand
    * l'ATP-45 juge le vent trop faible ou trop variable pour donner une
@@ -187,6 +188,9 @@ export class SmokeLayer implements CustomLayerInterface {
   private churn = 0;
   /** Vitesse d'expansion radiale (diffusion omnidirectionnelle), en mercator/s. */
   private radial = 0;
+  /** Cône de diffusion en mercator, à plat. Vide si la direction est inconnue. */
+  private cone = new Float64Array(0);
+  private coneLen = 0;
   /** Durée de vie de base, calée sur le temps de traversée du gabarit. */
   private lifeSpan = 7;
   /** Demi-taille de la bouffée en mercator — sert aux sondes de bord. */
@@ -268,7 +272,10 @@ export class SmokeLayer implements CustomLayerInterface {
     const kmh = s.windSpeedKmh ?? 0;
     const vMerc = (kmh / 3600) * mercPerKm * TIME_SCALE;
 
-    if (s.omnidirectional || s.windFromDeg === null || kmh <= 0) {
+    // La dérive suit la direction DÈS QU'ELLE EXISTE, même sous le seuil
+    // ATP-45 : c'est le cône qui porte alors la forme, et son ouverture dit
+    // l'incertitude. L'expansion radiale ne sert plus qu'à défaut de direction.
+    if (s.windFromDeg === null) {
       // AUCUNE DÉRIVE DIRECTIONNELLE. Soit la prévision manque, soit le gabarit
       // lui-même est omnidirectionnel : dans les deux cas, désigner un secteur
       // serait affirmer plus que le modèle.
@@ -283,10 +290,15 @@ export class SmokeLayer implements CustomLayerInterface {
       this.radial = (this.extent / 2) / 14;
     } else {
       this.radial = 0;
+      // Plancher de vitesse : à 2 km/h l'animation serait figée alors que le
+      // nuage progresse bel et bien. On ne descend pas sous l'équivalent de
+      // 5 km/h, et le RAPPORT au-dessus reste exact.
+      const floor = (5 / 3600) * mercPerKm * TIME_SCALE;
+      const v = Math.max(vMerc, floor);
       const toRad = ((s.windFromDeg + 180) * Math.PI) / 180;
-      this.driftX = Math.sin(toRad) * vMerc;
+      this.driftX = Math.sin(toRad) * v;
       // Mercator : y croît vers le SUD.
-      this.driftY = -Math.cos(toRad) * vMerc;
+      this.driftY = -Math.cos(toRad) * v;
       // La turbulence croît avec le vent, mais moins vite que la dérive : par
       // vent fort le nuage file droit, par vent faible il tourbillonne.
       this.churn = this.extent * (0.03 + (Math.min(kmh, 60) / 60) * 0.04);
@@ -299,10 +311,66 @@ export class SmokeLayer implements CustomLayerInterface {
     const speed = Math.hypot(this.driftX, this.driftY) + this.radial;
     this.lifeSpan = speed > 0 ? Math.min(26, Math.max(4, this.extent / speed)) : 9;
 
+    // Le cône existe dès qu'une direction est connue — quelle que soit la
+    // vitesse. C'est ce qui donne à l'animation une forme CONTINUE, là où le
+    // gabarit ATP-45 bascule du cercle à la nappe au passage des 10 km/h.
+    if (s.windFromDeg !== null) this.buildCone(s.windFromDeg, kmh);
+    else this.coneLen = 0;
+
     if (this.active === 0) {
       this.active = MAX_PARTICLES;
       for (let i = 0; i < MAX_PARTICLES; i++) this.respawn(i, Math.random());
     }
+  }
+
+  /**
+   * CÔNE DE DIFFUSION — présent dès qu'une direction de vent est connue.
+   *
+   * Ce n'est PAS une zone doctrinale et il n'est pas tracé : c'est la forme que
+   * prend la fumée. Le périmètre affiché, celui qu'on pose sur le terrain, reste
+   * le gabarit — cercle de vigilance, nappe ATP-45 ou carré ERG selon le cas.
+   *
+   * Les deux se complètent au lieu de se contredire : le gabarit dit « voilà
+   * jusqu'où il faut protéger », le cône dit « voilà où ça part en ce moment ».
+   * La fumée est confinée à l'INTERSECTION des deux, si bien qu'elle ne réclame
+   * jamais un mètre de plus que la doctrine.
+   *
+   * Il ne part pas d'un point, pour la même raison que la nappe ATP-45 : un
+   * rejet occupe une emprise. Son demi-angle S'OUVRE quand le vent faiblit —
+   * moins le vent est établi, moins la direction est sûre, et c'est ce que la
+   * largeur doit dire.
+   */
+  private buildCone(fromDeg: number, kmh: number): void {
+    // Portée : la plus grande distance du rejet au gabarit. Le cône ne dépasse
+    // donc jamais l'emprise doctrinale, même avant intersection.
+    let reach = 0;
+    for (let i = 0; i < this.ringLen; i++) {
+      const d = Math.hypot(this.ring[i * 2] - this.srcX, this.ring[i * 2 + 1] - this.srcY);
+      if (d > reach) reach = d;
+    }
+    if (reach <= 0) {
+      this.coneLen = 0;
+      return;
+    }
+    // 45° par vent nul, 18° au-delà de 30 km/h : la largeur porte l'incertitude.
+    const half = ((45 - Math.min(kmh, 30) * 0.9) * Math.PI) / 180;
+    const axis = ((fromDeg + 180) * Math.PI) / 180;
+    const r0 = reach * 0.1;
+    const STEPS = 18;
+    const pts: number[] = [];
+    // Mercator : x vers l'est, y vers le SUD — d'où le signe du cosinus.
+    const at = (ang: number, r: number) => {
+      pts.push(this.srcX + Math.sin(ang) * r, this.srcY - Math.cos(ang) * r);
+    };
+    at(axis - Math.PI / 2, r0);
+    for (let i = 0; i <= STEPS; i++) at(axis - half + (2 * half * i) / STEPS, reach);
+    at(axis + Math.PI / 2, r0);
+    for (let i = 1; i < 8; i++) at(axis + Math.PI / 2 + (Math.PI * i) / 8, r0);
+    pts.push(pts[0], pts[1]);
+
+    if (this.cone.length < pts.length) this.cone = new Float64Array(pts.length);
+    this.cone.set(pts);
+    this.coneLen = pts.length / 2;
   }
 
   private respawn(i: number, life = 0): void {
@@ -368,7 +436,14 @@ export class SmokeLayer implements CustomLayerInterface {
       // CONFINEMENT : hors du polygone de diffusion, ou dissipée, la bouffée
       // renaît à la source. C'est ici, et nulle part ailleurs, que se joue la
       // promesse du lot.
-      if (this.life[i] >= 1 || !inRing(this.ring, this.ringLen, this.px[i], this.py[i])) {
+      // CONFINEMENT À L'INTERSECTION du gabarit et du cône. Le gabarit est la
+      // borne doctrinale — on ne réclame jamais un mètre de plus ; le cône donne
+      // la forme et la continuité. Hors de l'un ou de l'autre, la bouffée renaît.
+      if (
+        this.life[i] >= 1 ||
+        !inRing(this.ring, this.ringLen, this.px[i], this.py[i]) ||
+        (this.coneLen > 0 && !inRing(this.cone, this.coneLen, this.px[i], this.py[i]))
+      ) {
         this.respawn(i);
         continue;
       }
@@ -384,7 +459,9 @@ export class SmokeLayer implements CustomLayerInterface {
       let inside = 0;
       for (let q = 0; q < 4; q++) {
         const ang = (q * Math.PI) / 2;
-        if (inRing(this.ring, this.ringLen, this.px[i] + Math.cos(ang) * rad, this.py[i] + Math.sin(ang) * rad)) {
+        const qx = this.px[i] + Math.cos(ang) * rad;
+        const qy = this.py[i] + Math.sin(ang) * rad;
+        if (inRing(this.ring, this.ringLen, qx, qy) && (this.coneLen === 0 || inRing(this.cone, this.coneLen, qx, qy))) {
           inside++;
         }
       }

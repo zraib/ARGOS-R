@@ -455,6 +455,7 @@ export interface Dict {
   nrbc_stop: string;
   nrbc_volume: string;
   nrbc_smoke: string;
+  nrbc_vigilance: string;
   nrbc_pick: string;
   nrbc_none_active: string;
   // --- déploiement des postes sur une opération (lot V-2) ---

@@ -461,6 +461,8 @@ export function MapCanvas() {
   const plumeSteps = useArgos((s) => s.plumeSteps);
   const plumePlaying = useArgos((s) => s.plumePlaying);
   const plume3d = useArgos((s) => s.plume3d);
+  const plumeSmoke = useArgos((s) => s.plumeSmoke);
+  const plumeVigilance = useArgos((s) => s.plumeVigilance);
   const wxGrid = useArgos((s) => s.wxGrid);
   const wxWorld = useArgos((s) => s.wxWorld);
   const wxLayers = useArgos((s) => s.wxLayers);
@@ -843,20 +845,37 @@ export function MapCanvas() {
     if (!plumeIncidentId) fitPlumeRef.current = null;
     // Primaire = premier référentiel actif (ordre de l'ADR : ATP-45 puis ERG).
     const primary = plumeModels.atp45 ? "atp45" : "erg";
+
+    // --- zone de VIGILANCE, affichable ou non (lot N-4d) ---------------------
+    // Le grand cercle jaune de l'ATP-45 couvre 10 km dans toutes les directions
+    // quand le vent est trop faible ou trop variable pour désigner un secteur. À
+    // l'échelle d'une ville il recouvre tout le reste, et le commandement qui
+    // travaille sur la zone d'isolement veut pouvoir le retirer.
+    //
+    // La bascule porte sur la ZONE ENTIÈRE — contour, remplissage ET fumée.
+    // Masquer le tracé en laissant le nuage aurait montré une diffusion sans
+    // périmètre : exactement l'affirmation sans garde-fou que ce module refuse.
+    const { plumeVigilance } = useArgos.getState();
+    const notVigilance: maplibregl.ExpressionSpecification = ["!=", ["get", "level"], "vigilance"];
+    const withVigilance = (
+      base: maplibregl.ExpressionSpecification | null,
+    ): maplibregl.ExpressionSpecification | null =>
+      plumeVigilance ? base : base ? ["all", base, notVigilance] : notVigilance;
+
     if (plumeEnvelope) {
       // Enveloppe prudente : directive de STYLE, pas d'union géométrique —
       // toutes les zones remplies de la même teinte, plus de hiérarchie.
       map.setPaintProperty("nrbc-plume-fill", "fill-color", "#EF4444");
       map.setPaintProperty("nrbc-plume-line", "line-color", "#EF4444");
-      map.setFilter("nrbc-plume-fill", null);
-      map.setFilter("nrbc-plume-line", null);
+      map.setFilter("nrbc-plume-fill", withVigilance(null));
+      map.setFilter("nrbc-plume-line", withVigilance(null));
       map.setFilter("nrbc-plume-line-2", ["==", ["get", "model"], "__none__"]);
     } else {
       map.setPaintProperty("nrbc-plume-fill", "fill-color", PLUME_LEVEL_COLOR);
       map.setPaintProperty("nrbc-plume-line", "line-color", PLUME_LEVEL_COLOR);
-      map.setFilter("nrbc-plume-fill", ["==", ["get", "model"], primary]);
-      map.setFilter("nrbc-plume-line", ["==", ["get", "model"], primary]);
-      map.setFilter("nrbc-plume-line-2", ["!=", ["get", "model"], primary]);
+      map.setFilter("nrbc-plume-fill", withVigilance(["==", ["get", "model"], primary]));
+      map.setFilter("nrbc-plume-line", withVigilance(["==", ["get", "model"], primary]));
+      map.setFilter("nrbc-plume-line-2", withVigilance(["!=", ["get", "model"], primary]));
     }
 
     // --- nappe de fumée (lots N-4 et N-4b) -----------------------------------
@@ -870,7 +889,10 @@ export function MapCanvas() {
       const diffusion = data.features.find(
         (f) =>
           f.properties?.model === primary &&
-          (f.properties?.level === "protection" || f.properties?.level === "vigilance"),
+          (f.properties?.level === "protection" ||
+            // Vigilance masquée : pas de fumée non plus. Un nuage sans son
+            // périmètre serait une diffusion que rien ne borne à l'écran.
+            (plumeVigilance && f.properties?.level === "vigilance")),
       );
       const ring = (diffusion?.geometry as GeoJSON.Polygon | undefined)?.coordinates?.[0] as
         | [number, number][]
@@ -908,7 +930,7 @@ export function MapCanvas() {
     if (map.getLayer("nrbc-plume-3d")) {
       const tilted = map.getPitch() > 30;
       map.setLayoutProperty("nrbc-plume-3d", "visibility", plume3d && tilted && plumeIncidentId ? "visible" : "none");
-      map.setFilter("nrbc-plume-3d", plumeEnvelope ? null : ["==", ["get", "model"], primary]);
+      map.setFilter("nrbc-plume-3d", withVigilance(plumeEnvelope ? null : ["==", ["get", "model"], primary]));
       map.setPaintProperty("nrbc-plume-3d", "fill-extrusion-color", plumeEnvelope ? "#EF4444" : PLUME_LEVEL_COLOR);
       // Les deux se complètent : la nappe volumique donne la HAUTEUR du nuage —
       // un gaz dense rampe, un gaz léger monte — que des bouffées à plat ne
@@ -1589,7 +1611,12 @@ export function MapCanvas() {
   useEffect(() => {
     if (readyRef.current) applyPlume();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plumeData, plumeModels, plumeEnvelope, plumeIncidentId, plume3d]);
+    // `plumeSmoke` et `plumeVigilance` sont des directives d'AFFICHAGE : elles
+    // ne changent pas les données, mais doivent repasser par `applyPlume` pour
+    // que les filtres de couche et la nappe soient recalculés. Les omettre
+    // laissait la bascule sans effet visible tant qu'on ne touchait à rien
+    // d'autre.
+  }, [plumeData, plumeModels, plumeEnvelope, plumeIncidentId, plume3d, plumeSmoke, plumeVigilance]);
 
   // --- grille NATIONALE dense chargée : séries par pas + villes + rendu ---
   useEffect(() => {
