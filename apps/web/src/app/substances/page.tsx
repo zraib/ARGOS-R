@@ -12,7 +12,6 @@ import {
   ALPHABET,
   pictogramFor,
   type LibraryResponse,
-  type Provenance,
   type Substance,
 } from "@/lib/nrbc/substance";
 
@@ -22,10 +21,17 @@ import {
 // CE QUE CET ÉCRAN EST. La forme des données de CAMEO Chemicals (NOAA), remplie
 // de ce qu'on peut honnêtement affirmer. ARGOS n'interroge aucun service tiers
 // à l'exécution (ADR 0006) : ce n'est pas une copie de CAMEO, c'est un registre
-// local que l'état-major complète, avec la provenance affichée en permanence.
+// local que l'état-major complète, dont chaque fiche porte son état de
+// vérification.
 //
-// POURQUOI LA PROVENANCE EST EN TÊTE, ET NON EN NOTE DE BAS DE PAGE. Une
-// bibliothèque dont on ignore ce qui a été vérifié se lit comme si tout l'était.
+// OÙ EST PASSÉE LA PROVENANCE. Le récapitulatif chiffré (combien de fiches
+// confrontées à CAMEO, combien de jeux de distances relevés sur l'ERG, sous
+// quel titre les jeux versés sont détenus) a été déplacé dans la documentation
+// — ADR 0005, section « Provenance des données ». Ce qui reste, et qui compte
+// davantage, ce sont les marqueurs PAR SUBSTANCE : chaque carte et chaque fiche
+// dit si SES distances sont relevées ou à confirmer, et si SA fiche a été
+// confrontée à CAMEO. L'honnêteté demeure là où l'on lit une matière ; seul
+// l'agrégat, que personne ne consultait au moment d'agir, a quitté l'écran.
 //
 // CE QUE LA REFONTE CHANGE. Cinq mille trois cent trente-six entrées ne se
 // parcourent pas : on y accède. Trois chemins, un seul écran :
@@ -79,7 +85,6 @@ export default function SubstancesPage() {
   const [list, setList] = useState<Substance[]>([]);
   const [matched, setMatched] = useState(0);
   const [index, setIndex] = useState<Record<string, number>>({});
-  const [prov, setProv] = useState<Provenance | null>(null);
   const [chargement, setChargement] = useState(true);
   const [ouverte, setOuverte] = useState<Substance | null>(null);
   const [recentes, setRecentes] = useState<string[]>([]);
@@ -118,7 +123,6 @@ export default function SubstancesPage() {
           setList(d.substances);
           setMatched(d.matched);
           setIndex(d.index);
-          setProv(d.provenance);
         }
         setChargement(false);
       })();
@@ -207,7 +211,7 @@ export default function SubstancesPage() {
 
   return (
     <section className="flex flex-col gap-4 animate-fade-in">
-      {/* ================= en-tête : titre, recherche, provenance ========== */}
+      {/* ================= en-tête : titre, recherche, index A–Z ========== */}
       <header className="carte flex flex-col gap-3 p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="flex items-center gap-2 text-lg font-bold text-rdia-600 dark:text-rdia-50">
@@ -364,50 +368,6 @@ export default function SubstancesPage() {
           })}
         </nav>
 
-        {/* --- provenance : en tête, pas en note --------------------------- */}
-        {prov && (
-          <div className="rounded-lg border border-or-500/30 bg-or-500/5 px-3 py-2">
-            <div className="mb-1 flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-or-600 dark:text-or-400">
-              <Icon path={UI_ICONS.shield} size={12} />
-              {t.cl_provenance}
-            </div>
-            {/* Deux lignes, deux sources : les fondre laisserait croire qu'une
-                fiche vérifiée vaut distance vérifiée. */}
-            <ul className="flex flex-col gap-0.5 text-[11.5px] leading-snug text-gray-600 dark:text-rdia-200">
-              <li>{`${prov.withSheet}/${prov.total} ${t.cl_prov_sheets} ${prov.sheetVerified} ${t.cl_prov_sheets_ok}`}</li>
-              <li>{`${prov.withErgDistances}/${prov.total} ${t.cl_prov_erg} ${prov.ergVerified} ${t.cl_prov_erg_ok}`}</li>
-              {/* Un jeu versé par l'état-major dit d'où il vient ET à quel titre
-                  il est détenu : une bibliothèque enrichie dont on ignore
-                  l'origine de l'enrichissement aurait l'air complète.
-                  Le NOMBRE de jeux reste toujours visible — c'est lui qui porte
-                  l'aveu ; seul le titre de détention, long de plusieurs lignes,
-                  se replie, faute de quoi il repousse les résultats hors de
-                  l'écran à chaque consultation. */}
-              {prov.origins && prov.origins.length > 0 && (
-                <li className="mt-1 border-t border-or-500/20 pt-1">
-                  <details className="group">
-                    <summary className="cible-tactile inline-flex cursor-pointer list-none items-center gap-1.5 font-semibold text-or-600 dark:text-or-400">
-                      <Icon
-                        path={UI_ICONS.chevronRight}
-                        size={11}
-                        className="shrink-0 transition-transform group-open:rotate-90 rtl:-scale-x-100"
-                      />
-                      {`${prov.origins.length} ${t.cl_prov_origins}`}
-                    </summary>
-                    <ul className="mt-1 flex flex-col gap-1.5 ps-4">
-                      {prov.origins.map((o) => (
-                        <li key={o.source}>
-                          <span className="font-semibold">{o.source}</span>
-                          {` — ${o.retrievedAt} · ${o.count} · ${o.authorization}`}
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                </li>
-              )}
-            </ul>
-          </div>
-        )}
       </header>
 
       {/* ================= résultats ====================================== */}

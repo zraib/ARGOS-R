@@ -513,12 +513,9 @@ export interface Dict {
   cl_isolation: string; cl_protect_day: string; cl_protect_night: string;
   cl_erg_missing_long: string; cl_sheet_none: string; cl_sheet_failed: string;
   cl_none_hint: string; cl_capped: string;
-  cl_prov_sheets: string; cl_prov_sheets_ok: string;
-  cl_prov_erg: string; cl_prov_erg_ok: string; cl_prov_origin: string; cl_prov_origins: string;
   cl_search: string;
   cl_count: string; cl_count_one: string;
   cl_none: string;
-  cl_provenance: string;
   cl_sheet_unverified: string;
   cl_erg_missing: string;
   cl_erg_unverified: string;

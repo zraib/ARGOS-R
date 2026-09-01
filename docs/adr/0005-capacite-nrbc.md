@@ -174,6 +174,86 @@ déterminisme et bornes, comme risk.engine — et vérification navigateur).
 - ERG 2024, PHMSA/DOT — tables des distances d'isolement et de protection
 - ALOHA (NOAA/EPA) — documentation technique du modèle gaussien
 
+## Provenance des données (relevé au 2026-09-01)
+
+Cette section porte le récapitulatif chiffré de la bibliothèque. Il était
+affiché en tête de la page « Substances dangereuses » depuis le lot N-3 ; il en
+a été retiré au lot N-5, sur demande, et vit désormais ici.
+
+**Ce qui reste à l'écran, et pourquoi c'est l'essentiel.** Les marqueurs par
+substance n'ont pas bougé : chaque carte de résultat et chaque fiche indique si
+SES distances sont relevées sur l'ERG 2024 (`ergVerified`) ou restent à
+confirmer, et si SA fiche a été confrontée à CAMEO Chemicals (`sheetVerified`).
+Une substance sans distances le dit explicitement plutôt que de laisser croire
+à une absence de danger. L'honnêteté demeure donc là où l'on lit une matière —
+au moment d'agir. Seul l'agrégat, qui relevait de l'audit et non de
+l'intervention, a quitté l'interface.
+
+**Ce qui reste dans le contrat.** `GET /api/nrbc/library` continue de renvoyer
+l'objet `provenance` : il est testé (`nrbc-library.spec.ts` — la provenance
+décrit TOUTE la bibliothèque, jamais la page filtrée) et reste interrogeable
+pour régénérer les chiffres ci-dessous.
+
+### Chiffres
+
+| Grandeur | Valeur |
+| --- | --- |
+| Substances au total | 5 336 |
+| Fiches opérationnelles | 5 094 / 5 336 — dont **5 094 confrontées à CAMEO Chemicals (NOAA)** |
+| Jeux de distances | 272 / 5 336 — dont **272 relevés sur la table 1 de l'ERG 2024** |
+| Jeux versés sous licence | 2 |
+
+Régénérable à tout moment :
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" http://localhost:3005/api/nrbc/library?limit=1 | python3 -m json.tool
+```
+
+### Jeux versés — origine et titre de détention
+
+**1. Fiches CAMEO Chemicals 3.1.0 (NOAA)** — relevé le 2026-08-31 · 5 094 fiches
+· contenu NOAA / NTP / USCG / EPA / NIOSH / ICSC.
+
+> Contenu rédactionnel d'agences publiques. ÉCARTÉS, leurs propriétaires étant
+> nommés dans les conditions d'utilisation : numéros et synonymes CAS (Chemical
+> Abstracts Service), tenues DuPont, seuils AEGL (NACA), seuils ERPG (AIHA),
+> cotations et propriétés de source NFPA.
+
+**2. ERG 2024, tables 1 et 3** — PHMSA / Transports Canada / SCT, extraites de
+CAMEO Chemicals 3.1.0 — relevé le 2026-08-31 · 272 jeux de distances.
+
+> Emergency Response Guidebook — publication gouvernementale conjointe,
+> diffusion libre aux services de secours. AUCUNE donnée sous licence tierce
+> n'est extraite : ni fiches CAMEO, ni numéros CAS, ni données DuPont, ni seuils
+> AEGL/ERPG.
+
+### Pourquoi ces exclusions
+
+Les conditions d'utilisation de CAMEO Chemicals sont explicites :
+
+> « Data from the above organizations shall not be duplicated by the recipient,
+> without written permission from those organizations. »
+
+Posséder l'application de bureau ne confère pas ce droit. Les scripts
+d'extraction (`apps/api/scripts/extract-erg-from-cameo.ts` et
+`extract-cameo-sheets.ts`) ne SÉLECTIONNENT jamais les tables `chemical_cas`,
+`dupont`, `aegls`, `erpgs`, ni les colonnes `nfpa_*` ou les propriétés dont la
+source déclarée est la NFPA. Ce n'est pas une précaution de façade : c'est ce
+qui rend l'extraction défendable.
+
+Les 31 numéros CAS présents dans `substances.data.ts` sont antérieurs et
+conservés comme identifiants isolés — garder trente et un numéros est une chose,
+recopier un registre de cinq mille en est une autre.
+
+### Limite connue
+
+Le champ `state` (gaz / liquide) n'est PAS une donnée de provenance vérifiée :
+`extract-cameo-sheets.ts` l'inscrit à `"liquid"` en dur pour les 5 336 entrées,
+faute de colonne fiable dans `cameo.sqlite`, et la fusion fait primer l'import.
+Le chlore, déclaré `gas` dans notre source, en ressort « liquide » alors qu'il
+bout à −34 °C. Le champ n'est donc plus affiché ; voir la dette dans
+`CONTEXT.md`.
+
 ## Note d'implémentation (2026-08-21, phases 1-3)
 
 Réalisé conformément au plan, avec les précisions suivantes :
