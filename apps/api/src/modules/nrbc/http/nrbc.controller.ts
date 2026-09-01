@@ -106,6 +106,9 @@ export class NrbcController {
             kind: z.kind,
             radiusKm: z.radiusKm ?? null,
             reachKm: z.reachKm ?? null,
+            // Nappe d'AXE sous le seuil de vent : la carte la trace en tireté,
+            // pour qu'elle ne se lise pas comme un périmètre à poser.
+            lowWind: z.lowWind ?? false,
           },
           geometry: { type: "Polygon" as const, coordinates: [z.ring] },
         })),

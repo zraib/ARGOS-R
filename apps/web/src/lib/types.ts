@@ -88,6 +88,12 @@ export interface NrbcPlumeZoneProps {
   model: "atp45" | "erg";
   level: "danger" | "protection" | "vigilance";
   kind: "circle" | "wedge" | "square";
+  /**
+   * Nappe d'AXE émise sous le seuil de vent ATP-45 (lot N-4e) : elle dit la
+   * direction la plus probable, elle n'est pas un périmètre à poser. Le cercle
+   * de vigilance qui l'accompagne reste la zone doctrinale.
+   */
+  lowWind?: boolean;
   radiusKm: number | null;
   reachKm: number | null;
 }

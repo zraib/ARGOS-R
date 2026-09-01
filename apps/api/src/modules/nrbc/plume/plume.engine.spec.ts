@@ -53,10 +53,50 @@ describe("géométrie sphérique", () => {
 describe("gabarit ATP-45", () => {
   it("vent faible (≤ 10 km/h) : cercle de danger 2 km + cercle de VIGILANCE 10 km", () => {
     const zones = atp45Zones(CASA, ATP45_LOW_WIND_KMH, 270);
-    expect(zones.map((z) => z.level)).toEqual(["danger", "vigilance"]);
+    expect(zones.map((z) => z.level)).toEqual(["danger", "vigilance", "protection"]);
     expect(zones[0].radiusKm).toBe(ATP45_DANGER_KM);
     expect(zones[1].radiusKm).toBe(ATP45_HAZARD_KM);
-    expect(zones.every((z) => z.kind === "circle")).toBe(true);
+    // Les deux cercles doctrinaux restent des cercles : la nappe s'AJOUTE.
+    expect(zones[0].kind).toBe("circle");
+    expect(zones[1].kind).toBe("circle");
+  });
+
+  it("sous le seuil, la nappe s'AJOUTE au cercle sans le remplacer", () => {
+    // L'ATP-45 refuse de désigner un secteur sous 10 km/h : le cercle
+    // omnidirectionnel reste la zone doctrinale, et c'est lui qu'on pose. Mais
+    // un vent de 6 km/h A une direction, et un cercle de 10 km sur une
+    // agglomération ne se tasque pas. On émet donc l'axe EN PLUS, marqué.
+    const zones = atp45Zones(CASA, 6, 270);
+    expect(zones.map((z) => z.level)).toEqual(["danger", "vigilance", "protection"]);
+    const wedge = zones[2];
+    expect(wedge.lowWind).toBe(true);
+    expect(wedge.kind).toBe("wedge");
+    // Le cercle de vigilance N'A PAS disparu.
+    expect(zones[1].kind).toBe("circle");
+    expect(zones[1].radiusKm).toBe(ATP45_HAZARD_KM);
+  });
+
+  it("l'ouverture de la nappe GRANDIT quand le vent faiblit", () => {
+    // C'est la façon honnête de dire « voici l'axe, et voici combien j'en
+    // doute » : une nappe étroite par vent nul affirmerait une direction que le
+    // modèle refuse d'affirmer.
+    const width = (kmh: number) => {
+      const w = atp45Zones(CASA, kmh, 270).find((z) => z.kind === "wedge")!;
+      // Écart angulaire entre les deux points les plus éloignés de l'arc aval.
+      const far = w.ring.filter((p) => distKm(CASA, p) > ATP45_HAZARD_KM * 0.95);
+      const ang = far.map((p) => Math.atan2(p[1] - CASA[1], p[0] - CASA[0]));
+      return Math.max(...ang) - Math.min(...ang);
+    };
+    expect(width(1)).toBeGreaterThan(width(6));
+    expect(width(6)).toBeGreaterThan(width(10));
+    // Au-delà du seuil, l'ouverture est celle de l'ATP-45 et ne bouge plus.
+    expect(width(25)).toBeCloseTo(width(45), 5);
+  });
+
+  it("au-dessus du seuil, PAS de cercle de vigilance ni de marque `lowWind`", () => {
+    const zones = atp45Zones(CASA, 25, 270);
+    expect(zones.map((z) => z.level)).toEqual(["danger", "protection"]);
+    expect(zones.find((z) => z.kind === "wedge")!.lowWind).toBeUndefined();
   });
 
   it("vent établi (> 10 km/h) : cercle de danger + nappe de PROTECTION sous le vent", () => {

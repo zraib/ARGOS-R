@@ -97,52 +97,85 @@ export function atp45Zones(
       radiusKm: ATP45_HAZARD_KM,
       ring: circleRing(source, ATP45_HAZARD_KM),
     });
+    // …ET l'axe le plus probable, EN PLUS du cercle (lot N-4e).
+    //
+    // Le cercle reste la zone doctrinale : c'est lui qu'on pose. Mais un vent
+    // de 6 km/h a une direction, et un cercle de 10 km sur une agglomération ne
+    // se tasque pas. L'ouverture grandit quand le vent faiblit — de 30° au
+    // seuil jusqu'à 75° par vent quasi nul : c'est la façon honnête de dire
+    // « voici l'axe, et voici combien j'en doute ».
+    //
+    // Le rendu la distingue du gabarit doctrinal (`lowWind`), et l'opérateur
+    // peut retirer le cercle s'il veut travailler sur le seul axe.
+    const spread =
+      ATP45_HALF_ANGLE_DEG +
+      (LOW_WIND_MAX_HALF_ANGLE_DEG - ATP45_HALF_ANGLE_DEG) *
+        (1 - Math.min(Math.max(windSpeedKmh, 0), ATP45_LOW_WIND_KMH) / ATP45_LOW_WIND_KMH);
+    zones.push(downwindWedge(source, windFromDeg, spread, true));
     return zones;
   }
 
-  // Vent établi : zone de danger sous le vent.
-  //
-  // ELLE NE PART PAS D'UN POINT. Le triangle à sommet sur le rejet, employé
-  // jusqu'ici, faisait naître le danger d'une singularité : à cinquante mètres
-  // du déversement, sa largeur était nulle. Or le rejet n'est pas un point — il
-  // occupe déjà le cercle d'isolement, et la zone sous le vent s'ouvre depuis
-  // le BORD de ce cercle.
-  //
-  // La construction suit le principe du GMU 2024 (« Mode d'emploi du tableau 1 »,
-  // p. 284-285) : une zone d'isolement circulaire « dans TOUTES les directions »,
-  // puis une zone d'activités de protection qui s'étend sous le vent à partir de
-  // cette emprise. Les deux flancs sont TANGENTS au cercle d'isolement, et le
-  // fond est fermé par un arc — un danger n'a pas de coin franc.
+  // Vent établi : la nappe seule suffit, l'ATP-45 ne demande pas de cercle
+  // omnidirectionnel au-delà du seuil.
+  zones.push(downwindWedge(source, windFromDeg, ATP45_HALF_ANGLE_DEG, false));
+  return zones;
+}
+
+/**
+ * Demi-ouverture maximale de la nappe, par vent quasi nul (lot N-4e).
+ *
+ * À 75°, la nappe couvre 150° — la moitié de l'horizon aval. Au-delà elle
+ * cesserait de dire quoi que ce soit d'utile, et le cercle omnidirectionnel
+ * qu'elle accompagne dit déjà « partout ».
+ */
+export const LOW_WIND_MAX_HALF_ANGLE_DEG = 75;
+
+/**
+ * Nappe sous le vent, TANGENTE au cercle d'isolement et fermée par un arc.
+ *
+ * ELLE NE PART PAS D'UN POINT. Le triangle à sommet sur le rejet, employé
+ * jusqu'au lot N-4b, faisait naître le danger d'une singularité : à cinquante
+ * mètres du déversement sa largeur était nulle. Or le rejet occupe déjà le
+ * cercle d'isolement, et la zone sous le vent s'ouvre depuis son BORD.
+ *
+ * La construction suit le principe du GMU 2024 (« Mode d'emploi du tableau 1 »,
+ * p. 284-285) : isoler « dans TOUTES les directions », PUIS protéger sous le
+ * vent à partir de cette emprise.
+ */
+function downwindWedge(
+  source: [number, number],
+  windFromDeg: number,
+  halfAngleDeg: number,
+  lowWind: boolean,
+): PlumeZone {
   const axis = (windFromDeg + 180) % 360;
-  const half = ATP45_HALF_ANGLE_DEG;
   const ring: [number, number][] = [];
 
-  // Flanc gauche : du bord du cercle d'isolement vers l'aval.
   ring.push(destination(source, axis - 90, ATP45_DANGER_KM));
-  ring.push(destination(source, axis - half, ATP45_HAZARD_KM));
-  // Arc aval, de gauche à droite : la limite de portée est à distance CONSTANTE
-  // du rejet, donc courbe. Une corde droite la sous-estimerait au centre.
+  ring.push(destination(source, axis - halfAngleDeg, ATP45_HAZARD_KM));
+  // Arc aval : la limite de portée est à distance CONSTANTE du rejet, donc
+  // courbe. Une corde droite la sous-estimerait en son milieu.
   const steps = 16;
   for (let i = 1; i < steps; i++) {
-    ring.push(destination(source, axis - half + (2 * half * i) / steps, ATP45_HAZARD_KM));
+    ring.push(destination(source, axis - halfAngleDeg + (2 * halfAngleDeg * i) / steps, ATP45_HAZARD_KM));
   }
-  ring.push(destination(source, axis + half, ATP45_HAZARD_KM));
+  ring.push(destination(source, axis + halfAngleDeg, ATP45_HAZARD_KM));
   ring.push(destination(source, axis + 90, ATP45_DANGER_KM));
-  // Retour par l'amont, en suivant le cercle d'isolement : la zone englobe le
+  // Retour par l'amont en suivant le cercle d'isolement : la zone ENGLOBE le
   // rejet au lieu de s'y appuyer par une pointe.
   for (let i = 1; i < 8; i++) {
     ring.push(destination(source, axis + 90 + (180 * i) / 8, ATP45_DANGER_KM));
   }
   ring.push(ring[0]);
 
-  zones.push({
+  return {
     model: "atp45",
     level: "protection",
     kind: "wedge",
     reachKm: ATP45_HAZARD_KM,
+    ...(lowWind ? { lowWind: true } : {}),
     ring,
-  });
-  return zones;
+  };
 }
 
 /**

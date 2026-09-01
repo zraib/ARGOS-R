@@ -1429,6 +1429,38 @@ possible dans toutes les directions » veut dire.
 **ERG** convient : son carré sous le vent existe à chaque pas, quel que soit le
 vent. Il suffit de le passer en référentiel primaire.)*
 
+### 20.6 Le cône par vent faible (lot N-4e)
+
+**La demande.** Garder le cône de diffusion même sous 15 km/h.
+
+**Ce qui s'y opposait.** L'ATP-45 refuse de désigner un secteur en dessous de
+10 km/h : la direction y est trop instable, et la zone doctrinale devient un
+cercle omnidirectionnel de 10 km. Déplacer le seuil à 15 aurait été réécrire la
+doctrine dans le code — et un état-major pourrait poser une évacuation du
+mauvais côté sur la foi d'un cône que la norme ne garantit pas.
+
+**Ce qui a été fait à la place.** Le cône est émis à TOUTE vitesse, **en plus**
+du cercle et jamais à sa place :
+
+| Vent | Zones émises |
+|---|---|
+| Direction inconnue | cercle de danger seul |
+| ≤ 10 km/h | danger + **vigilance (cercle)** + **nappe d'axe**, marquée `lowWind` |
+| > 10 km/h | danger + nappe ATP-45 |
+
+**L'ouverture porte l'incertitude** : 30° de demi-angle au seuil, jusqu'à 75° par
+vent quasi nul. C'est la façon honnête de dire *« voici l'axe, et voici combien
+j'en doute »* — une nappe étroite par vent nul affirmerait une direction que le
+modèle refuse d'affirmer.
+
+**Le rendu la distingue** : contour tireté, aucun remplissage propre. Elle dit la
+direction la plus probable, elle n'est pas un périmètre à poser. La bascule
+« Zone de vigilance » (N-4d) permet de retirer le cercle pour travailler sur le
+seul axe — c'est un acte explicite de l'opérateur, pas un défaut du modèle.
+
+La question du seuil 10 contre 15 devient sans objet : le cône est là à toute
+vitesse, et c'est le cercle qui reste ou s'en va.
+
 ## 21. Ce qui reste à construire
 
 Le workflow est posé ; ces maillons le compléteront (voir le plan d'exécution) :

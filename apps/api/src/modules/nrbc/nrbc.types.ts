@@ -156,6 +156,20 @@ export interface PlumeZone {
   level: PlumeLevel;
   /** Anneau extérieur fermé, coordonnées [lon, lat]. */
   ring: [number, number][];
+  /**
+   * Nappe émise SOUS le seuil de vent de l'ATP-45 (lot N-4e).
+   *
+   * En dessous de 10 km/h, l'ATP-45 refuse de désigner un secteur : la direction
+   * y est trop instable, et la zone doctrinale devient un cercle
+   * omnidirectionnel. Ce cercle reste émis et fait toujours foi.
+   *
+   * Mais un vent de 6 km/h A une direction, et un cercle de 10 km posé sur une
+   * agglomération ne se tasque pas. On émet donc EN PLUS l'axe le plus probable,
+   * marqué comme tel — son ouverture grandit à mesure que le vent faiblit, ce
+   * qui est la façon honnête de dire « voici la direction, et voici combien
+   * j'en doute ». Elle ne REMPLACE jamais le cercle : elle s'y ajoute.
+   */
+  lowWind?: boolean;
   /** Description courte de la géométrie (rayon ou portée), pour l'infobulle. */
   /**
    * `wedge` a remplacé `triangle` au lot N-4b : la zone sous le vent n'est plus

@@ -846,6 +846,14 @@ export function MapCanvas() {
     // Primaire = premier référentiel actif (ordre de l'ADR : ATP-45 puis ERG).
     const primary = plumeModels.atp45 ? "atp45" : "erg";
 
+    // --- nappe d'AXE sous le seuil de vent (lot N-4e) -------------------------
+    // Elle dit la direction la plus probable, PAS un périmètre à poser. Elle est
+    // donc tracée en tireté et sans remplissage propre : la distinguer du
+    // gabarit doctrinal n'est pas une coquetterie, c'est ce qui empêche de
+    // l'utiliser comme une limite d'évacuation.
+    const isLowWindWedge: maplibregl.ExpressionSpecification = ["==", ["get", "lowWind"], true];
+    const notLowWindWedge: maplibregl.ExpressionSpecification = ["!=", ["get", "lowWind"], true];
+
     // --- zone de VIGILANCE, affichable ou non (lot N-4d) ---------------------
     // Le grand cercle jaune de l'ATP-45 couvre 10 km dans toutes les directions
     // quand le vent est trop faible ou trop variable pour désigner un secteur. À
@@ -873,9 +881,10 @@ export function MapCanvas() {
     } else {
       map.setPaintProperty("nrbc-plume-fill", "fill-color", PLUME_LEVEL_COLOR);
       map.setPaintProperty("nrbc-plume-line", "line-color", PLUME_LEVEL_COLOR);
-      map.setFilter("nrbc-plume-fill", withVigilance(["==", ["get", "model"], primary]));
-      map.setFilter("nrbc-plume-line", withVigilance(["==", ["get", "model"], primary]));
-      map.setFilter("nrbc-plume-line-2", withVigilance(["!=", ["get", "model"], primary]));
+      map.setFilter("nrbc-plume-fill", withVigilance(["all", ["==", ["get", "model"], primary], notLowWindWedge]));
+      map.setFilter("nrbc-plume-line", withVigilance(["all", ["==", ["get", "model"], primary], notLowWindWedge]));
+      // La couche tiretée porte les référentiels secondaires ET la nappe d'axe.
+      map.setFilter("nrbc-plume-line-2", withVigilance(["any", ["!=", ["get", "model"], primary], isLowWindWedge]));
     }
 
     // --- nappe de fumée (lots N-4 et N-4b) -----------------------------------
