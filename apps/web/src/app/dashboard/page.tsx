@@ -165,15 +165,17 @@ export default function DashboardPage() {
             {/* ==== 4 KPI sémantiques dynamiques (décès / contaminés / blessés / disparus…) ==== */}
             <div className="grid grid-cols-4 gap-1.5">
               {semKpis.map((k) => {
-                const shortLabel = detail || k.label.length <= 7 ? k.label : k.label.slice(0, 7);
                 return (
                   <div
                     key={k.key}
-                    className={`flex min-w-0 flex-col items-center justify-center rounded-md border-t-2 ${k.color.br} ${k.color.bg} px-1.5 py-1.5 text-center`}
+                    className={`flex min-h-0 flex-col items-center justify-center rounded-md border-t-2 ${k.color.br} ${k.color.bg} px-1.5 py-1.5 text-center`}
                   >
                     <span className={`text-[22px] font-black leading-none tabular-nums ${k.color.text}`}>{k.value}</span>
-                    <span className={`mt-1 truncate text-[10px] font-bold uppercase tracking-wider ${k.color.text}`}>
-                      {shortLabel}
+                    <span
+                      className={`mt-1 max-w-full text-[10px] font-bold uppercase tracking-wider break-all leading-tight ${k.color.text}`}
+                      style={{ hyphens: "auto" } as React.CSSProperties}
+                    >
+                      {k.label}
                     </span>
                   </div>
                 );

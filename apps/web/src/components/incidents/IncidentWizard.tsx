@@ -10,6 +10,7 @@ import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import { svgToLL, llToSvg, typeLabel } from "@/lib/helpers";
 import type { NrbcFamily, Province } from "@/lib/types";
+import { casualtyKind } from "@/lib/derive";
 import {
   useDraftProposal,
   TitleAssistButtons,
@@ -113,6 +114,8 @@ export function IncidentWizard() {
   const [dead, setDead] = useState("");
   const [injured, setInjured] = useState("");
   const [missing, setMissing] = useState("");
+  const [infected, setInfected] = useState("");
+  const [contaminated, setContaminated] = useState("");
   const [selUnits, setSelUnits] = useState<string[]>([]);
   const [selHosps, setSelHosps] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -293,6 +296,8 @@ export function IncidentWizard() {
       setDead(wizEdit.casualties ? String(wizEdit.casualties.dead) : "");
       setInjured(wizEdit.casualties ? String(wizEdit.casualties.injured) : "");
       setMissing(wizEdit.casualties ? String(wizEdit.casualties.missing) : "");
+      setInfected(wizEdit.casualties ? String(wizEdit.casualties.infected ?? "") : "");
+      setContaminated(wizEdit.casualties ? String(wizEdit.casualties.contaminated ?? "") : "");
       setSelUnits(wizEdit.responders?.units ?? []);
       setSelHosps(wizEdit.responders?.hospitals ?? []);
       setNrbcFamily(wizEdit.nrbc?.family ?? null);
@@ -365,7 +370,8 @@ export function IncidentWizard() {
     setKeywordsList([]); setKeywordsDraft(""); setAiGenerated(false); setAiBusy(false);
     setTitle(""); setDesc(""); setFiles([]);
     setAdresse(""); setProv(""); setCity(""); setLat(""); setLng(""); setPt(null); setGeoErr(false);
-    setDead(""); setInjured(""); setMissing(""); setSelUnits([]); setSelHosps([]);
+    setDead(""); setInjured(""); setMissing(""); setInfected(""); setContaminated("");
+    setSelUnits([]); setSelHosps([]);
     setNrbcFamily(null); setNrbcSubstance(""); setNrbcSpill("large"); setNrbcRelease("instant");
   };
   const onClose = () => { reset(); close(); };
@@ -399,8 +405,21 @@ export function IncidentWizard() {
       const d = Math.max(0, parseInt(dead, 10) || 0);
       const inj = Math.max(0, parseInt(injured, 10) || 0);
       const mis = Math.max(0, parseInt(missing, 10) || 0);
-      const hasCasualties = d + inj + mis > 0;
+      const infectN = Math.max(0, parseInt(infected, 10) || 0);
+      const contN = Math.max(0, parseInt(contaminated, 10) || 0);
+      const rawVictims = d + inj + mis + infectN + contN;
+      const hasCasualties = rawVictims > 0;
       const hasResponders = selUnits.length + selHosps.length > 0;
+      const casualtiesObj = hasCasualties
+        ? ({
+            dead: d,
+            injured: inj,
+            missing: mis,
+            ...(infectN > 0 ? { infected: infectN } : {}),
+            ...(contN > 0 ? { contaminated: contN } : {}),
+          } as const)
+        : undefined;
+      const bodyCasualties = casualtiesObj;
       const body = {
         type: type ?? incidentTypes[0]?.id ?? "earthquake",
         titre: title.trim() || typeLabel(type ?? "", incidentTypes, lang) + (place ? ` — ${place}` : ""),
@@ -414,7 +433,7 @@ export function IncidentWizard() {
         x,
         y,
         ll: pt,
-        casualties: hasCasualties ? { dead: d, injured: inj, missing: mis } : undefined,
+        casualties: bodyCasualties,
         responders: hasResponders ? { units: selUnits, hospitals: selHosps } : undefined,
         // Volet NRBC : uniquement pour le type dédié, avec une famille choisie.
         // La substance et l'ampleur n'ont de sens que pour la famille chimique.
@@ -430,9 +449,9 @@ export function IncidentWizard() {
       };
       // Édition : PATCH (conserve gravité/statut). Sinon création (audité).
       if (wizEdit) {
-        await api.updateIncident(wizEdit.id, body);
+        await api.updateIncident(wizEdit.id, body as any);
       } else {
-        await api.createIncident({ ...body, sev: "medium", st: "open" });
+        await api.createIncident({ ...body, sev: "medium", st: "open" } as any);
       }
       await loadDomain();
       showToast(t.toast_ok);
@@ -448,6 +467,55 @@ export function IncidentWizard() {
   // décale toute la modale. La densité d'origine (14 px) revient à partir de md.
   const fieldCls = "input-champ text-base md:text-sm";
   const sectionCls = "mb-2 text-xs font-bold uppercase tracking-wide text-rdia-500 dark:text-rdia-300";
+
+  /** Label/champ central de Bilan humain : dépend du type d'incident.
+   *  NRBC / chimique → Contaminés ; Épidémie → Infectés ; Trauma → Blessés.
+   */
+  const {
+    secondaryLabel,
+    secondaryColor,
+    secondaryVal,
+    secondarySet,
+    includeInjuredRaw,
+    includeInfectedRaw,
+    includeContaminatedRaw,
+  } = useMemo(() => {
+    const k = casualtyKind(type ?? "");
+    if (k === "epidemic") {
+      return {
+        secondaryLabel: "Infectés",
+        secondaryColor: "text-pink-600",
+        secondaryVal: infected,
+        secondarySet: setInfected,
+        includeInjuredRaw: false,
+        includeInfectedRaw: true,
+        includeContaminatedRaw: false,
+      };
+    }
+    if (k === "hazmat") {
+      return {
+        secondaryLabel: "Contaminés",
+        secondaryColor: "text-purple-600",
+        secondaryVal: contaminated,
+        secondarySet: setContaminated,
+        includeInjuredRaw: false,
+        includeInfectedRaw: false,
+        includeContaminatedRaw: true,
+      };
+    }
+    return {
+      secondaryLabel: "Blessés",
+      secondaryColor: "text-orange-500",
+      secondaryVal: injured,
+      secondarySet: setInjured,
+      includeInjuredRaw: true,
+      includeInfectedRaw: false,
+      includeContaminatedRaw: false,
+    };
+  }, [type, infected, contaminated, injured]);
+  void includeInjuredRaw;
+  void includeInfectedRaw;
+  void includeContaminatedRaw;
 
   /** Ligne « moyen » sélectionnable (unité ou hôpital), ordonnée par proximité. */
   const responderRow = (
@@ -896,21 +964,39 @@ export function IncidentWizard() {
             <div>
               <div className={sectionCls}>{t.wz_casualties}</div>
               <div className="grid grid-cols-3 gap-3">
-                {([[t.wz_dead, dead, setDead], [t.wz_injured, injured, setInjured], [t.wz_missing, missing, setMissing]] as const).map(
-                  ([lbl, val, set]) => (
-                    <div key={lbl}>
-                      <label className={labelCls}>{lbl}</label>
-                      <input
-                        type="number"
-                        min={0}
-                        className="input-champ text-sm"
-                        placeholder="0"
-                        value={val}
-                        onChange={(e) => set(e.target.value)}
-                      />
-                    </div>
-                  ),
-                )}
+                <div>
+                  <label className={labelCls}>Décès</label>
+                  <input
+                    type="number"
+                    min={0}
+                    className="input-champ text-sm"
+                    placeholder="0"
+                    value={dead}
+                    onChange={(e) => setDead(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className={`${labelCls} ${secondaryColor}`}>{secondaryLabel}</label>
+                  <input
+                    type="number"
+                    min={0}
+                    className="input-champ text-sm"
+                    placeholder="0"
+                    value={secondaryVal}
+                    onChange={(e) => secondarySet(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Disparus</label>
+                  <input
+                    type="number"
+                    min={0}
+                    className="input-champ text-sm"
+                    placeholder="0"
+                    value={missing}
+                    onChange={(e) => setMissing(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 

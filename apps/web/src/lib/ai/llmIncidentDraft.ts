@@ -10,6 +10,7 @@ import {
   pickTitle,
   pickDesc,
   type DescriptionProposalInput,
+  extractToponymsFromTokens,
 } from "@/components/incidents/IncidentDraftAssist";
 import {
   AI_DEFAULT_PROVIDER,
@@ -38,6 +39,10 @@ const SYSTEM_DRAFT = [
   "Ton unique tâche : produire un TITRE court et professionnel, puis une DESCRIPTION factuelle à partir des mots-clés fournis par l'opérateur.",
   "",
   "RÈGLES IMPÉRATIVES (tu les respectes SANS EXCEPTION) :",
+  "[R0] TOPONYMES OBLIGATOIRES — TOUT lieu (ville, province, région, pays, quartier, adresse, lieu-dit, site, zone géographique) ÉCRIT explicitement dans les MOTS-CLÉS fournis OU dans la section LOCALISATION ci-dessous DOIT impérativement :",
+  "     1) apparaître DANS LE TITRE (champ `title`),",
+  "     2) apparaître AU MOINS UNE FOIS DANS LA DESCRIPTION (champ `desc`).",
+  "     Tu n'ignores JAMAIS un lieu, tu ne l'omettras JAMAIS, tu ne le transformes JAMAIS en synonyme. Tu reprends le terme EXACT tel qu'il est fourni.",
   "[R1] TU N'INVITES RIEN. Aucun lieu, date, chiffre, nombre de victimes, nom de personne, nom de rue, code postal, coordonnées, température, magnitude, surface, durée ne peuvent apparaître s'ils ne sont PAS ÉCRITS explicitement dans les mots-clés fournis.",
   "[R2] AUCUNE action opérationnelle. Tu ne mentionnes JAMAIS : reconnaissance terrain, périmètre de sécurité, évacuation préventive, renforts, déploiement d'équipes, plan de distribution, camion-citerne, distribution d'eau, coordination, commandement, prise en charge, ouverture de lieux, sensibilisation, espaces rafraîchis, visite de personnes, sécurisation, montée en puissance, ni aucune mesure, recommandation, moyen engagé, action opérationnelle, consigne, procédure ou consigne de sécurité — SAUF si un de ces termes est PRÉSENT littéralement dans les mots-clés fournis.",
   "[R3] Tu ne transformes JAMAIS une information potentielle ou un risque en événement confirmé. Si les mots-clés mentionnent un « risque » → reste sur le terme « risque » ; ne dis pas « effondrement » si on a écrit « risque d'effondrement ».",
@@ -231,9 +236,32 @@ export async function generateIncidentDraft(
   }
 
   const typeLabel = input.type ?? "incident";
-  const lieuInfo = [input.ville?.trim(), input.province?.trim(), input.adresse?.trim()]
-    .filter(Boolean)
-    .join(", ");
+  const formToponyms = [input.ville?.trim(), input.province?.trim(), input.adresse?.trim()].filter(Boolean) as string[];
+  const kwToponyms = extractToponymsFromTokens(keywords);
+  const confirmedToponyms = (() => {
+    const seen = new Set<string>();
+    const merged: string[] = [];
+    for (const x of [...formToponyms, ...kwToponyms]) {
+      const k = x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+      if (k && !seen.has(k)) { seen.add(k); merged.push(x); }
+    }
+    return merged;
+  })();
+
+  const lieuSection = confirmedToponyms.length
+    ? [
+        "## LIEUX CONFIRMÉS (R0 OBLIGATOIRE · chacun doit figurer DANS title ET dans desc)",
+        ...confirmedToponyms.map((t) => `  - ${t}`),
+        "",
+        "CONTRAINTE R0 : Chaque élément de la liste ci-dessus est UN LIEU CONFIRMÉ issu des mots-clés ou champs structurés. Tu dois :",
+        "  1) le mentionner explicitement (terme exact) dans `title` (ex: « … — Mohammedia »)",
+        "  2) le mentionner explicitement au moins une fois dans `desc` (ex: « Un incident est rapporté au niveau de Mohammedia… »)",
+        "Jamais d'exception.",
+      ].join("\n")
+    : [
+        "## LIEUX CONFIRMÉS",
+        "(aucun fourni → respecte R1 : N'INVENTE JAMAIS de ville, province, adresse, quartier, site, pays, région).",
+      ].join("\n");
 
   const userMsg = [
     "## TYPE D'INCIDENT (catégorie choisie par l'opérateur)",
@@ -241,7 +269,8 @@ export async function generateIncidentDraft(
     "",
     "## MOTS-CLÉS SAISIS PAR L'OPÉRATEUR (UNIQUEMENT CES ÉLÉMENTS, RIEN D'AUTRE)",
     keywords.map((k) => `  - ${k}`).join("\n"),
-    lieuInfo ? `## LOCALISATION DÉJÀ SAISIE (tu peux la mentionner si elle est présente, mais n'inventes rien d'autre)\n  - ${lieuInfo}` : "## LOCALISATION : AUCUNE FOURNIE → ne jamais mentionner un lieu, une ville, une région, une adresse.",
+    "",
+    lieuSection,
     "",
     "## MODE",
     "génération initiale : produis un titre court (8-120 caractères) et une description factuelle 2-3 phrases.",
@@ -271,7 +300,42 @@ export async function generateIncidentDraft(
   if (text) {
     const parsed = extractJsonBlock(text);
     if (parsed) {
-      const clean = sanitizeDraft(parsed, keywords, fallbackTitle, fallbackDesc);
+      let clean = sanitizeDraft(parsed, keywords, fallbackTitle, fallbackDesc);
+      // ========= ENFORCEMENT R0 : chaque lieu confirmé doit être DANS title ET desc =========
+      if (clean.title && clean.desc && confirmedToponyms.length) {
+        const normInText = (t: string, txt: string): boolean => {
+          const n = t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+          const nt = txt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+          return !!n && nt.includes(n);
+        };
+        let tTitle = clean.title;
+        let tDesc = clean.desc;
+        for (const topo of confirmedToponyms) {
+          if (!normInText(topo, tTitle)) {
+            tTitle = `${tTitle} — ${topo.charAt(0).toUpperCase() + topo.slice(1)}`;
+          }
+          if (!normInText(topo, tDesc)) {
+            const tPretty = topo.charAt(0).toUpperCase() + topo.slice(1);
+            // Préfixe phrase synthétique si la description commence
+            const prefix = `Au niveau de ${tPretty} : `;
+            if (tDesc.includes(".")) {
+              const firstDot = tDesc.indexOf(".");
+              const sentence1 = tDesc.slice(0, firstDot + 1);
+              const rest = tDesc.slice(firstDot + 1).trim();
+              tDesc = rest
+                ? `${sentence1.slice(0, -1)} à ${tPretty}. ${rest}`
+                : `${sentence1.slice(0, -1)} à ${tPretty}.`;
+            } else {
+              tDesc = `${prefix}${tDesc.charAt(0).toLowerCase() + tDesc.slice(1)}`;
+            }
+            // Si malgré tout toponyme pas présent (cas ponctuation complexe), append final
+            if (!normInText(topo, tDesc)) tDesc = `${tDesc}  Localisation confirmée : ${tPretty}.`;
+          }
+        }
+        tTitle = tTitle.replace(/\s+/g, " ").trim();
+        tDesc = tDesc.replace(/\s+/g, " ").trim();
+        clean = { title: tTitle, desc: tDesc };
+      }
       if (clean.title && clean.desc) {
         return { title: clean.title, desc: clean.desc, fallback: false, llmError: undefined };
       }
@@ -316,6 +380,18 @@ export async function paraphraseIncidentDraft(
   if (!keywords.length && !currentTitle && !currentDesc) {
     return { title: fallbackTitle, desc: fallbackDesc, fallback: true };
   }
+
+  const kwToponymsPar = extractToponymsFromTokens(keywords);
+  const formToponymsPar = [input.ville?.trim(), input.province?.trim(), input.adresse?.trim()].filter(Boolean) as string[];
+  const confirmedToponymsPar = (() => {
+    const seen = new Set<string>();
+    const merged: string[] = [];
+    for (const x of [...formToponymsPar, ...kwToponymsPar]) {
+      const k = x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+      if (k && !seen.has(k)) { seen.add(k); merged.push(x); }
+    }
+    return merged;
+  })();
 
   const userMsg = [
     "## CHAMP(S) À PARAPHRASER",
@@ -365,8 +441,36 @@ export async function paraphraseIncidentDraft(
       const tOk = field !== "title" ? currentTitle : tRaw;
       const dOk = field !== "desc" ? currentDesc : dRaw;
       // Retourne toujours les deux champs ; si un seul est vide on prend le fallback.
-      const title = tOk || fallbackTitle;
-      const desc = dOk || fallbackDesc;
+      let title = tOk || fallbackTitle;
+      let desc = dOk || fallbackDesc;
+      const clean0 = sanitizeDraft({ title, desc }, keywords, fallbackTitle, fallbackDesc);
+      title = clean0.title; desc = clean0.desc;
+
+      // ========= ENFORCEMENT R0 : toponymes présents dans paraphrase =========
+      if (title && desc && confirmedToponymsPar.length) {
+        const normInText = (t: string, txt: string): boolean => {
+          const n = t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+          const nt = txt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+          return !!n && nt.includes(n);
+        };
+        for (const topo of confirmedToponymsPar) {
+          if (!normInText(topo, title)) title = `${title} — ${topo.charAt(0).toUpperCase() + topo.slice(1)}`;
+          if (!normInText(topo, desc)) {
+            const tPretty = topo.charAt(0).toUpperCase() + topo.slice(1);
+            if (desc.includes(".")) {
+              const firstDot = desc.indexOf(".");
+              const s1 = desc.slice(0, firstDot + 1);
+              const rest = desc.slice(firstDot + 1).trim();
+              desc = rest ? `${s1.slice(0, -1)} à ${tPretty}. ${rest}` : `${s1.slice(0, -1)} à ${tPretty}.`;
+            } else {
+              desc = `Au niveau de ${tPretty} : ${desc.charAt(0).toLowerCase() + desc.slice(1)}`;
+            }
+            if (!normInText(topo, desc)) desc = `${desc}  Localisation confirmée : ${tPretty}.`;
+          }
+        }
+        title = title.replace(/\s+/g, " ").trim();
+        desc = desc.replace(/\s+/g, " ").trim();
+      }
       const clean = sanitizeDraft({ title, desc }, keywords, fallbackTitle, fallbackDesc);
       if (clean.title && clean.desc) {
         return { title: clean.title, desc: clean.desc, fallback: false, llmError: undefined };

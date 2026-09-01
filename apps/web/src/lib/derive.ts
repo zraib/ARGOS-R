@@ -265,6 +265,47 @@ export function hospitalDetail(h: Hospital, fieldHosps: FieldHospital[], t: Dict
 }
 
 // ============================================================================
+// Classification sémantique des types d'incident pour l'affichage bilan
+// humain (4 catégories : trauma classique / épidémie / NRBC / mixte inconnu)
+// ============================================================================
+// Un même type peut avoir des alias historiques :
+//   CBRN ↔ NRBC ↔ chemical ↔ industrial (tous = HAZMAT)
+//   epidemic ↔ pandemie / maladie (tous = BIOLOGIQUE)
+// ============================================================================
+
+export function isEpidemicType(type: string | null | undefined): boolean {
+  if (!type) return false;
+  const t = String(type).toLowerCase();
+  return (
+    t === "epidemic" ||
+    t.includes("epidemi") ||
+    t.includes("epidem") ||
+    t === "pandemic" ||
+    t === "outbreak" ||
+    t.includes("maladie") ||
+    t.includes("chamber") === false && (t.includes("cholera") || t === "foyer")
+  );
+}
+
+export function isHazmatType(type: string | null | undefined): boolean {
+  if (!type) return false;
+  const t = String(type).toLowerCase();
+  if (["nrbc", "nrbcc", "nrb", "cbrn", "cbrnc", "chemical", "industrial", "chimique", "radiologique", "nucleaire", "biologique_risk", "toxic", "toxique"].includes(t)) return true;
+  if (t.includes("nrbc") || t.includes("cbrn")) return true;
+  if (t.includes("chim") && !t.includes("chirurg")) return true;
+  if (t.includes("industriel") || t.includes("industrial")) return true;
+  if (t.includes("radiol") || t.includes("nucle") || t.includes("toxique") || t.includes("toxic")) return true;
+  if (t.includes("gaz") && (t.includes("tox") || t.includes("indust") || t.includes("cbrn") || t.includes("nrbc"))) return true;
+  return false;
+}
+
+export function casualtyKind(incType: string | null | undefined): "trauma" | "epidemic" | "hazmat" {
+  if (isEpidemicType(incType)) return "epidemic";
+  if (isHazmatType(incType)) return "hazmat";
+  return "trauma";
+}
+
+// ============================================================================
 // Palette sémantique · types d'incident → couleur hex
 // Source unique (UI Bilan humain, bloc Incidents, modales, SA Panel)
 // ============================================================================
@@ -275,6 +316,9 @@ export const INCIDENT_TYPE_COLORS: Record<IncidentType | string, string> = {
   landslide: "#CA8A04",
   epidemic: "#EC4899",
   industrial: "#A855F7",
+  nrbc: "#A855F7",
+  cbrn: "#A855F7",
+  chemical: "#A855F7",
 };
 
 export function incidentColor(type: string): string {
@@ -284,9 +328,10 @@ export function incidentColor(type: string): string {
 // ============================================================================
 // Bilan humain · dimensions sémantiques par type d'incident
 // ============================================================================
-// - earthquake/flood/wildfire/landslide : traumatique → injured = blessés
-// - epidemic : infection → infected (injured aliasé retro-compat)
-// - industrial : NRBC/CBRN → contaminated + exposed (injured aliasé retro)
+// - trauma (séisme/inondation/feu/accident routier…) : injured = blessés
+// - epidemic                               : infected (injured alias retro)
+// - hazmat (nrbc / industrial / chimique) : contaminated + exposed
+//                                            (injured alias retro contaminated)
 // ============================================================================
 
 /** Une dimension bilan humain avec sa couleur hex. */
@@ -345,8 +390,7 @@ export function aggregateCasualties(
   incidents: Incident[],
   dashStats: DashStats | null | undefined,
   topLimit = 4,
-  perTypeLimit = 6,
-): CasualtyAggregate {
+  perTypeLimit = 6,): CasualtyAggregate {
   const byType = new Map<string, CasualtyPerType>();
   const totals = { dead: 0, injured: 0, missing: 0, infected: 0, exposed: 0, contaminated: 0, rescued: 0 };
   const topImpact: Array<{ incident: Incident; impact: number }> = [];
@@ -357,23 +401,41 @@ export function aggregateCasualties(
     const miss = c?.missing ?? 0;
     const resc = c?.rescued ?? 0;
     const injuredRaw = c?.injured ?? 0;
-    // infected: champ explicite → sinon alias injured pour type epidemic
-    const infected = c?.infected ?? (inc.type === "epidemic" ? injuredRaw : 0);
-    // contaminated: champ explicite → sinon alias injured pour type industrial
-    const contaminated = c?.contaminated ?? (inc.type === "industrial" ? injuredRaw : 0);
-    const exposed = c?.exposed ?? 0;
-    // Compteur principal "victime principale" de ce type (pour label UI)
+    const kind = casualtyKind(inc.type); // trauma | epidemic | hazmat
+
+    // — Alias rétro-compat : injured → infect / contam / exposé
+    // Pour ÉPIDÉMIE : infecté (injured si champ infecté absent)
+    const infected =
+      c?.infected ??
+      (kind === "epidemic" && injuredRaw > 0
+        ? injuredRaw
+        : 0);
+    // Pour HAZMAT (NRBC / industriel / chimique) : contaminé (injured si absent)
+    // → exposed aussi (fallback exposé si contaminé absent mais injured là)
+    const contaminated =
+      c?.contaminated ??
+      (kind === "hazmat" && injuredRaw > 0
+        ? injuredRaw
+        : 0);
+    const exposed =
+      c?.exposed ??
+      (kind === "hazmat" && contaminated === 0 && injuredRaw > 0
+        ? injuredRaw
+        : 0);
+    // Semantic injured (la dim VICTIME PRINCIPALE pour l'UI)
     const semanticInjured =
-      inc.type === "epidemic"
-        ? c?.infected ?? injuredRaw
-        : inc.type === "industrial"
-          ? c?.contaminated ?? exposed ?? injuredRaw
+      kind === "epidemic"
+        ? infected
+        : kind === "hazmat"
+          ? contaminated > 0
+            ? contaminated
+            : exposed
           : injuredRaw;
 
     const impact = d + semanticInjured + miss + infected + exposed + contaminated;
 
     totals.dead += d;
-    totals.injured += injuredRaw; // blessés "brut" pour stats trauma
+    totals.injured += injuredRaw; // blessés "brut" stats trauma
     totals.missing += miss;
     totals.infected += infected;
     totals.exposed += exposed;
@@ -407,8 +469,12 @@ export function aggregateCasualties(
     contaminated: totals.contaminated + (fromDash?.contaminated ?? 0),
   };
 
-  const hasEpi = aggTotals.infected > 0 || incidents.some((i) => i.type === "epidemic");
-  const hasNrb = aggTotals.contaminated > 0 || aggTotals.exposed > 0 || incidents.some((i) => i.type === "industrial");
+  const hasEpi =
+    aggTotals.infected > 0 || incidents.some((i) => casualtyKind(i.type) === "epidemic");
+  const hasNrb =
+    aggTotals.contaminated > 0 ||
+    aggTotals.exposed > 0 ||
+    incidents.some((i) => casualtyKind(i.type) === "hazmat");
   const hasTrauma = aggTotals.injured > 0 && !hasEpi && !hasNrb;
   const flags = { hasEpidemic: hasEpi, hasNrb: hasNrb, hasTrauma };
 
@@ -428,7 +494,7 @@ export function aggregateCasualties(
   if (hasNrb) pushDim("contaminated", "Contaminés", aggTotals.contaminated, "text-purple-600 dark:text-purple-400", "bg-purple-500/10", "border-t-purple-500/50", "#A855F7");
   if (hasNrb) pushDim("exposed", "Exposés", aggTotals.exposed, "text-indigo-600 dark:text-indigo-400", "bg-indigo-500/10", "border-t-indigo-500/50", "#6366F1");
   if (aggTotals.injured > 0 || !hasEpi) {
-    const label = hasTrauma ? "Blessés" : hasEpi ? "Blessés (trauma)" : "Blessés";
+    const label = "Blessés";
     pushDim("injured", label, aggTotals.injured, "text-or-500", "bg-or-500/10", "border-t-or-500/50", "#F59E0B");
   }
   pushDim("missing", "Disparus", aggTotals.missing, "text-gray-600 dark:text-rdia-300", "bg-gray-500/10", "border-t-gray-400/50", "#64748B");
@@ -464,26 +530,32 @@ export function semanticChipsForType(
   r: CasualtyPerType,
 ): { main?: { label: string; v: number; hex: string }; secondary: Array<{ label: string; v: number; hex: string }> } {
   const secondary: Array<{ label: string; v: number; hex: string }> = [];
-  if (r.dead > 0) secondary.push({ label: "Déc", v: r.dead, hex: "#EF4444" });
+  if (r.dead > 0) secondary.push({ label: "Décès", v: r.dead, hex: "#EF4444" });
 
   let main: { label: string; v: number; hex: string } | undefined;
+  const kind = casualtyKind(r.type);
 
-  if (r.type === "epidemic") {
-    if (r.infected > 0) main = { label: "Inf", v: r.infected, hex: "#EC4899" };
-    if (r.injured > 0) secondary.push({ label: "Bles", v: r.injured, hex: "#F59E0B" });
-    if (r.exposed > 0) secondary.push({ label: "Exp", v: r.exposed, hex: "#6366F1" });
-  } else if (r.type === "industrial") {
-    if (r.contaminated > 0) main = { label: "Cont", v: r.contaminated, hex: "#A855F7" };
-    else if (r.exposed > 0) main = { label: "Exp", v: r.exposed, hex: "#6366F1" };
-    if (r.injured > 0) secondary.push({ label: "Bles", v: r.injured, hex: "#F59E0B" });
+  if (kind === "epidemic") {
+    if (r.infected > 0) main = { label: "Infectés", v: r.infected, hex: "#EC4899" };
+    if (r.injured > 0) secondary.push({ label: "Blessés", v: r.injured, hex: "#F59E0B" });
+    if (r.exposed > 0) secondary.push({ label: "Exposés", v: r.exposed, hex: "#6366F1" });
+  } else if (kind === "hazmat") {
+    if (r.contaminated > 0) main = { label: "Contaminés", v: r.contaminated, hex: "#A855F7" };
+    else if (r.exposed > 0) main = { label: "Exposés", v: r.exposed, hex: "#6366F1" };
+    if (r.injured > 0 && (!main || main.v !== r.injured)) {
+      secondary.push({ label: "Blessés", v: r.injured, hex: "#F59E0B" });
+    }
     if (r.exposed > 0 && r.contaminated > 0) {
       // exposé déjà en main → doublon évité ci-dessus
     }
   } else {
-    if (r.injured > 0) secondary.push({ label: "Bles", v: r.injured, hex: "#F59E0B" });
+    if (r.injured > 0) {
+      if (!main) main = { label: "Blessés", v: r.injured, hex: "#F59E0B" };
+      else secondary.push({ label: "Blessés", v: r.injured, hex: "#F59E0B" });
+    }
   }
 
-  if (r.missing > 0) secondary.push({ label: "Disp", v: r.missing, hex: "#64748B" });
+  if (r.missing > 0) secondary.push({ label: "Disparus", v: r.missing, hex: "#64748B" });
   return { main, secondary };
 }
 

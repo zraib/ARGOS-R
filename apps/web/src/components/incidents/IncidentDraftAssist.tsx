@@ -49,12 +49,104 @@ function labelOf(
   return labels[input.lang] ?? labels.fr ?? labels.ar ?? labels.en ?? input.type;
 }
 
+const MOROCCAN_TOPONYMS_BASE = new Set<string>([
+  "casablanca","rabat","salé","sale","marrakech","marrakesh","fès","fez","tanger","tangier","meknès","meknes","agadir","oujda","kenitra","tetouan","tétouan",
+  "safi","mohammedia","beni mellal","benimellal","nador","khouribga","guelma","berrechid","settat","el jadida","taza","khémisset","khemisset","fquih ben salah","fqihbensalah",
+  "ersane","taounat","tata","ouarzazate","midelt","marrakech-safi","tanger-tétouan-al hoceima","fès-meknès","casablanca-settat","drâa-tafilalet","souss-massa","beni mellal-khénifra",
+  "oriental","guelmim-oued noun","laâyoune-sakia el hamra","dakhla-oued eddahab","région de rabat-salé-kénitra","region de rabat sale kenitra",
+  "larache","chefchaouen","asfi","témara","temara","dar bouazza","bouskoura","aïn harrouda","ain harrouda","sidi slimane","sidi kacem","bouznika",
+  "skhirate","témara","temara","tit mellil","youssoufia","al hoceima","hoceima","essaouira","zagora","tafilalet","goulimine","tan-tan","smara","dakhla","laâyoune","layoune",
+  "kénitra","kenitra","el kelaâ des sraghna","kelaa sraghna","oued zem","azrou","ifrane","midelt","azzemour","bir jdid","benslimane","jerada","figuig",
+  "fnideq","mdiq","martil","oualidia","azemmour","sidi ifni","sidi bennour","chichaoua","al haouz","haouz","el kelaa m'gouna","kelâat m'gouna","tinerhir","ouarzazat",
+  "chichaoua","sidi qacem","skhour rhate","souk el arbaa","oulmes","tameslouht","ain sebaa","dar bouaazza","ain atta","azrou",
+  "province de","wilaya de","cercle de","caïdat de","commune de","région","region","prefecture","province","wilaya",
+  "mohamedia","mohammédia","mohamedia","mohammedia","mhamdia","mhamid","sidi bou othmane","sidi bou otman",
+]);
+
+const FRENCH_STOPWORDS_TOPO = new Set<string>([
+  "de","des","du","le","la","les","un","une","et","ou","sur","sous","dans","vers","par","pour","au","aux","a","avec","sans","entre","en","à","au","dun","dune","ce","cette","ces","mon","ma","mes","ton","ta","tes","son","sa","ses","notre","votre","leur","leurs","je","tu","il","elle","on","nous","vous","ils","elles","qui","que","quoi","dont","ou","où","ça","ca","très","tres","plus","moins","tres","peu","beaucoup","ainsi","aussi","comme","depuis","quand","lorsque","pendant","après","avant","donc","alors","bien","mal","tout","tous","toute","toutes","aucun","aucune","autre","autres","même","meme","chaque","quel","quelle","quels","quelles","aucun","déjà","deja","ici","là","la","oui","non","encore","aussi","afin","suite","partir","selon","entre","suivant","via","havre","non","oui","lieux","lieu","zone","zones","site","sites","endroit","endroits","secteur","secteurs","region","regions","province","provinces","ville","villes","pays","quartier","quartiers","adresse","adresses","chemin","rue","avenue","boulevard","place","route","autoroute","nationale","rn","ra","rp","km",
+]);
+
+function isLikelyToponym(token: string, allLexicons: Set<string>): boolean {
+  const n = normKW(token);
+  if (n.length < 3) return false;
+  if (allLexicons.has(n)) return false;
+  if (FRENCH_STOPWORDS_TOPO.has(n)) return false;
+  // Digit patterns like "n1", "2024", "4x4" not a toponym
+  if (/^\d/.test(token) || /\d/.test(token) && n.length < 5) return false;
+  // Capitalized (proper noun) OR in Moroccan dictionary → qualify
+  const isProperNoun = /^[A-ZÀ-ÖÙ-Ý]/.test(token.trim());
+  const hasKnownTopo = Array.from(MOROCCAN_TOPONYMS_BASE).some((k) =>
+    k === n || n.includes(k) || k.includes(n)
+  );
+  return isProperNoun || hasKnownTopo;
+}
+
+const ALL_LEXICON_UNION: { current: Set<string> | null } = { current: null };
+function getAllLexiconUnion(): Set<string> {
+  if (ALL_LEXICON_UNION.current) return ALL_LEXICON_UNION.current;
+  const s = new Set<string>();
+  const pools: readonly string[][] = [
+    typeof SEISMIC_WORDS !== "undefined" ? SEISMIC_WORDS : [],
+    typeof FIRE_WORDS !== "undefined" ? FIRE_WORDS : [],
+    typeof SMOKE_WORDS !== "undefined" ? SMOKE_WORDS : [],
+    typeof FLOOD_WORDS !== "undefined" ? FLOOD_WORDS : [],
+    typeof STORM_WORDS !== "undefined" ? STORM_WORDS : [],
+    typeof COLLAPSE_WORDS !== "undefined" ? COLLAPSE_WORDS : [],
+    typeof DAMAGE_WORDS !== "undefined" ? DAMAGE_WORDS : [],
+    typeof BUILDING_WORDS !== "undefined" ? BUILDING_WORDS : [],
+    typeof HUMAN_WORDS !== "undefined" ? HUMAN_WORDS : [],
+    typeof HAZARD_WORDS !== "undefined" ? HAZARD_WORDS : [],
+    typeof INDUSTRIAL_WORDS !== "undefined" ? INDUSTRIAL_WORDS : [],
+    typeof CBRN_WORDS !== "undefined" ? CBRN_WORDS : [],
+    typeof CBRN_ACTION_WORDS !== "undefined" ? CBRN_ACTION_WORDS : [],
+    typeof EXPLOSION_WORDS !== "undefined" ? EXPLOSION_WORDS : [],
+    typeof EVACUATION_WORDS !== "undefined" ? EVACUATION_WORDS : [],
+    typeof MEDICAL_WORDS !== "undefined" ? MEDICAL_WORDS : [],
+    typeof ROAD_WORDS !== "undefined" ? ROAD_WORDS : [],
+    typeof WATER_ASSET_WORDS !== "undefined" ? WATER_ASSET_WORDS : [],
+    typeof AIR_ASSET_WORDS !== "undefined" ? AIR_ASSET_WORDS : [],
+    typeof FORCES_WORDS !== "undefined" ? FORCES_WORDS : [],
+    typeof DROUGHT_WORDS !== "undefined" ? DROUGHT_WORDS : [],
+    typeof HEAT_WORDS !== "undefined" ? HEAT_WORDS : [],
+  ];
+  for (const pool of pools) for (const w of pool) s.add(normKW(w));
+  ALL_LEXICON_UNION.current = s;
+  return s;
+}
+
+export function extractToponymsFromTokens(tokens: string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const t of tokens) {
+    const raw = t.trim();
+    if (!raw) continue;
+    const pretty = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+    const n = normKW(raw);
+    if (!n) continue;
+    if (seen.has(n)) continue;
+    if (isLikelyToponym(raw, getAllLexiconUnion())) {
+      seen.add(n);
+      out.push(pretty);
+    }
+  }
+  return out;
+}
+
 function lieuOf(
-  input: Pick<DescriptionProposalInput, "ville" | "province" | "adresse">,
+  input: Pick<DescriptionProposalInput, "ville" | "province" | "adresse"> & { keywords?: string },
 ): string {
-  return [input.ville, input.province, input.adresse]
+  const fromForm = [input.ville, input.province, input.adresse]
     .map((s) => s.trim())
-    .filter(Boolean)[0] ?? "";
+    .filter(Boolean);
+  const fromKws = extractToponymsFromTokens(keywordTokens(input.keywords));
+  const merged: string[] = [];
+  const seen = new Set<string>();
+  for (const x of [...fromForm, ...fromKws]) {
+    const k = normKW(x);
+    if (k && !seen.has(k)) { seen.add(k); merged.push(x); }
+  }
+  return merged.join(" · ") ?? "";
 }
 
 function inject(s: string, label: string, lieu: string): string {
