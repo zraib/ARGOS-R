@@ -42,8 +42,37 @@ export class NrbcController {
       "ARGOS n'interroge aucun service tiers à l'exécution (ADR 0006).",
   })
   @ApiQuery({ name: "q", required: false, description: "Nom, synonyme, n° ONU ou n° CAS. Vide = toute la bibliothèque." })
-  async library(@Query("q") q?: string) {
-    return this.nrbc.library(q);
+  @ApiQuery({
+    name: "letter",
+    required: false,
+    description: "Feuilletage alphabétique : une lettre A–Z, ou « # » pour tout ce qui ne commence pas par une lettre latine. Se cumule avec `q`.",
+  })
+  @ApiQuery({
+    name: "limit",
+    required: false,
+    description: "Plafond de résultats rendus (défaut 200, maximum 1000). `matched` porte le compte réel avant plafond.",
+  })
+  @ApiQuery({
+    name: "lang",
+    required: false,
+    description: "Langue de classement et d'indexation alphabétique (fr par défaut).",
+    enum: ["fr", "en", "ar"],
+  })
+  async library(
+    @Query("q") q?: string,
+    @Query("letter") letter?: string,
+    @Query("limit") limit?: string,
+    @Query("lang") lang?: string,
+  ) {
+    // La lettre est normalisée ici plutôt qu'au filtre : « a » et « A » sont le
+    // même rayon, et une valeur fantaisiste doit être ignorée, pas vider la liste.
+    const l = letter?.trim().toUpperCase();
+    const n = Number.parseInt(limit ?? "", 10);
+    return this.nrbc.library(q, {
+      letter: l && (l === "#" || /^[A-Z]$/.test(l)) ? l : undefined,
+      limit: Number.isFinite(n) ? n : undefined,
+      lang: lang === "en" || lang === "ar" ? lang : "fr",
+    });
   }
 
   @Get("substances/:id")

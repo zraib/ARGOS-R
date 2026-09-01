@@ -394,6 +394,14 @@ export interface Dict {
   nrbc_lvl_protection: string;
   nrbc_lvl_vigilance: string;
   nrbc_day: string;
+  // Rose des vents flottante (N-5)
+  wind_kmh: string; wind_from: string; wind_low: string;
+  // Suppression définitive d'un incident (N-5)
+  del_title: string; del_warning: string;
+  del_casc_sub: string; del_casc_loops: string; del_casc_posts: string; del_casc_channel: string;
+  del_code_label: string; del_code_help: string; del_code_bad: string;
+  del_confirm: string; del_busy: string; del_done: string; del_denied: string; del_failed: string;
+  act_delete: string;
   nrbc_night: string;
   map_tiles_external: string;
   map_tiles_none: string;
@@ -498,8 +506,17 @@ export interface Dict {
   // --- bibliothèque de substances dangereuses (lot N-3) ---
   nav_chemlib: string;
   cl_title: string;
+  // Bibliothèque des substances — refonte N-5
+  cl_index: string; cl_suggestions: string; cl_recent: string;
+  cl_erg_short: string; cl_synonyms: string;
+  cl_erg_table: string; cl_spill: string; cl_spill_small: string; cl_spill_large: string;
+  cl_isolation: string; cl_protect_day: string; cl_protect_night: string;
+  cl_erg_missing_long: string; cl_sheet_none: string; cl_sheet_failed: string;
+  cl_none_hint: string; cl_capped: string;
+  cl_prov_sheets: string; cl_prov_sheets_ok: string;
+  cl_prov_erg: string; cl_prov_erg_ok: string; cl_prov_origin: string; cl_prov_origins: string;
   cl_search: string;
-  cl_count: string;
+  cl_count: string; cl_count_one: string;
   cl_none: string;
   cl_provenance: string;
   cl_sheet_unverified: string;

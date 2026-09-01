@@ -111,6 +111,13 @@ export function createArgosClient(opts: ArgosClientOptions) {
     /** Prédictions risques calculées côté serveur (moteur déterministe, F-04). */
     getDashboardRisk: () => client.GET("/api/dashboard/risk"),
     createIncident: (body: CreateIncidentBody) => client.POST("/api/incidents", { body }),
+    /**
+     * Suppression DÉFINITIVE d'un incident — `incidents:delete`, que la matrice
+     * n'accorde à personne : seul le joker du Super Administrateur la détient.
+     * L'API reste l'autorité, l'écran ne fait que masquer un geste qu'elle
+     * refuserait. Cascade sur les sous-incidents, les boucles et le canal.
+     */
+    deleteIncident: (id: string) => client.DELETE("/api/incidents/{id}", { params: { path: { id } } }),
 
     // --- déploiement des postes (V-2) ---
     // Armer une opération est un acte de commandement, pas une modification de
@@ -122,8 +129,24 @@ export function createArgosClient(opts: ArgosClientOptions) {
     getDeployablePosts: () => client.GET("/api/deployable-posts"),
 
     // --- bibliothèque de substances dangereuses (N-3) ---
-    getChemLibrary: (q?: string) =>
-      client.GET("/api/nrbc/library", { params: { query: q ? { q } : {} } }),
+    /**
+     * Bibliothèque de substances : recherche libre, feuilletage alphabétique et
+     * plafond de résultats. Le plafond est SERVEUR (lot N-5) : la bibliothèque
+     * entière pèse 2,2 Mo de résumés, intransportable à chaque frappe. La
+     * réponse porte `matched` (le compte réel) et `index` (l'effectif par
+     * lettre sur toute la bibliothèque).
+     */
+    getChemLibrary: (opts: { q?: string; letter?: string; limit?: number; lang?: "fr" | "en" | "ar" } = {}) =>
+      client.GET("/api/nrbc/library", {
+        params: {
+          query: {
+            ...(opts.q ? { q: opts.q } : {}),
+            ...(opts.letter ? { letter: opts.letter } : {}),
+            ...(opts.limit ? { limit: String(opts.limit) } : {}),
+            ...(opts.lang ? { lang: opts.lang } : {}),
+          },
+        },
+      }),
     getSubstance: (id: string) => client.GET("/api/nrbc/substances/{id}", { params: { path: { id } } }),
     deployPost: (id: string, matricule: string) =>
       client.POST("/api/incidents/{id}/deployments", { params: { path: { id } }, body: { matricule } }),

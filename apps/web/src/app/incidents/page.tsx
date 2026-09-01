@@ -9,11 +9,12 @@ import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
 import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
 import { sevBadge, stBadge, subTypeLabel, typeLabel, hazardLabel} from "@/lib/helpers";
-import { canReportIncident } from "@/lib/roles";
+import { canReportIncident, isSuperAdmin } from "@/lib/roles";
 import type { Incident, IncidentStatus, Severity, SubIncident, WeatherForecast } from "@/lib/types";
 import { predictIncidentEvolution, type IncidentEvolution } from "@/lib/ai/risk/incidentEvolution";
 import { IncidentEvolutionCard } from "@/components/incidents/IncidentEvolutionCard";
 import { DeployedPosts } from "@/components/incidents/DeployedPosts";
+import { DeleteIncidentModal } from "@/components/incidents/DeleteIncidentModal";
 import { HazardIcon } from "@/components/ui/HazardIcon";
 import { FAMILY_PICTOGRAM } from "@/lib/hazard/pictograms";
 
@@ -131,6 +132,8 @@ export default function IncidentsPage() {
   // Changement de statut (confirmé par mot de passe) + proposition d'archivage.
   const [stChange, setStChange] = useState<{ inc: Incident; newSt: IncidentStatus } | null>(null);
   const [archivePrompt, setArchivePrompt] = useState<Incident | null>(null);
+  // Suppression définitive : la modale porte le code de confirmation (N-5).
+  const [deletePrompt, setDeletePrompt] = useState<Incident | null>(null);
 
   const activeList = useMemo(() => incidents.filter((i) => !i.archived), [incidents]);
   const archivedList = useMemo(() => incidents.filter((i) => i.archived), [incidents]);
@@ -190,6 +193,22 @@ export default function IncidentsPage() {
     }
   };
 
+  /**
+   * Suppression définitive. Rend le message d'erreur à afficher DANS la modale,
+   * ou `null` en cas de succès : un refus doit rester sous les yeux, là où le
+   * geste a été tenté — un bandeau fugace le ferait manquer.
+   */
+  const supprimerIncident = async (id: string): Promise<string | null> => {
+    const { error, response } = await api.deleteIncident(id);
+    // 403 nommé à part : « réservé au Super Administrateur » est actionnable,
+    // « échec » ne l'est pas. Tout le reste retombe sur le message générique.
+    if (error) return response.status === 403 ? t.del_denied : t.del_failed;
+    setDeletePrompt(null);
+    await loadDomain();
+    showToast(t.del_done);
+    return null;
+  };
+
   const toggleFilter = (k: "type" | "sev" | "region" | "st") => () => { setSortOpen(false); setOpenFilter((cur) => (cur === k ? null : k)); };
   const toggleExpand = (id: string) => setExpanded((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]));
   // Boutons d'icône : 44 px au doigt sous lg, densité d'origine au-dessus.
@@ -200,6 +219,9 @@ export default function IncidentsPage() {
   const statusOptions = STATUSES.map((s) => ({ value: s, label: stBadge(s, t).label }));
   const sortOptions: [typeof sortBy, string][] = [["time", t.sort_time], ["sev", t.sort_sev], ["type", t.flt_type]];
   const canEdit = canReportIncident(role);
+  // `incidents:delete` n'est accordé à personne dans la matrice : seul le
+  // joker du Super Administrateur la détient.
+  const canDelete = isSuperAdmin(role);
   const tabBtn = (on: boolean) => `min-h-11 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors lg:min-h-0 lg:py-1.5 ${on ? "bg-or-500 text-rdia-600" : "text-gray-500 hover:text-or-500 dark:text-rdia-300"}`;
   // Filtres décrits une seule fois : rendus dans l'en-tête du tableau (≥ md) et
   // dans le bandeau de puces au-dessus des cartes (< md).
@@ -222,6 +244,23 @@ export default function IncidentsPage() {
         i.archived
           ? <button className={iconBtn} title={t.act_unarchive} aria-label={t.act_unarchive} disabled={busy} onClick={() => void setArchived(i.id, false)}><Icon path={UI_ICONS.archive} size={15} /></button>
           : <button className={iconBtn} title={t.act_archive} aria-label={t.act_archive} disabled={busy} onClick={() => void setArchived(i.id, true)}><Icon path={UI_ICONS.archive} size={15} /></button>
+      )}
+      {/* Suppression définitive — Super Administrateur seul. Séparée par un
+          filet des actions réversibles : elle n'appartient pas à la même
+          famille de gestes. L'API reste l'autorité. */}
+      {canDelete && (
+        <>
+          <span aria-hidden="true" className="mx-0.5 h-5 w-px self-center bg-gray-200 dark:bg-rdia-600" />
+          <button
+            className={`${iconBtn} hover:!text-danger-500`}
+            title={t.act_delete}
+            aria-label={`${t.act_delete} — ${i.id}`}
+            disabled={busy}
+            onClick={() => setDeletePrompt(i)}
+          >
+            <Icon path={UI_ICONS.trash} size={15} />
+          </button>
+        </>
       )}
     </>
   );
@@ -506,6 +545,14 @@ export default function IncidentsPage() {
           }}
         />
       )}
+      {deletePrompt && (
+        <DeleteIncidentModal
+          incident={deletePrompt}
+          onCancel={() => setDeletePrompt(null)}
+          onConfirm={supprimerIncident}
+        />
+      )}
+
       {archivePrompt && (
         <Modal open title={t.arch_title} onClose={() => setArchivePrompt(null)} size="sm">
           <div className="flex flex-col gap-4">

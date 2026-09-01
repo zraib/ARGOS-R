@@ -388,3 +388,13 @@ body:has(.nav-drawer.est-ouvert) {
   background-color: #1f2937;
   color: #fff;
 }
+
+/* La croix native de `input[type="search"]` doublonnait avec le bouton
+   d'effacement de la bibliothèque des substances : deux affordances pour le
+   même geste, dont une hors du thème (bleu système). Le type reste `search`
+   pour la touche « Rechercher » des claviers mobiles. */
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}

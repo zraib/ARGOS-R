@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 
@@ -29,13 +29,65 @@ interface ModalProps {
  * en-tête figé pour que la fermeture reste atteignable pendant le défilement.
  */
 export function Modal({ open, title, onClose, size = "lg", children }: ModalProps) {
+  const panneau = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!open) return;
+
+    // Le focus est RENDU à l'élément qui a ouvert la modale : sans cela il
+    // retombe sur <body> à la fermeture, et la navigation au clavier repart du
+    // haut de la page — on perd sa place à chaque consultation.
+    const declencheur = document.activeElement as HTMLElement | null;
+
+    // Le fond ne défile plus derrière la modale : le geste de molette y était
+    // capté par la page et non par la boîte, qui semblait alors figée.
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const focusables = () =>
+      Array.from(
+        panneau.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      ).filter((el) => el.offsetParent !== null);
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      // PIÈGE À FOCUS. Sans lui, la tabulation sort de la modale et parcourt la
+      // page qu'elle recouvre : un utilisateur au clavier se retrouve à piloter
+      // un écran qu'il ne voit plus.
+      if (e.key !== "Tab") return;
+      const f = focusables();
+      if (f.length === 0) return;
+      const premier = f[0];
+      const dernier = f[f.length - 1];
+      const actif = document.activeElement;
+      if (e.shiftKey && (actif === premier || !panneau.current?.contains(actif))) {
+        e.preventDefault();
+        dernier.focus();
+      } else if (!e.shiftKey && actif === dernier) {
+        e.preventDefault();
+        premier.focus();
+      }
     };
+
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // Le focus entre dans la boîte à l'ouverture, sinon le lecteur d'écran
+    // continue d'annoncer la page du dessous.
+    const t = window.setTimeout(() => {
+      if (panneau.current?.contains(document.activeElement)) return;
+      (focusables()[0] ?? panneau.current)?.focus();
+    }, 0);
+
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.clearTimeout(t);
+      document.body.style.overflow = overflow;
+      declencheur?.focus?.();
+    };
   }, [open, onClose]);
 
   if (!open) return null;
@@ -48,6 +100,8 @@ export function Modal({ open, title, onClose, size = "lg", children }: ModalProp
         aria-hidden="true"
       />
       <div
+        ref={panneau}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}

@@ -114,6 +114,64 @@ describe("N-3 — bibliothèque de substances dangereuses", () => {
     expect(all.body.provenance.total).toBeGreaterThanOrEqual(SUBSTANCES.length);
   });
 
+  // --- feuilletage alphabétique et plafond (lot N-5) ------------------------
+
+  describe("index A–Z, filtre par lettre et plafond", () => {
+    it("l'index compte sur TOUTE la bibliothèque, jamais sur le résultat filtré", async () => {
+      // Même piège que pour la provenance : un index calculé sur la recherche en
+      // cours griserait des lettres pleines, et le feuilletage deviendrait faux.
+      const all = await base().get("/api/nrbc/library").set(auth()).expect(200);
+      const filtre = await base().get("/api/nrbc/library?q=chlore").set(auth()).expect(200);
+      expect(filtre.body.index).toEqual(all.body.index);
+      const somme = Object.values(all.body.index as Record<string, number>).reduce((a, b) => a + b, 0);
+      expect(somme).toBe(all.body.provenance.total);
+    });
+
+    it("`matched` porte le compte RÉEL, au-delà du plafond rendu", async () => {
+      // Sans lui, une liste tronquée en silence se lirait comme complète.
+      const res = await base().get("/api/nrbc/library?limit=5").set(auth()).expect(200);
+      expect(res.body.substances).toHaveLength(5);
+      expect(res.body.matched).toBeGreaterThan(5);
+      expect(res.body.matched).toBe(res.body.provenance.total);
+    });
+
+    it("le plafond est BORNÉ côté serveur — une valeur absurde ne le lève pas", async () => {
+      const res = await base().get("/api/nrbc/library?limit=99999").set(auth()).expect(200);
+      expect(res.body.substances.length).toBeLessThanOrEqual(1000);
+    });
+
+    it("le filtre par lettre ne rend que des entrées de ce rayon", async () => {
+      const res = await base().get("/api/nrbc/library?letter=C&limit=1000").set(auth()).expect(200);
+      expect(res.body.substances.length).toBeGreaterThan(0);
+      for (const s of res.body.substances as { labels: { fr: string } }[]) {
+        expect(s.labels.fr.normalize("NFD").replace(/[\u0300-\u036f]/g, "").charAt(0).toUpperCase()).toBe("C");
+      }
+      // Le rayon annoncé par l'index est celui qui est servi.
+      expect(res.body.matched).toBe(res.body.index.C);
+    });
+
+    it("lettre et recherche se CUMULENT au lieu de se remplacer", async () => {
+      // Chercher puis cliquer une lettre doit affiner, pas repartir de zéro.
+      const q = await base().get("/api/nrbc/library?q=chlor&limit=1000").set(auth()).expect(200);
+      const qc = await base().get("/api/nrbc/library?q=chlor&letter=C&limit=1000").set(auth()).expect(200);
+      expect(qc.body.matched).toBeGreaterThan(0);
+      expect(qc.body.matched).toBeLessThanOrEqual(q.body.matched);
+    });
+
+    it("une lettre fantaisiste est IGNORÉE, elle ne vide pas la bibliothèque", async () => {
+      // Un paramètre douteux ne doit jamais produire un écran vide qui se lirait
+      // comme « cette bibliothèque ne contient rien ».
+      const res = await base().get("/api/nrbc/library?letter=ZZ9").set(auth()).expect(200);
+      expect(res.body.matched).toBe(res.body.provenance.total);
+    });
+
+    it("les résultats sont TRIÉS sur la langue demandée", async () => {
+      const res = await base().get("/api/nrbc/library?letter=B&limit=1000&lang=fr").set(auth()).expect(200);
+      const noms = (res.body.substances as { labels: { fr: string } }[]).map((s) => s.labels.fr);
+      expect(noms).toEqual([...noms].sort((a, b) => a.localeCompare(b, "fr")));
+    });
+  });
+
   it("une substance inconnue répond 404, pas une fiche vide", async () => {
     await base().get("/api/nrbc/substances/inexistant").set(auth()).expect(404);
   });

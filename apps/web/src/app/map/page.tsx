@@ -23,6 +23,7 @@ const MapCanvas = dynamic(() => import("@/components/map/MapCanvas").then((m) =>
 
 import { AircraftPanel } from "@/components/map/AircraftPanel";
 import { OVERLAY_STYLE, SWITCH_OFF } from "@/lib/map/overlay";
+import { WindRose } from "@/components/map/WindRose";
 import { HOSPITAL_KINDS, hospKind, kindDef } from "@/lib/hospitals";
 import { HealthGlyph } from "@/components/health/HealthGlyph";
 import type { MarkerKind } from "@/lib/types";
@@ -752,6 +753,11 @@ export default function MapPage() {
             <span>{TILES_AVAILABLE ? t.map_tiles_external : t.map_tiles_none}</span>
           </div>
         )}
+
+        {/* Rose des vents : visible dès que le relief est actif ou que la lecture
+            animée tourne — c'est là que le panneau NRBC est replié et que la
+            dérive de la fumée a besoin d'être expliquée. */}
+        <WindRose />
 
         {/* Panache actif sous lg : la feuille ne porte pas (encore) ses réglages,
             mais le bandeau d'honnêteté et l'extinction restent accessibles. */}

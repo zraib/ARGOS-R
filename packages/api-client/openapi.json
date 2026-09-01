@@ -3017,6 +3017,38 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "letter",
+            "required": false,
+            "in": "query",
+            "description": "Feuilletage alphabétique : une lettre A–Z, ou « # » pour tout ce qui ne commence pas par une lettre latine. Se cumule avec `q`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Plafond de résultats rendus (défaut 200, maximum 1000). `matched` porte le compte réel avant plafond.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "required": false,
+            "in": "query",
+            "description": "Langue de classement et d'indexation alphabétique (fr par défaut).",
+            "schema": {
+              "enum": [
+                "fr",
+                "en",
+                "ar"
+              ],
+              "type": "string"
+            }
           }
         ],
         "responses": {

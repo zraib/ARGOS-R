@@ -7,6 +7,25 @@ import { libraryProvenance } from "@/modules/nrbc/infrastructure/substances.data
 /** Ce que la LISTE transporte : tout sauf la fiche, qui pèse trop. */
 export type SubstanceSummary = Omit<Substance, "sheet"> & { hasSheet: boolean };
 
+/** Langue d'affichage retenue pour le classement alphabétique. */
+export type LibraryLang = "fr" | "en" | "ar";
+
+/**
+ * Lettre de classement d'un libellé : première lettre latine, accents ôtés.
+ * Tout ce qui n'est pas A–Z — un nom commençant par un chiffre, un tiret ou un
+ * caractère arabe — tombe dans « # ». Une entrée invisible dans l'index serait
+ * une entrée introuvable au feuilletage.
+ */
+export function indexLetter(label: string): string {
+  const c = label
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .charAt(0)
+    .toUpperCase();
+  return c >= "A" && c <= "Z" ? c : "#";
+}
+
 function summarize(s: Substance): SubstanceSummary {
   const { sheet, ...rest } = s;
   return { ...rest, hasSheet: !!sheet };
@@ -74,13 +93,22 @@ export class NrbcService {
    * L'état de provenance est renvoyé AVEC la liste, jamais séparément : une
    * bibliothèque dont on ignore ce qui est vérifié se lit comme si tout l'était.
    */
-  async library(query?: string): Promise<{
+  async library(
+    query?: string,
+    opts: { letter?: string; limit?: number; lang?: LibraryLang } = {},
+  ): Promise<{
     substances: SubstanceSummary[];
+    /** Nombre d'entrées CORRESPONDANTES, avant le plafond de `limit`. */
+    matched: number;
+    /** Effectif par lettre sur TOUTE la bibliothèque — alimente l'index A–Z. */
+    index: Record<string, number>;
     provenance: ReturnType<typeof libraryProvenance> & {
       origins: { source: string; retrievedAt: string; authorization: string; count: number }[] | null;
     };
   }> {
     const all = await this.catalog.list();
+    const lang = opts.lang ?? "fr";
+    const nom = (x: Substance) => x.labels[lang] || x.labels.fr;
     const q = query?.trim().toLowerCase().replace(/^un\s*/i, "");
     const substances = !q
       ? all
@@ -98,6 +126,30 @@ export class NrbcService {
             .toLowerCase()
             .includes(q),
         );
+    // L'index compte sur la bibliothèque ENTIÈRE, jamais sur le résultat filtré :
+    // une lettre grisée parce que la recherche en cours ne la ramène pas ferait
+    // croire qu'elle est vide.
+    const index: Record<string, number> = {};
+    for (const x of all) {
+      const l = indexLetter(nom(x));
+      index[l] = (index[l] ?? 0) + 1;
+    }
+
+    // Feuilletage alphabétique. Cumulable avec la recherche : chercher « acide »
+    // puis cliquer « C » doit donner les acides classés en C, pas repartir de zéro.
+    const parLettre = opts.letter
+      ? substances.filter((x) => indexLetter(nom(x)) === opts.letter)
+      : substances;
+
+    // Tri alphabétique stable sur la langue affichée — sans quoi l'ordre est
+    // celui du fichier source, illisible au feuilletage.
+    const triees = [...parLettre].sort((a, b) => nom(a).localeCompare(nom(b), lang));
+
+    // Plafond serveur. La bibliothèque entière pèse 2,2 Mo de résumés : renvoyer
+    // tout à chaque frappe est inutilisable sur une liaison de campagne. Le
+    // compte réel voyage à part (`matched`) pour que l'écran puisse le dire.
+    const limit = Math.max(1, Math.min(opts.limit ?? 200, 1000));
+
     // La provenance décrit TOUTE la bibliothèque, pas la seule page filtrée :
     // sinon une recherche qui ne ramène que des fiches vérifiées laisserait
     // croire que la bibliothèque entière l'est.
@@ -106,7 +158,9 @@ export class NrbcService {
       // liste entière deviendrait une réponse de plusieurs dizaines de méga-
       // octets, sur un poste de commandement dont la liaison peut être
       // médiocre. La fiche se demande à l'ouverture (`GET /nrbc/substances/:id`).
-      substances: substances.map(summarize),
+      substances: triees.slice(0, limit).map(summarize),
+      matched: triees.length,
+      index,
       // L'origine du jeu SOUS LICENCE voyage avec la provenance : une
       // bibliothèque enrichie dont on ignore d'où vient l'enrichissement aurait
       // l'air complète, ce qui est pire que d'être incomplète.

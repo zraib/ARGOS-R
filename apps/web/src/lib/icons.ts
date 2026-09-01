@@ -116,6 +116,7 @@ export const UI_ICONS = {
   chevronRight: "M9 18l6-6-6-6",
   arrowLeft: "M19 12H5M12 19l-7-7 7-7",
   close: "M18 6L6 18M6 6l12 12",
+  search: "M11 4a7 7 0 100 14 7 7 0 000-14z M20 20l-4.05-4.05",
   sidebar: "M3 5h18v14H3z M9 5v14",
   /** Couches : pile de strates, convention cartographique. */
   layers: "M12 3l9 5-9 5-9-5 9-5z M3 12.5l9 5 9-5 M3 17l9 5 9-5",

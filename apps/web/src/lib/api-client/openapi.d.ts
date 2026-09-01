@@ -4437,6 +4437,12 @@ export interface operations {
             query?: {
                 /** @description Nom, synonyme, n° ONU ou n° CAS. Vide = toute la bibliothèque. */
                 q?: string;
+                /** @description Feuilletage alphabétique : une lettre A–Z, ou « # » pour tout ce qui ne commence pas par une lettre latine. Se cumule avec `q`. */
+                letter?: string;
+                /** @description Plafond de résultats rendus (défaut 200, maximum 1000). `matched` porte le compte réel avant plafond. */
+                limit?: string;
+                /** @description Langue de classement et d'indexation alphabétique (fr par défaut). */
+                lang?: "fr" | "en" | "ar";
             };
             header?: never;
             path?: never;
