@@ -30,6 +30,21 @@ interface ModalProps {
  */
 export function Modal({ open, title, onClose, size = "lg", children }: ModalProps) {
   const panneau = useRef<HTMLDivElement>(null);
+  /**
+   * `onClose` gardé dans une RÉFÉRENCE, et l'effet ne dépend que de `open`.
+   *
+   * La plupart des appelants passent une fonction fléchée définie dans leur
+   * corps de rendu : son identité change à chaque rendu, donc à chaque frappe.
+   * Avec `onClose` en dépendance, l'effet se démontait puis se remontait à
+   * chaque caractère tapé — rendant le focus au déclencheur, puis le posant sur
+   * le premier élément focalisable de la boîte. Le curseur sautait hors du
+   * champ en cours de saisie, dans TOUTES les modales de l'application.
+   *
+   * La référence est mise à jour à chaque rendu : la fermeture appelle donc
+   * toujours la version courante, sans que l'installation ne rejoue.
+   */
+  const fermer = useRef(onClose);
+  fermer.current = onClose;
 
   useEffect(() => {
     if (!open) return;
@@ -53,7 +68,7 @@ export function Modal({ open, title, onClose, size = "lg", children }: ModalProp
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        fermer.current();
         return;
       }
       // PIÈGE À FOCUS. Sans lui, la tabulation sort de la modale et parcourt la
@@ -88,7 +103,7 @@ export function Modal({ open, title, onClose, size = "lg", children }: ModalProp
       document.body.style.overflow = overflow;
       declencheur?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
