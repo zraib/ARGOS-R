@@ -169,7 +169,7 @@ export const EN_DICT: Dict = {
     sit_late: "overdue by", sit_never: "never reported",
     sit_immutable: "Once published, a report is numbered and can no longer be edited.",
     sit_missing_title: "Missing reports",
-    nrbc_play: "Play", nrbc_stop: "Stop", nrbc_volume: "3D layer",
+    nrbc_play: "Play", nrbc_stop: "Stop", nrbc_smoke: "Smoke", nrbc_volume: "3D layer",
     dep_title: "Deployed posts", dep_none: "No post deployed on this operation", dep_add: "Deploy", dep_pick: "Choose an account…", dep_withdraw: "Withdraw", dep_on: "on", dep_free: "available", dep_ok: "Post deployed", dep_out: "Post withdrawn", dep_fail: "Deployment refused", dep_hint: "A post serves one operation at a time: deploying it here withdraws it from the previous one.", dep_offline: "offline", toast_fail: "Failed — check the entry",
     idash_title: "Operation dashboard", idash_open: "Dashboard", idash_back: "Back to incidents", idash_situation: "Situation", idash_engagement: "Committed assets", idash_loops: "Operational loops", idash_loops_none: "No loop on this operation", idash_open_count: "open", idash_timeline: "Operation feed", idash_timeline_none: "No event recorded", idash_beds_free: "Free beds", idash_saturation: "Saturation", idash_reserved: "reserved", idash_denied: "This operation is outside your scope.", idash_units: "Units", idash_hospitals: "Hospitals", idash_loading: "Loading…",
     hz_toxic: "Hazard — toxic substance (ADR 6.1)", hz_radioactive: "Hazard — radioactive material (ADR 7)", hz_biohazard: "Hazard — infectious substance (ADR 6.2)", hz_drum: "Hazardous material drum — leak",

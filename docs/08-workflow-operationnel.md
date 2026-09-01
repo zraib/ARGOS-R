@@ -1222,7 +1222,71 @@ la bibliothèque entière**, pas sur la tranche visible.
   que les matières toxiques par inhalation. Le reste du référentiel n'en a pas,
   et n'est pas censé en avoir.
 
-## 20. Ce qui reste à construire
+## 20. La fumée fluide (lot N-4)
+
+Le panache était rendu par des formes géométriques : cercles, triangle sous le
+vent, carré ERG. Elles disent exactement ce que disent l'ATP-45 et l'ERG — c'est
+leur mérite — mais elles ne ressemblent pas à ce qu'un chef de secteur voit
+arriver. Un nuage ne se propage pas en polygone.
+
+### 20.1 La contrainte qui gouverne tout
+
+**La fumée ne déborde JAMAIS du gabarit.** Une animation qui dépasserait le
+périmètre doctrinal affirmerait une précision que le modèle n'a pas — et le
+périmètre est ce sur quoi on pose une évacuation.
+
+Le confinement n'est pas obtenu en réglant des paramètres, mais **par
+construction** : le polygone est rastérisé en masque (256 × 256 sur sa propre
+emprise), et **toute particule sortie du masque est réémise à la source**, à
+chaque image. Le masque est calculé une fois par changement de géométrie —
+tester l'appartenance polygone par polygone, pour 2 600 particules à 60 images
+par seconde, coûterait deux cent mille lancers de rayon par image ; ici c'est
+une lecture de tableau.
+
+### 20.2 Ce que la fumée remplace, et ce qu'elle ne remplace pas
+
+Elle remplace le **remplissage**. Elle ne remplace jamais le **contour** : le
+tracé du gabarit reste visible sous elle. *Le nuage se regarde, la ligne se
+mesure.* Le remplissage plat s'efface (opacité 0,28 → 0,06) car superposé à la
+fumée il donne une teinte plate sur laquelle le mouvement ne se voit plus.
+
+Une bascule **Fumée** dans le panneau NRBC rend les formes pleines : la lecture
+géométrique reste disponible pour qui la préfère.
+
+### 20.3 Comment elle se comporte
+
+- **Dérive** dans le sens du vent — direction météorologique inversée, le nuage
+  part à l'opposé d'où vient le vent. La traversée du gabarit prend ~7 s quelle
+  que soit son étendue : la lecture est la même sur 300 m et sur 10 km.
+- **Sans prévision de vent**, la nappe respire sur place au lieu de dériver dans
+  une direction inventée — même parti que les gabarits, qui omettent leurs zones
+  directionnelles quand le vent est inconnu.
+- **Les bouffées grossissent en vieillissant** : c'est ce qui fait lire une
+  dilution plutôt qu'un objet qui s'éloigne.
+- **Mélange classique, non additif** : l'additif vire au blanc lumineux et ferait
+  lire un incendie là où il s'agit d'un nuage toxique.
+- Le bandeau **« ESTIMATION — PAS UNE MESURE »** reste affiché. Une belle
+  animation rend la tentation d'y croire plus forte, pas moins.
+
+### 20.4 Sans dépendance nouvelle
+
+WebGL brut dans une `CustomLayerInterface` MapLibre : deux nuanceurs d'une
+vingtaine de lignes, 2 600 particules, un tampon réécrit par image
+(`lib/map/smoke.ts`). Aucune bibliothèque de particules — MASTER_PLAN §4.3.
+
+### 20.5 Une conséquence à traiter, venue du lot précédent
+
+L'import des 25 Mo de fiches CAMEO (N-3d) a fait passer la suite de tests de
+quelques secondes à plus d'une minute par fichier, jusqu'à la faire échouer sur
+délai : chaque fichier de test instancie l'application, donc relisait ces
+mégaoctets. Plus grave que la lenteur, **le verdict dépendait de ce qu'un
+opérateur avait versé sur sa machine.**
+
+`jest.setup.js` pointe désormais un répertoire vide pour toute la suite : les
+tests s'exécutent contre la bibliothèque **livrée avec le code**, la seule que le
+dépôt garantisse. 257 tests, 66 s.
+
+## 21. Ce qui reste à construire
 
 Le workflow est posé ; ces maillons le compléteront (voir le plan d'exécution) :
 

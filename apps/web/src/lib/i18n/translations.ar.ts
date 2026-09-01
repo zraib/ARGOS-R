@@ -169,7 +169,7 @@ export const AR_DICT: Dict = {
     sit_late: "متأخر بـ", sit_never: "لم يقدم تقريرا قط",
     sit_immutable: "بعد النشر، يرقّم التقرير ولا يمكن تعديله.",
     sit_missing_title: "التقارير الناقصة",
-    nrbc_play: "تشغيل", nrbc_stop: "إيقاف", nrbc_volume: "طبقة ثلاثية",
+    nrbc_play: "تشغيل", nrbc_stop: "إيقاف", nrbc_smoke: "دخان", nrbc_volume: "طبقة ثلاثية",
     dep_title: "المناصب المنتشرة", dep_none: "لا يوجد منصب منتشر في هذه العملية", dep_add: "نشر", dep_pick: "اختر حسابًا…", dep_withdraw: "سحب", dep_on: "في", dep_free: "متاح", dep_ok: "تم نشر المنصب", dep_out: "تم سحب المنصب", dep_fail: "تم رفض النشر", dep_hint: "المنصب يخدم عملية واحدة في كل مرة: نشره هنا يسحبه من العملية السابقة.", dep_offline: "غير متصل", toast_fail: "فشل — تحقق من الإدخال",
     idash_title: "لوحة قيادة العملية", idash_open: "لوحة القيادة", idash_back: "العودة إلى الحوادث", idash_situation: "الوضعية", idash_engagement: "الوسائل المعبأة", idash_loops: "الحلقات العملياتية", idash_loops_none: "لا توجد حلقة في هذه العملية", idash_open_count: "جارية", idash_timeline: "سجل العملية", idash_timeline_none: "لم يُسجَّل أي حدث", idash_beds_free: "أسرة متاحة", idash_saturation: "الإشباع", idash_reserved: "محجوزة", idash_denied: "هذه العملية خارج نطاق صلاحيتك.", idash_units: "الوحدات", idash_hospitals: "المستشفيات", idash_loading: "جارٍ التحميل…",
     hz_toxic: "خطر — مادة سامة (ADR 6.1)", hz_radioactive: "خطر — مادة مشعة (ADR 7)", hz_biohazard: "خطر — مادة معدية (ADR 6.2)", hz_drum: "برميل مادة خطرة — تسرب",

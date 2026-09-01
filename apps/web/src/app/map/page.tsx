@@ -237,6 +237,8 @@ export default function MapPage() {
   const plumePlaying = useArgos((s) => s.plumePlaying);
   const setPlumePlaying = useArgos((s) => s.setPlumePlaying);
   const plume3d = useArgos((s) => s.plume3d);
+  const plumeSmoke = useArgos((s) => s.plumeSmoke);
+  const setPlumeSmoke = useArgos((s) => s.setPlumeSmoke);
   const setPlume3d = useArgos((s) => s.setPlume3d);
   const plumeSteps = useArgos((s) => s.plumeSteps);
   const showPlume = useArgos((s) => s.showPlume);
@@ -557,6 +559,12 @@ export default function MapPage() {
         >
           <Icon path={plumePlaying ? UI_ICONS.close : UI_ICONS.plane} size={13} />
           {plumePlaying ? t.nrbc_stop : t.nrbc_play}
+        </button>
+        {/* Fumée ou formes. Le CONTOUR du gabarit reste tracé dans les deux
+            cas : le nuage se regarde, la ligne se mesure. */}
+        <button className="flex min-h-11 items-center gap-2 lg:min-h-0" onClick={() => setPlumeSmoke(!plumeSmoke)}>
+          <span className="text-[13px]">{t.nrbc_smoke}</span>
+          <Switch on={plumeSmoke} />
         </button>
         <button className="flex min-h-11 items-center gap-2 lg:min-h-0" onClick={() => setPlume3d(!plume3d)}>
           <span className="text-[13px]">{t.nrbc_volume}</span>

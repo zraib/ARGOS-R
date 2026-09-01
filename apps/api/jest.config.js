@@ -10,4 +10,6 @@ module.exports = {
     "^@/(.*)$": "<rootDir>/$1",
   },
   testEnvironment: "node",
+  // Voir jest.setup.js : les tests ne lisent jamais les jeux versés localement.
+  setupFiles: ["<rootDir>/../jest.setup.js"],
 };

@@ -2,9 +2,6 @@ import "reflect-metadata";
 import { INestApplication, ValidationPipe } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { AppModule } from "@/app.module";
 import { SUBSTANCES } from "@/modules/nrbc/infrastructure/substances.data";
 import {
@@ -35,11 +32,9 @@ describe("N-3 — bibliothèque de substances dangereuses", () => {
 
   beforeAll(async () => {
     process.env.AUTH_MODE = "dev";
-    // Isoler les tests de ce qui est VERSÉ sur la machine : un poste où
-    // l'état-major a chargé l'ERG 2024 doit donner le même résultat qu'un poste
-    // vierge. Sans cela, les assertions dépendraient de ce qu'un opérateur a
-    // importé la veille — un test qui change de verdict tout seul.
-    process.env.NRBC_DATA_DIR = mkdtempSync(join(tmpdir(), "argos-nrbc-"));
+    // L'isolation vis-à-vis des jeux versés est posée pour TOUTE la suite dans
+    // jest.setup.js — ce qui vaut ici vaut pour les autres fichiers, qui
+    // instancient la même application.
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix("api");

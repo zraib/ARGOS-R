@@ -348,6 +348,12 @@ interface ArgosState {
   plumePlaying: boolean;
   /** Rendu volumique : nappe 3D quand la carte est inclinée (lot V2). */
   plume3d: boolean;
+  /**
+   * Nappe de fumée animée (lot N-4) plutôt que le remplissage géométrique.
+   * Le CONTOUR du gabarit reste tracé dans les deux cas : on voit le nuage, et
+   * la ligne sur laquelle on pose le barrage.
+   */
+  plumeSmoke: boolean;
   plumeBusy: boolean;
 
   // --- couches météo de la carte opérationnelle (grille de prévisions 24 h) ---
@@ -482,6 +488,7 @@ interface ArgosState {
   setPlumePlaying: (v: boolean) => void;
   /** Bascule le rendu volumique (nappe 3D). */
   setPlume3d: (v: boolean) => void;
+  setPlumeSmoke: (v: boolean) => void;
 
   /** (Re)charge le panache selon l'état courant (incident, modèles, échéance). */
   loadPlume: () => Promise<void>;
@@ -654,6 +661,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
   plumeSteps: [],
   plumePlaying: false,
   plume3d: true,
+  plumeSmoke: true,
   plumeBusy: false,
 
   wxGrid: null,
@@ -966,6 +974,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
 
   setPlumePlaying: (v) => set({ plumePlaying: v }),
   setPlume3d: (v) => set({ plume3d: v }),
+  setPlumeSmoke: (v) => set({ plumeSmoke: v }),
 
   loadPlume: async () => {
     const { plumeIncidentId, plumeModels, plumeHour } = get();

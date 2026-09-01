@@ -8,6 +8,7 @@ import { useArgos, useDict } from "@/lib/store";
 import { FLUX } from "@/lib/i18n/flux";
 import { canReportIncident } from "@/lib/roles";
 import { MAP_CENTER, MAP_STYLE, MAP_ZOOM } from "@/lib/map/style";
+import { SmokeLayer } from "@/lib/map/smoke";
 import { routeThrough, type RouteResult } from "@/lib/map/routing";
 import { extrapolate } from "@/lib/map/deadReckoning";
 import { OVERLAY_STYLE } from "@/lib/map/overlay";
@@ -371,6 +372,8 @@ export function MapCanvas() {
   const rafRef = useRef<number>(0);
   const readyRef = useRef(false);
   /** Panache déjà cadré — évite de recadrer à chaque échéance ou bascule. */
+  /** Nappe de fumée (lot N-4) — instanciée une fois, réinstallée à chaque style. */
+  const smokeRef = useRef<SmokeLayer | null>(null);
   const fitPlumeRef = useRef<string | null>(null);
   /** Échéance FRACTIONNAIRE en cours de lecture (ex. 2,4) ; null = pas de lecture. */
   const plumeFrameRef = useRef<number | null>(null);
@@ -856,6 +859,40 @@ export function MapCanvas() {
       map.setFilter("nrbc-plume-line-2", ["!=", ["get", "model"], primary]);
     }
 
+    // --- nappe de fumée (lot N-4) -------------------------------------------
+    // Elle remplace le REMPLISSAGE, jamais le contour. Le gabarit reste tracé
+    // sous elle : le nuage se regarde, la ligne se mesure.
+    const { plumeSmoke } = useArgos.getState();
+    const smokeOn = plumeSmoke && !!plumeIncidentId && !!plumeData;
+    if (smokeRef.current) {
+      // Le référentiel PRIMAIRE seul, jamais l'union : la fumée doit tenir dans
+      // ce que l'opérateur voit tracé, pas dans la réunion de tous les gabarits.
+      const shown = plumeEnvelope
+        ? data
+        : {
+            type: "FeatureCollection" as const,
+            features: data.features.filter((f) => f.properties?.model === primary),
+          };
+      // La source du rejet est la position de l'incident : le panache n'en
+      // transporte pas de copie, et en inventer une décalerait le nuage.
+      const inc = useArgos.getState().incidents.find((i) => i.id === plumeIncidentId);
+      const src = (inc?.ll as [number, number] | undefined) ?? null;
+      smokeRef.current.setPlume(
+        smokeOn ? shown : null,
+        src,
+        plumeData?.wind?.fromDeg ?? null,
+        plumeData?.wind?.speedKmh ?? null,
+        // `PLUME_LEVEL_COLOR` est une expression MapLibre (teinte par niveau) ;
+        // la fumée est monochrome et prend donc la teinte du niveau le plus
+        // grave — celui qu'il faut voir en premier.
+        plumeEnvelope ? "#EF4444" : "#F59E0B",
+        smokeOn ? 0.5 : 0,
+      );
+    }
+    // Le remplissage plat s'efface sous la fumée : superposés, ils donnent une
+    // teinte plate sur laquelle le mouvement ne se voit plus.
+    map.setPaintProperty("nrbc-plume-fill", "fill-opacity", smokeOn ? 0.06 : 0.28);
+
     // La nappe volumique n'apparaît qu'inclinée : à plat elle n'ajouterait
     // rien et masquerait les remplissages.
     if (map.getLayer("nrbc-plume-3d")) {
@@ -1261,6 +1298,13 @@ export function MapCanvas() {
             "fill-extrusion-opacity": 0.45,
           },
         });
+        // NAPPE DE FUMÉE (lot N-4) : couche WebGL native, posée AU-DESSUS des
+        // remplissages et SOUS les contours — la ligne du gabarit doit rester
+        // lisible à travers le nuage, c'est sur elle qu'on pose un barrage.
+        if (!map.getLayer("nrbc-smoke")) {
+          if (!smokeRef.current) smokeRef.current = new SmokeLayer(() => map.triggerRepaint());
+          map.addLayer(smokeRef.current, "nrbc-plume-line");
+        }
         applyPlume(); // un panache déjà actif survit au changement de fond de carte
       }
       const st = useArgos.getState();
