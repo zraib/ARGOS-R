@@ -87,7 +87,7 @@ export interface NrbcSubstance {
 export interface NrbcPlumeZoneProps {
   model: "atp45" | "erg";
   level: "danger" | "protection" | "vigilance";
-  kind: "circle" | "triangle" | "square";
+  kind: "circle" | "wedge" | "square";
   radiusKm: number | null;
   reachKm: number | null;
 }

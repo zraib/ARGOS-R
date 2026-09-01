@@ -157,7 +157,12 @@ export interface PlumeZone {
   /** Anneau extérieur fermé, coordonnées [lon, lat]. */
   ring: [number, number][];
   /** Description courte de la géométrie (rayon ou portée), pour l'infobulle. */
-  kind: "circle" | "triangle" | "square";
+  /**
+   * `wedge` a remplacé `triangle` au lot N-4b : la zone sous le vent n'est plus
+   * un triangle à sommet sur le rejet mais une nappe TANGENTE au cercle
+   * d'isolement, fermée par un arc à la portée. Un danger ne naît pas d'un point.
+   */
+  kind: "circle" | "wedge" | "square";
   radiusKm?: number;
   reachKm?: number;
 }

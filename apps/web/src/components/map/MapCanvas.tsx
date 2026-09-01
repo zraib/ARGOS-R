@@ -859,39 +859,45 @@ export function MapCanvas() {
       map.setFilter("nrbc-plume-line-2", ["!=", ["get", "model"], primary]);
     }
 
-    // --- nappe de fumée (lot N-4) -------------------------------------------
-    // Elle remplace le REMPLISSAGE, jamais le contour. Le gabarit reste tracé
-    // sous elle : le nuage se regarde, la ligne se mesure.
+    // --- nappe de fumée (lots N-4 et N-4b) -----------------------------------
     const { plumeSmoke } = useArgos.getState();
     const smokeOn = plumeSmoke && !!plumeIncidentId && !!plumeData;
     if (smokeRef.current) {
-      // Le référentiel PRIMAIRE seul, jamais l'union : la fumée doit tenir dans
-      // ce que l'opérateur voit tracé, pas dans la réunion de tous les gabarits.
-      const shown = plumeEnvelope
-        ? data
-        : {
-            type: "FeatureCollection" as const,
-            features: data.features.filter((f) => f.properties?.model === primary),
-          };
+      // UN SEUL POLYGONE : celui de DIFFUSION — la zone qui dépend du vent.
+      // Le cercle d'ISOLEMENT reste vide : c'est un rayon qu'on POSE autour du
+      // rejet, pas un nuage qu'on observe. Remplir les deux ferait de la fumée
+      // une décoration au lieu d'une information.
+      const diffusion = data.features.find(
+        (f) =>
+          f.properties?.model === primary &&
+          (f.properties?.level === "protection" || f.properties?.level === "vigilance"),
+      );
+      const ring = (diffusion?.geometry as GeoJSON.Polygon | undefined)?.coordinates?.[0] as
+        | [number, number][]
+        | undefined;
       // La source du rejet est la position de l'incident : le panache n'en
       // transporte pas de copie, et en inventer une décalerait le nuage.
       const inc = useArgos.getState().incidents.find((i) => i.id === plumeIncidentId);
-      const src = (inc?.ll as [number, number] | undefined) ?? null;
-      smokeRef.current.setPlume(
-        smokeOn ? shown : null,
-        src,
-        plumeData?.wind?.fromDeg ?? null,
-        plumeData?.wind?.speedKmh ?? null,
-        // `PLUME_LEVEL_COLOR` est une expression MapLibre (teinte par niveau) ;
-        // la fumée est monochrome et prend donc la teinte du niveau le plus
-        // grave — celui qu'il faut voir en premier.
-        plumeEnvelope ? "#EF4444" : "#F59E0B",
-        smokeOn ? 0.5 : 0,
-      );
+      // Teintes PRINCIPALE et DÉRIVÉE. Le cœur porte la gravité de la zone, la
+      // traîne dit la dilution — même information que le gabarit, rendue
+      // continue par le nuanceur.
+      const level = diffusion?.properties?.level === "vigilance" ? "vigilance" : "protection";
+      const core = plumeEnvelope ? "#DC2626" : level === "vigilance" ? "#EAB308" : "#F97316";
+      const tail = plumeEnvelope ? "#FCA5A5" : level === "vigilance" ? "#FEF3C7" : "#FED7AA";
+      smokeRef.current.set({
+        ring: smokeOn ? (ring ?? null) : null,
+        source: (inc?.ll as [number, number] | undefined) ?? null,
+        windFromDeg: plumeData?.wind?.fromDeg ?? null,
+        windSpeedKmh: plumeData?.wind?.speedKmh ?? null,
+        core,
+        tail,
+        opacity: smokeOn ? 0.42 : 0,
+      });
     }
-    // Le remplissage plat s'efface sous la fumée : superposés, ils donnent une
-    // teinte plate sur laquelle le mouvement ne se voit plus.
-    map.setPaintProperty("nrbc-plume-fill", "fill-opacity", smokeOn ? 0.06 : 0.28);
+    // Remplissages ATTÉNUÉS : le gabarit doit se deviner sous le nuage sans le
+    // concurrencer. Une teinte plate trop dense écrasait le mouvement, et c'est
+    // le mouvement qui porte l'information.
+    map.setPaintProperty("nrbc-plume-fill", "fill-opacity", smokeOn ? 0.05 : 0.18);
 
     // La nappe volumique n'apparaît qu'inclinée : à plat elle n'ajouterait
     // rien et masquerait les remplissages.
@@ -900,6 +906,11 @@ export function MapCanvas() {
       map.setLayoutProperty("nrbc-plume-3d", "visibility", plume3d && tilted && plumeIncidentId ? "visible" : "none");
       map.setFilter("nrbc-plume-3d", plumeEnvelope ? null : ["==", ["get", "model"], primary]);
       map.setPaintProperty("nrbc-plume-3d", "fill-extrusion-color", plumeEnvelope ? "#EF4444" : PLUME_LEVEL_COLOR);
+      // Quand la fumée est active, la nappe volumique s'efface : à 0,45 elle
+      // dominait l'image dès que la caméra s'inclinait, et c'est la fumée qui
+      // doit porter le volume — elle le rend par la superposition des bouffées,
+      // pas par un aplat.
+      map.setPaintProperty("nrbc-plume-3d", "fill-extrusion-opacity", smokeOn ? 0.14 : 0.45);
     }
   };
 

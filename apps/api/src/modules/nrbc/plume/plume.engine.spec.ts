@@ -59,17 +59,38 @@ describe("gabarit ATP-45", () => {
     expect(zones.every((z) => z.kind === "circle")).toBe(true);
   });
 
-  it("vent établi (> 10 km/h) : cercle de danger + triangle de PROTECTION sous le vent", () => {
+  it("vent établi (> 10 km/h) : cercle de danger + nappe de PROTECTION sous le vent", () => {
     // Vent D'OUEST (fromDeg = 270) : le panache part vers l'EST (+lon).
     const zones = atp45Zones(CASA, 25, 270);
     expect(zones.map((z) => z.level)).toEqual(["danger", "protection"]);
-    const triangle = zones[1];
-    expect(triangle.kind).toBe("triangle");
-    expect(triangle.ring[0]).toEqual(triangle.ring[triangle.ring.length - 1]); // fermé
-    // Les deux sommets aval sont à 10 km du point, À L'EST de la source.
-    for (const p of [triangle.ring[1], triangle.ring[2]]) {
+    const wedge = zones[1];
+    expect(wedge.kind).toBe("wedge");
+    expect(wedge.ring[0]).toEqual(wedge.ring[wedge.ring.length - 1]); // fermé
+  });
+
+  it("la nappe NE PART PAS d'un point : elle est tangente au cercle d'isolement", () => {
+    // Le triangle à sommet sur le rejet donnait au danger une largeur NULLE à
+    // cinquante mètres du déversement. Or le rejet occupe déjà le cercle
+    // d'isolement (GMU 2024, « Mode d'emploi du tableau 1 », p. 284-285 : isoler
+    // « dans TOUTES les directions », PUIS protéger sous le vent).
+    const wedge = atp45Zones(CASA, 25, 270)[1];
+    // Aucun sommet ne coïncide avec la source.
+    for (const p of wedge.ring) {
+      expect(distKm(CASA, p)).toBeGreaterThan(ATP45_DANGER_KM * 0.9);
+    }
+    // Les deux flancs partent du BORD du cercle d'isolement.
+    expect(distKm(CASA, wedge.ring[0])).toBeCloseTo(ATP45_DANGER_KM, 1);
+  });
+
+  it("le fond de la nappe est un ARC à portée constante, pas une corde", () => {
+    // Une corde droite sous-estimerait la portée en son milieu — de près de
+    // 15 % à un demi-angle de 30°.
+    const wedge = atp45Zones(CASA, 25, 270);
+    const far = wedge[1].ring.filter((p) => distKm(CASA, p) > ATP45_HAZARD_KM * 0.95);
+    expect(far.length).toBeGreaterThan(10);
+    for (const p of far) {
       expect(distKm(CASA, p)).toBeCloseTo(ATP45_HAZARD_KM, 1);
-      expect(p[0]).toBeGreaterThan(CASA[0]);
+      expect(p[0]).toBeGreaterThan(CASA[0]); // à l'EST
     }
   });
 

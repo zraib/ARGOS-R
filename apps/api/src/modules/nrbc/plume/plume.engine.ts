@@ -100,18 +100,47 @@ export function atp45Zones(
     return zones;
   }
 
-  // Vent établi : triangle isocèle sous le vent. Les deux sommets aval sont à
-  // ATP45_HAZARD_KM du point de rejet, à ± demi-angle autour de l'axe.
+  // Vent établi : zone de danger sous le vent.
+  //
+  // ELLE NE PART PAS D'UN POINT. Le triangle à sommet sur le rejet, employé
+  // jusqu'ici, faisait naître le danger d'une singularité : à cinquante mètres
+  // du déversement, sa largeur était nulle. Or le rejet n'est pas un point — il
+  // occupe déjà le cercle d'isolement, et la zone sous le vent s'ouvre depuis
+  // le BORD de ce cercle.
+  //
+  // La construction suit le principe du GMU 2024 (« Mode d'emploi du tableau 1 »,
+  // p. 284-285) : une zone d'isolement circulaire « dans TOUTES les directions »,
+  // puis une zone d'activités de protection qui s'étend sous le vent à partir de
+  // cette emprise. Les deux flancs sont TANGENTS au cercle d'isolement, et le
+  // fond est fermé par un arc — un danger n'a pas de coin franc.
   const axis = (windFromDeg + 180) % 360;
-  const left = destination(source, axis - ATP45_HALF_ANGLE_DEG, ATP45_HAZARD_KM);
-  const right = destination(source, axis + ATP45_HALF_ANGLE_DEG, ATP45_HAZARD_KM);
-  const apex: [number, number] = [round6(source[0]), round6(source[1])];
+  const half = ATP45_HALF_ANGLE_DEG;
+  const ring: [number, number][] = [];
+
+  // Flanc gauche : du bord du cercle d'isolement vers l'aval.
+  ring.push(destination(source, axis - 90, ATP45_DANGER_KM));
+  ring.push(destination(source, axis - half, ATP45_HAZARD_KM));
+  // Arc aval, de gauche à droite : la limite de portée est à distance CONSTANTE
+  // du rejet, donc courbe. Une corde droite la sous-estimerait au centre.
+  const steps = 16;
+  for (let i = 1; i < steps; i++) {
+    ring.push(destination(source, axis - half + (2 * half * i) / steps, ATP45_HAZARD_KM));
+  }
+  ring.push(destination(source, axis + half, ATP45_HAZARD_KM));
+  ring.push(destination(source, axis + 90, ATP45_DANGER_KM));
+  // Retour par l'amont, en suivant le cercle d'isolement : la zone englobe le
+  // rejet au lieu de s'y appuyer par une pointe.
+  for (let i = 1; i < 8; i++) {
+    ring.push(destination(source, axis + 90 + (180 * i) / 8, ATP45_DANGER_KM));
+  }
+  ring.push(ring[0]);
+
   zones.push({
     model: "atp45",
     level: "protection",
-    kind: "triangle",
+    kind: "wedge",
     reachKm: ATP45_HAZARD_KM,
-    ring: [apex, left, right, apex],
+    ring,
   });
   return zones;
 }

@@ -1286,6 +1286,93 @@ opérateur avait versé sur sa machine.**
 tests s'exécutent contre la bibliothèque **livrée avec le code**, la seule que le
 dépôt garantisse. 257 tests, 66 s.
 
+### 20.6 Reprise du lot (N-4b) — la géométrie et la matière
+
+#### La zone sous le vent NE PART PAS d'un point
+
+Le **GMU 2024** (« Mode d'emploi du tableau 1 », p. 284-285) décrit deux zones
+distinctes : on **isole d'abord** « dans TOUTES les directions » — un cercle
+autour du déversement — puis on **protège** sous le vent.
+
+Le triangle employé jusqu'ici avait son sommet **sur le rejet** : à cinquante
+mètres du déversement, la zone de danger avait une largeur nulle. Or le rejet
+n'est pas un point : il occupe déjà le cercle d'isolement.
+
+La nappe ATP-45 est donc reconstruite :
+- ses deux flancs partent du **bord du cercle d'isolement**, pas du centre ;
+- son fond est un **arc à portée constante**, non une corde — une corde
+  sous-estimerait la portée en son milieu de près de 15 % à un demi-angle de 30° ;
+- l'amont est fermé en suivant le cercle : la zone **englobe** le rejet.
+
+`kind` passe de `triangle` à `wedge`. Deux tests épinglent la propriété :
+aucun sommet ne coïncide avec la source, et le fond est bien à portée constante.
+
+*(Le carré ERG, lui, était déjà conforme : côté = distance sous le vent,
+déversement au milieu du bord amont, demi-distance de chaque côté — exactement
+la figure de la page 285.)*
+
+#### La fumée ne remplit QUE le polygone de diffusion
+
+La nappe sous le vent, ou le cercle de vigilance par vent faible. Le cercle
+d'**isolement** reste vide : c'est un rayon qu'on POSE autour du rejet, pas un
+nuage qu'on observe. Les remplir tous ferait de la fumée une décoration.
+
+Ce choix simplifie le confinement : plus de masque rastérisé, un test direct
+contre l'anneau. Pendant la lecture, la géométrie change à **chaque image** —
+rebâtir 65 000 cellules par image aurait été ruineux, là où tester 3 200
+particules contre une trentaine de sommets ne coûte rien.
+
+#### Vitesse proportionnelle au vent
+
+La dérive est calculée depuis la vitesse **réelle** du vent, convertie en
+mercator à la latitude du rejet. Une durée de traversée fixe donnait la même
+lecture par brise et par tempête.
+
+Le temps est accéléré d'un facteur **×120**, déclaré dans le code : à l'échelle
+réelle, un nuage à 13 km/h met quarante-six minutes à traverser une nappe de
+10 km, et l'animation serait immobile. À ×120 la même traversée prend vingt-trois
+secondes, une brise à 4 km/h en prend soixante-quinze. **Le rapport entre les
+deux est conservé** ; seule l'horloge est accélérée.
+
+La **durée de vie** des bouffées est calée sur ce temps de traversée. Une durée
+fixe les faisait mourir avant le fond du gabarit : le nuage restait massé sur le
+rejet et la nappe paraissait vide, alors qu'elle est ce que l'opérateur doit
+voir se remplir.
+
+#### Pourquoi la première version ressemblait à un jet d'eau
+
+Trois causes, toutes corrigées :
+
+- **Turbulence en phase.** Toutes les particules partageaient la même sinusoïde
+  et ondulaient ensemble — un filet, pas un gaz. Chacune a désormais deux
+  fréquences décalées par sa graine, appliquées à des axes différents.
+- **Taille constante.** Une bouffée qui ne grossit pas se lit comme un objet qui
+  s'éloigne. Le rayon **quadruple** maintenant sur la vie de la particule : un
+  gaz se dilate.
+- **Bord trop net.** L'exposant de l'atténuation radiale est passé de 1,9 à 2,6,
+  et l'opacité par bouffée a baissé — la densité vient de la **superposition**,
+  et c'est elle qui donne le grain d'un nuage.
+
+#### Couleurs principales et dérivées
+
+Le nuanceur interpole du **cœur** vers la **traîne** selon l'âge : le cœur porte
+la gravité de la zone, la traîne dit la dilution.
+
+| Zone | Principale | Dérivée |
+|---|---|---|
+| Protection (sous le vent) | orange `#F97316` | crème `#FED7AA` |
+| Vigilance (vent faible) | jaune `#EAB308` | ivoire `#FEF3C7` |
+| Enveloppe prudente | rouge `#DC2626` | rose `#FCA5A5` |
+
+C'est la même information que la teinte du gabarit, rendue **continue**.
+
+#### Opacités réduites
+
+Le remplissage plat passe à 0,05 sous la fumée (0,18 sans), et la **nappe
+volumique 3D de 0,45 à 0,14** : à sa valeur d'origine elle dominait l'image dès
+que la caméra s'inclinait. C'est la fumée qui doit porter le volume — par la
+superposition des bouffées, pas par un aplat.
+
 ## 21. Ce qui reste à construire
 
 Le workflow est posé ; ces maillons le compléteront (voir le plan d'exécution) :
