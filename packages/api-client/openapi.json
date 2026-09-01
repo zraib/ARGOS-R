@@ -3145,6 +3145,163 @@
         ]
       }
     },
+    "/api/tracking/trackers": {
+      "get": {
+        "description": "`last` est la dernière position EXPLOITABLE ; `lastSeenAt` le dernier contact, fix ou non. Les deux sont distincts à dessein : un boîtier peut émettre fidèlement depuis un sous-sol sans jamais se localiser, et le confondre avec un boîtier muet enverrait chercher une panne qui n'existe pas.",
+        "operationId": "TrackingController_list",
+        "parameters": [
+          {
+            "name": "includeArchived",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Traceurs déclarés, avec leur dernière position connue.",
+        "tags": [
+          "tracking"
+        ]
+      },
+      "post": {
+        "description": "Le registre EST la liste blanche de l'écouteur TCP. Déclarer un traceur n'est pas un rangement : c'est l'acte qui autorise un boîtier à parler à ARGOS.",
+        "operationId": "TrackingController_declare",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeclareTrackerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "IMEI mal formé ou déjà déclaré."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Déclarer un traceur — sans quoi le boîtier n'est pas admis.",
+        "tags": [
+          "tracking"
+        ]
+      }
+    },
+    "/api/tracking/trackers/{id}": {
+      "get": {
+        "operationId": "TrackingController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Traceur inconnu."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Un traceur et sa trace récente.",
+        "tags": [
+          "tracking"
+        ]
+      },
+      "patch": {
+        "description": "Archiver retire le boîtier du service : il cesse d'être admis à la poignée de main et sort des cartes, mais son historique reste lisible. C'est le geste attendu pour un boîtier volé, réformé ou rendu.",
+        "operationId": "TrackingController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTrackerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "404": {
+            "description": "Traceur inconnu."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Modifier le libellé, le rattachement, l'engagement, ou archiver.",
+        "tags": [
+          "tracking"
+        ]
+      },
+      "delete": {
+        "description": "L'archivage reste le geste par défaut : il conserve la trace passée du moyen.",
+        "operationId": "TrackingController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Réservé au Super Administrateur."
+          },
+          "404": {
+            "description": "Traceur inconnu."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Supprimer définitivement un traceur — SUPERADMIN uniquement.",
+        "tags": [
+          "tracking"
+        ]
+      }
+    },
     "/api/missions": {
       "get": {
         "operationId": "MissionsController_list",
@@ -3893,7 +4050,8 @@
               "audit",
               "aviation",
               "nrbc",
-              "missions"
+              "missions",
+              "tracking"
             ]
           },
           "enabled": {
@@ -5159,6 +5317,82 @@
           },
           "archived": {
             "type": "boolean"
+          }
+        }
+      },
+      "TrackerTargetDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "unit",
+              "vehicle",
+              "personnel",
+              "equipment"
+            ],
+            "description": "Nature du moyen équipé."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifiant du moyen dans son registre.",
+            "example": "U3"
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ]
+      },
+      "DeclareTrackerDto": {
+        "type": "object",
+        "properties": {
+          "imei": {
+            "type": "string",
+            "description": "IMEI à 15 chiffres, imprimé sous le boîtier. C'est la SEULE identité que le protocole Teltonika présente : un IMEI non déclaré ici est refusé à la poignée de main.",
+            "example": "356307042441013"
+          },
+          "label": {
+            "type": "string",
+            "description": "Nom d'usage affiché sur la carte.",
+            "example": "Ambulance 04"
+          },
+          "target": {
+            "description": "Moyen équipé par ce traceur.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TrackerTargetDto"
+              }
+            ]
+          },
+          "incidentId": {
+            "type": "string",
+            "description": "Opération sur laquelle le moyen est engagé.",
+            "example": "INC-2612"
+          }
+        },
+        "required": [
+          "imei",
+          "label"
+        ]
+      },
+      "UpdateTrackerDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Nom d'usage affiché sur la carte."
+          },
+          "target": {
+            "$ref": "#/components/schemas/TrackerTargetDto"
+          },
+          "incidentId": {
+            "type": "string",
+            "description": "Opération d'engagement."
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Retirer du service sans effacer l'historique."
           }
         }
       },

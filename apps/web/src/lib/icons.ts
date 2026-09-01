@@ -12,6 +12,7 @@ export const NAV_ICONS = {
   triage: "M22 12h-4l-3 9L9 3l-3 9H2",
   // Bibliothèque de substances (lot N-3) : une fiole, pas un flacon générique.
   chemlib: "M9 3h6 M10 3v6.5L4.6 18a2 2 0 001.7 3h11.4a2 2 0 001.7-3L14 9.5V3 M7.5 14h9",
+  trackers: "M12 10a2 2 0 100 4 2 2 0 000-4z M8.5 8.5a5 5 0 000 7 M15.5 8.5a5 5 0 010 7 M5.5 5.5a9 9 0 000 13 M18.5 5.5a9 9 0 010 13",
   res: "M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z M3.3 7L12 12l8.7-5 M12 22V12",
   dis: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2 M9 3h6v4H9z M12 11v4 M12 17.5h.01",
   damage: "M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z M9 21V12l3 3 3-3v9",
@@ -117,6 +118,7 @@ export const UI_ICONS = {
   arrowLeft: "M19 12H5M12 19l-7-7 7-7",
   close: "M18 6L6 18M6 6l12 12",
   search: "M11 4a7 7 0 100 14 7 7 0 000-14z M20 20l-4.05-4.05",
+  tracker: "M12 10a2 2 0 100 4 2 2 0 000-4z M8.5 8.5a5 5 0 000 7 M15.5 8.5a5 5 0 010 7 M5.5 5.5a9 9 0 000 13 M18.5 5.5a9 9 0 010 13",
   sidebar: "M3 5h18v14H3z M9 5v14",
   /** Couches : pile de strates, convention cartographique. */
   layers: "M12 3l9 5-9 5-9-5 9-5z M3 12.5l9 5 9-5 M3 17l9 5 9-5",

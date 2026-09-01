@@ -18,7 +18,9 @@ export type NavKey =
   | "users" | "settings"
   | "myresp" | "myrespManage" | "supervision"
   // Bibliothèque de substances dangereuses (lot N-3).
-  | "chemlib";
+  | "chemlib"
+  // Traceurs GPS FMC920 (lot N-2).
+  | "trackers";
 
 export type GroupKey = "res" | "dis" | "cmd";
 
@@ -70,6 +72,7 @@ export const HREF: Record<NavKey, string> = {
   myrespManage: "/ma-responsabilite/gestion",
   supervision: "/responsabilites",
   chemlib: "/substances",
+  trackers: "/traceurs",
 };
 
 export const NAV: NavEntry[] = [
@@ -91,6 +94,17 @@ export const NAV: NavEntry[] = [
   // Restreinte aux rôles détenant `nrbc:view` côté API — les cinq responsables
   // d'entité ne l'ont pas, et l'écran leur renverrait 403 puis une liste vide.
   // L'API reste l'autorité ; ceci ne fait que masquer un cul-de-sac.
+  // Traceurs GPS. Restreint aux rôles détenant `tracking:view` côté API — les
+  // cinq responsables d'entité ne l'ont pas, et l'écran leur renverrait 403.
+  // Posé juste avant les substances : deux référentiels que l'on consulte en
+  // intervention, dans le même bloc de l'œil.
+  {
+    kind: "item",
+    key: "trackers",
+    href: HREF.trackers,
+    icon: NAV_ICONS.trackers,
+    roles: ["superadmin", "admin", "strategic", "place_arme", "wali", "opcom", "tacom", "bluecell", "greencell", "orangecell"],
+  },
   {
     kind: "item",
     key: "chemlib",
@@ -151,7 +165,7 @@ const LABEL_KEYS: Record<NavKey | GroupKey, keyof Dict> = {
   equip: "nav_equip", units: "nav_units", personnel: "nav_pers", workorders: "nav_wo",
   hospitals: "nav_hosp", ics: "nav_ics", damage: "nav_damage", shelters: "nav_shelters",
   orsec: "nav_orsec", plans: "nav_plans", comms: "nav_comms", reports: "nav_reports", analytics: "nav_analytics", assistant: "nav_assistant", simulation: "nav_simulation", users: "nav_users", settings: "nav_settings", myresp: "nav_myresp", myrespManage: "nav_myresp_manage", supervision: "nav_supervision",
-  res: "nav_res", dis: "nav_dis", cmd: "nav_cmd", chemlib: "nav_chemlib",
+  res: "nav_res", dis: "nav_dis", cmd: "nav_cmd", chemlib: "nav_chemlib", trackers: "nav_trackers",
 };
 
 export function navLabel(key: NavKey | GroupKey, t: Dict): string {

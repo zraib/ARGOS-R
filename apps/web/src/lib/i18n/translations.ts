@@ -504,6 +504,18 @@ export interface Dict {
   hz_biohazard: string;
   hz_drum: string;
   // --- bibliothèque de substances dangereuses (lot N-3) ---
+  // Traceurs GPS FMC920 (lot N-2)
+  nav_trackers: string; trk_title: string;
+  trk_declare: string; trk_declare_title: string; trk_edit_title: string; trk_show_archived: string;
+  trk_whitelist_note: string; trk_count: string; trk_located: string; trk_silent: string;
+  trk_none: string; trk_none_hint: string;
+  trk_imei: string; trk_imei_help: string; trk_imei_locked: string; trk_imei_taken: string;
+  trk_label: string; trk_label_ph: string;
+  trk_target: string; trk_target_kind: string; trk_target_id: string; trk_target_none: string;
+  trk_kind_unit: string; trk_kind_vehicle: string; trk_kind_personnel: string; trk_kind_equipment: string;
+  trk_incident: string; trk_archive: string; trk_archive_help: string;
+  trk_saving: string; trk_save_failed: string; trk_load_failed: string;
+  trk_no_fix: string; trk_last_seen: string; trk_never_seen: string; trk_sats: string;
   nav_chemlib: string;
   cl_title: string;
   // Bibliothèque des substances — refonte N-5

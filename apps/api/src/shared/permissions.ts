@@ -66,6 +66,7 @@ export const LEGACY_FEATURES = [
   "aviation",   // Suivi aérien (feux de forêt) — absent de la matrice, à arbitrer
   "nrbc",       // Capacité NRBC (panache chimique) — absent de la matrice, à arbitrer
   "missions",   // Boucles opérationnelles (ordres, demandes, transferts) — à arbitrer
+  "tracking",   // Traceurs GPS FMC920 (lot N-2) — absent de la matrice, à arbitrer
 ] as const;
 
 export const FEATURES = [...MATRIX_FEATURES, ...LEGACY_FEATURES] as const;
@@ -107,6 +108,7 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   aviation: "Suivi aérien",
   nrbc: "NRBC",
   missions: "Missions (boucles opérationnelles)",
+  tracking: "Traceurs GPS (FMC920)",
 };
 
 export type Permission = `${Feature}:${Action}`;
@@ -311,6 +313,19 @@ const LEGACY: Record<(typeof LEGACY_FEATURES)[number], Partial<Record<Role, Cell
   // opératif et tactique ; les cellules et l'état-major observent. Dotation
   // provisoire, à confirmer lors de l'arbitrage de la matrice.
   aviation: {
+    admin: ALL, opcom: AMV, tacom: AMV,
+    strategic: V, place_arme: V, wali: V, bluecell: V, greencell: V, orangecell: V,
+  },
+  // Traceurs GPS : DÉCLARER un boîtier n'est pas un rangement d'inventaire,
+  // c'est l'acte qui AUTORISE ce boîtier à parler à ARGOS — le registre est la
+  // liste blanche de l'écouteur TCP. La déclaration revient donc au
+  // commandement opératif et tactique, comme l'engagement des moyens qu'elle
+  // équipe ; l'état-major, le wali, la place d'armes et les cellules consultent.
+  // La suppression définitive n'est accordée à personne : seul le joker du
+  // Super Administrateur la détient, l'archivage restant le geste par défaut
+  // puisqu'il conserve la trace passée du moyen.
+  // Dotation provisoire, à confirmer lors de l'arbitrage de la matrice.
+  tracking: {
     admin: ALL, opcom: AMV, tacom: AMV,
     strategic: V, place_arme: V, wali: V, bluecell: V, greencell: V, orangecell: V,
   },

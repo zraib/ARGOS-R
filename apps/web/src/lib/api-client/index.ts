@@ -25,6 +25,10 @@ export type UpdateIncidentBody = Json<NonNullable<paths["/api/incidents/{id}"]["
 export type CreateSubIncidentBody = Json<NonNullable<paths["/api/incidents/{id}/sub-incidents"]["post"]["requestBody"]>>;
 export type RegisterIncidentTypeBody = Json<NonNullable<paths["/api/incident-types"]["post"]["requestBody"]>>;
 export type CreateUnitBody = Json<NonNullable<paths["/api/units"]["post"]["requestBody"]>>;
+// Traceurs GPS FMC920 (lot N-2). Le type de la RÉPONSE est exporté aussi : la
+// carte et l'écran de gestion lisent la même forme, qui vient du contrat.
+export type DeclareTrackerBody = Json<NonNullable<paths["/api/tracking/trackers"]["post"]["requestBody"]>>;
+export type UpdateTrackerBody = Json<NonNullable<paths["/api/tracking/trackers/{id}"]["patch"]["requestBody"]>>;
 export type CreateHospitalBody = Json<NonNullable<paths["/api/hospitals"]["post"]["requestBody"]>>;
 export type UpdateHospitalBody = Json<NonNullable<paths["/api/hospitals/{id}"]["patch"]["requestBody"]>>;
 export type UpdateUnitBody = Json<NonNullable<paths["/api/units/{id}"]["patch"]["requestBody"]>>;
@@ -148,6 +152,27 @@ export function createArgosClient(opts: ArgosClientOptions) {
         },
       }),
     getSubstance: (id: string) => client.GET("/api/nrbc/substances/{id}", { params: { path: { id } } }),
+
+    // --- traceurs GPS FMC920 (lot N-2) ---
+    /**
+     * Traceurs déclarés, avec leur dernière position connue. `last` est la
+     * dernière position EXPLOITABLE, `lastSeenAt` le dernier contact — un
+     * boîtier peut émettre depuis un sous-sol sans jamais se localiser.
+     */
+    getTrackers: (includeArchived = false) =>
+      client.GET("/api/tracking/trackers", {
+        params: { query: includeArchived ? { includeArchived: true } : {} },
+      }),
+    getTracker: (id: string) => client.GET("/api/tracking/trackers/{id}", { params: { path: { id } } }),
+    /**
+     * Déclarer un traceur. Ce n'est pas un rangement d'inventaire : le registre
+     * EST la liste blanche de l'écouteur TCP, et un IMEI non déclaré est refusé
+     * à la poignée de main (ADR 0008).
+     */
+    declareTracker: (body: DeclareTrackerBody) => client.POST("/api/tracking/trackers", { body }),
+    updateTracker: (id: string, body: UpdateTrackerBody) =>
+      client.PATCH("/api/tracking/trackers/{id}", { params: { path: { id } }, body }),
+    deleteTracker: (id: string) => client.DELETE("/api/tracking/trackers/{id}", { params: { path: { id } } }),
     deployPost: (id: string, matricule: string) =>
       client.POST("/api/incidents/{id}/deployments", { params: { path: { id } }, body: { matricule } }),
     withdrawPost: (id: string, matricule: string) =>

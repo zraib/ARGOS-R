@@ -1494,6 +1494,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tracking/trackers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Traceurs déclarés, avec leur dernière position connue.
+         * @description `last` est la dernière position EXPLOITABLE ; `lastSeenAt` le dernier contact, fix ou non. Les deux sont distincts à dessein : un boîtier peut émettre fidèlement depuis un sous-sol sans jamais se localiser, et le confondre avec un boîtier muet enverrait chercher une panne qui n'existe pas.
+         */
+        get: operations["TrackingController_list"];
+        put?: never;
+        /**
+         * Déclarer un traceur — sans quoi le boîtier n'est pas admis.
+         * @description Le registre EST la liste blanche de l'écouteur TCP. Déclarer un traceur n'est pas un rangement : c'est l'acte qui autorise un boîtier à parler à ARGOS.
+         */
+        post: operations["TrackingController_declare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tracking/trackers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Un traceur et sa trace récente. */
+        get: operations["TrackingController_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Supprimer définitivement un traceur — SUPERADMIN uniquement.
+         * @description L'archivage reste le geste par défaut : il conserve la trace passée du moyen.
+         */
+        delete: operations["TrackingController_remove"];
+        options?: never;
+        head?: never;
+        /**
+         * Modifier le libellé, le rattachement, l'engagement, ou archiver.
+         * @description Archiver retire le boîtier du service : il cesse d'être admis à la poignée de main et sort des cartes, mais son historique reste lisible. C'est le geste attendu pour un boîtier volé, réformé ou rendu.
+         */
+        patch: operations["TrackingController_update"];
+        trace?: never;
+    };
     "/api/missions": {
         parameters: {
             query?: never;
@@ -1802,7 +1851,7 @@ export interface components {
         };
         ToggleRoleFeatureDto: {
             /** @enum {string} */
-            feature: "dashboard" | "dash_incident" | "dash_hospital" | "dash_shelter" | "dash_morgue" | "dash_unit" | "map" | "incidents" | "subincidents" | "hospinet" | "shelters" | "morgue" | "units" | "equipment" | "teams" | "comms" | "reports" | "analytics" | "assistant" | "users" | "settings" | "dispatch" | "triage" | "ics" | "damage" | "orsec" | "plans" | "personnel" | "workorders" | "seismic" | "audit" | "aviation" | "nrbc" | "missions";
+            feature: "dashboard" | "dash_incident" | "dash_hospital" | "dash_shelter" | "dash_morgue" | "dash_unit" | "map" | "incidents" | "subincidents" | "hospinet" | "shelters" | "morgue" | "units" | "equipment" | "teams" | "comms" | "reports" | "analytics" | "assistant" | "users" | "settings" | "dispatch" | "triage" | "ics" | "damage" | "orsec" | "plans" | "personnel" | "workorders" | "seismic" | "audit" | "aviation" | "nrbc" | "missions" | "tracking";
             enabled: boolean;
         };
         ToggleFlagDto: {
@@ -2282,6 +2331,46 @@ export interface components {
             /** @enum {string} */
             role?: "waterbomber" | "helicopter" | "observation" | "transport" | "medevac";
             incidentId?: string;
+            archived?: boolean;
+        };
+        TrackerTargetDto: {
+            /**
+             * @description Nature du moyen équipé.
+             * @enum {string}
+             */
+            kind: "unit" | "vehicle" | "personnel" | "equipment";
+            /**
+             * @description Identifiant du moyen dans son registre.
+             * @example U3
+             */
+            id: string;
+        };
+        DeclareTrackerDto: {
+            /**
+             * @description IMEI à 15 chiffres, imprimé sous le boîtier. C'est la SEULE identité que le protocole Teltonika présente : un IMEI non déclaré ici est refusé à la poignée de main.
+             * @example 356307042441013
+             */
+            imei: string;
+            /**
+             * @description Nom d'usage affiché sur la carte.
+             * @example Ambulance 04
+             */
+            label: string;
+            /** @description Moyen équipé par ce traceur. */
+            target?: components["schemas"]["TrackerTargetDto"];
+            /**
+             * @description Opération sur laquelle le moyen est engagé.
+             * @example INC-2612
+             */
+            incidentId?: string;
+        };
+        UpdateTrackerDto: {
+            /** @description Nom d'usage affiché sur la carte. */
+            label?: string;
+            target?: components["schemas"]["TrackerTargetDto"];
+            /** @description Opération d'engagement. */
+            incidentId?: string;
+            /** @description Retirer du service sans effacer l'historique. */
             archived?: boolean;
         };
         PartyDto: {
@@ -4495,6 +4584,118 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TrackingController_list: {
+        parameters: {
+            query?: {
+                includeArchived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TrackingController_declare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeclareTrackerDto"];
+            };
+        };
+        responses: {
+            /** @description IMEI mal formé ou déjà déclaré. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TrackingController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Traceur inconnu. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TrackingController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Réservé au Super Administrateur. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Traceur inconnu. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TrackingController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTrackerDto"];
+            };
+        };
+        responses: {
+            /** @description Traceur inconnu. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

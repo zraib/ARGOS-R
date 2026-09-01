@@ -15,7 +15,8 @@
     "db:migrate": "drizzle-kit migrate",
     "nrbc:import": "ts-node -T -r tsconfig-paths/register scripts/import-substances.ts",
     "nrbc:extract-erg": "ts-node -T -r tsconfig-paths/register scripts/extract-erg-from-cameo.ts",
-    "nrbc:extract-sheets": "ts-node -T -r tsconfig-paths/register scripts/extract-cameo-sheets.ts"
+    "nrbc:extract-sheets": "ts-node -T -r tsconfig-paths/register scripts/extract-cameo-sheets.ts",
+    "fmc920:simulate": "ts-node -T -r tsconfig-paths/register scripts/fmc920-simulate.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",
