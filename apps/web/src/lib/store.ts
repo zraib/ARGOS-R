@@ -9,10 +9,12 @@
 // ============================================================================
 
 import { create } from "zustand";
+import { openRealtimeStream, type StreamHandle } from "@/lib/realtime/stream";
 import type {
   Channel,
   CommCategory,
   CommMessage,
+  PresenceUser,
   DashStats,
   FieldHospital,
   FeedItem,
@@ -388,6 +390,14 @@ interface ArgosState {
   comCats: CommCategory[];
   comMsgs: Record<string, CommMessage[]>;
   comMembers: CommMembers;
+  // --- temps réel (lot COMMS) ---
+  /** Comptes RÉELLEMENT connectés : la présence est la connexion, pas un drapeau. */
+  rtOnline: PresenceUser[];
+  rtStatus: "connecting" | "open" | "closed";
+  /** Non-lus par canal — remis à zéro quand le canal est ouvert à l'écran. */
+  rtUnread: Record<string, number>;
+  /** Canal actuellement affiché ; ses messages ne comptent jamais comme non lus. */
+  rtActiveChannel: string | null;
   comSel: string;
   comCollapsed: Record<string, boolean>;
 
@@ -539,6 +549,12 @@ interface ArgosState {
   toggleNavGroup: (g: keyof NavGroups) => void;
   openNavGroup: (g: keyof NavGroups) => void;
   showToast: (msg: string) => void;
+  // --- temps réel (lot COMMS) ---
+  /** Ouvre le flux. Idempotent : appelée à chaque montage de la coquille. */
+  rtConnect: () => void;
+  rtDisconnect: () => void;
+  /** Marque le canal ouvert à l'écran et solde ses non-lus. */
+  rtSetActiveChannel: (id: string | null) => void;
   openWizard: (initLL?: [number, number]) => void;
   /** Ouvre l'assistant en mode édition (pré-rempli depuis un incident existant). */
   openWizardEdit: (inc: Incident) => void;
@@ -605,6 +621,15 @@ interface ArgosState {
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * Poignée du flux temps réel — DEHORS de l'état.
+ *
+ * Elle porte un `AbortController` et des minuteurs : la ranger dans le store la
+ * ferait comparer à chaque rendu et sérialiser à la persistance, pour un objet
+ * qui n'a rien à voir avec ce que l'écran affiche.
+ */
+let rtHandle: StreamHandle | null = null;
 
 export const useArgos = create<ArgosState>((set, get) => ({
   authed: false,
@@ -694,6 +719,10 @@ export const useArgos = create<ArgosState>((set, get) => ({
   comCats: [],
   comMsgs: {},
   comMembers: EMPTY_MEMBERS,
+  rtOnline: [],
+  rtStatus: "closed",
+  rtUnread: {},
+  rtActiveChannel: null,
   comSel: "c1",
   comCollapsed: {},
 
@@ -987,6 +1016,64 @@ export const useArgos = create<ArgosState>((set, get) => ({
 
   setPlumePlaying: (v) => set({ plumePlaying: v }),
   setPlume3d: (v) => set({ plume3d: v }),
+
+  // --- temps réel (lot COMMS) ------------------------------------------------
+  rtConnect: () => {
+    // Un seul flux par onglet : rappeler `rtConnect` ne doit pas en ouvrir un
+    // second, sinon chaque navigation ajouterait une session fantôme à la
+    // liste des présents.
+    if (rtHandle) return;
+    rtHandle = openRealtimeStream(
+      (e) => {
+        const s = get();
+        if (e.kind === "presence") {
+          set({ rtOnline: (e.data as { online: PresenceUser[] }).online ?? [] });
+          return;
+        }
+        if (e.kind === "message") {
+          const d = e.data as { channelId: string; message: CommMessage };
+          if (!d?.channelId || !d.message) return;
+          // `mine` est posé par le SERVEUR pour l'auteur ; sur le flux il
+          // arrive à tout le monde. On le recalcule ici, sans quoi chacun
+          // verrait tous les messages comme les siens.
+          const message: CommMessage = { ...d.message, mine: d.message.who === s.sessionUser?.matricule };
+          const liste = s.comMsgs[d.channelId] ?? [];
+          // Le message peut déjà être là : l'auteur l'a inséré à l'envoi et le
+          // reçoit ensuite par le flux. Dédoublonner sur l'identifiant évite
+          // qu'il s'affiche deux fois.
+          if (liste.some((m) => m.id === message.id)) return;
+          set({
+            comMsgs: { ...s.comMsgs, [d.channelId]: [...liste, message] },
+            rtUnread:
+              message.mine || d.channelId === s.rtActiveChannel
+                ? s.rtUnread
+                : { ...s.rtUnread, [d.channelId]: (s.rtUnread[d.channelId] ?? 0) + 1 },
+          });
+          return;
+        }
+        if (e.kind === "channel") {
+          // La structure a changé sous nos pieds : on la recharge plutôt que de
+          // la rejouer à la main, une reconstitution partielle valant pire
+          // qu'un aller-retour.
+          void get().loadDomain();
+        }
+      },
+      (rtStatus) => set({ rtStatus }),
+    );
+  },
+
+  rtDisconnect: () => {
+    rtHandle?.close();
+    rtHandle = null;
+    set({ rtStatus: "closed", rtOnline: [] });
+  },
+
+  rtSetActiveChannel: (id) =>
+    set((s) => {
+      if (!id) return { rtActiveChannel: null };
+      const { [id]: _solde, ...reste } = s.rtUnread;
+      return { rtActiveChannel: id, rtUnread: reste };
+    }),
   setPlumeSmoke: (v) => set({ plumeSmoke: v }),
   setPlumeVigilance: (v) => set({ plumeVigilance: v }),
 

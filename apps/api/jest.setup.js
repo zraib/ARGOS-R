@@ -19,3 +19,9 @@ const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 
 process.env.NRBC_DATA_DIR = mkdtempSync(join(tmpdir(), "argos-nrbc-tests-"));
+
+// Même raison que pour les substances : les pièces jointes des tests ne doivent
+// pas s'écrire dans le dépôt. Un dossier temporaire par exécution, jeté avec lui.
+process.env.ARGOS_ATTACHMENTS_DIR = require("node:fs").mkdtempSync(
+  require("node:path").join(require("node:os").tmpdir(), "argos-att-"),
+);

@@ -67,6 +67,7 @@ export const LEGACY_FEATURES = [
   "nrbc",       // Capacité NRBC (panache chimique) — absent de la matrice, à arbitrer
   "missions",   // Boucles opérationnelles (ordres, demandes, transferts) — à arbitrer
   "tracking",   // Traceurs GPS FMC920 (lot N-2) — absent de la matrice, à arbitrer
+  "comms_admin", // Administration des canaux (lot COMMS) — absent de la matrice, à arbitrer
 ] as const;
 
 export const FEATURES = [...MATRIX_FEATURES, ...LEGACY_FEATURES] as const;
@@ -109,6 +110,7 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   nrbc: "NRBC",
   missions: "Missions (boucles opérationnelles)",
   tracking: "Traceurs GPS (FMC920)",
+  comms_admin: "Administration des canaux",
 };
 
 export type Permission = `${Feature}:${Action}`;
@@ -329,6 +331,17 @@ const LEGACY: Record<(typeof LEGACY_FEATURES)[number], Partial<Record<Role, Cell
     admin: ALL, opcom: AMV, tacom: AMV,
     strategic: V, place_arme: V, wali: V, bluecell: V, greencell: V, orangecell: V,
   },
+  // Administration des canaux — ligne SÉPARÉE de `comms`, et c'est le point.
+  // `comms` accorde `VM` à tous les rôles : chacun doit pouvoir lire, écrire et
+  // gérer les membres de ses canaux. Mais CRÉER, RENOMMER ou SUPPRIMER un canal
+  // n'est pas participer, c'est administrer la structure du centre — un canal
+  // renommé sous les pieds d'une conduite en cours, ou supprimé avec sa
+  // conversation, ne se rattrape pas. Confler les deux dans une seule ligne
+  // obligeait à choisir entre ouvrir l'administration à tous ou fermer la
+  // parole à presque tous.
+  // Accordée au seul Administrateur ; le Super Administrateur la détient par
+  // son joker. Dotation provisoire, à confirmer lors de l'arbitrage.
+  comms_admin: { admin: ALL },
   // NRBC : même logique que l'aviation — la conduite (déclarer la substance,
   // choisir le référentiel du panache) revient au commandement opératif et
   // tactique ; l'état-major et les cellules consultent. Dotation provisoire,

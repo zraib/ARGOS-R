@@ -51,6 +51,8 @@ export function AppFrame({ children }: { children: ReactNode }) {
   const setFlags = useArgos((s) => s.setFlags);
   const setRoleFeatures = useArgos((s) => s.setRoleFeatures);
   const loadDomain = useArgos((s) => s.loadDomain);
+  const rtConnect = useArgos((s) => s.rtConnect);
+  const rtDisconnect = useArgos((s) => s.rtDisconnect);
   const simTick = useArgos((s) => s.simTick);
   const toggleCopilot = useArgos((s) => s.toggleCopilot);
   const navOpen = useArgos((s) => s.navOpen);
@@ -88,6 +90,17 @@ export function AppFrame({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (ready) void loadDomain();
   }, [ready, loadDomain]);
+
+  // Flux temps réel : ouvert avec la session, fermé avec elle. C'est CE FLUX
+  // qui fait la présence — un compte est en ligne tant qu'il est ouvert. Le
+  // brancher ici plutôt que sur l'écran de communication est délibéré : la
+  // cloche doit compter les messages même quand on regarde la carte, et un
+  // officier reste joignable où qu'il soit dans l'application.
+  useEffect(() => {
+    if (!ready) return;
+    rtConnect();
+    return () => rtDisconnect();
+  }, [ready, rtConnect, rtDisconnect]);
 
   // Boucles ouvertes : effet PROPRE, lié à la session et non à la simulation.
   // Les greffer sur le tick de simulation les aurait éteintes avec elle —

@@ -2097,7 +2097,7 @@
             "bearer": []
           }
         ],
-        "summary": "Créer un groupe de canaux (audité)",
+        "summary": "Créer un groupe de canaux — ADMINISTRATION (audité)",
         "tags": [
           "domain"
         ]
@@ -2105,6 +2105,7 @@
     },
     "/api/comms/channels": {
       "post": {
+        "description": "Créer, renommer et supprimer un canal relèvent de `comms_admin`, ligne séparée de `comms` : participer n'est pas administrer la structure du centre.",
         "operationId": "DomainController_createChannel",
         "parameters": [],
         "requestBody": {
@@ -2127,7 +2128,7 @@
             "bearer": []
           }
         ],
-        "summary": "Créer un canal texte dans un groupe (audité)",
+        "summary": "Créer un canal texte dans un groupe — ADMINISTRATION (audité).",
         "tags": [
           "domain"
         ]
@@ -3331,6 +3332,98 @@
         ]
       }
     },
+    "/api/comms/stream": {
+      "get": {
+        "description": "Pousse les messages, les changements de canaux et la liste des présents. LA PRÉSENCE EST LA CONNEXION : un compte est en ligne tant que son flux est ouvert — fermer l'onglet suffit à le retirer, sans qu'aucun état déclaratif ne puisse mentir. Un battement toutes les 25 s garde la connexion ouverte à travers les intermédiaires et sert de preuve de vie.",
+        "operationId": "RealtimeController_stream",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Flux temps réel des communications (Server-Sent Events).",
+        "tags": [
+          "comms"
+        ]
+      }
+    },
+    "/api/comms/presence": {
+      "get": {
+        "description": "Doublon volontaire du flux : un écran qui vient d'ouvrir doit connaître l'état sans attendre le prochain changement. Deux onglets d'un même officier font UN présent, pas deux.",
+        "operationId": "RealtimeController_presence",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Comptes actuellement connectés.",
+        "tags": [
+          "comms"
+        ]
+      }
+    },
+    "/api/comms/attachments": {
+      "post": {
+        "description": "Liste BLANCHE de types, jamais une liste noire. Le type déclaré est confronté aux premiers octets du fichier — seule chose que l'expéditeur ne choisit pas librement. Le fichier est écrit sous un identifiant tiré au sort : le nom d'origine ne sert qu'à l'affichage, jamais de chemin.",
+        "operationId": "RealtimeController_upload",
+        "parameters": [],
+        "responses": {
+          "400": {
+            "description": "Type refusé, contenu non conforme au type, ou fichier trop volumineux."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Verser une pièce jointe (image, vidéo, document).",
+        "tags": [
+          "comms"
+        ]
+      }
+    },
+    "/api/comms/attachments/{id}": {
+      "get": {
+        "operationId": "RealtimeController_download",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Pièce jointe inconnue."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Télécharger une pièce jointe.",
+        "tags": [
+          "comms"
+        ]
+      }
+    },
     "/api/missions": {
       "get": {
         "operationId": "MissionsController_list",
@@ -4080,7 +4173,8 @@
               "aviation",
               "nrbc",
               "missions",
-              "tracking"
+              "tracking",
+              "comms_admin"
             ]
           },
           "enabled": {
@@ -5109,6 +5203,30 @@
           }
         }
       },
+      "MessageAttachmentDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "mime": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "mime",
+          "bytes"
+        ]
+      },
       "SendMessageDto": {
         "type": "object",
         "properties": {
@@ -5118,6 +5236,14 @@
           },
           "txt": {
             "type": "string"
+          },
+          "attachment": {
+            "description": "Pièce jointe déjà versée via POST /comms/attachments.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MessageAttachmentDto"
+              }
+            ]
           }
         },
         "required": [

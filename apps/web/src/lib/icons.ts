@@ -139,6 +139,12 @@ export const UI_ICONS = {
   plusSmall: "M12 5v14M5 12h14",
   send: "M22 2L11 13 M22 2l-7 20-4-9-9-4z",
   upload: "M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4 M17 8l-5-5-5 5 M12 3v12",
+  // Cloche de notification (lot COMMS).
+  bell: "M18 8a6 6 0 10-12 0c0 7-3 8-3 8h18s-3-1-3-8 M13.7 21a2 2 0 01-3.4 0",
+  // Trombone : pièce jointe (lot COMMS).
+  paperclip: "M21.4 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48",
+  download: "M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4 M7 10l5 5 5-5 M12 15V3",
+  file: "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6",
   hash: "M4 9h16 M4 15h16 M10 3L8 21 M16 3l-2 18",
   voice: "M11 5L6 9H2v6h4l5 4z M15.5 8.5a5 5 0 010 7 M19 5a9 9 0 010 14",
   stub: "M14.7 6.3a5 5 0 00-6.6 6.6L3 18v3h3l5.1-5.1a5 5 0 006.6-6.6L14 12l-2-2z",

@@ -7,6 +7,7 @@ import { VisibilityService } from "@/modules/domain/visibility.service";
 import { CITIES_MA } from "@/modules/domain/cities.data";
 import { CatalogService } from "@/modules/domain/catalog.service";
 import { CommsService } from "@/modules/domain/comms.service";
+import { RealtimeService } from "@/modules/realtime/realtime.service";
 import { IncidentTypesService } from "@/modules/domain/incident-types.service";
 import { SubIncidentTypesService } from "@/modules/domain/sub-incident-types.service";
 import { SeismicService } from "@/modules/domain/seismic.service";
@@ -61,6 +62,7 @@ export class DomainController {
     private readonly deployment: DeploymentService,
     private readonly catalog: CatalogService,
     private readonly comms: CommsService,
+    private readonly realtime: RealtimeService,
     private readonly incidentTypes: IncidentTypesService,
     private readonly subIncidentTypes: SubIncidentTypesService,
     private readonly seismic: SeismicService,
@@ -218,11 +220,16 @@ export class DomainController {
   }
 
   @Patch("comms/channels/:id")
-  @RequirePermission("comms:update")
+  // ADMINISTRATION, pas participation : un canal renommé sous les pieds d'une
+  // conduite en cours ne se rattrape pas. `comms:update` reste ce qui gouverne
+  // la gestion des MEMBRES, geste opérationnel ordinaire.
+  @RequirePermission("comms_admin:update")
   @ApiOperation({ summary: "Renommer un canal / changer son sujet." })
   @ApiResponse({ status: 404, description: "Canal inconnu." })
   updateChannel(@Param("id") id: string, @Body() dto: UpdateChannelDto) {
-    return this.comms.updateChannel(id, dto);
+    const chan = this.comms.updateChannel(id, dto);
+    this.realtime.emit({ kind: "channel", action: "updated", channelId: id, payload: chan });
+    return chan;
   }
 
   @Post("comms/channels/:id/members")
@@ -243,7 +250,7 @@ export class DomainController {
   }
 
   @Delete("comms/channels/:id")
-  @RequirePermission("comms:delete")
+  @RequirePermission("comms_admin:delete")
   @ApiOperation({
     summary: "Supprimer définitivement un canal — SUPERADMIN uniquement.",
     description:
@@ -254,6 +261,7 @@ export class DomainController {
   @ApiResponse({ status: 403, description: "Réservé au Super Administrateur." })
   deleteChannel(@Param("id") id: string) {
     this.comms.deleteChannel(id, (incidentId) => this.domain.isIncidentActive(incidentId));
+    this.realtime.emit({ kind: "channel", action: "deleted", channelId: id });
     return { deleted: id };
   }
 
@@ -561,34 +569,57 @@ export class DomainController {
     return this.domain.listMovements();
   }
 
+  // CES QUATRE ROUTES ÉTAIENT OUVERTES. La garde RBAC laisse passer toute route
+  // qui ne déclare pas de permission : n'importe quel compte authentifié pouvait
+  // donc écrire dans n'importe quel canal et créer des groupes. Elles sont
+  // refermées ici (lot COMMS).
   @Get("comms")
+  @RequirePermission("comms:view")
   @ApiOperation({ summary: "Centre de communication : canaux, messages, présence" })
   commsAll() {
     return this.comms.all();
   }
 
   @Post("comms/messages")
+  // `comms:view` et non `comms:create` : la matrice réserve `create` à
+  // l'administration, et un centre de communication où l'on peut lire sans
+  // répondre n'est pas un centre de communication. Prendre la parole fait
+  // partie de la participation, pas de l'administration.
+  @RequirePermission("comms:view")
   @ApiOperation({ summary: "Envoyer un message dans un canal (audité)" })
   sendMessage(@CurrentUser() user: AuthUser, @Body() dto: SendMessageDto) {
     const initials = user.username.slice(0, 2).toUpperCase();
-    return this.comms.addMessage(dto.channelId, {
+    const msg = this.comms.addMessage(dto.channelId, {
       who: user.username,
       initials,
       av: "bg-or-500 text-rdia-600",
       txt: dto.txt,
+      attachment: dto.attachment,
     });
+    // Poussé APRÈS l'enregistrement : ce qui est diffusé est ce qui est gardé.
+    this.realtime.emit({ kind: "message", channelId: dto.channelId, message: msg });
+    return msg;
   }
 
   @Post("comms/categories")
-  @ApiOperation({ summary: "Créer un groupe de canaux (audité)" })
+  @RequirePermission("comms_admin:create")
+  @ApiOperation({ summary: "Créer un groupe de canaux — ADMINISTRATION (audité)" })
   createCategory(@Body() dto: CreateCategoryDto) {
     return this.comms.addCategory(dto.name);
   }
 
   @Post("comms/channels")
-  @ApiOperation({ summary: "Créer un canal texte dans un groupe (audité)" })
+  @RequirePermission("comms_admin:create")
+  @ApiOperation({
+    summary: "Créer un canal texte dans un groupe — ADMINISTRATION (audité).",
+    description:
+      "Créer, renommer et supprimer un canal relèvent de `comms_admin`, ligne séparée de `comms` : " +
+      "participer n'est pas administrer la structure du centre.",
+  })
   createChannel(@Body() dto: CreateChannelDto) {
-    return this.comms.addChannel(dto.categoryId, dto.name);
+    const chan = this.comms.addChannel(dto.categoryId, dto.name);
+    this.realtime.emit({ kind: "channel", action: "created", channelId: chan.id, payload: chan });
+    return chan;
   }
 
   @Get("reference")

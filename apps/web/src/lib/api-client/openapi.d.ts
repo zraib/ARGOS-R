@@ -998,7 +998,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Créer un groupe de canaux (audité) */
+        /** Créer un groupe de canaux — ADMINISTRATION (audité) */
         post: operations["DomainController_createCategory"];
         delete?: never;
         options?: never;
@@ -1015,7 +1015,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Créer un canal texte dans un groupe (audité) */
+        /**
+         * Créer un canal texte dans un groupe — ADMINISTRATION (audité).
+         * @description Créer, renommer et supprimer un canal relèvent de `comms_admin`, ligne séparée de `comms` : participer n'est pas administrer la structure du centre.
+         */
         post: operations["DomainController_createChannel"];
         delete?: never;
         options?: never;
@@ -1547,6 +1550,83 @@ export interface paths {
         patch: operations["TrackingController_update"];
         trace?: never;
     };
+    "/api/comms/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Flux temps réel des communications (Server-Sent Events).
+         * @description Pousse les messages, les changements de canaux et la liste des présents. LA PRÉSENCE EST LA CONNEXION : un compte est en ligne tant que son flux est ouvert — fermer l'onglet suffit à le retirer, sans qu'aucun état déclaratif ne puisse mentir. Un battement toutes les 25 s garde la connexion ouverte à travers les intermédiaires et sert de preuve de vie.
+         */
+        get: operations["RealtimeController_stream"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/comms/presence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Comptes actuellement connectés.
+         * @description Doublon volontaire du flux : un écran qui vient d'ouvrir doit connaître l'état sans attendre le prochain changement. Deux onglets d'un même officier font UN présent, pas deux.
+         */
+        get: operations["RealtimeController_presence"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/comms/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verser une pièce jointe (image, vidéo, document).
+         * @description Liste BLANCHE de types, jamais une liste noire. Le type déclaré est confronté aux premiers octets du fichier — seule chose que l'expéditeur ne choisit pas librement. Le fichier est écrit sous un identifiant tiré au sort : le nom d'origine ne sert qu'à l'affichage, jamais de chemin.
+         */
+        post: operations["RealtimeController_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/comms/attachments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Télécharger une pièce jointe. */
+        get: operations["RealtimeController_download"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/missions": {
         parameters: {
             query?: never;
@@ -1855,7 +1935,7 @@ export interface components {
         };
         ToggleRoleFeatureDto: {
             /** @enum {string} */
-            feature: "dashboard" | "dash_incident" | "dash_hospital" | "dash_shelter" | "dash_morgue" | "dash_unit" | "map" | "incidents" | "subincidents" | "hospinet" | "shelters" | "morgue" | "units" | "equipment" | "teams" | "comms" | "reports" | "analytics" | "assistant" | "users" | "settings" | "dispatch" | "triage" | "ics" | "damage" | "orsec" | "plans" | "personnel" | "workorders" | "seismic" | "audit" | "aviation" | "nrbc" | "missions" | "tracking";
+            feature: "dashboard" | "dash_incident" | "dash_hospital" | "dash_shelter" | "dash_morgue" | "dash_unit" | "map" | "incidents" | "subincidents" | "hospinet" | "shelters" | "morgue" | "units" | "equipment" | "teams" | "comms" | "reports" | "analytics" | "assistant" | "users" | "settings" | "dispatch" | "triage" | "ics" | "damage" | "orsec" | "plans" | "personnel" | "workorders" | "seismic" | "audit" | "aviation" | "nrbc" | "missions" | "tracking" | "comms_admin";
             enabled: boolean;
         };
         ToggleFlagDto: {
@@ -2247,10 +2327,18 @@ export interface components {
             statut?: "open" | "saturated" | "closed";
             chef?: string;
         };
+        MessageAttachmentDto: {
+            id: string;
+            name: string;
+            mime: string;
+            bytes: number;
+        };
         SendMessageDto: {
             /** @example c1 */
             channelId: string;
             txt: string;
+            /** @description Pièce jointe déjà versée via POST /comms/attachments. */
+            attachment?: components["schemas"]["MessageAttachmentDto"];
         };
         CreateCategoryDto: {
             /** @example COORDINATION CIVILE */
@@ -4748,6 +4836,78 @@ export interface operations {
         };
         responses: {
             /** @description Traceur inconnu. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RealtimeController_stream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RealtimeController_presence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RealtimeController_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Type refusé, contenu non conforme au type, ou fichier trop volumineux. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RealtimeController_download: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pièce jointe inconnue. */
             404: {
                 headers: {
                     [name: string]: unknown;

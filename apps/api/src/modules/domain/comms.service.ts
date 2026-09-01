@@ -6,6 +6,14 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 // (MASTER_PLAN §5). Ici, REST simple : lecture groupée + envoi de message.
 // ============================================================================
 
+/** Pièce jointe d'un message — le contenu vit sur disque, ceci en est la fiche. */
+export interface CommAttachment {
+  id: string;
+  name: string;
+  mime: string;
+  bytes: number;
+}
+
 export interface CommMessage {
   id: number;
   who: string;
@@ -14,6 +22,8 @@ export interface CommMessage {
   time: string;
   txt: string;
   mine?: boolean;
+  /** Absente pour un message de texte seul — la majorité. */
+  attachment?: CommAttachment;
 }
 interface Channel {
   id: string;
@@ -109,7 +119,10 @@ export class CommsService {
     };
   }
 
-  addMessage(channelId: string, msg: { who: string; initials: string; av: string; txt: string }): CommMessage {
+  addMessage(
+    channelId: string,
+    msg: { who: string; initials: string; av: string; txt: string; attachment?: CommAttachment },
+  ): CommMessage {
     const exists = this.categories.some((c) => c.chans.some((ch) => ch.id === channelId && ch.kind === "text"));
     if (!exists) throw new NotFoundException(`Canal texte inconnu : ${channelId}`);
     const list = this.messages[channelId] ?? (this.messages[channelId] = []);

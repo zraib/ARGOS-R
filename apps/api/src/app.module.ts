@@ -17,6 +17,7 @@ import { OrdersModule } from "@/modules/orders/orders.module";
 import { AviationModule } from "@/modules/aviation/aviation.module";
 import { NrbcModule } from "@/modules/nrbc/nrbc.module";
 import { TrackingModule } from "@/modules/tracking/tracking.module";
+import { RealtimeModule } from "@/modules/realtime/realtime.module";
 import { MissionsModule } from "@/modules/missions/missions.module";
 import { IncidentDashboardModule } from "@/modules/incident-dashboard/incident-dashboard.module";
 
@@ -39,6 +40,7 @@ import { IncidentDashboardModule } from "@/modules/incident-dashboard/incident-d
     AviationModule,
     NrbcModule,
     TrackingModule,
+    RealtimeModule,
     MissionsModule,
     IncidentDashboardModule,
   ],

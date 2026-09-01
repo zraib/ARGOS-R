@@ -1,10 +1,14 @@
 "use client";
 
-import { useMemo, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { api, API_BASE, getStoredToken } from "@/lib/api";
+import type { CommsAttachment } from "@/lib/api-client";
+import { isSuperAdmin } from "@/lib/roles";
 import { useArgos, useDict } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
+import { Modal } from "@/components/ui/Modal";
 import { UI_ICONS } from "@/lib/icons";
-import type { Channel } from "@/lib/types";
+import type { Channel, CommAttachment } from "@/lib/types";
 
 /**
  * Vue visible sous `lg`.
@@ -24,6 +28,12 @@ export default function CommunicationPage() {
   const t = useDict();
   const comCats = useArgos((s) => s.comCats);
   const comMembers = useArgos((s) => s.comMembers);
+  // --- temps réel (lot COMMS) ---
+  const rtOnline = useArgos((s) => s.rtOnline);
+  const rtStatus = useArgos((s) => s.rtStatus);
+  const rtSetActiveChannel = useArgos((s) => s.rtSetActiveChannel);
+  const role = useArgos((s) => s.role);
+  const loadDomain = useArgos((s) => s.loadDomain);
   const comMsgs = useArgos((s) => s.comMsgs);
   const comSel = useArgos((s) => s.comSel);
   const comCollapsed = useArgos((s) => s.comCollapsed);
@@ -40,6 +50,13 @@ export default function CommunicationPage() {
   const [newChanCat, setNewChanCat] = useState<string | null>(null);
   const [newChan, setNewChan] = useState("");
   const [mobileView, setMobileView] = useState<MobileView>("chans");
+  // --- administration et pièces jointes (lot COMMS) ---
+  const [renomme, setRenomme] = useState<string | null>(null);
+  const [nouveauNom, setNouveauNom] = useState("");
+  const [envoiPJ, setEnvoiPJ] = useState(false);
+  const [erreurPJ, setErreurPJ] = useState<string | null>(null);
+  const fichierRef = useRef<HTMLInputElement>(null);
+  const canAdmin = isSuperAdmin(role) || role === "admin";
 
   const selChan: Channel | undefined = useMemo(() => {
     for (const c of comCats) for (const ch of c.chans) if (ch.id === comSel) return ch;
@@ -48,9 +65,71 @@ export default function CommunicationPage() {
   const isVoice = selChan?.kind === "voice";
   const msgs = (comMsgs[comSel] || []).slice().reverse();
 
+  // Le canal ouvert à l'écran ne compte jamais comme non lu : une pastille qui
+  // s'allume pour ce qu'on est en train de lire finit par être ignorée, et une
+  // pastille ignorée ne sert plus quand elle compte.
+  useEffect(() => {
+    rtSetActiveChannel(comSel || null);
+    return () => rtSetActiveChannel(null);
+  }, [comSel, rtSetActiveChannel]);
+
   const send = () => {
     sendMessage(msg);
     setMsg("");
+  };
+
+  /**
+   * Verse un fichier puis l'envoie comme message.
+   *
+   * En DEUX temps, à dessein : le contenu part par une route dédiée qui vérifie
+   * son type contre ses octets réels, et seule la FICHE de la pièce voyage
+   * ensuite dans le message. Un fichier refusé ne laisse donc jamais un message
+   * orphelin dans le canal.
+   */
+  const joindre = async (f: File) => {
+    setErreurPJ(null);
+    if (f.size > 40 * 1024 * 1024) {
+      setErreurPJ(t.cm_attach_too_big);
+      return;
+    }
+    setEnvoiPJ(true);
+    try {
+      const form = new FormData();
+      form.append("file", f);
+      const res = await fetch(`${API_BASE}/api/comms/attachments`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getStoredToken() ?? ""}` },
+        body: form,
+      });
+      if (!res.ok) {
+        setErreurPJ(res.status === 400 ? t.cm_attach_refused : t.cm_attach_failed);
+        return;
+      }
+      const att = (await res.json()) as CommsAttachment;
+      await api.sendMessage(comSel, msg.trim(), att);
+      setMsg("");
+      await loadDomain();
+    } catch {
+      setErreurPJ(t.cm_attach_failed);
+    } finally {
+      setEnvoiPJ(false);
+      if (fichierRef.current) fichierRef.current.value = "";
+    }
+  };
+
+  const renommer = async () => {
+    if (!renomme || !nouveauNom.trim()) return;
+    const res = await api.renameCommsChannel(renomme, nouveauNom.trim());
+    setRenomme(null);
+    if (!res.error) await loadDomain();
+  };
+
+  const supprimer = async (id: string) => {
+    // Confirmation NATIVE plutôt qu'une modale de plus : la suppression d'un
+    // canal emporte sa conversation, et le geste doit s'interrompre net.
+    if (!window.confirm(t.cm_delete_confirm)) return;
+    const res = await api.deleteCommsChannel(id);
+    if (!res.error) await loadDomain();
   };
   // Sur téléphone, choisir un canal bascule aussitôt sur son fil ; au-dessus de
   // `lg` les trois colonnes restent affichées et l'état n'a aucun effet visible.
@@ -76,7 +155,7 @@ export default function CommunicationPage() {
     // Sous `lg` : une seule colonne qui occupe la hauteur disponible (la coquille
     // borne déjà la page en `dvh`), pour que la barre de saisie reste ancrée en
     // bas. À partir de `lg` : la grille à trois colonnes d'origine.
-    <section className="flex min-h-0 flex-1 flex-col gap-3 animate-fade-in sm:gap-4 lg:grid lg:min-h-[560px] lg:grid-cols-[minmax(180px,220px)_minmax(320px,1fr)_minmax(0,190px)]">
+    <section className="relative flex min-h-0 flex-1 flex-col gap-3 animate-fade-in sm:gap-4 lg:grid lg:min-h-[560px] lg:grid-cols-[minmax(180px,220px)_minmax(320px,1fr)_minmax(0,190px)]">
       {/* Colonne 1 — canaux */}
       <div className={`carte min-h-0 min-w-0 flex-1 flex-col overflow-y-auto p-3 lg:flex ${mobileView === "chans" ? "flex" : "hidden"}`}>
         <div className="mb-1 flex items-center justify-between gap-2 px-1">
@@ -148,6 +227,35 @@ export default function CommunicationPage() {
             </h2>
             <span className="min-w-0 truncate text-xs text-gray-400 dark:text-rdia-400">{selChan?.topic || (isVoice ? t.cm_voice : "")}</span>
           </div>
+          {/* ADMINISTRATION DU CANAL — renommer et supprimer.
+              Réservée à l'administration côté SERVEUR (`comms_admin:*`, ligne
+              séparée de `comms`) : ce masquage n'est qu'un confort, l'API
+              refuserait de toute façon. Un canal renommé sous les pieds d'une
+              conduite en cours, ou supprimé avec sa conversation, ne se
+              rattrape pas — d'où la séparation. */}
+          {canAdmin && selChan && !isVoice && (
+            <div className="flex shrink-0 items-center gap-0.5">
+              <button
+                onClick={() => {
+                  setRenomme(selChan.id);
+                  setNouveauNom(selChan.name);
+                }}
+                title={t.cm_rename}
+                aria-label={`${t.cm_rename} — ${selChan.name}`}
+                className={iconBtnCls}
+              >
+                <Icon path={UI_ICONS.edit} size={15} />
+              </button>
+              <button
+                onClick={() => void supprimer(selChan.id)}
+                title={t.cm_delete}
+                aria-label={`${t.cm_delete} — ${selChan.name}`}
+                className={`${iconBtnCls} hover:!text-danger-500`}
+              >
+                <Icon path={UI_ICONS.trash} size={15} />
+              </button>
+            </div>
+          )}
           {/* Accès aux membres — sous `lg` la troisième colonne n'est pas affichée. */}
           <button
             onClick={() => setMobileView("members")}
@@ -170,7 +278,10 @@ export default function CommunicationPage() {
                       <span className={`text-xs font-bold ${m.mine ? "text-or-500" : "text-rdia-600 dark:text-rdia-100"}`}>{m.who}</span>
                       <span className="font-mono text-[10px] text-gray-400 dark:text-rdia-400">{m.time}</span>
                     </div>
-                    <div className="break-words text-sm leading-snug text-gray-700 dark:text-rdia-100">{m.txt}</div>
+                    {m.txt && (
+                      <div className="break-words text-sm leading-snug text-gray-700 dark:text-rdia-100">{m.txt}</div>
+                    )}
+                    {m.attachment && <PieceJointe att={m.attachment} />}
                   </div>
                 </div>
               ))}
@@ -180,11 +291,41 @@ export default function CommunicationPage() {
                 coquille (et non `100vh`), donc elle reste atteignable clavier
                 ouvert. */}
             <div className="flex shrink-0 items-center gap-2 border-t border-gray-200 p-2 sm:p-3 dark:border-rdia-600">
+              {/* Le fichier part dès qu'il est choisi, avec le texte tapé pour
+                  légende : demander un second clic sur « envoyer » ferait perdre
+                  la pièce à qui presse Entrée par réflexe. */}
+              <input
+                ref={fichierRef}
+                type="file"
+                className="sr-only"
+                accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,application/pdf,text/plain,text/csv"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void joindre(f);
+                }}
+              />
+              <button
+                onClick={() => fichierRef.current?.click()}
+                disabled={envoiPJ}
+                title={t.cm_attach}
+                aria-label={t.cm_attach}
+                className="cible-tactile flex shrink-0 items-center justify-center rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 disabled:opacity-40 dark:hover:bg-rdia-600"
+              >
+                <Icon path={UI_ICONS.paperclip} size={17} />
+              </button>
               <input className="input-champ min-w-0 flex-1 text-base md:text-sm" placeholder={t.cm_msg_ph} value={msg} onChange={(e) => setMsg(e.target.value)} onKeyDown={onMsgKey} />
-              <button className="btn-primaire cible-tactile shrink-0 px-3 text-sm" onClick={send} aria-label={t.send}>
+              <button className="btn-primaire cible-tactile shrink-0 px-3 text-sm" onClick={send} aria-label={t.send} disabled={envoiPJ}>
                 <Icon path={UI_ICONS.send} size={16} strokeWidth={2} />
               </button>
             </div>
+            {(envoiPJ || erreurPJ) && (
+              <p
+                role={erreurPJ ? "alert" : undefined}
+                className={`px-3 pb-2 text-[11.5px] font-semibold ${erreurPJ ? "text-danger-400" : "text-gray-500 dark:text-rdia-300"}`}
+              >
+                {erreurPJ ?? t.cm_attach_sending}
+              </p>
+            )}
           </>
         )}
 
@@ -217,31 +358,189 @@ export default function CommunicationPage() {
           <Icon path={UI_ICONS.arrowLeft} size={14} strokeWidth={2} className="shrink-0 rtl:rotate-180" />
           <span className="truncate">{t.back}</span>
         </button>
-        <div className="mb-2 px-1 text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{t.cm_online}</div>
-        {comMembers.online.map((mb) => (
-          <div key={mb.n} className="flex items-center gap-2 px-1 py-1.5">
-            <div className="relative shrink-0">
-              <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[9px] font-bold ${mb.av}`}>{mb.initials}</div>
-              {/* Propriété logique : la pastille reste du bon côté en RTL. */}
-              <span className="absolute h-2 w-2 rounded-full bg-green-500" style={{ bottom: 0, insetInlineEnd: 0, border: "1.5px solid #fff" }} />
+        {/* PRÉSENCE RÉELLE. L'ancienne liste était figée dans le code : deux
+            tableaux « en ligne » et « hors ligne » écrits à la main, qui
+            disaient la même chose quoi qu'il arrive. Ce qui s'affiche ici vient
+            désormais des flux temps réel ouverts — un compte est en ligne tant
+            que sa connexion l'est, et fermer l'onglet suffit à l'en retirer. */}
+        <div className="mb-2 flex items-center gap-1.5 px-1">
+          <span className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400">
+            {t.cm_online_real}
+          </span>
+          <span className="font-mono text-[11px] font-bold tabular-nums text-green-600">{rtOnline.length}</span>
+        </div>
+
+        {rtOnline.length === 0 ? (
+          <p className="px-1 text-[11.5px] leading-snug text-gray-500 dark:text-rdia-300">{t.cm_offline_real}</p>
+        ) : (
+          rtOnline.map((u) => (
+            <div key={u.matricule} className="flex items-center gap-2 px-1 py-1.5">
+              <div className="relative shrink-0">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-or-500 text-[9px] font-bold text-rdia-600">
+                  {u.matricule.slice(0, 2).toUpperCase()}
+                </div>
+                {/* Propriété logique : la pastille reste du bon côté en RTL. */}
+                <span
+                  className="absolute h-2 w-2 rounded-full bg-green-500"
+                  style={{ bottom: 0, insetInlineEnd: 0, border: "1.5px solid #fff" }}
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs font-semibold text-gray-700 dark:text-rdia-100">{u.matricule}</div>
+                <div className="truncate text-[10px] text-gray-400 dark:text-rdia-400">
+                  {u.role}
+                  {/* Deux onglets d'un même officier font UN présent : on le dit
+                      plutôt que de le compter deux fois. */}
+                  {u.sessions > 1 && ` · ${u.sessions} ${t.cm_sessions}`}
+                </div>
+              </div>
             </div>
-            <div className="min-w-0">
-              <div className="truncate text-xs font-semibold text-gray-700 dark:text-rdia-100">{mb.n}</div>
-              <div className="truncate text-[10px] text-gray-400 dark:text-rdia-400">{mb.g}</div>
-            </div>
-          </div>
-        ))}
-        <div className="mb-2 mt-4 px-1 text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{t.cm_offline}</div>
-        {comMembers.offline.map((mb) => (
-          <div key={mb.n} className="flex items-center gap-2 px-1 py-1.5 opacity-60">
-            <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${mb.av}`}>{mb.initials}</div>
-            <div className="min-w-0">
-              <div className="truncate text-xs font-semibold text-gray-700 dark:text-rdia-100">{mb.n}</div>
-              <div className="truncate text-[10px] text-gray-400 dark:text-rdia-400">{mb.g}</div>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
+
+      {/* Liaison temps réel rompue : DIT, jamais tu. Un écran de commandement
+          qui a cessé de recevoir est pire qu'un écran vide — il continue
+          d'avoir l'air à jour. */}
+      {rtStatus !== "open" && (
+        <p
+          role="status"
+          className="pointer-events-none absolute inset-x-3 top-2 z-30 rounded-lg bg-danger-500/15 px-3 py-1.5 text-center text-[11.5px] font-semibold text-danger-400"
+        >
+          {rtStatus === "connecting" ? t.notif_connecting : t.cm_stream_down}
+        </p>
+      )}
+
+      {renomme && (
+        <Modal open title={t.cm_rename} onClose={() => setRenomme(null)} size="sm">
+          <div className="space-y-3">
+            <label className="block text-[12px] font-semibold text-gray-700 dark:text-white/80" htmlFor="cm-nom">
+              {t.cm_channel_name}
+            </label>
+            <input
+              id="cm-nom"
+              className="input-champ cible-tactile w-full"
+              value={nouveauNom}
+              onChange={(e) => setNouveauNom(e.target.value)}
+              maxLength={60}
+              autoFocus
+            />
+            <p className="text-[11.5px] leading-snug text-gray-500 dark:text-rdia-300">{t.cm_admin_only}</p>
+            <div className="flex justify-end gap-2">
+              <button className="btn-secondaire cible-tactile text-sm" onClick={() => setRenomme(null)}>
+                {t.cancel}
+              </button>
+              <button
+                className="btn-primaire cible-tactile text-sm"
+                onClick={() => void renommer()}
+                disabled={!nouveauNom.trim()}
+              >
+                {t.save}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </section>
+  );
+}
+
+
+/**
+ * Rendu d'une pièce jointe.
+ *
+ * L'image et la vidéo s'affichent EN PLACE : une photo de dégâts qu'il faut
+ * télécharger pour voir arrive trop tard. Le reste — PDF, texte, CSV — se
+ * télécharge, parce que rendre un document dans la page est une surface
+ * d'attaque que rien ne justifie ici.
+ *
+ * Le jeton porteur ne pouvant pas voyager dans une balise `img`, le contenu est
+ * récupéré par `fetch` authentifié puis exposé en URL d'objet locale. C'est
+ * aussi ce qui évite qu'une pièce jointe soit lisible par une simple URL.
+ */
+function PieceJointe({ att }: { att: CommAttachment }) {
+  const t = useDict();
+  const [url, setUrl] = useState<string | null>(null);
+  const [echec, setEchec] = useState(false);
+  const image = att.mime.startsWith("image/");
+  const video = att.mime.startsWith("video/");
+
+  useEffect(() => {
+    if (!image && !video) return;
+    let vivant = true;
+    let objet: string | null = null;
+    void (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/comms/attachments/${att.id}`, {
+          headers: { Authorization: `Bearer ${getStoredToken() ?? ""}` },
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        objet = URL.createObjectURL(await res.blob());
+        if (vivant) setUrl(objet);
+      } catch {
+        if (vivant) setEchec(true);
+      }
+    })();
+    return () => {
+      vivant = false;
+      // L'URL d'objet est RÉVOQUÉE : sans cela chaque défilement du fil
+      // retiendrait des mégaoctets de vidéo jusqu'au rechargement de la page.
+      if (objet) URL.revokeObjectURL(objet);
+    };
+  }, [att.id, image, video]);
+
+  const ko = att.bytes < 1024 * 1024
+    ? `${Math.max(1, Math.round(att.bytes / 1024))} Ko`
+    : `${(att.bytes / 1048576).toFixed(1)} Mo`;
+
+  const telecharger = async () => {
+    const res = await fetch(`${API_BASE}/api/comms/attachments/${att.id}`, {
+      headers: { Authorization: `Bearer ${getStoredToken() ?? ""}` },
+    });
+    if (!res.ok) return;
+    const objet = URL.createObjectURL(await res.blob());
+    const a = document.createElement("a");
+    a.href = objet;
+    a.download = att.name;
+    a.click();
+    URL.revokeObjectURL(objet);
+  };
+
+  if ((image || video) && !echec) {
+    return (
+      <figure className="mt-1.5 max-w-[380px] overflow-hidden rounded-lg border border-gray-200 dark:border-rdia-600">
+        {url ? (
+          image ? (
+            // eslint-disable-next-line @next/next/no-img-element -- URL d'objet locale : `next/image` ne sait pas la servir.
+            <img src={url} alt={att.name} className="block max-h-[320px] w-full object-contain bg-black/5" />
+          ) : (
+            <video src={url} controls className="block max-h-[320px] w-full bg-black" />
+          )
+        ) : (
+          <div className="h-32 w-full animate-pulse bg-gray-100 motion-reduce:animate-none dark:bg-rdia-800/40" />
+        )}
+        <figcaption className="flex items-center gap-2 px-2 py-1.5 text-[10.5px] text-gray-500 dark:text-rdia-300">
+          <span className="min-w-0 flex-1 truncate">{att.name}</span>
+          <span className="shrink-0 tabular-nums">{ko}</span>
+          <button onClick={() => void telecharger()} title={t.cm_download} aria-label={`${t.cm_download} — ${att.name}`}>
+            <Icon path={UI_ICONS.download} size={13} className="shrink-0 hover:text-or-500" />
+          </button>
+        </figcaption>
+      </figure>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => void telecharger()}
+      className="mt-1.5 flex w-full max-w-[320px] items-center gap-2 rounded-lg border border-gray-200 px-2.5 py-2 text-start transition-colors hover:border-or-500/60 dark:border-rdia-600"
+    >
+      <Icon path={UI_ICONS.file} size={16} className="shrink-0 text-gray-400" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[12px] font-semibold text-gray-800 dark:text-rdia-50">{att.name}</span>
+        <span className="block text-[10.5px] tabular-nums text-gray-500 dark:text-rdia-300">{ko}</span>
+      </span>
+      <Icon path={UI_ICONS.download} size={14} className="shrink-0 text-gray-400" />
+    </button>
   );
 }

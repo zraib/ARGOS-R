@@ -340,6 +340,14 @@ export interface CommCategory {
   chans: Channel[];
 }
 
+/** Pièce jointe d'un message — le contenu vit côté serveur (lot COMMS). */
+export interface CommAttachment {
+  id: string;
+  name: string;
+  mime: string;
+  bytes: number;
+}
+
 export interface CommMessage {
   id: number;
   who: string;
@@ -349,6 +357,17 @@ export interface CommMessage {
   time: string;
   txt: string;
   mine?: boolean;
+  /** Absente pour un message de texte seul — la majorité. */
+  attachment?: CommAttachment;
+}
+
+/** Un compte réellement connecté, tel que le flux temps réel le rapporte. */
+export interface PresenceUser {
+  matricule: string;
+  role: string;
+  /** Nombre de flux ouverts : deux onglets font UN présent, pas deux. */
+  sessions: number;
+  since: string;
 }
 
 export interface Member {

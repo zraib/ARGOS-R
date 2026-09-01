@@ -257,6 +257,14 @@ export class ChannelMembersDto {
 }
 
 /** Envoi d'un message dans un canal. */
+/** Fiche d'une pièce jointe déjà versée — le contenu vit sur disque. */
+export class MessageAttachmentDto {
+  @ApiProperty() @IsString() @Length(1, 64) id!: string;
+  @ApiProperty() @IsString() @Length(1, 160) name!: string;
+  @ApiProperty() @IsString() @Length(1, 100) mime!: string;
+  @ApiProperty({ minimum: 0 }) @IsInt() @Min(0) bytes!: number;
+}
+
 export class SendMessageDto {
   @ApiProperty({ example: "c1" })
   @IsString()
@@ -265,8 +273,17 @@ export class SendMessageDto {
 
   @ApiProperty()
   @IsString()
-  @MinLength(1)
+  // Le texte peut être VIDE quand une pièce jointe l'accompagne : envoyer une
+  // photo sans légende est un geste ordinaire, et l'exiger ferait taper un
+  // point pour rien. Le couple (texte vide, pièce absente) reste refusé.
+  @MaxLength(4000)
   txt!: string;
+
+  @ApiPropertyOptional({ type: MessageAttachmentDto, description: "Pièce jointe déjà versée via POST /comms/attachments." })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => MessageAttachmentDto)
+  attachment?: MessageAttachmentDto;
 }
 
 /** Création d'un groupe de canaux. */

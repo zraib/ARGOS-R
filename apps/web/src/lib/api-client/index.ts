@@ -26,6 +26,8 @@ export type CreateSubIncidentBody = Json<NonNullable<paths["/api/incidents/{id}/
 export type RegisterIncidentTypeBody = Json<NonNullable<paths["/api/incident-types"]["post"]["requestBody"]>>;
 export type CreateUnitBody = Json<NonNullable<paths["/api/units"]["post"]["requestBody"]>>;
 export type CreateShelterBody = Json<NonNullable<paths["/api/shelters"]["post"]["requestBody"]>>;
+/** Fiche d'une pièce jointe versée — le contenu vit côté serveur (lot COMMS). */
+export type CommsAttachment = { id: string; name: string; mime: string; bytes: number };
 // Traceurs GPS FMC920 (lot N-2). Le type de la RÉPONSE est exporté aussi : la
 // carte et l'écran de gestion lisent la même forme, qui vient du contrat.
 export type DeclareTrackerBody = Json<NonNullable<paths["/api/tracking/trackers"]["post"]["requestBody"]>>;
@@ -122,6 +124,16 @@ export function createArgosClient(opts: ArgosClientOptions) {
      * qui la consulte et l'emploie.
      */
     createShelter: (body: CreateShelterBody) => client.POST("/api/shelters", { body }),
+
+    // --- centre de communication (lot COMMS) ---
+    getPresence: () => client.GET("/api/comms/presence"),
+    createCommsChannel: (categoryId: string, name: string) =>
+      client.POST("/api/comms/channels", { body: { categoryId, name } }),
+    renameCommsChannel: (id: string, name: string) =>
+      client.PATCH("/api/comms/channels/{id}", { params: { path: { id } }, body: { name } }),
+    deleteCommsChannel: (id: string) =>
+      client.DELETE("/api/comms/channels/{id}", { params: { path: { id } } }),
+    createCommsCategory: (name: string) => client.POST("/api/comms/categories", { body: { name } }),
     /**
      * Suppression DÉFINITIVE d'un incident — `incidents:delete`, que la matrice
      * n'accorde à personne : seul le joker du Super Administrateur la détient.
@@ -225,7 +237,9 @@ export function createArgosClient(opts: ArgosClientOptions) {
     getDispatchMovements: () => client.GET("/api/dispatch/movements"),
     getCatalog: () => client.GET("/api/catalog"),
     getComms: () => client.GET("/api/comms"),
-    sendMessage: (channelId: string, txt: string) => client.POST("/api/comms/messages", { body: { channelId, txt } }),
+    /** Envoie un message, avec ou sans pièce jointe déjà versée. */
+    sendMessage: (channelId: string, txt: string, attachment?: CommsAttachment) =>
+      client.POST("/api/comms/messages", { body: { channelId, txt, ...(attachment ? { attachment } : {}) } }),
     createCommCategory: (name: string) => client.POST("/api/comms/categories", { body: { name } }),
     createCommChannel: (categoryId: string, name: string) => client.POST("/api/comms/channels", { body: { categoryId, name } }),
     getReference: () => client.GET("/api/reference"),

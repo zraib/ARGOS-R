@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import { NotificationBell } from "@/components/shell/NotificationBell";
 import { useEffect, useRef, useState } from "react";
 import { useArgos, useDict, useModules } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
@@ -245,8 +246,11 @@ export function Header() {
         {alertLabel(t, alertLevel)}
       </span>
 
-      {/* Droite : langue (globe) + thème + menu utilisateur */}
+      {/* Droite : notifications (cloche) + langue (globe) + thème + menu. La
+          cloche vient EN PREMIER : c'est la seule des trois qui change d'état
+          sans qu'on la touche, et l'œil doit la trouver au même endroit. */}
       <div className="flex shrink-0 items-center justify-end gap-1.5">
+        <NotificationBell />
         <LanguageMenu />
         <button
           onClick={toggleTheme}

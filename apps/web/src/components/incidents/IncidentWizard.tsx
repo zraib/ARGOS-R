@@ -617,9 +617,17 @@ export function IncidentWizard() {
             {/* ZONE UNIQUE DE SAISIE DES MOTS-CLÉS (chips) */}
             <div>
               <label className={labelCls}>{t.f_keywords}</label>
-              {/* Chips existants + input pour en ajouter un nouveau (combo unique, style champ) */}
+              {/* CHIPS ET CHAMP DANS UNE RANGÉE, BOUTON EN DEHORS.
+                  Le bouton « Ajouter » était rendu À L'INTÉRIEUR de cette rangée
+                  `flex-wrap`, et seulement quand la saisie n'était pas vide : à
+                  la première lettre il apparaissait, rétrécissait le champ de
+                  64 px, le poussait de 9 px vers le bas — et faisait sauter le
+                  curseur sous les doigts. Il est désormais hors du conteneur et
+                  TOUJOURS rendu, désactivé tant qu'il n'y a rien à ajouter :
+                  plus rien ne bouge pendant qu'on écrit. */}
+              <div className="flex items-start gap-2">
               <div
-                className={`${fieldCls} flex flex-wrap items-center gap-1.5 py-2`}
+                className={`${fieldCls} flex min-w-0 flex-1 flex-wrap items-center gap-1.5 py-2`}
                 onClick={(e) => {
                   const el = (e.currentTarget.querySelector(
                     'input[data-wiz-keyword-input="1"]',
@@ -654,15 +662,15 @@ export function IncidentWizard() {
                   placeholder={keywordsList.length ? "" : t.f_keywords_chip_ph}
                   className="min-w-[14ch] flex-1 border-0 bg-transparent p-0 text-sm outline-none ring-0 placeholder:text-gray-400 dark:placeholder:text-rdia-400"
                 />
-                {keywordsDraft.trim() && (
-                  <button
-                    type="button"
-                    onClick={addKeyword}
-                    className="btn-primaire px-2.5 py-1 text-[11px]"
-                  >
-                    {t.f_keywords_add}
-                  </button>
-                )}
+              </div>
+                <button
+                  type="button"
+                  onClick={addKeyword}
+                  disabled={!keywordsDraft.trim()}
+                  className="btn-primaire cible-tactile shrink-0 px-2.5 text-[11px] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {t.f_keywords_add}
+                </button>
               </div>
               <p className="mt-1 text-[11px] leading-snug text-gray-400 dark:text-rdia-400">{t.f_keywords_hint}</p>
             </div>
