@@ -31,6 +31,13 @@ import type { HazardKind } from "@/lib/hazard/pictograms";
 
 interface Sheet {
   appearance: string;
+  firstAid?: string;
+  fireFighting?: string;
+  nonFireResponse?: string;
+  specialHazards?: string;
+  isolationAdvice?: string;
+  idlhPpm?: number;
+  flashPointC?: number;
   vaporDensity?: number;
   boilingPointC?: number;
   behaviour: string;
@@ -54,6 +61,8 @@ interface Substance {
   sheet?: Sheet;
   ergVerified: boolean;
   sheetVerified?: boolean;
+  /** La liste ne transporte plus la fiche (22 Mo de texte) — seulement sa présence. */
+  hasSheet?: boolean;
 }
 
 interface Provenance {
@@ -67,6 +76,9 @@ interface Provenance {
 }
 
 /** Classe ADR → pictogramme réglementaire (lot N-1). */
+/** Nombre de fiches rendues à l'écran — la recherche porte sur toute la base. */
+const MAX_SHOWN = 60;
+
 function pictogramFor(s: Substance): HazardKind {
   if (s.hazardClass === "7") return "radioactive";
   if (s.hazardClass === "6.2") return "biohazard";
@@ -92,6 +104,24 @@ export default function SubstancesPage() {
   const [list, setList] = useState<Substance[]>([]);
   const [prov, setProv] = useState<Provenance | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  /**
+   * Fiches déjà chargées. La liste n'en transporte plus aucune : le référentiel
+   * complet pèse 22 Mo de texte, et une réponse de cette taille sur une liaison
+   * de campagne est inutilisable. Chaque fiche est demandée à son ouverture, et
+   * gardée ensuite.
+   */
+  const [sheets, setSheets] = useState<Record<string, Substance>>({});
+
+  const toggle = async (id: string) => {
+    if (openId === id) {
+      setOpenId(null);
+      return;
+    }
+    setOpenId(id);
+    if (sheets[id]) return;
+    const { data } = await api.getSubstance(id);
+    if (data) setSheets((prev) => ({ ...prev, [id]: data as unknown as Substance }));
+  };
 
   useEffect(() => {
     let alive = true;
@@ -169,17 +199,24 @@ export default function SubstancesPage() {
         )}
       </header>
 
+      {/* PLAFOND D'AFFICHAGE. Le référentiel complet dépasse cinq mille entrées :
+          les rendre toutes fige la page sans rien apporter — personne ne fait
+          défiler cinq mille fiches, on cherche. Le compte total reste affiché,
+          et la recherche porte sur la bibliothèque ENTIÈRE, pas sur la tranche
+          visible. */}
       {list.length === 0 ? (
         <p className="carte p-8 text-center text-sm text-gray-500 dark:text-rdia-300">{t.cl_none}</p>
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {list.map((s) => {
+          {list.slice(0, MAX_SHOWN).map((s) => {
             const isOpen = openId === s.id;
+            // La fiche vient du chargement à la demande, pas de la liste.
+            const detail = sheets[s.id];
             return (
               <article key={s.id} className={`carte flex flex-col p-3 ${isOpen ? "md:col-span-2 xl:col-span-3" : ""}`}>
                 <button
                   className="flex items-start gap-3 text-start"
-                  onClick={() => setOpenId(isOpen ? null : s.id)}
+                  onClick={() => void toggle(s.id)}
                   aria-expanded={isOpen}
                 >
                   <HazardIcon kind={pictogramFor(s)} size={30} label={hazardLabel(pictogramFor(s), t)} />
@@ -214,43 +251,63 @@ export default function SubstancesPage() {
                   )}
                 </div>
 
-                {isOpen && s.sheet && (
+                {isOpen && (detail?.sheet ? (
                   <div className="mt-3 border-t border-gray-100 pt-3 dark:border-rdia-700/50">
-                    {!s.sheetVerified && (
+                    {!detail.sheetVerified && (
                       <p className="mb-3 rounded-lg bg-or-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-or-600 dark:text-or-400">
                         {t.cl_sheet_unverified}
                       </p>
                     )}
 
                     <div className="mb-3 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-gray-500 dark:text-rdia-300">
-                      {s.sheet.vaporDensity !== undefined && (
+                      {detail.sheet!.vaporDensity !== undefined && (
                         <span className="tabular-nums">
-                          {t.cl_vapor} {s.sheet.vaporDensity} —{" "}
+                          {t.cl_vapor} {detail.sheet!.vaporDensity} —{" "}
                           {/* Ce seul chiffre décide du sens d'évacuation : il mérite
                               d'être traduit en conduite, pas laissé en nombre nu. */}
-                          <span className={s.sheet.vaporDensity > 1 ? "font-semibold text-danger-500" : ""}>
-                            {s.sheet.vaporDensity > 1 ? t.cl_heavier : t.cl_lighter}
+                          <span className={detail.sheet!.vaporDensity > 1 ? "font-semibold text-danger-500" : ""}>
+                            {detail.sheet!.vaporDensity > 1 ? t.cl_heavier : t.cl_lighter}
                           </span>
                         </span>
                       )}
-                      {s.sheet.boilingPointC !== undefined && (
+                      {detail.sheet!.boilingPointC !== undefined && (
                         <span className="tabular-nums">
-                          {t.cl_boiling} {s.sheet.boilingPointC} °C
+                          {t.cl_boiling} {detail.sheet!.boilingPointC} °C
                         </span>
                       )}
-                      {s.synonyms && s.synonyms.length > 0 && <span>{s.synonyms.join(" · ")}</span>}
+                      {detail.sheet!.idlhPpm !== undefined && (
+                        <span className="font-semibold tabular-nums text-danger-500">
+                          {t.cl_idlh} {detail.sheet!.idlhPpm} ppm
+                        </span>
+                      )}
+                      {detail.sheet!.flashPointC !== undefined && (
+                        <span className="tabular-nums">
+                          {t.cl_flash} {detail.sheet!.flashPointC} °C
+                        </span>
+                      )}
+                      {detail.synonyms && detail.synonyms.length > 0 && <span>{detail.synonyms.join(" · ")}</span>}
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                      <Field label={t.cl_appearance} value={s.sheet.appearance} />
-                      <Field label={t.cl_behaviour} value={s.sheet.behaviour} />
-                      <Field label={t.cl_health} value={s.sheet.health} />
-                      <Field label={t.cl_fire} value={s.sheet.fire} />
-                      <Field label={t.cl_reactivity} value={s.sheet.reactivity} />
-                      <Field label={t.cl_ppe} value={s.sheet.ppe} />
+                      <Field label={t.cl_appearance} value={detail.sheet!.appearance} />
+                      <Field label={t.cl_behaviour} value={detail.sheet!.behaviour} />
+                      <Field label={t.cl_health} value={detail.sheet!.health} />
+                      <Field label={t.cl_fire} value={detail.sheet!.fire} />
+                      <Field label={t.cl_reactivity} value={detail.sheet!.reactivity} />
+                      <Field label={t.cl_ppe} value={detail.sheet!.ppe} />
+                      {/* Rubriques apportées par les fiches CAMEO : elles
+                          n'existaient nulle part, et ce sont celles qu'on lit
+                          sur zone, pas au bureau. */}
+                      {detail.sheet!.firstAid && <Field label={t.cl_first_aid} value={detail.sheet!.firstAid} />}
+                      {detail.sheet!.fireFighting && <Field label={t.cl_fire_fight} value={detail.sheet!.fireFighting} />}
+                      {detail.sheet!.nonFireResponse && <Field label={t.cl_non_fire} value={detail.sheet!.nonFireResponse} />}
+                      {detail.sheet!.specialHazards && <Field label={t.cl_special} value={detail.sheet!.specialHazards} />}
+                      {detail.sheet!.isolationAdvice && (
+                        <Field label={t.cl_isolation_advice} value={detail.sheet!.isolationAdvice} />
+                      )}
                     </div>
 
-                    {s.small && s.large && (
+                    {detail.small && detail.large && (
                       <div className="mt-3 overflow-x-auto">
                         <table className="w-full min-w-[420px] text-[11px] tabular-nums">
                           <thead className="text-gray-400 dark:text-rdia-400">
@@ -262,7 +319,7 @@ export default function SubstancesPage() {
                             </tr>
                           </thead>
                           <tbody className="text-gray-700 dark:text-rdia-100">
-                            {([["Petit déversement", s.small], ["Grand déversement", s.large]] as const).map(([k, d]) => (
+                            {([["Petit déversement", detail.small], ["Grand déversement", detail.large]] as const).map(([k, d]) => (
                               <tr key={k} className="border-t border-gray-100 dark:border-rdia-700/50">
                                 <td className="py-1">{k}</td>
                                 <td className="py-1 text-end">{d.isolationM} m</td>
@@ -275,11 +332,21 @@ export default function SubstancesPage() {
                       </div>
                     )}
                   </div>
-                )}
+                ) : (
+                  <p className="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-400 dark:border-rdia-700/50 dark:text-rdia-400">
+                    {t.idash_loading}
+                  </p>
+                ))}
               </article>
             );
           })}
         </div>
+      )}
+
+      {list.length > MAX_SHOWN && (
+        <p className="text-center text-xs text-gray-500 dark:text-rdia-300">
+          {`${MAX_SHOWN} affichées sur ${list.length} — affinez la recherche (nom, synonyme, n° ONU).`}
+        </p>
       )}
     </section>
   );

@@ -21,7 +21,7 @@ export interface SubstanceCatalog {
    * bibliothèque enrichie dont on ignore d'où vient l'enrichissement aurait
    * l'air complète, ce qui est pire que d'être incomplète.
    */
-  origin?(): { source: string; retrievedAt: string; authorization: string } | null;
+  origin?(): { source: string; retrievedAt: string; authorization: string; count: number }[] | null;
 }
 
 /** Jeton d'injection Nest. */

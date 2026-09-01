@@ -1157,6 +1157,71 @@ Les noms des 242 nouvelles matières viennent de la base en anglais. Ils sont
 recopiés tels quels dans les trois langues : une traduction automatique de nom
 chimique serait une invention. Le français reste à faire par l'état-major.
 
+### 19.9 Les fiches complètes — 5 336 substances (lot N-3d)
+
+Les 5 094 fiches de la base de bureau sont désormais dans ARGOS. Ce qui a été
+repris, et ce qui ne l'a pas été :
+
+| Repris | Écarté, et pourquoi |
+|---|---|
+| Description, dangers santé, **premiers secours**, incendie, **lutte contre l'incendie**, **intervention hors incendie**, réactivité, profil, dangers particuliers, consignes d'isolement, protection | `chemical_cas` — **Chemical Abstracts Service** |
+| Propriétés physiques de source NTP, USCG, EPA, NIOSH, ICSC | `dupont` — **DuPont** |
+| Seuil **IDLH** (NIOSH), point d'éclair | `aegls` — **NACA** · `erpgs` — **AIHA** |
+| Synonymes, formules | Toute propriété de source **NFPA**, et les colonnes `nfpa_*` |
+
+Le script ne SÉLECTIONNE jamais les tables écartées. Garder trente et un numéros
+CAS comme identifiants isolés est une chose ; recopier un registre de cinq mille
+en est une autre. `prot_clothing` est repris après vérification : aucune de ses
+4 951 valeurs ne mentionne DuPont — ces données vivent dans la table séparée.
+
+```bash
+npm run nrbc:extract-sheets -- "/chemin/vers/CAMEO CHEMICALS"
+npm run nrbc:import -- data/staging/cameo-fiches.json
+```
+
+#### Une seule règle de fusion
+
+**La valeur versée l'emporte, SAUF une rubrique de fiche déjà rédigée.**
+
+Elle sert les deux cas sans qu'on ait à déclarer lequel. Un relevé de l'ERG doit
+**corriger** une saisie fausse — c'est ainsi que la distance de jour de
+l'ammoniac a été rectifiée. Une fiche CAMEO arrive en anglais : elle doit
+**compléter** une rubrique française déjà écrite, pas la remplacer, tout en
+apportant celles qui manquaient.
+
+Résultat pour le chlore : prose française conservée, distances ERG vérifiées,
+**et** premiers secours, lutte contre l'incendie et IDLH (10 ppm) en plus.
+
+*(Une première version déclarait l'intention fichier par fichier. Complication
+inutile, et avec un effet de bord : en mode « compléter », les DRAPEAUX de
+l'existant l'emportaient aussi, si bien que des distances extraites de la source
+ressortaient marquées non vérifiées. Ce qu'on veut préserver, c'est la prose.)*
+
+#### Deux conséquences d'échelle
+
+**La liste ne transporte plus les fiches.** 22 Mo de texte : la réponse aurait
+dépassé les vingt méga-octets sur une liaison de campagne. `GET /nrbc/library`
+renvoie des résumés avec un drapeau `hasSheet` ; la fiche se demande à
+l'ouverture (`GET /nrbc/substances/:id`) et reste en mémoire ensuite.
+
+**L'écran plafonne à 60 fiches rendues.** Personne ne fait défiler cinq mille
+entrées, on cherche. Le compte total reste affiché, et **la recherche porte sur
+la bibliothèque entière**, pas sur la tranche visible.
+
+#### Ce qui reste imparfait
+
+- **1 361 produits n'ont pas de numéro ONU** — ils ne voyagent pas sous régime
+  ADR mais restent dangereux. `Substance.un` est devenu optionnel plutôt que de
+  les taire.
+- Un numéro ONU couvre parfois plusieurs produits (« liquide inflammable
+  n.s.a. ») ; un seul le porte, les autres sont consultables par nom.
+- **Les 5 063 nouvelles fiches sont en anglais.** Traduire automatiquement des
+  noms et des consignes de sécurité serait une invention ; le français reste un
+  travail d'état-major.
+- **272 jeux de distances sur 5 336.** C'est la table 1 de l'ERG, qui ne couvre
+  que les matières toxiques par inhalation. Le reste du référentiel n'en a pas,
+  et n'est pas censé en avoir.
+
 ## 20. Ce qui reste à construire
 
 Le workflow est posé ; ces maillons le compléteront (voir le plan d'exécution) :

@@ -517,5 +517,12 @@ export interface Dict {
   cl_un: string;
   cl_cas: string;
   cl_guide: string;
+  cl_first_aid: string;
+  cl_fire_fight: string;
+  cl_non_fire: string;
+  cl_special: string;
+  cl_isolation_advice: string;
+  cl_idlh: string;
+  cl_flash: string;
 }
 

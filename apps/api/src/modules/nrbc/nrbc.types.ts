@@ -68,12 +68,43 @@ export interface SubstanceSheet {
   reactivity: string;
   /** Protection individuelle minimale. */
   ppe: string;
+
+  // --- champs de la fiche CAMEO (lot N-3d) ---------------------------------
+  // Rédigés par la NOAA et les agences publiques qu'elle cite (NTP, USCG, EPA,
+  // NIOSH, ICSC). Les jeux dont les conditions nomment un propriétaire —
+  // cotations NFPA, tenues DuPont, seuils AEGL et ERPG — ne sont PAS repris.
+
+  /** Conduite à tenir devant une victime — le geste, pas la théorie. */
+  firstAid?: string;
+  /** Lutte contre l'incendie : agents, précautions, ce qu'il ne faut pas faire. */
+  fireFighting?: string;
+  /** Intervention hors incendie : endiguement, absorption, décontamination. */
+  nonFireResponse?: string;
+  /** Profil chimique — comportement détaillé, produits de décomposition. */
+  profile?: string;
+  /** Dangers particuliers signalés hors des rubriques précédentes. */
+  specialHazards?: string;
+  /** Consignes d'isolement et d'évacuation rédigées (distinctes des distances ERG). */
+  isolationAdvice?: string;
+  /**
+   * Seuil IDLH en ppm (NIOSH) — « immédiatement dangereux pour la vie ou la
+   * santé ». Sert à qualifier une mesure de terrain, pas à poser un périmètre.
+   */
+  idlhPpm?: number;
+  /** Point d'éclair en °C, quand la source n'est pas la NFPA. */
+  flashPointC?: number;
 }
 
 export interface Substance {
   id: string;
-  /** Numéro ONU (étiquette orange des transports de matières dangereuses). */
-  un: string;
+  /**
+   * Numéro ONU (étiquette orange des transports de matières dangereuses).
+   *
+   * OPTIONNEL depuis le lot N-3d : 1 361 produits du référentiel n'en ont pas
+   * — ils ne voyagent pas sous régime ADR mais restent dangereux, et une
+   * bibliothèque de consultation n'a aucune raison de les taire.
+   */
+  un?: string;
   /** Numéro CAS — clé de recherche dans les bases chimiques. */
   cas?: string;
   /** Guide orange ERG correspondant (consignes d'intervention). */

@@ -3,7 +3,6 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import {
   importDir,
-  IMPORT_FILE,
   SubstanceImportError,
   validateImport,
 } from "@/modules/nrbc/infrastructure/substance-import";
@@ -56,9 +55,12 @@ function main() {
   const ergVerifiees = file.substances.filter((s) => s.ergVerified).length;
 
   mkdirSync(importDir(), { recursive: true });
-  copyFileSync(path, resolve(importDir(), IMPORT_FILE));
+    // Sous SON PROPRE nom : les jeux s'empilent au lieu de se remplacer. Verser
+  // les distances puis les fiches ne doit pas faire perdre les distances.
+  const dest = resolve(importDir(), basename(path));
+  copyFileSync(path, dest);
 
-  console.log(`\n  ${basename(path)} → ${resolve(importDir(), IMPORT_FILE)}\n`);
+  console.log(`\n  ${basename(path)} → ${dest}\n`);
   console.log(`  source          ${file.source}`);
   console.log(`  relevé le       ${file.retrievedAt}`);
   console.log(`  détenu au titre ${file.authorization}\n`);

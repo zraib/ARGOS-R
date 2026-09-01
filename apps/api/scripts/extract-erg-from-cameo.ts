@@ -2,7 +2,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { importDir, IMPORT_FORMAT, type SubstanceImportFile } from "@/modules/nrbc/infrastructure/substance-import";
+import { importDir, IMPORT_FORMAT, STAGING_DIR, type SubstanceImportFile } from "@/modules/nrbc/infrastructure/substance-import";
 import { SUBSTANCES } from "@/modules/nrbc/infrastructure/substances.data";
 import type { ErgDistances, Substance } from "@/modules/nrbc/nrbc.types";
 
@@ -175,8 +175,9 @@ function main() {
 
   // Dans `data/`, ignoré par git : un extrait d'un jeu tiers ne doit pas
   // pouvoir être commité par inadvertance, même quand il est défendable.
-  mkdirSync(importDir(), { recursive: true });
-  const out = resolve(importDir(), "erg2024-extrait.json");
+  const staging = resolve(importDir(), STAGING_DIR);
+  mkdirSync(staging, { recursive: true });
+  const out = resolve(staging, "erg2024-extrait.json");
   writeFileSync(out, JSON.stringify(file, null, 2) + "\n");
 
   const nouvelles = substances.filter((s) => s.id.startsWith("un-")).length;

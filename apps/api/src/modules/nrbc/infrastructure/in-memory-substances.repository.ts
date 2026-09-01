@@ -26,6 +26,9 @@ export class InMemorySubstancesRepository implements SubstanceCatalog {
     // démarrage — un référentiel de sécurité à moitié chargé est un piège,
     // puisqu'on croit consulter la base complète.
     this.imported = loadImportedLibrary();
+    // Les jeux versés, déjà fusionnés entre eux, se posent sur la bibliothèque
+    // livrée : leurs valeurs l'emportent, sauf les rubriques françaises déjà
+    // rédigées dans le code.
     this.substances = this.imported ? mergeLibrary(SUBSTANCES, this.imported.substances) : SUBSTANCES;
   }
 
@@ -34,9 +37,7 @@ export class InMemorySubstancesRepository implements SubstanceCatalog {
   }
 
   origin() {
-    if (!this.imported) return null;
-    const { source, retrievedAt, authorization } = this.imported;
-    return { source, retrievedAt, authorization };
+    return this.imported?.origins ?? null;
   }
 
   async findById(id: string): Promise<Substance | null> {

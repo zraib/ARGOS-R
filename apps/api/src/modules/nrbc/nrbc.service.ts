@@ -3,6 +3,14 @@ import { DomainService } from "@/modules/domain/domain.service";
 import { WeatherService } from "@/modules/domain/weather.service";
 import { SUBSTANCE_CATALOG, type SubstanceCatalog } from "@/modules/nrbc/ports/substance-catalog.port";
 import { libraryProvenance } from "@/modules/nrbc/infrastructure/substances.data";
+
+/** Ce que la LISTE transporte : tout sauf la fiche, qui pèse trop. */
+export type SubstanceSummary = Omit<Substance, "sheet"> & { hasSheet: boolean };
+
+function summarize(s: Substance): SubstanceSummary {
+  const { sheet, ...rest } = s;
+  return { ...rest, hasSheet: !!sheet };
+}
 import { atp45Zones, ergZones } from "@/modules/nrbc/plume/plume.engine";
 import {
   PLUME_MODELS,
@@ -67,9 +75,9 @@ export class NrbcService {
    * bibliothèque dont on ignore ce qui est vérifié se lit comme si tout l'était.
    */
   async library(query?: string): Promise<{
-    substances: Substance[];
+    substances: SubstanceSummary[];
     provenance: ReturnType<typeof libraryProvenance> & {
-      origin: { source: string; retrievedAt: string; authorization: string } | null;
+      origins: { source: string; retrievedAt: string; authorization: string; count: number }[] | null;
     };
   }> {
     const all = await this.catalog.list();
@@ -94,11 +102,15 @@ export class NrbcService {
     // sinon une recherche qui ne ramène que des fiches vérifiées laisserait
     // croire que la bibliothèque entière l'est.
     return {
-      substances,
+      // Résumés SANS la fiche. Le référentiel complet pèse 22 Mo de texte : la
+      // liste entière deviendrait une réponse de plusieurs dizaines de méga-
+      // octets, sur un poste de commandement dont la liaison peut être
+      // médiocre. La fiche se demande à l'ouverture (`GET /nrbc/substances/:id`).
+      substances: substances.map(summarize),
       // L'origine du jeu SOUS LICENCE voyage avec la provenance : une
       // bibliothèque enrichie dont on ignore d'où vient l'enrichissement aurait
       // l'air complète, ce qui est pire que d'être incomplète.
-      provenance: { ...libraryProvenance(all), origin: this.catalog.origin?.() ?? null },
+      provenance: { ...libraryProvenance(all), origins: this.catalog.origin?.() ?? null },
     };
   }
 

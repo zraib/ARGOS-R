@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { Substance } from "@/modules/nrbc/nrbc.types";
 
@@ -49,11 +49,23 @@ export interface SubstanceImportFile {
   substances: Substance[];
 }
 
-export interface ImportedLibrary {
-  substances: Substance[];
+export interface ImportedOrigin {
   source: string;
   retrievedAt: string;
   authorization: string;
+  /** Nombre de substances apportées par ce fichier. */
+  count: number;
+}
+
+export interface ImportedLibrary {
+  substances: Substance[];
+  /**
+   * UN ORIGINE PAR FICHIER. Les référentiels arrivent par morceaux — les
+   * distances d'un côté, les fiches de l'autre, un référentiel national demain.
+   * Fondre leurs provenances en une seule ligne ferait perdre la seule chose
+   * qui compte : lequel de ces jeux a été relevé où, et détenu à quel titre.
+   */
+  origins: ImportedOrigin[];
 }
 
 /**
@@ -90,7 +102,8 @@ function packageRoot(from: string): string {
 export function importDir(): string {
   return process.env.NRBC_DATA_DIR ?? resolve(packageRoot(__dirname), "data");
 }
-export const IMPORT_FILE = "substances.json";
+/** Sous-dossier où les extracteurs déposent leur sortie, AVANT vérification. */
+export const STAGING_DIR = "staging";
 
 export class SubstanceImportError extends Error {}
 
@@ -127,17 +140,17 @@ export function validateImport(raw: unknown): SubstanceImportFile {
   const seenUn = new Set<string>();
   f.substances.forEach((s, i) => {
     const at = `substance n°${i + 1}${s?.id ? ` (${s.id})` : ""}`;
-    if (!s?.id || !s.un || !s.ergGuide) throw new SubstanceImportError(`${at} : id, un et ergGuide sont requis.`);
+    if (!s?.id || !s.ergGuide) throw new SubstanceImportError(`${at} : id et ergGuide sont requis.`);
     if (!s.labels?.fr) throw new SubstanceImportError(`${at} : un libellé français est requis.`);
     if (s.state !== "gas" && s.state !== "liquid") throw new SubstanceImportError(`${at} : state doit valoir gas ou liquid.`);
     if (seenId.has(s.id)) throw new SubstanceImportError(`${at} : identifiant en double.`);
-    if (seenUn.has(s.un)) {
+    if (s.un && seenUn.has(s.un)) {
       // Un numéro ONU en double ferait remonter la mauvaise fiche à la recherche
       // par étiquette orange — l'usage le plus probable sur intervention.
       throw new SubstanceImportError(`${at} : numéro ONU ${s.un} en double.`);
     }
     seenId.add(s.id);
-    seenUn.add(s.un);
+    if (s.un) seenUn.add(s.un);
 
     // Les distances vont par paire : un seul déversement renseigné produirait un
     // gabarit disponible dans un cas et absent dans l'autre, sans explication.
@@ -168,15 +181,29 @@ export function validateImport(raw: unknown): SubstanceImportFile {
  * base complète.
  */
 export function loadImportedLibrary(dir = importDir()): ImportedLibrary | null {
-  const path = resolve(dir, IMPORT_FILE);
-  if (!existsSync(path)) return null;
-  const file = validateImport(JSON.parse(readFileSync(path, "utf8")));
-  return {
-    substances: file.substances,
-    source: file.source,
-    retrievedAt: file.retrievedAt,
-    authorization: file.authorization,
-  };
+  if (!existsSync(dir)) return null;
+  // TOUS les fichiers `.json` déposés à la racine du dossier, dans l'ordre du
+  // nom. Un seul fichier imposé obligerait à tout refondre à chaque ajout ; là,
+  // l'état-major dépose ses jeux et ils s'empilent. Le sous-dossier `staging/`
+  // est ignoré : c'est la sortie brute des extracteurs, pas ce qui fait foi.
+  const files = readdirSync(dir)
+    .filter((f) => f.endsWith(".json"))
+    .sort();
+  if (files.length === 0) return null;
+
+  const origins: ImportedOrigin[] = [];
+  let substances: Substance[] = [];
+  for (const f of files) {
+    const parsed = validateImport(JSON.parse(readFileSync(resolve(dir, f), "utf8")));
+    origins.push({
+      source: parsed.source,
+      retrievedAt: parsed.retrievedAt,
+      authorization: parsed.authorization,
+      count: parsed.substances.length,
+    });
+    substances = substances.length === 0 ? parsed.substances : mergeLibrary(substances, parsed.substances);
+  }
+  return { substances, origins };
 }
 
 /**
@@ -191,12 +218,30 @@ export function mergeLibrary(builtin: Substance[], imported: Substance[]): Subst
   const byId = new Map(builtin.map((s) => [s.id, s]));
   for (const s of imported) {
     const existing = byId.get(s.id);
-    // FUSION CHAMP PAR CHAMP, pas remplacement en bloc. Un fichier ne porte
-    // souvent qu'une partie de l'information — un extrait de la table 1 de
-    // l'ERG apporte des DISTANCES, pas des fiches. Remplacer l'enregistrement
-    // entier effacerait la fiche opérationnelle française déjà rédigée, en
-    // échange de rien. Les champs absents du fichier gardent leur valeur.
-    byId.set(s.id, existing ? { ...existing, ...prune(s) } : s);
+    if (!existing) {
+      byId.set(s.id, s);
+      continue;
+    }
+    // UNE SEULE RÈGLE : la valeur versée l'emporte, SAUF une rubrique de fiche
+    // déjà rédigée.
+    //
+    // Elle sert les deux cas sans qu'on ait à déclarer lequel. Un relevé de
+    // l'ERG doit CORRIGER une saisie fausse — c'est ainsi que la distance de
+    // jour de l'ammoniac a été rectifiée. Une fiche CAMEO, elle, arrive en
+    // anglais : elle doit COMPLÉTER une rubrique française déjà écrite, pas la
+    // remplacer, tout en apportant celles qui manquaient (premiers secours,
+    // lutte contre l'incendie, IDLH).
+    //
+    // Une première version déclarait l'intention fichier par fichier. C'était
+    // une complication inutile, et elle avait un effet de bord : en mode
+    // « compléter », les DRAPEAUX de l'existant l'emportaient aussi, si bien
+    // que des distances extraites de la source ressortaient marquées non
+    // vérifiées. Ce que l'on veut préserver, c'est la PROSE, pas les drapeaux.
+    const sheet =
+      existing.sheet && s.sheet
+        ? { ...prune(s.sheet as never), ...prune(existing.sheet as never) }
+        : (s.sheet ?? existing.sheet);
+    byId.set(s.id, { ...existing, ...prune(s), ...(sheet ? { sheet } : {}) } as Substance);
   }
   return [...byId.values()];
 }
