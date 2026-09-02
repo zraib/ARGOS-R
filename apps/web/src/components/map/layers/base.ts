@@ -6,15 +6,23 @@
 import maplibregl from "maplibre-gl";
 
 /**
- * Le style n'est pas prêt (tuiles en chargement, CDN qui étrangle) : la bascule
- * est REJOUÉE au prochain repos de la carte au lieu d'être perdue. Avant cela,
- * un clic sur « 3D » ou « Plan » pendant le chargement ne faisait rien, et rien
- * ne le disait (registre R-15). La dernière demande gagne : chaque appel
- * différé rejoue sa propre valeur, dans l'ordre des clics.
+ * Une bascule ne dépend que du STYLE (ses couches), pas des tuiles : elle
+ * s'applique dès que le style est analysé, même sous un CDN qui étrangle.
+ * Avant, la garde `isStyleLoaded()` — fausse tant qu'une tuile charge —
+ * faisait perdre un clic sur « 3D » ou « Plan » sans rien dire (registre R-15).
+ * Si le style n'est pas encore analysé (tout premier instant), la bascule est
+ * rejouée à `styledata` ; la dernière demande gagne, dans l'ordre des clics.
  */
 function whenStyleReady(map: maplibregl.Map, apply: () => void): void {
-  if (map.isStyleLoaded()) apply();
-  else map.once("idle", apply);
+  if (map.getStyle()) {
+    try {
+      apply();
+      return;
+    } catch {
+      /* couche pas encore posée : on rejoue au prochain styledata */
+    }
+  }
+  map.once("styledata", apply);
 }
 
 // --- bascule terrain 3D ---

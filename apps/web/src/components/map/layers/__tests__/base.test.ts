@@ -3,15 +3,15 @@ import type maplibregl from "maplibre-gl";
 import { apply3d, applyBase } from "@/components/map/layers/base";
 
 // ============================================================================
-// Bascules du fond et du terrain — une demande faite pendant le chargement des
-// tuiles n'est plus perdue : elle est rejouée au prochain repos de la carte.
+// Bascules du fond et du terrain — elles ne dépendent que du style, pas des
+// tuiles ; une demande faite avant l'analyse du style est rejouée, jamais perdue.
 // ============================================================================
 
 /** Une carte factice : juste ce que les bascules touchent. */
-function fausseCarte(styleLoaded: boolean) {
+function fausseCarte(stylePret: boolean) {
   const handlers: Record<string, (() => void)[]> = {};
   const carte = {
-    isStyleLoaded: () => styleLoaded,
+    getStyle: () => (stylePret ? { version: 8 } : undefined),
     once: (ev: string, cb: () => void) => {
       (handlers[ev] ??= []).push(cb);
     },
@@ -22,8 +22,8 @@ function fausseCarte(styleLoaded: boolean) {
     easeTo: vi.fn(),
   };
   const idle = () => {
-    for (const cb of handlers.idle ?? []) cb();
-    handlers.idle = [];
+    for (const cb of handlers.styledata ?? []) cb();
+    handlers.styledata = [];
   };
   return { carte: carte as unknown as maplibregl.Map, idle, setLayoutProperty: carte.setLayoutProperty, setTerrain: carte.setTerrain };
 }
@@ -36,7 +36,7 @@ describe("bascules pendant le chargement", () => {
     expect(setLayoutProperty).toHaveBeenCalledWith("sat", "visibility", "none");
   });
 
-  it("style pas prêt : rien n'est perdu, la bascule est rejouée au repos", () => {
+  it("style pas encore analysé : rien n'est perdu, la bascule est rejouée à styledata", () => {
     const { carte, idle, setLayoutProperty, setTerrain } = fausseCarte(false);
     applyBase(carte, true);
     apply3d(carte, true);
