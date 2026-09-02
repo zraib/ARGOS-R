@@ -18,12 +18,36 @@ export interface LlmResult {
   text: string;
   provider: LlmProviderId;
   error?: string;
+  /** Mesures rendues par le runtime : ce qui a VRAIMENT coûté, pas une estimation. */
+  stats?: LlmStats;
+  /** Appel INTERROMPU par l'appelant (priorité à l'opérateur) — ni succès, ni panne. */
+  aborted?: boolean;
 }
 
-async function withTimeout(ms: number): Promise<{ signal: AbortSignal; done: () => void }> {
+export interface LlmStats {
+  /** Jetons du prompt réellement évalués (0 si le préfixe était en cache). */
+  promptTokens: number;
+  promptSec: number;
+  outputTokens: number;
+  outputSec: number;
+}
+
+/** Extrait les mesures du dernier fragment NDJSON d'Ollama (`done: true`). */
+function statsOllama(j: Record<string, unknown>): LlmStats | undefined {
+  if (!j || j.done !== true) return undefined;
+  const n = (k: string) => (typeof j[k] === "number" ? (j[k] as number) : 0);
+  return {
+    promptTokens: n("prompt_eval_count"),
+    promptSec: n("prompt_eval_duration") / 1e9,
+    outputTokens: n("eval_count"),
+    outputSec: n("eval_duration") / 1e9,
+  };
+}
+
+async function withTimeout(ms: number): Promise<{ signal: AbortSignal; done: () => void; ctrl: AbortController }> {
   const ctrl = new AbortController();
   const id = setTimeout(() => ctrl.abort(), ms);
-  return { signal: ctrl.signal, done: () => clearTimeout(id) };
+  return { signal: ctrl.signal, done: () => clearTimeout(id), ctrl };
 }
 
 /** Liste les modèles réellement installés sur le runtime local. */
@@ -70,6 +94,35 @@ export async function probeProvider(cfg: LlmProviderConfig): Promise<boolean> {
   }
 }
 
+/**
+ * Précharge le modèle ET met son préfixe en cache.
+ *
+ * Mesuré sur ce poste : charger 23 Go prend ~80 s ; évaluer une consigne système
+ * de ~500 jetons, ~1 s. Ollama garde en cache la clé/valeur du PRÉFIXE identique
+ * d'un appel au suivant : en envoyant dès l'ouverture de session la consigne
+ * système réelle avec une réponse d'un seul jeton, la première vraie question ne
+ * paie plus ni le chargement ni la consigne. Appel « perdu », jamais affiché.
+ */
+export async function warmModel(cfg: LlmProviderConfig, systemPrompt?: string): Promise<void> {
+  if (cfg.id !== "ollama") return;
+  const { signal, done } = await withTimeout(180_000);
+  try {
+    const messages: LlmMessage[] = systemPrompt
+      ? [{ role: "system", content: systemPrompt }, { role: "user", content: "OK" }]
+      : [{ role: "user", content: "OK" }];
+    await fetch(`${cfg.endpoint}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: cfg.model, messages, stream: false, think: false, keep_alive: "30m", options: { ...OLLAMA_OPTIONS, num_predict: 1 } }),
+      signal,
+    });
+  } catch {
+    // Le préchauffage est une commodité : son échec ne doit rien casser.
+  } finally {
+    done();
+  }
+}
+
 // Paramètres mémoire stricts pour éviter l'OOM (signal: killed) sur macOS :
 // - num_ctx ≤ 16384 (÷2 vs 32768 → KV cache ÷2, économie ~1.5-2Go)
 // - num_batch = 128 (÷4 vs 512 → pic évaluation prompt ÷4)
@@ -77,6 +130,11 @@ const OLLAMA_OPTIONS = {
   temperature: 0.2,
   num_ctx: 16384,
   num_batch: 128,
+  // PLAFOND DE GÉNÉRATION. Mesuré ici à ~45 jetons/s : sans borne, une réponse
+  // qui s'étale coûte une seconde toutes les 45 jetons. La consigne demande
+  // « concis » ; 900 jetons (~20 s au pire) suffisent à un compte rendu complet
+  // et coupent net une divagation.
+  num_predict: 900,
   num_thread: Math.max(4, Math.min(8, typeof navigator !== "undefined" && "hardwareConcurrency" in navigator ? (navigator.hardwareConcurrency ?? 4) - 2 : 4)),
 };
 
@@ -99,8 +157,19 @@ function simplifyOllamaError(status: number, bodyRaw: string): string {
 }
 
 /** Complétion de chat. Renvoie `ok:false` (avec `error`) si le runtime est injoignable. */
-export async function chatComplete(cfg: LlmProviderConfig, messages: LlmMessage[]): Promise<LlmResult> {
-  const { signal, done } = await withTimeout(AI_TIMEOUT_MS);
+export async function chatComplete(
+  cfg: LlmProviderConfig,
+  messages: LlmMessage[],
+  opts: { signal?: AbortSignal } = {},
+): Promise<LlmResult> {
+  const { signal, done, ctrl } = await withTimeout(AI_TIMEOUT_MS);
+  // INTERRUPTIBLE. Le runtime sert les appels un à la fois : un calcul de fond
+  // déjà parti ne peut pas être « dépassé » par la question d'un opérateur — il
+  // ne peut qu'être ANNULÉ. Couper la requête HTTP libère la place côté runtime,
+  // qui cesse de générer pour un client disparu.
+  const relais = () => ctrl.abort();
+  if (opts.signal?.aborted) return { ok: false, text: "", provider: cfg.id, error: "annulé", aborted: true };
+  opts.signal?.addEventListener("abort", relais, { once: true });
   try {
     if (cfg.id === "ollama") {
       const r = await fetch(`${cfg.endpoint}/api/chat`, {
@@ -162,8 +231,10 @@ export async function chatComplete(cfg: LlmProviderConfig, messages: LlmMessage[
     }
     return { ok: false, text: "", provider: cfg.id, error: "Fournisseur non pris en charge côté client" };
   } catch (e) {
+    if (opts.signal?.aborted) return { ok: false, text: "", provider: cfg.id, error: "annulé", aborted: true };
     return { ok: false, text: "", provider: cfg.id, error: e instanceof Error ? e.message : "réseau" };
   } finally {
+    opts.signal?.removeEventListener("abort", relais);
     done();
   }
 }
@@ -183,7 +254,18 @@ export async function chatStream(
     const r = await fetch(`${cfg.endpoint}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: cfg.model, messages, stream: true, options: { ...OLLAMA_OPTIONS, temperature: cfg.temperature ?? OLLAMA_OPTIONS.temperature } }),
+      // `think: false` — le flux en avait BESOIN encore plus que l'appel bloquant :
+      // un modèle à raisonnement écrit d'abord dans `thinking`, et `content` reste
+      // vide fragment après fragment. Mesuré : 1er jeton visible à T+79,6 s, tout
+      // le raisonnement caché. Avec le drapeau, 1er jeton à ~0,2 s à chaud.
+      body: JSON.stringify({
+        model: cfg.model,
+        messages,
+        stream: true,
+        think: false,
+        keep_alive: "30m",
+        options: { ...OLLAMA_OPTIONS, temperature: cfg.temperature ?? OLLAMA_OPTIONS.temperature },
+      }),
       signal,
     });
     if (!r.ok || !r.body) {
@@ -195,6 +277,7 @@ export async function chatStream(
     const decoder = new TextDecoder();
     let acc = "";
     let buffer = "";
+    let stats: LlmStats | undefined;
     for (;;) {
       const { done: streamDone, value } = await reader.read();
       if (streamDone) break;
@@ -204,18 +287,22 @@ export async function chatStream(
       for (const line of lines) {
         if (!line.trim()) continue;
         try {
-          const j = JSON.parse(line);
+          const j = JSON.parse(line) as Record<string, unknown> & { message?: { content?: string } };
           const chunk: string = j?.message?.content ?? "";
           if (chunk) {
             acc += chunk;
             opts.onToken(acc);
           }
+          stats = statsOllama(j) ?? stats;
         } catch {
           /* ligne partielle ignorée */
         }
       }
     }
-    return { ok: true, text: acc, provider: cfg.id };
+    // Un flux sans un seul fragment de texte N'EST PAS une réussite : le dire
+    // évite l'écran muet qui a rendu ce défaut si long à trouver.
+    if (!acc.trim()) return { ok: false, text: "", provider: cfg.id, error: `${cfg.model} : réponse vide du modèle`, stats };
+    return { ok: true, text: acc, provider: cfg.id, stats };
   } catch (e) {
     return { ok: false, text: "", provider: cfg.id, error: e instanceof Error ? e.message : "réseau" };
   } finally {

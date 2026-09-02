@@ -2581,13 +2581,23 @@ export function buildLlmUserMessage(query: string, answer: AiAnswer, lang: "fr" 
   //         - LLM_MAX_ROWS_EQUIP = 30 (top équipements)
   //         - LLM_MAX_ROWS = 6 (quotidien généraliste default : croisements, seismes etc.)
   // → JSON transmis est tronqué dynamiquement si > 12 000 caractères (GARANTIE ~4 000 tokens).
+  // QUOTAS RÉDUITS — C'EST LE LEVIER DU « CHAUD ». Mesuré sur ce poste avec le
+  // modèle réellement installé : l'évaluation du prompt tourne à ~575 jetons/s,
+  // la génération à ~45 jetons/s. Un contexte de 12 000 caractères (~4 000
+  // jetons) coûtait donc ~7 s AVANT le premier mot, à chaque question — et les
+  // 200 lignes d'hôpitaux en faisaient l'essentiel. Le modèle n'a pas besoin de
+  // 113 hôpitaux pour reformuler : les agrégats (taux, totaux, top) viennent du
+  // moteur déterministe, déjà dans `summaryText` et dans les blocs structurés
+  // que l'écran monte depuis `answer.*`, pas depuis le texte du modèle. Ce qu'il
+  // lui faut, c'est un échantillon fidèle pour illustrer, pas l'exhaustivité.
+  // ≤ 5 000 caractères (~1 700 jetons) : ~3 s d'évaluation au lieu de ~7.
   const LLM_MAX_ROWS = 6;
-  const LLM_MAX_ROWS_HOPITAUX = 200;
-  const LLM_MAX_ROWS_INCIDENTS = 60;
-  const LLM_MAX_ROWS_UNITES = 40;
-  const LLM_MAX_ROWS_EQUIP = 30;
+  const LLM_MAX_ROWS_HOPITAUX = 24;
+  const LLM_MAX_ROWS_INCIDENTS = 20;
+  const LLM_MAX_ROWS_UNITES = 16;
+  const LLM_MAX_ROWS_EQUIP = 12;
   const MAX_SUMMARY_CHARS = 600;
-  const MAX_JSON_CHARS = 12000; // ~4 000 tokens max pour le JSON data → garantit rentrer dans 32K ctx total.
+  const MAX_JSON_CHARS = 5000;
   const data: Record<string, unknown> = {};
   // 🚨 13/08/26 FUITE ÉCHO JSON: ne JAMAIS transmettre data.intention=data.indice_moteur.
   //    - greetings/"unknown" font echo ```json {intention:greeting}``` dans la réponse (mistral 7B miroir)
@@ -2718,11 +2728,11 @@ export function buildLlmUserMessage(query: string, answer: AiAnswer, lang: "fr" 
   // Garantie token : si le JSON data dépasse MAX_JSON_CHARS ~12 000 (~4 000 tokens), on tronque
   // progressivement hopitaux/incidents/unites/equipements jusqu'à rentrer.
   let jsonStr = JSON.stringify(data);
-  const tryCrop = <T extends unknown[]>(key: string, keepN: number) => {
+  const tryCrop = (key: string, keepN: number): boolean => {
     const arr = (data as Record<string, unknown[]>)[key];
-    if (!Array.isArray(arr) || arr.length <= keepN) return;
+    if (!Array.isArray(arr) || arr.length <= keepN) return false;
     (data as Record<string, unknown[]>)[key] = arr.slice(0, keepN);
-    jsonStr = JSON.stringify(data);
+    return true;
   };
   // Boucle de réduction (→ dans le pire cas on retombe sur quotas LLM_MAX_ROWS basiques)
   const cropSteps: [string, number][] = [
@@ -2737,7 +2747,10 @@ export function buildLlmUserMessage(query: string, answer: AiAnswer, lang: "fr" 
   ];
   let stepIdx = 0;
   while (jsonStr.length > MAX_JSON_CHARS && stepIdx < cropSteps.length) {
-    tryCrop(cropSteps[stepIdx][0], cropSteps[stepIdx][1]);
+    // Ne re-sérialiser QUE si un palier a réellement coupé quelque chose (F-03) :
+    // sérialiser pour constater qu'on n'a rien changé est du travail synchrone
+    // sur le fil principal, juste avant l'appel réseau.
+    if (tryCrop(cropSteps[stepIdx][0], cropSteps[stepIdx][1])) jsonStr = JSON.stringify(data);
     stepIdx += 1;
   }
 

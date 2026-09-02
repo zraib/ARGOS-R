@@ -449,7 +449,9 @@ function extractJsonArray(text: string): unknown[] | null {
 export async function predictRiskPredictionsAI(
   ctx: RiskContext,
   cfg: LlmProviderConfig,
-): Promise<{ predictions: RiskPrediction[]; origin: "ai_model" | "deterministic"; error?: string; model: string }> {
+  /** Permet d'INTERROMPRE le calcul quand une question d'opérateur arrive. */
+  signal?: AbortSignal,
+): Promise<{ predictions: RiskPrediction[]; origin: "ai_model" | "deterministic"; error?: string; model: string; aborted?: boolean }> {
   const now = ctx.now ?? Date.now();
   const userMsg = `## CONTEXTE RÉEL ARGOS (100% réel — AUCUNE invention autorisée)
 ${buildUserContextPayload(ctx)}
@@ -460,7 +462,12 @@ Produis maintenant UNIQUEMENT l'array JSON de RiskPrediction[] valide (entre 1 e
   const res = await chatComplete(cfg, [
     { role: "system", content: RISK_AI_SYSTEM },
     { role: "user", content: userMsg },
-  ]);
+  ], { signal });
+  // Interrompu au profit de l'opérateur : ce n'est PAS un échec du modèle, et
+  // l'appelant ne doit pas écraser ses prédictions courantes par un repli.
+  if (res.aborted) {
+    return { predictions: [], origin: "deterministic", error: "annulé", model: cfg.model, aborted: true };
+  }
 
   // Si échec → fallback déterministe GARANTI 100% réel.
   if (!res.ok || !res.text) {

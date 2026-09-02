@@ -196,7 +196,7 @@ fichier — c'est précisément l'argument pour extraire d'abord la partie pure.
 
 ---
 
-### F-03 · `JSON.stringify` du contexte recalculé jusqu'à 10 fois — `MEDIUM`
+### F-03 · `JSON.stringify` du contexte recalculé jusqu'à 10 fois — ~~`MEDIUM`~~ → ✅ **CLOS** (re-sérialisation seulement quand un palier coupe ; et le contexte lui-même est passé de 12 000 à 5 000 car., voir F-14)
 
 **Fichier** `apps/web/src/lib/ai/assistant.ts:2479`, `:2484`, `:2514`
 
@@ -343,6 +343,40 @@ que vous avez interdite. Je préfère le dire plutôt que d'estimer.
 | Appels de modèle redondants | `probeProvider` est appelé à l'ouverture ; **je n'ai pas vérifié** s'il l'est à chaque frappe ou une seule fois | Compter les requêtes vers `/api/chat` sur une session type |
 
 ---
+
+# 1b. Copilot IA — passe du 02/09/2026 (mesures sur le poste, `qwen3.6:latest`)
+
+**Base mesurée** (script `mesure.py`, modèle chaud) : évaluation du prompt
+~575 jetons/s · génération ~45 jetons/s · cache de préfixe : un appel identique
+retombe à 0,2 s · deux appels simultanés se **mettent en file** (+5 s).
+
+### F-13 · Le flux n'envoyait pas `think: false` — `HIGH` — ✅ CORRIGÉ
+Les modèles installés raisonnent : `content` restait vide pendant tout le
+raisonnement, 1er jeton visible à **T+79,6 s**. Après : **3,5 s**. Ajout de
+`keep_alive: "30m"`, `num_predict: 900`, et remontée des mesures réelles du
+runtime dans l'étiquette de réponse (plus d'estimations).
+
+### F-14 · 12 000 caractères de JSON par question — `HIGH` — ✅ CORRIGÉ
+6 131 jetons évalués en 10,7 s avant le premier mot, dont 200 lignes d'hôpitaux.
+Quotas ramenés à 24 / 20 / 16 / 12 lignes, JSON ≤ 5 000 car. : **2 100–2 600
+jetons en ~3,2 s**. Les agrégats et blocs structurés ne dépendent pas du modèle.
+
+### F-15 · Une écriture `localStorage` et ~30 regex par jeton — `MEDIUM` — ✅ CORRIGÉ
+`updateAi` réécrivait tout le journal à chaque fragment (~450 fois par réponse)
+et `cleanFinalText` + `detectLeakedPrompt` tournaient sur le texte accumulé
+(quadratique). Rendu cadencé à 80 ms, persistance à la fin : **3 écritures**.
+
+### F-16 · Les calculs IA de fond faisaient la queue devant l'opérateur — `HIGH` — ✅ CORRIGÉ
+Deux appels au chargement, relancés à chaque `loadDomain`, sans garde : une
+question posée juste après le chargement attendait **26,9 s**. Priorité à
+l'opérateur (attente + **annulation** du calcul en cours via `AbortSignal`),
+recalculs en série, empreinte des entrées, `loadDomain({ ai: false })` pour les
+rechargements neutres, préchauffage à l'ouverture : **3,7 s**.
+
+**Non traité (dit plutôt que caché)** : la génération elle-même (~45 jetons/s,
+matériel) — une réponse de 450 jetons coûte ~11 s quoi qu'on fasse ; le levier
+restant est la concision des réponses (consigne système), non touché faute
+d'évaluation de qualité.
 
 # 2. Reste de l'application
 

@@ -576,14 +576,17 @@ function sanitizeSA(raw: unknown, fallback: SituationalAwareness): SituationalAw
 export async function computeSituationalAwarenessAI(
   input: { incidents: Incident[]; hospitals: Hospital[]; units: Unit[]; dashStats: DashStats | null; equipment?: EquipItem[]; now?: number },
   cfg: LlmProviderConfig,
-): Promise<{ data: SituationalAwareness; error?: string; model: string }> {
+  /** Permet d'INTERROMPRE le calcul quand une question d'opérateur arrive. */
+  signal?: AbortSignal,
+): Promise<{ data: SituationalAwareness; error?: string; model: string; aborted?: boolean }> {
   const fallback = computeSituationalAwarenessFallback(input);
   try {
     const usermsg = `## CONTEXTE RÉEL ARGOS (100% réel)\n${buildCtx(input)}\n\n## CONSIGNE\nRetourne UNIQUEMENT l'objet JSON SituationalAwareness valide.`;
     const res = await chatComplete(cfg, [
       { role: "system", content: SYS },
       { role: "user", content: usermsg },
-    ]);
+    ], { signal });
+    if (res.aborted) return { data: fallback, error: "annulé", model: cfg.model, aborted: true };
     if (!res.ok || !res.text) return { data: fallback, error: res.error ?? "LLM vide", model: cfg.model };
     const raw = extractJson(res.text);
     const data = sanitizeSA(raw, fallback);

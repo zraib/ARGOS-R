@@ -10,6 +10,7 @@
 
 import { create } from "zustand";
 import { openRealtimeStream, type StreamHandle } from "@/lib/realtime/stream";
+import { warmModel } from "@/lib/ai/provider";
 import type {
   Channel,
   CommCategory,
@@ -61,7 +62,7 @@ import { api, loadSessionContext } from "@/lib/api";
 import type { QueueItem, TransportMovement } from "@/lib/data/dispatch";
 import { EMPTY_CATALOG, type Catalog } from "@/lib/data/modules";
 import type { AiUnitResult } from "@/lib/ai/assistant";
-import { AI_DEFAULT_SETTINGS, type AiSettings, resolveProvider, type LlmProviderConfig } from "@/lib/ai/config";
+import { AI_DEFAULT_SETTINGS, type AiSettings, aiSystemPrompt, resolveProvider, type LlmProviderConfig } from "@/lib/ai/config";
 import { DEFAULT_FLAGS } from "@/lib/nav";
 import type { Assignments, Role } from "@/lib/roles";
 import { defaultRoleFeatures } from "@/lib/data/users";
@@ -451,7 +452,13 @@ interface ArgosState {
   /** Met à jour l'identité de session après édition du profil (nom, photo). */
   setProfile: (patch: { nom?: string; photo?: string | null }) => void;
   /** Charge les entités de domaine depuis l'API (incidents, unités, hôpitaux, fil). */
-  loadDomain: () => Promise<void>;
+  /**
+   * `ai: false` quand la cause du rechargement ne change pas les entrées des
+   * modèles (canal renommé, message reçu) : sinon chaque événement du flux
+   * temps réel relançait deux appels au modèle, qui faisaient la queue devant
+   * la question de l'opérateur — mesuré : +5 s pour le second appel simultané.
+   */
+  loadDomain: (opts?: { ai?: boolean }) => Promise<void>;
   /** Recharge les séismes (EMSC) et détecte les nouveaux (→ alerte). */
   // --- suivi aérien : aéronefs inscrits + positions ---
   /** Aéronefs inscrits, enrichis de leur position quand le flux les voit. */
@@ -555,6 +562,8 @@ interface ArgosState {
   rtDisconnect: () => void;
   /** Marque le canal ouvert à l'écran et solde ses non-lus. */
   rtSetActiveChannel: (id: string | null) => void;
+  /** Signale qu'une question de l'opérateur est en cours : les calculs IA de fond patientent. */
+  setAiOperatorBusy: (busy: boolean) => void;
   openWizard: (initLL?: [number, number]) => void;
   /** Ouvre l'assistant en mode édition (pré-rempli depuis un incident existant). */
   openWizardEdit: (inc: Incident) => void;
@@ -588,7 +597,12 @@ interface ArgosState {
   resolveQueueItem: (id: string) => void;
 
   pushAi: (msg: Omit<AiMessage, "id" | "at">) => string;
-  updateAi: (id: string, patch: Partial<AiMessage>) => void;
+  /**
+   * `persist: false` pendant un flux : chaque jeton reçu réécrivait TOUT le
+   * journal dans `localStorage` (sérialisation synchrone sur le fil principal,
+   * des dizaines de fois par seconde). On ne persiste qu'à la fin du flux.
+   */
+  updateAi: (id: string, patch: Partial<AiMessage>, opts?: { persist?: boolean }) => void;
   clearAi: () => void;
 
   setAiSettings: (patch: Partial<AiSettings>) => void;
@@ -630,6 +644,57 @@ let toastTimer: ReturnType<typeof setTimeout> | undefined;
  * qui n'a rien à voir avec ce que l'écran affiche.
  */
 let rtHandle: StreamHandle | null = null;
+
+/**
+ * Gardes des recalculs IA automatiques.
+ *
+ * Deux défauts se cumulaient : aucune protection contre un recalcul déjà EN
+ * COURS (deux `loadDomain` rapprochés → quatre appels au modèle), et aucune
+ * mémoire des ENTRÉES (mêmes incidents, mêmes unités → même réponse, recalculée
+ * quand même). Chaque appel inutile fait la queue devant la question de
+ * l'opérateur sur un runtime qui les sert un à la fois.
+ */
+const aiGarde = {
+  riskEnCours: false,
+  riskSignature: "",
+  situationEnCours: false,
+  situationSignature: "",
+  /** Une question de l'opérateur est en cours : les calculs de fond attendent. */
+  operateurEnCours: false,
+  /** Contrôleur du calcul de fond EN COURS — annulé quand l'opérateur pose une question. */
+  fondCtrl: null as AbortController | null,
+};
+
+/**
+ * PRIORITÉ À L'OPÉRATEUR. Le runtime sert les appels UN À LA FOIS : mesuré ici,
+ * une question posée pendant les recalculs de fond attendait 26,9 s son premier
+ * mot, contre 3,5 s une fois la voie libre. Les calculs de fond n'ont pas
+ * d'urgence — une prédiction de risque peut arriver dix secondes plus tard ;
+ * une réponse à un chef ne peut pas. Ils patientent donc tant qu'une question
+ * est en cours, puis repartent. Borne de sécurité à deux minutes : un drapeau
+ * qui resterait levé ne doit pas bloquer les modèles pour toujours.
+ */
+async function attendreOperateur(): Promise<void> {
+  const limite = Date.now() + 120_000;
+  while (aiGarde.operateurEnCours && Date.now() < limite) {
+    await new Promise((r) => setTimeout(r, 400));
+  }
+}
+
+/** Empreinte compacte des entrées des modèles — ce qui, s'il change, change la réponse. */
+function signatureEntreesIA(s: {
+  incidents: { id: string; st: string; sev: string; archived?: boolean }[];
+  units: { id: string; dispo: string; readiness: number }[];
+  hospitals: { id: string; occ: number }[];
+}): string {
+  return (
+    s.incidents.map((i) => `${i.id}:${i.st}:${i.sev}:${i.archived ? 1 : 0}`).join("|") +
+    "#" +
+    s.units.map((u) => `${u.id}:${u.dispo}:${u.readiness}`).join("|") +
+    "#" +
+    s.hospitals.map((h) => `${h.id}:${h.occ}`).join("|")
+  );
+}
 
 export const useArgos = create<ArgosState>((set, get) => ({
   authed: false,
@@ -810,7 +875,7 @@ export const useArgos = create<ArgosState>((set, get) => ({
 
   // Charge le domaine depuis l'API. Chaque entité dégrade proprement si le rôle
   // n'a pas la permission de lecture (tableau vide plutôt qu'erreur bloquante).
-  loadDomain: async () => {
+  loadDomain: async (opts) => {
     const results = await Promise.allSettled([
       api.getIncidents(),
       api.getUnits(),
@@ -854,8 +919,17 @@ export const useArgos = create<ArgosState>((set, get) => ({
     }));
     // Re-calcul IA prédictions risques (100% données ARGOS réel chargées · IA Ollama
     // en local si dispo, sinon repli AUTOMATIQUE sur le moteur déterministe).
-    void get().recomputeRiskPredictionsAI();
-    void get().recomputeSituationalAwarenessAI();
+    if (opts?.ai !== false) {
+      // En SÉRIE et non de front : deux appels simultanés se mettent en file sur
+      // le runtime, et le second retarde d'autant une question de l'opérateur.
+      // Le léger délai laisse passer le préchauffage et une première question.
+      setTimeout(() => {
+        void (async () => {
+          await get().recomputeRiskPredictionsAI();
+          await get().recomputeSituationalAwarenessAI();
+        })();
+      }, 1_500);
+    }
   },
 
   // Recharge les séismes depuis l'API (proxy EMSC) et détecte les nouveaux
@@ -1068,8 +1142,9 @@ export const useArgos = create<ArgosState>((set, get) => ({
         if (e.kind === "channel") {
           // La structure a changé sous nos pieds : on la recharge plutôt que de
           // la rejouer à la main, une reconstitution partielle valant pire
-          // qu'un aller-retour.
-          void get().loadDomain();
+          // qu'un aller-retour. Sans les modèles : un canal renommé ne change
+          // rien au risque ni à la situation.
+          void get().loadDomain({ ai: false });
         }
       },
       (rtStatus) => set({ rtStatus }),
@@ -1080,6 +1155,24 @@ export const useArgos = create<ArgosState>((set, get) => ({
     rtHandle?.close();
     rtHandle = null;
     set({ rtStatus: "closed", rtOnline: [] });
+  },
+
+  setAiOperatorBusy: (busy) => {
+    aiGarde.operateurEnCours = busy;
+    if (busy) {
+      // Un calcul de fond déjà parti ne peut pas être dépassé : on l'ANNULE.
+      // Il repartira une fois l'opérateur servi (empreinte remise à zéro).
+      aiGarde.fondCtrl?.abort();
+      aiGarde.fondCtrl = null;
+      return;
+    }
+    // Opérateur servi : on redonne leur tour aux calculs de fond, en série.
+    setTimeout(() => {
+      void (async () => {
+        await get().recomputeRiskPredictionsAI();
+        await get().recomputeSituationalAwarenessAI();
+      })();
+    }, 1_000);
   },
 
   rtSetActiveChannel: (id) =>
@@ -1329,12 +1422,19 @@ export const useArgos = create<ArgosState>((set, get) => ({
     }));
   },
 
-  setAiSettings: (patch) =>
+  setAiSettings: (patch) => {
     set((s) => {
       const aiSettings = { ...s.aiSettings, ...patch };
       if (typeof window !== "undefined") localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(aiSettings));
       return { aiSettings };
-    }),
+    });
+    // Un modèle nouvellement choisi est préchargé tout de suite : la première
+    // question ne doit pas payer les ~80 s de chargement mesurés ici.
+    if (patch.model || patch.endpoint || patch.providerId) {
+      const st = get();
+      void warmModel(resolveProvider(st.aiSettings), aiSystemPrompt(st.lang, st.aiSettings.systemPrompt));
+    }
+  },
 
   setFlag: (key, enabled) =>
     set((s) => {
@@ -1392,6 +1492,16 @@ export const useArgos = create<ArgosState>((set, get) => ({
       set({ riskPredictions: [], riskLoadingAI: false });
       return [];
     }
+    const signature = signatureEntreesIA(s);
+    // Mêmes entrées, ou calcul déjà en cours : on rend ce qu'on a.
+    if (aiGarde.riskEnCours || (signature === aiGarde.riskSignature && s.riskPredictions.length > 0)) {
+      return s.riskPredictions;
+    }
+    aiGarde.riskEnCours = true;
+    await attendreOperateur();
+    const ctrl = new AbortController();
+    aiGarde.fondCtrl = ctrl;
+    aiGarde.riskSignature = signature;
     set({ riskLoadingAI: true });
     try {
       const cfg: LlmProviderConfig = resolveProvider(s.aiSettings);
@@ -1406,8 +1516,14 @@ export const useArgos = create<ArgosState>((set, get) => ({
           movements: s.movements,
           dashStats: s.dashStats,
         },
-        cfg,
-      );
+        cfg, ctrl.signal);
+      // Interrompu au profit d'une question : on garde les prédictions courantes,
+      // on oublie l'empreinte pour recalculer plus tard, et on ne signale rien.
+      if (res.aborted) {
+        aiGarde.riskSignature = "";
+        set({ riskLoadingAI: false });
+        return s.riskPredictions;
+      }
       // F-04 : si le LLM a échoué, modelPredictor a recalculé EN LOCAL son repli
       // déterministe. On lui préfère le résultat de l'API — même moteur, mais
       // exécuté une fois côté serveur et identique pour tous les postes. Le
@@ -1436,16 +1552,27 @@ export const useArgos = create<ArgosState>((set, get) => ({
         riskLoadingAI: false,
       });
       return preds;
+    } finally {
+      aiGarde.riskEnCours = false;
     }
   },
 
   recomputeSituationalAwarenessAI: async () => {
     const s = get();
+    const signature = signatureEntreesIA(s);
+    if (aiGarde.situationEnCours || (signature === aiGarde.situationSignature && s.situationalAwareness)) {
+      return s.situationalAwareness as SituationalAwareness;
+    }
+    aiGarde.situationEnCours = true;
+    aiGarde.situationSignature = signature;
+    await attendreOperateur();
+    const ctrl = new AbortController();
+    aiGarde.fondCtrl = ctrl;
     set({ situationalLoadingAI: true });
     try {
       const cfg: LlmProviderConfig = resolveProvider(s.aiSettings);
       const { computeSituationalAwarenessAI } = await import("@/lib/ai/situational/engine");
-      const { data, model } = await computeSituationalAwarenessAI(
+      const { data, model, aborted } = await computeSituationalAwarenessAI(
         {
           incidents: s.incidents,
           hospitals: s.hospitals,
@@ -1454,7 +1581,13 @@ export const useArgos = create<ArgosState>((set, get) => ({
           equipment: s.catalog.equipment,
         },
         cfg,
+        ctrl.signal,
       );
+      if (aborted) {
+        aiGarde.situationSignature = "";
+        set({ situationalLoadingAI: false });
+        return (s.situationalAwareness ?? data) as SituationalAwareness;
+      }
       set({
         situationalAwareness: data,
         situationalModel: model,
@@ -1476,6 +1609,8 @@ export const useArgos = create<ArgosState>((set, get) => ({
         situationalLoadingAI: false,
       });
       return fallback;
+    } finally {
+      aiGarde.situationEnCours = false;
     }
   },
 
@@ -1676,10 +1811,10 @@ export const useArgos = create<ArgosState>((set, get) => ({
     set({ aiLog: next });
     return id;
   },
-  updateAi: (id, patch) =>
+  updateAi: (id, patch, opts) =>
     set((s) => {
       const next = s.aiLog.map((mo) => (mo.id === id ? { ...mo, ...patch } : mo));
-      saveAiLogFor(s.sessionUser?.matricule, next);
+      if (opts?.persist !== false) saveAiLogFor(s.sessionUser?.matricule, next);
       return { aiLog: next };
     }),
   clearAi: () => {

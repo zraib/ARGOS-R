@@ -406,6 +406,9 @@ export default function CopilotBody() {
       });
 
       setBusy(true);
+      // Priorité à l'opérateur : les recalculs IA de fond patientent le temps
+      // de la réponse (mesuré : 26,9 s de premier jeton avec eux devant, 3,5 s sans).
+      useArgos.getState().setAiOperatorBusy(true);
       const t0 = Date.now();
       // 🛡️ Guard ultime: si la question utilisateur est une salutation innocente
       // (bonjour/hello/salut/merci etc.) → on DÉSACTIVE LE GARDE-FOU NIVEAU 2
@@ -423,6 +426,15 @@ export default function CopilotBody() {
         let finished = false;
         let llmText = "";
         let firstTokenAt: number | null = null;
+        // RENDU CADENCÉ. Le modèle produit ~45 jetons/s ; rendre à chaque jeton
+        // relançait à cette cadence les ~30 expressions régulières de
+        // `cleanFinalText` et `detectLeakedPrompt` sur TOUT le texte accumulé
+        // (coût quadratique), puis une réécriture complète du journal dans
+        // `localStorage`. L'œil ne distingue rien sous ~80 ms : on rend à cette
+        // cadence, et on ne persiste qu'à la fin.
+        const RENDU_MS = 80;
+        let renduPrevu: ReturnType<typeof setTimeout> | null = null;
+        let dernierRendu = 0;
 
         // Historique conversation
         // ⚠️ CRITIQUE 13/08/26 : Qwen2.5:14b = 32 768 tokens TOTAL FENÊTRE (n_ctx_train=32768 IMPOSÉ PAR LE GGUF).
@@ -483,29 +495,39 @@ export default function CopilotBody() {
             ],
             {
               onToken: (acc) => {
-                try {
-                  if (finished || leaked) return;
-                  if (!skipLeakGuard && detectLeakedPrompt(acc)) {
-                    applyLeakRefusal();
-                    return;
+                if (finished || leaked) return;
+                // 1er jeton reçu : horodatage (diagnostic + fournisseur)
+                if (firstTokenAt === null) firstTokenAt = Date.now();
+                llmText = acc;
+                if (renduPrevu) return; // un rendu est déjà programmé
+                const attente = Math.max(0, RENDU_MS - (Date.now() - dernierRendu));
+                renduPrevu = setTimeout(() => {
+                  renduPrevu = null;
+                  dernierRendu = Date.now();
+                  try {
+                    if (finished || leaked) return;
+                    if (!skipLeakGuard && detectLeakedPrompt(llmText)) {
+                      applyLeakRefusal();
+                      return;
+                    }
+                    const firstTokenSec = firstTokenAt ? ((firstTokenAt - t0) / 1000).toFixed(1) : null;
+                    // Pendant le flux : texte + fournisseur seulement (pas de blocs
+                    // structurés), et SANS persistance — elle vient à la fin.
+                    updateAi(
+                      msgId,
+                      {
+                        text: cleanFinalText(llmText),
+                        provider: firstTokenSec
+                          ? `${streamProviderPrefix} · ${cfg.label} (${cfg.model}) · 1er jeton T+${firstTokenSec}s`
+                          : `${streamProviderPrefix} · ${cfg.label} (${cfg.model}) · attente du 1er jeton…`,
+                      },
+                      { persist: false },
+                    );
+                  } catch (e) {
+                    // eslint-disable-next-line no-console
+                    console.warn("[Copilot] rendu du flux :", e);
                   }
-                  // 1er token reçu : horodatage (diagnostic + provider)
-                  if (firstTokenAt === null) firstTokenAt = Date.now();
-                  llmText = acc;
-                  // On n'affiche QUE text + provider pendant stream (pas de blocs structurés).
-                  // 🔥 Nettoyage PENDANT stream aussi (phrases "Aucune donnée...")
-                  const firstTokenSec = firstTokenAt ? ((firstTokenAt - t0) / 1000).toFixed(1) : null;
-                  updateAi(msgId, {
-                    text: cleanFinalText(acc),
-                    provider: firstTokenSec
-                      ? `${streamProviderPrefix} · ${cfg.label} (${cfg.model}) · 1er token T+${firstTokenSec}s`
-                      : `${streamProviderPrefix} · ${cfg.label} (${cfg.model}) · attente 1er token…`,
-                  });
-                } catch (e) {
-                  // Ne pas cacher l'erreur : logger en console pour dev.
-                  // eslint-disable-next-line no-console
-                  console.warn("[Copilot] onToken error:", e);
-                }
+                }, attente);
               },
             },
           ),
@@ -514,7 +536,14 @@ export default function CopilotBody() {
           ),
         ]);
         finished = true;
+        useArgos.getState().setAiOperatorBusy(false);
+        if (renduPrevu) clearTimeout(renduPrevu);
         const durationSec = ((Date.now() - t0) / 1000).toFixed(1);
+        // Mesures RÉELLES du runtime, pas une estimation : ce qui a coûté, et où.
+        const stats = "ok" in res && res.ok ? res.stats : undefined;
+        const mesure = stats
+          ? ` · prompt ${stats.promptTokens} jetons${stats.promptSec >= 0.05 ? ` en ${stats.promptSec.toFixed(1)}s` : " (cache)"} · ${stats.outputTokens} jetons à ${stats.outputSec > 0 ? (stats.outputTokens / stats.outputSec).toFixed(0) : "?"}/s`
+          : "";
         const llmEmpty = !("ok" in res) || !res.ok || !llmText || !llmText.trim();
         const timeoutHit = !("ok" in res) || (res as { aborted?: boolean }).aborted === true;
         const httpError = "ok" in res && !res.ok && typeof (res as { error?: string }).error === "string";
@@ -553,10 +582,10 @@ export default function CopilotBody() {
           });
         } else {
           // ✅ LLM OK — montée blocs si intent reconnu (sinon Qwen a déjà parlé)
-          const first = firstTokenAt ? `1er token T+${((firstTokenAt - t0) / 1000).toFixed(1)}s · ` : "";
+          const first = firstTokenAt ? `1er jeton T+${((firstTokenAt - t0) / 1000).toFixed(1)}s · ` : "";
           updateAi(msgId, {
             text: cleanFinalText(llmText),
-            provider: `🤖 ${cfg.label} · ${cfg.model} · ${first}durée ${durationSec}s`,
+            provider: `🤖 ${cfg.label} · ${cfg.model} · ${first}durée ${durationSec}s${mesure}`,
             units: mountStructured ? answer.units : undefined,
             incidents: mountStructured ? answer.incidents : undefined,
             hospitals: mountStructured ? answer.hospitals : undefined,

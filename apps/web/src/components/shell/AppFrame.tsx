@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
+import { warmModel } from "@/lib/ai/provider";
+import { AI_ENABLED, resolveProvider, aiSystemPrompt } from "@/lib/ai/config";
 import { usePathname } from "next/navigation";
 import { useArgos, useModules, type Role } from "@/lib/store";
 import { LIVE_SIM, SIM_INTERVAL } from "@/lib/config";
@@ -88,7 +90,19 @@ export function AppFrame({ children }: { children: ReactNode }) {
   // Charge le domaine (incidents, unités, hôpitaux, fil) dès que la session est
   // prête — après le login comme après une restauration de session.
   useEffect(() => {
-    if (ready) void loadDomain();
+    if (!ready) return;
+    void loadDomain();
+    // PRÉCHAUFFAGE DU MODÈLE, dès la session ouverte. Mesuré ici : le premier
+    // appel à froid coûtait ~80 s (chargement de 23 Go) + ~1 s de consigne
+    // système ; réchauffer maintenant, avec la vraie consigne, met les deux en
+    // cache avant que l'opérateur ait posé sa première question. Appel perdu,
+    // jamais affiché, sans effet s'il échoue. Uniquement pour un runtime LOCAL :
+    // on ne réveille pas un service qu'on ne possède pas.
+    if (AI_ENABLED) {
+      const st = useArgos.getState();
+      const cfg = resolveProvider(st.aiSettings);
+      if (cfg.local) void warmModel(cfg, aiSystemPrompt(st.lang, st.aiSettings.systemPrompt));
+    }
   }, [ready, loadDomain]);
 
   // Flux temps réel : ouvert avec la session, fermé avec elle. C'est CE FLUX
