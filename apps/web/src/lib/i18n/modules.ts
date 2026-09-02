@@ -593,6 +593,15 @@ export interface ModulesDict {
     imminent_risks: string;
     stock_breaks: string;
     no_hotspot: string;
+    synthesis_label: string;
+    hb_title: string;
+    hb_summary: string;
+    hb_sev_high: string;
+    hb_sev_medium: string;
+    hb_sev_low: string;
+    hb_region: string;
+    hb_share: string;
+    ongoing_incidents: string;
     no_risk: string;
     no_factor: string;
     score_of_100: string;

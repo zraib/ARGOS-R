@@ -101,7 +101,9 @@ export function Modal({ open, title, onClose, size = "lg", children }: ModalProp
       window.removeEventListener("keydown", onKey);
       window.clearTimeout(t);
       document.body.style.overflow = overflow;
-      declencheur?.focus?.();
+      // Le focus ne revient au déclencheur que s'il était encore DANS la boîte ;
+      // s'il est déjà ailleurs (un champ en cours de saisie), on ne le vole pas.
+      if (panneau.current?.contains(document.activeElement)) declencheur?.focus?.();
     };
   }, [open]);
 

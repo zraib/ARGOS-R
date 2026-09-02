@@ -12,7 +12,8 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { StatTile } from "@/components/flux/FluxUI";
 import { occBarClass, sevBadge, typeLabel } from "@/lib/helpers";
 import { HealthGlyph } from "@/components/health/HealthGlyph";
-import { aggregateCasualties, incidentColor, semanticChipsForType } from "@/lib/derive";
+import { aggregateCasualties, filterActiveIncidents, incidentColor, semanticChipsForType } from "@/lib/derive";
+import { tpl } from "@/lib/i18n/format";
 import type { HospitalKind, Incident, Lang } from "@/lib/types";
 import SituationalAwarenessPanel from "@/components/dashboard/SituationalAwarenessPanel";
 import { IncidentsPanel } from "@/components/dashboard/DashboardIncidentBlocks";
@@ -75,7 +76,7 @@ export default function DashboardPage() {
    */
   const [view, setView] = useState<"ops" | "ia">("ops");
 
-  const activeInc = incidents.filter((i) => i.st !== "closed").length;
+  const activeInc = filterActiveIncidents(incidents).length;
   const bedsFixed = hospitals.reduce((a, h) => a + (h.lits - h.occ), 0);
   const bedsField = fieldHosps.reduce((a, f) => a + (f.cap - f.occ), 0);
 
@@ -98,7 +99,7 @@ export default function DashboardPage() {
       meta.tint === "amber" ? "text-or-500" :
       meta.tint === "green" ? "text-green-600" : "text-blue-500";
     const nHot = situational.pointsChauds.length;
-    const sub = `${meta.label}${nHot ? ` · ${nHot} point(s) chaud(s)` : ""}`;
+    const sub = `${meta.label}${nHot ? ` · ${nHot} point(s) chaud(s)` : ""} · ${tpl(m.situational.ongoing_incidents, { n: situational.totalIncidents })}`;
     return { score: situational.scoreGlobal, sub, iconWrap, subColor } as const;
   }, [situational]);
 

@@ -98,6 +98,8 @@ export type SituationalAwareness = {
   scoreGlobal: number;
   /** Synthèse 1 phrase COURTE (≤ 180 caractères), exploitable direct. */
   synthese: string;
+  /** Nombre RÉEL d'incidents actifs (toutes régions, sans le tronquage des cinq points chauds). */
+  totalIncidents: number;
   /** 3-5 points chauds géographiques les plus critiques. */
   pointsChauds: Hotspot[];
   /** 4-6 facteurs critiques (impact haut / moyen / faible). */

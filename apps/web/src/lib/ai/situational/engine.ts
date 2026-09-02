@@ -14,6 +14,7 @@ import type {
   SituationalAwareness,
   SituationalForecasts,
 } from "./types";
+import { filterActiveIncidents } from "@/lib/derive";
 
 // ---------- helpers (depuis shared.ts : clamp01 + safeNum) ------------------------
 function numOr(v: unknown, d: number): number { return safeNum(v, d); }
@@ -35,7 +36,7 @@ export function computeSituationalAwarenessFallback(input: {
 }): SituationalAwareness {
   const { incidents, hospitals, units, dashStats, equipment = [], now } = input;
   const time = now ?? Date.now();
-  const openInc = incidents.filter((i) => i.st !== "closed");
+  const openInc = filterActiveIncidents(incidents);
   const openHigh = openInc.filter((i) => i.sev === "high").length;
   const openMed = openInc.filter((i) => i.sev === "medium").length;
   const sev = dashStats?.severity ?? { high: openHigh, medium: openMed, low: Math.max(0, openInc.length - openHigh - openMed) };
@@ -356,6 +357,7 @@ export function computeSituationalAwarenessFallback(input: {
     niveauGlobal,
     scoreGlobal,
     synthese,
+    totalIncidents: openInc.length,
     pointsChauds: pointsChauds.slice(0, 5),
     facteursCritiques: facteursCritiques.slice(0, 6),
     predictions,
@@ -561,6 +563,7 @@ function sanitizeSA(raw: unknown, fallback: SituationalAwareness): SituationalAw
     niveauGlobal,
     scoreGlobal,
     synthese,
+    totalIncidents: fallback.totalIncidents,
     pointsChauds: pointsChauds.slice(0, 5),
     facteursCritiques: facteursCritiques.slice(0, 6),
     predictions,

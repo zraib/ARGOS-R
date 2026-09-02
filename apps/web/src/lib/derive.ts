@@ -86,6 +86,19 @@ export function compareIncidentDate(a: DatedLike | null | undefined, b: DatedLik
   return tb - ta;
 }
 
+/**
+ * Source UNIQUE du filtre « incident actif » — tableau de bord, conscience
+ * situationnelle, instantané du Copilot : non fermé ET non archivé. Les trois
+ * écrans comptaient chacun à leur façon et affichaient trois totaux différents.
+ */
+export function isActiveIncident(i: { st?: string; archived?: boolean } | null | undefined): boolean {
+  return i != null && i.st !== "closed" && !i.archived;
+}
+
+export function filterActiveIncidents<T extends { st?: string; archived?: boolean }>(list: T[]): T[] {
+  return list.filter(isActiveIncident);
+}
+
 // ============================================================================
 // Services hospitaliers · source unique de résolution
 // ============================================================================

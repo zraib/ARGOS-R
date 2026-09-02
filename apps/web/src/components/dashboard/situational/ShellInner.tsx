@@ -6,13 +6,11 @@ import type { SituationalAwareness } from "@/lib/ai/situational/types";
 import {
   cn,
   LEVEL_META,
-  NIV_KEY,
   fmtDur,
   } from "@/components/dashboard/situational/shared";
 import { Icon } from "@/components/dashboard/situational/Icon";
 import { Panel } from "@/components/dashboard/situational/Panel";
 import { ScoreGauge } from "@/components/dashboard/situational/ScoreGauge";
-import { MiniKpi } from "@/components/dashboard/situational/MiniKpi";
 import { HotspotsBars } from "@/components/dashboard/situational/HotspotsBars";
 import { ForeBars } from "@/components/dashboard/situational/ForeBars";
 import { FactorBars } from "@/components/dashboard/situational/FactorBars";
@@ -40,7 +38,7 @@ export function ShellInner({
           =================================================================== */}
       <header
         className={cn(
-          "group relative isolate overflow-hidden rounded-xl border bg-white shadow-sm dark:bg-rdia-700",
+          "group relative isolate shrink-0 overflow-hidden rounded-xl border bg-white shadow-sm dark:bg-rdia-700",
           lm.banner,
         )}
         style={{
@@ -64,114 +62,81 @@ export function ShellInner({
           style={{ backgroundColor: lm.accent }}
         />
 
-        <div className="relative z-10 flex flex-col gap-3 px-4 pb-4 pt-4 sm:flex-row sm:items-stretch sm:gap-4 sm:px-5 sm:pb-5 sm:pt-4.5">
-          {/* ==== COLONNE GAUCHE : NIVEAU GLOBAL ==== */}
-          <div className="flex shrink-0 flex-col gap-2.5 sm:w-[28%]">
-            <div className="flex items-center gap-2.5">
+        <div className="relative z-10 flex flex-col gap-4 px-4 pb-4.5 pt-4.5 sm:px-5 sm:pb-5 sm:pt-5 lg:flex-row lg:items-center lg:gap-6">
+          {/* ==== COLONNE GAUCHE : niveau global + synthèse opérationnelle ==== */}
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
+            <div className="flex items-center gap-3">
               <div
-                className={cn(
-                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border shadow-inner",
-                  lm.bg, lm.border,
-                )}
-                style={{
-                  boxShadow: "inset 0 0 0 1px rgba(201,168,76,0.18), 0 4px 16px -10px " + lm.accent + "66",
-                }}
+                className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border shadow-inner", lm.bg, lm.border)}
+                style={{ boxShadow: "inset 0 0 0 1px rgba(201,168,76,0.20), 0 6px 16px -10px " + lm.accent + "88, 0 1px 0 rgba(255,255,255,0.6) inset" }}
               >
                 <span className="relative inline-flex h-3.5 w-3.5">
-                  <span
-                    className={cn("absolute inline-flex h-full w-full animate-ping rounded-full opacity-60", lm.dot)}
-                  />
+                  <span className={cn("absolute inline-flex h-full w-full animate-ping rounded-full opacity-65", lm.dot)} />
                   <span className={cn("relative inline-flex h-3.5 w-3.5 rounded-full", lm.dot)} />
                 </span>
               </div>
-              <div className="min-w-0 flex-1 flex flex-col gap-0.5 leading-none">
-                <span className="text-[9.5px] font-semibold uppercase tracking-[0.22em] text-or-600 dark:text-or-400">
+              <div className="min-w-0 flex flex-col gap-0.5 leading-tight">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-or-600/90 dark:text-or-400/90">
                   {m.situational.level_global}
                 </span>
-                <span className={cn("text-[18px] font-bold leading-tight tracking-tight", lm.bannerText)}>
+                <span className={cn("text-[18px] sm:text-[19px] font-bold leading-none tracking-tight", lm.bannerText)}>
                   {m.situational[lm.labelKey]}
                 </span>
-                {sa.fromAI ? (
-                  <span className="mt-0.5 inline-flex w-fit items-center gap-1 rounded-md border border-or-500/30 bg-or-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-or-600 dark:text-or-400">
-                    <Icon name="sparkles" className="h-2.5 w-2.5" />
-                    IA{model ? ` · ${model}` : ""}
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  {sa.fromAI ? (
+                    <span className="inline-flex items-center gap-1 rounded-md border border-or-500/35 bg-or-500/12 px-1.5 py-0.5 text-[9.5px] font-black uppercase tracking-[0.2em] text-or-600 dark:text-or-400">
+                      <Icon name="sparkles" className="h-2.5 w-2.5" />
+                      IA{model ? ` · ${model}` : ""}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-md border border-or-500/35 bg-or-500/12 px-1.5 py-0.5 text-[9.5px] font-black uppercase tracking-[0.2em] text-or-600 dark:text-or-400">
+                      <Icon name="scale" className="h-2.5 w-2.5" />
+                      {m.situational.realtime}
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1 rounded-md border border-gray-200/70 bg-white/85 px-1.5 py-0.5 text-[9.5px] font-semibold tabular-nums text-gray-600 dark:border-white/15 dark:bg-white/6 dark:text-rdia-200">
+                    <Icon name="clock" className="h-2.5 w-2.5 text-or-500" />
+                    {new Date(sa.generatedAt).toLocaleString([], { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
                   </span>
-                ) : (
-                  <span className="mt-0.5 inline-flex w-fit items-center gap-1 rounded-md border border-or-500/30 bg-or-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-or-600 dark:text-or-400">
-                    <Icon name="scale" className="h-2.5 w-2.5" />
-                    {m.situational.realtime}
-                  </span>
-                )}
+                </div>
               </div>
             </div>
-            {/* sous-label synthèse tag premium */}
-            <div className={cn("rounded-lg border p-2.5 sm:p-3", lm.bg, lm.border)} style={{background: lm.badgeTint}}>
+
+            {/* Synthèse opérationnelle */}
+            <div
+              className={cn("rounded-xl border p-2.5 sm:p-3", lm.border)}
+              style={{ background: lm.badgeTint, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.55), 0 8px 20px -18px rgba(30,20,0,0.22)" }}
+            >
               <div className="flex items-start gap-2">
-                <Icon name="info" className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", lm.tint)} />
-                <p className="text-[11.5px] leading-relaxed text-gray-700 dark:text-rdia-100">
-                  {sa.synthese}
-                </p>
+                <div className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border", lm.bg, lm.border)}>
+                  <Icon name="info" className={cn("h-3.5 w-3.5", lm.tint)} />
+                </div>
+                <div className="min-w-0 flex-1 flex flex-col gap-1">
+                  <span className="text-[9.5px] font-black uppercase tracking-[0.22em] text-or-600/80 dark:text-or-400/80">
+                    {m.situational.synthesis_label}
+                  </span>
+                  <p className="text-[12px] sm:text-[12.5px] leading-relaxed font-semibold text-gray-800 dark:text-rdia-100">
+                    {sa.synthese}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* ==== COLONNE CENTRE : SCORE GAUGE CIRULAIRE ==== */}
-          <div className="flex items-center justify-center shrink-0 sm:w-[36%]">
+          {/* ==== COLONNE DROITE : jauge de score (taille normale) + actualisation ==== */}
+          <div className="flex shrink-0 flex-col items-center justify-center gap-2 lg:min-w-[240px]">
             <ScoreGauge value={score} accent={lm.accent} />
-          </div>
-
-          {/* ==== COLONNE DROITE : 3 INDICATEURS COURTS + refresh ==== */}
-          <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <div className="flex items-end justify-between gap-2">
-              <div className="min-w-0 flex-1 grid grid-cols-3 gap-1.5 sm:gap-2">
-                {/* KPI · incidents actifs */}
-                <MiniKpi
-                  icon="activity"
-                  label={m.situational.incidents}
-                  big={sa.pointsChauds.reduce((a, h) => a + h.nIncidents, 0)}
-                  sub={`${sa.pointsChauds.length} zones`}
-                  accent="#F59E0B"
-                />
-                {/* KPI · risque critique */}
-                <MiniKpi
-                  icon="alert-triangle"
-                  label={m.situational.factors}
-                  big={sa.facteursCritiques.length}
-                  sub={
-                    sa.facteursCritiques.filter((f) => f.impact === "haut").length > 0
-                      ? `${sa.facteursCritiques.filter((f) => f.impact === "haut").length} impact haut`
-                      : m.situational.impact_controlled
-                  }
-                  accent="#EF4444"
-                />
-                {/* KPI · risque prochain */}
-                <MiniKpi
-                  icon="clock"
-                  label={m.situational.h24}
-                  big={(() => {
-                    const r = sa.risquesProchaines.find((x) => x.horizon === "24h");
-                    return r ? `${r.probabilitePct}%` : "—";
-                  })()}
-                  sub={(() => {
-                    const r = sa.risquesProchaines.find((x) => x.horizon === "24h");
-                    return r ? m.situational[NIV_KEY[r.niveau]] : m.situational.no_risk_cap;
-                  })()}
-                  accent="#4B5563"
-                />
-              </div>
-              {/* Bouton refresh */}
-              <button
-                type="button"
-                onClick={onRefresh}
-                disabled={loading}
-                className="shrink-0 inline-flex items-center gap-1 rounded-xl border border-gray-200/80 bg-white/90 px-2.5 py-2 text-[10px] font-black uppercase tracking-wider text-gray-700 transition hover:-translate-y-0.5 hover:border-gray-300 hover:bg-white hover:shadow-sm disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-rdia-100 dark:hover:border-white/20 dark:hover:bg-white/10"
-              >
-                <Icon name="refresh-cw" className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
-                {loading ? "MAJ…" : "Actualiser"}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={loading}
+              className="inline-flex items-center gap-1 rounded-xl border border-gray-200/80 bg-white/90 px-2.5 py-2 text-[10px] font-black uppercase tracking-wider text-gray-700 transition hover:-translate-y-0.5 hover:border-gray-300 hover:bg-white hover:shadow-sm disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-rdia-100 dark:hover:border-white/20 dark:hover:bg-white/10"
+            >
+              <Icon name="refresh-cw" className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+              {loading ? "MAJ…" : "Actualiser"}
+            </button>
             {loading && (
-              <div className="mt-1.5 flex items-center gap-1.5 rounded-md bg-rdia-500/[0.07] px-2 py-1 text-[9.5px] font-semibold text-rdia-700 dark:bg-rdia-500/10 dark:text-rdia-300">
+              <div className="flex items-center gap-1.5 rounded-md bg-rdia-500/[0.07] px-2 py-1 text-[9.5px] font-semibold text-rdia-700 dark:bg-rdia-500/10 dark:text-rdia-300">
                 <span className="relative inline-flex h-1.5 w-1.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-or-500 opacity-60" />
                   <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-or-500" />
@@ -189,11 +154,11 @@ export function ShellInner({
 
       {/* ==== ÉTAGE 1 · Panneaux A (Points chauds) ==== */}
       <Panel id="A" title={m.situational.hotspots} right={`${sa.pointsChauds.length} zone(s)`} accent="#3B82F6">
-        <HotspotsBars data={sa.pointsChauds} />
+        <HotspotsBars data={sa.pointsChauds} totalIncidents={sa.totalIncidents} />
       </Panel>
 
       {/* ==== ÉTAGE 2 · 2 colonnes ==== */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-4.5 lg:gap-5">
+      <div className="shrink-0 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-4.5 lg:gap-5">
         {/* colonne gauche */}
         <div className="flex min-w-0 flex-col gap-4">
           <Panel id="B" title={m.situational.anticipations} right="30 min → 12 h" accent="#D97706">

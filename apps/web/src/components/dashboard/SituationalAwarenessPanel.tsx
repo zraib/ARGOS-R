@@ -42,12 +42,12 @@ export default function SituationalAwarenessPanel({ className, bare }: Props) {
 
   const shell = (children: ReactNode) =>
     bare ? (
-      <div className={cn("flex h-full w-full flex-col gap-4 p-3 md:p-5", className)}>{children}</div>
+      <div className={cn("flex w-full min-w-0 flex-col gap-4 p-3 md:p-5", className)}>{children}</div>
     ) : (
       <section className={cn("rounded-2xl border bg-white p-4.5 shadow-sm backdrop-blur-md dark:border-white/5 md:p-6", className)}
         style={{border:"1px solid rgba(175,140,60,0.18)", boxShadow:"0 1px 0 rgba(255,255,255,0.6) inset, 0 24px 44px -26px rgba(30,20,0,0.12)"}}
       >
-        <div className="flex h-full flex-col gap-4">{children}</div>
+        <div className="flex w-full min-w-0 flex-col gap-4">{children}</div>
       </section>
     );
 

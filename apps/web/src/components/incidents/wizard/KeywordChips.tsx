@@ -1,6 +1,6 @@
 "use client";
 
-import type { KeyboardEvent } from "react";
+import { memo, useCallback, useLayoutEffect, useRef, type ChangeEvent, type KeyboardEvent } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import { useDict } from "@/lib/store";
@@ -13,8 +13,14 @@ import { fieldCls, labelCls } from "./styles";
  * (désactivé tant qu'il n'y a rien à ajouter) : rendu à l'intérieur et
  * seulement quand la saisie n'était pas vide, il apparaissait à la première
  * lettre, rétrécissait le champ et faisait sauter le curseur sous les doigts.
+ *
+ * Composant MÉMORISÉ et ceinture-bretelles sur le focus : la cause première
+ * (la modale qui rendait le focus à son déclencheur à chaque frappe) est
+ * corrigée dans `Modal`, mais le champ vit sous un formulaire re-rendu à
+ * chaque tic de simulation ; s'il avait le focus avant un rendu, il le
+ * reprend, curseur à la même position.
  */
-export function KeywordChips({
+export const KeywordChips = memo(function KeywordChips({
   keywords,
   draft,
   onDraft,
@@ -30,16 +36,39 @@ export function KeywordChips({
   onRemove: (index: number) => void;
 }) {
   const t = useDict();
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const wasFocusedRef = useRef(false);
+  const selRef = useRef<number | null>(null);
+
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el || !wasFocusedRef.current || document.activeElement === el) return;
+    el.focus({ preventScroll: true });
+    const pos = selRef.current ?? el.value.length;
+    try {
+      el.setSelectionRange(pos, pos);
+    } catch {
+      /* champ texte : setSelectionRange est toujours accepté ; garde-fou pour d'autres types. */
+    }
+  });
+
+  const handleFocus = useCallback(() => { wasFocusedRef.current = true; }, []);
+  const handleBlur = useCallback(() => { wasFocusedRef.current = false; }, []);
+  const handleChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      selRef.current = e.target.selectionStart;
+      onDraft(e.target.value);
+    },
+    [onDraft],
+  );
+
   return (
     <div>
       <label className={labelCls}>{t.f_keywords}</label>
       <div className="flex items-start gap-2">
         <div
           className={`${fieldCls} flex min-w-0 flex-1 flex-wrap items-center gap-1.5 py-2`}
-          onClick={(e) => {
-            const el = (e.currentTarget.querySelector('input[data-wiz-keyword-input="1"]') ?? null) as HTMLInputElement | null;
-            el?.focus();
-          }}
+          onClick={() => inputRef.current?.focus()}
         >
           {keywords.map((kw, i) => (
             <span
@@ -61,10 +90,14 @@ export function KeywordChips({
             </span>
           ))}
           <input
+            key="wiz-keyword-draft-stable"
+            ref={inputRef}
             data-wiz-keyword-input="1"
             value={draft}
-            onChange={(e) => onDraft(e.target.value)}
+            onChange={handleChange}
             onKeyDown={onKey}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
             placeholder={keywords.length ? "" : t.f_keywords_chip_ph}
             className="min-w-[14ch] flex-1 border-0 bg-transparent p-0 text-sm outline-none ring-0 placeholder:text-gray-400 dark:placeholder:text-rdia-400"
           />
@@ -81,4 +114,4 @@ export function KeywordChips({
       <p className="mt-1 text-[11px] leading-snug text-gray-400 dark:text-rdia-400">{t.f_keywords_hint}</p>
     </div>
   );
-}
+});

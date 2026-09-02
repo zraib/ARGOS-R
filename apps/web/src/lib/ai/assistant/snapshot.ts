@@ -8,7 +8,7 @@
 // typé sur le domaine (pas de lecture « au cas où » de champs inexistants).
 // ============================================================================
 
-import { aggregateCasualties } from "@/lib/derive";
+import { aggregateCasualties, filterActiveIncidents } from "@/lib/derive";
 import type { AiContext } from "./types";
 
 interface CasualtyPerTypeLight {
@@ -38,7 +38,7 @@ export function buildOperationalSnapshot(ctx: AiContext): Record<string, unknown
   const hospitals = ctx.hospitals ?? [];
   const units = ctx.units ?? [];
   const equipment = ctx.equipment ?? [];
-  const ouverts = incidents.filter((i) => i.st !== "closed" && !i.archived);
+  const ouverts = filterActiveIncidents(incidents);
 
   // Bilan humain — le MÊME agrégateur que le tableau de bord et la page
   // incidents : chaque dimension reste explicite (contaminés ≠ blessés).

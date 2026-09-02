@@ -37,6 +37,12 @@ export function useDraftProposal(
     setDesc: (d: string) => void;
   },
 ) {
+  // Les réglages (setters + valeurs courantes) sont lus par RÉFÉRENCE : l'objet
+  // `opts` est recréé à chaque rendu du parent, et le mettre en dépendance
+  // rejouait les effets à chaque frappe — jusqu'à faire perdre le focus aux
+  // champs situés plus bas (mots-clés de l'assistant de déclaration).
+  const optsRef = useRef(opts);
+  useEffect(() => { optsRef.current = opts; }, [opts]);
   const [regenT, setRegenT] = useState(1);
   const [regenD, setRegenD] = useState(1);
   const prevSaltT = useRef(0);
@@ -57,12 +63,13 @@ export function useDraftProposal(
   const descUsed = Boolean(opts && opts.currentDesc.trim() === descProposal.trim() && descProposal);
 
   useEffect(() => {
-    if (!opts || !input.type) return;
+    const o = optsRef.current;
+    if (!o || !input.type) return;
     if (regenT !== prevSaltT.current) {
       if (regenT > 1) {
-        if (titleProposal) opts.setTitle(titleProposal);
-      } else if (opts.autoApplyIfEmpty && !firstInitDone.current && !opts.currentTitle.trim()) {
-        if (titleProposal) opts.setTitle(titleProposal);
+        if (titleProposal) o.setTitle(titleProposal);
+      } else if (o.autoApplyIfEmpty && !firstInitDone.current && !o.currentTitle.trim()) {
+        if (titleProposal) o.setTitle(titleProposal);
       }
       prevSaltT.current = regenT;
     }
@@ -70,12 +77,13 @@ export function useDraftProposal(
   }, [regenT, input.type]);
 
   useEffect(() => {
-    if (!opts || !input.type) return;
+    const o = optsRef.current;
+    if (!o || !input.type) return;
     if (regenD !== prevSaltD.current) {
       if (regenD > 1) {
-        if (descProposal) opts.setDesc(descProposal);
-      } else if (opts.autoApplyIfEmpty && !firstInitDone.current && !opts.currentDesc.trim()) {
-        if (descProposal) opts.setDesc(descProposal);
+        if (descProposal) o.setDesc(descProposal);
+      } else if (o.autoApplyIfEmpty && !firstInitDone.current && !o.currentDesc.trim()) {
+        if (descProposal) o.setDesc(descProposal);
       }
       prevSaltD.current = regenD;
     }
