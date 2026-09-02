@@ -9,7 +9,8 @@
 
 /** Mode des tuiles — doit rester cohérent avec `src/lib/map/tiles.ts`. */
 const IS_PROD = process.env.NODE_ENV === "production";
-const TILES_MODE = IS_PROD ? "sovereign" : (process.env.NEXT_PUBLIC_MAP_TILES ?? "external");
+const demandeTuiles = (process.env.NEXT_PUBLIC_MAP_TILES ?? "").trim();
+const TILES_MODE = IS_PROD ? "sovereign" : demandeTuiles === "" || demandeTuiles === "external" ? "external" : "sovereign";
 
 /** Hôtes de tuiles externes — tolérés uniquement hors production. */
 const EXTERNAL_TILE_HOSTS = [
@@ -18,7 +19,19 @@ const EXTERNAL_TILE_HOSTS = [
   "https://s3.amazonaws.com",
 ];
 
-const tileHosts = TILES_MODE === "external" ? EXTERNAL_TILE_HOSTS : [];
+/**
+ * En mode souverain, seule l'ORIGINE du serveur de tuiles auto-hébergé est
+ * admise (`NEXT_PUBLIC_TILES_URL`, martin derrière Traefik). Sans URL : aucun
+ * hôte — la carte reste sans fond, la politique reste fermée.
+ */
+const sovereignTileOrigin = (() => {
+  try {
+    return TILES_MODE === "sovereign" && process.env.NEXT_PUBLIC_TILES_URL ? new URL(process.env.NEXT_PUBLIC_TILES_URL).origin : "";
+  } catch {
+    return "";
+  }
+})();
+const tileHosts = TILES_MODE === "external" ? EXTERNAL_TILE_HOSTS : [sovereignTileOrigin].filter(Boolean);
 
 /**
  * `connect-src` : l'API ARGOS n'est PAS same-origin (web 3004, API 3005), il
@@ -37,7 +50,7 @@ const apiOrigin = process.env.NEXT_PUBLIC_API_URL ?? "";
 // développement vérifie la FORME de la CSP, elle n'est pas la frontière de
 // sécurité. La frontière, c'est la politique de production, exacte et stricte.
 const connectSrc = IS_PROD
-  ? ["'self'", apiOrigin].filter(Boolean)
+  ? ["'self'", apiOrigin, sovereignTileOrigin].filter(Boolean)
   : ["'self'", "http:", "https:", "ws:", "wss:"];
 
 /**

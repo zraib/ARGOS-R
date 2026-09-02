@@ -22,10 +22,13 @@ export type TilesMode = "sovereign" | "external";
  * un déploiement. En développement, `external` reste le défaut pour que
  * l'équipe travaille sans la pile Docker — mais l'interface l'affiche.
  */
+// Seule la valeur EXPLICITE `external` ouvre la sortie ; vide ou absente vaut
+// `external` en développement (défaut de l'équipe), toute autre valeur —
+// `sovereign`, une coquille, un réglage inconnu — ferme : on ne devine pas dans
+// le sens de la fuite.
+const demande = (process.env.NEXT_PUBLIC_MAP_TILES ?? "").trim();
 export const TILES_MODE: TilesMode =
-  process.env.NODE_ENV === "production"
-    ? "sovereign"
-    : ((process.env.NEXT_PUBLIC_MAP_TILES as TilesMode) ?? "external");
+  process.env.NODE_ENV === "production" ? "sovereign" : demande === "" || demande === "external" ? "external" : "sovereign";
 
 /**
  * Base des tuiles auto-hébergées (martin, `infra/compose`).

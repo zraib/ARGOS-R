@@ -29,7 +29,10 @@ function apply3dNow(map: maplibregl.Map, on: boolean) {
   // La bascule 2D/3D ne fait qu'INCLINER la vue : le centre, le zoom et le cap
   // sont conservés, on reste donc exactement là où l'opérateur regardait.
   if (on) {
-    if (!map.getTerrain()) map.setTerrain({ source: "dem", exaggeration: 1.4 });
+    // Sans source d'altitude (mode souverain sans MBTiles `dem`), la vue
+    // s'incline mais le relief n'est pas posé — poser un terrain sur une
+    // source absente casserait le style.
+    if (!map.getTerrain() && map.getSource("dem")) map.setTerrain({ source: "dem", exaggeration: 1.4 });
     map.easeTo({ pitch: 60, duration: 900 });
   } else {
     map.setTerrain(null);

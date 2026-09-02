@@ -1,0 +1,51 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+// ============================================================================
+// Origine du fond de carte (ADR 0006) — la règle qui protège le profil
+// d'activité : la production ne peut PAS sortir vers un fournisseur externe, et
+// le mode souverain sans serveur configuré donne une carte SANS fond, jamais un
+// repli silencieux.
+// ============================================================================
+
+async function charger(env: Record<string, string | undefined>) {
+  vi.resetModules();
+  for (const [k, v] of Object.entries(env)) {
+    if (v === undefined) vi.stubEnv(k, "");
+    else vi.stubEnv(k, v);
+  }
+  return import("@/lib/map/tiles");
+}
+
+afterEach(() => vi.unstubAllEnvs());
+
+describe("origine des tuiles", () => {
+  it("en production, le mode souverain est imposé quoi que dise l'environnement", async () => {
+    const m = await charger({ NODE_ENV: "production", NEXT_PUBLIC_MAP_TILES: "external", NEXT_PUBLIC_TILES_URL: "" });
+    expect(m.TILES_MODE).toBe("sovereign");
+    expect(m.TILES_AVAILABLE).toBe(false);
+  });
+
+  it("souverain sans URL : pas de fond du tout (fermé), et ce n'est pas une erreur", async () => {
+    const m = await charger({ NODE_ENV: "development", NEXT_PUBLIC_MAP_TILES: "sovereign", NEXT_PUBLIC_TILES_URL: "" });
+    expect(m.TILES_MODE).toBe("sovereign");
+    expect(m.TILES_AVAILABLE).toBe(false);
+  });
+
+  it("souverain avec un serveur configuré : fond disponible", async () => {
+    const m = await charger({ NODE_ENV: "development", NEXT_PUBLIC_MAP_TILES: "sovereign", NEXT_PUBLIC_TILES_URL: "https://argos.example/tiles" });
+    expect(m.TILES_AVAILABLE).toBe(true);
+    expect(m.SOVEREIGN_TILES_URL).toBe("https://argos.example/tiles");
+  });
+
+  it("une valeur inconnue ferme : on ne devine jamais dans le sens de la fuite", async () => {
+    const m = await charger({ NODE_ENV: "development", NEXT_PUBLIC_MAP_TILES: "self", NEXT_PUBLIC_TILES_URL: "" });
+    expect(m.TILES_MODE).toBe("sovereign");
+    expect(m.TILES_AVAILABLE).toBe(false);
+  });
+
+  it("en développement, l'externe est le défaut — et il se voit (bandeau)", async () => {
+    const m = await charger({ NODE_ENV: "development", NEXT_PUBLIC_MAP_TILES: "", NEXT_PUBLIC_TILES_URL: "" });
+    expect(m.TILES_MODE).toBe("external");
+    expect(m.TILES_AVAILABLE).toBe(true);
+  });
+});

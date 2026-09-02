@@ -154,6 +154,15 @@ Exigence du `MASTER_PLAN.md` §4.3, appliquée partout :
 - aucune nouvelle dépendance runtime sans ADR ;
 - aucun secret dans le dépôt ; `.env.example` sert de gabarit.
 
+**Fond de carte.** Deux origines possibles (`lib/map/tiles.ts`, ADR 0006) :
+`external` — tolérée en développement seulement, bandeau affiché — et
+`sovereign`, **imposée en production** quoi que dise l'environnement. Le mode
+souverain échoue en fermé : sans `NEXT_PUBLIC_TILES_URL`, la carte est sans
+fond et le dit. Le serveur est martin (`infra/compose`), qui sert quatre MBTiles
+(`sat`, `plan`, `lbl`, `dem`) déposés dans `infra/geo/tiles/` — la procédure de
+production de ces fichiers est dans [`infra/geo/README.md`](../infra/geo/README.md).
+La CSP n'admet en `img-src`/`connect-src` que l'origine de ce serveur.
+
 ## 8. Où aller ensuite
 
 | Sujet | Document |

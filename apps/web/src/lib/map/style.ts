@@ -47,25 +47,25 @@ const EXTERNAL_SOURCES: StyleSpecification["sources"] = {
 };
 
 /**
- * Sources en mode SOUVERAIN : martin auto-hébergé. Sans URL configurée, on
- * rend un jeu VIDE — la carte n'a pas de fond, et c'est délibéré : aucun
- * repli silencieux vers un fournisseur étranger n'est acceptable.
+ * Sources en mode SOUVERAIN : martin auto-hébergé (`infra/compose`, données
+ * dans `infra/geo/tiles/*.mbtiles`). Sans URL configurée, on rend un jeu VIDE —
+ * la carte n'a pas de fond, et c'est délibéré : aucun repli silencieux vers un
+ * fournisseur étranger n'est acceptable.
+ *
+ * Motif d'URL de martin : `/{source}/{z}/{x}/{y}` (martin choisit le format
+ * d'après le fichier). Quatre sources, une par MBTiles : `sat` (imagerie),
+ * `plan` (fond planimétrique), `lbl` (repères et toponymes), `dem` (altitude
+ * terrarium, pour le relief 3D). Un fichier absent donne des tuiles vides, pas
+ * un style cassé. Voir `infra/geo/README.md`.
  */
 function sovereignSources(): StyleSpecification["sources"] {
   if (!SOVEREIGN_TILES_URL) return {};
+  const base = SOVEREIGN_TILES_URL.replace(/\/$/, "");
   return {
-    sat: {
-      type: "raster",
-      tiles: [`${SOVEREIGN_TILES_URL}/sat/{z}/{x}/{y}.png`],
-      tileSize: 256,
-      maxzoom: 19,
-    },
-    plan: {
-      type: "raster",
-      tiles: [`${SOVEREIGN_TILES_URL}/plan/{z}/{x}/{y}.png`],
-      tileSize: 256,
-      maxzoom: 19,
-    },
+    sat: { type: "raster", tiles: [`${base}/sat/{z}/{x}/{y}`], tileSize: 256, maxzoom: 19 },
+    plan: { type: "raster", tiles: [`${base}/plan/{z}/{x}/{y}`], tileSize: 256, maxzoom: 19 },
+    lbl: { type: "raster", tiles: [`${base}/lbl/{z}/{x}/{y}`], tileSize: 256, maxzoom: 19 },
+    dem: { type: "raster-dem", tiles: [`${base}/dem/{z}/{x}/{y}`], encoding: "terrarium", tileSize: 256, maxzoom: 13 },
   };
 }
 

@@ -65,12 +65,15 @@ services:
     volumes: [emqx_data:/opt/emqx/data]
     restart: unless-stopped
 
-  # --- Tuiles vectorielles : martin -----------------------------------------
-  # Sert les tuiles générées par le pipeline geo (infra/geo). Sans données, il
-  # démarre à vide — la carte du frontend utilise des tuiles externes en démo.
+  # --- Tuiles : martin -------------------------------------------------------
+  # Sert les MBTiles déposés dans infra/geo/tiles (sat, plan, lbl, dem — voir
+  # infra/geo/README.md) et, le cas échéant, des couches PostGIS. Sans fichier,
+  # il démarre à vide : la carte souveraine est alors sans fond, et le dit.
   martin:
     image: ghcr.io/maplibre/martin:latest
-    command: ["--listen-addresses", "0.0.0.0:3000"]
+    command: ["--listen-addresses", "0.0.0.0:3000", "/tiles"]
+    volumes:
+      - ../geo/tiles:/tiles:ro
     depends_on: [db]
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-argos}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-argos}

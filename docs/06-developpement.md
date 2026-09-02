@@ -117,8 +117,8 @@ Toutes les variables lues par le code, avec leur défaut. Gabarits :
 | Variable | Défaut | Rôle |
 | --- | --- | --- |
 | `NEXT_PUBLIC_API_URL` | `http://127.0.0.1:3005` | base de l'API |
-| `NEXT_PUBLIC_MAP_TILES` | `external` | `external` = fond de carte tiers **(développement seulement, non souverain, bandeau affiché)** · `self` = tuiles auto-hébergées |
-| `NEXT_PUBLIC_TILES_URL` | — | URL du serveur de tuiles auto-hébergé (martin) |
+| `NEXT_PUBLIC_MAP_TILES` | `external` | `external` = fond de carte tiers **(développement seulement, non souverain, bandeau affiché)** · `sovereign` = tuiles auto-hébergées (martin) ; toute autre valeur ferme ; en production le mode souverain est imposé |
+| `NEXT_PUBLIC_TILES_URL` | — | base du serveur de tuiles auto-hébergé (martin : `/{source}/{z}/{x}/{y}`, sources `sat`, `plan`, `lbl`, `dem` — voir `infra/geo/README.md`) ; sans elle en mode souverain, la carte est sans fond |
 | `NEXT_PUBLIC_ROUTING_ENGINE` | `valhalla` | moteur de routage (ADR 0001) |
 | `NEXT_PUBLIC_ROUTING_URL` | `http://localhost:8002` | URL du moteur de routage |
 

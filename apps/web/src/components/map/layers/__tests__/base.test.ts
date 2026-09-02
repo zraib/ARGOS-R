@@ -17,6 +17,7 @@ function fausseCarte(styleLoaded: boolean) {
     },
     setLayoutProperty: vi.fn(),
     getTerrain: () => null,
+    getSource: (id: string) => (id === "dem" ? {} : undefined),
     setTerrain: vi.fn(),
     easeTo: vi.fn(),
   };
