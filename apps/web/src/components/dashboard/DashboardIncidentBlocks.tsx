@@ -16,7 +16,7 @@ import { DonutChart } from "@/components/charts/DonutChart";
 import { sevBadge, stBadge, typeLabel } from "@/lib/helpers";
 import { UI_ICONS } from "@/lib/icons";
 import { Icon } from "@/components/ui/Icon";
-import { incidentColor, INCIDENT_TYPE_COLORS } from "@/lib/derive";
+import { compareIncidentDate, formatIncidentHour, incidentColor, INCIDENT_TYPE_COLORS } from "@/lib/derive";
 
 function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -132,7 +132,7 @@ export function IncidentRows({
         .sort((a, b) => {
           const sw = (s: Incident["st"]) => (s === "open" ? 0 : s === "prog" ? 1 : 2);
           const sew = (s: Incident["sev"]) => (s === "high" ? 0 : s === "medium" ? 1 : 2);
-          return (sw(a.st) - sw(b.st)) || (sew(a.sev) - sew(b.sev)) || (new Date(b.time).getTime() - new Date(a.time).getTime());
+          return (sw(a.st) - sw(b.st)) || (sew(a.sev) - sew(b.sev)) || compareIncidentDate(a, b);
         }),
     [incidents],
   );
@@ -167,7 +167,7 @@ export function IncidentRows({
                 <span className="text-[9.5px] text-gray-500 dark:text-rdia-400">{i.region}</span>
                 <span className="text-[9px] text-gray-400">·</span>
                 <span className="text-[9px] text-gray-400 font-mono tabular-nums">
-                  {new Date(i.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  {formatIncidentHour(i)}
                 </span>
               </div>
             </div>

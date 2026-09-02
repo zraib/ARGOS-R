@@ -72,6 +72,9 @@ export function SubIncidentWizard({ incident, onClose }: { incident: Incident; o
       await loadDomain();
       showToast(t.si_added);
       onClose();
+    } catch (err: unknown) {
+      // Un refus de l'API (validation, droits) se lisait seulement en console.
+      showToast(`${t.toast_fail} — ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setBusy(false);
     }

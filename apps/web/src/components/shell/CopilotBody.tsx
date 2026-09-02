@@ -289,7 +289,7 @@ export default function CopilotBody() {
         const messages: LlmMessage[] = [
           { role: "system", content: aiSystemPrompt(lang, aiSettings.systemPrompt) },
           ...buildLlmHistory(aiLog),
-          { role: "user", content: buildLlmUserMessage(q, withRiskCtx, lang) },
+          { role: "user", content: buildLlmUserMessage(q, withRiskCtx, lang, ctx) },
         ];
         const issue = await runLlmTurn(cfg, messages, {
           skipLeakGuard: isSafeGreeting(qRaw),

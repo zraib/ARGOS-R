@@ -12,6 +12,7 @@ import type { Incident, SubIncident } from "@/lib/types";
 import {
   llTxt,
   } from "@/app/incidents/_parts/shared";
+import { formatIncidentHour } from "@/lib/derive";
 
 
 /**
@@ -57,7 +58,7 @@ export function SubIncidentCard({ incident, sub }: { incident: Incident; sub: Su
         <Badge type={sb.type} label={sb.label} />
         <span className="min-w-0 break-words text-sm font-medium text-gray-800 dark:text-rdia-50">{subTypeLabel(sub.type, subCatalog.types, lang)}</span>
         {sub.note && <span className="min-w-0 break-words text-xs text-gray-500 dark:text-rdia-300">· {sub.note}</span>}
-        <span className="ms-auto font-mono text-[11px] text-gray-400 dark:text-rdia-400">{sub.time}</span>
+        <span className="ms-auto font-mono text-[11px] text-gray-400 dark:text-rdia-400">{formatIncidentHour(sub)}</span>
         {canEdit && (
           <button
             onClick={() => void remove()}

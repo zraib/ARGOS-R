@@ -100,7 +100,7 @@ export function riskiestZone(_q: string, ctx: AiContext): AiAnswer {
     `⚠️ **Zone présentant actuellement le plus grand niveau de risque** (score = volume × gravité) :\n` +
     (top
       ? `• **${top.z.nom}** — score de risque **${top.risk}** (${top.z.count} incident(s), gravité max **${top.z.severity}**) · ${allCrit ? Math.round(100 * top.risk / allCrit) : 0}% du risque national.\n` +
-        `• Actions recommandées :\n  ▸ Vérifier disponibilités locales unités + hôpitaux\n  ▸ Prévenir CODIS / ORSEC zone\n  ▸ Consulter les incidents prioritaires`
+        `• Indicateurs : volume ${top.z.count}, gravité pondérée ${top.risk}, part du risque national ${allCrit ? Math.round(100 * top.risk / allCrit) : 0}%.`
       : "Pas assez de données pour établir une zone à risque.");
   return {
     intent: "riskiest_zone",

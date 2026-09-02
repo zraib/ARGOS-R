@@ -6,13 +6,13 @@
 // modifiable sans relire le tout. Voir `index.ts` pour la surface publique.
 // ============================================================================
 
-import type { AiAnswer, AiCrossBlock, AiHospitalRow, AiIncidentRow } from "./types";
+import type { AiAnswer, AiContext, AiCrossBlock, AiHospitalRow, AiIncidentRow } from "./types";
 import type { Bar } from "@/lib/data/modules";
-import { cleanFinalText } from "@/lib/ai/config";
+import { buildOperationalSnapshot } from "./snapshot";
 import type { RiskPrediction } from "@/lib/ai/risk/types";
 
 /** Message utilisateur transmis au LLM : requête + résultat Couche 1 à reformuler. */
-export function buildLlmUserMessage(query: string, answer: AiAnswer, lang: "fr" | "en" | "ar" = "fr"): string {
+export function buildLlmUserMessage(query: string, answer: AiAnswer, lang: "fr" | "en" | "ar" = "fr", ctx?: AiContext): string {
   // Langue de la consigne finale : suit la session (le prompt système porte la
   // même directive) ; les données restent telles quelles.
   const langName = lang === "en" ? "anglais" : lang === "ar" ? "arabe" : "français";
@@ -43,9 +43,12 @@ export function buildLlmUserMessage(query: string, answer: AiAnswer, lang: "fr" 
   const LLM_MAX_ROWS_INCIDENTS = 20;
   const LLM_MAX_ROWS_UNITES = 16;
   const LLM_MAX_ROWS_EQUIP = 12;
-  const MAX_SUMMARY_CHARS = 600;
   const MAX_JSON_CHARS = 5000;
   const data: Record<string, unknown> = {};
+  // PREMIÈRE clé : l'instantané opérationnel, calculé en temps réel depuis le
+  // contexte. C'est la seule source d'agrégats autorisée par les règles R0–R4
+  // du prompt système ; en tête pour survivre à toute troncature.
+  if (ctx) data.SNAPSHOT_OPERATIONNEL = buildOperationalSnapshot(ctx);
   // 🚨 13/08/26 FUITE ÉCHO JSON: ne JAMAIS transmettre data.intention=data.indice_moteur.
   //    - greetings/"unknown" font echo ```json {intention:greeting}``` dans la réponse (mistral 7B miroir)
   //    - la reformulation n'a PAS besoin de "intention" détectée par la Couche 1
@@ -139,27 +142,17 @@ export function buildLlmUserMessage(query: string, answer: AiAnswer, lang: "fr" 
   const riskCtx: RiskPrediction[] | undefined = (answer as unknown as { _riskCtx?: RiskPrediction[] })?._riskCtx;
   const riskTop = riskCtx ? riskCtx.filter(p => !p.dismissed).sort((a, b) => b.score - a.score).slice(0, 3) : [];
 
-  // Version simplifiée (résumé markdown) pour aider Qwen même s'il parse mal le JSON
-  // 🔥 TRONQUÉ 600 CARACTÈRES MAX (answer.text faisait 40000 caractères avant fix → overflow)
-  // 🔥🔥 13/08/26: cleanFinalText → SUPPRIME phrases vides "Aucune donnée complémentaire / Aucun autre incident..."
-  //       AVANT summaryClean (filtre CSV) et AVANT le troncage (on enlève des caractères inutiles).
-  const summaryRaw = cleanFinalText(answer.text ?? "");
-  const summaryClean = summaryRaw
-    .split(/\r?\n/)
-    .filter((line) => {
-      // Supprimer lignes TABLEAU CSV brut (ÉTABLISSEMENTS / UNITÉS / INCIDENTS en header en MAJUSCULES,
-      // puis lignes avec 2+ tabs ou pipes) — évite l'écho par le LLM des 8 hôpitaux.
-      const stripped = line.trim();
-      if (!stripped) return true;
-      if (/^[A-ZÉÈÊÀÂÔÛÇ\s]{4,}(?:\t| {2,}|$)/.test(stripped)) return false;
-      if (/[A-Z][A-ZÉÈÊÀÂÔÛÇ\s]+\t/.test(stripped) && stripped.split(/\t/).length >= 3) return false;
-      if (stripped.startsWith("---") && stripped.replace(/-/g, "").trim() === "") return false;
-      return true;
-    })
-    .join("\n");
-  const summaryText = summaryClean.length > MAX_SUMMARY_CHARS
-    ? summaryClean.slice(0, MAX_SUMMARY_CHARS) + "\n[…résumé tronqué pour contexte 32K…]"
-    : summaryClean;
+  // Le texte de la Couche 1 n'est PLUS transmis : il portait des phrases
+  // agrégées parfois anciennes que le modèle recopiait au lieu de lire le JSON.
+  // Il ne reste qu'une coquille courte : l'intention détectée, sans chiffre.
+  const summaryText = (() => {
+    const parts = [
+      `Intention Couche 1 détectée : ${String(answer.intent ?? "inconnu")}`,
+      answer.layer1 ? `(indice : ${String(answer.layer1).slice(0, 70).trim()})` : null,
+    ].filter((x): x is string => Boolean(x));
+    const hint = "⚠️ Source de vérité UNIQUE = le bloc JSON structuré ci-dessus (SNAPSHOT_OPERATIONNEL, statistiques, incidents, hopitaux, unites). Ce paragraphe ne porte aucun chiffre. " + parts.join(" · ");
+    return hint.length > 320 ? hint.slice(0, 320) + "…" : hint;
+  })();
 
   // Notes contextuelles EN FRANÇAIS NATUREL (pas dans JSON → pas de fuite de noms de champs)
   const ctxNotes: string[] = [];
@@ -219,10 +212,10 @@ export function buildLlmUserMessage(query: string, answer: AiAnswer, lang: "fr" 
   lines.push(jsonStr);
   lines.push("```");
   lines.push("");
-  lines.push("## RÉSUMÉ MOTEUR DÉTERMINISTE (tu peux réutiliser, reformuler)");
-  lines.push(summaryText || "(vide)");
+  lines.push("## INTENTION DÉTECTÉE (sans chiffre — les valeurs sont dans le JSON)");
+  lines.push(summaryText);
   lines.push("");
-  lines.push(`## TA RÉPONSE MAINTENANT (${langName}, concis, factuel, markdown autorisé, titres ###, listes à puces, **gras** pour chiffres clés, 1 tableau Markdown structuré si tu dois comparer PLUSIEURS hôpitaux/incidents. Si des données sont DANS le JSON ci-dessus, tu les utilises TOUTES. PAS de blocs code, PAS de JSON dans ta réponse.)`);
+  lines.push(`## TA RÉPONSE MAINTENANT (${langName}, concis, factuel, markdown autorisé, titres ###, listes à puces, **gras** pour chiffres clés, 1 tableau Markdown structuré UNIQUEMENT si tu dois comparer ≥ 3 hôpitaux/incidents. RÈGLE FERME : NE termine JAMAIS par des suggestions de questions — l'interface ARGOS les affiche séparément (pastilles « Suggérés ») et tu créerais un doublon. Si des données sont DANS le JSON ci-dessus, tu les utilises TOUTES. PAS de blocs code, PAS de JSON dans ta réponse.)`);
   lines.push("");
 
   return lines.join("\n");

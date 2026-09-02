@@ -249,7 +249,9 @@ export class DomainService {
       const n = Number.parseInt(i.id.replace(/^INC-/, ""), 10);
       return Number.isFinite(n) && n > max ? n : max;
     }, 2607);
-    const inc: Incident = { ...input, id: `INC-${highest + 1}`, time };
+    // `archived: false` explicite : un incident fraîchement déclaré est actif ;
+    // l'absence du champ laissait les filtres « actifs » interpréter `undefined`.
+    const inc: Incident = { archived: false, ...input, id: `INC-${highest + 1}`, time };
     this.incidents.unshift(inc);
     this.feed.unshift({ time, c: "bg-danger-500", txt: `${inc.id} — ${inc.titre}` });
     this.persist();

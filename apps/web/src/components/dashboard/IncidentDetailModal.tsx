@@ -22,7 +22,7 @@ import { Icon as IcoUI } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import { useArgos, useDict } from "@/lib/store";
 import { sevBadge, stBadge, typeIcon, typeLabel } from "@/lib/helpers";
-import { casualtyKind } from "@/lib/derive";
+import { casualtyKind, formatIncidentTime } from "@/lib/derive";
 import type { Incident, Lang, Severity, IncidentStatus, SubIncident, SubIncidentTypeDef } from "@/lib/types";
 
 function cn(...parts: Array<string | false | null | undefined>) {
@@ -204,10 +204,7 @@ export function IncidentDetailModal({ open, incident, onClose }: Props) {
               </span>
               <span className="inline-flex items-center gap-1">
                 <IcoUI path={UI_ICONS.clock} size={11} />
-                {new Date(incident.time).toLocaleString([], {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                })}
+                {formatIncidentTime(incident)}
               </span>
               <span className="inline-flex items-center gap-1 tabular-nums">
                 [ {incident.ll[0].toFixed(4)} , {incident.ll[1].toFixed(4)} ]
@@ -455,7 +452,7 @@ function SubIncidentRow({
         <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-500 dark:text-rdia-400">
           <span className="inline-flex items-center gap-1">
             <IcoUI path={UI_ICONS.clock} size={9.5} />
-            {new Date(sub.time).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+            {formatIncidentTime(sub)}
           </span>
           {sub.note && <span className="min-w-0 truncate">· {sub.note}</span>}
           {sub.ll && (

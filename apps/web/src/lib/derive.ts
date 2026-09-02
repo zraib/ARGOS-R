@@ -14,6 +14,79 @@ import { occBarClass, persStatut } from "@/lib/helpers";
 import { fieldKind, hospKind } from "@/lib/hospitals";
 
 // ============================================================================
+// Dates d'incident robustes — jamais « Invalid Date » à l'écran
+// ----------------------------------------------------------------------------
+// Le champ historique `time` porte tantôt une heure « HH:MM » (jeu de
+// démonstration, API), tantôt un horodatage ISO. Un `new Date("14:35")` était
+// invalide : les listes affichaient « Invalid Date » et les tris comparaient
+// des NaN. Ordre de résolution : time → datetime → createdAt → updatedAt ;
+// une heure seule vaut « aujourd'hui à HH:MM » pour le tri et n'est affichée
+// que comme heure (pas de date inventée). Sans champ exploitable : « — ».
+// ============================================================================
+
+export interface DatedLike {
+  time?: string | null;
+  datetime?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+const HEURE_SEULE = /^(\d{1,2}):(\d{2})$/;
+
+function parseDateCandidate(raw: string | null | undefined): { date: Date; hourOnly: boolean } | null {
+  if (!raw || raw === "Invalid Date") return null;
+  const hm = HEURE_SEULE.exec(raw.trim());
+  if (hm) {
+    const d = new Date();
+    d.setHours(Number(hm[1]), Number(hm[2]), 0, 0);
+    return { date: d, hourOnly: true };
+  }
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : { date: d, hourOnly: false };
+}
+
+function resolveIncidentDate(inc: DatedLike | null | undefined): { date: Date; hourOnly: boolean } | null {
+  if (!inc) return null;
+  return (
+    parseDateCandidate(inc.time) ??
+    parseDateCandidate(inc.datetime) ??
+    parseDateCandidate(inc.createdAt) ??
+    parseDateCandidate(inc.updatedAt)
+  );
+}
+
+/** Date VALIDE d'un incident ou sous-incident, ou `null` si aucun champ n'est exploitable. */
+export function getIncidentDate(inc: DatedLike | null | undefined): Date | null {
+  return resolveIncidentDate(inc)?.date ?? null;
+}
+
+/** Date et heure lisibles ; une source « HH:MM » seule reste une heure. Jamais « Invalid Date ». */
+export function formatIncidentTime(inc: DatedLike | null | undefined, opts?: { withTime?: boolean }): string {
+  const r = resolveIncidentDate(inc);
+  if (!r) return "—";
+  if (r.hourOnly) return r.date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return opts?.withTime === false
+    ? r.date.toLocaleDateString([], { dateStyle: "medium" })
+    : r.date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+}
+
+/** Heure « HH:MM » pour les listes. */
+export function formatIncidentHour(inc: DatedLike | null | undefined): string {
+  const d = getIncidentDate(inc);
+  return d ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
+}
+
+/** Tri stable du plus récent au plus ancien ; les dates invalides vont en fin de liste. */
+export function compareIncidentDate(a: DatedLike | null | undefined, b: DatedLike | null | undefined): number {
+  const ta = getIncidentDate(a)?.getTime();
+  const tb = getIncidentDate(b)?.getTime();
+  if (ta === undefined && tb === undefined) return 0;
+  if (ta === undefined) return 1;
+  if (tb === undefined) return -1;
+  return tb - ta;
+}
+
+// ============================================================================
 // Services hospitaliers · source unique de résolution
 // ============================================================================
 // 1) Si l'hôpital a `services[]` saisis (nouveau flux AddHospital) → utilisés tels quels
@@ -505,13 +578,20 @@ export function aggregateCasualties(
     key: "dead", label: "Décès", value: aggTotals.dead,
     color: { text: "text-danger-500", bg: "bg-danger-500/10", br: "border-t-danger-500/50", hex: "#EF4444" },
   };
-  const selected = candidates.filter((c) => c.value > 0).slice(0, 3);
-  const fallbacks: CasualtyDim[] = candidates; // fallback pool
-  for (const fb of fallbacks) {
-    if (selected.length >= 3) break;
-    if (!selected.some((s) => s.key === fb.key)) selected.push(fb);
-  }
-  const kpis = [deadKpi, ...selected.slice(0, 3)];
+  // Six KPI SYSTÉMATIQUES, toujours affichés (un zéro se lit en retrait) dans
+  // l'ordre métier ARGOS : Décès → Contaminés → Infectés → Blessés → Disparus →
+  // Secourus ; « Exposés » s'ajoute en septième dès qu'il est non nul.
+  const dim = (key: CasualtyDim["key"], label: string, value: number, text: string, bg: string, br: string, hex: string): CasualtyDim =>
+    candidates.find((c) => c.key === key) ?? { key, label, value, color: { text, bg, br, hex } };
+  const contamKpi = dim("contaminated", "Contaminés", aggTotals.contaminated, "text-purple-600 dark:text-purple-400", "bg-purple-500/10", "border-t-purple-500/50", "#A855F7");
+  const infectKpi = dim("infected", "Infectés", aggTotals.infected, "text-pink-600 dark:text-pink-400", "bg-pink-500/10", "border-t-pink-500/50", "#EC4899");
+  const blessesKpi = dim("injured", "Blessés", aggTotals.injured, "text-or-500", "bg-or-500/10", "border-t-or-500/50", "#F59E0B");
+  const disparusKpi = dim("missing", "Disparus", aggTotals.missing, "text-gray-600 dark:text-rdia-300", "bg-gray-500/10", "border-t-gray-400/50", "#64748B");
+  const secourusKpi = dim("rescued", "Secourus", aggTotals.rescued, "text-green-600 dark:text-green-400", "bg-green-500/10", "border-t-green-500/50", "#10B981");
+  const exposedKpi = candidates.find((c) => c.key === "exposed");
+  const kpis = exposedKpi && exposedKpi.value > 0
+    ? [deadKpi, contamKpi, infectKpi, blessesKpi, disparusKpi, secourusKpi, exposedKpi]
+    : [deadKpi, contamKpi, infectKpi, blessesKpi, disparusKpi, secourusKpi];
 
   return {
     byType: sortedTypes,

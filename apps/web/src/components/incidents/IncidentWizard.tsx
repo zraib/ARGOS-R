@@ -125,6 +125,9 @@ export function IncidentWizard() {
       await loadDomain();
       showToast(t.toast_ok);
       onClose();
+    } catch (err: unknown) {
+      // Un refus de l'API (validation, droits) se lisait seulement en console.
+      showToast(`${t.toast_fail} — ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setBusy(false);
     }

@@ -6,11 +6,11 @@
 // modifiable sans relire le tout. Voir `index.ts` pour la surface publique.
 // ============================================================================
 
-import { resolveTarget } from "../enrich";
 import { COND_LABEL, DISPO_LABEL, INCIDENT_PLACE, SEV_LABEL, ST_LABEL, UNIT_CODE } from "../labels";
 import { hospitalRow, incidentRow } from "../rows";
 import type { AiAnswer, AiContext, AiCrossUnitEquip, AiCrossUnitRec, AiIncidentRow } from "../types";
 import { CAP_LABELS, recommend, needFromIncident, haversineKm } from "@/lib/reco";
+import { suggestionsForIncident, withValidIncident } from "./guard";
 
 export function globalOverview(_q: string, ctx: AiContext): AiAnswer {
   const s = ctx.dashStats ?? null;
@@ -95,95 +95,71 @@ export function globalOverview(_q: string, ctx: AiContext): AiAnswer {
 
 
 export function crossAnalysis(q: string, ctx: AiContext): AiAnswer {
-  const target = resolveTarget(q, ctx.incidents);
-  if (!target) {
+  return withValidIncident(q, ctx, "cross_analysis", (target) => {
+    const place = INCIDENT_PLACE[target.id] ?? target.region;
+    const hospitals = ctx.hospitals ?? [];
+    const quakes = ctx.quakes ?? [];
+    const unitRecs = recommend(needFromIncident(target), ctx.units).filter((r) => !r.excluded).slice(0, 4);
+    const hops = hospitals.map((h) => hospitalRow(h, target.ll)).sort((a, b) => (a.distanceKm ?? 9999) - (b.distanceKm ?? 9999)).slice(0, 4);
+    const topUnitIds = new Set(unitRecs.map((r) => r.unit.id));
+    const inv = ctx.equipment.filter((e) => {
+      const uid = UNIT_CODE[e.unit];
+      return uid ? topUnitIds.has(uid) : false;
+    }).slice(0, 6);
+    const nearQuakes = quakes.filter((qk) => haversineKm([qk.lon, qk.lat], target.ll) < 100).slice(0, 3);
+
+    // Bloc structuré « cross » : décomposition du score et inventaire par unité.
+    const incRow: AiIncidentRow & { lieu?: string; coords?: [number, number] } = { ...incidentRow(target), lieu: place, coords: target.ll };
+    const recommendedUnits: AiCrossUnitRec[] = unitRecs.map((r) => ({
+      unit: { id: r.unit.id, nom: r.unit.nom, ville: r.unit.ville },
+      score: r.score,
+      timeScore: r.breakdown.travel,
+      capScore: r.breakdown.capability,
+      regionScore: r.breakdown.readiness,
+      dispoScore: r.breakdown.availability,
+    }));
+    const unitEquipment: AiCrossUnitEquip[] = unitRecs
+      .map((r) => {
+        const uid = Object.entries(UNIT_CODE).find(([, v]) => v === r.unit.id)?.[0];
+        const list = uid
+          ? ctx.equipment.filter((e) => e.unit === uid).slice(0, 4).map((e) => ({ desig: e.desig, stock: e.stock, cond: COND_LABEL[e.cond] }))
+          : [];
+        return { unitName: r.unit.nom, equipment: list };
+      })
+      .filter((x) => x.equipment.length > 0);
+
+    const lines: string[] = [
+      `ANALYSE CROISÉE · ${target.id} — ${target.titre} (${place}) · sév. ${SEV_LABEL[target.sev]} · ${ST_LABEL[target.st]}`,
+      `Incident · type ${target.type} · déclaré ${target.time}${target.casualties ? ` · bilan D${target.casualties.dead}/B${target.casualties.injured}/?${target.casualties.missing}` : ""}`,
+      ``,
+      `➤ UNITÉS CLASSÉES ARGOS (score brut, sans préconisation d'engagement) :`,
+      ...unitRecs.map((r, i) => {
+        const occ = r.breakdown;
+        return `  ${i + 1}. ${r.unit.nom} · score ${r.score}/100 (t${occ.travel}/c${occ.capability}/r${occ.readiness}/d${occ.availability}) · ETA ${r.etaMin} min · ${r.matchedCaps.map((c) => CAP_LABELS[c]).join("+") || "—"}`;
+      }),
+      ``,
+      `➤ HÔPITAUX LES PLUS PROCHES :`,
+      ...hops.map((h) => `  • ${h.nom} (${h.ville}) · ${h.distanceKm} km / ${h.etaMin} min · occ ${h.occPct}% · REA ${h.icuPct}% · lits libres ${Math.max(0, h.lits - Math.round(h.occPct * h.lits / 100))}`),
+      ``,
+      inv.length ? `➤ INVENTAIRE lié aux unités du classement ARGOS (score + proximité) :` : "➤ Aucun équipement rattaché aux unités de ce classement.",
+      ...inv.map((e) => `  • ${e.desig} · stock ${e.stock}/${e.threshold} · unité ${e.unit} · état ${COND_LABEL[e.cond]}`),
+      ``,
+      nearQuakes.length ? `➤ CONTEXTE SISMIQUE (<100 km) :` : "➤ Aucun séisme significatif dans un rayon de 100 km.",
+      ...nearQuakes.map((qk) => `  • M${qk.mag.toFixed(1)} · ${qk.region} · profondeur ${qk.depth} km · ${new Date(qk.time).toLocaleString("fr-FR", { hour12: false })}`),
+    ];
     return {
       intent: "cross_analysis",
-      layer1: "analyse croisée — cible non résolue",
-      text: "Précisez une zone ou un incident pour croiser : incidents × unités × hôpitaux × équipements × météo/séismes.",
-    };
-  }
-  const place = INCIDENT_PLACE[target.id] ?? target.region;
-  const hospitals = ctx.hospitals ?? [];
-  const quakes = ctx.quakes ?? [];
-  // Unités top
-  const unitRecs = recommend(needFromIncident(target), ctx.units).filter((r) => !r.excluded).slice(0, 4);
-  // Hôpitaux proches
-  const hops = hospitals.map((h) => hospitalRow(h, target.ll)).sort((a, b) => (a.distanceKm ?? 9999) - (b.distanceKm ?? 9999)).slice(0, 4);
-  // Équipements rattachés aux unités les mieux classées
-  const topUnitIds = new Set(unitRecs.map((r) => r.unit.id));
-  const inv = ctx.equipment.filter((e) => {
-    const uid = UNIT_CODE[e.unit];
-    return uid ? topUnitIds.has(uid) : false;
-  }).slice(0, 6);
-  // Quake context
-  const nearQuakes = quakes.filter((qk) => haversineKm([qk.lon, qk.lat], target.ll) < 100).slice(0, 3);
-
-  // Bloc structuré « cross » avec décomposition de score et regroupement inventaire
-  const incRow: AiIncidentRow & { lieu?: string; coords?: [number, number] } = {
-    ...incidentRow(target),
-    lieu: place,
-    coords: target.ll,
-  };
-  const recommendedUnits: AiCrossUnitRec[] = unitRecs.map((r) => ({
-    unit: { id: r.unit.id, nom: r.unit.nom, ville: r.unit.ville },
-    score: r.score,
-    timeScore: r.breakdown.travel,
-    capScore: r.breakdown.capability,
-    regionScore: r.breakdown.readiness,
-    dispoScore: r.breakdown.availability,
-  }));
-  const unitEquipment: AiCrossUnitEquip[] = unitRecs
-    .map((r) => {
-      const uid = Object.entries(UNIT_CODE).find(([, v]) => v === r.unit.id)?.[0];
-      const list = uid
-        ? ctx.equipment.filter((e) => e.unit === uid).slice(0, 4).map((e) => ({ desig: e.desig, stock: e.stock, cond: COND_LABEL[e.cond] }))
-        : [];
-      return { unitName: r.unit.nom, equipment: list };
-    })
-    .filter((x) => x.equipment.length > 0);
-
-  const lines: string[] = [
-    `ANALYSE CROISÉE · ${target.id} — ${target.titre} (${place}) · sév. ${SEV_LABEL[target.sev]} · ${ST_LABEL[target.st]}`,
-    `Incident · type ${target.type} · déclaré ${target.time}${target.casualties ? ` · bilan D${target.casualties.dead}/B${target.casualties.injured}/?${target.casualties.missing}` : ""}`,
-    ``,
-    `➤ UNITÉS RECOMMANDÉES (moteur reco Couche 1) :`,
-    ...unitRecs.map((r, i) => {
-      const occ = r.breakdown;
-      return `  ${i + 1}. ${r.unit.nom} · score ${r.score}/100 (t${occ.travel}/c${occ.capability}/r${occ.readiness}/d${occ.availability}) · ETA ${r.etaMin} min · ${r.matchedCaps.map((c) => CAP_LABELS[c]).join("+") || "—"}`;
-    }),
-    ``,
-    `➤ HÔPITAUX LES PLUS PROCHES :`,
-    ...hops.map((h) => `  • ${h.nom} (${h.ville}) · ${h.distanceKm} km / ${h.etaMin} min · occ ${h.occPct}% · REA ${h.icuPct}% · lits libres ${Math.max(0, h.lits - Math.round(h.occPct * h.lits / 100))}`),
-    ``,
-    inv.length ? `➤ INVENTAIRE lié aux unités recommandées :` : "➤ Aucun équipement lié trouvé pour les unités proposées.",
-    ...inv.map((e) => `  • ${e.desig} · stock ${e.stock}/${e.threshold} · unité ${e.unit} · état ${COND_LABEL[e.cond]}`),
-    ``,
-    nearQuakes.length ? `➤ CONTEXTE SISMIQUE (<100 km) :` : "➤ Aucun séisme significatif dans un rayon de 100 km.",
-    ...nearQuakes.map((qk) => `  • M${qk.mag.toFixed(1)} · ${qk.region} · profondeur ${qk.depth} km · ${new Date(qk.time).toLocaleString("fr-FR", { hour12: false })}`),
-  ];
-  return {
-    intent: "cross_analysis",
-    layer1: `cross-data ${target.id} : reco unités × hôpitaux proches × inventaire unités × séismes <100 km`,
-    text: lines.join("\n"),
-    incidents: [incidentRow(target)],
-    units: unitRecs.map((r) => ({ id: r.unit.id, nom: r.unit.nom, ville: r.unit.ville, etaMin: r.etaMin, caps: r.matchedCaps.map((c) => CAP_LABELS[c]), dispo: DISPO_LABEL[r.unit.dispo], within: true })),
-    hospitals: hops,
-    topEquip: inv.map((e) => ({ id: e.id, desig: e.desig, cat: e.cat, stock: e.stock, cond: COND_LABEL[e.cond], unit: e.unit, seuil: e.threshold })),
-    quakes: nearQuakes.map((qk) => ({ id: qk.id, region: qk.region, mag: qk.mag, depth: qk.depth, time: qk.time })),
-    cross: {
-      incident: incRow,
-      recommendedUnits,
+      layer1: `cross-data ${target.id} : unités classées × hôpitaux proches × inventaire unités × séismes <100 km`,
+      text: lines.join("\n"),
+      incidents: [incidentRow(target)],
+      units: unitRecs.map((r) => ({ id: r.unit.id, nom: r.unit.nom, ville: r.unit.ville, etaMin: r.etaMin, caps: r.matchedCaps.map((c) => CAP_LABELS[c]), dispo: DISPO_LABEL[r.unit.dispo], within: true })),
       hospitals: hops,
-      unitEquipment,
-      quakes: nearQuakes,
-    },
-    suggestions: [
-      "Envoyer une unité médicale en moins de 45 min",
-      "Hôpitaux sous tension dans la région",
-      "Rédige le SITREP",
-    ],
-  };
+      topEquip: inv.map((e) => ({ id: e.id, desig: e.desig, cat: e.cat, stock: e.stock, cond: COND_LABEL[e.cond], unit: e.unit, seuil: e.threshold })),
+      quakes: nearQuakes.map((qk) => ({ id: qk.id, region: qk.region, mag: qk.mag, depth: qk.depth, time: qk.time })),
+      cross: { incident: incRow, recommendedUnits, hospitals: hops, unitEquipment, quakes: nearQuakes },
+      suggestions: suggestionsForIncident(target, ["Hôpitaux sous tension dans la région", "Rédige le SITREP"]),
+    };
+  });
 }
 
 

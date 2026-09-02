@@ -20,6 +20,7 @@ import {
   } from "@/app/incidents/_parts/shared";
 import { Detail } from "@/app/incidents/_parts/Detail";
 import { SubIncidentSection } from "@/app/incidents/_parts/SubIncidentSection";
+import { formatIncidentTime } from "@/lib/derive";
 
 /** Modale de détails enrichie (bilan humain, moyens, personnel, véhicules, sous-incidents + IA évolution). */
 export function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddSub }: { incident: Incident; onClose: () => void; onMap: (id: string) => void; onEdit: (inc: Incident) => void; onAddSub: (inc: Incident) => void }) {
@@ -100,7 +101,7 @@ export function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddS
           <Detail label={t.col_region} value={incident.region} />
           <Detail label={t.col_sev} value={<Badge type={sevBadge(incident.sev, t).type} label={sevBadge(incident.sev, t).label} />} />
           <Detail label={t.col_status} value={<Badge type={stBadge(incident.st, t).type} label={stBadge(incident.st, t).label} />} />
-          <Detail label={t.col_time} value={incident.time} />
+          <Detail label={t.col_time} value={formatIncidentTime(incident)} />
           <Detail label={t.f_coords} value={<span className="font-mono text-xs">{llTxt(incident.ll)}</span>} />
           {incident.adresse && <Detail label={t.f_addr} value={incident.adresse} />}
           {incident.casualties && (

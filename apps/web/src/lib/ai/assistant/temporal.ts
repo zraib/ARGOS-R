@@ -215,9 +215,10 @@ export function todayVsYesterday(_q: string, ctx: AiContext): AiAnswer {
   const text =
     `📊 **Comparaison aujourd'hui / hier** :\n${sevLine("Aujourd'hui", T)}\n${sevLine("Hier        ", Y)}\n` +
     `• Delta : **${delta > 0 ? "+" : ""}${delta}** (${pct > 0 ? "+" : ""}${pct}%) · Tendance : **${trend === "increasing" ? "⬆️ hausse" : trend === "decreasing" ? "⬇️ baisse" : "➡️ stable"}**\n` +
-    (trend === "increasing" ? "• ⚠️ Vérifier les capacités d'accueil et disponibilités unités." :
-     trend === "decreasing" ? "• ℹ️ Baisse : envisager rotation/maintien de capacités." :
-     "• ℹ️ Situation stable, surveillance usuelle.");
+    (trend === "increasing" ? "• ⚠️ Hausse du volume d'incidents (plus de nouveaux cas que J-1)." :
+     trend === "decreasing" ? "• ℹ️ Baisse du volume d'incidents (moins de nouveaux cas que J-1)." :
+     "• ℹ️ Volume d'incidents stable.") +
+    "\n• Indicateurs bruts du référentiel temporel ARGOS, sans interprétation opérationnelle.";
   return {
     intent: "today_vs_yesterday",
     layer1: `comparaison temporelle aujourd'hui(${T.count}) vs hier(${Y.count}) → ${trend}`,
@@ -242,8 +243,8 @@ export function trendIncidents(_q: string, ctx: AiContext): AiAnswer {
     `📈 **Tendance générale des incidents** :\n` +
     `• Jour même (J) : ${t.count} · Veille (J-1) : ${y.count} · 24h glissant : ${l24.count}\n` +
     `• Tendance : **${trend === "increasing" ? "⬆️ AUGMENTATION" : trend === "decreasing" ? "⬇️ DIMINUTION" : "➡️ STABLE"}** · écart ${pct > 0 ? "+" : ""}${pct}%\n` +
-    (unusual ? `• ⚠️ **Écart > 50% : évolution inhabituelle détectée** (à investiguer immédiatement).\n` : "") +
-    `• Recommandation : ${trend === "increasing" ? "prévenir CODIS, monter le niveau ORSEC, réactif les unités de réserve." : trend === "decreasing" ? "situation en amélioration, rotation des équipages possible." : "vigilance normale."}`;
+    (unusual ? `• ⚠️ **Écart > 50% : évolution inhabituelle détectée** (indicateur brut).\n` : "") +
+    `• Indicateur temporel (24 h glissantes et J-1) · données référentielles ARGOS, sans interprétation opérationnelle.`;
   return {
     intent: "trend_incidents",
     layer1: `analyse temporelle tendance ${trend} · écart ${pct}% · ${unusual ? "inhabituel" : "habituel"}`,

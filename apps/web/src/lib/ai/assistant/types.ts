@@ -22,6 +22,7 @@ export type AiIntent =
   | "casualties_summary"
   | "hospitals_status"
   | "hospitals_nearest"
+  | "hospitals_by_city"
   | "units_status"
   | "cross_analysis"
   | "orsec_summary"

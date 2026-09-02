@@ -8,7 +8,8 @@
 
 import { classifyIncSubIntent, resolveTarget } from "./enrich";
 import { equipmentCriticalStatus, equipmentSearch } from "./intents/equipment";
-import { hospitalsNearest, hospitalsStatus, reachability } from "./intents/hospitals";
+import { extractHospitalCityFromQuery, hospitalsByCity, hospitalsNearest, hospitalsStatus, reachability } from "./intents/hospitals";
+import { exampleIncidentId } from "./intents/guard";
 import { anomaly, casualtiesSummary, incidentConcise, incidentDetails, incidentsList, incidentsNearCity, sitrep, worstIncidents } from "./intents/incidents";
 import { crossAnalysis, globalOverview, help, orsecSummary } from "./intents/overview";
 import { criticalConcentration, riskPredictionAnswer, riskZoneAnswer, riskiestZone, touchedZones } from "./intents/risk";
@@ -21,6 +22,8 @@ import type { AiAnswer, AiContext } from "./types";
 /** Traduit une requête NL → requête Couche 1 déterministe + réponse par gabarit. */
 export function interpret(q: string, ctx: AiContext): AiAnswer {
   const nq = norm(q);
+  // Exemple d'identifiant pour les pastilles : tiré du catalogue, jamais codé en dur.
+  const ex = exampleIncidentId(ctx);
   // Court-circuit si rien
   if (!q.trim()) return help(q, ctx);
 
@@ -54,8 +57,8 @@ export function interpret(q: string, ctx: AiContext): AiAnswer {
       : [
           { label: "Situation globale", query: "Situation globale opérationnelle", priority: "primary" as const },
           { label: "Situation hôpitaux", query: "situation des hôpitaux" },
-          { label: "Détail INC-2607", query: "Détail INC-2607" },
-          { label: "Analyse croisée INC-2607", query: "Analyse croisée INC-2607" },
+          { label: `Détail ${ex}`, query: `Détail ${ex}` },
+          { label: `Analyse croisée ${ex}`, query: `Analyse croisée ${ex}` },
           { label: "SITREP", query: "SITREP incidents en cours" },
         ];
     return {
@@ -218,6 +221,13 @@ export function interpret(q: string, ctx: AiContext): AiAnswer {
   const hasIncCue = resolveTarget(q, ctx.incidents);
   if (/hopital|hospinet|sante|etablissement sante/.test(nq) && hasIncCue) return hospitalsNearest(q, ctx);
 
+  // Hôpitaux d'UNE ville : « hôpitaux de Marrakech », « CHU de Casa », « liste hôpitaux Rabat ».
+  const hasHopCue = /(^|[^a-z])(hopital|hopitaux|hospinet|chu|chr|chp|clinique|etablissement|hopi)([^a-z]|$)/i.test(nq);
+  if (hasHopCue && !hasIncCue) {
+    const hopCity = extractHospitalCityFromQuery(q, ctx.hospitals ?? []);
+    if (hopCity) return hospitalsByCity(q, ctx, hopCity);
+  }
+
   // unités posture globale
   if (/(posture|etat|statut|capacite|liste|disponibilite|readiness|preparation|situation|bilan|vue|apercu|panorama).*(unite|equipe|unite far|unites|far)/.test(nq) || /posture des unites|etat des unites|unites disponibles|toutes les unites|capacites des unites|situation des unites|bilan des unites/.test(nq)) return unitsStatus(q, ctx);
 
@@ -330,8 +340,8 @@ export function interpret(q: string, ctx: AiContext): AiAnswer {
       { label: "Situation globale", query: "Situation globale opérationnelle", priority: "primary" as const },
       { label: "Situation hôpitaux", query: "situation des hôpitaux" },
       { label: "Combien d'incidents", query: "combien d'incidents en cours" },
-      { label: "Détail INC-2607", query: "Détail INC-2607" },
-      { label: "Analyse croisée INC-2607", query: "Analyse croisée INC-2607" },
+      { label: `Détail ${ex}`, query: `Détail ${ex}` },
+      { label: `Analyse croisée ${ex}`, query: `Analyse croisée ${ex}` },
       { label: "SITREP", query: "SITREP incidents en cours" },
     ],
   };

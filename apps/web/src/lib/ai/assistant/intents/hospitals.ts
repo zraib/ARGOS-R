@@ -8,10 +8,12 @@
 
 import { resolveTarget } from "../enrich";
 import { parseCapability, parseEquipCategory, parseThreshold } from "./equipment";
-import { DISPO_LABEL, INCIDENT_PLACE, UNIT_CODE } from "../labels";
+import { DISPO_LABEL, INCIDENT_PLACE, UNIT_CODE, norm } from "../labels";
 import { hospitalRow, incidentRow } from "../rows";
 import type { AiAnswer, AiContext, AiHospitalRow, AiUnitResult } from "../types";
 import { etaMinutes, UNIT_CAPS, CAP_LABELS } from "@/lib/reco";
+import type { Hospital } from "@/lib/types";
+import { suggestionsForIncident, suggestionsGeneric, withValidIncident } from "./guard";
 
 // --- Intentions : existentes (gardées) ------------------------------------
 
@@ -83,8 +85,61 @@ export function reachability(q: string, ctx: AiContext): AiAnswer {
 }
 
 
-export function hospitalsStatus(_q: string, ctx: AiContext): AiAnswer {
+/**
+ * Extrait une ville d'une question « hôpitaux de X ». D'abord contre les villes
+ * RÉELLEMENT présentes dans le catalogue des hôpitaux (exact, puis la plus
+ * longue qui correspond — évite Fès ⊂ Safi), sinon une liste de villes usuelles.
+ */
+export function extractHospitalCityFromQuery(q: string, hospitals: Hospital[]): { villeNorm: string; villeDisplay: string } | null {
+  const nq = norm(q);
+  const stripped = nq
+    .replace(/(liste|etat|statut|bilan|situation|vue|apercu|panorama|tous|tout|ensemble|capacite|saturation|occupation|disponibilite|les|des|du|de la|de|a|au|aux|pour|sur|dans|quelle|quel|quels|quelles|combien)/g, " ")
+    .replace(/(hopital|hopitaux|hospinet|hospi|etablissement|sante|chu|chr|chp|clinique|rea|lits|de sante)/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!stripped) return null;
+
+  let best: { villeNorm: string; villeDisplay: string; score: number } | null = null;
+  const vues = new Set<string>();
+  for (const h of hospitals) {
+    const vRaw = (h.ville || "").trim();
+    if (!vRaw) continue;
+    const v = norm(vRaw);
+    if (vues.has(v)) continue;
+    vues.add(v);
+    let score = 0;
+    if (stripped === v || stripped === v.replace(/-/g, " ")) score = 1000 + v.length;
+    else if (stripped === v.replace(/[\s-]/g, "")) score = 950 + v.length;
+    else if (stripped.includes(" " + v + " ") || stripped.startsWith(v + " ") || stripped.endsWith(" " + v)) score = 800 + v.length;
+    else if (v.includes(stripped)) score = 700 + stripped.length;
+    else if (v.includes(stripped.replace(/ /g, "")) || stripped.replace(/ /g, "").includes(v.replace(/ /g, ""))) score = 300 + v.length;
+    if (score > 0 && (!best || score > best.score)) best = { villeNorm: v, villeDisplay: vRaw, score };
+  }
+  if (best) return { villeNorm: best.villeNorm, villeDisplay: best.villeDisplay };
+
+  const SEED: [RegExp, string][] = [
+    [/(^| )casa(blanca)?($| )/, "Casablanca"], [/(^| )rabat($| )/, "Rabat"], [/(^| )marrakech($| )/, "Marrakech"],
+    [/(^| )fe[sz]($| )/, "Fès"], [/(^| )tanger($| )/, "Tanger"], [/(^| )agadir($| )/, "Agadir"], [/(^| )meknes($| )/, "Meknès"],
+    [/(^| )oujda($| )/, "Oujda"], [/(^| )tetouan($| )/, "Tétouan"], [/(^| )safi($| )/, "Safi"], [/(^| )kenitra($| )/, "Kénitra"],
+    [/(^| )nador($| )/, "Nador"], [/(^| )beni\s*mellal($| )/, "Béni Mellal"], [/(^| )errachidia($| )/, "Errachidia"],
+    [/(^| )ouarzazate($| )/, "Ouarzazate"], [/(^| )temara($| )/, "Témara"], [/(^| )mohammedia($| )/, "Mohammedia"],
+    [/(^| )taza($| )/, "Taza"], [/(^| )settat($| )/, "Settat"], [/(^| )taroudant($| )/, "Taroudant"],
+    [/(^| )al\s*hoceima($| )/, "Al Hoceïma"], [/(^| )sale($| )/, "Salé"], [/(^| )guercif($| )/, "Guercif"],
+    [/(^| )berkane($| )/, "Berkane"], [/(^| )tiznit($| )/, "Tiznit"], [/(^| )essaouira($| )/, "Essaouira"],
+    [/(^| )chefchaouen($| )/, "Chefchaouen"], [/(^| )larache($| )/, "Larache"], [/(^| )laayoune($| )/, "Laâyoune"],
+    [/(^| )dakhla($| )/, "Dakhla"],
+  ];
+  const padded = " " + stripped + " ";
+  for (const [re, name] of SEED) if (re.test(padded)) return { villeNorm: norm(name), villeDisplay: name };
+  return null;
+}
+
+
+export function hospitalsStatus(q: string, ctx: AiContext): AiAnswer {
+  // Une ville dans la question → seulement ses établissements.
   const hospitals = ctx.hospitals ?? [];
+  const cityMatch = extractHospitalCityFromQuery(q, hospitals);
+  if (cityMatch) return hospitalsByCity(q, ctx, cityMatch);
   const mil = hospitals.filter((h) => h.kind === "mil");
   const civ = hospitals.filter((h) => h.kind?.startsWith("civ"));
   const rows = [...mil, ...civ].map((h) => hospitalRow(h));
@@ -123,40 +178,97 @@ export function hospitalsStatus(_q: string, ctx: AiContext): AiAnswer {
       reaDisponibles: reaDispo,
       etablissementsSousTension: saturated.length,
     },
-    suggestions: [
-      "Hôpitaux les plus proches d'Al Haouz",
-      "Croise hôpitaux + incident INC-2607",
-    ],
+    suggestions: suggestionsGeneric({
+      national: ["Hôpitaux de Marrakech", "Hôpitaux les plus proches d'Al Haouz"],
+      primary: { label: "Posture globale hôpitaux", query: "Posture globale hôpitaux ?" },
+    }),
+    analytics: ctx.analytics ?? null,
+  };
+}
+
+/**
+ * « Hôpitaux de Marrakech », « CHU de Casablanca », « liste hôpitaux de Fès » :
+ * SEULEMENT les établissements de la ville demandée (ville normalisée exacte,
+ * repli sous-chaîne si aucun exact). Jamais la liste entière.
+ */
+export function hospitalsByCity(q: string, ctx: AiContext, cityOverride?: { villeNorm: string; villeDisplay: string }): AiAnswer {
+  const hospitals = ctx.hospitals ?? [];
+  const city = cityOverride ?? extractHospitalCityFromQuery(q, hospitals);
+  if (!city) return hospitalsStatus("", ctx);
+  const { villeNorm, villeDisplay } = city;
+  const exact = hospitals.filter((h) => norm(h.ville || "") === villeNorm);
+  let rows = exact.map((h) => hospitalRow(h));
+  if (!rows.length) {
+    const fuzzy = hospitals.filter((h) => norm(h.ville || "").includes(villeNorm) || villeNorm.includes(norm(h.ville || "")));
+    rows = fuzzy.map((h) => hospitalRow(h));
+  }
+  rows.sort((a, b) => b.occPct - a.occPct);
+
+  const avg = (arr: AiHospitalRow[]) => arr.length ? Math.round(arr.reduce((a, h) => a + h.occPct, 0) / arr.length) : 0;
+  const avgRea = (arr: AiHospitalRow[]) => arr.length ? Math.round(arr.reduce((a, h) => a + h.icuPct, 0) / arr.length) : 0;
+  const saturated = rows.filter((h) => h.occPct >= 90 || h.icuPct >= 95);
+  const mil = rows.filter((h) => h.kind === "mil");
+  const civ = rows.filter((h) => h.kind?.startsWith("civ"));
+  const litsTot = rows.reduce((s, h) => s + h.lits, 0);
+  const litsOcc = rows.reduce((s, h) => s + Math.round(h.lits * h.occPct / 100), 0);
+  const litsDispo = Math.max(0, litsTot - litsOcc);
+  const reaTot = rows.reduce((s, h) => s + h.rea, 0);
+  const reaOcc = rows.reduce((s, h) => s + Math.round(h.rea * h.icuPct / 100), 0);
+  const reaDispo = Math.max(0, reaTot - reaOcc);
+
+  const lines: string[] = [];
+  if (!rows.length) {
+    lines.push(`❌ Aucun établissement hospitalier répertorié à **${villeDisplay}** dans le catalogue ARGOS à l'instant T.`);
+    lines.push("Les hôpitaux sont classés par ville officielle (champ ville normalisé). Vérifie éventuellement une ville voisine.");
+  } else {
+    lines.push(`HÔPITAUX DE **${villeDisplay}** · ${rows.length} établissement(s) · ${litsTot.toLocaleString("fr-FR")} lits au total · **${litsDispo.toLocaleString("fr-FR")} lits disponibles** (${litsTot ? Math.round(litsDispo * 100 / litsTot) : 0}% marge) · REA totale : ${reaTot} · REA libres **${reaDispo}**`);
+    if (mil.length) lines.push(`Militaire (${mil.length}) : occ. moyenne ${avg(mil)}% · REA moyenne ${avgRea(mil)}%`);
+    if (civ.length) lines.push(`Civil (${civ.length}) : occ. moyenne ${avg(civ)}% · REA moyenne ${avgRea(civ)}%`);
+    if (saturated.length) {
+      lines.push(`Établissements sous tension (≥90% occupation lits ou ≥95% REA) : ${saturated.length}`);
+      lines.push(...saturated.map((h) => `  ⚠ ${h.nom} · occ ${h.occPct}% · REA ${h.icuPct}% · lits libres ${Math.max(0, h.lits - Math.round(h.occPct * h.lits / 100))} · REA libres ${Math.max(0, h.rea - Math.round(h.icuPct * h.rea / 100))}`));
+    } else {
+      lines.push("Aucun établissement sous tension dans cette ville.");
+    }
+    lines.push(`ÉTABLISSEMENTS DE **${villeDisplay.toUpperCase()}** (du PLUS saturé au MOINS saturé — chaque établissement transmis dans JSON pour réponse détaillée) :`);
+    lines.push(...rows.map((h) => `  • ${h.nom} · Type : ${h.kind === "mil" ? "Militaire" : h.kind?.startsWith("civ") ? "Civil" : h.kind || "—"} · occ ${h.occPct}% (${Math.max(0, h.lits - Math.round(h.occPct * h.lits / 100))} lits libres sur ${h.lits}) · REA ${h.icuPct}% (${Math.max(0, h.rea - Math.round(h.icuPct * h.rea / 100))} REA libres sur ${h.rea})`));
+  }
+  return {
+    intent: "hospitals_by_city",
+    layer1: `hôpitaux de ${villeDisplay} : établissements ciblés, occupation lits/REA, sous-tension locale`,
+    text: lines.join("\n"),
+    hospitals: rows.slice(0, Math.max(50, rows.length)),
+    stats: rows.length ? {
+      totalHospitals: rows.length,
+      totalLits: litsTot,
+      litsDisponibles: litsDispo,
+      occMoyennePct: avg(rows),
+      totalRea: reaTot,
+      reaDisponibles: reaDispo,
+      etablissementsSousTension: saturated.length,
+    } : undefined,
+    suggestions: [`Situation globale hôpitaux ${villeDisplay}`, "État du réseau hospitalier national", "Hôpitaux les plus proches d'un incident"],
     analytics: ctx.analytics ?? null,
   };
 }
 
 
 export function hospitalsNearest(q: string, ctx: AiContext): AiAnswer {
-  const target = resolveTarget(q, ctx.incidents);
-  if (!target) {
+  return withValidIncident(q, ctx, "hospitals_nearest", (target) => {
+    const hospitals = ctx.hospitals ?? [];
+    const rows = hospitals.map((h) => hospitalRow(h, target.ll)).sort((a, b) => (a.distanceKm ?? 9999) - (b.distanceKm ?? 9999));
+    const place = INCIDENT_PLACE[target.id] ?? target.region;
+    const top6 = rows.slice(0, 6);
     return {
       intent: "hospitals_nearest",
-      layer1: "hôpitaux les plus proches — cible non résolue",
-      text: "Précisez une zone (ex. Al Haouz, Ourika) ou un incident (ex. INC-2607) pour classer les hôpitaux par proximité.",
+      layer1: `hôpitaux les plus proches de ${place} (${target.id}), distance/ETA + occupation`,
+      text: [
+        `HÔPITAUX LES PLUS PROCHES de ${place} — ${target.id} · ${target.titre}`,
+        ...top6.map((h) => `  • ${h.nom} (${h.ville}${h.kind ? ` · ${h.kind}` : ""}) — ${h.distanceKm} km · ETA ${h.etaMin} min · occ ${h.occPct}% · REA ${h.icuPct}% · lits libres ${Math.max(0, h.lits - Math.round(h.occPct * h.lits / 100))}, REA libres ${Math.max(0, h.rea - Math.round(h.icuPct * h.rea / 100))}`),
+      ].join("\n"),
+      hospitals: top6,
+      incidents: [incidentRow(target)],
+      suggestions: suggestionsForIncident(target, ["Situation globale"]),
     };
-  }
-  const hospitals = ctx.hospitals ?? [];
-  const rows = hospitals.map((h) => hospitalRow(h, target.ll)).sort((a, b) => (a.distanceKm ?? 9999) - (b.distanceKm ?? 9999));
-  const place = INCIDENT_PLACE[target.id] ?? target.region;
-  const top6 = rows.slice(0, 6);
-  return {
-    intent: "hospitals_nearest",
-    layer1: `hôpitaux les plus proches de ${place} (${target.id}), distance/ETA + occupation`,
-    text: [
-      `HÔPITAUX LES PLUS PROCHES de ${place} — ${target.id} · ${target.titre}`,
-      ...top6.map((h) => `  • ${h.nom} (${h.ville}${h.kind ? ` · ${h.kind}` : ""}) — ${h.distanceKm} km · ETA ${h.etaMin} min · occ ${h.occPct}% · REA ${h.icuPct}% · lits libres ${Math.max(0, h.lits - Math.round(h.occPct * h.lits / 100))}, REA libres ${Math.max(0, h.rea - Math.round(h.icuPct * h.rea / 100))}`),
-    ].join("\n"),
-    hospitals: top6,
-    incidents: [incidentRow(target)],
-    suggestions: [
-      "Quelles unités médicales pour INC-2607 ?",
-      "Situation globale",
-    ],
-  };
+  });
 }

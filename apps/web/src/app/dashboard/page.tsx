@@ -162,17 +162,18 @@ export default function DashboardPage() {
       case "casualties": {
         return (
           <div className="flex h-full min-h-0 w-full flex-col gap-2">
-            {/* ==== 4 KPI sémantiques dynamiques (décès / contaminés / blessés / disparus…) ==== */}
-            <div className="grid grid-cols-4 gap-1.5">
+            {/* ==== 6 KPI systématiques · Décès · Contaminés · Infectés · Blessés · Disparus · Secourus (+ Exposés si > 0) ==== */}
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-6">
               {semKpis.map((k) => {
+                const dim = k.value === 0 ? " opacity-60" : "";
                 return (
                   <div
                     key={k.key}
-                    className={`flex min-h-0 flex-col items-center justify-center rounded-md border-t-2 ${k.color.br} ${k.color.bg} px-1.5 py-1.5 text-center`}
+                    className={`flex min-h-0 flex-col items-center justify-center rounded-md border-t-2 ${k.color.br} ${k.color.bg} px-1.5 py-1.5 text-center${dim}`}
                   >
-                    <span className={`text-[22px] font-black leading-none tabular-nums ${k.color.text}`}>{k.value}</span>
+                    <span className={`text-[20px] font-black leading-none tabular-nums ${k.color.text}`}>{k.value}</span>
                     <span
-                      className={`mt-1 max-w-full text-[10px] font-bold uppercase tracking-wider break-all leading-tight ${k.color.text}`}
+                      className={`mt-0.5 max-w-full text-[9.5px] font-bold uppercase tracking-[0.05em] break-all leading-tight ${k.color.text}`}
                       style={{ hyphens: "auto" } as React.CSSProperties}
                     >
                       {k.label}

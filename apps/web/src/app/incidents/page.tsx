@@ -10,6 +10,7 @@ import { Modal } from "@/components/ui/Modal";
 import { UI_ICONS } from "@/lib/icons";
 import { sevBadge, stBadge, typeLabel} from "@/lib/helpers";
 import { canReportIncident, isSuperAdmin } from "@/lib/roles";
+import { compareIncidentDate, formatIncidentHour } from "@/lib/derive";
 import type { Incident, IncidentStatus } from "@/lib/types";
 import { predictIncidentEvolution, type IncidentEvolution } from "@/lib/ai/risk/incidentEvolution";
 import { IncidentEvolutionCard } from "@/components/incidents/IncidentEvolutionCard";
@@ -87,7 +88,7 @@ export default function IncidentsPage() {
     return [...r].sort((a, b) => {
       if (sortBy === "sev") return SEV_ORDER[a.sev] - SEV_ORDER[b.sev];
       if (sortBy === "type") return typeLabel(a.type, incidentTypes, lang).localeCompare(typeLabel(b.type, incidentTypes, lang));
-      return a.time < b.time ? 1 : a.time > b.time ? -1 : 0;
+      return compareIncidentDate(a, b);
     });
   }, [base, q, fType, fSev, fRegion, fStatus, sortBy, incidentTypes, lang]);
 
@@ -367,7 +368,7 @@ export default function IncidentsPage() {
                       <span className="text-xs text-gray-400 dark:text-rdia-400">—</span>
                     )}
                   </td>
-                  <td className={`${TD} font-mono text-xs text-gray-500 dark:text-rdia-300`}>{i.time}</td>
+                  <td className={`${TD} font-mono text-xs text-gray-500 dark:text-rdia-300`}>{formatIncidentHour(i)}</td>
                   <td className={TD}>
                     <div className="flex items-center justify-end gap-0.5">{rowActions(i)}</div>
                   </td>
@@ -432,7 +433,7 @@ export default function IncidentsPage() {
                 </div>
                 <div className="min-w-0">
                   <dt className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{t.col_time}</dt>
-                  <dd className="truncate font-mono text-gray-600 dark:text-rdia-200">{i.time}</dd>
+                  <dd className="truncate font-mono text-gray-600 dark:text-rdia-200">{formatIncidentHour(i)}</dd>
                 </div>
                 <div className="min-w-0">
                   <dt className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{t.h_typev}</dt>

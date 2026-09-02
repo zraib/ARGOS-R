@@ -10,6 +10,7 @@ import { resolveTarget } from "../enrich";
 import { buildZones } from "./risk";
 import { CITY_COORDS, DISPO_LABEL, INCIDENT_PLACE, SEV_LABEL, ST_LABEL, norm } from "../labels";
 import { incidentRow, toAiRow } from "../rows";
+import { exampleIncidentId, suggestionsForIncident, withValidIncident } from "./guard";
 import type { AiAnswer, AiContext, AiSuggestion, AiUnitResult, IncSubIntent } from "../types";
 import { CAP_LABELS, recommend, needFromIncident, haversineKm } from "@/lib/reco";
 
@@ -79,7 +80,7 @@ export function worstIncidents(_q: string, ctx: AiContext, topN: 1 | 3 = 1): AiA
     lines.join("\n"),
     casLine ? `\nBilan humain cumulé TOP ${topN} : ${casLine}` : "",
     top[0].st !== "closed"
-      ? `\n${top[0].id} est actuellement ${ST_LABEL[top[0].st] ?? top[0].st} — recommandation : consulter l'analyse croisée.`
+      ? `\n${top[0].id} est actuellement ${ST_LABEL[top[0].st] ?? top[0].st}. Données détaillées et croisées disponibles dans l'analyse 360° de cet incident (voir pastilles suggérées).`
       : `\n${top[0].id} est clos.`,
   ].join("");
 
@@ -115,7 +116,7 @@ export function incidentConcise(q: string, ctx: AiContext, kind: IncSubIntent): 
       text: "Aucun incident ne correspond. Précisez un identifiant (ex. INC-2607), une région ou un mot du titre.",
       suggestions: [
         { label: "Liste incidents", query: "tous les incidents en cours" },
-        { label: "Fiche INC-2607", query: "Détail INC-2607", priority: "primary" as const },
+        { label: `Fiche ${exampleIncidentId(ctx)}`, query: `Détail ${exampleIncidentId(ctx)}`, priority: "primary" as const },
       ],
     };
   }
@@ -157,9 +158,9 @@ export function incidentConcise(q: string, ctx: AiContext, kind: IncSubIntent): 
   switch (kind) {
     case "severity":
       text = `${header} · Sévérité : ${sev.toUpperCase()} · Statut : ${st}.`;
-      if (target.sev === "high") text += ` Ce type d'incident (${target.type}) est classé niveau élevé — vigilance renforcée recommandée dans la région ${target.region}.`;
-      else if (target.sev === "medium") text += ` Sévérité moyenne — suivi opérationnel normal, posture adaptée selon évolution.`;
-      else text += ` Sévérité faible — incident contenu, posture standard.`;
+      if (target.sev === "high") text += ` Ce type d'incident (${target.type}) est classé niveau élevé — niveau de gravité le plus haut du référentiel ARGOS pour la région ${target.region}.`;
+      else if (target.sev === "medium") text += ` Sévérité moyenne — niveau standard du référentiel.`;
+      else text += ` Sévérité faible — incident contenu.`;
       break;
     case "status":
       text = `${header} · Statut : ${st.toUpperCase()} · Sévérité : ${sev} · Déclaré : ${target.time}.`;
@@ -179,10 +180,10 @@ export function incidentConcise(q: string, ctx: AiContext, kind: IncSubIntent): 
       text = [
         `${header} · type ${target.type} · sév. ${sev} · statut ${st} · déclaré ${target.time}.`,
         cas ? `Bilan humain : ${cas.dead}D · ${cas.injured}B · ${cas.missing}?.` : "Bilan humain : non saisi.",
-        `Contextualisation : ORSEC N3 · Unités prêtes ${ctx.dashStats?.units?.ready ?? 0} · Occup. hôp. moyen ${avgOcc ?? "—"}%${ctx.quakes?.length ? ` · Séismes≥M4.5 dernier mois : ${ctx.quakes.length}` : ""}.`,
+        `Contextualisation référentiels plateforme : ORSEC N3 · Unités prêtes ${ctx.dashStats?.units?.ready ?? 0} · Occup. hôp. moyen ${avgOcc ?? "—"}%${ctx.quakes?.length ? ` · Séismes≥M4.5 dernier mois : ${ctx.quakes.length}` : ""}.`,
         reco.length && reco[0].score > 0
-          ? `Moyens recommandés : ${reco[0].unit.nom} (score ${reco[0].score}/100, ETA ${reco[0].etaMin}min)${reco[1] ? `, ${reco[1].unit.nom} (${reco[1].score}/100)` : ""}.`
-          : "Moyens : à préciser selon région/capacités demandées.",
+          ? `Classement unités les mieux adaptées (capacités + proximité + readiness) : ${reco[0].unit.nom} (score ${reco[0].score}/100, ETA ${reco[0].etaMin}min)${reco[1] ? `, ${reco[1].unit.nom} (${reco[1].score}/100)` : ""}. [Score du moteur déterministe ARGOS, sans préconisation d'engagement.]`
+          : "Classement unités : à préciser selon région/capacités demandées.",
       ].join("\n");
       layer1 += " · avis contextualisé données plateforme";
       break;
@@ -199,61 +200,55 @@ export function incidentConcise(q: string, ctx: AiContext, kind: IncSubIntent): 
 
 
 export function incidentDetails(q: string, ctx: AiContext): AiAnswer {
-  const target = resolveTarget(q, ctx.incidents);
-  if (!target) {
+  return withValidIncident(q, ctx, "incident_details", (target) => {
+    const sub = target.subIncidents ?? [];
+    const placeName = INCIDENT_PLACE[target.id] ?? target.region;
+    const cas = target.casualties;
+    const lines: string[] = [];
+    lines.push(`INCIDENT ${target.id} — ${target.titre}`);
+    lines.push(`Localisation : ${placeName} (région ${target.region}), coordonnées [${target.ll[1].toFixed(2)}, ${target.ll[0].toFixed(2)}].`);
+    lines.push(`Type : ${target.type} · Sévérité : ${SEV_LABEL[target.sev]} · Statut : ${ST_LABEL[target.st]} · Déclaré : ${target.time}.`);
+    if (cas) lines.push(`Bilan humain saisi : ${cas.dead} décès, ${cas.injured} blessés, ${cas.missing} disparus.`);
+    if (target.adresse) lines.push(`Adresse / lieu-dit : ${target.adresse}.`);
+    if (sub.length) {
+      lines.push(`Sous-incidents (aléas secondaires) : ${sub.length}`);
+      sub.slice(0, 5).forEach((s) =>
+        lines.push(`  • ${s.id} · ${s.type} · sév. ${SEV_LABEL[s.sev]} · ${s.time}${s.note ? ` — ${s.note}` : ""}`),
+      );
+    }
+    if (target.responders?.units?.length) {
+      const noms = target.responders.units.map((uid) => ctx.units.find((u) => u.id === uid)?.nom ?? uid).join(", ");
+      lines.push(`Unités rattachées : ${noms}.`);
+    }
+    if (target.responders?.hospitals?.length) {
+      const noms = target.responders.hospitals.map((hid) => (ctx.hospitals ?? []).find((h) => h.id === hid)?.nom ?? hid).join(", ");
+      lines.push(`Établissements de santé rattachés : ${noms}.`);
+    }
+    // Classement du moteur déterministe : un score, pas une préconisation.
+    const recs = recommend(needFromIncident(target), ctx.units).slice(0, 3);
+    if (recs.length && !recs[0].excluded) {
+      lines.push("Classement unités les mieux adaptées (capacités + proximité + readiness — score brut ARGOS, sans préconisation d'engagement) :");
+      recs.forEach((r, i) =>
+        lines.push(`  ${i + 1}. ${r.unit.nom} — score ${r.score}/100 · ETA ${r.etaMin} min · capacités ${r.matchedCaps.map((c) => CAP_LABELS[c]).join("+") || "—"}`),
+      );
+    }
     return {
       intent: "incident_details",
-      layer1: "détails incident — cible non résolue",
-      text: "Aucun incident ne correspond. Précisez un identifiant (ex. INC-2607), une région (Al Haouz, Ourika…) ou un mot du titre.",
+      layer1: `détails incident ${target.id} (${placeName}) + sous-incidents + responders + classement unités ARGOS`,
+      text: lines.join("\n"),
+      incidents: [incidentRow(target)],
+      units: recs.slice(0, 3).map((r) => ({
+        id: r.unit.id,
+        nom: r.unit.nom,
+        ville: r.unit.ville,
+        etaMin: r.etaMin,
+        caps: r.matchedCaps.map((c) => CAP_LABELS[c]),
+        dispo: DISPO_LABEL[r.unit.dispo],
+        within: true,
+      })),
+      suggestions: suggestionsForIncident(target),
     };
-  }
-  const sub = target.subIncidents ?? [];
-  const placeName = INCIDENT_PLACE[target.id] ?? target.region;
-  const cas = target.casualties;
-  const lines: string[] = [];
-  lines.push(`INCIDENT ${target.id} — ${target.titre}`);
-  lines.push(`Localisation : ${placeName} (région ${target.region}), coordonnées [${target.ll[1].toFixed(2)}, ${target.ll[0].toFixed(2)}].`);
-  lines.push(`Type : ${target.type} · Sévérité : ${SEV_LABEL[target.sev]} · Statut : ${ST_LABEL[target.st]} · Déclaré : ${target.time}.`);
-  if (cas) lines.push(`Bilan humain saisi : ${cas.dead} décès, ${cas.injured} blessés, ${cas.missing} disparus.`);
-  if (target.adresse) lines.push(`Adresse / lieu-dit : ${target.adresse}.`);
-  if (sub.length) {
-    lines.push(`Sous-incidents (aléas secondaires) : ${sub.length}`);
-    sub.slice(0, 5).forEach((s) =>
-      lines.push(`  • ${s.id} · ${s.type} · sév. ${SEV_LABEL[s.sev]} · ${s.time}${s.note ? ` — ${s.note}` : ""}`),
-    );
-  }
-  // Intervenants rattachés
-  if (target.responders?.units?.length) {
-    const noms = target.responders.units.map((uid) => ctx.units.find((u) => u.id === uid)?.nom ?? uid).join(", ");
-    lines.push(`Unités rattachées : ${noms}.`);
-  }
-  if (target.responders?.hospitals?.length) {
-    const noms = target.responders.hospitals.map((hid) => (ctx.hospitals ?? []).find((h) => h.id === hid)?.nom ?? hid).join(", ");
-    lines.push(`Établissements de santé rattachés : ${noms}.`);
-  }
-  // Recommandation unités (moteur reco)
-  const recs = recommend(needFromIncident(target), ctx.units).slice(0, 3);
-  if (recs.length && !recs[0].excluded) {
-    lines.push("Recommandation Couche 1 (TOP 3 unités) :");
-    recs.forEach((r, i) =>
-      lines.push(`  ${i + 1}. ${r.unit.nom} — score ${r.score}/100 · ETA ${r.etaMin} min · capacités ${r.matchedCaps.map((c) => CAP_LABELS[c]).join("+") || "—"}`),
-    );
-  }
-  return {
-    intent: "incident_details",
-    layer1: `détails incident ${target.id} (${placeName}) + sous-incidents + responders + reco Couche 1`,
-    text: lines.join("\n"),
-    incidents: [incidentRow(target)],
-    units: recs.slice(0, 3).map((r) => ({
-      id: r.unit.id,
-      nom: r.unit.nom,
-      ville: r.unit.ville,
-      etaMin: r.etaMin,
-      caps: r.matchedCaps.map((c) => CAP_LABELS[c]),
-      dispo: DISPO_LABEL[r.unit.dispo],
-      within: true,
-    })),
-  };
+  });
 }
 
 
@@ -320,7 +315,7 @@ export function incidentsList(q: string, ctx: AiContext): AiAnswer {
       low: set.filter((s) => s.sev === "low").length,
     },
     suggestions: [
-      "Quel est le détail de INC-2607 ?",
+      `Quel est le détail de ${exampleIncidentId(ctx)} ?`,
       "Montre-moi les incidents en sévérité élevée",
       "Situation globale",
     ],
@@ -330,39 +325,48 @@ export function incidentsList(q: string, ctx: AiContext): AiAnswer {
 
 export function casualtiesSummary(q: string, ctx: AiContext): AiAnswer {
   const b = ctx.orsec.casualties;
-  const target = resolveTarget(q, ctx.incidents);
-  if (target?.casualties) {
+  return withValidIncident(q, ctx, "casualties_summary", (target) => {
     const place = INCIDENT_PLACE[target.id] ?? target.region;
-    const c = target.casualties;
+    const c = target.casualties ?? { dead: 0, injured: 0, missing: 0 };
     return {
       intent: "casualties_summary",
       layer1: `bilan humain ciblé sur ${target.id} (${place})`,
       text: `BILAN HUMAIN · ${target.id} — ${target.titre} (${place})\nDécès : ${c.dead}\nBlessés : ${c.injured}\nDisparus : ${c.missing}\n\nRéférentiel ORSEC global — décès ${b.dead}, blessés ${b.injured}, disparus ${b.missing}, secourus ${b.rescued}.`,
       stats: { dead: c.dead, injured: c.injured, missing: c.missing, rescued: b.rescued },
       incidents: [incidentRow(target)],
+      suggestions: suggestionsForIncident(target),
     };
-  }
-  // Agrégat sur tous les incidents
-  const sum = ctx.incidents.filter((i) => i.casualties).reduce((a, i) => ({
-    dead: a.dead + (i.casualties?.dead ?? 0),
-    injured: a.injured + (i.casualties?.injured ?? 0),
-    missing: a.missing + (i.casualties?.missing ?? 0),
-  }), { dead: 0, injured: 0, missing: 0 });
-  const withCas = ctx.incidents.filter((i) => i.casualties).map(incidentRow);
-  return {
-    intent: "casualties_summary",
-    layer1: "bilan humain agrégé : ORSEC + somme des incidents déclarants + détail par incident",
-    text: [
-      "BILAN HUMAIN GLOBAL (sources croisées)",
-      `Référentiel ORSEC : décès ${b.dead} · blessés ${b.injured} · disparus ${b.missing} · secourus ${b.rescued}`,
-      `Somme des incidents (${withCas.length} incidents rapportent un bilan) : décès ${sum.dead} · blessés ${sum.injured} · disparus ${sum.missing}`,
-      ...withCas.slice(0, 6).map((r) => `  • ${r.id} — ${r.region} : D${r.casualties?.dead ?? 0} / B${r.casualties?.injured ?? 0} / ?${r.casualties?.missing ?? 0}`),
-    ].join("\n"),
-    stats: { dead: b.dead, injured: b.injured, missing: b.missing, rescued: b.rescued },
-    incidents: withCas.slice(0, 8),
-    suggestions: ["Situation globale", "Détail INC-2607"],
-    analytics: ctx.analytics ?? null,
-  };
+  }, () => {
+    // Sans cible : bilan global (ORSEC + somme des incidents déclarants).
+    const sum = ctx.incidents.filter((i) => i.casualties).reduce((a, i) => ({
+      dead: a.dead + (i.casualties?.dead ?? 0),
+      injured: a.injured + (i.casualties?.injured ?? 0),
+      missing: a.missing + (i.casualties?.missing ?? 0),
+    }), { dead: 0, injured: 0, missing: 0 });
+    const withCasIncidents = ctx.incidents.filter((i) => i.casualties);
+    const withCas = withCasIncidents.map(incidentRow);
+    const lastInc = withCasIncidents[withCasIncidents.length - 1];
+    return {
+      intent: "casualties_summary",
+      layer1: "bilan humain agrégé : ORSEC + somme des incidents déclarants + détail par incident",
+      text: [
+        "BILAN HUMAIN GLOBAL (sources croisées)",
+        `Référentiel ORSEC : décès ${b.dead} · blessés ${b.injured} · disparus ${b.missing} · secourus ${b.rescued}`,
+        `Somme des incidents (${withCas.length} incidents rapportent un bilan) : décès ${sum.dead} · blessés ${sum.injured} · disparus ${sum.missing}`,
+        ...withCas.slice(0, 6).map((r) => `  • ${r.id} — ${r.region} : D${r.casualties?.dead ?? 0} / B${r.casualties?.injured ?? 0} / ?${r.casualties?.missing ?? 0}`),
+      ].join("\n"),
+      stats: { dead: b.dead, injured: b.injured, missing: b.missing, rescued: b.rescued },
+      incidents: withCas.slice(0, 8),
+      suggestions: lastInc
+        ? [
+            { label: "Situation globale", query: "Situation globale opérationnelle" },
+            { label: `Détail ${lastInc.id}`, query: `Détail de ${lastInc.id}` },
+            { label: `Bilan humain ${lastInc.id}`, query: `Bilan humain ${lastInc.id}` },
+          ]
+        : ["Situation globale", "Liste incidents en cours"],
+      analytics: ctx.analytics ?? null,
+    };
+  });
 }
 
 /** Incidents dans un rayon proche d'une ville (Casablanca, Rabat, etc.). */
