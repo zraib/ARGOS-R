@@ -1,4 +1,5 @@
 import { Body, Controller, ForbiddenException, Get, Patch, Post, UnauthorizedException } from "@nestjs/common";
+import { SelfService } from "@/common/decorators/self-service.decorator";
 import { ConfigService } from "@nestjs/config";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { SignJWT } from "jose";
@@ -77,6 +78,7 @@ export class AuthController {
 
   /** Profil du compte courant (identité + photo). */
   @Get("profile")
+  @SelfService()
   @ApiBearerAuth()
   @ApiOperation({ summary: "Profil du compte connecté (nom, grade, rôles, photo)" })
   profile(@CurrentUser() user: AuthUser) {
@@ -85,6 +87,7 @@ export class AuthController {
 
   /** Mise à jour par l'utilisateur de son propre profil (nom affiché, photo). */
   @Patch("profile")
+  @SelfService()
   @ApiBearerAuth()
   @ApiOperation({ summary: "Modifier son profil : nom affiché et/ou photo (audité)" })
   updateProfile(@CurrentUser() user: AuthUser, @Body() dto: UpdateProfileDto) {
@@ -93,6 +96,7 @@ export class AuthController {
 
   /** Sélection du rôle actif d'un compte multi-rôles → nouveau jeton. */
   @Post("select-role")
+  @SelfService()
   @ApiBearerAuth()
   @ApiOperation({ summary: "Choisir le rôle actif (compte multi-rôles) — nouveau jeton" })
   async selectRole(@CurrentUser() user: AuthUser, @Body() dto: SelectRoleDto) {
@@ -105,6 +109,7 @@ export class AuthController {
 
   /** 1er login : l'utilisateur pose son mot de passe → compte activé. */
   @Post("change-password")
+  @SelfService()
   @ApiBearerAuth()
   @ApiOperation({ summary: "Changer son mot de passe (1er login) — active le compte" })
   changePassword(@CurrentUser() user: AuthUser, @Body() dto: ChangePasswordDto) {

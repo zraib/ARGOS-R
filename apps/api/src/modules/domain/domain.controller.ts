@@ -1,4 +1,5 @@
 import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
+import { SelfService } from "@/common/decorators/self-service.decorator";
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { RiskService } from "@/modules/domain/risk.service";
 import { DeploymentService } from "@/modules/domain/deployment.service";
@@ -622,6 +623,7 @@ export class DomainController {
   }
 
   @Get("reference")
+  @SelfService()
   @ApiOperation({ summary: "Données de référence : provinces, routes d'animation carte" })
   reference() {
     return this.domain.reference();

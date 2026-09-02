@@ -1,4 +1,5 @@
 import { Controller, Get } from "@nestjs/common";
+import { SelfService } from "@/common/decorators/self-service.decorator";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { IamService } from "@/modules/iam/iam.service";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
@@ -12,6 +13,7 @@ export class IamController {
   constructor(private readonly iam: IamService) {}
 
   @Get("me")
+  @SelfService()
   @ApiOperation({ summary: "Profil de l'utilisateur courant + permissions résolues" })
   me(@CurrentUser() user: AuthUser) {
     return user;
