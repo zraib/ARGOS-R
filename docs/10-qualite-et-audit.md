@@ -13,9 +13,11 @@ npm run build       # build de production API + web
 npm run docs:api    # le contrat et docs/03-api.md sont régénérés depuis le code
 ```
 
-Ces commandes s'exécutent **en séquence**. La gate a été rejouée complète sur la
-branche `fusion` à la fin de la passe ; le résultat est dans le journal de
-session (`CONTEXT.md`) et dans le message du dernier commit de la passe.
+Ces commandes s'exécutent **en séquence**. Résultat de la gate rejouée complète
+sur `fusion` à la fin de la passe (2 septembre 2026) : typecheck 0 erreur ·
+API 312/312 (deux exécutions complètes ; une troisième a vu un échec
+intermittent, consigné en R-14) · web 70/70 · build de production API et web
+réussi.
 
 Ce que chaque étape garantit :
 
@@ -91,6 +93,7 @@ soit un travail planifié, soit une décision à prendre.
 | R-11 | `MASTER_PLAN.md`, `CLAUDE.md`, `CONTEXT.md` hors de git | organisation | choix de l'équipe ; l'auditeur les demande à part si nécessaire |
 | R-12 | Cache `apps/web/.next` très volumineux sur le poste de développement (plusieurs Go) | poste de travail | `rm -rf apps/web/.next` quand le serveur de développement est arrêté |
 | R-13 | Données CAMEO : licence | juridique | règle tenue : ne jamais copier `chemical_cas`, `dupont`, `aegls`, `erpgs`, NFPA ; les 31 CAS existants sont conservés |
+| R-14 | Un échec **intermittent** de `iam/users.spec.ts` (1 test sur 312) observé une fois lors de la gate finale, non reproduit sur deux exécutions séquentielles complètes ni en isolation | fiabilité des tests | à instrumenter (capturer le message au prochain échec) ; suspect : dépendance à l'ordre ou à l'horloge, pas au code refondu — le test passe seul et en suite |
 
 ## 5. Comment l'auditeur rejoue tout cela
 
