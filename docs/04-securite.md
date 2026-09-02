@@ -258,7 +258,7 @@ Exigences du `MASTER_PLAN.md` §4.3 :
 
 ## 10. Tests de sécurité
 
-La gate est automatisée : `npm run test:api` (**322 tests, 28 suites**, exécutés
+La gate est automatisée : `npm run test:api` (**340 tests, 31 suites**, exécutés
 en séquence — `jest --runInBand` — parce qu'en parallèle la suite `deployment`
 expire sous la contention CPU). Les suites qui portent la sécurité :
 

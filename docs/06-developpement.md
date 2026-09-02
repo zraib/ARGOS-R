@@ -49,7 +49,7 @@ Node uniquement (exigence de souveraineté).
 | `npm run dev:api` / `npm run dev:web` | un seul service |
 | `npm run setup` | `npm install` dans `packages/api-client`, `apps/api`, `apps/web` |
 | `npm run typecheck` | `tsc --noEmit` sur l'API puis le web (`noUnusedLocals` / `noUnusedParameters` actifs) |
-| `npm test` | **la gate** : API (jest, 312 tests, en séquence) puis web (vitest, 70 tests) |
+| `npm test` | **la gate** : API (jest, 340 tests, en séquence) puis web (vitest, 96 tests) |
 | `npm run test:api` / `npm run test:web` | une seule suite |
 | `npm run build` | build de production API + web |
 | `npm run openapi` | exporte `apps/api/openapi.json` depuis le code (copie de travail, non versionnée) |
@@ -165,8 +165,8 @@ EMQX, martin, Traefik, mailpit) est dans `infra/compose/`.
 
 ```bash
 npm test              # API (jest --runInBand) puis web (vitest) — la gate
-npm run test:api      # 312 tests, 27 suites
-npm run test:web      # 70 tests, 14 fichiers
+npm run test:api      # 340 tests, 31 suites
+npm run test:web      # 96 tests, 18 fichiers
 ```
 
 ### API (jest)

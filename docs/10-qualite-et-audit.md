@@ -8,7 +8,7 @@ arrive sur le dépôt : chaque affirmation renvoie à une commande ou à un fich
 
 ```bash
 npm run typecheck   # API puis web — tsc strict, aucune variable ni import inutilisé
-npm test            # API (jest --runInBand, 312 tests) puis web (vitest, 70 tests)
+npm test            # API (jest --runInBand, 340 tests) puis web (vitest, 96 tests)
 npm run build       # build de production API + web
 npm run contract:check   # le contrat versionné suit-il le code ? (échoue sinon)
 npm run docs:api         # synchronise le contrat, puis régénère docs/03-api.md
@@ -16,7 +16,7 @@ npm run docs:api         # synchronise le contrat, puis régénère docs/03-api.
 
 Ces commandes s'exécutent **en séquence**. Résultat de la gate rejouée complète
 sur `fusion` à la fin de la passe (2 septembre 2026) : typecheck 0 erreur ·
-API 322/322 · web 91/91 · build de production API et web
+API 340/340 · web 96/96 · build de production API et web
 réussi.
 
 Ce que chaque étape garantit :
