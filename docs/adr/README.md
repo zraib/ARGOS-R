@@ -13,6 +13,7 @@ dépendance runtime.
 | [0005](0005-capacite-nrbc.md) | Capacité NRBC : déclaration outillée et panache chimique sur carte | **accepté** (phases 1-3) | wizard incident, module `nrbc`, carte, `/parametres` |
 | [0006](0006-courtier-de-flux-externes.md) | Courtier de flux externes : séparer ARGOS de ses fournisseurs | **accepté** (phase 1) | `apps/broker`, adaptateurs sortants de `apps/api`, CSP et fond de carte de `apps/web`, `infra/compose` |
 | [0007](0007-missions-boucle-fermee.md) | Missions : la boucle fermée des gestes opérationnels | **accepté** (lot S1) | `apps/api/src/modules/missions`, permission `missions:*` |
+| [0009](0009-dotations-provisoires-a-arbitrer.md) | Dotations provisoires de la matrice : ce que l'état-major doit arbitrer | **proposé** | `permissions.ts` (bloc `LEGACY`), 14 fonctionnalités |
 | [0008](0008-ecouteur-tcp-traceurs-fmc920.md) | Traceurs FMC920 : ARGOS est le serveur du boîtier (Codec 8 sur TCP) | **accepté** (lot N-2) | `apps/api/src/modules/tracking`, permission `tracking:*`, second port en écoute |
 
 ## Écrire un ADR
