@@ -181,10 +181,12 @@ développement doit être remplacé en production.
 | [docs/](docs/README.md) | index de la documentation technique |
 | [Architecture](docs/01-architecture.md) | composants, flux, frontières, couches |
 | [SOLID et hexagonal](docs/02-solid-hexagonal.md) | méthode appliquée et playbook |
-| [Référence API](docs/03-api.md) | endpoints et permissions |
+| [Référence API](docs/03-api.md) | endpoints et permissions — générée depuis le code |
 | [Sécurité](docs/04-securite.md) | RBAC, rôles, ABAC, audit, souveraineté |
 | [Application web](docs/05-frontend.md) | écrans, store, i18n, carte |
 | [Développement](docs/06-developpement.md) | commandes, variables, tests, dépannage |
+| [Carte du code](docs/09-carte-du-code.md) | où se trouve quoi, règles de dépendance |
+| [Qualité et audit](docs/10-qualite-et-audit.md) | la gate, le nettoyage, la refonte, le registre des risques |
 | [ADR](docs/adr/README.md) | décisions d'architecture |
 | [MASTER_PLAN.md](MASTER_PLAN.md) | vision produit, architecture cible, phases |
 
@@ -193,8 +195,11 @@ développement doit être remplacé en production.
 ## État
 
 Prototype fonctionnel de bout en bout : les écrans consomment l'API, qui
-applique le contrôle d'accès et journalise les mutations. Reste à traiter avant
-un déploiement réel :
+applique le contrôle d'accès et journalise les mutations. La gate
+(`npm run typecheck && npm test` : 312 tests API en séquence, 70 tests web)
+et la référence API générée depuis le code (`npm run docs:api`) sont décrites
+dans [docs/10-qualite-et-audit.md](docs/10-qualite-et-audit.md). Reste à
+traiter avant un déploiement réel :
 
 - l'attribution fine des permissions par rôle, aujourd'hui provisoire hors
   administration, en attente de la matrice `docs/matrice-roles-fonctionnalites.xlsx` ;

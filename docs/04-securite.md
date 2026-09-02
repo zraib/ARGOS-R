@@ -23,7 +23,15 @@ requête ─▶ JwtAuthGuard ─▶ PermissionsGuard ─▶ ScopeGuard ─▶ co
   (`permissionsForRole`). Une permission portée par le client est ignorée.
 - `@Public()` ouvre explicitement une route. Trois seulement : `/health`,
   `/auth/login`, `/auth/dev-token`.
-- Tout le reste est **refusé par défaut**.
+- `@SelfService()` marque les six routes qui n'agissent que sur la **session
+  appelante** (`GET reference`, `GET iam/me`, `GET/PATCH auth/profile`,
+  `POST auth/select-role`, `POST auth/change-password`) : authentification
+  exigée, aucune permission de la matrice.
+- Tout le reste est **refusé par défaut** — et **chaque route doit le dire** :
+  `modules/iam/authz-coverage.spec.ts` parcourt tous les contrôleurs et échoue
+  si une route ne porte ni `@RequirePermission`, ni `@SelfService`, ni
+  `@Public`. Une garde par défaut qui laisse passer les routes muettes est un
+  trou qui se rouvre à chaque ajout de route ; ce test le referme.
 
 Source : `apps/api/src/common/guards/`, `apps/api/src/shared/permissions.ts`.
 
@@ -243,16 +251,28 @@ Exigences du `MASTER_PLAN.md` §4.3 :
 
 ## 10. Tests de sécurité
 
-La gate default-deny est automatisée (`npm test`, 82 tests) :
+La gate est automatisée : `npm run test:api` (**312 tests, 27 suites**, exécutés
+en séquence — `jest --runInBand` — parce qu'en parallèle la suite `deployment`
+expire sous la contention CPU). Les suites qui portent la sécurité :
 
-- `modules/iam/authz.spec.ts` — 401 sans jeton, résolution des permissions
-  depuis le rôle, 403 sur accès non autorisé, intégrité de la chaîne d'audit ;
-- `modules/iam/users.spec.ts` — cycle de vie des comptes, règles d'attribution ;
-- `modules/orders/http/orders.authz.spec.ts` — 401/403 sur les routes de bons
-  de travail, cycle de vie complet via HTTP ;
-- `modules/iam/scope.spec.ts` — **cantonnement ABAC** : un responsable agit sur
-  son entité, est refusé sur toute autre, et un compte sans affectation est
-  refusé.
+| Suite | Ce qu'elle refuse de laisser passer |
+| --- | --- |
+| `iam/authz.spec.ts` | 401 sans jeton, permissions résolues depuis le rôle, 403 sur accès non autorisé, intégrité de la chaîne d'audit |
+| `iam/authz-coverage.spec.ts` | **toute route sans marqueur d'accès** (`@RequirePermission` / `@SelfService` / `@Public`) |
+| `iam/scope.spec.ts` | **cantonnement ABAC** : un responsable agit sur son entité, est refusé sur toute autre, un compte sans affectation est refusé |
+| `iam/users.spec.ts` | cycle de vie des comptes, règles d'attribution des rôles |
+| `domain/governance.authz.spec.ts` | qui supprime quoi : la suppression définitive n'appartient qu'au Super Administrateur |
+| `domain/visibility.spec.ts` | la doctrine de visibilité (lot V-1) : wali → sa région, place d'armes → sa zone, opcom/tacom/cellules → leur incident |
+| `domain/deployment.spec.ts` | le déploiement comme acte gardé (lot V-2) |
+| `orders/http/orders.authz.spec.ts` · `missions/http/missions.authz.spec.ts` | 401/403 sur les routes des bons de travail et des missions, cycle de vie via HTTP |
+| `realtime/comms.spec.ts` | routes du centre de communication **gardées**, participer ≠ administrer (`comms_admin`), présence = connexion, pièces jointes : liste blanche de types vérifiée sur les octets, nom d'origine jamais utilisé comme chemin |
+| `tracking/tracking.spec.ts` | registre des traceurs = liste blanche de l'écouteur TCP ; un IMEI inconnu est rejeté avant tout décodage |
+| `orders/architecture.spec.ts` · `missions/architecture.spec.ts` | règle de dépendance hexagonale (échoue sur import interdit) |
 
-**Ajouter une route sensible sans `@RequirePermission` est une régression de
-sécurité** : la route devient accessible à tout utilisateur authentifié.
+**Ajouter une route sensible sans `@RequirePermission` n'est plus seulement une
+régression de sécurité : c'est un test rouge.**
+
+Trois lignes de la matrice sont **provisoires, à arbitrer** avec l'état-major
+(commentées comme telles dans `shared/permissions.ts`) : `aviation`,
+`tracking` et `comms_admin` (administration des canaux, aujourd'hui réservée à
+`admin`).

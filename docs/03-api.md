@@ -230,6 +230,6 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 1. Modifier le contrôleur (décorateurs `@ApiOperation`, `@RequirePermission`).
 2. `npm run openapi --prefix apps/api` — régénère `apps/api/openapi.json`.
-3. `npm run gen --prefix packages/api-client` — régénère le client TypeScript
+3. `npm run generate --prefix packages/api-client` — régénère le client TypeScript
    consommé par `apps/web` (contrat d'abord : jamais de `fetch` écrit à la main).
 4. `npm run docs:api` — régénère ce document.

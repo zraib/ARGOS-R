@@ -9,12 +9,14 @@ Index de la documentation technique. Point d'entrée du dépôt :
 | --- | --- | --- |
 | 1 | [Architecture](01-architecture.md) | comprendre les composants, les flux et les frontières |
 | 2 | [SOLID et architecture hexagonale](02-solid-hexagonal.md) | **le processus appliqué** au module `orders` + playbook pour les modules suivants |
-| 3 | [Référence API](03-api.md) | tous les endpoints et leurs permissions |
-| 4 | [Sécurité](04-securite.md) | RBAC, 12 rôles, permissions, audit chaîné, souveraineté |
-| 5 | [Application web](05-frontend.md) | écrans, store, i18n, carte, conventions front |
+| 3 | [Référence API](03-api.md) | **générée depuis le code** (`npm run docs:api`) : tous les endpoints et leurs permissions |
+| 4 | [Sécurité](04-securite.md) | RBAC, 15 rôles, permissions, ABAC, audit chaîné, couverture des gardes, souveraineté |
+| 5 | [Application web](05-frontend.md) | écrans, store en tranches, i18n, carte, assistant IA, tests |
 | 6 | [Guide de développement](06-developpement.md) | commandes, variables, tests, dépannage |
 | 7 | [Performance](07-performance.md) | la campagne d'optimisation : méthode de mesure, leviers, avant/après |
 | 8 | [Workflow opérationnel](08-workflow-operationnel.md) | **la boucle fermée** : comment le travail circule entre l'état-major et le terrain |
+| 9 | [Carte du code](09-carte-du-code.md) | où se trouve quoi, règles de dépendance, où mettre une nouveauté |
+| 10 | [Qualité, gate et registre d'audit](10-qualite-et-audit.md) | **pour l'auditeur** : la gate, ce qui a été nettoyé et refondu, le registre des risques |
 
 ## Décisions d'architecture
 

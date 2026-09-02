@@ -84,14 +84,31 @@ modules à venir — méthode et playbook dans
 
 ## 4. Modules de l'API
 
-| Module | Responsabilité | Persistance |
-| --- | --- | --- |
-| `health` | sonde publique `/api/health` | — |
-| `iam` | authentification, utilisateurs, rôles, matrice rôle→fonctionnalités | in-memory + instantané dev |
-| `flags` | feature flags par module | interface + mémoire / Drizzle |
-| `audit` | journal append-only chaîné + vérification d'intégrité | interface + mémoire / Drizzle |
-| `domain` | incidents, unités, hôpitaux, fil, dispatching, comms, catalogue, sismologie, météo | in-memory + instantané dev |
-| `orders` | bons de travail (hexagonal) | port + mémoire / Drizzle |
+Douze modules NestJS, un dossier par module sous `apps/api/src/modules/`.
+Les modules « hexagonaux » séparent `domain/` (règles), `application/` (cas
+d'usage), `ports/` (interfaces), `infrastructure/` (adaptateurs) et `http/`
+(contrôleurs) ; un test d'architecture (`architecture.spec.ts`) refuse tout
+import qui traverserait ces couches dans le mauvais sens.
+
+| Module | Responsabilité | Forme | Persistance |
+| --- | --- | --- | --- |
+| `health` | sonde publique `/api/health` | contrôleur | — |
+| `iam` | authentification (dev HS256 / Keycloak RS256), utilisateurs, rôles, matrice rôle→fonctionnalités, test de couverture des gardes | contrôleurs + services | in-memory + instantané dev |
+| `flags` | feature flags par module | port + adaptateurs | mémoire / Drizzle |
+| `audit` | journal append-only chaîné + vérification d'intégrité | port + adaptateurs | mémoire / Drizzle |
+| `domain` | incidents et sous-incidents, unités, hôpitaux et services, abris, morgue/DVI, équipement, fil d'événements, comptes rendus, niveau d'alerte, déploiements, visibilité, référence, statistiques ; six contrôleurs (`http/`) et des services par sujet (`domain.service.ts` = état, `domain.types.ts` = contrat, `domain.analytics.ts` = calculs purs) | services + contrôleurs | in-memory + instantané dev |
+| `incident-dashboard` | tableau de bord d'UNE opération (lot V-3) | service + contrôleur | lecture du domaine |
+| `missions` | la boucle fermée ordre → accusé → compte rendu (ADR 0007) | hexagonal | port + mémoire |
+| `orders` | bons de travail (ADR 0003) | hexagonal | port + mémoire / Drizzle |
+| `nrbc` | bibliothèque de substances (lot N-3), moteur de panache ATP-45 (ADR 0005) | hexagonal | fichiers de données + mémoire |
+| `aviation` | suivi aérien ADS-B, appariement des aéronefs (ADR 0004) | hexagonal | flux OpenSky ou d'exercice |
+| `tracking` | traceurs GPS FMC920 : registre (liste blanche), écouteur TCP Codec 8/8E (ADR 0008) | hexagonal | mémoire + instantané dev |
+| `realtime` | flux SSE (messages, canaux, présence), pièces jointes des communications (lot COMMS) | services + contrôleur | disque (`ARGOS_ATTACHMENTS_DIR`) |
+
+Transverse : `common/guards` (JWT, permissions, périmètre), `common/decorators`
+(`@RequirePermission`, `@SelfService`, `@Public`, `@RequireScope`, `@AuditMeta`),
+`common/interceptors` (audit), `shared/permissions.ts` (la matrice) et
+`shared/responsibilities.ts` (le rattachement ABAC).
 
 ## 5. Sécurité — appliquée côté serveur
 

@@ -29,31 +29,56 @@ n'est pas réutilisé).
 
 ```
 apps/web/src/
-├── app/                      24 routes (App Router)
+├── app/                      31 routes (App Router) ; les écrans composés
+│   │                         gardent leurs sous-composants dans _parts/
+│   ├── incidents/            page + _parts/ (filtres, détail, sous-incidents)
+│   ├── map/                  page + _parts/ (panneau des couches, arbre)
+│   └── utilisateurs/         page + _parts/ (onglets, formulaire, rôles)
 ├── components/
-│   ├── shell/                AppFrame, Sidebar, Header, LoginScreen,
-│   │                         RoleChooserScreen, ChangePasswordScreen, Toast…
+│   ├── shell/                AppFrame, Sidebar, Header, NotificationBell,
+│   │                         Copilot (FAB) + CopilotBody (chargé au 1er ⌘K)
 │   ├── ui/                   système de composants : Badge, Modal, Table,
 │   │                         StatTile, ProgressBar, Pill, Avatar, Icon
 │   ├── charts/               ChartCard, DonutChart, LineAreaChart, ListCard
-│   ├── map/MapCanvas.tsx     carte opérationnelle (MapLibre + couches météo)
+│   ├── map/MapCanvas.tsx     carte opérationnelle (MapLibre) — le rendu ;
+│   │                         les calculs sont dans lib/map/canvas/
 │   ├── flux/                 FluxUI, QuakeAlert, WeatherPopup
-│   ├── incidents/            IncidentWizard, LocationPreviewMap
-│   ├── dashboard/            MoroccoSituation (silhouette SVG)
-│   ├── health/               HealthGlyph (symboles hospitaliers)
-│   └── org/                  AddEntityModals (unité, hôpital)
+│   ├── incidents/            IncidentWizard, IncidentDraftAssist (hook + boutons)
+│   ├── dashboard/            tableau de bord + situational/ (conscience situationnelle)
+│   ├── health/               Hospinet : HospinetIAPanel + parts/, affecteur IA
+│   ├── opsnet/               OPSnet (unités et abris), pendant d'Hospinet
+│   ├── whatif/               WhatIfPageShell + parts/ (simulation)
+│   ├── missions/ · org/ · responsibility/ · substances/
 └── lib/
-    ├── store.ts              store Zustand (source de vérité côté client)
-    ├── api.ts · config.ts    accès API et configuration
+    ├── store.ts              le magasin Zustand : réunion des tranches
+    ├── store/shared.ts       types de session/UI, clés de persistance, garde IA
+    ├── store/slices/         session · ui · domain · seismic · map · missions
+    │                         · nrbc · realtime · ai · aviation
+    ├── api.ts · config.ts    accès API (jeton, base) et configuration
     ├── api-client/           types générés depuis l'OpenAPI — NE PAS ÉDITER
-    ├── i18n/                 translations.ts (cœur), modules.ts, flux.ts
-    ├── data/                 types + référence : seed, dispatch, grades, users
-    ├── map/                  style, markers, cities, morocco, overlay, routing
-    ├── ai/                   assistant, provider, config (LLM local)
-    ├── derive.ts             dérivations pour l'affichage
-    ├── helpers.ts · icons.ts · nav.ts · roles.ts · reco.ts · sound.ts
-    └── types.ts              types du domaine
+    ├── i18n/                 translations.{fr,en,ar} (cœur), modules.{fr,en,ar},
+    │                         loader.ts (chargement paresseux EN/AR)
+    ├── ai/                   assistant/ (Couche 1 : interprétation et intents)
+    │                         · copilot/ (orchestration LLM) · draft/ (brouillon
+    │                         d'incident) · risk/ · situational/ · whatif/
+    │                         · provider.ts · config.ts
+    ├── map/                  style, marqueurs, villes, Maroc, routage, vent ;
+    │                         canvas/ = aides pures du rendu (MNT, météo,
+    │                         séismes, panache)
+    ├── realtime/stream.ts    lecture du flux SSE (fetch + en-tête, reconnexion)
+    ├── tracking/ · nrbc/ · hazard/   logique métier des lots N-2, N-3, N-5
+    ├── data/                 types + référence : seed, dispatch, grades
+    ├── derive.ts · helpers.ts · icons.ts · nav.ts · roles.ts · types.ts
+    └── __tests__/            tests unitaires (vitest), aussi dans ai/ et map/
 ```
+
+Deux règles de rangement, vérifiées par le typecheck et les tests :
+
+- **la logique pure vit dans `lib/`, jamais dans un composant** — un fichier de
+  `lib/` n'importe jamais `components/` (le moteur de brouillon a été sorti du
+  composant pour cette raison) ;
+- **un composant par fichier** au-delà de l'écran principal ; ce qu'ils
+  partagent (constantes, aides) est dans un `shared.ts` à côté.
 
 ## 3. Écrans
 
@@ -85,15 +110,27 @@ apps/web/src/
 
 ## 4. Store
 
-Store **Zustand** unique (`src/lib/store.ts`), organisé en tranches :
-session et rôle · utilisateurs · incidents et sous-incidents · unités ·
-hôpitaux · fil d'événements · dispatching · communications · catalogue des
-modules · sismologie et configuration d'alerte · météo (grilles nationale et
-mondiale) · couches de carte et sélection · feature flags · i18n et thème ·
-toasts.
+Un seul magasin **Zustand** (`useArgos`), mais assemblé à partir de **dix
+tranches** typées (`lib/store/slices/*.ts`), chacune exportant son interface et
+son `StateCreator` ; `ArgosState` est leur réunion. Une tranche voit tout l'état
+par `set`/`get` mais **n'importe jamais une autre tranche** — elles ne
+partagent que `lib/store/shared.ts` et le type `ArgosState`.
+
+| Tranche | Porte |
+| --- | --- |
+| `session` | jeton, rôle actif, profil, drapeaux, matrice rôle→fonctionnalités |
+| `ui` | langue et dictionnaires, thème, navigation, toasts, assistant de déclaration, Copilot |
+| `domain` | incidents, unités, hôpitaux, fil, catalogue, statistiques — chargés depuis l'API |
+| `seismic` | flux EMSC, alerte globale, focus séisme |
+| `map` | couches, 3D/satellite, sélection, grille météo |
+| `missions` | boucle fermée (ADR 0007), niveau d'alerte, comptes rendus |
+| `nrbc` | substances, panache et sa lecture dans le temps (ADR 0005) |
+| `realtime` | liaison SSE, présence, non-lus (lot COMMS) |
+| `ai` | journal du Copilot, réglages, priorité opérateur, prédictions de risque, conscience situationnelle |
+| `aviation` | aéronefs inscrits et positions |
 
 Les données du domaine sont chargées depuis l'API au montage, via le client
-généré. En développement, `window.__argos` expose le store pour inspection.
+généré. En développement, `window.__argos` expose le magasin pour inspection.
 
 ## 5. Internationalisation
 
@@ -134,6 +171,17 @@ souveraineté : aucune donnée opérationnelle ne sort de l'infrastructure. Le
 fournisseur, l'URL et le modèle se configurent dans `/parametres`
 (Super Administrateur).
 
+| Dossier | Rôle |
+| --- | --- |
+| `ai/assistant/` | **Couche 1** : interprétation déterministe de la question sur les données ARGOS (`interpret`), un fichier par famille d'intentions (`intents/`), construction du message envoyé au modèle (`prompt.ts`, quotas de lignes) |
+| `ai/copilot/` | orchestration du tour de parole : budget d'historique (`history.ts`), blocs structurés et raccourcis Couche 1 (`blocks.ts`), flux cadencé, garde-fou de fuite d'invite et verdict (`turn.ts`) |
+| `ai/draft/` | moteur de brouillon d'incident : lexique, groupes sémantiques, réserves de formulations, choix reproductible par `salt` — **n'invente aucun fait** |
+| `ai/risk/` · `ai/situational/` · `ai/whatif/` | prédiction de risques, conscience situationnelle, simulation |
+| `ai/provider.ts` | dialogue avec le runtime (flux, `think:false` pour les modèles raisonneurs, `keep_alive`, mesures réelles) |
+
+Le composant `CopilotBody` ne garde que les gardes de sécurité (injection,
+salutations), l'appel à la Couche 1 et les écritures dans le journal.
+
 ## 8. Commandes
 
 ```bash
@@ -154,3 +202,14 @@ Variable d'environnement : `NEXT_PUBLIC_API_URL` (défaut
    `MODULE_FEATURES` côté API et à la matrice rôle→fonctionnalités.
 5. Consommer les données via le store, jamais par un `fetch` direct.
 6. Vérifier dans le navigateur — le typecheck ne suffit pas.
+
+## 10. Tests
+
+`npm run test:web` (vitest, environnement Node, alias `@`) — **70 tests** dans
+`src/lib/**/__tests__/`. Ils fixent ce qui casse en silence : parité des clés
+i18n FR/EN/AR, résolution des routes de navigation, matrice des rôles,
+affecteurs Hospinet/OPSnet, découpage SSE, décodage des traceurs, aides pures
+de la carte, moteur de brouillon (reproductibilité, aucun chiffre inventé),
+orchestration du Copilot (budget d'historique, blocs, délais). Un test se
+place à côté de la logique qu'il protège ; il n'y a pas de test de rendu.
+

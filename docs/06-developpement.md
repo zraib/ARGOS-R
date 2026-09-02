@@ -48,17 +48,25 @@ Node uniquement (exigence de souveraineté).
 | `npm run dev` | API + web |
 | `npm run dev:api` / `npm run dev:web` | un seul service |
 | `npm run setup` | `npm install` dans `packages/api-client`, `apps/api`, `apps/web` |
-| `npm run typecheck` | `tsc --noEmit` sur l'API puis le web |
-| `npm test` | suite de tests de l'API (**82 tests**, dont la gate de sécurité) |
+| `npm run typecheck` | `tsc --noEmit` sur l'API puis le web (`noUnusedLocals` / `noUnusedParameters` actifs) |
+| `npm test` | **la gate** : API (jest, 312 tests, en séquence) puis web (vitest, 70 tests) |
+| `npm run test:api` / `npm run test:web` | une seule suite |
 | `npm run build` | build de production API + web |
-| `npm run openapi` | régénère `apps/api/openapi.json` |
+| `npm run openapi` | régénère `apps/api/openapi.json` (non versionné) |
+| `npm run docs:api` | régénère le contrat **puis** `docs/03-api.md` depuis le code |
 
 Commandes spécifiques à l'API (depuis `apps/api`) :
 
 ```bash
-npm run db:generate   # génère le SQL des migrations depuis src/db/schema.ts
-npm run db:migrate    # applique les migrations (nécessite PostgreSQL)
+npm run db:generate      # génère le SQL des migrations depuis src/db/schema.ts
+npm run db:migrate       # applique les migrations (nécessite PostgreSQL)
+npm run nrbc:import      # importe la bibliothèque de substances (lot N-3)
+npm run fmc920:simulate  # simule un traceur FMC920 sur l'écouteur TCP (lot N-2)
 ```
+
+**Exécuter la gate en séquence, jamais en parallèle** : sur un poste chargé,
+lancer les tests pendant un build fait expirer les suites longues et donne des
+échecs qui n'en sont pas. `npm test` enchaîne déjà API puis web pour cela.
 
 ## 4. Régénérer le client API
 
@@ -78,29 +86,44 @@ dans `apps/web` en est le miroir. Ne jamais éditer ces fichiers à la main.
 
 ## 5. Variables d'environnement
 
-### API (`apps/api/.env`, gabarit `.env.example`)
+Toutes les variables lues par le code, avec leur défaut. Gabarits :
+`apps/api/.env.example`, `apps/web/.env.example`, `infra/compose/.env.example`.
+
+### API (`apps/api/.env`)
 
 | Variable | Défaut | Rôle |
 | --- | --- | --- |
-| `PORT` | `3005` | port d'écoute |
+| `PORT` | `3005` | port d'écoute HTTP |
 | `NODE_ENV` | `development` | environnement |
 | `AUTH_MODE` | `dev` (hors prod) | `dev` = HS256 local · `keycloak` = OIDC RS256/JWKS |
 | `AUTH_DEV_SECRET` | `argos-dev-secret-change-me` | secret HS256 de développement — **à remplacer en production** |
 | `KEYCLOAK_ISSUER` | `http://localhost:8080/realms/argos` | émetteur OIDC |
 | `KEYCLOAK_AUDIENCE` | `argos-api` | audience attendue |
-| `CORS_ORIGINS` | `localhost:3004,127.0.0.1:3004,localhost:3100` | origines autorisées |
+| `CORS_ORIGINS` | `http://localhost:3004,http://127.0.0.1:3004,http://localhost:3100` | origines autorisées (liste séparée par des virgules) |
 | `DB_DRIVER` | `memory` | `memory` ou `postgres` |
-| `DATABASE_URL` | — | chaîne de connexion PostgreSQL |
+| `DATABASE_URL` | `postgres://argos:…@localhost:5432/argos` | chaîne de connexion PostgreSQL (si `postgres`) |
 | `DEV_PERSIST` | `on` | `off` désactive l'instantané JSON de développement |
 | `DEV_DATA_DIR` | `<cwd>/.dev-data` | dossier de l'instantané |
+| `AVIATION_FEED` | `opensky` | `opensky` (flux réel) ou `exercise` (flux d'exercice, hors ligne) |
+| `AVIATION_FEED_TTL_MS` | `5000` | durée de vie du cache de positions |
+| `OPENSKY_USERNAME` / `OPENSKY_PASSWORD` | — | identifiants OpenSky (quota étendu ; anonymes sinon) |
+| `NRBC_DATA_DIR` | `apps/api/data` | données de la bibliothèque de substances |
+| `FMC920_PORT` | — (écouteur **non démarré** si absent) | port TCP de l'écouteur Teltonika Codec 8/8E |
+| `FMC920_HOST` | `127.0.0.1` | interface d'écoute TCP — **ne jamais exposer sur toutes les interfaces sans pare-feu** |
+| `ARGOS_ATTACHMENTS_DIR` | `<cwd>/data/attachments` | stockage des pièces jointes des communications (hors dépôt) |
 
 ### Web (`apps/web/.env`)
 
-| Variable | Défaut |
-| --- | --- |
-| `NEXT_PUBLIC_API_URL` | `http://127.0.0.1:3005` |
+| Variable | Défaut | Rôle |
+| --- | --- | --- |
+| `NEXT_PUBLIC_API_URL` | `http://127.0.0.1:3005` | base de l'API |
+| `NEXT_PUBLIC_MAP_TILES` | `external` | `external` = fond de carte tiers **(développement seulement, non souverain, bandeau affiché)** · `self` = tuiles auto-hébergées |
+| `NEXT_PUBLIC_TILES_URL` | — | URL du serveur de tuiles auto-hébergé (martin) |
+| `NEXT_PUBLIC_ROUTING_ENGINE` | `valhalla` | moteur de routage (ADR 0001) |
+| `NEXT_PUBLIC_ROUTING_URL` | `http://localhost:8002` | URL du moteur de routage |
 
-**Aucun secret ne doit être commité.**
+**Aucun secret ne doit être commité.** Les fichiers `.env*` sont ignorés par
+git ; seuls les `.env.example` sont versionnés.
 
 ## 6. Persistance de développement
 
@@ -133,17 +156,38 @@ EMQX, martin, Traefik, mailpit) est dans `infra/compose/`.
 ## 8. Tests
 
 ```bash
-npm test          # depuis la racine
+npm test              # API (jest --runInBand) puis web (vitest) — la gate
+npm run test:api      # 312 tests, 27 suites
+npm run test:web      # 70 tests, 14 fichiers
 ```
+
+### API (jest)
 
 | Suite | Objet |
 | --- | --- |
-| `modules/iam/authz.spec.ts` | gate de sécurité default-deny, résolution des permissions, chaîne d'audit |
-| `modules/iam/users.spec.ts` | cycle de vie des comptes, règles d'attribution de rôles |
-| `modules/orders/application/order.service.spec.ts` | cas d'usage — **sans base, sans Docker, sans conteneur NestJS** |
-| `modules/orders/infrastructure/order-repository.contract.spec.ts` | contrat du port, rejoué par adaptateur |
-| `modules/orders/http/orders.authz.spec.ts` | RBAC et cycle de vie via HTTP |
-| `modules/orders/architecture.spec.ts` | règle de dépendance (échoue sur import interdit) |
+| `iam/authz.spec.ts` · `iam/authz-coverage.spec.ts` · `iam/scope.spec.ts` · `iam/users.spec.ts` | gate de sécurité default-deny, couverture des gardes, cantonnement ABAC, comptes |
+| `domain/visibility.spec.ts` · `domain/deployment.spec.ts` · `domain/governance.authz.spec.ts` | doctrine de visibilité, déploiement, qui supprime quoi |
+| `domain/sitrep.spec.ts` · `domain/dvi.spec.ts` · `domain/seed.spec.ts` · `domain/risk.engine.spec.ts` | comptes rendus, identification des victimes, jeu de démonstration, moteur de risques |
+| `incident-dashboard/incident-dashboard.spec.ts` | tableau de bord d'une opération |
+| `missions/**` (5 suites) · `orders/**` (4 suites) | cas d'usage **sans base ni conteneur**, contrat des ports, RBAC via HTTP, règle de dépendance hexagonale |
+| `nrbc/nrbc-library.spec.ts` · `nrbc/plume/plume.engine.spec.ts` | bibliothèque de substances, moteur de panache |
+| `aviation/aircraft.matching.spec.ts` | appariement des aéronefs |
+| `tracking/codec8.spec.ts` · `tracking/tracking.spec.ts` | décodeur Codec 8/8E (CRC, IMEI, positions), registre et chaîne TCP complète |
+| `realtime/comms.spec.ts` | gardes du centre de communication, présence, pièces jointes |
+
+### Web (vitest)
+
+`src/lib/**/__tests__/*.test.ts` — logique pure uniquement (i18n, navigation,
+rôles, affecteurs, flux SSE, traceurs, substances, aides de la carte, moteur de
+brouillon, orchestration du Copilot). Pas de rendu React : ce qui vaut d'être
+testé a été sorti des composants vers `lib/`.
+
+### Écrire un test
+
+Un test se place **à côté de la logique qu'il protège** et fixe un invariant
+qu'une retouche pourrait casser en silence (« aucun chiffre inventé », « jamais
+40 000 caractères dans l'historique », « toute route déclare son accès »). Un
+test qui rejoue une implémentation ligne à ligne n'apporte rien.
 
 ## 9. Conventions
 
@@ -159,6 +203,14 @@ Règles permanentes dans [`CLAUDE.md`](../CLAUDE.md). L'essentiel :
 - Tokens de design uniquement — ne pas inventer de couleurs.
 - Ressources auto-hébergées ; aucune nouvelle dépendance runtime sans
   [ADR](adr/README.md).
+- **Rien d'inutilisé** : `noUnusedLocals` et `noUnusedParameters` sont actifs
+  dans les deux `tsconfig` ; un import ou une variable morte est une erreur de
+  typecheck, pas un avertissement.
+- **La logique pure vit dans `lib/`** (web) ou dans un service/une fonction
+  pure (API), jamais dans un composant ou un contrôleur ; un fichier de `lib/`
+  n'importe jamais `components/`.
+- **Un composant par fichier** au-delà de l'écran principal ; un magasin en
+  tranches qui ne s'importent pas entre elles.
 - Ne jamais marquer une tâche « terminée » sans l'avoir **vérifiée dans le
   navigateur** — le typecheck ne suffit pas.
 - Commencer une session en lisant `CONTEXT.md`, la finir en le mettant à jour.
