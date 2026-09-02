@@ -11,7 +11,7 @@ import {
   pickDesc,
   type DescriptionProposalInput,
   extractToponymsFromTokens,
-} from "@/components/incidents/IncidentDraftAssist";
+} from "@/lib/ai/draft";
 import {
   AI_DEFAULT_PROVIDER,
   AI_PROVIDERS,

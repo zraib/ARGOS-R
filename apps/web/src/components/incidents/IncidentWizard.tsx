@@ -11,10 +11,8 @@ import { UI_ICONS } from "@/lib/icons";
 import { svgToLL, llToSvg, typeLabel } from "@/lib/helpers";
 import type { NrbcFamily, Province } from "@/lib/types";
 import { casualtyKind } from "@/lib/derive";
-import {
-  useDraftProposal,
-  type DescriptionProposalInput,
-} from "@/components/incidents/IncidentDraftAssist";
+import { useDraftProposal } from "@/components/incidents/IncidentDraftAssist";
+import type { DescriptionProposalInput } from "@/lib/ai/draft";
 import {
   generateIncidentDraft,
   paraphraseIncidentDraft,
