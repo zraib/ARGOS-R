@@ -103,6 +103,7 @@ lib/i18n/     trois langues, fichiers séparés, parité vérifiée par test
 | `ai/draft/` | `lexicon.ts` · `semantic.ts` · `pools.ts` · `proposal.ts` | draft.test |
 | `ai/risk/` · `ai/situational/` · `ai/whatif/` | moteurs de prédiction et de simulation | — |
 | `map/` | `canvas/{dem,weather-raster,weather-grid,weather-render,quakes,plume}.ts`, `wind.ts`, style, marqueurs | canvas.test, wind.test |
+| `incidents/` | `wizard.ts` : formulaire de déclaration — validation par étape, appariement d'adresse, rattachement région, charge envoyée, pré-remplissage | wizard.test |
 | `realtime/` | `stream.ts` (SSE par `fetch`, reconnexion, arrêt sur 401/403) | realtime-stream.test |
 | `tracking/` · `nrbc/` · `hazard/` | traceurs, substances, pictogrammes | tracking, substance, pictograms |
 | `i18n/` · `nav.ts` · `roles.ts` · `helpers.ts` | langues, navigation, rôles, aides | i18n, nav, roles, helpers |

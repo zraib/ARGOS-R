@@ -43,7 +43,9 @@ apps/web/src/
 │   ├── map/MapCanvas.tsx     carte opérationnelle (MapLibre) — le rendu ;
 │   │                         les calculs sont dans lib/map/canvas/
 │   ├── flux/                 FluxUI, QuakeAlert, WeatherPopup
-│   ├── incidents/            IncidentWizard, IncidentDraftAssist (hook + boutons)
+│   ├── incidents/            IncidentWizard (coquille) + wizard/ (une étape par
+│   │                         fichier, hooks de formulaire/IA/localisation),
+│   │                         IncidentDraftAssist (hook + boutons)
 │   ├── dashboard/            tableau de bord + situational/ (conscience situationnelle)
 │   ├── health/               Hospinet : HospinetIAPanel + parts/, affecteur IA
 │   ├── opsnet/               OPSnet (unités et abris), pendant d'Hospinet
@@ -66,6 +68,7 @@ apps/web/src/
     │                         canvas/ = aides pures du rendu (MNT, météo,
     │                         séismes, panache)
     ├── realtime/stream.ts    lecture du flux SSE (fetch + en-tête, reconnexion)
+    ├── incidents/wizard.ts   ce que l'assistant de déclaration décide (testé)
     ├── tracking/ · nrbc/ · hazard/   logique métier des lots N-2, N-3, N-5
     ├── data/                 types + référence : seed, dispatch, grades
     ├── derive.ts · helpers.ts · icons.ts · nav.ts · roles.ts · types.ts

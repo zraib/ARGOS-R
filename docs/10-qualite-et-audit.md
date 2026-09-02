@@ -66,6 +66,7 @@ les imports changent.
 | `lib/store.ts` — 1 857 lignes, une interface de 204 membres | `lib/store/slices/` (10 tranches typées) + `shared.ts` ; `store.ts` = 56 l. | chaque tranche a un nom vrai ; aucune n'importe une autre |
 | six écrans de 900–1 300 lignes à 6–12 composants | un composant par fichier (`parts/`, `_parts/`, `situational/`) + `shared.ts` | trouver un composant par son nom de fichier |
 | `docs/03-api.md` écrit à la main | `scripts/gen-api-doc.mjs` (OpenAPI × décorateurs, via l'AST) | la référence suit le code |
+| `IncidentWizard.tsx` — 1 053 lignes, un seul composant, trente `useState` | `lib/incidents/wizard.ts` (validation, rattachement, charge envoyée, pré-remplissage — 15 tests) · `components/incidents/wizard/` (un hook de formulaire, deux hooks IA/localisation, une étape par fichier) · coquille de 150 l. | le formulaire critique devient testable sans navigateur ; parcours complet rejoué au navigateur (création vérifiée par l'API) |
 
 Filet de sécurité posé **avant** de refondre : 70 tests web (il n'y en avait
 aucun), un test de couverture des gardes côté API, et le script de test API
@@ -85,7 +86,7 @@ soit un travail planifié, soit une décision à prendre.
 | R-3 | **Fond de carte tiers** en développement (`NEXT_PUBLIC_MAP_TILES=external`) | souveraineté | bandeau affiché ; production = tuiles auto-hébergées (martin dans `infra/compose`) |
 | R-4 | Lignes de la matrice **provisoires** : `aviation`, `tracking`, `comms_admin` | gouvernance | arbitrage état-major sur `docs/matrice-roles-fonctionnalites.xlsx` |
 | R-5 | Passerelles SMS / e-mail simulées | fonctionnel | raccordement réel hors périmètre actuel |
-| R-6 | `IncidentWizard.tsx` — un composant de 982 lignes | dette de code | découpe par étape de l'assistant à planifier avec un test de parcours ; non touché par la passe pour ne pas risquer le formulaire |
+| R-6 | `IncidentWizard.tsx` — un composant de 982 lignes | dette de code | **traité** (2 septembre 2026) : logique pure dans `lib/incidents/wizard.ts` + 15 tests, une étape par fichier, parcours rejoué au navigateur. Reste : un test de parcours automatisé demanderait un environnement DOM (jsdom + Testing Library, deux dépendances de développement) — à décider |
 | R-7 | `MapCanvas.tsx` — 1 700 lignes de rendu MapLibre | dette de code | les calculs sont sortis ; le rendu par couche (météo, séismes, panache, aérien) reste à séparer en hooks |
 | R-8 | `CopilotBody.tsx` — 1 118 lignes (panneau + réglages + fil) | dette de code | séparer le panneau de réglages du fil de conversation |
 | R-9 | Chaînes françaises en dur dans des modules fusionnés (What-If, conscience situationnelle) | i18n | passe i18n planifiée ; `i18n.test` protège les fichiers de langue mais pas le JSX |
