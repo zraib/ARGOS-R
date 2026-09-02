@@ -10,8 +10,10 @@
     "setup": "npm install --prefix packages/api-client && npm install --prefix apps/api && npm install --prefix apps/web",
     "build": "npm run build --prefix apps/api && npm run build --prefix apps/web",
     "typecheck": "npm run typecheck --prefix apps/api && npm run typecheck --prefix apps/web",
-    "test": "npm test --prefix apps/api",
-    "openapi": "npm run openapi --prefix apps/api"
+    "test": "npm test --prefix apps/api && npm test --prefix apps/web",
+    "openapi": "npm run openapi --prefix apps/api",
+    "test:api": "npm test --prefix apps/api",
+    "test:web": "npm test --prefix apps/web"
   },
   "engines": {
     "node": ">=20"

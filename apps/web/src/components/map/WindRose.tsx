@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useArgos, useDict } from "@/lib/store";
 
 import { OVERLAY_STYLE } from "@/lib/map/overlay";
+import { LOW_WIND_KMH, cardinal } from "@/lib/map/wind";
 
 // ============================================================================
 // Rose des vents flottante (lot N-5)
@@ -16,26 +17,6 @@ import { OVERLAY_STYLE } from "@/lib/map/overlay";
 // C'est un AFFICHEUR, pas un contrôle : `pointer-events-none` pour qu'il ne
 // vole jamais un clic à la carte qu'il recouvre.
 // ============================================================================
-
-/** Seuil ATP-45 sous lequel la direction du vent ne gouverne plus la nappe. */
-const LOW_WIND_KMH = 10;
-
-/** Rose française à 16 branches — l'ouest s'abrège O, jamais W. */
-const CARDINALS_FR = [
-  "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
-  "S", "SSO", "SO", "OSO", "O", "ONO", "NO", "NNO",
-] as const;
-
-/** Rose anglaise — W et non O. L'arabe reprend l'abréviation latine, lisible partout. */
-const CARDINALS_EN = [
-  "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
-  "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",
-] as const;
-
-function cardinal(deg: number, lang: string): string {
-  const table = lang === "fr" ? CARDINALS_FR : CARDINALS_EN;
-  return table[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16];
-}
 
 export function WindRose() {
   const t = useDict();

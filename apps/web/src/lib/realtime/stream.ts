@@ -93,7 +93,7 @@ export function openRealtimeStream(
         while ((coupe = tampon.indexOf("\n\n")) !== -1) {
           const brut = tampon.slice(0, coupe);
           tampon = tampon.slice(coupe + 2);
-          const e = parser(brut);
+          const e = parseSseBlock(brut);
           if (e) onEvent(e);
         }
       }
@@ -125,8 +125,8 @@ export function openRealtimeStream(
   };
 }
 
-/** Découpe un bloc SSE (`event:` + `data:`) en événement exploitable. */
-function parser(bloc: string): StreamEvent | null {
+/** Découpe un bloc SSE (`event:` + `data:`) en événement exploitable. Exportée pour être testée seule. */
+export function parseSseBlock(bloc: string): StreamEvent | null {
   let kind = "message";
   const lignes: string[] = [];
   for (const ligne of bloc.split("\n")) {

@@ -161,9 +161,20 @@ export const DEFAULT_FLAGS: Record<string, boolean> = Object.fromEntries(
 );
 
 /** Résout un chemin vers la clé de module courante (pour la garde de route). */
+/**
+ * Clé de navigation d'un chemin.
+ *
+ * Le chemin le plus LONG l'emporte : « /ma-responsabilite/gestion » appartient à
+ * `myrespManage`, pas à `myresp`, même si ce dernier en est un préfixe. Avec le
+ * premier trouvé, l'en-tête titrait « Ma responsabilité » sur l'écran de gestion.
+ */
 export function keyForPath(pathname: string): NavKey | null {
-  const entry = (Object.entries(HREF) as [NavKey, string][]).find(([, href]) => pathname === href || pathname.startsWith(href + "/"));
-  return entry ? entry[0] : null;
+  let meilleur: [NavKey, string] | null = null;
+  for (const e of Object.entries(HREF) as [NavKey, string][]) {
+    const [, href] = e;
+    if ((pathname === href || pathname.startsWith(href + "/")) && (!meilleur || href.length > meilleur[1].length)) meilleur = e;
+  }
+  return meilleur ? meilleur[0] : null;
 }
 
 const LABEL_KEYS: Record<NavKey | GroupKey, keyof Dict> = {
@@ -181,6 +192,6 @@ export function navLabel(key: NavKey | GroupKey, t: Dict): string {
 /** Résout un chemin vers le libellé de l'écran courant (pour l'en-tête). */
 export function screenTitle(pathname: string, t: Dict): string {
   if (pathname === "/profil" || pathname.startsWith("/profil/")) return t.pr_title;
-  const entry = (Object.entries(HREF) as [NavKey, string][]).find(([, href]) => pathname === href || pathname.startsWith(href + "/"));
-  return entry ? navLabel(entry[0], t) : t.nav_dash;
+  const key = keyForPath(pathname);
+  return key ? navLabel(key, t) : t.nav_dash;
 }
