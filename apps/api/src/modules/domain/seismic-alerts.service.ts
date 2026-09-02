@@ -1,4 +1,6 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from "@nestjs/common";
+import { NOTIFICATION_GATEWAY, type NotificationGateway } from "@/common/ports/notification-gateway.port";
+import { LogNotificationGateway } from "@/common/notifications/log-notification.gateway";
 import { loadDevState, saveDevState } from "@/common/dev-store";
 import { SeismicService, SeismicEvent } from "@/modules/domain/seismic.service";
 
@@ -40,6 +42,12 @@ export interface SeismicNotification {
   /** Nombre d'autorités notifiées. */
   contacts: number;
   channels: ("sms" | "email")[];
+  /**
+   * Ce qui est RÉELLEMENT parti, par destinataire et par canal. `via: "log"`
+   * signifie « simulé, rien n'est parti » : l'historique ne laisse jamais croire
+   * à un envoi qui n'a pas eu lieu.
+   */
+  deliveries?: { channel: "sms" | "email"; to: string; via: string; ok: boolean; detail?: string }[];
 }
 
 const DEFAULT_CONFIG: SeismicAlertConfig = { maMinMag: 4.0, globalMinMag: 5.5, contacts: [] };
@@ -89,7 +97,10 @@ export class SeismicAlertsService implements OnModuleInit, OnModuleDestroy {
   /** Premier passage : on amorce sans notifier (pas de rafale au démarrage). */
   private primed = false;
 
-  constructor(private readonly seismic: SeismicService) {
+  constructor(
+    private readonly seismic: SeismicService,
+    @Optional() @Inject(NOTIFICATION_GATEWAY) private readonly gateway: NotificationGateway = new LogNotificationGateway(),
+  ) {
     this.config = { ...DEFAULT_CONFIG, ...loadDevState<Partial<SeismicAlertConfig>>("seismic-alert-config", {}) };
     this.notified = new Set(loadDevState<string[]>("seismic-notified", []));
     this.notifications = loadDevState<SeismicNotification[]>("seismic-notifications", []);
@@ -150,28 +161,42 @@ export class SeismicAlertsService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /** Envoi SIMULÉ (dev) : journalise chaque SMS / e-mail et historise l'envoi. */
+  /**
+   * Prévient les autorités configurées par la passerelle (SMTP réel si
+   * configuré, journalisation sinon) et historise l'envoi AVEC son résultat.
+   * L'entrée d'historique est écrite tout de suite (l'alerte a été déclenchée),
+   * puis complétée par les livraisons quand elles répondent.
+   */
   private dispatch(e: SeismicEvent): void {
     const { contacts } = this.config;
     const msg = `ARGOS — ALERTE SISMIQUE NATIONALE : M${e.mag.toFixed(1)} ${e.region} (${e.time}), prof. ${e.depth} km`;
-    for (const c of contacts) {
-      this.logger.log(`[SMS → ${c.phone}] (${c.name}) ${msg}`);
-      this.logger.log(`[E-MAIL → ${c.email}] (${c.name}) ${msg}`);
-    }
     if (contacts.length === 0) this.logger.warn(`Séisme national M${e.mag} sans autorité configurée — aucun envoi.`);
-    this.notifications = [
-      {
-        id: `NTF-${Date.now().toString(36)}`,
-        quakeId: e.id,
-        mag: e.mag,
-        region: e.region,
-        quakeTime: e.time,
-        sentAt: new Date().toISOString(),
-        contacts: contacts.length,
-        channels: ["sms", "email"] as ("sms" | "email")[],
-      },
-      ...this.notifications,
-    ].slice(0, LOG_MAX);
+    const entree: SeismicNotification = {
+      id: `NTF-${Date.now().toString(36)}`,
+      quakeId: e.id,
+      mag: e.mag,
+      region: e.region,
+      quakeTime: e.time,
+      sentAt: new Date().toISOString(),
+      contacts: contacts.length,
+      channels: ["sms", "email"] as ("sms" | "email")[],
+      deliveries: [],
+    };
+    this.notifications = [entree, ...this.notifications].slice(0, LOG_MAX);
+    saveDevState("seismic-notifications", this.notifications);
+    void this.deliver(entree, contacts, msg);
+  }
+
+  private async deliver(entree: SeismicNotification, contacts: SeismicAlertConfig["contacts"], msg: string): Promise<void> {
+    for (const c of contacts) {
+      const [sms, email] = await Promise.all([
+        this.gateway.sendSms({ to: c.phone, text: msg }),
+        this.gateway.sendEmail({ to: c.email, subject: msg.slice(0, 80), text: `${msg}\n\nDestinataire : ${c.name}` }),
+      ]);
+      entree.deliveries?.push({ channel: "sms", to: c.phone, via: sms.via, ok: sms.ok, detail: sms.detail });
+      entree.deliveries?.push({ channel: "email", to: c.email, via: email.via, ok: email.ok, detail: email.detail });
+      this.logger.log(`${c.name} : SMS ${sms.ok ? "envoyé" : "non envoyé"} (${sms.via}) · e-mail ${email.ok ? "envoyé" : "non envoyé"} (${email.via})`);
+    }
     saveDevState("seismic-notifications", this.notifications);
   }
 }

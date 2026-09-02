@@ -232,9 +232,16 @@ Deux seuils distincts, configurables dans `/parametres` :
 | National (`maMinMag`) | séisme sur le territoire | alerte rouge dans l'app (visuelle + sonore) **et SMS + e-mail aux autorités** |
 | Mondial (`globalMinMag`) | reste du monde | simple notification dans l'app |
 
-En développement, l'envoi SMS/e-mail est **simulé** et journalisé côté serveur.
-Le point de branchement de la passerelle de production est isolé dans
-`apps/api/src/modules/domain/seismic-alerts.service.ts`.
+L'envoi passe par un **port** (`common/ports/notification-gateway.port.ts`) et
+deux adaptateurs : la **journalisation** (rien ne part — et l'historique le
+dit : `via: "log"`, `ok: false`) et le **SMTP** (`common/notifications/
+smtp-notification.gateway.ts`, client minimal sans dépendance, TLS et
+authentification PLAIN optionnels), choisi dès que `SMTP_HOST` est défini —
+mailpit dans `infra/compose`, le relais de l'organisme en production. Chaque
+notification historisée porte ses **livraisons** (destinataire, canal, voie
+réelle, résultat) : `GET /api/seismic/notifications`. Les SMS restent
+journalisés tant qu'aucune passerelle télécom n'est contractualisée ; son
+adaptateur se branche sur le même port, sans toucher au domaine.
 
 ## 9. Souveraineté et fuite de données
 

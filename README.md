@@ -203,6 +203,6 @@ traiter avant un déploiement réel :
 
 - l'attribution fine des permissions par rôle, aujourd'hui provisoire hors
   administration, en attente de la matrice `docs/matrice-roles-fonctionnalites.xlsx` ;
-- le raccordement des passerelles SMS et e-mail, simulées en développement ;
+- la passerelle SMS (l'e-mail part par SMTP dès que `SMTP_HOST` est défini ; sans lui, l'envoi est journalisé et l'historique le dit) ;
 - la bascule effective sur PostgreSQL et Keycloak, dont les livrables sont
   prêts dans `infra/`.

@@ -1,4 +1,7 @@
 import { Module } from "@nestjs/common";
+import { NOTIFICATION_GATEWAY } from "@/common/ports/notification-gateway.port";
+import { LogNotificationGateway } from "@/common/notifications/log-notification.gateway";
+import { SmtpNotificationGateway, smtpConfigFromEnv } from "@/common/notifications/smtp-notification.gateway";
 import { IamModule } from "@/modules/iam/iam.module";
 import { DomainService } from "@/modules/domain/domain.service";
 import { VisibilityService } from "@/modules/domain/visibility.service";
@@ -24,7 +27,18 @@ import { EnvironmentController } from "@/modules/domain/http/environment.control
   // domaine), donc pas de cycle et pas de `forwardRef`.
   imports: [IamModule],
   controllers: [IncidentsController, CommsController, ResourcesController, HospitalsController, DashboardController, EnvironmentController],
-  providers: [DomainService, VisibilityService, DeploymentService, RiskService, CatalogService, CommsService, IncidentTypesService, SubIncidentTypesService, SeismicService, SeismicAlertsService, WeatherService],
-  exports: [DomainService, VisibilityService, DeploymentService, RiskService, CatalogService, CommsService, IncidentTypesService, SubIncidentTypesService, SeismicService, SeismicAlertsService, WeatherService],
+  providers: [
+    // La passerelle de notification : SMTP dès que `SMTP_HOST` est défini
+    // (mailpit en développement, relais de l'organisme en production), sinon la
+    // journalisation — qui DIT qu'elle n'envoie rien (registre R-5).
+    {
+      provide: NOTIFICATION_GATEWAY,
+      useFactory: () => {
+        const smtp = smtpConfigFromEnv();
+        return smtp ? new SmtpNotificationGateway(smtp) : new LogNotificationGateway();
+      },
+    },
+    DomainService, VisibilityService, DeploymentService, RiskService, CatalogService, CommsService, IncidentTypesService, SubIncidentTypesService, SeismicService, SeismicAlertsService, WeatherService],
+  exports: [NOTIFICATION_GATEWAY, DomainService, VisibilityService, DeploymentService, RiskService, CatalogService, CommsService, IncidentTypesService, SubIncidentTypesService, SeismicService, SeismicAlertsService, WeatherService],
 })
 export class DomainModule {}

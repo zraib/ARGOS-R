@@ -113,6 +113,11 @@ Toutes les variables lues par le code, avec leur défaut. Gabarits :
 | `FMC920_PORT` | — (écouteur **non démarré** si absent) | port TCP de l'écouteur Teltonika Codec 8/8E |
 | `FMC920_HOST` | `127.0.0.1` | interface d'écoute TCP — **ne jamais exposer sur toutes les interfaces sans pare-feu** |
 | `ARGOS_ATTACHMENTS_DIR` | `<cwd>/data/attachments` | stockage des pièces jointes des communications (hors dépôt) |
+| `SMTP_HOST` | — (envoi **journalisé**, rien ne part) | relais SMTP des notifications aux autorités (mailpit : `localhost`) |
+| `SMTP_PORT` | `1025` | port SMTP (465/587 en production) |
+| `SMTP_FROM` | `argos@localhost` | expéditeur des notifications |
+| `SMTP_TLS` | `off` | `on` = connexion TLS implicite |
+| `SMTP_USER` / `SMTP_PASSWORD` | — | authentification PLAIN si le relais l'exige — **jamais commités** |
 
 ### Web (`apps/web/.env`)
 
