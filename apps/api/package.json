@@ -9,7 +9,7 @@
     "start": "node dist/main.js",
     "start:prod": "NODE_ENV=production node dist/main.js",
     "typecheck": "tsc --noEmit",
-    "test": "jest",
+    "test": "jest --runInBand",
     "openapi": "ts-node -T -r tsconfig-paths/register src/openapi-export.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
