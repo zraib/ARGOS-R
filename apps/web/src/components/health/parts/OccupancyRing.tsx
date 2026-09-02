@@ -1,5 +1,6 @@
 "use client";
 
+import { useModules } from "@/lib/store";
 import {
   fmtInt,
   fmtPct,
@@ -10,8 +11,7 @@ import {
 // ===========================================================================
 // 1 · Anneau d'occupation global
 // ===========================================================================
-export 
-function OccupancyRing({
+export function OccupancyRing({
   pct,
   freePct,
   totalLits,
@@ -28,6 +28,7 @@ function OccupancyRing({
   stroke?: number;
   big?: boolean;
 }) {
+  const m = useModules();
   const r = (size - stroke) / 2;
   const cx = size / 2;
   const cy = size / 2;
@@ -67,7 +68,7 @@ function OccupancyRing({
             className="font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-300"
             style={{ fontSize: subFs }}
           >
-            occupés
+            {m.hospinet.ring_occupied}
           </div>
         </div>
       </div>
@@ -82,7 +83,7 @@ function OccupancyRing({
           <div
             className={big ? "text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-300" : "text-[9px] uppercase tracking-wider text-gray-400 dark:text-rdia-400"}
           >
-            total
+            {m.hospinet.ring_total}
           </div>
           <div
             className={
@@ -104,7 +105,7 @@ function OccupancyRing({
           <div
             className={big ? "text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-300" : "text-[9px] uppercase tracking-wider text-gray-400 dark:text-rdia-400"}
           >
-            libres
+            {m.hospinet.ring_free}
           </div>
           <div
             className={

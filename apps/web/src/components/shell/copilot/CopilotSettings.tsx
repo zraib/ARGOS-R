@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
-import { useArgos, useDict } from "@/lib/store";
+import { useArgos, useDict, useModules } from "@/lib/store";
 import { resolveProvider } from "@/lib/ai/config";
 
 type OllamaTag = { name: string; size: number; modified_at: string; digest: string };
@@ -15,6 +15,7 @@ type OllamaTag = { name: string; size: number; modified_at: string; digest: stri
  */
 export function CopilotSettings({ busy }: { busy: boolean }) {
   const t = useDict();
+  const m = useModules();
   const aiSettings = useArgos((s) => s.aiSettings);
   const setAiSettings = useArgos((s) => s.setAiSettings);
   const cfg = resolveProvider(aiSettings);
@@ -53,7 +54,7 @@ export function CopilotSettings({ busy }: { busy: boolean }) {
     <div className="shrink-0 border-b border-gray-100/70 bg-gray-50/70 px-4 py-3 text-[11px] dark:border-rdia-700/50 dark:bg-rdia-900/50 animate-fade-in">
       <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-rdia-300">
         <Icon path={NAV_ICONS.assistant} size={10} />
-        Modèle
+        {m.copilot.model}
       </div>
       <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white/80 px-2 py-1.5 dark:border-rdia-700/60 dark:bg-rdia-800/70">
         {!manualModelMode ? (
@@ -108,7 +109,7 @@ export function CopilotSettings({ busy }: { busy: boolean }) {
             <button
               type="submit"
               disabled={busy || !manualModelInput.trim() || !cfg.local}
-              title="Valider"
+              title={m.copilot.confirm}
               className="cible-tactile flex h-5 w-5 shrink-0 items-center justify-center rounded text-emerald-500 transition-colors hover:bg-emerald-500/10 disabled:opacity-40"
             >
               <Icon path={UI_ICONS.check} size={11} />
@@ -120,7 +121,7 @@ export function CopilotSettings({ busy }: { busy: boolean }) {
                 setManualModelInput(aiSettings.model);
               }}
               disabled={busy}
-              title="Annuler"
+              title={m.copilot.cancel}
               className="cible-tactile flex h-5 w-5 shrink-0 items-center justify-center rounded text-gray-400 transition-colors hover:text-red-500 disabled:opacity-40"
             >
               <Icon path={UI_ICONS.close} size={11} />
@@ -155,7 +156,7 @@ export function CopilotSettings({ busy }: { busy: boolean }) {
         </button>
       </div>
       <p className="mt-1.5 text-[10px] text-gray-400 dark:text-rdia-400">
-        Modèle actuel : <span className="font-mono text-gray-600 dark:text-rdia-200">{aiSettings.model}</span>
+        {m.copilot.model_current} <span className="font-mono text-gray-600 dark:text-rdia-200">{aiSettings.model}</span>
         {cfg.local ? " · local" : ""}
       </p>
     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useModules } from "@/lib/store";
 import { useMemo } from "react";
 import type { CriticalFactor } from "@/lib/ai/situational/types";
 import {
@@ -11,6 +12,7 @@ import { Bar } from "@/components/dashboard/situational/Bar";
 
 // ---------- Facteurs critiques (barres horizontales) · redesign ----------------
 export function FactorBars({ data }: { data: CriticalFactor[] }) {
+  const m = useModules();
   const sorted = useMemo(
     () => [...data].sort((a, b) => {
       const w = (x: CriticalFactor) => (x.impact === "haut" ? 3 : x.impact === "moyen" ? 2 : 1);
@@ -19,7 +21,7 @@ export function FactorBars({ data }: { data: CriticalFactor[] }) {
     [data],
   );
   if (!sorted.length) {
-    return <div className="rounded-xl border border-dashed border-gray-200/80 p-5 text-center text-[11px] text-gray-400 dark:border-white/10">Aucun facteur critique</div>;
+    return <div className="rounded-xl border border-dashed border-gray-200/80 p-5 text-center text-[11px] text-gray-400 dark:border-white/10">{m.situational.no_factor}</div>;
   }
   return (
     <div className="flex flex-col gap-2 w-full min-w-0">

@@ -4,7 +4,7 @@ import { Suspense, lazy } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { NAV_ICONS } from "@/lib/icons";
 import { Pill } from "@/components/ui/Pill";
-import { useDict, type AiMessage } from "@/lib/store";
+import { useDict, type AiMessage, useModules } from "@/lib/store";
 import type { Incident } from "@/lib/types";
 import { StatsGrid } from "./blocks/StatsGrid";
 import { IncidentsBlock } from "./blocks/IncidentsBlock";
@@ -35,6 +35,7 @@ export function CopilotMessage({
   onFocus: (a: MapFocusAction) => void;
 }) {
   const t = useDict();
+  const m = useModules();
   if (msg.role === "user") {
     return (
       <div className="flex justify-end">
@@ -63,7 +64,7 @@ export function CopilotMessage({
       </div>
       {msg.llmError && (
         <div className="rounded-md border border-amber-500/20 bg-amber-500/5 px-2.5 py-1 text-[10px] font-medium text-amber-600 dark:text-amber-400/90">
-          ℹ️ Synthèse LLM indisponible : {msg.llmError}
+          ℹ️ {m.copilot.llm_unavailable} {msg.llmError}
         </div>
       )}
       <div className="rounded-2xl rounded-tl-sm bg-white px-3.5 py-2.5 shadow-sm ring-1 ring-gray-100 dark:bg-rdia-800/70 dark:ring-rdia-700/60">

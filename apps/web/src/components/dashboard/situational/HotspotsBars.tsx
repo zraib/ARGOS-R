@@ -1,14 +1,16 @@
 "use client";
 
+import { useModules } from "@/lib/store";
 import type { SituationalAwareness } from "@/lib/ai/situational/types";
 
 
 // ---------- Hotspots bars redesign · cartes + bars ----------------
 export function HotspotsBars({ data }: { data: SituationalAwareness["pointsChauds"] }) {
+  const m = useModules();
   if (!data.length) {
     return (
       <div className="rounded-xl border border-dashed border-gray-200/80 p-5 text-center text-[11px] text-gray-400 dark:border-white/10">
-        Aucun point chaud détecté
+        {m.situational.no_hotspot}
       </div>
     );
   }

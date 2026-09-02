@@ -1,5 +1,6 @@
 "use client";
 
+import { useModules } from "@/lib/store";
 import type { AiMessage } from "@/lib/store";
 import type { Incident } from "@/lib/types";
 import { resolveMapFocus, type MapFocusAction } from "../mapFocus";
@@ -21,11 +22,12 @@ export function SuggestionChips({
   onAsk: (query: string) => void;
   onFocus: (a: MapFocusAction) => void;
 }) {
+  const m = useModules();
   if (!msg.suggestions || msg.suggestions.length === 0) return null;
   const mapAction = resolveMapFocus(msg, incidents);
   return (
     <div className="mt-3 flex flex-wrap gap-1.5 border-t border-gray-100 pt-2.5 dark:border-rdia-700/50">
-      <span className="self-center pr-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-rdia-400">Suggérés :</span>
+      <span className="self-center pr-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-rdia-400">{m.copilot.suggested}</span>
       {msg.suggestions.map((s) => {
         const qlabel = typeof s === "string" ? s : s.label;
         const qquery = typeof s === "string" ? s : s.query;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useDict } from "@/lib/store";
+import { useDict, useModules } from "@/lib/store";
 import { casualtySecondary, type WizardForm } from "@/lib/incidents/wizard";
 import { ResponderRow } from "./ResponderRow";
 import { labelCls, sectionCls } from "./styles";
@@ -21,6 +21,7 @@ export function StepCasualties({
   nearHosps: Ranked[];
 }) {
   const t = useDict();
+  const m = useModules();
   const secondary = casualtySecondary(form.type);
   const count = (field: "dead" | "missing" | typeof secondary.field, value: string) => (
     <input type="number" min={0} className="input-champ text-sm" placeholder="0" value={value} onChange={(e) => actions.patch({ [field]: e.target.value })} />
@@ -31,7 +32,7 @@ export function StepCasualties({
         <div className={sectionCls}>{t.wz_casualties}</div>
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className={labelCls}>Décès</label>
+            <label className={labelCls}>{m.wizard.dead}</label>
             {count("dead", form.dead)}
           </div>
           <div>
@@ -39,7 +40,7 @@ export function StepCasualties({
             {count(secondary.field, form[secondary.field])}
           </div>
           <div>
-            <label className={labelCls}>Disparus</label>
+            <label className={labelCls}>{m.wizard.missing}</label>
             {count("missing", form.missing)}
           </div>
         </div>

@@ -1,22 +1,23 @@
 "use client";
 
 import { NAV_ICONS } from "@/lib/icons";
-import { useDict, type AiMessage } from "@/lib/store";
+import { useDict, type AiMessage, useModules } from "@/lib/store";
 import { BlockTable } from "./BlockTable";
 
 /** Établissements de santé : lits, occupation, réanimation libre, distance. */
 export function HospitalsBlock({ rows }: { rows: NonNullable<AiMessage["hospitals"]> }) {
   const t = useDict();
+  const m = useModules();
   return (
     <BlockTable title={t.cp_tbl_health} icon={NAV_ICONS.hospitals}>
       <thead>
         <tr className="bg-gray-50 text-[10px] uppercase text-gray-400 dark:bg-rdia-700/40 dark:text-rdia-400">
-          <th className="px-2.5 py-1.5 text-left font-medium">Établissement</th>
-          <th className="px-2.5 py-1.5 text-left font-medium">Ville</th>
-          <th className="px-2.5 py-1.5 text-right font-medium">Lits</th>
-          <th className="px-2.5 py-1.5 text-right font-medium">Occup.</th>
-          <th className="px-2.5 py-1.5 text-right font-medium">REA libre</th>
-          <th className="px-2.5 py-1.5 text-right font-medium">Dist.</th>
+          <th className="px-2.5 py-1.5 text-left font-medium">{m.copilot.col_facility}</th>
+          <th className="px-2.5 py-1.5 text-left font-medium">{m.copilot.col_city}</th>
+          <th className="px-2.5 py-1.5 text-right font-medium">{m.copilot.col_beds}</th>
+          <th className="px-2.5 py-1.5 text-right font-medium">{m.copilot.col_occ}</th>
+          <th className="px-2.5 py-1.5 text-right font-medium">{m.copilot.col_icu_free}</th>
+          <th className="px-2.5 py-1.5 text-right font-medium">{m.copilot.col_dist}</th>
         </tr>
       </thead>
       <tbody>

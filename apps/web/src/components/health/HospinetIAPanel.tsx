@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useArgos, useDict } from "@/lib/store";
+import { useArgos, useDict, useModules } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
 import {
@@ -27,6 +27,7 @@ import { Row } from "@/components/health/parts/Row";
 
 export function HospinetIAPanel() {
   const t = useDict();
+  const m = useModules();
   const hospitals = useArgos((s) => s.hospitals);
   const fieldHosps = useArgos((s) => s.fieldHosps);
 
@@ -189,7 +190,7 @@ export function HospinetIAPanel() {
           />
           <div className="mb-2.5 pr-10">
             <div className={sectionTitleCls}>{t.hn_chart_occ}</div>
-            <div className={sectionSubtitleCls}>Tous établissements</div>
+            <div className={sectionSubtitleCls}>{m.hospinet.all_facilities}</div>
           </div>
           <OccupancyRing
             pct={facts.pct}
@@ -209,7 +210,7 @@ export function HospinetIAPanel() {
           <div className="mb-2 pr-10">
             <div>
               <div className={sectionTitleCls}>{t.hn_chart_services}</div>
-              <div className={sectionSubtitleCls}>Occupation par service</div>
+              <div className={sectionSubtitleCls}>{m.hospinet.occ_by_ward}</div>
             </div>
           </div>
           <ServicesBars services={facts.services} />
@@ -224,7 +225,7 @@ export function HospinetIAPanel() {
           />
           <div className="mb-2 pr-10">
             <div className={sectionTitleCls}>{t.hn_chart_networks}</div>
-            <div className={sectionSubtitleCls}>Militaire · Civil · Catégories</div>
+            <div className={sectionSubtitleCls}>{m.hospinet.mil_civ_cat}</div>
           </div>
           <NetworksBars networks={facts.networks} kinds={facts.kinds} />
         </div>
@@ -243,7 +244,7 @@ export function HospinetIAPanel() {
           </div>
           {busy && (
             <span className="text-[10px] font-semibold text-gray-400">
-              · mise à jour en cours…
+              {m.hospinet.updating}
             </span>
           )}
         </div>
@@ -262,7 +263,7 @@ export function HospinetIAPanel() {
             <ExpandBtn
               expanded
               onClick={() => setExpanded(null)}
-              title="Fermer (Échap)"
+              title={m.hospinet.close_esc}
             />
             <div className="h-[88vh] overflow-auto px-4 py-4 sm:px-6 sm:py-5">
               <div className="mx-auto w-full max-w-4xl flex flex-col gap-3">
@@ -274,7 +275,7 @@ export function HospinetIAPanel() {
                     {t.hn_chart_occ}
                   </div>
                   <h1 className="mt-0.5 text-[22px] font-extrabold leading-tight text-gray-900 dark:text-white">
-                    Occupation globale du parc Hospinet
+                    {m.hospinet.occ_global_title}
                   </h1>
                   <p className="mt-0.5 text-[12px] text-gray-500 dark:text-rdia-200">
                     {fmtInt(facts.totalHospitals)} éta. permanents · {fmtInt(facts.totalFieldHospitals)} hôpitaux de campagne
@@ -315,7 +316,7 @@ export function HospinetIAPanel() {
 
                     <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 shadow-sm dark:border-rdia-500 dark:bg-rdia-800">
                       <div className="mb-1 text-[10.5px] font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-300">
-                        Répartition occupation globale
+                        {m.hospinet.occ_global_split}
                       </div>
                       <div className="space-y-1 text-[12px]">
                         <Row label={`Lits totaux`} val={fmtInt(facts.lits)} tint="text-gray-900 dark:text-white" />
@@ -334,8 +335,8 @@ export function HospinetIAPanel() {
 
                 <div className="pt-0 text-center text-[10.5px] text-gray-400 dark:text-rdia-300">
                   Données agrégées ARGOS ·{" "}
-                  <button type="button" onClick={() => setExpanded(null)} className="font-semibold text-gray-800 underline-offset-2 hover:underline dark:text-white">fermer</button>
-                  {" "}· touche <kbd className="rounded border border-gray-200 bg-white px-1 py-0.5 dark:border-rdia-500 dark:bg-rdia-700 dark:text-rdia-100">Échap</kbd>
+                  <button type="button" onClick={() => setExpanded(null)} className="font-semibold text-gray-800 underline-offset-2 hover:underline dark:text-white">{m.hospinet.close}</button>
+                  {" "}· touche <kbd className="rounded border border-gray-200 bg-white px-1 py-0.5 dark:border-rdia-500 dark:bg-rdia-700 dark:text-rdia-100">{m.hospinet.esc}</kbd>
                 </div>
               </>
             )}
@@ -348,10 +349,10 @@ export function HospinetIAPanel() {
                     {t.hn_chart_services}
                   </div>
                   <h1 className="mt-0.5 text-[22px] font-extrabold leading-tight text-gray-900 dark:text-white">
-                    Occupation détaillée par service médical
+                    {m.hospinet.occ_detail_title}
                   </h1>
                   <p className="mt-0.5 text-[12px] text-gray-500 dark:text-rdia-200">
-                    Les 5 services clés · Pondérations identiques à la vue détail hôpital
+                    {m.hospinet.occ_detail_sub}
                   </p>
                 </header>
 
@@ -363,12 +364,12 @@ export function HospinetIAPanel() {
                   <table className="w-full text-left text-gray-800 dark:text-rdia-100">
                     <thead className="bg-gray-50 text-[10.5px] uppercase tracking-wider text-gray-500 dark:bg-rdia-700 dark:text-rdia-300">
                       <tr>
-                        <th className="px-3.5 py-2 font-bold">Service</th>
-                        <th className="px-3 py-2 text-right font-bold">Tot.</th>
-                        <th className="px-3 py-2 text-right font-bold">Occ.</th>
-                        <th className="px-3 py-2 text-right font-bold">Lib.</th>
-                        <th className="px-3 py-2 text-right font-bold">Occupation</th>
-                        <th className="px-3.5 py-2 text-right font-bold">État</th>
+                        <th className="px-3.5 py-2 font-bold">{m.hospinet.col_service}</th>
+                        <th className="px-3 py-2 text-right font-bold">{m.hospinet.col_tot}</th>
+                        <th className="px-3 py-2 text-right font-bold">{m.hospinet.col_occ}</th>
+                        <th className="px-3 py-2 text-right font-bold">{m.hospinet.col_free}</th>
+                        <th className="px-3 py-2 text-right font-bold">{m.hospinet.col_occupation}</th>
+                        <th className="px-3.5 py-2 text-right font-bold">{m.hospinet.col_state}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-rdia-600">
@@ -401,8 +402,8 @@ export function HospinetIAPanel() {
 
                 <div className="pt-0 text-center text-[10.5px] text-gray-400 dark:text-rdia-300">
                   Données agrégées ARGOS ·{" "}
-                  <button type="button" onClick={() => setExpanded(null)} className="font-semibold text-gray-800 underline-offset-2 hover:underline dark:text-white">fermer</button>
-                  {" "}· touche <kbd className="rounded border border-gray-200 bg-white px-1 py-0.5 dark:border-rdia-500 dark:bg-rdia-700 dark:text-rdia-100">Échap</kbd>
+                  <button type="button" onClick={() => setExpanded(null)} className="font-semibold text-gray-800 underline-offset-2 hover:underline dark:text-white">{m.hospinet.close}</button>
+                  {" "}· touche <kbd className="rounded border border-gray-200 bg-white px-1 py-0.5 dark:border-rdia-500 dark:bg-rdia-700 dark:text-rdia-100">{m.hospinet.esc}</kbd>
                 </div>
               </>
             )}
@@ -415,10 +416,10 @@ export function HospinetIAPanel() {
                     {t.hn_chart_networks}
                   </div>
                   <h1 className="mt-0.5 text-[22px] font-extrabold leading-tight text-gray-900 dark:text-white">
-                    Réseaux Militaire & Civil · Catégories
+                    {m.hospinet.networks_title}
                   </h1>
                   <p className="mt-0.5 text-[12px] text-gray-500 dark:text-rdia-200">
-                    Détail par réseau · Catégories CHU · CHR · CH · Militaire
+                    {m.hospinet.networks_sub}
                   </p>
                 </header>
 
@@ -436,24 +437,24 @@ export function HospinetIAPanel() {
                             {n.reseau === "militaire" ? "M" : "C"}
                           </div>
                           <div>
-                            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-300">Réseau</div>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-300">{m.hospinet.col_network}</div>
                             <div className="text-[16px] font-extrabold text-gray-900 dark:text-white">{n.reseau === "militaire" ? "Militaire" : "Civil"}</div>
                           </div>
                         </div>
                         <span className={occChip(n.pct)}>{occLabel(n.pct)}</span>
                       </div>
                       <div className="mt-2.5 space-y-1 text-[12px]">
-                        <Row label="Établissements" val={fmtInt(n.hospitals)} tint="text-gray-900 dark:text-white" />
-                        <Row label="Lits totaux" val={fmtInt(n.lits)} tint="text-gray-900 dark:text-white" />
-                        <Row label="Lits occupés" val={fmtInt(n.occ)} tint="text-or-600 dark:text-or-400" />
-                        <Row label="Taux occupation" val={fmtPct(n.pct)} tint={n.pct >= 92 ? "text-danger-700 dark:text-danger-300" : n.pct >= 75 ? "text-or-600 dark:text-or-400" : "text-green-700 dark:text-green-400"} />
+                        <Row label={m.hospinet.facilities} val={fmtInt(n.hospitals)} tint="text-gray-900 dark:text-white" />
+                        <Row label={m.hospinet.beds_total} val={fmtInt(n.lits)} tint="text-gray-900 dark:text-white" />
+                        <Row label={m.hospinet.beds_occupied} val={fmtInt(n.occ)} tint="text-or-600 dark:text-or-400" />
+                        <Row label={m.hospinet.occ_rate} val={fmtPct(n.pct)} tint={n.pct >= 92 ? "text-danger-700 dark:text-danger-300" : n.pct >= 75 ? "text-or-600 dark:text-or-400" : "text-green-700 dark:text-green-400"} />
                         <div className="my-0.5 h-px bg-gray-200 dark:bg-rdia-600" />
-                        <Row label="REA · libres" val={`${fmtInt(n.reaFree)} / ${fmtInt(n.rea)}`} tint="text-green-700 dark:text-green-400" />
-                        <Row label="REA · occ." val={fmtPct(n.reaPct)} tint={n.reaPct >= 92 ? "text-danger-700 dark:text-danger-300" : n.reaPct >= 75 ? "text-or-600 dark:text-or-400" : "text-green-700 dark:text-green-400"} />
+                        <Row label={m.hospinet.icu_free} val={`${fmtInt(n.reaFree)} / ${fmtInt(n.rea)}`} tint="text-green-700 dark:text-green-400" />
+                        <Row label={m.hospinet.icu_occ} val={fmtPct(n.reaPct)} tint={n.reaPct >= 92 ? "text-danger-700 dark:text-danger-300" : n.reaPct >= 75 ? "text-or-600 dark:text-or-400" : "text-green-700 dark:text-green-400"} />
                         <div className="my-0.5 h-px bg-gray-200 dark:bg-rdia-600" />
-                        <Row label="Ambulances" val={fmtInt(n.amb)} tint="text-blue-700 dark:text-blue-400" />
-                        <Row label="Hélicoptères" val={fmtInt(n.heli)} tint="text-blue-700 dark:text-blue-400" />
-                        <Row label="Effectif médical" val={`${fmtInt(n.staff)} pers.`} tint="text-gray-900 dark:text-white" />
+                        <Row label={m.hospinet.ambulances} val={fmtInt(n.amb)} tint="text-blue-700 dark:text-blue-400" />
+                        <Row label={m.hospinet.helicopters} val={fmtInt(n.heli)} tint="text-blue-700 dark:text-blue-400" />
+                        <Row label={m.hospinet.medical_staff} val={`${fmtInt(n.staff)} pers.`} tint="text-gray-900 dark:text-white" />
                       </div>
                     </div>
                   ))}
@@ -462,7 +463,7 @@ export function HospinetIAPanel() {
                 {/* Catégories établissements */}
                 <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 shadow-sm dark:border-rdia-500 dark:bg-rdia-800">
                   <div className="border-b border-gray-200 px-3.5 py-2 text-[10.5px] font-bold uppercase tracking-wider text-gray-500 dark:border-rdia-600 dark:text-rdia-300">
-                    Catégories d'établissements permanents
+                    {m.hospinet.permanent_cats}
                   </div>
                   <div className="grid grid-cols-1 divide-y divide-gray-200 sm:grid-cols-2 sm:divide-x sm:divide-y-0 dark:divide-rdia-600">
                     {facts.kinds.slice(0, 4).map((k) => (
@@ -476,7 +477,7 @@ export function HospinetIAPanel() {
                         </div>
                         <div className="text-right">
                           <div className="text-[15px] font-extrabold tabular-nums text-gray-900 dark:text-white">{fmtInt(k.count)}</div>
-                          <div className="text-[10px] text-gray-500 dark:text-rdia-300">établ.</div>
+                          <div className="text-[10px] text-gray-500 dark:text-rdia-300">{m.hospinet.facilities_abbr}</div>
                         </div>
                       </div>
                     ))}
@@ -485,8 +486,8 @@ export function HospinetIAPanel() {
 
                 <div className="pt-0 text-center text-[10.5px] text-gray-400 dark:text-rdia-300">
                   Données agrégées ARGOS ·{" "}
-                  <button type="button" onClick={() => setExpanded(null)} className="font-semibold text-gray-800 underline-offset-2 hover:underline dark:text-white">fermer</button>
-                  {" "}· touche <kbd className="rounded border border-gray-200 bg-white px-1 py-0.5 dark:border-rdia-500 dark:bg-rdia-700 dark:text-rdia-100">Échap</kbd>
+                  <button type="button" onClick={() => setExpanded(null)} className="font-semibold text-gray-800 underline-offset-2 hover:underline dark:text-white">{m.hospinet.close}</button>
+                  {" "}· touche <kbd className="rounded border border-gray-200 bg-white px-1 py-0.5 dark:border-rdia-500 dark:bg-rdia-700 dark:text-rdia-100">{m.hospinet.esc}</kbd>
                 </div>
               </>
             )}

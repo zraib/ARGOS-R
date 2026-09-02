@@ -1,5 +1,6 @@
 "use client";
 
+import { useModules } from "@/lib/store";
 import { useMemo, useState } from "react";
 import { ARGOS_WARD_REFERENCE, type HospitalStoredService, type HospitalServiceKey } from "@/lib/types";
 
@@ -20,6 +21,7 @@ export function WardsEditor({
   value: WardsEditorValue[];
   onChange: (v: WardsEditorValue[]) => void;
 }) {
+  const m = useModules();
   // Clé libre (custom) · 1 seul champ texte à la fois
   const [pendingCustom, setPendingCustom] = useState<string>("");
 
@@ -69,27 +71,27 @@ export function WardsEditor({
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-gray-500 dark:text-rdia-300">
-          Capacités par service médical
+          {m.hospinet.wards_capacities}
         </div>
         <div className="text-[11px] font-semibold text-gray-500 dark:text-rdia-300">
-          Total : <span className="tabular-nums font-bold text-gray-900 dark:text-white">{totals.total}</span> lits ·{" "}
-          <span className="tabular-nums font-bold text-or-600 dark:text-or-400">{totals.occ}</span> occ.
+          {m.hospinet.total_colon} <span className="tabular-nums font-bold text-gray-900 dark:text-white">{totals.total}</span> lits ·{" "}
+          <span className="tabular-nums font-bold text-or-600 dark:text-or-400">{totals.occ}</span> {m.hospinet.occ_abbr}
         </div>
       </div>
 
       {/* Liste des services */}
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gray-50/70 dark:border-rdia-600 dark:bg-rdia-800/40">
         <div className="grid grid-cols-6 gap-3 border-b border-gray-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:border-rdia-600 dark:bg-rdia-700 dark:text-rdia-300">
-          <div className="col-span-2">Service</div>
-          <div className="text-right">Lits</div>
-          <div className="text-right">Occupés</div>
-          <div className="text-right">Tx occ.</div>
+          <div className="col-span-2">{m.hospinet.col_service}</div>
+          <div className="text-right">{m.hospinet.col_beds}</div>
+          <div className="text-right">{m.hospinet.col_occupied}</div>
+          <div className="text-right">{m.hospinet.col_occ_rate}</div>
           <div />
         </div>
         <div className="divide-y divide-gray-200 dark:divide-rdia-600">
           {value.length === 0 && (
             <div className="px-4 py-6 text-center text-[12px] text-gray-400 dark:text-rdia-400">
-              Aucun service renseigné. Ajoutez-en depuis le menu déroulant ci-dessous.
+              {m.hospinet.no_ward_hint}
             </div>
           )}
           {value.map((s) => {
@@ -134,8 +136,8 @@ export function WardsEditor({
                 <div className="flex justify-end">
                   <button
                     type="button"
-                    aria-label="Supprimer ce service"
-                    title="Supprimer ce service"
+                    aria-label={m.hospinet.remove_ward}
+                    title={m.hospinet.remove_ward}
                     onClick={() => removeWard(s.key)}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-danger-500/10 hover:text-danger-600 dark:hover:text-danger-300"
                   >
@@ -164,7 +166,7 @@ export function WardsEditor({
             e.currentTarget.value = "";
           }}
         >
-          <option value="">＋ Ajouter un service du référentiel…</option>
+          <option value="">{m.hospinet.add_from_ref}</option>
           {availableOptions.map((r) => (
             <option key={r.key} value={r.key}>
               {r.label}
@@ -175,7 +177,7 @@ export function WardsEditor({
           <input
             type="text"
             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors placeholder:text-gray-400 focus:border-or-500 dark:border-rdia-600 dark:bg-rdia-700 sm:w-56"
-            placeholder="Service personnalisé…"
+            placeholder={m.hospinet.custom_ward}
             value={pendingCustom}
             onChange={(e) => setPendingCustom(e.target.value)}
           />
@@ -185,7 +187,7 @@ export function WardsEditor({
             disabled={!pendingCustom.trim()}
             className="btn-secondaire text-sm disabled:opacity-50"
           >
-            Ajouter
+            {m.hospinet.add}
           </button>
         </div>
       </div>

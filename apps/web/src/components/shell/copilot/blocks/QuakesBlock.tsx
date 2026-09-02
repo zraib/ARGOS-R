@@ -1,20 +1,21 @@
 "use client";
 
 import { NAV_ICONS } from "@/lib/icons";
-import { useDict, type AiMessage } from "@/lib/store";
+import { useDict, type AiMessage, useModules } from "@/lib/store";
 import { BlockTable } from "./BlockTable";
 
 /** Séismes récents cités par la réponse. */
 export function QuakesBlock({ rows }: { rows: NonNullable<AiMessage["quakes"]> }) {
   const t = useDict();
+  const m = useModules();
   return (
     <BlockTable title={t.cp_tbl_seismic} icon={NAV_ICONS.seismic}>
       <thead>
         <tr className="bg-gray-50 text-[10px] uppercase text-gray-400 dark:bg-rdia-700/40 dark:text-rdia-400">
-          <th className="px-2.5 py-1.5 text-left font-medium">Date</th>
-          <th className="px-2.5 py-1.5 text-left font-medium">Région</th>
-          <th className="px-2.5 py-1.5 text-right font-medium">Mag.</th>
-          <th className="px-2.5 py-1.5 text-right font-medium">Prof.</th>
+          <th className="px-2.5 py-1.5 text-left font-medium">{m.copilot.col_date}</th>
+          <th className="px-2.5 py-1.5 text-left font-medium">{m.copilot.col_region}</th>
+          <th className="px-2.5 py-1.5 text-right font-medium">{m.copilot.col_mag}</th>
+          <th className="px-2.5 py-1.5 text-right font-medium">{m.copilot.col_depth}</th>
         </tr>
       </thead>
       <tbody>

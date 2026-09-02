@@ -1,5 +1,6 @@
 "use client";
 
+import { useModules } from "@/lib/store";
 import type { NextRisk } from "@/lib/ai/situational/types";
 import {
   cn,
@@ -11,6 +12,7 @@ import { Bar } from "@/components/dashboard/situational/Bar";
 
 // ---------- Risques imminents 2h/6h/24h (cards redesign) ----------------
 export function RiskBars({ risks }: { risks: NextRisk[] }) {
+  const m = useModules();
   const order: Array<"2h" | "6h" | "24h"> = ["2h", "6h", "24h"];
   const byHorizon = new Map(risks.map((r) => [r.horizon, r]));
   return (
@@ -24,7 +26,7 @@ export function RiskBars({ risks }: { risks: NextRisk[] }) {
                 H{h}
               </span>
               <div className="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-white/8" />
-              <span className="text-[10px] font-semibold text-gray-400 dark:text-rdia-400">sans risque</span>
+              <span className="text-[10px] font-semibold text-gray-400 dark:text-rdia-400">{m.situational.no_risk}</span>
             </div>
           );
         }

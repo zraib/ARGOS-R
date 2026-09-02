@@ -1,5 +1,6 @@
 "use client";
 
+import { useModules } from "@/lib/store";
 import { type ReactNode } from "react";
 import type { SituationalAwareness } from "@/lib/ai/situational/types";
 import {
@@ -28,6 +29,7 @@ export function ShellInner({
   onRefresh: () => void;
   shell: (children: ReactNode) => ReactNode;
 }) {
+  const m = useModules();
   const lm = LEVEL_META[sa.niveauGlobal];
   const score = Math.max(0, Math.min(100, Math.round(sa.scoreGlobal)));
 
@@ -84,7 +86,7 @@ export function ShellInner({
               </div>
               <div className="min-w-0 flex-1 flex flex-col gap-0.5 leading-none">
                 <span className="text-[9.5px] font-semibold uppercase tracking-[0.22em] text-or-600 dark:text-or-400">
-                  Niveau global
+                  {m.situational.level_global}
                 </span>
                 <span className={cn("text-[18px] font-bold leading-tight tracking-tight", lm.bannerText)}>
                   {lm.label}
@@ -97,7 +99,7 @@ export function ShellInner({
                 ) : (
                   <span className="mt-0.5 inline-flex w-fit items-center gap-1 rounded-md border border-or-500/30 bg-or-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-or-600 dark:text-or-400">
                     <Icon name="scale" className="h-2.5 w-2.5" />
-                    Temps réel
+                    {m.situational.realtime}
                   </span>
                 )}
               </div>
@@ -125,7 +127,7 @@ export function ShellInner({
                 {/* KPI · incidents actifs */}
                 <MiniKpi
                   icon="activity"
-                  label="Incidents"
+                  label={m.situational.incidents}
                   big={sa.pointsChauds.reduce((a, h) => a + h.nIncidents, 0)}
                   sub={`${sa.pointsChauds.length} zones`}
                   accent="#F59E0B"
@@ -133,7 +135,7 @@ export function ShellInner({
                 {/* KPI · risque critique */}
                 <MiniKpi
                   icon="alert-triangle"
-                  label="Facteurs"
+                  label={m.situational.factors}
                   big={sa.facteursCritiques.length}
                   sub={
                     sa.facteursCritiques.filter((f) => f.impact === "haut").length > 0
@@ -145,7 +147,7 @@ export function ShellInner({
                 {/* KPI · risque prochain */}
                 <MiniKpi
                   icon="clock"
-                  label="H 24"
+                  label={m.situational.h24}
                   big={(() => {
                     const r = sa.risquesProchaines.find((x) => x.horizon === "24h");
                     return r ? `${r.probabilitePct}%` : "—";
@@ -174,7 +176,7 @@ export function ShellInner({
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-or-500 opacity-60" />
                   <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-or-500" />
                 </span>
-                Analyse en cours…
+                {m.situational.analyzing}
               </div>
             )}
           </div>
@@ -186,7 +188,7 @@ export function ShellInner({
           =================================================================== */}
 
       {/* ==== ÉTAGE 1 · Panneaux A (Points chauds) ==== */}
-      <Panel id="A" title="Points chauds" right={`${sa.pointsChauds.length} zone(s)`} accent="#3B82F6">
+      <Panel id="A" title={m.situational.hotspots} right={`${sa.pointsChauds.length} zone(s)`} accent="#3B82F6">
         <HotspotsBars data={sa.pointsChauds} />
       </Panel>
 
@@ -194,10 +196,10 @@ export function ShellInner({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-4.5 lg:gap-5">
         {/* colonne gauche */}
         <div className="flex min-w-0 flex-col gap-4">
-          <Panel id="B" title="Anticipations" right="30 min → 12 h" accent="#D97706">
+          <Panel id="B" title={m.situational.anticipations} right="30 min → 12 h" accent="#D97706">
             <ForeBars forecasts={sa.predictions} generatedAt={sa.generatedAt} debug={sa as unknown as { _debugLitsTot?: number; _debugLitsOcc?: number }} />
           </Panel>
-          <Panel id="C" title="Flux 6 h" right={sa.predictions.flux6h.tendance} accent="#F59E0B">
+          <Panel id="C" title={m.situational.flow6h} right={sa.predictions.flux6h.tendance} accent="#F59E0B">
             <MetricBar
               icon="activity"
               title={`${sa.predictions.flux6h.tendance}`}
@@ -211,17 +213,17 @@ export function ShellInner({
         </div>
         {/* colonne droite */}
         <div className="flex min-w-0 flex-col gap-4">
-          <Panel id="D" title="Facteurs critiques" right={`${sa.facteursCritiques.length} détecté(s)`} accent="#EF4444">
+          <Panel id="D" title={m.situational.critical_factors} right={`${sa.facteursCritiques.length} détecté(s)`} accent="#EF4444">
             <FactorBars data={sa.facteursCritiques} />
           </Panel>
-          <Panel id="E" title="Risques imminents" right="H2 · H6 · H24" accent="#7C3AED">
+          <Panel id="E" title={m.situational.imminent_risks} right="H2 · H6 · H24" accent="#7C3AED">
             <RiskBars risks={sa.risquesProchaines} />
           </Panel>
         </div>
       </div>
 
       {/* ==== ÉTAGE 3 · Ruptures stock (pleine largeur) ==== */}
-      <Panel id="F" title="Ruptures stock" right={sa.predictions.stockCritique.niveau} accent="#059669">
+      <Panel id="F" title={m.situational.stock_breaks} right={sa.predictions.stockCritique.niveau} accent="#059669">
         <MetricBar
           icon="package"
           title={sa.predictions.stockCritique.niveau === "alerte" ? "Ruptures critiques" : sa.predictions.stockCritique.niveau === "attention" ? "Ruptures modérées" : "Stock nominal"}
@@ -242,7 +244,7 @@ export function ShellInner({
           </span>
         </div>
         <span className="font-mono tabular-nums opacity-80">
-          ARGOS · CONSCIENCE SITUATIONNELLE
+          {m.situational.banner}
         </span>
       </footer>
     </>,

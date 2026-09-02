@@ -2,7 +2,7 @@
 
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
-import { useDict, type ArgosState } from "@/lib/store";
+import { useDict, type ArgosState, useModules } from "@/lib/store";
 import type { WizardForm } from "@/lib/incidents/wizard";
 import type { Lang } from "@/lib/types";
 import { AttachmentsField } from "./AttachmentsField";
@@ -33,6 +33,7 @@ export function StepDetails({
   nrbcSubstances: ArgosState["nrbcSubstances"];
 }) {
   const t = useDict();
+  const m = useModules();
   const regenBtn = "inline-flex items-center gap-1 rounded-md border border-or-500/30 bg-or-500/10 px-2 py-0.5 text-[10px] font-semibold text-or-700 transition-colors hover:bg-or-500/20 disabled:cursor-not-allowed disabled:opacity-40 dark:text-or-300";
   return (
     <div className="flex flex-col gap-4">
@@ -69,7 +70,7 @@ export function StepDetails({
                 {ai.aiBusyT ? t.f_ai_busy_title : t.f_ai_regen_title}
               </button>
             </div>
-            <input className={`${fieldCls} min-w-0`} value={form.title} onChange={(e) => actions.patch({ title: e.target.value })} placeholder="Titre de l'incident…" />
+            <input className={`${fieldCls} min-w-0`} value={form.title} onChange={(e) => actions.patch({ title: e.target.value })} placeholder={m.wizard.title_ph} />
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -80,7 +81,7 @@ export function StepDetails({
                 {ai.aiBusyD ? t.f_ai_busy_desc : t.f_ai_regen_desc}
               </button>
             </div>
-            <textarea className={fieldCls} rows={4} value={form.desc} onChange={(e) => actions.patch({ desc: e.target.value })} placeholder="Description de l'incident (2 lignes)…" />
+            <textarea className={fieldCls} rows={4} value={form.desc} onChange={(e) => actions.patch({ desc: e.target.value })} placeholder={m.wizard.desc_ph} />
           </div>
         </div>
       ) : (

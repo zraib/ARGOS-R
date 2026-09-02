@@ -1,5 +1,6 @@
 "use client";
 
+import { useModules } from "@/lib/store";
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
@@ -39,6 +40,7 @@ export function PickerModal({
   lang: string;
   selectedId: string;
 }) {
+  const m = useModules();
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm"
@@ -50,7 +52,7 @@ export function PickerModal({
       >
         <div className="flex items-center justify-between border-b border-gray-100 p-3 dark:border-rdia-600">
           <h3 className="text-[13px] font-bold text-gray-900 dark:text-rdia-100">
-            Choisir un incident pour la simulation
+            {m.whatif.picker_title}
           </h3>
           <button
             type="button"
@@ -71,7 +73,7 @@ export function PickerModal({
               />
               <input
                 className="w-full rounded-lg border border-gray-200 bg-white py-1.5 pl-8 pr-2 text-sm outline-none transition-all focus:border-or-500 focus:ring-2 focus:ring-or-500/20 dark:border-rdia-500 dark:bg-rdia-800 dark:text-rdia-100"
-                placeholder="Rechercher par titre / région / ID"
+                placeholder={m.whatif.search_ph}
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
               />
@@ -81,7 +83,7 @@ export function PickerModal({
               onChange={(e) => setTypeFilter(e.target.value)}
               className="rounded-lg border border-gray-200 bg-white px-2 text-sm outline-none transition-all focus:border-or-500 dark:border-rdia-500 dark:bg-rdia-800 dark:text-rdia-100"
             >
-              <option value="">Tous types</option>
+              <option value="">{m.whatif.all_types}</option>
               {presentTypes.map((id) => (
                 <option key={id} value={id}>
                   {typeLabel(id, incidentTypes, lang as any)}
@@ -96,7 +98,7 @@ export function PickerModal({
         <div className="max-h-[60vh] space-y-1 overflow-y-auto p-2">
           {incidents.length === 0 && (
             <div className="p-6 text-center text-sm text-gray-400 dark:text-rdia-400">
-              Aucun incident ne correspond à votre recherche.
+              {m.whatif.no_match}
             </div>
           )}
           {incidents.map((i) => {

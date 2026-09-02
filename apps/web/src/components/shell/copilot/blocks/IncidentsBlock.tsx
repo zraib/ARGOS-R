@@ -1,21 +1,22 @@
 "use client";
 
 import { NAV_ICONS } from "@/lib/icons";
-import { type AiMessage } from "@/lib/store";
+import { type AiMessage, useModules } from "@/lib/store";
 import { BlockTable } from "./BlockTable";
 import { sevBadge } from "../format";
 
 /** Tableau des incidents cités par la réponse. */
 export function IncidentsBlock({ rows }: { rows: NonNullable<AiMessage["incidents"]> }) {
+  const m = useModules();
   return (
-    <BlockTable title="Incidents" icon={NAV_ICONS.incidents}>
+    <BlockTable title={m.copilot.col_incidents} icon={NAV_ICONS.incidents}>
       <thead>
         <tr className="bg-gray-50 text-[10px] uppercase text-gray-400 dark:bg-rdia-700/40 dark:text-rdia-400">
           <th className="px-2.5 py-1.5 text-left font-medium">ID</th>
-          <th className="px-2.5 py-1.5 text-left font-medium">Titre</th>
-          <th className="px-2.5 py-1.5 text-left font-medium">Région</th>
-          <th className="px-2.5 py-1.5 text-left font-medium">Sév.</th>
-          <th className="px-2.5 py-1.5 text-left font-medium">Statut</th>
+          <th className="px-2.5 py-1.5 text-left font-medium">{m.copilot.col_title}</th>
+          <th className="px-2.5 py-1.5 text-left font-medium">{m.copilot.col_region}</th>
+          <th className="px-2.5 py-1.5 text-left font-medium">{m.copilot.col_sev}</th>
+          <th className="px-2.5 py-1.5 text-left font-medium">{m.copilot.col_status}</th>
         </tr>
       </thead>
       <tbody>

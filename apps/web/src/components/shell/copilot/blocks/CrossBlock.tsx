@@ -2,19 +2,20 @@
 
 import { Icon } from "@/components/ui/Icon";
 import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
-import { type AiMessage } from "@/lib/store";
+import { type AiMessage, useModules } from "@/lib/store";
 import { BlockTable } from "./BlockTable";
 
 /** Analyse croisée : incident cible, unités recommandées (scores décomposés), hôpitaux, inventaire, séismes proches. */
 export function CrossBlock({ cross }: { cross: NonNullable<AiMessage["cross"]> }) {
+  const m = useModules();
   return (
     <div className="mt-3 space-y-3">
       <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-or-500">
-        <Icon path={UI_ICONS.branch} size={12} /> Analyse croisée
+        <Icon path={UI_ICONS.branch} size={12} /> {m.copilot.cross_title}
       </div>
       {cross.incident && (
         <div className="rounded-lg border border-gray-100 p-2.5 text-xs dark:border-rdia-700">
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-rdia-400">1 · Incident cible</div>
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-rdia-400">{m.copilot.cross_target}</div>
           <div className="text-sm font-semibold text-gray-800 dark:text-rdia-100">{cross.incident.id} — {cross.incident.titre}</div>
           <div className="mt-0.5 text-[11px] text-gray-500 dark:text-rdia-300">
             {cross.incident.region}{cross.incident.lieu ? ` · ${cross.incident.lieu}` : ""}
@@ -24,15 +25,15 @@ export function CrossBlock({ cross }: { cross: NonNullable<AiMessage["cross"]> }
         </div>
       )}
       {cross.recommendedUnits && cross.recommendedUnits.length > 0 && (
-        <BlockTable title="2 · Unités recommandées (scores décomposés)" icon={NAV_ICONS.units}>
+        <BlockTable title={m.copilot.cross_units} icon={NAV_ICONS.units}>
           <thead>
             <tr className="bg-gray-50 text-[10px] uppercase text-gray-400 dark:bg-rdia-700/40 dark:text-rdia-400">
-              <th className="px-2.5 py-1.5 text-left font-medium">Unité</th>
-              <th className="px-2.5 py-1.5 text-right font-medium">Score</th>
-              <th className="px-2.5 py-1.5 text-right font-medium">Temps</th>
-              <th className="px-2.5 py-1.5 text-right font-medium">Cap.</th>
-              <th className="px-2.5 py-1.5 text-right font-medium">Région</th>
-              <th className="px-2.5 py-1.5 text-right font-medium">Dispo</th>
+              <th className="px-2.5 py-1.5 text-left font-medium">{m.copilot.col_unit}</th>
+              <th className="px-2.5 py-1.5 text-right font-medium">{m.copilot.col_score}</th>
+              <th className="px-2.5 py-1.5 text-right font-medium">{m.copilot.col_time}</th>
+              <th className="px-2.5 py-1.5 text-right font-medium">{m.copilot.col_cap}</th>
+              <th className="px-2.5 py-1.5 text-right font-medium">{m.copilot.col_region}</th>
+              <th className="px-2.5 py-1.5 text-right font-medium">{m.copilot.col_avail}</th>
             </tr>
           </thead>
           <tbody>
@@ -53,14 +54,14 @@ export function CrossBlock({ cross }: { cross: NonNullable<AiMessage["cross"]> }
         </BlockTable>
       )}
       {cross.hospitals && cross.hospitals.length > 0 && (
-        <BlockTable title="3 · Hôpitaux proches & capacité" icon={NAV_ICONS.hospitals}>
+        <BlockTable title={m.copilot.cross_hospitals} icon={NAV_ICONS.hospitals}>
           <thead>
             <tr className="bg-gray-50 text-[10px] uppercase text-gray-400 dark:bg-rdia-700/40 dark:text-rdia-400">
-              <th className="px-2.5 py-1.5 text-left font-medium">Hôpital</th>
-              <th className="px-2.5 py-1.5 text-right font-medium">Dist.</th>
-              <th className="px-2.5 py-1.5 text-right font-medium">Occup.</th>
-              <th className="px-2.5 py-1.5 text-right font-medium">Lits libres</th>
-              <th className="px-2.5 py-1.5 text-right font-medium">REA libre</th>
+              <th className="px-2.5 py-1.5 text-left font-medium">{m.copilot.col_hospital}</th>
+              <th className="px-2.5 py-1.5 text-right font-medium">{m.copilot.col_dist}</th>
+              <th className="px-2.5 py-1.5 text-right font-medium">{m.copilot.col_occ}</th>
+              <th className="px-2.5 py-1.5 text-right font-medium">{m.copilot.col_beds_free}</th>
+              <th className="px-2.5 py-1.5 text-right font-medium">{m.copilot.col_icu_free}</th>
             </tr>
           </thead>
           <tbody>
@@ -81,7 +82,7 @@ export function CrossBlock({ cross }: { cross: NonNullable<AiMessage["cross"]> }
         </BlockTable>
       )}
       {cross.unitEquipment && cross.unitEquipment.length > 0 && (
-        <BlockTable title="4 · Inventaire rattaché aux unités TOP" icon={UI_ICONS.archive}>
+        <BlockTable title={m.copilot.cross_inventory} icon={UI_ICONS.archive}>
           <tbody>
             {cross.unitEquipment.map((x, idx) => (
               <tr key={`cue-${idx}`} className="border-b border-gray-100 last:border-0 dark:border-rdia-700/50">
@@ -89,7 +90,7 @@ export function CrossBlock({ cross }: { cross: NonNullable<AiMessage["cross"]> }
                 <td className="px-2.5 py-1.5 text-sm text-gray-700 dark:text-rdia-200">
                   {x.equipment.length
                     ? x.equipment.map((e) => `${e.stock}× ${e.desig}${e.cond !== "OK" ? ` (${e.cond})` : ""}`).join(" · ")
-                    : <span className="text-gray-400 dark:text-rdia-500 italic text-xs">Aucun équipement rattaché</span>
+                    : <span className="text-gray-400 dark:text-rdia-500 italic text-xs">{m.copilot.no_equipment}</span>
                   }
                 </td>
               </tr>
@@ -99,7 +100,7 @@ export function CrossBlock({ cross }: { cross: NonNullable<AiMessage["cross"]> }
       )}
       {cross.quakes && cross.quakes.length > 0 && (
         <div className="rounded-lg border border-gray-100 p-2.5 text-xs dark:border-rdia-700">
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-rdia-400">5 · Séismes &lt; 100 km</div>
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-rdia-400">{m.copilot.cross_quakes}</div>
           <ul className="space-y-0.5">
             {cross.quakes.map((q) => (
               <li key={q.id} className="flex justify-between gap-2">

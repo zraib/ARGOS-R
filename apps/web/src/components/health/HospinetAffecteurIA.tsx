@@ -1,3 +1,5 @@
+"use client";
+
 // ============================================================================
 // Affecteur IA · Hospinet
 // ----------------------------------------------------------------------------
@@ -13,11 +15,10 @@
 //   - Justification LLM Top 3 + fallback déterministe
 // ============================================================================
 
-"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { hospId } from "@/lib/hospitals";
-import { useArgos, useDict } from "@/lib/store";
+import { useArgos, useDict, useModules } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import type { HospitalServiceKey } from "@/lib/types";
@@ -87,13 +88,14 @@ function CoordInput(props: {
   onChange: (v: [number, number] | null) => void;
   preset: { label: string; ll: [number, number] }[];
 }) {
+  const m = useModules();
   const { ll, onChange, preset } = props;
   const [lng, lat] = ll ?? [NaN, NaN];
   return (
     <div className="flex flex-col gap-2">
       <div className="grid grid-cols-2 gap-2">
         <label className="flex flex-col">
-          <span className={smallLabel + " mb-1"}>Longitude (lng)</span>
+          <span className={smallLabel + " mb-1"}>{m.hospinet.lng}</span>
           <input
             type="number"
             step="0.0001"
@@ -108,7 +110,7 @@ function CoordInput(props: {
           />
         </label>
         <label className="flex flex-col">
-          <span className={smallLabel + " mb-1"}>Latitude (lat)</span>
+          <span className={smallLabel + " mb-1"}>{m.hospinet.lat}</span>
           <input
             type="number"
             step="0.0001"
@@ -169,6 +171,7 @@ function ScoreBars({ row }: { row: AffecteurRow }) {
 
 export function HospinetAffecteurIA() {
   const t = useDict();
+  const m = useModules();
   const hospitals = useArgos((s) => s.hospitals);
   const fieldHosps = useArgos((s) => s.fieldHosps);
   const setSelHosp = useArgos((s) => s.setSelHosp);
@@ -316,14 +319,14 @@ export function HospinetAffecteurIA() {
         <div className={cardCls}>
           <div className="mb-3">
             <div className={sectionTitleCls}>{t.af_origin}</div>
-            <div className={sectionSubtitleCls}>Coordonnées [lng, lat] + nom libre</div>
+            <div className={sectionSubtitleCls}>{m.hospinet.coords_free}</div>
           </div>
 
           <label className="mb-2 block">
-            <span className={smallLabel + " mb-1 block"}>Libellé du lieu (facultatif)</span>
+            <span className={smallLabel + " mb-1 block"}>{m.hospinet.place_label}</span>
             <input
               className={inputCls}
-              placeholder="Ex : Épicentre Al Haouz · Usine chimique Safi"
+              placeholder={m.hospinet.place_ex}
               value={originLabel}
               onChange={(e) => setOriginLabel(e.target.value)}
             />
@@ -379,7 +382,7 @@ export function HospinetAffecteurIA() {
                     value={radius}
                     onChange={(e) => setRadius(Math.max(0, Number(e.target.value) | 0))}
                   />
-                  <span className={helpCls}>0 = pas de limite</span>
+                  <span className={helpCls}>{m.hospinet.zero_no_limit}</span>
                 </label>
                 <label className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-2 h-8 dark:border-rdia-500 dark:bg-rdia-800">
                   <input
@@ -408,14 +411,14 @@ export function HospinetAffecteurIA() {
                 onClick={() => setServices(TOP_DEFAULT.slice())}
                 className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-gray-500 hover:border-or-500 hover:text-or-500 dark:border-rdia-500 dark:bg-rdia-800 dark:text-rdia-300"
               >
-                Réinitialiser
+                {m.hospinet.reset}
               </button>
               <button
                 type="button"
                 onClick={() => setServices([])}
                 className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-gray-500 hover:border-danger-500 hover:text-danger-500 dark:border-rdia-500 dark:bg-rdia-800 dark:text-rdia-300"
               >
-                Aucun
+                {m.hospinet.none}
               </button>
             </div>
           </div>
@@ -472,7 +475,7 @@ export function HospinetAffecteurIA() {
                 </div>
                 <p className="text-[12px] text-gray-500 dark:text-rdia-300">{t.af_empty}</p>
                 <p className="mt-1 text-[10.5px] text-gray-400 dark:text-rdia-400">
-                  Augmentez le rayon, activez les hôpitaux de campagne ou déplacez le point d'origine.
+                  {m.hospinet.widen_hint}
                 </p>
               </div>
             ) : (
@@ -489,7 +492,7 @@ export function HospinetAffecteurIA() {
             <div className={cardCls}>
               <div className="mb-2 flex items-center justify-between gap-2 pr-8">
                 <div>
-                  <div className="sectionTitleCls">Justification IA · Top 3</div>
+                  <div className="sectionTitleCls">{m.hospinet.justification}</div>
                   <div className={sectionSubtitleCls}>
                     {justError ? justError : "Synthèse neutre basée sur les chiffres Couche 1"}
                   </div>

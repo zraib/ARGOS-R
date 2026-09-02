@@ -1,9 +1,12 @@
 "use client";
 
+import { useModules } from "@/lib/store";
+
 
 
 // ---------------- helpers score gauge circulaire ----------------
 export function ScoreGauge({ value, accent }: { value: number; accent: string }) {
+  const m = useModules();
   const R = 54;
   const STROKE = 10;
   const C = 2 * Math.PI * R;
@@ -47,7 +50,7 @@ export function ScoreGauge({ value, accent }: { value: number; accent: string })
           {value}
         </text>
         <text x={70} y={84} textAnchor="middle" fontSize={9} fontWeight={800} fill="currentColor" fillOpacity={0.5} letterSpacing={3}>
-          SCORE / 100
+          {m.situational.score_of_100}
         </text>
       </svg>
     </div>
