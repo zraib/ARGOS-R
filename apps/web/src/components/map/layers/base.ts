@@ -5,9 +5,25 @@
 
 import maplibregl from "maplibre-gl";
 
+/**
+ * Le style n'est pas prêt (tuiles en chargement, CDN qui étrangle) : la bascule
+ * est REJOUÉE au prochain repos de la carte au lieu d'être perdue. Avant cela,
+ * un clic sur « 3D » ou « Plan » pendant le chargement ne faisait rien, et rien
+ * ne le disait (registre R-15). La dernière demande gagne : chaque appel
+ * différé rejoue sa propre valeur, dans l'ordre des clics.
+ */
+function whenStyleReady(map: maplibregl.Map, apply: () => void): void {
+  if (map.isStyleLoaded()) apply();
+  else map.once("idle", apply);
+}
+
 // --- bascule terrain 3D ---
 export function apply3d(map: maplibregl.Map | null, on: boolean) {
-  if (!map || !map.isStyleLoaded()) return;
+  if (!map) return;
+  whenStyleReady(map, () => apply3dNow(map, on));
+}
+
+function apply3dNow(map: maplibregl.Map, on: boolean) {
   // Relief 3D uniquement en mode 3D (l'altitude sous le curseur est lue
   // séparément via un échantillonnage direct du MNT, cf. demElevation).
   // La bascule 2D/3D ne fait qu'INCLINER la vue : le centre, le zoom et le cap
@@ -23,7 +39,11 @@ export function apply3d(map: maplibregl.Map | null, on: boolean) {
 
 // --- bascule du fond (satellite / plan) ---
 export function applyBase(map: maplibregl.Map | null, sat: boolean) {
-  if (!map || !map.isStyleLoaded()) return;
+  if (!map) return;
+  whenStyleReady(map, () => applyBaseNow(map, sat));
+}
+
+function applyBaseNow(map: maplibregl.Map, sat: boolean) {
   map.setLayoutProperty("sat", "visibility", sat ? "visible" : "none");
   map.setLayoutProperty("plan", "visibility", sat ? "none" : "visible");
   map.setLayoutProperty("lbl", "visibility", sat ? "visible" : "none");
