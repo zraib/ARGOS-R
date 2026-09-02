@@ -36,7 +36,9 @@ apps/web/src/
 │   └── utilisateurs/         page + _parts/ (onglets, formulaire, rôles)
 ├── components/
 │   ├── shell/                AppFrame, Sidebar, Header, NotificationBell,
-│   │                         Copilot (FAB) + CopilotBody (chargé au 1er ⌘K)
+│   │                         Copilot (FAB) + CopilotBody (chargé au 1er ⌘K) ;
+│   │                         copilot/ = en-tête, réglages, message, composeur,
+│   │                         blocks/ (un bloc structuré par fichier)
 │   ├── ui/                   système de composants : Badge, Modal, Table,
 │   │                         StatTile, ProgressBar, Pill, Avatar, Icon
 │   ├── charts/               ChartCard, DonutChart, LineAreaChart, ListCard
