@@ -1,173 +1,235 @@
 # Référence API
 
+> **Document généré** par `npm run docs:api` à partir de `apps/api/openapi.json`
+> et des décorateurs des contrôleurs. Ne pas éditer à la main : modifier le
+> code, puis régénérer.
+
 Monolithe modulaire NestJS. Base : `http://localhost:3005/api` ·
-Documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
+documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 
-Toutes les routes exigent un jeton porteur (`Authorization: Bearer <jwt>`) sauf
-celles marquées **publique**. Une route sans la permission requise renvoie
-**403** ; sans jeton, **401**.
+## Règles d'accès
 
----
+- Toute route exige un jeton porteur (`Authorization: Bearer <jwt>`) sauf
+  celles marquées **publique**.
+- La colonne **Accès** est la permission `ressource:action` exigée par la
+  garde `PermissionsGuard` (défaut-refus). Sans cette permission : **403** ;
+  sans jeton : **401**. « authentifié (soi-même) » (`@SelfService()`) désigne
+  les routes qui n'agissent que sur la session appelante.
+- Les permissions sont résolues côté serveur à partir de la matrice
+  `shared/permissions.ts` (voir [Sécurité](04-securite.md)). Le test
+  `authz-coverage.spec.ts` refuse toute route sans l'un de ces trois marqueurs.
+
+
+## Santé — `/api/health`
+
+| Méthode | Route | Accès | Rôle |
+| --- | --- | --- | --- |
+| `GET` | `/api/health` | **publique** | Sonde de vivacité (publique) |
 
 ## Authentification — `/api/auth`
 
 | Méthode | Route | Accès | Rôle |
 | --- | --- | --- | --- |
-| `POST` | `/auth/login` | **publique** | connexion par nom d'utilisateur + mot de passe |
-| `POST` | `/auth/dev-token` | **publique** | jeton HS256 de développement `{ username, role }` (`AUTH_MODE=dev`) |
-| `GET` | `/auth/profile` | authentifié | profil de la session |
-| `PATCH` | `/auth/profile` | authentifié | mise à jour du profil |
-| `POST` | `/auth/select-role` | authentifié | choisir le rôle actif (comptes multi-rôles) |
-| `POST` | `/auth/change-password` | authentifié | changement de mot de passe (obligatoire au 1er login) |
-
-En production (`AUTH_MODE=keycloak`), les jetons sont émis par Keycloak et
-validés en RS256 via le JWKS distant (`issuer` et `audience` contrôlés).
+| `POST` | `/api/auth/change-password` | authentifié (soi-même) | Changer son mot de passe (1er login) — active le compte |
+| `POST` | `/api/auth/dev-token` | **publique** | Jeton de développement (mode dev uniquement) |
+| `POST` | `/api/auth/login` | **publique** | Connexion d'un compte géré (matricule + code/mot de passe) |
+| `GET` | `/api/auth/profile` | authentifié (soi-même) | Profil du compte connecté (nom, grade, rôles, photo) |
+| `PATCH` | `/api/auth/profile` | authentifié (soi-même) | Modifier son profil : nom affiché et/ou photo (audité) |
+| `POST` | `/api/auth/select-role` | authentifié (soi-même) | Choisir le rôle actif (compte multi-rôles) — nouveau jeton |
 
 ## Identité et habilitations — `/api/iam`
 
-| Méthode | Route | Permission |
-| --- | --- | --- |
-| `GET` | `/iam/me` | authentifié — renvoie rôle + **permissions résolues côté serveur** |
-| `GET` | `/iam/roles` | `iam:roles:read` |
-| `GET` | `/iam/permissions` | `iam:permissions:read` |
-| `GET` | `/iam/users` | `iam:users:read` |
-| `POST` | `/iam/users` | `iam:users:create` |
-| `PATCH` | `/iam/users/:id` | `iam:users:update` |
-| `DELETE` | `/iam/users/:id` | `iam:users:delete` |
-| `POST` | `/iam/users/:id/active` | `iam:users:activate` |
-| `POST` | `/iam/users/:id/reset-code` | `iam:users:update` |
-| `GET` | `/iam/users/:id/temp-code` | `iam:users:read` |
-| `GET` | `/iam/role-features` | `iam:roles:read` |
-| `PATCH` | `/iam/role-features/:role` | `iam:roles:features` |
+| Méthode | Route | Accès | Rôle |
+| --- | --- | --- | --- |
+| `GET` | `/api/iam/me` | authentifié (soi-même) | Profil de l'utilisateur courant + permissions résolues |
+| `GET` | `/api/iam/permissions` | `users:view` | Catalogue des permissions |
+| `GET` | `/api/iam/role-features` | `users:view` | Matrice rôle → fonctionnalités |
+| `PATCH` | `/api/iam/role-features/{role}` | `users:update` | Activer/désactiver une fonctionnalité pour un rôle (Super Admin) |
+| `GET` | `/api/iam/roles` | `users:view` | Catalogue des rôles et de leurs permissions |
+| `GET` | `/api/iam/users` | `users:view` | Lister les utilisateurs (Admin/Super Admin) |
+| `POST` | `/api/iam/users` | `users:create` | Créer un utilisateur (règles d'attribution appliquées côté serveur) |
+| `DELETE` | `/api/iam/users/{id}` | `users:delete` | Supprimer un utilisateur |
+| `PATCH` | `/api/iam/users/{id}` | `users:update` | Modifier un utilisateur (nom, grade, rôles) |
+| `POST` | `/api/iam/users/{id}/active` | `users:update` | Activer/suspendre un compte (Super Admin) — activation forcée possible |
+| `POST` | `/api/iam/users/{id}/reset-code` | `users:update` | Régénérer le code temporaire d'un compte |
+| `GET` | `/api/iam/users/{id}/temp-code` | `users:view` | Consulter le code temporaire (Admin/Super Admin) |
 
 ## Feature flags — `/api/flags`
 
-| Méthode | Route | Permission |
-| --- | --- | --- |
-| `GET` | `/flags` | `admin:feature_flags:read` |
-| `PATCH` | `/flags/:key` | `admin:feature_flags:toggle` |
+| Méthode | Route | Accès | Rôle |
+| --- | --- | --- | --- |
+| `GET` | `/api/flags` | `settings:view` | Lire la matrice des feature flags |
+| `PATCH` | `/api/flags/{key}` | `settings:update` | Activer/désactiver un module (Super Admin) — audité |
 
 ## Audit — `/api/audit`
 
-| Méthode | Route | Permission |
-| --- | --- | --- |
-| `GET` | `/audit` | `audit:log:read` |
-| `GET` | `/audit/verify` | `audit:log:verify` — vérifie l'intégrité de la chaîne |
+| Méthode | Route | Accès | Rôle |
+| --- | --- | --- | --- |
+| `GET` | `/api/audit` | `audit:view` | Lister les entrées du journal d'audit (rôle Auditeur/Super Admin) |
+| `GET` | `/api/audit/verify` | `audit:view` | Vérifier l'intégrité de la chaîne d'audit (tamper-evidence) |
 
-## Domaine opérationnel
+## Domaine opérationnel — incidents, unités, hôpitaux, abris, morgue, équipement, référence
 
-### Incidents
+| Méthode | Route | Accès | Rôle |
+| --- | --- | --- | --- |
+| `GET` | `/api/alert-level` | `missions:view` | Niveau d'alerte national courant (1 à 4). |
+| `PATCH` | `/api/alert-level` | `orsec:update` | Changer le niveau d'alerte national — décision de commandement. |
+| `GET` | `/api/catalog` | `dashboard:view` | Catalogue des modules opérationnels (inventaire, triage, ORSEC, …) |
+| `GET` | `/api/comms` | `comms:view` | Centre de communication : canaux, messages, présence |
+| `POST` | `/api/comms/categories` | `comms_admin:create` | Créer un groupe de canaux — ADMINISTRATION (audité) |
+| `POST` | `/api/comms/channels` | `comms_admin:create` | Créer un canal texte dans un groupe — ADMINISTRATION (audité). |
+| `DELETE` | `/api/comms/channels/{id}` | `comms_admin:delete` | Supprimer définitivement un canal — SUPERADMIN uniquement. |
+| `PATCH` | `/api/comms/channels/{id}` | `comms_admin:update` | Renommer un canal / changer son sujet. |
+| `POST` | `/api/comms/channels/{id}/members` | `comms:update` | Ajouter des membres à un canal. |
+| `DELETE` | `/api/comms/channels/{id}/members/{matricule}` | `comms:update` | Retirer un membre d'un canal. |
+| `POST` | `/api/comms/messages` | `comms:view` | Envoyer un message dans un canal (audité) |
+| `GET` | `/api/dashboard/risk` | `dashboard:view` | Prédictions de risques (moteur déterministe, calculé côté serveur) |
+| `GET` | `/api/dashboard/stats` | `dashboard:view` | Statistiques de commandement : évolution 30 j, gravité, bilan humain, saturation hospitalière, posture des unités |
+| `GET` | `/api/deployable-posts` | `incidents:update` | Comptes déployables, avec leur affectation courante. |
+| `GET` | `/api/dispatch/movements` | `dispatch:view` | Mouvements de transport en cours |
+| `GET` | `/api/dispatch/queue` | `dispatch:view` | File de dispatching (besoins entrants) |
+| `GET` | `/api/equipment-parks/{id}/items` | `equipment:view` | Parc d'équipement d'une unité |
+| `POST` | `/api/equipment-parks/{id}/items` | `equipment:create` | Ajouter un article — dans SON parc uniquement |
+| `DELETE` | `/api/equipment-parks/{id}/items/{eid}` | `equipment:archive` | Sortir un article du parc — dans SON parc uniquement |
+| `PATCH` | `/api/equipment-parks/{id}/items/{eid}` | `equipment:update` | Modifier un article — dans SON parc uniquement |
+| `GET` | `/api/feed` | `dashboard:view` | Fil des événements |
+| `GET` | `/api/field-hospitals` | `hospinet:view` | Hôpitaux de campagne visibles. |
+| `GET` | `/api/hospitals` | `hospinet:view` | Liste des hôpitaux |
+| `POST` | `/api/hospitals` | `hospinet:create` | Créer un hôpital (audité) |
+| `PATCH` | `/api/hospitals/{id}` | `hospinet:update` | Mettre à jour un établissement — un responsable ne peut agir que sur le sien |
+| `GET` | `/api/hospitals/{id}/wards` | `hospinet:view` | Services de soins d'un établissement |
+| `POST` | `/api/hospitals/{id}/wards` | `hospinet:create` | Ouvrir un service de soins — dans SON établissement uniquement |
+| `DELETE` | `/api/hospitals/{id}/wards/{wid}` | `hospinet:archive` | Fermer un service de soins — dans SON établissement uniquement |
+| `PATCH` | `/api/hospitals/{id}/wards/{wid}` | `hospinet:update` | Modifier un service de soins — dans SON établissement uniquement |
+| `GET` | `/api/incident-types` | `incidents:view` | Catalogue paramétrable des types d'incident (libellés FR/AR/EN + icônes) |
+| `POST` | `/api/incident-types` | `settings:update` | Enregistrer un nouveau type d'incident (Super Admin, audité) |
+| `GET` | `/api/incidents` | `incidents:view` | Liste des incidents VISIBLES par le compte. |
+| `POST` | `/api/incidents` | `incidents:create` | Déclarer un incident (audité) — type validé contre le catalogue |
+| `DELETE` | `/api/incidents/{id}` | `incidents:delete` | Supprimer définitivement un incident — SUPERADMIN uniquement. |
+| `PATCH` | `/api/incidents/{id}` | `incidents:update` | Modifier ou archiver un incident (audité) |
+| `GET` | `/api/incidents/{id}/deployments` | `incidents:view` | Postes déployés sur cette opération. |
+| `POST` | `/api/incidents/{id}/deployments` | `incidents:update` | Déployer un poste sur l'opération. |
+| `DELETE` | `/api/incidents/{id}/deployments/{matricule}` | `incidents:update` | Retirer un poste de l'opération. |
+| `POST` | `/api/incidents/{id}/sub-incidents` | `subincidents:create` | Rattacher un sous-incident (aléa secondaire) à un incident (audité) |
+| `DELETE` | `/api/incidents/{id}/sub-incidents/{subId}` | `subincidents:archive` | Détacher un sous-incident (audité) |
+| `GET` | `/api/morgues` | `morgue:view` | Sites mortuaires |
+| `PATCH` | `/api/morgues/{id}` | `morgue:update` | Mettre à jour un site mortuaire — le sien uniquement |
+| `GET` | `/api/morgues/{id}/records` | `morgue:view` | Registre d'identification d'un site mortuaire |
+| `POST` | `/api/morgues/{id}/records` | `morgue:create` | Admettre un corps sous référence provisoire — dans SON site uniquement |
+| `PATCH` | `/api/morgues/{id}/records/{rid}` | `morgue:update` | Faire évoluer un dossier d'identification — dans SON site uniquement |
+| `GET` | `/api/reference` | authentifié (soi-même) | Données de référence : provinces, routes d'animation carte |
+| `GET` | `/api/seismic/alert-config` | `seismic:view` | Configuration des alertes sismiques (seuils national/mondial, autorités notifiées) |
+| `PATCH` | `/api/seismic/alert-config` | `settings:update` | Mettre à jour la configuration des alertes sismiques (audité) |
+| `GET` | `/api/seismic/events` | `seismic:view` | Séismes récents (CSEM/EMSC, proxy souverain) — minmag & region (morocco\|world) |
+| `GET` | `/api/seismic/notifications` | `seismic:view` | Historique des notifications SMS/e-mail envoyées aux autorités |
+| `GET` | `/api/shelters` | `shelters:view` | Liste des abris d'hébergement |
+| `POST` | `/api/shelters` | `shelters:create` | Ouvrir un abri (audité). |
+| `PATCH` | `/api/shelters/{id}` | `shelters:update` | Mettre à jour un abri — un responsable ne peut agir que sur le sien |
+| `GET` | `/api/sitreps` | `missions:view` | Comptes rendus de situation, du plus récent au plus ancien. |
+| `POST` | `/api/sitreps` | `missions:create` | Publier un compte rendu — IMMUABLE et numéroté une fois publié. |
+| `GET` | `/api/sitreps/missing` | `missions:view` | Entités EN RETARD de compte rendu. |
+| `GET` | `/api/sub-incident-types` | `subincidents:view` | Catalogue des sous-types + mapping par type d'incident principal |
+| `GET` | `/api/units` | `teams:view` | Liste des unités visibles. |
+| `POST` | `/api/units` | `teams:create` | Créer une unité (audité) |
+| `PATCH` | `/api/units/{id}` | `units:update` | Mettre à jour une unité — un responsable ne peut agir que sur la sienne |
+| `GET` | `/api/weather/cities` | `seismic:view` | Villes disponibles pour la météo |
+| `GET` | `/api/weather/forecast` | `seismic:view` | Prévisions météo (Open-Meteo, proxy souverain) pour lat/lon |
+| `GET` | `/api/weather/grid` | `seismic:view` | Grille de conditions actuelles (carte météo, proxy souverain) |
+| `GET` | `/api/weather/grid-world` | `seismic:view` | Grille météo mondiale grossière (pas 10°, couverture planétaire de la carte) |
 
-| Méthode | Route | Permission |
-| --- | --- | --- |
-| `GET` | `/incidents` | `incidents:read` |
-| `POST` | `/incidents` | `incidents:create` |
-| `PATCH` | `/incidents/:id` | `incidents:create` |
-| `POST` | `/incidents/:id/sub-incidents` | `incidents:create` |
-| `DELETE` | `/incidents/:id/sub-incidents/:subId` | `incidents:create` |
-| `GET` | `/incident-types` | `incidents:read` |
-| `POST` | `/incident-types` | `admin:settings:update` |
-| `GET` | `/sub-incident-types` | `incidents:read` |
+## Tableau de bord d'incident — `/api/incidents/{id}/dashboard`
 
-### Organisation
+| Méthode | Route | Accès | Rôle |
+| --- | --- | --- | --- |
+| `GET` | `/api/incidents/{id}/dashboard` | `dash_incident:view` | Tableau de bord d'UNE opération. |
 
-| Méthode | Route | Permission |
-| --- | --- | --- |
-| `GET` | `/units` | `org:units:read` |
-| `POST` | `/units` | `org:units:manage` |
-| `GET` | `/hospitals` | `org:hospitals:read` |
-| `POST` | `/hospitals` | `org:hospitals:manage` |
-| `GET` | `/field-hospitals` | `org:hospitals:read` |
+## Missions — la boucle fermée (ADR 0007)
 
-### Pilotage
-
-| Méthode | Route | Permission |
-| --- | --- | --- |
-| `GET` | `/dashboard/stats` | `incidents:read` |
-| `GET` | `/feed` | `incidents:read` |
-| `GET` | `/catalog` | `incidents:read` — catalogue des modules (inventaire, triage, ORSEC, ICS, plans…) |
-| `GET` | `/reference` | authentifié — provinces, villes, routes |
-| `GET` | `/dispatch/queue` | `dispatch:assign` |
-| `GET` | `/dispatch/movements` | `dispatch:assign` |
-
-### Communications
-
-| Méthode | Route | Permission |
-| --- | --- | --- |
-| `GET` | `/comms` | authentifié |
-| `POST` | `/comms/messages` | authentifié |
-| `POST` | `/comms/categories` | authentifié |
-| `POST` | `/comms/channels` | authentifié |
-
-### Sismologie et météo
-
-Proxy souverain avec cache et dégradation gracieuse ([ADR 0002](adr/0002-flux-externes-sismologie-meteo.md)).
-
-| Méthode | Route | Permission |
-| --- | --- | --- |
-| `GET` | `/seismic/events` | `incidents:read` |
-| `GET` | `/seismic/alert-config` | `incidents:read` |
-| `PATCH` | `/seismic/alert-config` | `admin:settings:update` |
-| `GET` | `/seismic/notifications` | `incidents:read` |
-| `GET` | `/weather/cities` | `incidents:read` |
-| `GET` | `/weather/forecast?lat=&lon=` | `incidents:read` |
-| `GET` | `/weather/grid` | `incidents:read` — grille dense Maroc |
-| `GET` | `/weather/grid-world` | `incidents:read` — grille mondiale 10° |
+| Méthode | Route | Accès | Rôle |
+| --- | --- | --- | --- |
+| `GET` | `/api/missions` | `missions:view` | Missions filtrées (incident, nature, état, boucles ouvertes). |
+| `POST` | `/api/missions` | `missions:create` | Émettre une mission (ordre, demande de moyen, transfert). |
+| `GET` | `/api/missions/{id}` | `missions:view` | Une mission par son identifiant. |
+| `POST` | `/api/missions/{id}/accept` | `missions:update` | Accuser réception — réservé au destinataire. |
+| `POST` | `/api/missions/{id}/cancel` | `missions:update` | Annuler avec motif — réservé à l'émetteur. |
+| `POST` | `/api/missions/{id}/complete` | `missions:update` | Clore la boucle — réservé au destinataire. |
+| `POST` | `/api/missions/{id}/decline` | `missions:update` | Refuser avec motif — réservé au destinataire. |
+| `POST` | `/api/missions/{id}/milestone` | `missions:update` | Franchir un jalon (en route, sur zone, relève) — réservé au destinataire. |
+| `GET` | `/api/missions/inbox` | `missions:view` | Boucles ouvertes attendant un geste de moi. |
+| `GET` | `/api/missions/outbox` | `missions:view` | Boucles ouvertes que j'ai émises — le suivi de mes demandes. |
 
 ## Bons de travail — `/api/orders`
 
-Module hexagonal ([README](../apps/api/src/modules/orders/README.md) ·
-[ADR 0003](adr/0003-module-orders-architecture-hexagonale.md)).
+| Méthode | Route | Accès | Rôle |
+| --- | --- | --- | --- |
+| `GET` | `/api/orders` | `workorders:view` | Liste des bons de travail (filtrable) |
+| `POST` | `/api/orders` | `workorders:create` | Ouvrir un bon de travail (état « demandé ») |
+| `GET` | `/api/orders/{id}` | `workorders:view` | Détail d'un bon de travail |
+| `PATCH` | `/api/orders/{id}` | `workorders:update` | Corriger les données descriptives d'un bon |
+| `PATCH` | `/api/orders/{id}/assignee` | `workorders:update` | Désigner l'exécutant d'un bon |
+| `PATCH` | `/api/orders/{id}/cancel` | `workorders:update` | Annuler un bon de travail (motif obligatoire) |
+| `PATCH` | `/api/orders/{id}/status` | `workorders:update` | Faire avancer un bon dans son cycle de vie |
+| `GET` | `/api/orders/summary` | `workorders:view` | Indicateurs des bons de travail (ouverts, en cours, urgents) |
 
-| Méthode | Route | Permission |
-| --- | --- | --- |
-| `GET` | `/orders?status=&priority=&unit=&assignee=&incidentId=` | `workorders:read` |
-| `GET` | `/orders/summary` | `workorders:read` |
-| `GET` | `/orders/:id` | `workorders:read` |
-| `POST` | `/orders` | `workorders:create` |
-| `PATCH` | `/orders/:id` | `workorders:update` |
-| `PATCH` | `/orders/:id/assignee` | `workorders:assign` |
-| `PATCH` | `/orders/:id/status` | `workorders:update` |
-| `PATCH` | `/orders/:id/cancel` | `workorders:update` |
+## Capacité NRBC — substances et panache (ADR 0005)
 
-**Cycle de vie**
+| Méthode | Route | Accès | Rôle |
+| --- | --- | --- | --- |
+| `GET` | `/api/nrbc/library` | `nrbc:view` | Bibliothèque de substances dangereuses — recherche et provenance (lot N-3). |
+| `GET` | `/api/nrbc/plume/{incidentId}` | `nrbc:view` | Panache chimique estimé d'un incident NRBC (GeoJSON). |
+| `GET` | `/api/nrbc/substances` | `nrbc:view` | Catalogue des substances chimiques (table 1 de l'ERG 2024). |
+| `GET` | `/api/nrbc/substances/{id}` | `nrbc:view` | Fiche opérationnelle d'une substance. |
 
-```
-requested ──▶ approved ──▶ assigned ──▶ inprogress ──▶ done ──▶ verified
-    │            │            │             │            │
-    └────────────┴────────────┴─────────────┘            │
-                  cancelled                              │
-                                      inprogress ◀───────┘  (contrôle refusé)
-```
+## Suivi aérien — ADS-B (ADR 0004)
 
-`verified` et `cancelled` sont terminaux. Un exécutant désigné est obligatoire à
-partir de `assigned`. L'annulation exige un motif.
+| Méthode | Route | Accès | Rôle |
+| --- | --- | --- | --- |
+| `GET` | `/api/aviation/aircraft` | `aviation:view` | Aéronefs inscrits à la surveillance. |
+| `POST` | `/api/aviation/aircraft` | `aviation:create` | Inscrire un aéronef à la surveillance. |
+| `DELETE` | `/api/aviation/aircraft/{id}` | `aviation:delete` | Supprimer définitivement (superadmin uniquement). |
+| `PATCH` | `/api/aviation/aircraft/{id}` | `aviation:update` | Modifier un aéronef inscrit. |
+| `POST` | `/api/aviation/aircraft/{id}/archive` | `aviation:archive` | Archiver un aéronef (geste par défaut, réversible). |
+| `POST` | `/api/aviation/aircraft/{id}/restore` | `aviation:archive` | Réactiver un aéronef archivé. |
+| `GET` | `/api/aviation/states` | `aviation:view` | Positions courantes des seuls aéronefs inscrits. |
 
-**Codes d'erreur** — les erreurs de domaine sont traduites en un point unique du
-contrôleur : validation → `400`, introuvable → `404`, transition interdite →
-`409`.
+## Traceurs GPS — FMC920 (ADR 0008)
 
-## Santé
+| Méthode | Route | Accès | Rôle |
+| --- | --- | --- | --- |
+| `GET` | `/api/tracking/trackers` | `tracking:view` | Traceurs déclarés, avec leur dernière position connue. |
+| `POST` | `/api/tracking/trackers` | `tracking:create` | Déclarer un traceur — sans quoi le boîtier n'est pas admis. |
+| `DELETE` | `/api/tracking/trackers/{id}` | `tracking:delete` | Supprimer définitivement un traceur — SUPERADMIN uniquement. |
+| `GET` | `/api/tracking/trackers/{id}` | `tracking:view` | Un traceur et sa trace récente. |
+| `PATCH` | `/api/tracking/trackers/{id}` | `tracking:update` | Modifier le libellé, le rattachement, l'engagement, ou archiver. |
 
-| Méthode | Route | Accès |
-| --- | --- | --- |
-| `GET` | `/health` | **publique** |
+## Communications — canaux, messages, temps réel, pièces jointes
 
----
+| Méthode | Route | Accès | Rôle |
+| --- | --- | --- | --- |
+| `POST` | `/api/comms/attachments` | `comms:create` | Verser une pièce jointe (image, vidéo, document). |
+| `GET` | `/api/comms/attachments/{id}` | `comms:view` | Télécharger une pièce jointe. |
+| `GET` | `/api/comms/presence` | `comms:view` | Comptes actuellement connectés. |
+| `GET` | `/api/comms/stream` | `comms:view` | Flux temps réel des communications (Server-Sent Events). |
 
 ## Exemple de bout en bout
 
 ```bash
 TOK=$(curl -s -X POST http://localhost:3005/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"matricule":"m.zraib","password":"ARGOS-2026"}' \
+  -d '{"matricule":"m.zraib","password":"<mot de passe du compte de démonstration>"}' \
   | python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
 
 curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 ```
 
+## Chiffres
+
+99 chemins · 126 opérations · 13 groupes.
+
 ## Modifier le contrat
 
-Toute évolution d'un endpoint doit être répercutée dans le client généré, sinon
-le typecheck du frontend échoue. Procédure dans
-[06-developpement.md](06-developpement.md#4-régénérer-le-client-api).
+1. Modifier le contrôleur (décorateurs `@ApiOperation`, `@RequirePermission`).
+2. `npm run openapi --prefix apps/api` — régénère `apps/api/openapi.json`.
+3. `npm run gen --prefix packages/api-client` — régénère le client TypeScript
+   consommé par `apps/web` (contrat d'abord : jamais de `fetch` écrit à la main).
+4. `npm run docs:api` — régénère ce document.
