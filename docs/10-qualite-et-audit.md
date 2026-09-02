@@ -87,13 +87,14 @@ soit un travail planifié, soit une décision à prendre.
 | R-4 | Lignes de la matrice **provisoires** : `aviation`, `tracking`, `comms_admin` | gouvernance | arbitrage état-major sur `docs/matrice-roles-fonctionnalites.xlsx` |
 | R-5 | Passerelles SMS / e-mail simulées | fonctionnel | raccordement réel hors périmètre actuel |
 | R-6 | `IncidentWizard.tsx` — un composant de 982 lignes | dette de code | **traité** (2 septembre 2026) : logique pure dans `lib/incidents/wizard.ts` + 15 tests, une étape par fichier, parcours rejoué au navigateur. Reste : un test de parcours automatisé demanderait un environnement DOM (jsdom + Testing Library, deux dépendances de développement) — à décider |
-| R-7 | `MapCanvas.tsx` — 1 700 lignes de rendu MapLibre | dette de code | les calculs sont sortis ; le rendu par couche (météo, séismes, panache, aérien) reste à séparer en hooks |
+| R-7 | `MapCanvas.tsx` — 1 700 lignes de rendu MapLibre | dette de code | **traité** (2 septembre 2026) : rendu séparé par couche dans `components/map/layers/`, composant à 681 l. ; les calculs purs étaient déjà dans `lib/map/canvas/` |
 | R-8 | `CopilotBody.tsx` — 1 118 lignes (panneau + réglages + fil) | dette de code | séparer le panneau de réglages du fil de conversation |
 | R-9 | Chaînes françaises en dur dans des modules fusionnés (What-If, conscience situationnelle) | i18n | passe i18n planifiée ; `i18n.test` protège les fichiers de langue mais pas le JSX |
 | R-10 | `openapi.json` non versionné | outillage | choix assumé (fichier généré) ; `docs:api` le régénère avant usage — le versionner si un consommateur externe apparaît |
 | R-11 | `MASTER_PLAN.md`, `CLAUDE.md`, `CONTEXT.md` hors de git | organisation | choix de l'équipe ; l'auditeur les demande à part si nécessaire |
 | R-12 | Cache `apps/web/.next` très volumineux sur le poste de développement (plusieurs Go) | poste de travail | `rm -rf apps/web/.next` quand le serveur de développement est arrêté |
 | R-13 | Données CAMEO : licence | juridique | règle tenue : ne jamais copier `chemical_cas`, `dupont`, `aegls`, `erpgs`, NFPA ; les 31 CAS existants sont conservés |
+| R-15 | Une bascule 3D / fond de carte demandée **pendant le chargement des tuiles** est ignorée (garde `isStyleLoaded()` dans `apply3d`/`applyBase`, comportement d'origine conservé à l'identique) | ergonomie | à traiter en rejouant la bascule au prochain `idle` de la carte ; visible seulement sous étranglement du CDN de tuiles |
 | R-14 | Un échec **intermittent** de `iam/users.spec.ts` (1 test sur 312) observé une fois lors de la gate finale, non reproduit sur deux exécutions séquentielles complètes ni en isolation | fiabilité des tests | à instrumenter (capturer le message au prochain échec) ; suspect : dépendance à l'ordre ou à l'horloge, pas au code refondu — le test passe seul et en suite |
 
 ## 5. Comment l'auditeur rejoue tout cela

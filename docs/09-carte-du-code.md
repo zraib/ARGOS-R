@@ -86,7 +86,9 @@ des `ports` ; `infrastructure` implémente les ports ; `http` n'appelle que
 
 ```
 components/   ce qui se voit — un composant par fichier ; les écrans composés
-              rangent leurs sous-composants dans parts/ ou _parts/
+              rangent leurs sous-composants dans parts/ ou _parts/ ; la carte
+              range son rendu par couche dans map/layers/ (fonctions
+              impératives + objet d'état, sans React)
 lib/          ce qui se calcule — n'importe JAMAIS components/
 lib/store/    l'état client : dix tranches Zustand qui ne s'importent pas
 lib/api-client/  le contrat généré — ne pas éditer ; jamais de fetch manuel

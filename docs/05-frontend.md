@@ -40,8 +40,11 @@ apps/web/src/
 │   ├── ui/                   système de composants : Badge, Modal, Table,
 │   │                         StatTile, ProgressBar, Pill, Avatar, Icon
 │   ├── charts/               ChartCard, DonutChart, LineAreaChart, ListCard
-│   ├── map/MapCanvas.tsx     carte opérationnelle (MapLibre) — le rendu ;
-│   │                         les calculs sont dans lib/map/canvas/
+│   ├── map/MapCanvas.tsx     carte opérationnelle (MapLibre) : carte, contrôles,
+│   │                         événements, effets ; map/layers/ = une couche par
+│   │                         fichier (marqueurs, aérien, séismes, boucles,
+│   │                         mesure, panache, météo, fond) ; calculs purs
+│   │                         dans lib/map/canvas/
 │   ├── flux/                 FluxUI, QuakeAlert, WeatherPopup
 │   ├── incidents/            IncidentWizard (coquille) + wizard/ (une étape par
 │   │                         fichier, hooks de formulaire/IA/localisation),
