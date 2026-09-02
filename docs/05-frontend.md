@@ -150,6 +150,20 @@ généré. En développement, `window.__argos` expose le magasin pour inspection
 Ajouter une chaîne : la déclarer dans les **trois** langues, puis la consommer
 via `useDict()` / `useModules()`. Jamais de littéral affiché dans un composant.
 
+Trois règles tenues par les tests et le typecheck :
+
+- **le cœur** (`translations.{fr,en,ar}.ts`, `useDict()`) porte la coquille et
+  les écrans historiques ; **les modules** (`modules.{fr,en,ar}.ts`,
+  `useModules()`) portent les écrans opérationnels par section — `copilot`,
+  `wizard`, `situational`, `whatif`, `hospinet`, … ;
+- **une donnée ne porte jamais un libellé, elle porte une clé** (`labelKey`,
+  `unitKey`, `NIV_KEY`, `occLabelKey`) résolue à l'affichage : une table de
+  configuration reste valable dans les trois langues ;
+- **une phrase chiffrée est un gabarit** : `tpl(m.situational.fb_beds, { n })`
+  (`lib/i18n/format.ts`), jamais une chaîne de gabarit JavaScript en français.
+
+`i18n.test.ts` refuse une clé absente d'une langue ou une valeur vide.
+
 ## 6. Carte opérationnelle
 
 `components/map/MapCanvas.tsx` — le composant le plus dense du frontend.

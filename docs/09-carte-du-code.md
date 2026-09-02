@@ -109,7 +109,7 @@ lib/i18n/     trois langues, fichiers séparés, parité vérifiée par test
 | `incidents/` | `wizard.ts` : formulaire de déclaration — validation par étape, appariement d'adresse, rattachement région, charge envoyée, pré-remplissage | wizard.test |
 | `realtime/` | `stream.ts` (SSE par `fetch`, reconnexion, arrêt sur 401/403) | realtime-stream.test |
 | `tracking/` · `nrbc/` · `hazard/` | traceurs, substances, pictogrammes | tracking, substance, pictograms |
-| `i18n/` · `nav.ts` · `roles.ts` · `helpers.ts` | langues, navigation, rôles, aides | i18n, nav, roles, helpers |
+| `i18n/` · `nav.ts` · `roles.ts` · `helpers.ts` | langues (cœur + modules, trois fichiers par jeu), `format.ts` (gabarits `tpl`), navigation, rôles, aides | i18n, format, nav, roles, helpers |
 
 ## 4. Le contrat entre les deux
 
