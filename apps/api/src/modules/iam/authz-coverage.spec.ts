@@ -56,7 +56,7 @@ describe("couverture des gardes", () => {
       "iam/auth.controller.ts : PATCH profile → updateProfile",
       "iam/auth.controller.ts : POST select-role → selectRole",
       "iam/auth.controller.ts : POST change-password → changePassword",
-      "domain/domain.controller.ts : GET reference → reference",
+      "domain/http/dashboard.controller.ts : GET reference → reference",
     ]);
     const vues: string[] = [];
     for (const f of fichiers) {

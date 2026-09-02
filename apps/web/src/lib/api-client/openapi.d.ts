@@ -347,23 +347,6 @@ export interface paths {
         patch: operations["FlagsController_toggle"];
         trace?: never;
     };
-    "/api/catalog": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Catalogue des modules opérationnels (inventaire, triage, ORSEC, …) */
-        get: operations["DomainController_catalogAll"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/incident-types": {
         parameters: {
             query?: never;
@@ -372,47 +355,10 @@ export interface paths {
             cookie?: never;
         };
         /** Catalogue paramétrable des types d'incident (libellés FR/AR/EN + icônes) */
-        get: operations["DomainController_incidentTypesList"];
+        get: operations["IncidentsController_incidentTypesList"];
         put?: never;
         /** Enregistrer un nouveau type d'incident (Super Admin, audité) */
-        post: operations["DomainController_registerIncidentType"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dashboard/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Statistiques de commandement : évolution 30 j, gravité, bilan humain, saturation hospitalière, posture des unités */
-        get: operations["DomainController_dashboardStats"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dashboard/risk": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Prédictions de risques (moteur déterministe, calculé côté serveur)
-         * @description Le moteur tourne UNE fois sur les données faisant foi de l'API (mémo 5 s) au lieu de N fois dans N navigateurs. L'enveloppe expose computeMs et cached pour rendre le coût observable.
-         */
-        get: operations["DomainController_dashboardRisk"];
-        put?: never;
-        post?: never;
+        post: operations["IncidentsController_registerIncidentType"];
         delete?: never;
         options?: never;
         head?: never;
@@ -430,10 +376,10 @@ export interface paths {
          * Liste des incidents VISIBLES par le compte.
          * @description Filtrée par la doctrine de visibilité (lot V-1) : globale pour l'état-major, la région pour un wali, la zone de 40 km pour une place d'armes, l'incident de déploiement pour la conduite, les incidents servis pour un responsable d'entité. Un rôle cantonné SANS affectation ne voit rien.
          */
-        get: operations["DomainController_incidents"];
+        get: operations["IncidentsController_incidents"];
         put?: never;
         /** Déclarer un incident (audité) — type validé contre le catalogue */
-        post: operations["DomainController_createIncident"];
+        post: operations["IncidentsController_createIncident"];
         delete?: never;
         options?: never;
         head?: never;
@@ -448,13 +394,13 @@ export interface paths {
             cookie?: never;
         };
         /** Comptes rendus de situation, du plus récent au plus ancien. */
-        get: operations["DomainController_sitreps"];
+        get: operations["IncidentsController_sitreps"];
         put?: never;
         /**
          * Publier un compte rendu — IMMUABLE et numéroté une fois publié.
          * @description Trois champs saisis ; les chiffres de l'entité sont photographiés automatiquement.
          */
-        post: operations["DomainController_publishSitrep"];
+        post: operations["IncidentsController_publishSitrep"];
         delete?: never;
         options?: never;
         head?: never;
@@ -472,7 +418,7 @@ export interface paths {
          * Entités EN RETARD de compte rendu.
          * @description Le silence devient un signal : une entité sans compte rendu depuis plus que la cadence attendue apparaît ici, ainsi que celles qui n'en ont jamais rendu (`overdueMin: -1`). La cadence découle du niveau d'alerte national — N1 quotidien, N2 8 h, N3 4 h, N4 horaire.
          */
-        get: operations["DomainController_missingSitreps"];
+        get: operations["IncidentsController_missingSitreps"];
         put?: never;
         post?: never;
         delete?: never;
@@ -489,7 +435,7 @@ export interface paths {
             cookie?: never;
         };
         /** Niveau d'alerte national courant (1 à 4). */
-        get: operations["DomainController_alertLevel"];
+        get: operations["IncidentsController_alertLevel"];
         put?: never;
         post?: never;
         delete?: never;
@@ -499,7 +445,7 @@ export interface paths {
          * Changer le niveau d'alerte national — décision de commandement.
          * @description Le niveau cadence les comptes rendus attendus (SITREP) : N1 quotidien, N2 8 h, N3 4 h, N4 horaire. Le changement est journalisé dans le fil et dans le journal d'audit.
          */
-        patch: operations["DomainController_setAlertLevel"];
+        patch: operations["IncidentsController_setAlertLevel"];
         trace?: never;
     };
     "/api/incidents/{id}": {
@@ -516,69 +462,11 @@ export interface paths {
          * Supprimer définitivement un incident — SUPERADMIN uniquement.
          * @description La matrice n'accorde `incidents:delete` à personne : seul le joker du Super Administrateur la détient. L'archivage reste le geste par défaut de tous les autres rôles. La suppression cascade sur les sous-incidents, les boucles (annulées avec motif puis purgées) et le canal de l'incident.
          */
-        delete: operations["DomainController_deleteIncident"];
+        delete: operations["IncidentsController_deleteIncident"];
         options?: never;
         head?: never;
         /** Modifier ou archiver un incident (audité) */
-        patch: operations["DomainController_updateIncident"];
-        trace?: never;
-    };
-    "/api/comms/channels/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Supprimer définitivement un canal — SUPERADMIN uniquement.
-         * @description Refusé tant que l'incident porteur est actif : effacer la conversation d'une opération en cours détruirait la trace au moment où elle sert le plus. Archiver l'incident d'abord.
-         */
-        delete: operations["DomainController_deleteChannel"];
-        options?: never;
-        head?: never;
-        /** Renommer un canal / changer son sujet. */
-        patch: operations["DomainController_updateChannel"];
-        trace?: never;
-    };
-    "/api/comms/channels/{id}/members": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Ajouter des membres à un canal.
-         * @description Un canal OUVERT devient restreint dès son premier membre — le geste est explicite.
-         */
-        post: operations["DomainController_addChannelMembers"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/comms/channels/{id}/members/{matricule}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Retirer un membre d'un canal. */
-        delete: operations["DomainController_removeChannelMember"];
-        options?: never;
-        head?: never;
-        patch?: never;
+        patch: operations["IncidentsController_updateIncident"];
         trace?: never;
     };
     "/api/sub-incident-types": {
@@ -589,7 +477,7 @@ export interface paths {
             cookie?: never;
         };
         /** Catalogue des sous-types + mapping par type d'incident principal */
-        get: operations["DomainController_subIncidentTypesList"];
+        get: operations["IncidentsController_subIncidentTypesList"];
         put?: never;
         post?: never;
         delete?: never;
@@ -608,7 +496,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Rattacher un sous-incident (aléa secondaire) à un incident (audité) */
-        post: operations["DomainController_addSubIncident"];
+        post: operations["IncidentsController_addSubIncident"];
         delete?: never;
         options?: never;
         head?: never;
@@ -626,538 +514,7 @@ export interface paths {
         put?: never;
         post?: never;
         /** Détacher un sous-incident (audité) */
-        delete: operations["DomainController_removeSubIncident"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/units": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Liste des unités visibles.
-         * @description Seule la place d'armes est restreinte — à sa zone de compétence.
-         */
-        get: operations["DomainController_units"];
-        put?: never;
-        /** Créer une unité (audité) */
-        post: operations["DomainController_createUnit"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/units/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Mettre à jour une unité — un responsable ne peut agir que sur la sienne */
-        patch: operations["DomainController_updateUnit"];
-        trace?: never;
-    };
-    "/api/shelters": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Liste des abris d'hébergement */
-        get: operations["DomainController_shelters"];
-        put?: never;
-        /**
-         * Ouvrir un abri (audité).
-         * @description Comme pour les unités, la création d'une entité revient à son administrateur ou à son responsable — pas à la conduite opérative, qui la CONSULTE et l'emploie. Les répartitions par âge partent à zéro : un abri qu'on ouvre n'a pas encore de recensement.
-         */
-        post: operations["DomainController_createShelter"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/shelters/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Mettre à jour un abri — un responsable ne peut agir que sur le sien */
-        patch: operations["DomainController_updateShelter"];
-        trace?: never;
-    };
-    "/api/equipment-parks/{id}/items": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Parc d'équipement d'une unité */
-        get: operations["DomainController_parkItems"];
-        put?: never;
-        /** Ajouter un article — dans SON parc uniquement */
-        post: operations["DomainController_addParkItem"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/equipment-parks/{id}/items/{eid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Sortir un article du parc — dans SON parc uniquement */
-        delete: operations["DomainController_removeParkItem"];
-        options?: never;
-        head?: never;
-        /** Modifier un article — dans SON parc uniquement */
-        patch: operations["DomainController_updateParkItem"];
-        trace?: never;
-    };
-    "/api/morgues": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Sites mortuaires */
-        get: operations["DomainController_morgues"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/morgues/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Mettre à jour un site mortuaire — le sien uniquement */
-        patch: operations["DomainController_updateMorgue"];
-        trace?: never;
-    };
-    "/api/morgues/{id}/records": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Registre d'identification d'un site mortuaire */
-        get: operations["DomainController_mortuaryRecords"];
-        put?: never;
-        /** Admettre un corps sous référence provisoire — dans SON site uniquement */
-        post: operations["DomainController_admitBody"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/morgues/{id}/records/{rid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Faire évoluer un dossier d'identification — dans SON site uniquement */
-        patch: operations["DomainController_updateMortuaryRecord"];
-        trace?: never;
-    };
-    "/api/hospitals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Liste des hôpitaux */
-        get: operations["DomainController_hospitals"];
-        put?: never;
-        /** Créer un hôpital (audité) */
-        post: operations["DomainController_createHospital"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/hospitals/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Mettre à jour un établissement — un responsable ne peut agir que sur le sien */
-        patch: operations["DomainController_updateHospital"];
-        trace?: never;
-    };
-    "/api/hospitals/{id}/wards": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Services de soins d'un établissement */
-        get: operations["DomainController_listWards"];
-        put?: never;
-        /** Ouvrir un service de soins — dans SON établissement uniquement */
-        post: operations["DomainController_createWard"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/hospitals/{id}/wards/{wid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Fermer un service de soins — dans SON établissement uniquement */
-        delete: operations["DomainController_deleteWard"];
-        options?: never;
-        head?: never;
-        /** Modifier un service de soins — dans SON établissement uniquement */
-        patch: operations["DomainController_updateWard"];
-        trace?: never;
-    };
-    "/api/field-hospitals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Hôpitaux de campagne visibles.
-         * @description Seule la place d'armes est restreinte — à sa zone de compétence.
-         */
-        get: operations["DomainController_fieldHospitals"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/feed": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Fil des événements */
-        get: operations["DomainController_feed"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dispatch/queue": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** File de dispatching (besoins entrants) */
-        get: operations["DomainController_queue"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dispatch/movements": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Mouvements de transport en cours */
-        get: operations["DomainController_movements"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/comms": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Centre de communication : canaux, messages, présence */
-        get: operations["DomainController_commsAll"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/comms/messages": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Envoyer un message dans un canal (audité) */
-        post: operations["DomainController_sendMessage"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/comms/categories": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Créer un groupe de canaux — ADMINISTRATION (audité) */
-        post: operations["DomainController_createCategory"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/comms/channels": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Créer un canal texte dans un groupe — ADMINISTRATION (audité).
-         * @description Créer, renommer et supprimer un canal relèvent de `comms_admin`, ligne séparée de `comms` : participer n'est pas administrer la structure du centre.
-         */
-        post: operations["DomainController_createChannel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/reference": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Données de référence : provinces, routes d'animation carte */
-        get: operations["DomainController_reference"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/seismic/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Séismes récents (CSEM/EMSC, proxy souverain) — minmag & region (morocco|world) */
-        get: operations["DomainController_seismicEvents"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/seismic/alert-config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Configuration des alertes sismiques (seuils national/mondial, autorités notifiées) */
-        get: operations["DomainController_seismicAlertConfig"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Mettre à jour la configuration des alertes sismiques (audité) */
-        patch: operations["DomainController_updateSeismicAlertConfig"];
-        trace?: never;
-    };
-    "/api/seismic/notifications": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Historique des notifications SMS/e-mail envoyées aux autorités */
-        get: operations["DomainController_seismicNotifications"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/weather/cities": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Villes disponibles pour la météo */
-        get: operations["DomainController_weatherCities"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/weather/grid": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Grille de conditions actuelles (carte météo, proxy souverain) */
-        get: operations["DomainController_weatherGrid"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/weather/grid-world": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Grille météo mondiale grossière (pas 10°, couverture planétaire de la carte) */
-        get: operations["DomainController_weatherGridWorld"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/weather/forecast": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Prévisions météo (Open-Meteo, proxy souverain) pour lat/lon */
-        get: operations["DomainController_weatherForecast"];
-        put?: never;
-        post?: never;
-        delete?: never;
+        delete: operations["IncidentsController_removeSubIncident"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1174,13 +531,13 @@ export interface paths {
          * Postes déployés sur cette opération.
          * @description Visible par qui voit déjà l'incident — la section « Postes déployés » de la fiche.
          */
-        get: operations["DomainController_listDeployments"];
+        get: operations["IncidentsController_listDeployments"];
         put?: never;
         /**
          * Déployer un poste sur l'opération.
          * @description UN SEUL incident à la fois : le compte est retiré de l'opération qu'il servait, et ce retrait figure dans le fil et dans le journal d'audit. Refusé si l'opération est close ou archivée, ou si le compte n'occupe pas un poste déployable.
          */
-        post: operations["DomainController_deployPost"];
+        post: operations["IncidentsController_deployPost"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1198,7 +555,7 @@ export interface paths {
          * Comptes déployables, avec leur affectation courante.
          * @description Renvoie AUSSI l'opération que chaque compte sert déjà : le commandement doit voir qui il s'apprête à retirer d'ailleurs avant de cliquer, et non le découvrir après.
          */
-        get: operations["DomainController_listDeployablePosts"];
+        get: operations["IncidentsController_listDeployablePosts"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1221,7 +578,650 @@ export interface paths {
          * Retirer un poste de l'opération.
          * @description Le compte perd sa portée : il ne voit plus aucun incident tant qu'il n'est pas redéployé.
          */
-        delete: operations["DomainController_withdrawPost"];
+        delete: operations["IncidentsController_withdrawPost"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/comms/channels/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Supprimer définitivement un canal — SUPERADMIN uniquement.
+         * @description Refusé tant que l'incident porteur est actif : effacer la conversation d'une opération en cours détruirait la trace au moment où elle sert le plus. Archiver l'incident d'abord.
+         */
+        delete: operations["CommsController_deleteChannel"];
+        options?: never;
+        head?: never;
+        /** Renommer un canal / changer son sujet. */
+        patch: operations["CommsController_updateChannel"];
+        trace?: never;
+    };
+    "/api/comms/channels/{id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ajouter des membres à un canal.
+         * @description Un canal OUVERT devient restreint dès son premier membre — le geste est explicite.
+         */
+        post: operations["CommsController_addChannelMembers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/comms/channels/{id}/members/{matricule}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Retirer un membre d'un canal. */
+        delete: operations["CommsController_removeChannelMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/comms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Centre de communication : canaux, messages, présence */
+        get: operations["CommsController_commsAll"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/comms/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Envoyer un message dans un canal (audité) */
+        post: operations["CommsController_sendMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/comms/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Créer un groupe de canaux — ADMINISTRATION (audité) */
+        post: operations["CommsController_createCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/comms/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Créer un canal texte dans un groupe — ADMINISTRATION (audité).
+         * @description Créer, renommer et supprimer un canal relèvent de `comms_admin`, ligne séparée de `comms` : participer n'est pas administrer la structure du centre.
+         */
+        post: operations["CommsController_createChannel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liste des unités visibles.
+         * @description Seule la place d'armes est restreinte — à sa zone de compétence.
+         */
+        get: operations["ResourcesController_units"];
+        put?: never;
+        /** Créer une unité (audité) */
+        post: operations["ResourcesController_createUnit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/units/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mettre à jour une unité — un responsable ne peut agir que sur la sienne */
+        patch: operations["ResourcesController_updateUnit"];
+        trace?: never;
+    };
+    "/api/shelters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Liste des abris d'hébergement */
+        get: operations["ResourcesController_shelters"];
+        put?: never;
+        /**
+         * Ouvrir un abri (audité).
+         * @description Comme pour les unités, la création d'une entité revient à son administrateur ou à son responsable — pas à la conduite opérative, qui la CONSULTE et l'emploie. Les répartitions par âge partent à zéro : un abri qu'on ouvre n'a pas encore de recensement.
+         */
+        post: operations["ResourcesController_createShelter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shelters/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mettre à jour un abri — un responsable ne peut agir que sur le sien */
+        patch: operations["ResourcesController_updateShelter"];
+        trace?: never;
+    };
+    "/api/equipment-parks/{id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Parc d'équipement d'une unité */
+        get: operations["ResourcesController_parkItems"];
+        put?: never;
+        /** Ajouter un article — dans SON parc uniquement */
+        post: operations["ResourcesController_addParkItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/equipment-parks/{id}/items/{eid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Sortir un article du parc — dans SON parc uniquement */
+        delete: operations["ResourcesController_removeParkItem"];
+        options?: never;
+        head?: never;
+        /** Modifier un article — dans SON parc uniquement */
+        patch: operations["ResourcesController_updateParkItem"];
+        trace?: never;
+    };
+    "/api/morgues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sites mortuaires */
+        get: operations["ResourcesController_morgues"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/morgues/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mettre à jour un site mortuaire — le sien uniquement */
+        patch: operations["ResourcesController_updateMorgue"];
+        trace?: never;
+    };
+    "/api/morgues/{id}/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Registre d'identification d'un site mortuaire */
+        get: operations["ResourcesController_mortuaryRecords"];
+        put?: never;
+        /** Admettre un corps sous référence provisoire — dans SON site uniquement */
+        post: operations["ResourcesController_admitBody"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/morgues/{id}/records/{rid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Faire évoluer un dossier d'identification — dans SON site uniquement */
+        patch: operations["ResourcesController_updateMortuaryRecord"];
+        trace?: never;
+    };
+    "/api/hospitals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Liste des hôpitaux */
+        get: operations["HospitalsController_hospitals"];
+        put?: never;
+        /** Créer un hôpital (audité) */
+        post: operations["HospitalsController_createHospital"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hospitals/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mettre à jour un établissement — un responsable ne peut agir que sur le sien */
+        patch: operations["HospitalsController_updateHospital"];
+        trace?: never;
+    };
+    "/api/hospitals/{id}/wards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Services de soins d'un établissement */
+        get: operations["HospitalsController_listWards"];
+        put?: never;
+        /** Ouvrir un service de soins — dans SON établissement uniquement */
+        post: operations["HospitalsController_createWard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hospitals/{id}/wards/{wid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Fermer un service de soins — dans SON établissement uniquement */
+        delete: operations["HospitalsController_deleteWard"];
+        options?: never;
+        head?: never;
+        /** Modifier un service de soins — dans SON établissement uniquement */
+        patch: operations["HospitalsController_updateWard"];
+        trace?: never;
+    };
+    "/api/field-hospitals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Hôpitaux de campagne visibles.
+         * @description Seule la place d'armes est restreinte — à sa zone de compétence.
+         */
+        get: operations["HospitalsController_fieldHospitals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalogue des modules opérationnels (inventaire, triage, ORSEC, …) */
+        get: operations["DashboardController_catalogAll"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dashboard/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Statistiques de commandement : évolution 30 j, gravité, bilan humain, saturation hospitalière, posture des unités */
+        get: operations["DashboardController_dashboardStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dashboard/risk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Prédictions de risques (moteur déterministe, calculé côté serveur)
+         * @description Le moteur tourne UNE fois sur les données faisant foi de l'API (mémo 5 s) au lieu de N fois dans N navigateurs. L'enveloppe expose computeMs et cached pour rendre le coût observable.
+         */
+        get: operations["DashboardController_dashboardRisk"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fil des événements */
+        get: operations["DashboardController_feed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dispatch/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** File de dispatching (besoins entrants) */
+        get: operations["DashboardController_queue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dispatch/movements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mouvements de transport en cours */
+        get: operations["DashboardController_movements"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reference": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Données de référence : provinces, routes d'animation carte */
+        get: operations["DashboardController_reference"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/seismic/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Séismes récents (CSEM/EMSC, proxy souverain) — minmag & region (morocco|world) */
+        get: operations["EnvironmentController_seismicEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/seismic/alert-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Configuration des alertes sismiques (seuils national/mondial, autorités notifiées) */
+        get: operations["EnvironmentController_seismicAlertConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mettre à jour la configuration des alertes sismiques (audité) */
+        patch: operations["EnvironmentController_updateSeismicAlertConfig"];
+        trace?: never;
+    };
+    "/api/seismic/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Historique des notifications SMS/e-mail envoyées aux autorités */
+        get: operations["EnvironmentController_seismicNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/weather/cities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Villes disponibles pour la météo */
+        get: operations["EnvironmentController_weatherCities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/weather/grid": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Grille de conditions actuelles (carte météo, proxy souverain) */
+        get: operations["EnvironmentController_weatherGrid"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/weather/grid-world": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Grille météo mondiale grossière (pas 10°, couverture planétaire de la carte) */
+        get: operations["EnvironmentController_weatherGridWorld"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/weather/forecast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Prévisions météo (Open-Meteo, proxy souverain) pour lat/lon */
+        get: operations["EnvironmentController_weatherForecast"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1979,21 +1979,6 @@ export interface components {
             /** @description 1 routine · 2 vigilance · 3 vigilance renforcée · 4 urgence nationale */
             level: number;
         };
-        UpdateChannelDto: {
-            /** @example coordination-nord */
-            name?: string;
-            /** @example Coordination secteur nord */
-            topic?: string;
-        };
-        ChannelMembersDto: {
-            /**
-             * @example [
-             *       "i.benfares",
-             *       "n.fassi"
-             *     ]
-             */
-            matricules: string[];
-        };
         CasualtiesDto: {
             dead: number;
             injured: number;
@@ -2103,6 +2088,51 @@ export interface components {
             casualties?: components["schemas"]["CasualtiesDto"];
             /** @description Intervenants (IDs d'unités et d'hôpitaux) */
             responders?: components["schemas"]["RespondersDto"];
+        };
+        DeployPostDto: {
+            /**
+             * @description Matricule du compte à déployer. Il doit occuper un poste déployable (OPCOM, TACOM, cellules, responsable abri ou équipement). Le déploiement REMPLACE l'opération qu'il servait.
+             * @example o.ziani
+             */
+            matricule: string;
+        };
+        UpdateChannelDto: {
+            /** @example coordination-nord */
+            name?: string;
+            /** @example Coordination secteur nord */
+            topic?: string;
+        };
+        ChannelMembersDto: {
+            /**
+             * @example [
+             *       "i.benfares",
+             *       "n.fassi"
+             *     ]
+             */
+            matricules: string[];
+        };
+        MessageAttachmentDto: {
+            id: string;
+            name: string;
+            mime: string;
+            bytes: number;
+        };
+        SendMessageDto: {
+            /** @example c1 */
+            channelId: string;
+            txt: string;
+            /** @description Pièce jointe déjà versée via POST /comms/attachments. */
+            attachment?: components["schemas"]["MessageAttachmentDto"];
+        };
+        CreateCategoryDto: {
+            /** @example COORDINATION CIVILE */
+            name: string;
+        };
+        CreateChannelDto: {
+            /** @example g1 */
+            categoryId: string;
+            /** @example point-logistique */
+            name: string;
         };
         CreateUnitDto: {
             /** @example 6e Bataillon Médical */
@@ -2327,29 +2357,6 @@ export interface components {
             statut?: "open" | "saturated" | "closed";
             chef?: string;
         };
-        MessageAttachmentDto: {
-            id: string;
-            name: string;
-            mime: string;
-            bytes: number;
-        };
-        SendMessageDto: {
-            /** @example c1 */
-            channelId: string;
-            txt: string;
-            /** @description Pièce jointe déjà versée via POST /comms/attachments. */
-            attachment?: components["schemas"]["MessageAttachmentDto"];
-        };
-        CreateCategoryDto: {
-            /** @example COORDINATION CIVILE */
-            name: string;
-        };
-        CreateChannelDto: {
-            /** @example g1 */
-            categoryId: string;
-            /** @example point-logistique */
-            name: string;
-        };
         AuthorityContactDto: {
             /** @example Centre de Veille et de Coordination */
             name: string;
@@ -2364,13 +2371,6 @@ export interface components {
             /** @description Seuil mondial (notification dans l'app uniquement) */
             globalMinMag: number;
             contacts: components["schemas"]["AuthorityContactDto"][];
-        };
-        DeployPostDto: {
-            /**
-             * @description Matricule du compte à déployer. Il doit occuper un poste déployable (OPCOM, TACOM, cellules, responsable abri ou équipement). Le déploiement REMPLACE l'opération qu'il servait.
-             * @example o.ziani
-             */
-            matricule: string;
         };
         CreateOrderDto: {
             /** @example Rétablir l'accès RP2010 (déblaiement) */
@@ -3025,7 +3025,7 @@ export interface operations {
             };
         };
     };
-    DomainController_catalogAll: {
+    IncidentsController_incidentTypesList: {
         parameters: {
             query?: never;
             header?: never;
@@ -3042,24 +3042,7 @@ export interface operations {
             };
         };
     };
-    DomainController_incidentTypesList: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_registerIncidentType: {
+    IncidentsController_registerIncidentType: {
         parameters: {
             query?: never;
             header?: never;
@@ -3080,7 +3063,7 @@ export interface operations {
             };
         };
     };
-    DomainController_dashboardStats: {
+    IncidentsController_incidents: {
         parameters: {
             query?: never;
             header?: never;
@@ -3097,41 +3080,7 @@ export interface operations {
             };
         };
     };
-    DomainController_dashboardRisk: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_incidents: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_createIncident: {
+    IncidentsController_createIncident: {
         parameters: {
             query?: never;
             header?: never;
@@ -3152,7 +3101,7 @@ export interface operations {
             };
         };
     };
-    DomainController_sitreps: {
+    IncidentsController_sitreps: {
         parameters: {
             query?: {
                 entityId?: string;
@@ -3171,7 +3120,7 @@ export interface operations {
             };
         };
     };
-    DomainController_publishSitrep: {
+    IncidentsController_publishSitrep: {
         parameters: {
             query?: never;
             header?: never;
@@ -3192,7 +3141,7 @@ export interface operations {
             };
         };
     };
-    DomainController_missingSitreps: {
+    IncidentsController_missingSitreps: {
         parameters: {
             query?: never;
             header?: never;
@@ -3209,7 +3158,7 @@ export interface operations {
             };
         };
     };
-    DomainController_alertLevel: {
+    IncidentsController_alertLevel: {
         parameters: {
             query?: never;
             header?: never;
@@ -3226,7 +3175,7 @@ export interface operations {
             };
         };
     };
-    DomainController_setAlertLevel: {
+    IncidentsController_setAlertLevel: {
         parameters: {
             query?: never;
             header?: never;
@@ -3247,7 +3196,7 @@ export interface operations {
             };
         };
     };
-    DomainController_deleteIncident: {
+    IncidentsController_deleteIncident: {
         parameters: {
             query?: never;
             header?: never;
@@ -3274,7 +3223,7 @@ export interface operations {
             };
         };
     };
-    DomainController_updateIncident: {
+    IncidentsController_updateIncident: {
         parameters: {
             query?: never;
             header?: never;
@@ -3297,101 +3246,7 @@ export interface operations {
             };
         };
     };
-    DomainController_deleteChannel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description L'incident porteur est encore actif. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Réservé au Super Administrateur. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_updateChannel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateChannelDto"];
-            };
-        };
-        responses: {
-            /** @description Canal inconnu. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_addChannelMembers: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ChannelMembersDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_removeChannelMember: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-                matricule: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_subIncidentTypesList: {
+    IncidentsController_subIncidentTypesList: {
         parameters: {
             query?: never;
             header?: never;
@@ -3408,7 +3263,7 @@ export interface operations {
             };
         };
     };
-    DomainController_addSubIncident: {
+    IncidentsController_addSubIncident: {
         parameters: {
             query?: never;
             header?: never;
@@ -3431,7 +3286,7 @@ export interface operations {
             };
         };
     };
-    DomainController_removeSubIncident: {
+    IncidentsController_removeSubIncident: {
         parameters: {
             query?: never;
             header?: never;
@@ -3451,779 +3306,7 @@ export interface operations {
             };
         };
     };
-    DomainController_units: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_createUnit: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateUnitDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_updateUnit: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateUnitDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_shelters: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_createShelter: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateShelterDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_updateShelter: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateShelterDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_parkItems: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_addParkItem: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateEquipDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_removeParkItem: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-                eid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_updateParkItem: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-                eid: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateEquipDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_morgues: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_updateMorgue: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateMorgueDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_mortuaryRecords: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_admitBody: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdmitBodyDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_updateMortuaryRecord: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-                rid: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateMortuaryRecordDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_hospitals: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_createHospital: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateHospitalDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_updateHospital: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateHospitalDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_listWards: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_createWard: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateWardDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_deleteWard: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-                wid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_updateWard: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-                wid: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateWardDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_fieldHospitals: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_feed: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_queue: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_movements: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_commsAll: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_sendMessage: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SendMessageDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_createCategory: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateCategoryDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_createChannel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateChannelDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_reference: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_seismicEvents: {
-        parameters: {
-            query: {
-                minmag: string;
-                region: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_seismicAlertConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_updateSeismicAlertConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateSeismicAlertConfigDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_seismicNotifications: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_weatherCities: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_weatherGrid: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_weatherGridWorld: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_weatherForecast: {
-        parameters: {
-            query: {
-                lat: string;
-                lon: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DomainController_listDeployments: {
+    IncidentsController_listDeployments: {
         parameters: {
             query?: never;
             header?: never;
@@ -4243,7 +3326,7 @@ export interface operations {
             };
         };
     };
-    DomainController_deployPost: {
+    IncidentsController_deployPost: {
         parameters: {
             query?: never;
             header?: never;
@@ -4281,7 +3364,7 @@ export interface operations {
             };
         };
     };
-    DomainController_listDeployablePosts: {
+    IncidentsController_listDeployablePosts: {
         parameters: {
             query?: never;
             header?: never;
@@ -4298,7 +3381,7 @@ export interface operations {
             };
         };
     };
-    DomainController_withdrawPost: {
+    IncidentsController_withdrawPost: {
         parameters: {
             query?: never;
             header?: never;
@@ -4319,6 +3402,923 @@ export interface operations {
             };
             /** @description Ce compte n'est pas déployé sur cette opération. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommsController_deleteChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description L'incident porteur est encore actif. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Réservé au Super Administrateur. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommsController_updateChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateChannelDto"];
+            };
+        };
+        responses: {
+            /** @description Canal inconnu. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommsController_addChannelMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelMembersDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommsController_removeChannelMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                matricule: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommsController_commsAll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommsController_sendMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendMessageDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommsController_createCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCategoryDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommsController_createChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateChannelDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_units: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_createUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateUnitDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_updateUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUnitDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_shelters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_createShelter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateShelterDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_updateShelter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateShelterDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_parkItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_addParkItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEquipDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_removeParkItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                eid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_updateParkItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                eid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateEquipDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_morgues: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_updateMorgue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMorgueDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_mortuaryRecords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_admitBody: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdmitBodyDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_updateMortuaryRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMortuaryRecordDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HospitalsController_hospitals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HospitalsController_createHospital: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHospitalDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HospitalsController_updateHospital: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateHospitalDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HospitalsController_listWards: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HospitalsController_createWard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWardDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HospitalsController_deleteWard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HospitalsController_updateWard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWardDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HospitalsController_fieldHospitals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DashboardController_catalogAll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DashboardController_dashboardStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DashboardController_dashboardRisk: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DashboardController_feed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DashboardController_queue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DashboardController_movements: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DashboardController_reference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnvironmentController_seismicEvents: {
+        parameters: {
+            query: {
+                minmag: string;
+                region: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnvironmentController_seismicAlertConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnvironmentController_updateSeismicAlertConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSeismicAlertConfigDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnvironmentController_seismicNotifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnvironmentController_weatherCities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnvironmentController_weatherGrid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnvironmentController_weatherGridWorld: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnvironmentController_weatherForecast: {
+        parameters: {
+            query: {
+                lat: string;
+                lon: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

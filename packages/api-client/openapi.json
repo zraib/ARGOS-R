@@ -612,29 +612,9 @@
         ]
       }
     },
-    "/api/catalog": {
-      "get": {
-        "operationId": "DomainController_catalogAll",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Catalogue des modules opérationnels (inventaire, triage, ORSEC, …)",
-        "tags": [
-          "domain"
-        ]
-      }
-    },
     "/api/incident-types": {
       "get": {
-        "operationId": "DomainController_incidentTypesList",
+        "operationId": "IncidentsController_incidentTypesList",
         "parameters": [],
         "responses": {
           "200": {
@@ -652,7 +632,7 @@
         ]
       },
       "post": {
-        "operationId": "DomainController_registerIncidentType",
+        "operationId": "IncidentsController_registerIncidentType",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -680,51 +660,10 @@
         ]
       }
     },
-    "/api/dashboard/stats": {
-      "get": {
-        "operationId": "DomainController_dashboardStats",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Statistiques de commandement : évolution 30 j, gravité, bilan humain, saturation hospitalière, posture des unités",
-        "tags": [
-          "domain"
-        ]
-      }
-    },
-    "/api/dashboard/risk": {
-      "get": {
-        "description": "Le moteur tourne UNE fois sur les données faisant foi de l'API (mémo 5 s) au lieu de N fois dans N navigateurs. L'enveloppe expose computeMs et cached pour rendre le coût observable.",
-        "operationId": "DomainController_dashboardRisk",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Prédictions de risques (moteur déterministe, calculé côté serveur)",
-        "tags": [
-          "domain"
-        ]
-      }
-    },
     "/api/incidents": {
       "get": {
         "description": "Filtrée par la doctrine de visibilité (lot V-1) : globale pour l'état-major, la région pour un wali, la zone de 40 km pour une place d'armes, l'incident de déploiement pour la conduite, les incidents servis pour un responsable d'entité. Un rôle cantonné SANS affectation ne voit rien.",
-        "operationId": "DomainController_incidents",
+        "operationId": "IncidentsController_incidents",
         "parameters": [],
         "responses": {
           "200": {
@@ -742,7 +681,7 @@
         ]
       },
       "post": {
-        "operationId": "DomainController_createIncident",
+        "operationId": "IncidentsController_createIncident",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -772,7 +711,7 @@
     },
     "/api/sitreps": {
       "get": {
-        "operationId": "DomainController_sitreps",
+        "operationId": "IncidentsController_sitreps",
         "parameters": [
           {
             "name": "entityId",
@@ -800,7 +739,7 @@
       },
       "post": {
         "description": "Trois champs saisis ; les chiffres de l'entité sont photographiés automatiquement.",
-        "operationId": "DomainController_publishSitrep",
+        "operationId": "IncidentsController_publishSitrep",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -831,7 +770,7 @@
     "/api/sitreps/missing": {
       "get": {
         "description": "Le silence devient un signal : une entité sans compte rendu depuis plus que la cadence attendue apparaît ici, ainsi que celles qui n'en ont jamais rendu (`overdueMin: -1`). La cadence découle du niveau d'alerte national — N1 quotidien, N2 8 h, N3 4 h, N4 horaire.",
-        "operationId": "DomainController_missingSitreps",
+        "operationId": "IncidentsController_missingSitreps",
         "parameters": [],
         "responses": {
           "200": {
@@ -851,7 +790,7 @@
     },
     "/api/alert-level": {
       "get": {
-        "operationId": "DomainController_alertLevel",
+        "operationId": "IncidentsController_alertLevel",
         "parameters": [],
         "responses": {
           "200": {
@@ -870,7 +809,7 @@
       },
       "patch": {
         "description": "Le niveau cadence les comptes rendus attendus (SITREP) : N1 quotidien, N2 8 h, N3 4 h, N4 horaire. Le changement est journalisé dans le fil et dans le journal d'audit.",
-        "operationId": "DomainController_setAlertLevel",
+        "operationId": "IncidentsController_setAlertLevel",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -901,7 +840,7 @@
     "/api/incidents/{id}": {
       "delete": {
         "description": "La matrice n'accorde `incidents:delete` à personne : seul le joker du Super Administrateur la détient. L'archivage reste le geste par défaut de tous les autres rôles. La suppression cascade sur les sous-incidents, les boucles (annulées avec motif puis purgées) et le canal de l'incident.",
-        "operationId": "DomainController_deleteIncident",
+        "operationId": "IncidentsController_deleteIncident",
         "parameters": [
           {
             "name": "id",
@@ -931,7 +870,7 @@
         ]
       },
       "patch": {
-        "operationId": "DomainController_updateIncident",
+        "operationId": "IncidentsController_updateIncident",
         "parameters": [
           {
             "name": "id",
@@ -968,156 +907,9 @@
         ]
       }
     },
-    "/api/comms/channels/{id}": {
-      "patch": {
-        "operationId": "DomainController_updateChannel",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateChannelDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "404": {
-            "description": "Canal inconnu."
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Renommer un canal / changer son sujet.",
-        "tags": [
-          "domain"
-        ]
-      },
-      "delete": {
-        "description": "Refusé tant que l'incident porteur est actif : effacer la conversation d'une opération en cours détruirait la trace au moment où elle sert le plus. Archiver l'incident d'abord.",
-        "operationId": "DomainController_deleteChannel",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "400": {
-            "description": "L'incident porteur est encore actif."
-          },
-          "403": {
-            "description": "Réservé au Super Administrateur."
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Supprimer définitivement un canal — SUPERADMIN uniquement.",
-        "tags": [
-          "domain"
-        ]
-      }
-    },
-    "/api/comms/channels/{id}/members": {
-      "post": {
-        "description": "Un canal OUVERT devient restreint dès son premier membre — le geste est explicite.",
-        "operationId": "DomainController_addChannelMembers",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ChannelMembersDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Ajouter des membres à un canal.",
-        "tags": [
-          "domain"
-        ]
-      }
-    },
-    "/api/comms/channels/{id}/members/{matricule}": {
-      "delete": {
-        "operationId": "DomainController_removeChannelMember",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "matricule",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Retirer un membre d'un canal.",
-        "tags": [
-          "domain"
-        ]
-      }
-    },
     "/api/sub-incident-types": {
       "get": {
-        "operationId": "DomainController_subIncidentTypesList",
+        "operationId": "IncidentsController_subIncidentTypesList",
         "parameters": [],
         "responses": {
           "200": {
@@ -1137,7 +929,7 @@
     },
     "/api/incidents/{id}/sub-incidents": {
       "post": {
-        "operationId": "DomainController_addSubIncident",
+        "operationId": "IncidentsController_addSubIncident",
         "parameters": [
           {
             "name": "id",
@@ -1176,7 +968,7 @@
     },
     "/api/incidents/{id}/sub-incidents/{subId}": {
       "delete": {
-        "operationId": "DomainController_removeSubIncident",
+        "operationId": "IncidentsController_removeSubIncident",
         "parameters": [
           {
             "name": "id",
@@ -1211,10 +1003,404 @@
         ]
       }
     },
+    "/api/incidents/{id}/deployments": {
+      "get": {
+        "description": "Visible par qui voit déjà l'incident — la section « Postes déployés » de la fiche.",
+        "operationId": "IncidentsController_listDeployments",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Incident inconnu ou hors de la portée du compte."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Postes déployés sur cette opération.",
+        "tags": [
+          "domain"
+        ]
+      },
+      "post": {
+        "description": "UN SEUL incident à la fois : le compte est retiré de l'opération qu'il servait, et ce retrait figure dans le fil et dans le journal d'audit. Refusé si l'opération est close ou archivée, ou si le compte n'occupe pas un poste déployable.",
+        "operationId": "IncidentsController_deployPost",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeployPostDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Le compte n'occupe pas un poste déployable."
+          },
+          "404": {
+            "description": "Incident ou compte inconnu."
+          },
+          "409": {
+            "description": "Opération close ou archivée."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Déployer un poste sur l'opération.",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/deployable-posts": {
+      "get": {
+        "description": "Renvoie AUSSI l'opération que chaque compte sert déjà : le commandement doit voir qui il s'apprête à retirer d'ailleurs avant de cliquer, et non le découvrir après.",
+        "operationId": "IncidentsController_listDeployablePosts",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Comptes déployables, avec leur affectation courante.",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/incidents/{id}/deployments/{matricule}": {
+      "delete": {
+        "description": "Le compte perd sa portée : il ne voit plus aucun incident tant qu'il n'est pas redéployé.",
+        "operationId": "IncidentsController_withdrawPost",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "matricule",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Incident ou compte inconnu."
+          },
+          "409": {
+            "description": "Ce compte n'est pas déployé sur cette opération."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Retirer un poste de l'opération.",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/comms/channels/{id}": {
+      "patch": {
+        "operationId": "CommsController_updateChannel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateChannelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "404": {
+            "description": "Canal inconnu."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Renommer un canal / changer son sujet.",
+        "tags": [
+          "domain"
+        ]
+      },
+      "delete": {
+        "description": "Refusé tant que l'incident porteur est actif : effacer la conversation d'une opération en cours détruirait la trace au moment où elle sert le plus. Archiver l'incident d'abord.",
+        "operationId": "CommsController_deleteChannel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "L'incident porteur est encore actif."
+          },
+          "403": {
+            "description": "Réservé au Super Administrateur."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Supprimer définitivement un canal — SUPERADMIN uniquement.",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/comms/channels/{id}/members": {
+      "post": {
+        "description": "Un canal OUVERT devient restreint dès son premier membre — le geste est explicite.",
+        "operationId": "CommsController_addChannelMembers",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelMembersDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ajouter des membres à un canal.",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/comms/channels/{id}/members/{matricule}": {
+      "delete": {
+        "operationId": "CommsController_removeChannelMember",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "matricule",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Retirer un membre d'un canal.",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/comms": {
+      "get": {
+        "operationId": "CommsController_commsAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Centre de communication : canaux, messages, présence",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/comms/messages": {
+      "post": {
+        "operationId": "CommsController_sendMessage",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Envoyer un message dans un canal (audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/comms/categories": {
+      "post": {
+        "operationId": "CommsController_createCategory",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCategoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Créer un groupe de canaux — ADMINISTRATION (audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/comms/channels": {
+      "post": {
+        "description": "Créer, renommer et supprimer un canal relèvent de `comms_admin`, ligne séparée de `comms` : participer n'est pas administrer la structure du centre.",
+        "operationId": "CommsController_createChannel",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateChannelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Créer un canal texte dans un groupe — ADMINISTRATION (audité).",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/units": {
       "get": {
         "description": "Seule la place d'armes est restreinte — à sa zone de compétence.",
-        "operationId": "DomainController_units",
+        "operationId": "ResourcesController_units",
         "parameters": [],
         "responses": {
           "200": {
@@ -1232,7 +1418,7 @@
         ]
       },
       "post": {
-        "operationId": "DomainController_createUnit",
+        "operationId": "ResourcesController_createUnit",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1262,7 +1448,7 @@
     },
     "/api/units/{id}": {
       "patch": {
-        "operationId": "DomainController_updateUnit",
+        "operationId": "ResourcesController_updateUnit",
         "parameters": [
           {
             "name": "id",
@@ -1301,7 +1487,7 @@
     },
     "/api/shelters": {
       "get": {
-        "operationId": "DomainController_shelters",
+        "operationId": "ResourcesController_shelters",
         "parameters": [],
         "responses": {
           "200": {
@@ -1320,7 +1506,7 @@
       },
       "post": {
         "description": "Comme pour les unités, la création d'une entité revient à son administrateur ou à son responsable — pas à la conduite opérative, qui la CONSULTE et l'emploie. Les répartitions par âge partent à zéro : un abri qu'on ouvre n'a pas encore de recensement.",
-        "operationId": "DomainController_createShelter",
+        "operationId": "ResourcesController_createShelter",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1350,7 +1536,7 @@
     },
     "/api/shelters/{id}": {
       "patch": {
-        "operationId": "DomainController_updateShelter",
+        "operationId": "ResourcesController_updateShelter",
         "parameters": [
           {
             "name": "id",
@@ -1389,7 +1575,7 @@
     },
     "/api/equipment-parks/{id}/items": {
       "get": {
-        "operationId": "DomainController_parkItems",
+        "operationId": "ResourcesController_parkItems",
         "parameters": [
           {
             "name": "id",
@@ -1416,7 +1602,7 @@
         ]
       },
       "post": {
-        "operationId": "DomainController_addParkItem",
+        "operationId": "ResourcesController_addParkItem",
         "parameters": [
           {
             "name": "id",
@@ -1455,7 +1641,7 @@
     },
     "/api/equipment-parks/{id}/items/{eid}": {
       "patch": {
-        "operationId": "DomainController_updateParkItem",
+        "operationId": "ResourcesController_updateParkItem",
         "parameters": [
           {
             "name": "id",
@@ -1500,7 +1686,7 @@
         ]
       },
       "delete": {
-        "operationId": "DomainController_removeParkItem",
+        "operationId": "ResourcesController_removeParkItem",
         "parameters": [
           {
             "name": "id",
@@ -1537,7 +1723,7 @@
     },
     "/api/morgues": {
       "get": {
-        "operationId": "DomainController_morgues",
+        "operationId": "ResourcesController_morgues",
         "parameters": [],
         "responses": {
           "200": {
@@ -1557,7 +1743,7 @@
     },
     "/api/morgues/{id}": {
       "patch": {
-        "operationId": "DomainController_updateMorgue",
+        "operationId": "ResourcesController_updateMorgue",
         "parameters": [
           {
             "name": "id",
@@ -1596,7 +1782,7 @@
     },
     "/api/morgues/{id}/records": {
       "get": {
-        "operationId": "DomainController_mortuaryRecords",
+        "operationId": "ResourcesController_mortuaryRecords",
         "parameters": [
           {
             "name": "id",
@@ -1623,7 +1809,7 @@
         ]
       },
       "post": {
-        "operationId": "DomainController_admitBody",
+        "operationId": "ResourcesController_admitBody",
         "parameters": [
           {
             "name": "id",
@@ -1662,7 +1848,7 @@
     },
     "/api/morgues/{id}/records/{rid}": {
       "patch": {
-        "operationId": "DomainController_updateMortuaryRecord",
+        "operationId": "ResourcesController_updateMortuaryRecord",
         "parameters": [
           {
             "name": "id",
@@ -1709,7 +1895,7 @@
     },
     "/api/hospitals": {
       "get": {
-        "operationId": "DomainController_hospitals",
+        "operationId": "HospitalsController_hospitals",
         "parameters": [],
         "responses": {
           "200": {
@@ -1727,7 +1913,7 @@
         ]
       },
       "post": {
-        "operationId": "DomainController_createHospital",
+        "operationId": "HospitalsController_createHospital",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1757,7 +1943,7 @@
     },
     "/api/hospitals/{id}": {
       "patch": {
-        "operationId": "DomainController_updateHospital",
+        "operationId": "HospitalsController_updateHospital",
         "parameters": [
           {
             "name": "id",
@@ -1796,7 +1982,7 @@
     },
     "/api/hospitals/{id}/wards": {
       "get": {
-        "operationId": "DomainController_listWards",
+        "operationId": "HospitalsController_listWards",
         "parameters": [
           {
             "name": "id",
@@ -1823,7 +2009,7 @@
         ]
       },
       "post": {
-        "operationId": "DomainController_createWard",
+        "operationId": "HospitalsController_createWard",
         "parameters": [
           {
             "name": "id",
@@ -1862,7 +2048,7 @@
     },
     "/api/hospitals/{id}/wards/{wid}": {
       "patch": {
-        "operationId": "DomainController_updateWard",
+        "operationId": "HospitalsController_updateWard",
         "parameters": [
           {
             "name": "id",
@@ -1907,7 +2093,7 @@
         ]
       },
       "delete": {
-        "operationId": "DomainController_deleteWard",
+        "operationId": "HospitalsController_deleteWard",
         "parameters": [
           {
             "name": "id",
@@ -1945,7 +2131,7 @@
     "/api/field-hospitals": {
       "get": {
         "description": "Seule la place d'armes est restreinte — à sa zone de compétence.",
-        "operationId": "DomainController_fieldHospitals",
+        "operationId": "HospitalsController_fieldHospitals",
         "parameters": [],
         "responses": {
           "200": {
@@ -1963,9 +2149,70 @@
         ]
       }
     },
+    "/api/catalog": {
+      "get": {
+        "operationId": "DashboardController_catalogAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Catalogue des modules opérationnels (inventaire, triage, ORSEC, …)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/dashboard/stats": {
+      "get": {
+        "operationId": "DashboardController_dashboardStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Statistiques de commandement : évolution 30 j, gravité, bilan humain, saturation hospitalière, posture des unités",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/dashboard/risk": {
+      "get": {
+        "description": "Le moteur tourne UNE fois sur les données faisant foi de l'API (mémo 5 s) au lieu de N fois dans N navigateurs. L'enveloppe expose computeMs et cached pour rendre le coût observable.",
+        "operationId": "DashboardController_dashboardRisk",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Prédictions de risques (moteur déterministe, calculé côté serveur)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/feed": {
       "get": {
-        "operationId": "DomainController_feed",
+        "operationId": "DashboardController_feed",
         "parameters": [],
         "responses": {
           "200": {
@@ -1985,7 +2232,7 @@
     },
     "/api/dispatch/queue": {
       "get": {
-        "operationId": "DomainController_queue",
+        "operationId": "DashboardController_queue",
         "parameters": [],
         "responses": {
           "200": {
@@ -2005,7 +2252,7 @@
     },
     "/api/dispatch/movements": {
       "get": {
-        "operationId": "DomainController_movements",
+        "operationId": "DashboardController_movements",
         "parameters": [],
         "responses": {
           "200": {
@@ -2023,120 +2270,9 @@
         ]
       }
     },
-    "/api/comms": {
-      "get": {
-        "operationId": "DomainController_commsAll",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Centre de communication : canaux, messages, présence",
-        "tags": [
-          "domain"
-        ]
-      }
-    },
-    "/api/comms/messages": {
-      "post": {
-        "operationId": "DomainController_sendMessage",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SendMessageDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Envoyer un message dans un canal (audité)",
-        "tags": [
-          "domain"
-        ]
-      }
-    },
-    "/api/comms/categories": {
-      "post": {
-        "operationId": "DomainController_createCategory",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateCategoryDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Créer un groupe de canaux — ADMINISTRATION (audité)",
-        "tags": [
-          "domain"
-        ]
-      }
-    },
-    "/api/comms/channels": {
-      "post": {
-        "description": "Créer, renommer et supprimer un canal relèvent de `comms_admin`, ligne séparée de `comms` : participer n'est pas administrer la structure du centre.",
-        "operationId": "DomainController_createChannel",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateChannelDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Créer un canal texte dans un groupe — ADMINISTRATION (audité).",
-        "tags": [
-          "domain"
-        ]
-      }
-    },
     "/api/reference": {
       "get": {
-        "operationId": "DomainController_reference",
+        "operationId": "DashboardController_reference",
         "parameters": [],
         "responses": {
           "200": {
@@ -2156,7 +2292,7 @@
     },
     "/api/seismic/events": {
       "get": {
-        "operationId": "DomainController_seismicEvents",
+        "operationId": "EnvironmentController_seismicEvents",
         "parameters": [
           {
             "name": "minmag",
@@ -2193,7 +2329,7 @@
     },
     "/api/seismic/alert-config": {
       "get": {
-        "operationId": "DomainController_seismicAlertConfig",
+        "operationId": "EnvironmentController_seismicAlertConfig",
         "parameters": [],
         "responses": {
           "200": {
@@ -2211,7 +2347,7 @@
         ]
       },
       "patch": {
-        "operationId": "DomainController_updateSeismicAlertConfig",
+        "operationId": "EnvironmentController_updateSeismicAlertConfig",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -2241,7 +2377,7 @@
     },
     "/api/seismic/notifications": {
       "get": {
-        "operationId": "DomainController_seismicNotifications",
+        "operationId": "EnvironmentController_seismicNotifications",
         "parameters": [],
         "responses": {
           "200": {
@@ -2261,7 +2397,7 @@
     },
     "/api/weather/cities": {
       "get": {
-        "operationId": "DomainController_weatherCities",
+        "operationId": "EnvironmentController_weatherCities",
         "parameters": [],
         "responses": {
           "200": {
@@ -2281,7 +2417,7 @@
     },
     "/api/weather/grid": {
       "get": {
-        "operationId": "DomainController_weatherGrid",
+        "operationId": "EnvironmentController_weatherGrid",
         "parameters": [],
         "responses": {
           "200": {
@@ -2301,7 +2437,7 @@
     },
     "/api/weather/grid-world": {
       "get": {
-        "operationId": "DomainController_weatherGridWorld",
+        "operationId": "EnvironmentController_weatherGridWorld",
         "parameters": [],
         "responses": {
           "200": {
@@ -2321,7 +2457,7 @@
     },
     "/api/weather/forecast": {
       "get": {
-        "operationId": "DomainController_weatherForecast",
+        "operationId": "EnvironmentController_weatherForecast",
         "parameters": [
           {
             "name": "lat",
@@ -2351,142 +2487,6 @@
           }
         ],
         "summary": "Prévisions météo (Open-Meteo, proxy souverain) pour lat/lon",
-        "tags": [
-          "domain"
-        ]
-      }
-    },
-    "/api/incidents/{id}/deployments": {
-      "get": {
-        "description": "Visible par qui voit déjà l'incident — la section « Postes déployés » de la fiche.",
-        "operationId": "DomainController_listDeployments",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "404": {
-            "description": "Incident inconnu ou hors de la portée du compte."
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Postes déployés sur cette opération.",
-        "tags": [
-          "domain"
-        ]
-      },
-      "post": {
-        "description": "UN SEUL incident à la fois : le compte est retiré de l'opération qu'il servait, et ce retrait figure dans le fil et dans le journal d'audit. Refusé si l'opération est close ou archivée, ou si le compte n'occupe pas un poste déployable.",
-        "operationId": "DomainController_deployPost",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeployPostDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "400": {
-            "description": "Le compte n'occupe pas un poste déployable."
-          },
-          "404": {
-            "description": "Incident ou compte inconnu."
-          },
-          "409": {
-            "description": "Opération close ou archivée."
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Déployer un poste sur l'opération.",
-        "tags": [
-          "domain"
-        ]
-      }
-    },
-    "/api/deployable-posts": {
-      "get": {
-        "description": "Renvoie AUSSI l'opération que chaque compte sert déjà : le commandement doit voir qui il s'apprête à retirer d'ailleurs avant de cliquer, et non le découvrir après.",
-        "operationId": "DomainController_listDeployablePosts",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Comptes déployables, avec leur affectation courante.",
-        "tags": [
-          "domain"
-        ]
-      }
-    },
-    "/api/incidents/{id}/deployments/{matricule}": {
-      "delete": {
-        "description": "Le compte perd sa portée : il ne voit plus aucun incident tant qu'il n'est pas redéployé.",
-        "operationId": "DomainController_withdrawPost",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "matricule",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "404": {
-            "description": "Incident ou compte inconnu."
-          },
-          "409": {
-            "description": "Ce compte n'est pas déployé sur cette opération."
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Retirer un poste de l'opération.",
         "tags": [
           "domain"
         ]
@@ -4297,37 +4297,6 @@
           "level"
         ]
       },
-      "UpdateChannelDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "example": "coordination-nord"
-          },
-          "topic": {
-            "type": "string",
-            "example": "Coordination secteur nord"
-          }
-        }
-      },
-      "ChannelMembersDto": {
-        "type": "object",
-        "properties": {
-          "matricules": {
-            "example": [
-              "i.benfares",
-              "n.fassi"
-            ],
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "matricules"
-        ]
-      },
       "CasualtiesDto": {
         "type": "object",
         "properties": {
@@ -4641,6 +4610,127 @@
         "required": [
           "type",
           "sev"
+        ]
+      },
+      "DeployPostDto": {
+        "type": "object",
+        "properties": {
+          "matricule": {
+            "type": "string",
+            "example": "o.ziani",
+            "description": "Matricule du compte à déployer. Il doit occuper un poste déployable (OPCOM, TACOM, cellules, responsable abri ou équipement). Le déploiement REMPLACE l'opération qu'il servait."
+          }
+        },
+        "required": [
+          "matricule"
+        ]
+      },
+      "UpdateChannelDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "coordination-nord"
+          },
+          "topic": {
+            "type": "string",
+            "example": "Coordination secteur nord"
+          }
+        }
+      },
+      "ChannelMembersDto": {
+        "type": "object",
+        "properties": {
+          "matricules": {
+            "example": [
+              "i.benfares",
+              "n.fassi"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "matricules"
+        ]
+      },
+      "MessageAttachmentDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "mime": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "mime",
+          "bytes"
+        ]
+      },
+      "SendMessageDto": {
+        "type": "object",
+        "properties": {
+          "channelId": {
+            "type": "string",
+            "example": "c1"
+          },
+          "txt": {
+            "type": "string"
+          },
+          "attachment": {
+            "description": "Pièce jointe déjà versée via POST /comms/attachments.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MessageAttachmentDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "channelId",
+          "txt"
+        ]
+      },
+      "CreateCategoryDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "COORDINATION CIVILE"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "CreateChannelDto": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "example": "g1"
+          },
+          "name": {
+            "type": "string",
+            "example": "point-logistique"
+          }
+        },
+        "required": [
+          "categoryId",
+          "name"
         ]
       },
       "CreateUnitDto": {
@@ -5203,83 +5293,6 @@
           }
         }
       },
-      "MessageAttachmentDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "mime": {
-            "type": "string"
-          },
-          "bytes": {
-            "type": "number",
-            "minimum": 0
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "mime",
-          "bytes"
-        ]
-      },
-      "SendMessageDto": {
-        "type": "object",
-        "properties": {
-          "channelId": {
-            "type": "string",
-            "example": "c1"
-          },
-          "txt": {
-            "type": "string"
-          },
-          "attachment": {
-            "description": "Pièce jointe déjà versée via POST /comms/attachments.",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/MessageAttachmentDto"
-              }
-            ]
-          }
-        },
-        "required": [
-          "channelId",
-          "txt"
-        ]
-      },
-      "CreateCategoryDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "example": "COORDINATION CIVILE"
-          }
-        },
-        "required": [
-          "name"
-        ]
-      },
-      "CreateChannelDto": {
-        "type": "object",
-        "properties": {
-          "categoryId": {
-            "type": "string",
-            "example": "g1"
-          },
-          "name": {
-            "type": "string",
-            "example": "point-logistique"
-          }
-        },
-        "required": [
-          "categoryId",
-          "name"
-        ]
-      },
       "AuthorityContactDto": {
         "type": "object",
         "properties": {
@@ -5328,19 +5341,6 @@
           "maMinMag",
           "globalMinMag",
           "contacts"
-        ]
-      },
-      "DeployPostDto": {
-        "type": "object",
-        "properties": {
-          "matricule": {
-            "type": "string",
-            "example": "o.ziani",
-            "description": "Matricule du compte à déployer. Il doit occuper un poste déployable (OPCOM, TACOM, cellules, responsable abri ou équipement). Le déploiement REMPLACE l'opération qu'il servait."
-          }
-        },
-        "required": [
-          "matricule"
         ]
       },
       "CreateOrderDto": {
