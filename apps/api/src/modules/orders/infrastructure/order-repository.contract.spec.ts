@@ -12,11 +12,20 @@
 // ============================================================================
 
 import { InMemoryOrderRepository } from "@/modules/orders/infrastructure/in-memory-order.repository";
+import { DrizzleOrderRepository } from "@/modules/orders/infrastructure/drizzle-order.repository";
+import { createDb } from "@/db/client";
 import type { OrderSnapshot } from "@/modules/orders/domain/order";
 import type { OrderRepository } from "@/modules/orders/ports/order-repository.port";
 
 const ADAPTERS: [string, () => OrderRepository][] = [
   ["InMemoryOrderRepository", () => new InMemoryOrderRepository()],
+  // L'adaptateur PostgreSQL rejoue LE MÊME contrat dès qu'une base de test est
+  // désignée : `ARGOS_TEST_DATABASE_URL=postgres://… npm run test:api` (schéma
+  // appliqué par `npm run db:migrate`). Sans elle, il est simplement absent de
+  // la liste — le contrat, lui, ne change pas (registre R-1).
+  ...(process.env.ARGOS_TEST_DATABASE_URL
+    ? ([["DrizzleOrderRepository", () => new DrizzleOrderRepository(createDb(process.env.ARGOS_TEST_DATABASE_URL as string))]] as [string, () => OrderRepository][])
+    : []),
 ];
 
 function snapshot(id: string, over: Partial<OrderSnapshot> = {}): OrderSnapshot {
