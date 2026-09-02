@@ -21,11 +21,20 @@ import {
   aiSystemPrompt,
   cleanFinalText,
   detectInjection,
-  detectLeakedPrompt,
   isSafeGreeting,
   resolveProvider,
 } from "@/lib/ai/config";
-import { chatStream, probeProvider } from "@/lib/ai/provider";
+import { probeProvider } from "@/lib/ai/provider";
+import {
+  buildLlmHistory,
+  layer1Shortcut,
+  llmTimeoutMs,
+  measureLabel,
+  purgeLog,
+  runLlmTurn,
+  structuredBlocks,
+  type LlmMessage,
+} from "@/lib/ai/copilot";
 import {
   buildLlmUserMessage,
   enrichFromHistory,
@@ -234,52 +243,32 @@ export default function CopilotBody() {
       const qRaw = query.trim();
       if (!qRaw || busy) return;
 
-      // 🛡️ Garde-fou sécurité : DÉTECTER D'ABORD SUR LE TEXTE BRUT UTILISATEUR
-      // (avant pushAi, avant enrichFromHistory, avant tout traitement).
-      // → évite que l'enrichissement / préfixage casse la liste blanche de salutations.
+      // 🛡️ Garde-fou : détecté D'ABORD sur le texte brut, avant tout
+      // enrichissement — l'enrichissement casserait la liste blanche.
       if (detectInjection(qRaw)) {
         setInput("");
         pushAi({ role: "user", text: display ?? qRaw });
-        pushAi({
-          role: "assistant",
-          text: AI_REFUS_RESPONSE,
-          provider: t.cp_guard,
-          refused: true,
-        });
+        pushAi({ role: "assistant", text: AI_REFUS_RESPONSE, provider: t.cp_guard, refused: true });
         return;
       }
 
-      // 🤝 SALUTATIONS DÉTACHÉES (bonjour / salut / hello / merci etc.)
-      // → COURT-CIRCUIT COMPLET : PAS d'appel interpret, PAS d'appel LLM/Ollama.
-      //   Raisons:
-      //   1. GARANTIE la forme "plateforme ARGOS" + interdit "Aucune donnée transmise".
-      //   2. 0 ms de réponse (pas de stream LLM pour un bonjour).
-      //   3. Évite 0-risk de fuite prompt / écho JSON sur données vides.
-      //   4. Économise GPU/RAM de l'utilisateur.
+      // 🤝 Salutation détachée : réponse immédiate, ni Couche 1 ni modèle.
+      // Zéro délai, zéro risque de fuite d'invite sur des données vides.
       if (isSafeGreeting(qRaw)) {
         setInput("");
         pushAi({ role: "user", text: display ?? qRaw });
-        pushAi({
-          role: "assistant",
-          text: pickGreetingResponse(safeGreetings),
-          provider: t.cp_title,
-        });
+        pushAi({ role: "assistant", text: pickGreetingResponse(safeGreetings), provider: t.cp_title });
         return;
       }
 
       setInput("");
       pushAi({ role: "user", text: display ?? qRaw });
 
-      // 🧠 Mémoire Couche 1 : enrichit les questions vagues
+      // 🧠 Couche 1 : la question, enrichie de l'historique, est interprétée
+      // sur les données ARGOS. C'est elle qui décide si le modèle est consulté.
       const enriched = enrichFromHistory(qRaw, aiLog);
       const q = enriched.query;
-
       const pathInc = path.match(/\/incidents\/(INC-\d+)/i)?.[1];
-      const currentIncidentId =
-        enriched.targetIncidentId ||
-        pathInc ||
-        (selMarker?.kind === "inc" ? selMarker.id : undefined);
-
       const ctx: AiContext = {
         incidents,
         movements,
@@ -290,334 +279,116 @@ export default function CopilotBody() {
         equipment: catalog.equipment,
         orsec: catalog.orsec,
         currentPath: path,
-        currentIncidentId,
+        currentIncidentId: enriched.targetIncidentId || pathInc || (selMarker?.kind === "inc" ? selMarker.id : undefined),
         riskPredictions,
         analytics: catalog.analytics ?? null,
       };
       const answer = interpret(q, ctx);
 
-      // 🔥 🔥 RACCORCI D'INTENTION SOCIALE / SALUTATION / ÉQUIPEMENT :
-      // Si la Couche 1 a identifié intent=greeting OU intent=social →
-      // → On NE PASSE PAS AU LLM (évite hallucinations type "hôpitaux militaires 100/100"
-      //   + économise GPU + délais). On affiche DIRECTEMENT la réponse Couche 1.
-      // → De même pour intent=equipment_search : LA COUCHE 1 POSSEDE DÉJÀ L'ÉTAT COMPLET
-      //   (ruptures HS / sous seuil) depuis ctx.equipment. Le LLM a TENDANCE À RÉPONDRE
-      //   « Donnée absente » ou d'inventer des stocks non conformes sur ce type de requête
-      //   → on court-circuite complètement et on rend la Couche 1 structurée.
-      if (answer.intent === "greeting" || answer.intent === "social") {
-        setInput("");
-        const socialMsgId = pushAi({
+      // Intentions servies par la Couche 1 seule (voir lib/ai/copilot/blocks.ts).
+      const raccourci = layer1Shortcut(answer);
+      if (raccourci) {
+        const provider =
+          raccourci === "social"
+            ? t.cp_title
+            : raccourci === "cross_analysis"
+              ? "ARGOS · dispositif & recommandations"
+              : raccourci === "mobilizable_potential"
+                ? "ARGOS · potentiel mobilisable"
+                : t.cp_inv_src;
+        pushAi({
           role: "assistant",
           text: cleanFinalText(answer.text),
-          provider: t.cp_title,
+          provider,
           suggestions: answer.suggestions,
+          ...(raccourci === "social" ? {} : { deterministic: true, layer1: answer.layer1, ...structuredBlocks(answer, true) }),
         });
-        void socialMsgId;
         setBusy(false);
         return;
       }
-            // 🔥 RACCourci CROSS ANALYSIS (dispositif / équipements pour INC / fiche 360) :
-      //    crossAnalysis contient TOUT le dispositif (unités reco + hôpitaux + équipements liés)
-      //    en Couche 1 (recommandations réelles, 100% ARGOS). Le LLM tend à diluer ça en
-      //    texte trop long / hors sujet → on affiche direct Couche1.
-      if (answer.intent === "cross_analysis") {
-        setInput("");
-        const crossMsgId = pushAi({
-          role: "assistant",
-          text: cleanFinalText(answer.text),
-          provider: "ARGOS · dispositif & recommandations",
-          deterministic: true,
-          layer1: answer.layer1,
-          suggestions: answer.suggestions,
-          units: answer.units,
-          incidents: answer.incidents,
-          hospitals: answer.hospitals,
-          quakes: answer.quakes,
-          equipment: answer.topEquip,
-          stats: answer.stats,
-          cross: answer.cross,
-        });
-        void crossMsgId;
-        setBusy(false);
-        return;
-      }
-      // 🔥 RACCourci POTENTIEL MOBILISABLE (géographique périmètre / région / ville / rayon km)
-      if (answer.intent === "mobilizable_potential") {
-        setInput("");
-        const mobMsgId = pushAi({
-          role: "assistant",
-          text: cleanFinalText(answer.text),
-          provider: "ARGOS · potentiel mobilisable",
-          deterministic: true,
-          layer1: answer.layer1,
-          suggestions: answer.suggestions,
-          units: answer.units,
-          incidents: answer.incidents,
-          hospitals: answer.hospitals,
-          quakes: answer.quakes,
-          equipment: answer.topEquip,
-          stats: answer.stats,
-          cross: answer.cross,
-        });
-        void mobMsgId;
-        setBusy(false);
-        return;
-      }
-      if (answer.intent === "equipment_search" || answer.intent === "equipment_critical_status") {
-        setInput("");
-        const equipMsgId = pushAi({
-          role: "assistant",
-          text: cleanFinalText(answer.text),
-          provider: t.cp_inv_src,
-          deterministic: true,
-          layer1: answer.layer1,
-          suggestions: answer.suggestions,
-          units: answer.units,
-          incidents: answer.incidents,
-          hospitals: answer.hospitals,
-          quakes: answer.quakes,
-          equipment: answer.topEquip,
-          stats: answer.stats,
-          cross: answer.cross,
-        });
-        void equipMsgId;
-        setBusy(false);
-        return;
-      }
-      // Attachement de riskPredictions sur la réponse → utilisé par buildLlmUserMessage (ctxNotes français)
-      // NOTE: on ne JAMAIS l'injecter dans data JSON → pas d'écho "valeur issue de xxx"
-      // (buildLlmUserMessage lit `_riskCtx` et l'envoie uniquement dans CONTEXTE GLOBAL naturel)
+
+      // Les prédictions de risque voyagent HORS du JSON de données : le
+      // constructeur d'invite les lit ici et les rend en contexte naturel,
+      // jamais en « valeur issue de … ».
       const withRiskCtx = answer as AiAnswer & { _riskCtx?: RiskPrediction[] };
       withRiskCtx._riskCtx = riskPredictions;
 
-      // ---  UX QWEN D'ABORD : pushAi initial = AUCUN bloc structuré affiché.
-      // On NE montre à l'utilisateur QUE le texte "Traitement en cours…" + provider.
-      // Les blocs (incidents, hôpitaux, unités, quakes, équipements, stats, cross, suggestions)
-      // SONT AJOUTÉS À LA FIN UNIQUEMENT :
-      //   1) si stream LLM termine → texte final Qwen + blocs montés EN MÊME TEMPS
-      //   2) si fallback timeout/erreur → texte Couche1 + (si known intent) blocs montés EN MÊME TEMPS
-      // BUT : utilisateur NE VOIT PLUS JAMAIS "réponse Couche1" avant traitement,
-      // il voit : Traitement → stream Qwen mot par mot → puis blocs structurés ajoutés en dessous.
-      const msgId = pushAi({
-        role: "assistant",
-        text: t.cp_processing,
-        provider: `${cfg.label} · ${cfg.model}`,
-      });
-
+      // Le fil ne montre que « traitement en cours » : les blocs structurés
+      // arrivent avec le texte final, jamais avant — l'utilisateur ne voit plus
+      // une réponse Couche 1 remplacée sous ses yeux.
+      const msgId = pushAi({ role: "assistant", text: t.cp_processing, provider: `${cfg.label} · ${cfg.model}` });
       setBusy(true);
       // Priorité à l'opérateur : les recalculs IA de fond patientent le temps
       // de la réponse (mesuré : 26,9 s de premier jeton avec eux devant, 3,5 s sans).
       useArgos.getState().setAiOperatorBusy(true);
       const t0 = Date.now();
-      // 🛡️ Guard ultime: si la question utilisateur est une salutation innocente
-      // (bonjour/hello/salut/merci etc.) → on DÉSACTIVE LE GARDE-FOU NIVEAU 2
-      // (detectLeakedPrompt) pour laisser le LLM répondre poliment normalement.
-      // → Évite "fuite prompt détectée» sur les formules de politesse classiques.
-      const skipLeakGuard = isSafeGreeting(qRaw);
+      const blocs = structuredBlocks(answer);
+      const repli = (llmError: string) =>
+        updateAi(msgId, {
+          text: cleanFinalText(answer.text),
+          provider: `Données ARGOS · ${answer.intent === "unknown" ? t.cp_partial : t.cp_detailed}`,
+          deterministic: true,
+          llmError,
+          layer1: answer.layer1,
+          ...blocs,
+          suggestions: answer.suggestions,
+        });
       try {
-        // 🔥🔥🔥 MIN TIMEOUT Qwen2.5:14b (9GB Ollama local) = 40s MÍNIMUM.
-        //      1er token : chauffe GPU/RAM + load modèle, souvent 20-35s.
-        //      Les anciens timeouts 15s (offline) / 25s (online) étaient TOUJOURS < 1er token →
-        //      systématiquement Couche1 fallback.
-        const baseTimeoutMs = status === "online" ? 90_000 : 70_000;
-        const qWords = q.trim().split(/\s+/).filter(Boolean).length;
-        const timeoutMs = Math.max(baseTimeoutMs, qWords > 6 ? 120_000 : baseTimeoutMs);
-        let finished = false;
-        let llmText = "";
-        let firstTokenAt: number | null = null;
-        // RENDU CADENCÉ. Le modèle produit ~45 jetons/s ; rendre à chaque jeton
-        // relançait à cette cadence les ~30 expressions régulières de
-        // `cleanFinalText` et `detectLeakedPrompt` sur TOUT le texte accumulé
-        // (coût quadratique), puis une réécriture complète du journal dans
-        // `localStorage`. L'œil ne distingue rien sous ~80 ms : on rend à cette
-        // cadence, et on ne persiste qu'à la fin.
-        const RENDU_MS = 80;
-        let renduPrevu: ReturnType<typeof setTimeout> | null = null;
-        let dernierRendu = 0;
-
-        // Historique conversation
-        // ⚠️ CRITIQUE 13/08/26 : Qwen2.5:14b = 32 768 tokens TOTAL FENÊTRE (n_ctx_train=32768 IMPOSÉ PAR LE GGUF).
-        // Ollama REFUSE num_ctx>32768: WARN "requested context size too large for model".
-        // → BUDGET TOTAL FENÊTRE :
-        //   system prompt : ~1500 tokens
-        //   historique    : max 2 turns (4 messages), ~250 tokens/msg = ~1 000 tokens
-        //   user message  : max ~3 500 tokens (LLM_MAX_ROWS=2, summary 600c)
-        //   réponse       : max 4 000 tokens
-        //   = TOTAL ~10 000 tokens — bien SOUS 32768 (facteur sécurité ×3).
-        const maxTurns = 2;
-        const aiLogLen = aiLog.length;
-        if (aiLogLen > 8) {
-          // PURGE DOUCE AUTO: plus de 8 messages (4 turns) → on ne garde QUE les 4 derniers (2 turns).
-          // Évite accumulation historique 40 msg = 100K tokens.
-          const purgeFrom = aiLogLen - 4;
-          try {
-            const keepIds = aiLog.slice(purgeFrom).map((m) => m.id);
-            const all = useArgos.getState().aiLog;
-            const purged = all.filter((m) => keepIds.includes(m.id) || !m.id.startsWith("ai-"));
-            if (purged.length !== all.length) {
-              useArgos.setState({ aiLog: purged });
-            }
-          } catch { /* ignore purge errors */ }
-        }
-        const historySlice = aiLog.slice(-(maxTurns * 2));
-        const llmHistory: { role: "system" | "user" | "assistant"; content: string }[] = [];
-        for (const hm of historySlice) {
-          if (!hm.text || !hm.text.trim()) continue;
-          if (hm.refused) continue;
-          // 🔥 TRONCATURE DURE SÉCURITÉ historique: assistant 800 chars MAX / user 600 chars MAX.
-          // → jamais 40K tokens d'ancien markdown answer.text dans l'historique.
-          let content = hm.text;
-          if (hm.role === "assistant" && content.length > 800) content = content.slice(0, 800) + "\n[…tronqué…]";
-          if (hm.role === "user" && content.length > 600) content = content.slice(0, 600) + "\n[…trop long tronqué…]";
-          if (hm.role === "user") llmHistory.push({ role: "user", content });
-          else if (hm.role === "assistant") llmHistory.push({ role: "assistant", content });
-        }
-
-        const streamProviderPrefix = "…";
-        let leaked = false;
-        const applyLeakRefusal = () => {
-          if (leaked || skipLeakGuard) return;
-          leaked = true;
-          updateAi(msgId, {
-            text: AI_REFUS_RESPONSE,
-            provider: "🛡️ Garde-fou sécurité (fuite prompt détectée)",
-            refused: true,
-          });
-        };
-        const res = await Promise.race([
-          chatStream(
-            cfg,
-            [
-              { role: "system", content: aiSystemPrompt(useArgos.getState().lang, aiSettings.systemPrompt) },
-              ...llmHistory,
-              { role: "user", content: buildLlmUserMessage(q, withRiskCtx, useArgos.getState().lang) },
-            ],
-            {
-              onToken: (acc) => {
-                if (finished || leaked) return;
-                // 1er jeton reçu : horodatage (diagnostic + fournisseur)
-                if (firstTokenAt === null) firstTokenAt = Date.now();
-                llmText = acc;
-                if (renduPrevu) return; // un rendu est déjà programmé
-                const attente = Math.max(0, RENDU_MS - (Date.now() - dernierRendu));
-                renduPrevu = setTimeout(() => {
-                  renduPrevu = null;
-                  dernierRendu = Date.now();
-                  try {
-                    if (finished || leaked) return;
-                    if (!skipLeakGuard && detectLeakedPrompt(llmText)) {
-                      applyLeakRefusal();
-                      return;
-                    }
-                    const firstTokenSec = firstTokenAt ? ((firstTokenAt - t0) / 1000).toFixed(1) : null;
-                    // Pendant le flux : texte + fournisseur seulement (pas de blocs
-                    // structurés), et SANS persistance — elle vient à la fin.
-                    updateAi(
-                      msgId,
-                      {
-                        text: cleanFinalText(llmText),
-                        provider: firstTokenSec
-                          ? `${streamProviderPrefix} · ${cfg.label} (${cfg.model}) · 1er jeton T+${firstTokenSec}s`
-                          : `${streamProviderPrefix} · ${cfg.label} (${cfg.model}) · attente du 1er jeton…`,
-                      },
-                      { persist: false },
-                    );
-                  } catch (e) {
-                    // eslint-disable-next-line no-console
-                    console.warn("[Copilot] rendu du flux :", e);
-                  }
-                }, attente);
+        // Purge douce du journal avant de construire l'historique.
+        const purged = purgeLog(useArgos.getState().aiLog, aiLog);
+        if (purged !== useArgos.getState().aiLog) useArgos.setState({ aiLog: purged });
+        const lang = useArgos.getState().lang;
+        const messages: LlmMessage[] = [
+          { role: "system", content: aiSystemPrompt(lang, aiSettings.systemPrompt) },
+          ...buildLlmHistory(aiLog),
+          { role: "user", content: buildLlmUserMessage(q, withRiskCtx, lang) },
+        ];
+        const issue = await runLlmTurn(cfg, messages, {
+          skipLeakGuard: isSafeGreeting(qRaw),
+          timeoutMs: llmTimeoutMs(status === "online", q),
+          onLeak: () =>
+            updateAi(msgId, {
+              text: AI_REFUS_RESPONSE,
+              provider: "🛡️ Garde-fou sécurité (fuite prompt détectée)",
+              refused: true,
+            }),
+          // Pendant le flux : texte + fournisseur seulement, SANS persistance.
+          onRender: (text, firstTokenSec) =>
+            updateAi(
+              msgId,
+              {
+                text,
+                provider: firstTokenSec
+                  ? `… · ${cfg.label} (${cfg.model}) · 1er jeton T+${firstTokenSec}s`
+                  : `… · ${cfg.label} (${cfg.model}) · attente du 1er jeton…`,
               },
-            },
-          ),
-          new Promise<{ ok: false; text: ""; aborted: true }>((resolve) =>
-            setTimeout(() => resolve({ ok: false, text: "", aborted: true }), timeoutMs),
-          ),
-        ]);
-        finished = true;
+              { persist: false },
+            ),
+        });
         useArgos.getState().setAiOperatorBusy(false);
-        if (renduPrevu) clearTimeout(renduPrevu);
-        const durationSec = ((Date.now() - t0) / 1000).toFixed(1);
-        // Mesures RÉELLES du runtime, pas une estimation : ce qui a coûté, et où.
-        const stats = "ok" in res && res.ok ? res.stats : undefined;
-        const mesure = stats
-          ? ` · prompt ${stats.promptTokens} jetons${stats.promptSec >= 0.05 ? ` en ${stats.promptSec.toFixed(1)}s` : " (cache)"} · ${stats.outputTokens} jetons à ${stats.outputSec > 0 ? (stats.outputTokens / stats.outputSec).toFixed(0) : "?"}/s`
-          : "";
-        const llmEmpty = !("ok" in res) || !res.ok || !llmText || !llmText.trim();
-        const timeoutHit = !("ok" in res) || (res as { aborted?: boolean }).aborted === true;
-        const httpError = "ok" in res && !res.ok && typeof (res as { error?: string }).error === "string";
-        // 🚨 QWEN D'ABORD : on n'ajoute LES BLOCS STRUCTURÉS (units/incidents/hospitals/quakes/stats)
-        //    QU'EN CAS DE SUCCÈS LLM (intent != unknown) OR intent reconnu explicitement
-        //    par Couche1. Si intent === "unknown" (regex n'a pas compris) → on LAISSE QWEN
-        //    répondre avec contexte. Si LLM échoue (timeout/err) → ON NE MONTE PAS LES BLOCS
-        //    pour ne pas afficher 30 lignes de VUE GLOBALE à tort.
-        const isUnknown = answer.intent === "unknown";
-        const mountStructured = !isUnknown;
-        if (leaked) {
-          /* déjà refus via applyLeakRefusal */
-        } else if (!skipLeakGuard && detectLeakedPrompt(llmText)) {
-          applyLeakRefusal();
-        } else if (llmEmpty) {
-          const errRaw = httpError ? (res as { error?: string }).error : undefined;
-          const llmError = timeoutHit
-            ? `⏱️ Délai ${durationSec}s expiré`
-            : httpError && errRaw
-              ? errRaw
-              : `réponse vide`;
-          updateAi(msgId, {
-            text: cleanFinalText(answer.text),
-            provider: `Données ARGOS · ${answer.intent === "unknown" ? t.cp_partial : t.cp_detailed}`,
-            deterministic: true,
-            llmError: `🤖 ${cfg.label} : ${llmError}`,
-            layer1: answer.layer1,
-            units: mountStructured ? answer.units : undefined,
-            incidents: mountStructured ? answer.incidents : undefined,
-            hospitals: mountStructured ? answer.hospitals : undefined,
-            quakes: mountStructured ? answer.quakes : undefined,
-            equipment: mountStructured ? answer.topEquip : undefined,
-            stats: mountStructured ? answer.stats : undefined,
-            cross: mountStructured ? answer.cross : undefined,
-            suggestions: answer.suggestions,
-          });
-        } else {
-          // ✅ LLM OK — montée blocs si intent reconnu (sinon Qwen a déjà parlé)
-          const first = firstTokenAt ? `1er jeton T+${((firstTokenAt - t0) / 1000).toFixed(1)}s · ` : "";
-          updateAi(msgId, {
-            text: cleanFinalText(llmText),
-            provider: `🤖 ${cfg.label} · ${cfg.model} · ${first}durée ${durationSec}s${mesure}`,
-            units: mountStructured ? answer.units : undefined,
-            incidents: mountStructured ? answer.incidents : undefined,
-            hospitals: mountStructured ? answer.hospitals : undefined,
-            quakes: mountStructured ? answer.quakes : undefined,
-            equipment: mountStructured ? answer.topEquip : undefined,
-            stats: mountStructured ? answer.stats : undefined,
-            cross: mountStructured ? answer.cross : undefined,
-            suggestions: answer.suggestions,
-          });
+
+        if (issue.kind === "leaked") return; // déjà remplacé par le refus
+        if (issue.kind === "empty") {
+          const detail =
+            issue.reason === "timeout" ? `⏱️ Délai ${issue.durationSec}s expiré` : issue.reason === "http" ? issue.error ?? "réponse vide" : "réponse vide";
+          repli(`🤖 ${cfg.label} : ${detail}`);
+          return;
         }
+        // ✅ Modèle OK — texte du modèle, blocs si l'intention est reconnue.
+        const first = issue.firstTokenSec ? `1er jeton T+${issue.firstTokenSec}s · ` : "";
+        updateAi(msgId, {
+          text: cleanFinalText(issue.text),
+          provider: `🤖 ${cfg.label} · ${cfg.model} · ${first}durée ${issue.durationSec}s${measureLabel(issue.stats)}`,
+          ...blocs,
+          suggestions: answer.suggestions,
+        });
       } catch (err) {
+        useArgos.getState().setAiOperatorBusy(false);
         const durationSec = ((Date.now() - t0) / 1000).toFixed(1);
         const msg = err instanceof Error ? err.message : "erreur inconnue";
         // eslint-disable-next-line no-console
         console.error("[Copilot] ask() runtime error:", err);
-        const isUnknown = answer.intent === "unknown";
-        const mountStructured = !isUnknown;
-        // ⚠️ ERREUR RUNTIME → fallback Couche 1
-        updateAi(msgId, {
-          text: answer.text,
-          provider: `Données ARGOS · ${answer.intent === "unknown" ? t.cp_partial : t.cp_detailed}`,
-          deterministic: true,
-          llmError: `⛔ ERREUR T+${durationSec}s : ${msg}`,
-          layer1: answer.layer1,
-          units: mountStructured ? answer.units : undefined,
-          incidents: mountStructured ? answer.incidents : undefined,
-          hospitals: mountStructured ? answer.hospitals : undefined,
-          quakes: mountStructured ? answer.quakes : undefined,
-          equipment: mountStructured ? answer.topEquip : undefined,
-          stats: mountStructured ? answer.stats : undefined,
-          cross: mountStructured ? answer.cross : undefined,
-          suggestions: answer.suggestions,
-        });
+        repli(`⛔ ERREUR T+${durationSec}s : ${msg}`);
       } finally {
         setBusy(false);
       }
