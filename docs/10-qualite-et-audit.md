@@ -15,8 +15,7 @@ npm run docs:api    # le contrat et docs/03-api.md sont régénérés depuis le 
 
 Ces commandes s'exécutent **en séquence**. Résultat de la gate rejouée complète
 sur `fusion` à la fin de la passe (2 septembre 2026) : typecheck 0 erreur ·
-API 312/312 (deux exécutions complètes ; une troisième a vu un échec
-intermittent, consigné en R-14) · web 70/70 · build de production API et web
+API 322/322 · web 91/91 · build de production API et web
 réussi.
 
 Ce que chaque étape garantit :
@@ -82,7 +81,7 @@ soit un travail planifié, soit une décision à prendre.
 | # | Sujet | Nature | État / décision attendue |
 | --- | --- | --- | --- |
 | R-1 | **Persistance en mémoire** (instantané JSON de développement) | architecture | livrables PostgreSQL/Drizzle prêts dans `infra/` et `apps/api/src/db` ; bascule `DB_DRIVER=postgres` à qualifier module par module |
-| R-2 | **Authentification de développement** (HS256, `dev-token`) | sécurité | `AUTH_MODE=keycloak` en production ; `dev-token` n'existe qu'en mode dev — vérifier le déploiement |
+| R-2 | **Authentification de développement** (HS256, `dev-token`) | sécurité | **qualifié par test** (2 septembre 2026) : `iam/keycloak.spec.ts` joue Keycloak avec un JWKS local — signature RS256, émetteur, audience, expiration, HS256 refusé, aucun jeton fabriqué hors mode dev. Reste le déploiement réel (`infra/compose` : Keycloak + realm `argos`), hors de portée sans Docker sur ce poste |
 | R-3 | **Fond de carte tiers** en développement (`NEXT_PUBLIC_MAP_TILES=external`) | souveraineté | bandeau affiché ; production = tuiles auto-hébergées (martin dans `infra/compose`) |
 | R-4 | Lignes de la matrice **provisoires** : `aviation`, `tracking`, `comms_admin` | gouvernance | arbitrage état-major sur `docs/matrice-roles-fonctionnalites.xlsx` |
 | R-5 | Passerelles SMS / e-mail simulées | fonctionnel | raccordement réel hors périmètre actuel |
@@ -94,8 +93,8 @@ soit un travail planifié, soit une décision à prendre.
 | R-11 | `MASTER_PLAN.md`, `CLAUDE.md`, `CONTEXT.md` hors de git | organisation | choix de l'équipe ; l'auditeur les demande à part si nécessaire |
 | R-12 | Cache `apps/web/.next` très volumineux sur le poste de développement (plusieurs Go) | poste de travail | `rm -rf apps/web/.next` quand le serveur de développement est arrêté |
 | R-13 | Données CAMEO : licence | juridique | règle tenue : ne jamais copier `chemical_cas`, `dupont`, `aegls`, `erpgs`, NFPA ; les 31 CAS existants sont conservés |
-| R-15 | Une bascule 3D / fond de carte demandée **pendant le chargement des tuiles** est ignorée (garde `isStyleLoaded()` dans `apply3d`/`applyBase`, comportement d'origine conservé à l'identique) | ergonomie | à traiter en rejouant la bascule au prochain `idle` de la carte ; visible seulement sous étranglement du CDN de tuiles |
-| R-14 | Un échec **intermittent** de `iam/users.spec.ts` (1 test sur 312) observé une fois lors de la gate finale, non reproduit sur deux exécutions séquentielles complètes ni en isolation | fiabilité des tests | à instrumenter (capturer le message au prochain échec) ; suspect : dépendance à l'ordre ou à l'horloge, pas au code refondu — le test passe seul et en suite |
+| R-15 | Une bascule 3D / fond de carte demandée **pendant le chargement des tuiles** était ignorée | ergonomie | **traité** (2 septembre 2026) : rejouée au prochain `idle` de la carte, la dernière demande gagne ; 4 tests |
+| R-14 | Un échec **intermittent** de `iam/users.spec.ts` observé une fois | fiabilité des tests | **traité** (2 septembre 2026) : non reproduit (6 exécutions isolées, 3 complètes, 1 avec détection de handles ouverts, chaque suite chronométrée à 2–4 s) ; cause la plus probable : le délai par défaut de jest (5 s) face au démarrage complet de l'application sous contention — porté à 30 s explicitement |
 
 ## 5. Comment l'auditeur rejoue tout cela
 

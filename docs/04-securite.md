@@ -251,7 +251,7 @@ Exigences du `MASTER_PLAN.md` §4.3 :
 
 ## 10. Tests de sécurité
 
-La gate est automatisée : `npm run test:api` (**312 tests, 27 suites**, exécutés
+La gate est automatisée : `npm run test:api` (**322 tests, 28 suites**, exécutés
 en séquence — `jest --runInBand` — parce qu'en parallèle la suite `deployment`
 expire sous la contention CPU). Les suites qui portent la sécurité :
 
@@ -259,6 +259,7 @@ expire sous la contention CPU). Les suites qui portent la sécurité :
 | --- | --- |
 | `iam/authz.spec.ts` | 401 sans jeton, permissions résolues depuis le rôle, 403 sur accès non autorisé, intégrité de la chaîne d'audit |
 | `iam/authz-coverage.spec.ts` | **toute route sans marqueur d'accès** (`@RequirePermission` / `@SelfService` / `@Public`) |
+| `iam/keycloak.spec.ts` | **le mode production** : RS256 vérifié contre un JWKS (joué par un serveur local avec une clé générée), émetteur et audience contrôlés, expiration, autre clé et HS256 refusés, rôle ARGOS résolu depuis `realm_access.roles` ; hors mode dev l'API ne fabrique aucun jeton |
 | `iam/scope.spec.ts` | **cantonnement ABAC** : un responsable agit sur son entité, est refusé sur toute autre, un compte sans affectation est refusé |
 | `iam/users.spec.ts` | cycle de vie des comptes, règles d'attribution des rôles |
 | `domain/governance.authz.spec.ts` | qui supprime quoi : la suppression définitive n'appartient qu'au Super Administrateur |
