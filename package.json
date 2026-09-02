@@ -16,7 +16,8 @@
     "test:web": "npm test --prefix apps/web",
     "docs:api": "node scripts/contract-check.mjs --sync && node scripts/gen-api-doc.mjs",
     "contract:check": "node scripts/contract-check.mjs",
-    "contract:sync": "node scripts/contract-check.mjs --sync"
+    "contract:sync": "node scripts/contract-check.mjs --sync",
+    "clean:cache": "node -e \"for (const p of ['apps/web/.next','apps/api/dist','apps/web/tsconfig.tsbuildinfo']) require('fs').rmSync(p,{recursive:true,force:true}); console.log('caches de build supprimés')\""
   },
   "engines": {
     "node": ">=20"

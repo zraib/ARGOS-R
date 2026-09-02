@@ -56,6 +56,7 @@ Node uniquement (exigence de souveraineté).
 | `npm run contract:check` | exporte et **compare** au contrat versionné `packages/api-client/openapi.json` — échoue en cas de dérive (pour la CI) |
 | `npm run contract:sync` | exporte, met à jour le contrat versionné, régénère les types du client et leur copie dans `apps/web` |
 | `npm run docs:api` | `contract:sync` **puis** `docs/03-api.md` depuis le contrat et les contrôleurs |
+| `npm run clean:cache` | supprime les caches de build (`apps/web/.next`, `apps/api/dist`) — **serveurs de développement arrêtés** |
 
 Commandes spécifiques à l'API (depuis `apps/api`) :
 
@@ -244,6 +245,10 @@ Version courte :
 10. Régénérer le client API (§ 4).
 
 ## 11. Dépannage
+
+**Le disque se remplit (`apps/web/.next` de plusieurs Go).** Le cache de
+développement de Next grossit à chaque recompilation. Arrêter `npm run dev`,
+puis `npm run clean:cache` ; le prochain démarrage reconstruit le cache.
 
 | Symptôme | Cause probable | Correctif |
 | --- | --- | --- |
