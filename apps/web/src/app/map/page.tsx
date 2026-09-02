@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useArgos, useDict } from "@/lib/store";
@@ -12,178 +11,20 @@ import { FAMILY_PICTOGRAM } from "@/lib/hazard/pictograms";
 import { UI_ICONS } from "@/lib/icons";
 import { sevBadge, stBadge, typeLabel, hazardLabel} from "@/lib/helpers";
 import { FLUX } from "@/lib/i18n/flux";
-import type { LayerState } from "@/lib/store";
-
-const MapCanvas = dynamic(() => import("@/components/map/MapCanvas").then((m) => m.MapCanvas), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center text-xs text-rdia-200">Chargement de la carte…</div>
-  ),
-});
-
 import { AircraftPanel } from "@/components/map/AircraftPanel";
-import { OVERLAY_STYLE, SWITCH_OFF } from "@/lib/map/overlay";
 import { WindRose } from "@/components/map/WindRose";
 import { HOSPITAL_KINDS, hospKind, kindDef } from "@/lib/hospitals";
 import { HealthGlyph } from "@/components/health/HealthGlyph";
-import type { MarkerKind } from "@/lib/types";
-
-// Surcouches neutres (ardoise sombre) : le vert du thème se confondait avec
-// l'imagerie satellite et rendait les panneaux illisibles.
-const GLASS = OVERLAY_STYLE;
-
-interface SelLine { k: string; v: string }
-interface SelInfo {
-  titre: string; sub: string; badgeType: BadgeType; badgeLabel: string;
-  lines: SelLine[]; action?: () => void;
-}
-
-// ---------------------------------------------------------------------------
-// Surcouches adaptatives
-//
-// À partir de `lg` les panneaux flottent sur la carte comme auparavant (colonne
-// gauche : couches, suivi aérien, légende ; colonne droite : contrôles et
-// détail de sélection).
-//
-// En dessous, la carte n'a plus la place de porter 300 px de panneaux : à
-// 375 px ils la recouvraient entièrement et se chevauchaient. Les mêmes
-// contenus — sans rien retirer — passent donc dans une **feuille ancrée en
-// bas**, ouverte par un bouton flottant et organisée en onglets. Par défaut la
-// feuille est fermée : la carte occupe tout l'espace. Les contrôles (2D/3D,
-// fond, plein écran) restent en haut, hors de la feuille, en cibles de 44 px ;
-// les commandes natives de MapLibre (zoom, boussole, recentrage) sont remontées
-// en haut par `globals.css` pour la même raison.
-// ---------------------------------------------------------------------------
-type SheetTab = "layers" | "aircraft" | "legend" | "selection";
-
-/** Interrupteur on/off compact. */
-function Switch({ on }: { on: boolean }) {
-  return (
-    // inline-block obligatoire : un <span> inline ignore h-4/w-8 (largeur nulle).
-    <span className={`relative inline-block h-5 w-10 shrink-0 rounded-full transition-colors ${on ? "bg-or-500" : SWITCH_OFF}`}>
-      <span className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all" style={{ left: on ? 22 : 2 }} />
-    </span>
-  );
-}
-
-/** Panneau flottant repliable posé sur la carte. */
-function Panel({
-  title, children, defaultOpen = true, width, right,
-}: { title: ReactNode; children: ReactNode; defaultOpen?: boolean; width?: number; right?: ReactNode }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="pointer-events-auto overflow-hidden rounded-xl shadow-lg" style={{ ...GLASS, width }}>
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => setOpen((o) => !o)}
-          className="flex min-w-0 flex-1 items-center justify-between gap-2 px-3 py-2 text-[13px] font-bold uppercase tracking-wider text-white/80 transition-colors hover:text-or-400"
-        >
-          <span className="truncate">{title}</span>
-          <Icon path={UI_ICONS.caretDown} size={12} strokeWidth={2.5} className={`shrink-0 transition-transform ${open ? "" : "-rotate-90"}`} />
-        </button>
-        {right}
-      </div>
-      {open && <div className="px-3 pb-3">{children}</div>}
-    </div>
-  );
-}
-
-/** Élément réel de la carte, listé sous sa couche. */
-interface TreeLeaf { id: string; label: string; kind: MarkerKind }
-/** Couche cartographique : interrupteur + éléments qu'elle contient. */
-interface TreeLayer { key: keyof LayerState; label: string; leaves: TreeLeaf[] }
-interface TreeFamily { label: string; layers: TreeLayer[] }
-
-/** Ligne d'un élément : cliquer sélectionne le marqueur et recentre la carte. */
-function LeafRow({ leaf, sel, select }: { leaf: TreeLeaf; sel: boolean; select: (k: MarkerKind, id: string) => void }) {
-  return (
-    // Sous lg la ligne monte à 44 px : au doigt, une ligne de 20 px est
-    // impossible à viser sans toucher sa voisine.
-    <button
-      onClick={() => select(leaf.kind, leaf.id)}
-      className={`flex min-h-11 w-full items-center gap-1.5 truncate rounded px-1 py-0.5 text-start text-[14px] transition-colors lg:min-h-0 lg:text-[13px] ${
-        sel ? "bg-or-500/20 text-or-300" : "text-white/70 hover:bg-white/10 hover:text-white"
-      }`}
-    >
-      <span className={`h-1 w-1 shrink-0 rounded-full ${sel ? "bg-or-400" : "bg-white/40"}`} />
-      <span className="truncate">{leaf.label}</span>
-    </button>
-  );
-}
-
-/** Nœud « couche » : interrupteur d'affichage + liste repliable des éléments. */
-function LayerNode({
-  layer, on, toggle, selMarker, select,
-}: {
-  layer: TreeLayer; on: boolean; toggle: () => void;
-  selMarker: { kind: MarkerKind; id: string } | null; select: (k: MarkerKind, id: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const has = layer.leaves.length > 0;
-  return (
-    <div>
-      <div className="flex items-center gap-1 py-0.5">
-        <button
-          onClick={() => setOpen((o) => !o)}
-          disabled={!has}
-          className="cible-tactile flex items-center justify-center text-white/50 transition-colors hover:text-or-400 disabled:opacity-0"
-          aria-label={layer.label}
-        >
-          <Icon path={UI_ICONS.caretDown} size={10} strokeWidth={2.5} className={`transition-transform ${open ? "" : "-rotate-90"}`} />
-        </button>
-        <button onClick={toggle} className={`min-w-0 flex-1 truncate text-start text-[14px] transition-colors ${on ? "text-white/90" : "text-white/45"}`}>
-          {layer.label}
-          {has && <span className="ms-1 text-white/40">({layer.leaves.length})</span>}
-        </button>
-        <button onClick={toggle} aria-label={layer.label} className="cible-tactile flex items-center justify-center"><Switch on={on} /></button>
-      </div>
-      {open && has && (
-        <div className="ms-2 flex max-h-40 flex-col overflow-y-auto overflow-x-hidden border-s border-white/15 ps-1.5">
-          {layer.leaves.map((l) => (
-            <LeafRow key={`${l.kind}-${l.id}`} leaf={l} select={select} sel={selMarker?.kind === l.kind && selMarker.id === l.id} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Nœud « famille » de l'arbre des couches : repliable + interrupteur global. */
-function FamilyNode({
-  family, layers, toggleLayer, selMarker, select,
-}: {
-  family: TreeFamily; layers: LayerState; toggleLayer: (k: keyof LayerState) => void;
-  selMarker: { kind: MarkerKind; id: string } | null; select: (k: MarkerKind, id: string) => void;
-}) {
-  const [open, setOpen] = useState(true);
-  const anyOn = family.layers.some((l) => layers[l.key]);
-  const setAll = (v: boolean) => family.layers.forEach((l) => { if (layers[l.key] !== v) toggleLayer(l.key); });
-  return (
-    <div>
-      <div className="flex items-center gap-1.5 py-1">
-        <button onClick={() => setOpen((o) => !o)} className="cible-tactile flex items-center justify-center text-white/60 transition-colors hover:text-or-400" aria-label={family.label}>
-          <Icon path={UI_ICONS.caretDown} size={11} strokeWidth={2.5} className={`transition-transform ${open ? "" : "-rotate-90"}`} />
-        </button>
-        <span className="min-w-0 flex-1 truncate text-[14px] font-bold text-white/90">{family.label}</span>
-        <button onClick={() => setAll(!anyOn)} aria-label={family.label} className="cible-tactile flex items-center justify-center"><Switch on={anyOn} /></button>
-      </div>
-      {open && (
-        <div className="ms-2 flex flex-col border-s border-white/15 ps-1.5">
-          {family.layers.map((l) => (
-            <LayerNode
-              key={l.key}
-              layer={l}
-              on={layers[l.key]}
-              toggle={() => toggleLayer(l.key)}
-              selMarker={selMarker}
-              select={select}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+import {
+  GLASS,
+  SelInfo,
+  SheetTab,
+  TreeFamily,
+} from "@/app/map/_parts/shared";
+import { MapCanvas } from "@/app/map/_parts/MapCanvas";
+import { Switch } from "@/app/map/_parts/Switch";
+import { Panel } from "@/app/map/_parts/Panel";
+import { FamilyNode } from "@/app/map/_parts/FamilyNode";
 
 export default function MapPage() {
   const t = useDict();
