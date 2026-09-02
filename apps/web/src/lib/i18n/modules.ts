@@ -668,6 +668,15 @@ export interface ModulesDict {
     search_ph: string;
   };
   hospinet: {
+    network_mil: string;
+    network_civ: string;
+    beds_n: string;
+    free_icu_line: string;
+    permanent_field_line: string;
+    free_of_beds: string;
+    pct_beds: string;
+    count_fac: string;
+    beds_occ_line: string;
     occ_saturated: string;
     occ_tight: string;
     occ_comfortable: string;

@@ -153,7 +153,7 @@ export function HospinetIAPanel() {
         <KpiCard
           icon={NAV_ICONS.hospitals}
           label={t.hn_kpi_capacity}
-          primary={`${fmtInt(facts.lits)} lits`}
+          primary={tpl(m.hospinet.beds_n, { n: fmtInt(facts.lits) })}
           secondary={tpl(m.hospinet.facilities_camps, { h: fmtInt(facts.totalHospitals), c: fmtInt(facts.totalFieldHospitals) })}
           tint="blue"
         />
@@ -161,7 +161,7 @@ export function HospinetIAPanel() {
           icon={UI_ICONS.beds}
           label={t.hn_kpi_free}
           primary={fmtInt(facts.free)}
-          secondary={`${fmtPct(freePct)} · REA ${fmtInt(facts.reaFree)} lib.`}
+          secondary={tpl(m.hospinet.free_icu_line, { p: fmtPct(freePct), n: fmtInt(facts.reaFree) })}
           tint={kpiFreeTint}
         />
         <KpiCard
@@ -279,7 +279,7 @@ export function HospinetIAPanel() {
                     {m.hospinet.occ_global_title}
                   </h1>
                   <p className="mt-0.5 text-[12px] text-gray-500 dark:text-rdia-200">
-                    {fmtInt(facts.totalHospitals)} éta. permanents · {fmtInt(facts.totalFieldHospitals)} hôpitaux de campagne
+                    {tpl(m.hospinet.permanent_field_line, { h: fmtInt(facts.totalHospitals), f: fmtInt(facts.totalFieldHospitals) })}
                   </p>
                 </header>
 
@@ -439,7 +439,7 @@ export function HospinetIAPanel() {
                           </div>
                           <div>
                             <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-300">{m.hospinet.col_network}</div>
-                            <div className="text-[16px] font-extrabold text-gray-900 dark:text-white">{n.reseau === "militaire" ? "Militaire" : "Civil"}</div>
+                            <div className="text-[16px] font-extrabold text-gray-900 dark:text-white">{n.reseau === "militaire" ? m.hospinet.network_mil : m.hospinet.network_civ}</div>
                           </div>
                         </div>
                         <span className={occChip(n.pct)}>{m.hospinet[occLabelKey(n.pct)]}</span>
@@ -473,7 +473,7 @@ export function HospinetIAPanel() {
                           <div className="h-3.5 w-3.5 shrink-0 rounded-md shadow-inner" style={{ background: k.color }} />
                           <div className="min-w-0">
                             <div className="truncate text-[12px] font-bold text-gray-900 dark:text-white">{k.label}</div>
-                            <div className="text-[10.5px] text-gray-500 dark:text-rdia-300">{fmtInt(k.lits)} lits · {fmtPct(k.pct)} occ.</div>
+                            <div className="text-[10.5px] text-gray-500 dark:text-rdia-300">{tpl(m.hospinet.beds_occ_line, { n: fmtInt(k.lits), p: fmtPct(k.pct) })}</div>
                           </div>
                         </div>
                         <div className="text-right">

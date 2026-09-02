@@ -1,5 +1,7 @@
 "use client";
 
+import { useModules } from "@/lib/store";
+import { tpl } from "@/lib/i18n/format";
 import {
   type HospinetFacts,
 } from "@/lib/ai/llmHospinetSummary";
@@ -22,6 +24,7 @@ function NetworksBars({
   kinds: HospinetFacts["kinds"];
   big?: boolean;
 }) {
+  const m = useModules();
   const W = big ? 560 : 340;
   const H = big ? 80 : 150;
   const padL = big ? 80 : 60;
@@ -49,7 +52,7 @@ function NetworksBars({
           const clamped = Math.max(0, Math.min(100, n.pct));
           const w = Math.max(2, (clamped / 100) * innerW);
           const color = n.reseau === "militaire" ? "#C9A84C" : "#3B82F6";
-          const label = n.reseau === "militaire" ? "Militaire" : "Civil";
+          const label = n.reseau === "militaire" ? m.hospinet.network_mil : m.hospinet.network_civ;
           const labelInside = w > (big ? 130 : 62);
           return (
             <g key={n.reseau}>
@@ -80,7 +83,7 @@ function NetworksBars({
                 fill={color}
               >
                 <title>
-                  {label} · {n.free} libres / {n.lits} lits ({fmtPct(n.pct)})
+                  {tpl(m.hospinet.free_of_beds, { l: label, f: n.free, b: n.lits, p: fmtPct(n.pct) })}
                 </title>
               </rect>
               {labelInside ? (
@@ -90,7 +93,7 @@ function NetworksBars({
                   style={{ fontSize: valueFs, fontWeight: 800 }}
                   fill="#fff"
                 >
-                  {fmtPct(n.pct)} · {fmtInt(n.lits)} lits
+                  {tpl(m.hospinet.pct_beds, { p: fmtPct(n.pct), n: fmtInt(n.lits) })}
                 </text>
               ) : (
                 <text
@@ -132,7 +135,7 @@ function NetworksBars({
                     {k.label}
                     <tspan className="opacity-60" style={{ fontWeight: 500 }}>
                       {" "}
-                      · {k.count} éta.
+                      {tpl(m.hospinet.count_fac, { n: k.count })}
                     </tspan>
                   </text>
                 </g>
@@ -153,7 +156,7 @@ function NetworksBars({
               />
               <span className="text-[11.5px] font-medium text-gray-700 dark:text-rdia-200">
                 {k.label}
-                <span className="opacity-60"> · {k.count} éta.</span>
+                <span className="opacity-60">{tpl(m.hospinet.count_fac, { n: k.count })}</span>
               </span>
             </div>
           ))}
