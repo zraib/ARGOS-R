@@ -115,9 +115,12 @@ lib/i18n/     trois langues, fichiers séparés, parité vérifiée par test
 
 ```
 apps/api (décorateurs @ApiOperation, DTO)
-   └─ npm run openapi ─▶ apps/api/openapi.json (non versionné)
-        ├─ npm run generate (packages/api-client) ─▶ apps/web/src/lib/api-client/
+   └─ npm run contract:sync
+        ├─ exporte apps/api/openapi.json (copie de travail)
+        ├─ met à jour packages/api-client/openapi.json (LE contrat, versionné)
+        ├─ régénère les types du client ─▶ apps/web/src/lib/api-client/
         └─ npm run docs:api ─▶ docs/03-api.md (routes × permissions)
+   npm run contract:check — échoue si le contrat versionné ne suit plus le code
 ```
 
 Toute évolution d'une route suit ce chemin, dans cet ordre. Le web ne connaît

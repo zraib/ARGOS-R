@@ -1,7 +1,8 @@
 # Référence API
 
-> **Document généré** par `npm run docs:api` à partir de `apps/api/openapi.json`
-> et des décorateurs des contrôleurs. Ne pas éditer à la main : modifier le
+> **Document généré** par `npm run docs:api` à partir du contrat versionné
+> (`packages/api-client/openapi.json`, synchronisé avec le code par
+> `npm run contract:sync`) et des décorateurs des contrôleurs. Ne pas éditer à la main : modifier le
 > code, puis régénérer.
 
 Monolithe modulaire NestJS. Base : `http://localhost:3005/api` ·
@@ -229,7 +230,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 ## Modifier le contrat
 
 1. Modifier le contrôleur (décorateurs `@ApiOperation`, `@RequirePermission`).
-2. `npm run openapi --prefix apps/api` — régénère `apps/api/openapi.json`.
-3. `npm run generate --prefix packages/api-client` — régénère le client TypeScript
-   consommé par `apps/web` (contrat d'abord : jamais de `fetch` écrit à la main).
-4. `npm run docs:api` — régénère ce document.
+2. `npm run contract:sync` — exporte le contrat, met à jour la copie versionnée
+   et régénère le client TypeScript consommé par `apps/web` (contrat d'abord :
+   jamais de `fetch` écrit à la main). `npm run contract:check` vérifie sans écrire.
+3. `npm run docs:api` — régénère ce document.

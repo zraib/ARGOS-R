@@ -8,8 +8,8 @@
 //      (@RequirePermission / @SelfService / @Public), que l'OpenAPI ne porte pas.
 //
 // Une documentation d'API écrite à la main ment au bout d'un mois ; celle-ci
-// se régénère (`npm run docs:api`, qui régénère d'abord le contrat : openapi.json
-// n'est pas versionné) et un test de cohérence peut la comparer.
+// se régénère (`npm run docs:api`, qui synchronise d'abord le contrat versionné
+// avec le code — voir scripts/contract-check.mjs).
 // Sortie en français, identifiants inchangés.
 // ============================================================================
 import fs from "node:fs";
@@ -17,7 +17,9 @@ import path from "node:path";
 import { createRequire } from "node:module";
 
 const racine = path.resolve(new URL(".", import.meta.url).pathname, "..");
-const openapi = JSON.parse(fs.readFileSync(path.join(racine, "apps/api/openapi.json"), "utf8"));
+// La référence se génère depuis le contrat VERSIONNÉ (celui que le client
+// consomme) ; `npm run docs:api` le synchronise d'abord avec le code.
+const openapi = JSON.parse(fs.readFileSync(path.join(racine, "packages/api-client/openapi.json"), "utf8"));
 
 // --- 1. permissions lues dans les contrôleurs (AST TypeScript) -------------------
 // On lit les décorateurs par l'arbre syntaxique, pas par expression régulière :
@@ -99,8 +101,9 @@ let total = 0, sansGarde = [];
 const lignes = [];
 lignes.push(`# Référence API
 
-> **Document généré** par \`npm run docs:api\` à partir de \`apps/api/openapi.json\`
-> et des décorateurs des contrôleurs. Ne pas éditer à la main : modifier le
+> **Document généré** par \`npm run docs:api\` à partir du contrat versionné
+> (\`packages/api-client/openapi.json\`, synchronisé avec le code par
+> \`npm run contract:sync\`) et des décorateurs des contrôleurs. Ne pas éditer à la main : modifier le
 > code, puis régénérer.
 
 Monolithe modulaire NestJS. Base : \`http://localhost:3005/api\` ·
@@ -152,10 +155,10 @@ ${Object.keys(openapi.paths).length} chemins · ${total} opérations · ${tags.l
 ## Modifier le contrat
 
 1. Modifier le contrôleur (décorateurs \`@ApiOperation\`, \`@RequirePermission\`).
-2. \`npm run openapi --prefix apps/api\` — régénère \`apps/api/openapi.json\`.
-3. \`npm run generate --prefix packages/api-client\` — régénère le client TypeScript
-   consommé par \`apps/web\` (contrat d'abord : jamais de \`fetch\` écrit à la main).
-4. \`npm run docs:api\` — régénère ce document.
+2. \`npm run contract:sync\` — exporte le contrat, met à jour la copie versionnée
+   et régénère le client TypeScript consommé par \`apps/web\` (contrat d'abord :
+   jamais de \`fetch\` écrit à la main). \`npm run contract:check\` vérifie sans écrire.
+3. \`npm run docs:api\` — régénère ce document.
 `);
 fs.writeFileSync(path.join(racine, "docs/03-api.md"), lignes.join("\n"));
 console.log(`docs/03-api.md : ${total} opérations, ${tags.length} groupes`);

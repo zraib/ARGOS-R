@@ -52,8 +52,10 @@ Node uniquement (exigence de souveraineté).
 | `npm test` | **la gate** : API (jest, 312 tests, en séquence) puis web (vitest, 70 tests) |
 | `npm run test:api` / `npm run test:web` | une seule suite |
 | `npm run build` | build de production API + web |
-| `npm run openapi` | régénère `apps/api/openapi.json` (non versionné) |
-| `npm run docs:api` | régénère le contrat **puis** `docs/03-api.md` depuis le code |
+| `npm run openapi` | exporte `apps/api/openapi.json` depuis le code (copie de travail, non versionnée) |
+| `npm run contract:check` | exporte et **compare** au contrat versionné `packages/api-client/openapi.json` — échoue en cas de dérive (pour la CI) |
+| `npm run contract:sync` | exporte, met à jour le contrat versionné, régénère les types du client et leur copie dans `apps/web` |
+| `npm run docs:api` | `contract:sync` **puis** `docs/03-api.md` depuis le contrat et les contrôleurs |
 
 Commandes spécifiques à l'API (depuis `apps/api`) :
 

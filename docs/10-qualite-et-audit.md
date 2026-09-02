@@ -10,7 +10,8 @@ arrive sur le dépôt : chaque affirmation renvoie à une commande ou à un fich
 npm run typecheck   # API puis web — tsc strict, aucune variable ni import inutilisé
 npm test            # API (jest --runInBand, 312 tests) puis web (vitest, 70 tests)
 npm run build       # build de production API + web
-npm run docs:api    # le contrat et docs/03-api.md sont régénérés depuis le code
+npm run contract:check   # le contrat versionné suit-il le code ? (échoue sinon)
+npm run docs:api         # synchronise le contrat, puis régénère docs/03-api.md
 ```
 
 Ces commandes s'exécutent **en séquence**. Résultat de la gate rejouée complète
@@ -89,7 +90,7 @@ soit un travail planifié, soit une décision à prendre.
 | R-7 | `MapCanvas.tsx` — 1 700 lignes de rendu MapLibre | dette de code | **traité** (2 septembre 2026) : rendu séparé par couche dans `components/map/layers/`, composant à 681 l. ; les calculs purs étaient déjà dans `lib/map/canvas/` |
 | R-8 | `CopilotBody.tsx` — 1 118 lignes (panneau + réglages + fil) | dette de code | **traité** (2 septembre 2026) : `shell/copilot/` + `blocks/`, coquille de 419 l. |
 | R-9 | Chaînes françaises en dur dans des modules fusionnés (What-If, conscience situationnelle) | i18n | **traité** (2 septembre 2026) : 264 clés FR/EN/AR, trois passes. **Résidu assumé** : les libellés des catégories d'hôpitaux (`HOSPITAL_KINDS.label/long`, 12 chaînes, 10 consommateurs dont le HTML des marqueurs de carte) et la synthèse IA d'Hospinet, produite en français par le modèle |
-| R-10 | `openapi.json` non versionné | outillage | choix assumé (fichier généré) ; `docs:api` le régénère avant usage — le versionner si un consommateur externe apparaît |
+| R-10 | `openapi.json` non versionné | outillage | **traité** (2 septembre 2026) : le contrat versionné est `packages/api-client/openapi.json` (celui que le client consomme) ; `npm run contract:check` échoue s'il ne suit plus le code, `npm run contract:sync` le met à jour avec les types du client ; la référence API se génère depuis lui |
 | R-11 | `MASTER_PLAN.md`, `CLAUDE.md`, `CONTEXT.md` hors de git | organisation | choix de l'équipe ; l'auditeur les demande à part si nécessaire |
 | R-12 | Cache `apps/web/.next` très volumineux sur le poste de développement (plusieurs Go) | poste de travail | `rm -rf apps/web/.next` quand le serveur de développement est arrêté |
 | R-13 | Données CAMEO : licence | juridique | règle tenue : ne jamais copier `chemical_cas`, `dupont`, `aegls`, `erpgs`, NFPA ; les 31 CAS existants sont conservés |

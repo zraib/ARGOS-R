@@ -14,7 +14,9 @@
     "openapi": "npm run openapi --prefix apps/api",
     "test:api": "npm test --prefix apps/api",
     "test:web": "npm test --prefix apps/web",
-    "docs:api": "npm run -s openapi --prefix apps/api && node scripts/gen-api-doc.mjs"
+    "docs:api": "node scripts/contract-check.mjs --sync && node scripts/gen-api-doc.mjs",
+    "contract:check": "node scripts/contract-check.mjs",
+    "contract:sync": "node scripts/contract-check.mjs --sync"
   },
   "engines": {
     "node": ">=20"
