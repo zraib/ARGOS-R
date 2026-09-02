@@ -436,7 +436,6 @@ export function MapCanvas() {
   const selMarker = useArgos((s) => s.selMarker);
   const incidents = useArgos((s) => s.incidents);
   const fieldHosps = useArgos((s) => s.fieldHosps);
-  const aircraft = useArgos((s) => s.aircraft);
   const map3d = useArgos((s) => s.map3d);
   const mapSat = useArgos((s) => s.mapSat);
   // Couche sismique (EMSC) : points colorés/dimensionnés par magnitude.

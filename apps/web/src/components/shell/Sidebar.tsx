@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useArgos, useDict } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
-import { NAV, HREF, navLabel, type GroupKey, type NavGroup, type NavItem } from "@/lib/nav";
+import { NAV, navLabel, type GroupKey, type NavGroup, type NavItem } from "@/lib/nav";
 
 export function Sidebar() {
   const t = useDict();

@@ -29,7 +29,6 @@ export interface IncidentDraftResult {
   llmError?: string;
 }
 
-type DraftMode = "generate" | "regenerate";
 type ParaphraseField = "title" | "desc";
 
 /* -------------------- Prompt système strict anti-invention -------------------- */

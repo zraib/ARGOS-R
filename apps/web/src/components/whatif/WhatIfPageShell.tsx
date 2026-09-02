@@ -11,7 +11,6 @@ import { typeLabel } from "@/lib/helpers";
 import {
   buildBaseline,
   simulateWhatIf,
-  sanitizeDeltas,
 } from "@/lib/ai/whatif/incidentWhatif";
 import type { WhatIfContext } from "@/lib/ai/whatif/types";
 import {

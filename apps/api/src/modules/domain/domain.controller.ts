@@ -4,7 +4,6 @@ import { RiskService } from "@/modules/domain/risk.service";
 import { DeploymentService } from "@/modules/domain/deployment.service";
 import { DomainService } from "@/modules/domain/domain.service";
 import { VisibilityService } from "@/modules/domain/visibility.service";
-import { CITIES_MA } from "@/modules/domain/cities.data";
 import { CatalogService } from "@/modules/domain/catalog.service";
 import { CommsService } from "@/modules/domain/comms.service";
 import { RealtimeService } from "@/modules/realtime/realtime.service";

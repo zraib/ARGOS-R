@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import { useArgos, useModules, useDict } from "@/lib/store";
-import type { Hospital } from "@/lib/types";
 import { StatTile } from "@/components/ui/StatTile";
 import { ChartCard, type ChartDatum } from "@/components/charts/ChartCard";
 import { DonutChart } from "@/components/charts/DonutChart";

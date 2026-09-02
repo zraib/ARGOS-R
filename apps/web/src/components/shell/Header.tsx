@@ -183,7 +183,6 @@ export function Header() {
   const t = useDict();
   // Niveau d'alerte servi par l'API (lot P3-a) — plus une constante figée.
   const alertLevel = useArgos((s) => s.alertLevel);
-  const m = useModules();
   const pathname = usePathname();
   const dark = useArgos((s) => s.dark);
   const toggleTheme = useArgos((s) => s.toggleTheme);

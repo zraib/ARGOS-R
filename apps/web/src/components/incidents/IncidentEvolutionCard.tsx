@@ -68,9 +68,6 @@ export function IncidentEvolutionCard({ ev, compact }: { ev: IncidentEvolution; 
   }
 
   // Top 3 signaux qui tirent le score (les plus utiles à lire).
-  const topSignals = [...ev.factors]
-    .sort((a, b) => b.weightedScore - a.weightedScore)
-    .slice(0, 3);
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white/70 p-5 dark:border-rdia-600/50 dark:bg-rdia-800/30">

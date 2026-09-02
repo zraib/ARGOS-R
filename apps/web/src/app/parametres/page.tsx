@@ -115,7 +115,6 @@ export default function ParametresPage() {
     );
   }
 
-  const cfg = resolveProvider(aiSettings);
   const statusPill =
     status === "online"
       ? { tone: "green" as const, label: m.settings.status_connected }

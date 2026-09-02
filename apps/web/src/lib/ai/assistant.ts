@@ -635,7 +635,7 @@ function anomaly(_q: string, ctx: AiContext): AiAnswer {
  * PUIS par statut (OPEN > PROG > CLOSED), PUIS plus récent.
  * Jamais par proximité texte comme resolveTarget.
  */
-function worstIncidents(q: string, ctx: AiContext, topN: 1 | 3 = 1): AiAnswer {
+function worstIncidents(_q: string, ctx: AiContext, topN: 1 | 3 = 1): AiAnswer {
   const weight: Record<string, number> = { high: 3, medium: 2, low: 1 };
   const stWeight: Record<string, number> = { open: 3, prog: 2, closed: 1 };
   const sorted = [...ctx.incidents].sort((a, b) => {
@@ -1711,7 +1711,7 @@ function sevCounts(rows: { sev?: string }[]): Record<string, number> {
 }
 
 /** Heure de déclaration en millis, depuis champ time (ISO) ou HH:MM + today. */
-function incidentTs(ctx: AiContext, inc: AiContext["incidents"][number]): number {
+function incidentTs(_ctx: AiContext, inc: AiContext["incidents"][number]): number {
   if (inc.time) {
     const ms = new Date(inc.time).getTime();
     if (!Number.isNaN(ms)) return ms;
@@ -2111,7 +2111,7 @@ function severityZone(l: RiskPrediction["level"]): "critique" | "élevé" | "moy
   return "faible";
 }
 
-function riskPredictionAnswer(q: string, ctx: AiContext): AiAnswer {
+function riskPredictionAnswer(_q: string, ctx: AiContext): AiAnswer {
   const preds = (ctx.riskPredictions ?? []).filter((p) => !p.dismissed);
   preds.sort((a, b) => b.score - a.score);
   const allCount = preds.length;

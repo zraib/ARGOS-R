@@ -43,7 +43,6 @@ export default function RepartitionPage() {
    */
   const queue = useMemo(() => {
     const fromField: QueueItem[] = resourceRequests.map((m) => {
-      const cap = typeof m.payload.capability === "string" ? m.payload.capability : "";
       const urg = typeof m.payload.urgency === "string" ? m.payload.urgency : "medium";
       const inc = incidents.find((i) => i.id === m.incidentId);
       return {

@@ -348,43 +348,6 @@ const f7Seismic = (inc: Incident, quakes: SeismicEvent[] | null | undefined, now
 // ========================================================================
 // F8 · Risques liés (RiskPredictions proximaux) (poids 0.08)
 // ========================================================================
-const f8LinkedRisks = (inc: Incident, preds: RiskPrediction[] | null | undefined): EvolutionFactor => {
-  if (!preds || preds.length === 0) {
-    const w = F_WEIGHTS[7];
-    return {
-      label: F_LABELS[7],
-      weight: w,
-      sources: F_SOURCES[7],
-      rawValue: "aucun risque lié",
-      rawScore: 0,
-      weightedScore: 0,
-    };
-  }
-  let best = 0;
-  let bestId = "";
-  for (const p of preds) {
-    if (p.dismissed) continue;
-    let prox = 0;
-    if (p.ll) prox = 1 - clamp01(haversineKm(inc.ll, p.ll) / 100);
-    else if (p.zoneLabel && inc.region === p.zoneLabel) prox = 0.7;
-    if (prox <= 0.1) continue;
-    const score = clamp01(safeNum(p.score) / 100);
-    const local = clamp01(0.6 * score + 0.4 * prox);
-    if (local > best) {
-      best = local;
-      bestId = `${p.riskType} ${score > 0 ? "· score " + Math.round(p.score) : ""}`;
-    }
-  }
-  const w = F_WEIGHTS[7];
-  return {
-    label: F_LABELS[7],
-    weight: w,
-    sources: F_SOURCES[7],
-    rawValue: bestId || "aucun",
-    rawScore: clamp01(best),
-    weightedScore: clamp100(best * w * 100),
-  };
-};
 
 // ========================================================================
 // F9 · Météo pondérée type (poids 0.07)

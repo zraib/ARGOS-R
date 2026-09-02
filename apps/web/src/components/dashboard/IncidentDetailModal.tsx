@@ -23,7 +23,7 @@ import { UI_ICONS } from "@/lib/icons";
 import { useArgos, useDict } from "@/lib/store";
 import { sevBadge, stBadge, typeIcon, typeLabel } from "@/lib/helpers";
 import { casualtyKind } from "@/lib/derive";
-import type { Incident, IncidentTypeDef, Lang, Severity, IncidentStatus, SubIncident, SubIncidentTypeDef } from "@/lib/types";
+import type { Incident, Lang, Severity, IncidentStatus, SubIncident, SubIncidentTypeDef } from "@/lib/types";
 
 function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");

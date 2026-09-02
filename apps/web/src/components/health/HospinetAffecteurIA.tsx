@@ -56,10 +56,6 @@ function fmtInt(n: number): string {
   if (!isFinite(n)) return "0";
   return Math.round(n).toLocaleString("fr-FR");
 }
-function fmtPct(n: number): string {
-  return `${Math.round(n).toLocaleString("fr-FR")} %`;
-}
-
 /* ---------------- Sous-composants ---------------- */
 
 const TOP_DEFAULT: HospitalServiceKey[] = ["rea", "urgences", "chirurgie", "pediatrie"];

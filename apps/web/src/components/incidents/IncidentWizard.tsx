@@ -13,8 +13,6 @@ import type { NrbcFamily, Province } from "@/lib/types";
 import { casualtyKind } from "@/lib/derive";
 import {
   useDraftProposal,
-  TitleAssistButtons,
-  DescAssistButtons,
   type DescriptionProposalInput,
 } from "@/components/incidents/IncidentDraftAssist";
 import {
@@ -97,7 +95,7 @@ export function IncidentWizard() {
   const [aiBusy, setAiBusy] = useState(false);
   const [aiBusyT, setAiBusyT] = useState(false);
   const [aiBusyD, setAiBusyD] = useState(false);
-  const [aiFallback, setAiFallback] = useState(false);
+  const [, setAiFallback] = useState(false);
   const [aiSalt, setAiSalt] = useState(1);
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
@@ -165,7 +163,7 @@ export function IncidentWizard() {
     keywords: keywordsFlat,
   }), [type, title, adresse, prov, city, pt, lang, incidentTypes, keywordsFlat]);
 
-  const draft = useDraftProposal(descProposalInput, {
+  useDraftProposal(descProposalInput, {
     currentTitle: title,
     currentDesc: desc,
     autoApplyIfEmpty: false, // JAMAIS d'auto-apply (demande UX : seule la génération par bouton IA compte)

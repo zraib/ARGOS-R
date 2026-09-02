@@ -8,7 +8,7 @@
 
 import type { Dict } from "@/lib/i18n/translations";
 import type { BadgeType } from "@/components/ui/Badge";
-import type { DashStats, FieldHospital, Hospital, HospitalKind, HospitalServiceKey, HospitalStoredService, Incident, IncidentType, Unit } from "@/lib/types";
+import type { DashStats, FieldHospital, Hospital, HospitalKind, HospitalServiceKey, Incident, IncidentType, Unit } from "@/lib/types";
 import { MED_GRADES, MED_GRADES_CIV, MED_SPECS, POOLS } from "@/lib/data/seed";
 import { occBarClass, persStatut } from "@/lib/helpers";
 import { fieldKind, hospKind } from "@/lib/hospitals";

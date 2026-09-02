@@ -25,7 +25,7 @@ function deriveTrendFromScoreLevel(score: number, level: RiskLevel): RiskTrend {
   return "stable";
 }
 
-function deriveRiskTypeFromIncident(type: Incident["type"], score: number): string {
+function deriveRiskTypeFromIncident(type: Incident["type"], _score: number): string {
   const t: Record<string, string> = {
     earthquake: "Aggravation d'un séisme",
     flood: "Inondation",

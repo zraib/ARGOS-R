@@ -10,8 +10,6 @@ import type {
 
 import {
   clamp01, clamp100, safeNum,
-  parseDurationSafe, roundDuration5,
-  sumCasualties, maxHospitalSat, haversineKm,
   classifyDelta,
 } from "@/lib/ai/shared";
 
@@ -439,7 +437,7 @@ function classify(deltaScore: number): WhatIfImpact["impactClass"] {
 
 function buildInterpret(
   cls: WhatIfImpact["impactClass"],
-  delta: number,
+  _delta: number,
   type: string,
   d: WhatIfDeltas,
 ): string {
@@ -493,7 +491,7 @@ function addTypedHint(t: string, d: WhatIfDeltas): string {
 function buildTopActions(
   ctx: WhatIfContext,
   d: WhatIfDeltas,
-  delta: number,
+  _delta: number,
   simScore: number,
 ): WhatIfImpact["topActions"] {
   const pool: { label: string; priority: 1 | 2 | 3; impact: number }[] = [];

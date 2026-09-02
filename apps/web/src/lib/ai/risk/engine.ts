@@ -5,7 +5,7 @@
 // périmètre. Le moteur est reproductible, purement fonctionnel (mêmes
 // entrées → mêmes sorties).
 // ========================================================================
-import type { DashStats, Hospital, Incident, Unit } from "@/lib/types";
+import type { Hospital, Incident, Unit } from "@/lib/types";
 import { clamp01, clamp100, haversineKm } from "@/lib/ai/shared";
 import type {
   RiskContext,
@@ -22,7 +22,7 @@ function deriveTrendFromScoreLevel(score: number, level: RiskLevel): RiskTrend {
   return "stable";
 }
 
-function deriveRiskTypeFromIncident(type: Incident["type"], score: number): string {
+function deriveRiskTypeFromIncident(type: Incident["type"], _score: number): string {
   const t: Record<string, string> = {
     earthquake: "Aggravation d'un séisme",
     flood: "Inondation",

@@ -149,7 +149,7 @@ export function AddHospitalModal({ open, onClose }: { open: boolean; onClose: ()
   // Valeurs par défaut = les 5 services flagués `default` du référentiel ARGOS (~50% part marché hospitalier).
   const defaultSvcs = (): WardsEditorValue[] =>
     ARGOS_WARD_REFERENCE.filter((r) => r.default)
-      .map((r, i): WardsEditorValue => {
+      .map((r): WardsEditorValue => {
         // Presets réalistes pour un hôpital 200 lits :
         const presets: Record<string, [number, number]> = {
           rea:       [16, 11],
@@ -164,7 +164,7 @@ export function AddHospitalModal({ open, onClose }: { open: boolean; onClose: ()
 
   const [svcs, setSvcs] = useState<WardsEditorValue[]>(defaultSvcs());
 
-  const { lits, occ, rea, reaOcc } = useMemo(() => autosumServices(svcs), [svcs]);
+  const { lits, rea } = useMemo(() => autosumServices(svcs), [svcs]);
   const canSubmit = !!(nom.trim() && ville.trim() && lits > 0 && svcs.every((s) => s.occ <= s.total));
 
   const submit = async () => {

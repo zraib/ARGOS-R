@@ -17,7 +17,7 @@ import type { FieldHospital, Hospital, HospitalServiceKey } from "@/lib/types";
 import { ARGOS_WARD_REFERENCE } from "@/lib/types";
 import { resolveHospitalServices } from "@/lib/derive";
 import { haversineKm, etaMinutes } from "@/lib/reco";
-import { AI_DEFAULT_SETTINGS, AI_ENABLED, AI_TIMEOUT_MS, resolveProvider } from "@/lib/ai/config";
+import { AI_DEFAULT_SETTINGS, AI_ENABLED, resolveProvider } from "@/lib/ai/config";
 import { chatComplete } from "@/lib/ai/provider";
 
 /* ---------------- Types publics ---------------- */

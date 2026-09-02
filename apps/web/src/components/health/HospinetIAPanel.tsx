@@ -15,7 +15,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useArgos, useDict } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
-import { Badge } from "@/components/ui/Badge";
 import {
   aggregateHospitalsFacts,
   generateHospinetSummary,

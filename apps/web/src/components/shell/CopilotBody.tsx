@@ -2,7 +2,7 @@
 
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { usePathname } from "next/navigation";
-import { useArgos, useDict, useModules } from "@/lib/store";
+import { useArgos, useDict } from "@/lib/store";
 
 /**
  * Rendu Markdown chargé à la demande (~313 Ko de dépendances).
@@ -66,7 +66,6 @@ function toneForLevel(v: number) {
 }
 
 export default function CopilotBody() {
-  const m = useModules();
   const t = useDict();
   const path = usePathname() ?? "";
 
