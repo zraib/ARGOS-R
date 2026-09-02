@@ -36,15 +36,21 @@ function apply3dNow(map: maplibregl.Map, on: boolean) {
   // séparément via un échantillonnage direct du MNT, cf. demElevation).
   // La bascule 2D/3D ne fait qu'INCLINER la vue : le centre, le zoom et le cap
   // sont conservés, on reste donc exactement là où l'opérateur regardait.
+  //
+  // IDEMPOTENTE : rien n'est refait si l'état demandé est déjà là. Un
+  // `setTerrain(null)` sur une carte sans relief déclenche une mise à jour
+  // complète du style (et un `styledata`) ; un `easeTo` relancé remet la caméra
+  // en mouvement et coupe le déplacement à la souris. Rappelée en boucle, cette
+  // fonction gelait la carte (2 images/s) — plus jamais.
   if (on) {
     // Sans source d'altitude (mode souverain sans MBTiles `dem`), la vue
     // s'incline mais le relief n'est pas posé — poser un terrain sur une
     // source absente casserait le style.
     if (!map.getTerrain() && map.getSource("dem")) map.setTerrain({ source: "dem", exaggeration: 1.4 });
-    map.easeTo({ pitch: 60, duration: 900 });
+    if (map.getPitch() < 59) map.easeTo({ pitch: 60, duration: 900 });
   } else {
-    map.setTerrain(null);
-    map.easeTo({ pitch: 0, duration: 700 });
+    if (map.getTerrain()) map.setTerrain(null);
+    if (map.getPitch() > 0.5) map.easeTo({ pitch: 0, duration: 700 });
   }
 }
 

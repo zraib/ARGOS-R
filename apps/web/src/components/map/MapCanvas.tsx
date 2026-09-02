@@ -226,7 +226,15 @@ export function MapCanvas() {
     // La ligne d'itinéraires + terrain + bascules de fond ont besoin du style
     // analysé. On s'accroche au premier signal de disponibilité (`styledata` se
     // déclenche sans tuiles).
+    //
+    // UNE SEULE FOIS. `styledata` se déclenche à CHAQUE changement de style —
+    // y compris ceux que setupStyle provoque lui-même (terrain, visibilités).
+    // Rejouer setupStyle à chaque `styledata` rebouclait sur ces changements :
+    // la carte rendait 2 images par seconde et la caméra ne s'arrêtait plus.
+    // Dès que les couches sont posées, le filet est retiré.
+    let styleInstalle = false;
     const setupStyle = () => {
+      if (styleInstalle) return;
       // Seul le style JSON doit être prêt (getStyle) — PAS les tuiles
       // (isStyleLoaded) : sous étranglement du CDN, isStyleLoaded peut rester
       // faux très longtemps alors qu'addSource fonctionne déjà. Un appel trop
@@ -249,25 +257,25 @@ export function MapCanvas() {
       const st = useArgos.getState();
       map.setLayoutProperty("routes-line", "visibility", st.layers.vehicles ? "visible" : "none");
       applyBase(map, st.mapSat);
-      // Terrain toujours posé (exagération nulle en 2D) → altitude interrogeable.
       apply3d(map, st.map3d);
+      // Tout est posé : plus de re-tentative, plus d'écoute de `styledata`.
+      styleInstalle = true;
+      map.off("styledata", trySetup);
+      clearInterval(setupTimer);
     };
     // isStyleLoaded peut basculer entre la garde et un addSource (tuiles en
     // re-tentative) : toute exécution est enveloppée, le filet retente.
     const trySetup = () => { try { setupStyle(); } catch { /* style pas prêt — retenté par le filet */ } };
+    // Filet : quand le CDN de tuiles étrangle (403 en re-tentative), « load »
+    // peut ne jamais venir alors que le style est prêt et que « styledata » est
+    // passé trop tôt. On retente toutes les 600 ms jusqu'à ce que les couches
+    // soient réellement posées ; setupStyle arrête lui-même le filet.
+    const setupTimer = setInterval(trySetup, 600);
     if (map.isStyleLoaded()) trySetup();
     else {
       map.on("styledata", trySetup);
       map.once("load", trySetup);
     }
-    // Filet : quand le CDN de tuiles étrangle (403 en re-tentative), « load »
-    // peut ne jamais venir alors que le style est prêt et que « styledata » est
-    // passé trop tôt (garde isStyleLoaded fausse). On retente jusqu'à ce que
-    // les sources soient réellement posées.
-    const setupTimer = setInterval(() => {
-      if (map.getSource("wxu-temp-src")) { clearInterval(setupTimer); return; }
-      trySetup();
-    }, 600);
 
     // Le conteneur change de taille (plein écran, repli du rail) → resize du canvas.
     const ro = new ResizeObserver(() => { mapRef.current?.resize(); sizeWxsCanvas(wx, containerRef.current); });

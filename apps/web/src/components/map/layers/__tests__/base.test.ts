@@ -17,6 +17,7 @@ function fausseCarte(stylePret: boolean) {
     },
     setLayoutProperty: vi.fn(),
     getTerrain: () => null,
+    getPitch: () => 0,
     getSource: (id: string) => (id === "dem" ? {} : undefined),
     setTerrain: vi.fn(),
     easeTo: vi.fn(),
@@ -54,6 +55,14 @@ describe("bascules pendant le chargement", () => {
     idle();
     const derniers = setLayoutProperty.mock.calls.filter((c) => c[0] === "sat").map((c) => c[2]);
     expect(derniers[derniers.length - 1]).toBe("none");
+  });
+
+  it("idempotente : à plat sans relief, revenir en 2D ne touche à rien (pas de mise à jour de style en boucle)", () => {
+    const { carte, setTerrain } = fausseCarte(true);
+    const easeTo = (carte as unknown as { easeTo: ReturnType<typeof vi.fn> }).easeTo;
+    apply3d(carte, false);
+    expect(setTerrain).not.toHaveBeenCalled();
+    expect(easeTo).not.toHaveBeenCalled();
   });
 
   it("sans carte, aucun appel", () => {
