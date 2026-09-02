@@ -1,5 +1,6 @@
 "use client";
 
+import { tpl } from "@/lib/i18n/format";
 import { useMemo, useState } from "react";
 import { useArgos, useModules } from "@/lib/store";
 import { Badge } from "@/components/ui/Badge";
@@ -40,7 +41,7 @@ import { PickerModal } from "@/components/whatif/parts/PickerModal";
 // Composant PRINCIPAL
 // ============================================================================
 export function WhatIfPageShell() {
-  const m = useModules();
+  const md = useModules();
   const incidents = useArgos((s) => s.incidents);
   const incidentTypes = useArgos((s) => s.incidentTypes);
   const hospitals = useArgos((s) => s.hospitals);
@@ -133,7 +134,7 @@ export function WhatIfPageShell() {
     const durationMin = Number.isFinite(start) ? Math.round((now - start) / 60000) : 120;
 
     // Régions limitrophes (basé sur région + 3 villes d'unités proches)
-    const regionsSet = new Set<string>([incident.region || "Région immédiate"]);
+    const regionsSet = new Set<string>([incident.region || md.whatif.region_immediate]);
     const sortedUnits = [...(units || [])]
       .map((u) => ({ u, km: haversineKm(incident.ll, u.ll) }))
       .sort((a, b) => a.km - b.km)
@@ -194,7 +195,7 @@ export function WhatIfPageShell() {
   if (!AI_ENABLED) {
     return (
       <section className="animate-fade-in rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-500 dark:border-rdia-600 dark:bg-rdia-700 dark:text-rdia-300">
-        {m.whatif.disabled}
+        {md.whatif.disabled}
       </section>
     );
   }
@@ -216,10 +217,10 @@ export function WhatIfPageShell() {
           </div>
           <div>
             <h1 className="text-[15px] font-bold text-gray-900 dark:text-rdia-100">
-              {m.whatif.title}
+              {md.whatif.title}
             </h1>
             <p className="text-[11px] text-gray-500 dark:text-rdia-300">
-              {m.whatif.subtitle}
+              {md.whatif.subtitle}
             </p>
           </div>
         </div>
@@ -248,7 +249,7 @@ export function WhatIfPageShell() {
               onClick={() => setPickerOpen(true)}
               className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-bold text-gray-700 transition-all hover:border-or-500 hover:text-or-500 dark:border-rdia-500 dark:bg-rdia-600 dark:text-rdia-100 dark:hover:border-or-500"
             >
-              {m.whatif.choose_incident}
+              {md.whatif.choose_incident}
             </button>
           )}
 
@@ -266,7 +267,7 @@ export function WhatIfPageShell() {
                 className="transition-transform group-hover:rotate-[-6deg]"
               />
               <span className="tracking-wide">
-                {m.whatif.whatif}
+                {md.whatif.whatif}
               </span>
               {impact.deltaScore !== 0 && (
                 <span className="ml-1 inline-flex items-center rounded-full bg-rdia-600/20 px-2 py-0.5 text-[10.5px] font-bold">
@@ -287,14 +288,14 @@ export function WhatIfPageShell() {
             {/* 4 KPIS EN HAUT : Δ score · H6 · H12 · H24 — TOUS DE MÊME TAILLE, TOUS CENTRÉS */}
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <DeltaKpi
-                label={m.whatif.risk_evolution}
-                sub="positif = empiré · négatif = amélioré"
+                label={md.whatif.risk_evolution}
+                sub={md.whatif.delta_hint}
                 delta={impact.deltaScore}
                 suffix=" pts"
               />
-              <DeltaKpi label={m.whatif.horizon_h6} sub={impact.simulated.h6.probabilityLabel} delta={impact.simulated.h6.deltaScore} />
-              <DeltaKpi label={m.whatif.horizon_h12} sub={impact.simulated.h12.probabilityLabel} delta={impact.simulated.h12.deltaScore} />
-              <DeltaKpi label={m.whatif.horizon_h24} sub={impact.simulated.h24.probabilityLabel} delta={impact.simulated.h24.deltaScore} />
+              <DeltaKpi label={md.whatif.horizon_h6} sub={impact.simulated.h6.probabilityLabel} delta={impact.simulated.h6.deltaScore} />
+              <DeltaKpi label={md.whatif.horizon_h12} sub={impact.simulated.h12.probabilityLabel} delta={impact.simulated.h12.deltaScore} />
+              <DeltaKpi label={md.whatif.horizon_h24} sub={impact.simulated.h24.probabilityLabel} delta={impact.simulated.h24.deltaScore} />
             </div>
 
             {/* Interpretation FR 1 phrase */}
@@ -332,7 +333,7 @@ export function WhatIfPageShell() {
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-12 lg:col-span-7 rounded-xl border border-gray-200 bg-white p-3 shadow-[0_1px_0_0_rgba(0,0,0,0.03)] dark:border-rdia-600 dark:bg-rdia-700">
                 <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400">
-                  {m.whatif.submetrics}
+                  {md.whatif.submetrics}
                 </h2>
                 <div className="space-y-2.5">
                   {impact.simulated.subMetrics.map((m: WhatIfSubMetric) => {
@@ -352,24 +353,24 @@ export function WhatIfPageShell() {
                         (incident as any).affectedPeople ??
                         (incident as any).affected ??
                         0;
-                      detail = `Décès ${d} · Blessés ${b} · Disparus ${di}` + (aff ? ` · Affectés ${aff}` : "");
+                      detail = tpl(md.whatif.casualties_line, { d, b, m: di }) + (aff ? tpl(md.whatif.affected_suffix, { a: aff }) : "");
                     } else if (m.key === "severity" && incident) {
                       const sevTxt = sevLabel(incident.sev, lang);
                       const typTxt = typeLabel(incident.type, incidentTypes, lang as any);
-                      detail = `${typTxt} · Sévérité ${sevTxt}`;
+                      detail = tpl(md.whatif.type_sev, { type: typTxt, sev: sevTxt });
                     } else if (m.key === "deployedCap" && ctx) {
                       detail = `${ctx.deployedUnits} unité(s) déployée(s) · Besoin ${
                         incident?.sev === "high" ? "8" : incident?.sev === "medium" ? "4" : "2"
                       } (sev)`;
                     } else if (m.key === "hospitalSat" && ctx) {
-                      detail = `Sat. ${Math.round(ctx.hospitalSatPct)}% · ${ctx.nearbyHospitals} hôpital(s) <60km`;
+                      detail = tpl(md.whatif.hosp_sat_line, { p: Math.round(ctx.hospitalSatPct), n: ctx.nearbyHospitals });
                     } else if (m.key === "weatherImpact" && ctx) {
                       detail = `Vent ${Math.round(ctx.windKmh)}km/h · Pluie 24h ${Math.round(ctx.rain24Mm)}mm`;
                     } else if (m.key === "seismicImpact" && ctx) {
                       detail =
                         ctx.seismicEffectiveMag > 0
                           ? `Magnitude effective M${ctx.seismicEffectiveMag.toFixed(1)} (EMS/72h <200km)`
-                          : `Aucun séisme significatif`;
+                          : md.whatif.no_quake;
                     } else if (m.key === "duration" && ctx) {
                       const m2 = ctx.durationMin;
                       const dur =
@@ -378,11 +379,11 @@ export function WhatIfPageShell() {
                           : `${Math.floor(m2 / 60)}h${String(m2 % 60).padStart(2, "0")}`;
                       // Plages indicatives (durationScore 0..100 aligné)
                       let qual: string;
-                      if (m2 < 60) qual = "récent (score risque faible)";
-                      else if (m2 < 180) qual = "en cours de déploiement";
-                      else if (m2 < 480) qual = "prolongé (risque moyen)";
-                      else qual = "prolongé critique";
-                      detail = `${dur} écoulées · ${qual}`;
+                      if (m2 < 60) qual = md.whatif.dur_recent;
+                      else if (m2 < 180) qual = md.whatif.dur_deploying;
+                      else if (m2 < 480) qual = md.whatif.dur_prolonged;
+                      else qual = md.whatif.dur_critical;
+                      detail = tpl(md.whatif.elapsed_line, { d: dur, q: qual });
                     }
                     return (
                       <MetricBar key={m.key} metric={m} detail={detail} />
@@ -392,16 +393,16 @@ export function WhatIfPageShell() {
               </div>
               <div className="col-span-12 lg:col-span-5 rounded-xl border border-gray-200 bg-white p-3 shadow-[0_1px_0_0_rgba(0,0,0,0.03)] dark:border-rdia-600 dark:bg-rdia-700">
                 <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400">
-                  {m.whatif.horizons}
+                  {md.whatif.horizons}
                 </h2>
                 <div className="space-y-3">
-                  <HorizonRow label={m.whatif.h6_long} base={impact.baseline.h6.score} sim={impact.simulated.h6.score} delta={impact.simulated.h6.deltaScore} probLabel={impact.simulated.h6.probabilityLabel} />
-                  <HorizonRow label={m.whatif.h12_long} base={impact.baseline.h12.score} sim={impact.simulated.h12.score} delta={impact.simulated.h12.deltaScore} probLabel={impact.simulated.h12.probabilityLabel} />
-                  <HorizonRow label={m.whatif.h24_long} base={impact.baseline.h24.score} sim={impact.simulated.h24.score} delta={impact.simulated.h24.deltaScore} probLabel={impact.simulated.h24.probabilityLabel} />
+                  <HorizonRow label={md.whatif.h6_long} base={impact.baseline.h6.score} sim={impact.simulated.h6.score} delta={impact.simulated.h6.deltaScore} probLabel={impact.simulated.h6.probabilityLabel} />
+                  <HorizonRow label={md.whatif.h12_long} base={impact.baseline.h12.score} sim={impact.simulated.h12.score} delta={impact.simulated.h12.deltaScore} probLabel={impact.simulated.h12.probabilityLabel} />
+                  <HorizonRow label={md.whatif.h24_long} base={impact.baseline.h24.score} sim={impact.simulated.h24.score} delta={impact.simulated.h24.deltaScore} probLabel={impact.simulated.h24.probabilityLabel} />
                 </div>
                 <div className="mt-4 border-t border-gray-100 pt-3 dark:border-rdia-600">
                   <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400">
-                    {m.whatif.impact_zones}
+                    {md.whatif.impact_zones}
                   </h3>
                   <div className="space-y-1.5">
                     {impact.simulated.regions.map((r) => (
@@ -432,7 +433,7 @@ export function WhatIfPageShell() {
             <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-[0_1px_0_0_rgba(0,0,0,0.03)] dark:border-rdia-600 dark:bg-rdia-700">
               <h2 className="mb-3 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400">
                 <Icon path={UI_ICONS.sparkles} size={12} strokeWidth={2} />
-                {m.whatif.recommended_actions}
+                {md.whatif.recommended_actions}
               </h2>
               <ul className="space-y-1.5">
                 {impact.topActions.map((a, idx) => (
@@ -471,12 +472,12 @@ export function WhatIfPageShell() {
               className="fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-6"
               role="dialog"
               aria-modal="true"
-              aria-label={m.whatif.config_title}
+              aria-label={md.whatif.config_title}
             >
               {/* Overlay flouté blur (clique pour fermer) */}
               <button
                 type="button"
-                aria-label={m.whatif.close_config}
+                aria-label={md.whatif.close_config}
                 onClick={() => setDrawerOpen(false)}
                 className="absolute inset-0 bg-black/40 backdrop-blur-[6px] animate-fade-in"
               />
@@ -491,10 +492,10 @@ export function WhatIfPageShell() {
                     </div>
                     <div>
                       <div className="text-[14px] font-bold text-gray-900 dark:text-rdia-100">
-                        {m.whatif.config_title}
+                        {md.whatif.config_title}
                       </div>
                       <div className="text-[10.5px] text-gray-500 dark:text-rdia-300">
-                        {m.whatif.config_subtitle}
+                        {md.whatif.config_subtitle}
                       </div>
                     </div>
                   </div>
@@ -502,7 +503,7 @@ export function WhatIfPageShell() {
                     type="button"
                     onClick={() => setDrawerOpen(false)}
                     className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-rdia-700 dark:hover:text-rdia-100"
-                    aria-label={m.whatif.close}
+                    aria-label={md.whatif.close}
                   >
                     <Icon path={UI_ICONS.close} size={17} strokeWidth={2.1} />
                   </button>
@@ -516,7 +517,7 @@ export function WhatIfPageShell() {
                     <div className="md:col-span-2 rounded-xl border border-gray-200 p-2.5 dark:border-rdia-600 dark:bg-rdia-700">
                       <div className="mb-1.5 flex items-center justify-between">
                         <h2 className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-gray-400 dark:text-rdia-400">
-                          {m.whatif.baseline}
+                          {md.whatif.baseline}
                         </h2>
                         <button
                           type="button"
@@ -524,32 +525,32 @@ export function WhatIfPageShell() {
                           className="inline-flex items-center gap-0.5 rounded-md border border-gray-200 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 transition-colors hover:border-danger-500 hover:text-danger-500 dark:border-rdia-500 dark:text-rdia-300"
                         >
                           <Icon path={UI_ICONS.refresh} size={10} strokeWidth={2} />
-                          {m.whatif.reset}
+                          {md.whatif.reset}
                         </button>
                       </div>
                       <div className="grid grid-cols-2 gap-1.5 text-[10.5px] leading-tight">
-                        <BaselineStat label={m.whatif.m_risk} value={`${Math.round(baseline?.score ?? 0)}`} />
+                        <BaselineStat label={md.whatif.m_risk} value={`${Math.round(baseline?.score ?? 0)}`} />
                         <BaselineStat
-                          label={m.whatif.m_duration}
+                          label={md.whatif.m_duration}
                           value={
                             ctx.durationMin < 60
                               ? `${ctx.durationMin}m`
                               : `${Math.floor(ctx.durationMin / 60)}h${String(ctx.durationMin % 60).padStart(2, "0")}`
                           }
                         />
-                        <BaselineStat label={m.whatif.m_units} value={`${ctx.deployedUnits}`} />
-                        <BaselineStat label={m.whatif.m_hosp60} value={`${ctx.nearbyHospitals}`} />
+                        <BaselineStat label={md.whatif.m_units} value={`${ctx.deployedUnits}`} />
+                        <BaselineStat label={md.whatif.m_hosp60} value={`${ctx.nearbyHospitals}`} />
                         <BaselineStat
-                          label={m.whatif.m_hosp_sat}
+                          label={md.whatif.m_hosp_sat}
                           value={`${Math.round(ctx.hospitalSatPct)}%`}
                         />
-                        <BaselineStat label={m.whatif.m_wind} value={`${Math.round(ctx.windKmh)}km/h`} />
+                        <BaselineStat label={md.whatif.m_wind} value={`${Math.round(ctx.windKmh)}km/h`} />
                         <BaselineStat
-                          label={m.whatif.m_rain24}
+                          label={md.whatif.m_rain24}
                           value={`${Math.round(ctx.rain24Mm)}mm`}
                         />
                         <BaselineStat
-                          label={m.whatif.m_quake}
+                          label={md.whatif.m_quake}
                           value={
                             ctx.seismicEffectiveMag > 0
                               ? `M${ctx.seismicEffectiveMag.toFixed(1)}`
@@ -558,7 +559,7 @@ export function WhatIfPageShell() {
                         />
                         {/* 2 stats BRUTES VICTIMES + AFFECTÉS pour ne plus avoir "5 figé mystérieux" */}
                         <BaselineStat
-                          label={m.whatif.m_victims}
+                          label={md.whatif.m_victims}
                           value={(() => {
                             // FIDÈLE : TOTAL parent + sous-incidents (identique sous-métriques)
                             let d = incident?.casualties?.dead ?? 0;
@@ -571,12 +572,12 @@ export function WhatIfPageShell() {
                             }
                             const tot = d + b + di;
                             return tot === 0
-                              ? "Aucune"
+                              ? md.whatif.none_f
                               : `D${d} · B${b} · Di${di}`;
                           })()}
                         />
                         <BaselineStat
-                          label={m.whatif.m_affected}
+                          label={md.whatif.m_affected}
                           value={`${
                             (incident as any)?.affectedPeople ??
                             (incident as any)?.affected ??
@@ -589,7 +590,7 @@ export function WhatIfPageShell() {
                     {/* Scénarios prédéfinis (3/5) */}
                     <div className="md:col-span-3 rounded-xl border border-gray-200 p-2.5 dark:border-rdia-600 dark:bg-rdia-700">
                       <h2 className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-gray-400 dark:text-rdia-400">
-                        {m.whatif.presets}
+                        {md.whatif.presets}
                       </h2>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                         {WHAT_IF_PRESETS.map((p) => {
@@ -634,13 +635,13 @@ export function WhatIfPageShell() {
                   {/* 8 SLIDERS What-If — COMPACTÉS (2 colonnes md+) */}
                   <div className="rounded-xl border border-gray-200 p-3 dark:border-rdia-600 dark:bg-rdia-700">
                     <h2 className="mb-2 flex items-center justify-between text-[10.5px] font-bold uppercase tracking-[0.14em] text-gray-400 dark:text-rdia-400">
-                      {m.whatif.levers}
+                      {md.whatif.levers}
                       <button
                         type="button"
                         onClick={reset}
                         className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-normal text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-rdia-600 dark:text-rdia-400"
                       >
-                        {m.whatif.reset}
+                        {md.whatif.reset}
                       </button>
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-2.5">
@@ -683,7 +684,7 @@ export function WhatIfPageShell() {
                       className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-or-500 px-4 py-2 text-[12.5px] font-bold text-rdia-600 transition-all hover:bg-or-500/90 shadow-[0_4px_10px_-2px_rgba(234,140,14,0.4)]"
                     >
                       <Icon path={UI_ICONS.eye} size={14} strokeWidth={2} />
-                      {m.whatif.apply_view}
+                      {md.whatif.apply_view}
                     </button>
                   </div>
                 </div>
@@ -693,7 +694,7 @@ export function WhatIfPageShell() {
         </div>
       ) : (
         <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500 dark:border-rdia-600 dark:bg-rdia-700 dark:text-rdia-300">
-          {m.whatif.select_hint}
+          {md.whatif.select_hint}
         </div>
       )}
 

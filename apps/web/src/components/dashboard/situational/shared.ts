@@ -1,4 +1,5 @@
 // Aides partagées par les composants de SituationalAwarenessPanel.tsx (extraites, exportées).
+import type { ModulesDict } from "@/lib/i18n/modules";
 import { UI_ICONS, KPI_ICONS, FLUX_ICONS, TYPE_ICONS } from "@/lib/icons";
 import type { GlobalAlertLevel } from "@/lib/ai/situational/types";
 
@@ -24,7 +25,7 @@ export function cn(...parts: Array<string | false | null | undefined>) {
 export const LEVEL_META: Record<
   GlobalAlertLevel,
   {
-    dot: string; tint: string; border: string; bg: string; label: string; scoreFill: string; scoreHex: string;
+    dot: string; tint: string; border: string; bg: string; labelKey: keyof ModulesDict["situational"]; scoreFill: string; scoreHex: string;
     banner: string; bannerBg: string; bannerText: string;
     accent: string;
     badgeTint: string;
@@ -34,7 +35,7 @@ export const LEVEL_META: Record<
     dot: "bg-green-500", tint: "text-green-700 dark:text-green-400",
     bg: "bg-green-50/40 dark:bg-green-500/[0.05]",
     border: "border-green-500/[0.22]",
-    label: "Calme", scoreFill: "bg-green-500", scoreHex: "#10B981",
+    labelKey: "level_calme", scoreFill: "bg-green-500", scoreHex: "#10B981",
     banner: "border-[#4B7A51]/50",
     bannerBg: "bg-gradient-to-r from-[#4B7A51]/10 via-[#C9A84C]/6 to-transparent dark:from-[#4B7A51]/15 dark:via-[#C9A84C]/8",
     bannerText: "text-[#2E5332] dark:text-[#BFDCC4]",
@@ -45,7 +46,7 @@ export const LEVEL_META: Record<
     dot: "bg-or-500", tint: "text-or-600 dark:text-or-400",
     bg: "bg-or-500/5 dark:bg-or-500/[0.08]",
     border: "border-[#C9A84C]/[0.36]",
-    label: "Surveillance", scoreFill: "bg-[#C9A84C]", scoreHex: "#C9A84C",
+    labelKey: "level_surveillance", scoreFill: "bg-[#C9A84C]", scoreHex: "#C9A84C",
     banner: "border-[#C9A84C]/50",
     bannerBg: "bg-gradient-to-r from-or-500/15 to-transparent dark:from-or-500/20",
     bannerText: "text-or-600 dark:text-or-300",
@@ -56,7 +57,7 @@ export const LEVEL_META: Record<
     dot: "bg-[#D97706]", tint: "text-[#8A4A06]",
     bg: "bg-amber-500/5 dark:bg-amber-500/[0.08]",
     border: "border-[#C9A84C]/[0.48]",
-    label: "Vigilance renforcée", scoreFill: "bg-[#D97706]", scoreHex: "#D97706",
+    labelKey: "level_vigilance", scoreFill: "bg-[#D97706]", scoreHex: "#D97706",
     banner: "border-[#C9A84C]/60",
     bannerBg: "bg-gradient-to-r from-[#D97706]/18 via-[#C9A84C]/10 to-transparent dark:from-[#D97706]/25 dark:via-[#C9A84C]/12",
     bannerText: "text-[#8A4A06] dark:text-[#F6D28A]",
@@ -67,7 +68,7 @@ export const LEVEL_META: Record<
     dot: "bg-[#B91C1C]", tint: "text-[#7F1D1D]",
     bg: "bg-danger-500/5 dark:bg-danger-500/[0.09]",
     border: "border-[#C9A84C]/[0.36]",
-    label: "Alerte rouge", scoreFill: "bg-[#EF4444]", scoreHex: "#B91C1C",
+    labelKey: "level_alerte_rouge", scoreFill: "bg-[#EF4444]", scoreHex: "#B91C1C",
     banner: "border-[#C9A84C]/50",
     bannerBg: "bg-gradient-to-r from-[#B91C1C]/14 via-[#C9A84C]/9 to-transparent dark:from-[#B91C1C]/26 dark:via-[#C9A84C]/10",
     bannerText: "text-[#7F1D1D] dark:text-[#F6BABA]",
@@ -80,8 +81,9 @@ export const NIV_COLORS: Record<"faible" | "modere" | "eleve" | "critique", stri
   faible: "#10B981", modere: "#4B5563", eleve: "#F59E0B", critique: "#EF4444",
 };
 
-export const NIV_TXT: Record<"faible" | "modere" | "eleve" | "critique", string> = {
-  faible: "Faible", modere: "Modéré", eleve: "Élevé", critique: "Critique",
+/** Clé du libellé de niveau dans `ModulesDict["situational"]`. */
+export const NIV_KEY: Record<"faible" | "modere" | "eleve" | "critique", keyof ModulesDict["situational"]> = {
+  faible: "niv_faible", modere: "niv_modere", eleve: "niv_eleve", critique: "niv_critique",
 };
 
 export const NIV_TXT_CLS: Record<"faible" | "modere" | "eleve" | "critique", string> = {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useModules } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import {
   cn,
@@ -18,11 +19,12 @@ export function SliderRow({
   onChange: (v: number) => void;
   compact?: boolean;
 }) {
+  const m = useModules();
   const isDual = cfg.min < 0 && cfg.max > 0;
   const pctDual = isDual
     ? ((value - cfg.min) / (cfg.max - cfg.min)) * 100
     : ((value - cfg.min) / (cfg.max - cfg.min)) * 100;
-  const fmtVal = cfg.fmt ? cfg.fmt(value) : `${value}${cfg.unit}`;
+  const fmtVal = cfg.fmt ? cfg.fmt(value) : `${value}${m.whatif[cfg.unitKey]}`;
 
   const delta = isDual ? value : 0;
 
@@ -48,7 +50,7 @@ export function SliderRow({
             )}
           />
           <span className={cn("truncate font-medium text-gray-700 dark:text-rdia-200", labelCls)}>
-            {cfg.label}
+            {m.whatif[cfg.labelKey]}
           </span>
         </div>
         <span

@@ -16,6 +16,7 @@
 // ============================================================================
 
 
+import { tpl } from "@/lib/i18n/format";
 import { useEffect, useMemo, useState } from "react";
 import { hospId } from "@/lib/hospitals";
 import { useArgos, useDict, useModules } from "@/lib/store";
@@ -337,7 +338,7 @@ export function HospinetAffecteurIA() {
             <p className={helpCls + " mt-1.5"}>
               {originLL && validCoord
                 ? `[ ${originLL[0].toFixed(4)} , ${originLL[1].toFixed(4)} ]`
-                : "saisir lng/lat ou cliquer sur une ville prédéfinie"}
+                : m.hospinet.hint_lnglat}
             </p>
           </div>
 
@@ -434,7 +435,7 @@ export function HospinetAffecteurIA() {
           </div>
           <p className={helpCls + " mt-2"}>
             {services.length === 0
-              ? "aucun service sélectionné"
+              ? m.hospinet.no_ward_selected
               : `${services.length} service(s) requis · ${services.map(k => (ARGOS_WARD_REFERENCE.find(r => r.key===k)?.label ?? String(k))).join(" · ")}`}
           </p>
         </div>
@@ -449,7 +450,7 @@ export function HospinetAffecteurIA() {
               <div>
                 <div className={sectionTitleCls}>{t.af_rank_top3}</div>
                 <div className={sectionSubtitleCls}>
-                  {result.rows.length > 0 ? `${result.rows.length} établissements classés · ${radius ? "rayon " + radius + " km" : "pas de rayon"}` : t.af_empty}
+                  {result.rows.length > 0 ? tpl(m.hospinet.ranked_line, { n: result.rows.length, r: radius ? tpl(m.hospinet.radius_km, { r: radius }) : m.hospinet.no_radius }) : t.af_empty}
                 </div>
               </div>
               <button
@@ -494,7 +495,7 @@ export function HospinetAffecteurIA() {
                 <div>
                   <div className="sectionTitleCls">{m.hospinet.justification}</div>
                   <div className={sectionSubtitleCls}>
-                    {justError ? justError : "Synthèse neutre basée sur les chiffres Couche 1"}
+                    {justError ? justError : m.hospinet.neutral_summary}
                   </div>
                 </div>
               </div>
@@ -546,7 +547,7 @@ export function HospinetAffecteurIA() {
                               <div className="truncate font-bold text-gray-800 dark:text-rdia-100">{r.hospital.nom}</div>
                               <div className="truncate text-[10px] text-gray-500 dark:text-rdia-400">
                                 {"ville" in r.hospital ? r.hospital.ville : "campagne"}
-                                {" · "}{"type" in r.hospital && r.hospital.type ? r.hospital.type : r.field ? "campagne" : "hôpital"}
+                                {" · "}{"type" in r.hospital && r.hospital.type ? r.hospital.type : r.field ? m.hospinet.field_short : m.hospinet.hospital}
                               </div>
                             </div>
                           </div>
@@ -584,6 +585,7 @@ export function HospinetAffecteurIA() {
 /* ---------------- Carte Top 3 dédiée ---------------- */
 
 function TopRankCard({ row, onOpen }: { row: AffecteurRow; onOpen: () => void }) {
+  const m = useModules();
   const h = row.hospital;
   const rankClr =
     row.rank === 1 ? "from-or-500 to-or-400 text-white"
@@ -606,8 +608,8 @@ function TopRankCard({ row, onOpen }: { row: AffecteurRow; onOpen: () => void })
             <span className="truncate text-[12.5px] font-extrabold leading-tight text-gray-900 dark:text-white">{h.nom}</span>
           </div>
           <div className="mt-0.5 truncate text-[10.5px] text-gray-500 dark:text-rdia-400">
-            {"ville" in h && h.ville ? h.ville : "hôpital de campagne"}
-            {" · "}{"type" in h && h.type ? h.type : row.field ? "campagne" : "hôpital"}
+            {"ville" in h && h.ville ? h.ville : m.hospinet.field_hospital}
+            {" · "}{"type" in h && h.type ? h.type : row.field ? m.hospinet.field_short : m.hospinet.hospital}
           </div>
         </div>
         <div className="text-right">

@@ -22,10 +22,11 @@ export function occTint(pct: number) {
   return pct >= 92 ? "#EF4444" : pct >= 75 ? "#F59E0B" : "#10B981";
 }
 
-export function occLabel(pct: number): string {
-  if (pct >= 92) return "saturé";
-  if (pct >= 75) return "en tension";
-  return "confortable";
+/** Clé du libellé d'occupation dans `ModulesDict["hospinet"]` — traduit à l'affichage. */
+export function occLabelKey(pct: number): "occ_saturated" | "occ_tight" | "occ_comfortable" {
+  if (pct >= 92) return "occ_saturated";
+  if (pct >= 75) return "occ_tight";
+  return "occ_comfortable";
 }
 
 export function occChip(pct: number): string {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
-import { useArgos } from "@/lib/store";
+import { useArgos, useModules } from "@/lib/store";
 import {
   cn,
   Props,
@@ -10,6 +10,7 @@ import { Bar } from "@/components/dashboard/situational/Bar";
 import { ShellInner } from "@/components/dashboard/situational/ShellInner";
 
 export default function SituationalAwarenessPanel({ className, bare }: Props) {
+  const m = useModules();
   const sa = useArgos((s) => s.situationalAwareness);
   const loading = useArgos((s) => s.situationalLoadingAI);
   const model = useArgos((s) => s.situationalModel);
@@ -56,7 +57,7 @@ export default function SituationalAwarenessPanel({ className, bare }: Props) {
         <div className="flex items-center gap-2">
           <span className={cn("h-2.5 w-2.5 animate-pulse rounded-full", loading ? "bg-or-500" : "bg-rdia-400")} />
           <span className={cn("font-semibold", loading ? "text-or-600 dark:text-or-400" : "text-rdia-500 dark:text-rdia-300")}>
-            {loading ? "Analyse en cours…" : "Initialisation"}
+            {loading ? m.situational.analyzing : m.situational.init}
           </span>
         </div>
         <Bar value={60} className="h-1.5 w-56" fill={loading ? "#F59E0B" : "#4B5563"} />

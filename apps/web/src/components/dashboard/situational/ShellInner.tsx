@@ -6,7 +6,7 @@ import type { SituationalAwareness } from "@/lib/ai/situational/types";
 import {
   cn,
   LEVEL_META,
-  NIV_TXT,
+  NIV_KEY,
   fmtDur,
   } from "@/components/dashboard/situational/shared";
 import { Icon } from "@/components/dashboard/situational/Icon";
@@ -89,7 +89,7 @@ export function ShellInner({
                   {m.situational.level_global}
                 </span>
                 <span className={cn("text-[18px] font-bold leading-tight tracking-tight", lm.bannerText)}>
-                  {lm.label}
+                  {m.situational[lm.labelKey]}
                 </span>
                 {sa.fromAI ? (
                   <span className="mt-0.5 inline-flex w-fit items-center gap-1 rounded-md border border-or-500/30 bg-or-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-or-600 dark:text-or-400">
@@ -140,7 +140,7 @@ export function ShellInner({
                   sub={
                     sa.facteursCritiques.filter((f) => f.impact === "haut").length > 0
                       ? `${sa.facteursCritiques.filter((f) => f.impact === "haut").length} impact haut`
-                      : "impact maîtrisé"
+                      : m.situational.impact_controlled
                   }
                   accent="#EF4444"
                 />
@@ -154,7 +154,7 @@ export function ShellInner({
                   })()}
                   sub={(() => {
                     const r = sa.risquesProchaines.find((x) => x.horizon === "24h");
-                    return r ? NIV_TXT[r.niveau] : "Sans risque";
+                    return r ? m.situational[NIV_KEY[r.niveau]] : m.situational.no_risk_cap;
                   })()}
                   accent="#4B5563"
                 />
@@ -226,7 +226,7 @@ export function ShellInner({
       <Panel id="F" title={m.situational.stock_breaks} right={sa.predictions.stockCritique.niveau} accent="#059669">
         <MetricBar
           icon="package"
-          title={sa.predictions.stockCritique.niveau === "alerte" ? "Ruptures critiques" : sa.predictions.stockCritique.niveau === "attention" ? "Ruptures modérées" : "Stock nominal"}
+          title={sa.predictions.stockCritique.niveau === "alerte" ? m.situational.stock_critical : sa.predictions.stockCritique.niveau === "attention" ? m.situational.stock_moderate : m.situational.stock_nominal}
           subtitle={sa.predictions.stockCritique.ruptures.length ? sa.predictions.stockCritique.ruptures.slice(0, 3).join(" · ") : "Stock nominal"}
           big={String(sa.predictions.stockCritique.ruptures.length)}
           bigUnit={sa.predictions.stockCritique.ruptures.length > 1 ? "ruptures" : sa.predictions.stockCritique.ruptures.length === 1 ? "rupture" : ""}

@@ -1,5 +1,6 @@
 "use client";
 
+import { tpl } from "@/lib/i18n/format";
 import { useEffect, useMemo, useState } from "react";
 import { useArgos, useDict, useModules } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
@@ -13,7 +14,7 @@ import {
   fmtInt,
   fmtPct,
   occTint,
-  occLabel,
+  occLabelKey,
   occChip,
   KpiProps,
   ExpandedKey,
@@ -153,7 +154,7 @@ export function HospinetIAPanel() {
           icon={NAV_ICONS.hospitals}
           label={t.hn_kpi_capacity}
           primary={`${fmtInt(facts.lits)} lits`}
-          secondary={`${fmtInt(facts.totalHospitals)} éta. · ${fmtInt(facts.totalFieldHospitals)} camp.`}
+          secondary={tpl(m.hospinet.facilities_camps, { h: fmtInt(facts.totalHospitals), c: fmtInt(facts.totalFieldHospitals) })}
           tint="blue"
         />
         <KpiCard
@@ -174,7 +175,7 @@ export function HospinetIAPanel() {
           icon={UI_ICONS.ambulance}
           label={t.hn_kpi_fleet}
           primary={`${fmtInt(facts.amb)} amb · ${fmtInt(facts.heli)} hel`}
-          secondary={`${fmtInt(facts.staff)} pers. médicaux`}
+          secondary={tpl(m.hospinet.medical_people, { n: fmtInt(facts.staff) })}
           tint="neutral"
         />
       </div>
@@ -186,7 +187,7 @@ export function HospinetIAPanel() {
           <ExpandBtn
             expanded={expanded === "occ"}
             onClick={() => setExpanded(expanded === "occ" ? null : "occ")}
-            title={expanded === "occ" ? "Fermer le plein écran" : "Agrandir"}
+            title={expanded === "occ" ? m.hospinet.close_fullscreen : m.hospinet.expand}
           />
           <div className="mb-2.5 pr-10">
             <div className={sectionTitleCls}>{t.hn_chart_occ}</div>
@@ -205,7 +206,7 @@ export function HospinetIAPanel() {
           <ExpandBtn
             expanded={expanded === "svc"}
             onClick={() => setExpanded(expanded === "svc" ? null : "svc")}
-            title={expanded === "svc" ? "Fermer le plein écran" : "Agrandir"}
+            title={expanded === "svc" ? m.hospinet.close_fullscreen : m.hospinet.expand}
           />
           <div className="mb-2 pr-10">
             <div>
@@ -221,7 +222,7 @@ export function HospinetIAPanel() {
           <ExpandBtn
             expanded={expanded === "net"}
             onClick={() => setExpanded(expanded === "net" ? null : "net")}
-            title={expanded === "net" ? "Fermer le plein écran" : "Agrandir"}
+            title={expanded === "net" ? m.hospinet.close_fullscreen : m.hospinet.expand}
           />
           <div className="mb-2 pr-10">
             <div className={sectionTitleCls}>{t.hn_chart_networks}</div>
@@ -240,7 +241,7 @@ export function HospinetIAPanel() {
             className="text-emerald-600 dark:text-emerald-400"
           />
           <div className="text-[10.5px] font-bold uppercase tracking-wider text-gray-500 dark:text-rdia-400">
-            {isFallback ? "Synthèse déterministe" : "Synthèse IA"}
+            {isFallback ? m.hospinet.summary_det : m.hospinet.summary_ai}
           </div>
           {busy && (
             <span className="text-[10px] font-semibold text-gray-400">
@@ -299,7 +300,7 @@ export function HospinetIAPanel() {
                       {[
                         { label: "Confortables", val: facts.relaxed, max: facts.totalHospitals, tint: "bg-green-500" },
                         { label: "En tension", val: facts.tense, max: facts.totalHospitals, tint: "bg-or-500" },
-                        { label: "Saturés", val: facts.saturated, max: facts.totalHospitals, tint: "bg-danger-500" },
+                        { label: m.hospinet.saturated_pl, val: facts.saturated, max: facts.totalHospitals, tint: "bg-danger-500" },
                       ].map((s) => (
                         <div key={s.label} className="rounded-xl border border-gray-200 bg-gray-50 p-2.5 shadow-sm dark:border-rdia-500 dark:bg-rdia-800">
                           <div className="text-[9.5px] font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-300">{s.label}</div>
@@ -320,14 +321,14 @@ export function HospinetIAPanel() {
                       </div>
                       <div className="space-y-1 text-[12px]">
                         <Row label={`Lits totaux`} val={fmtInt(facts.lits)} tint="text-gray-900 dark:text-white" />
-                        <Row label={`Lits occupés (${fmtPct(facts.pct)})`} val={fmtInt(facts.occ)} tint="text-or-600 dark:text-or-400" />
+                        <Row label={tpl(m.hospinet.beds_occupied_pct, { p: fmtPct(facts.pct) })} val={fmtInt(facts.occ)} tint="text-or-600 dark:text-or-400" />
                         <Row label={`Lits libres (${fmtPct(100 - facts.pct)})`} val={fmtInt(facts.free)} tint="text-green-700 dark:text-green-400" />
                         <div className="my-0.5 h-px bg-gray-200 dark:bg-rdia-600" />
                         <Row label={`Lits REA totaux`} val={fmtInt(facts.rea)} tint="text-gray-900 dark:text-white" />
-                        <Row label={`REA occupés (${fmtPct(facts.reaPct)})`} val={fmtInt(facts.reaOcc)} tint="text-or-600 dark:text-or-400" />
+                        <Row label={tpl(m.hospinet.icu_occupied_pct, { p: fmtPct(facts.reaPct) })} val={fmtInt(facts.reaOcc)} tint="text-or-600 dark:text-or-400" />
                         <Row label={`REA libres`} val={fmtInt(facts.reaFree)} tint="text-green-700 dark:text-green-400" />
                         <div className="my-0.5 h-px bg-gray-200 dark:bg-rdia-600" />
-                        <Row label={`Hôpitaux de campagne`} val={`${fmtInt(facts.fieldHosps.count)} éta. · ${fmtInt(facts.fieldHosps.free)} lits lib.`} tint="text-blue-700 dark:text-blue-300" />
+                        <Row label={m.hospinet.field_hospitals} val={tpl(m.hospinet.field_stats, { n: fmtInt(facts.fieldHosps.count), f: fmtInt(facts.fieldHosps.free) })} tint="text-blue-700 dark:text-blue-300" />
                       </div>
                     </div>
                   </div>
@@ -392,7 +393,7 @@ export function HospinetIAPanel() {
                               s.pct >= 92 ? "rounded-md bg-danger-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-danger-700 dark:text-danger-300"
                               : s.pct >= 75 ? "rounded-md bg-or-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-or-700 dark:text-or-300"
                               : "rounded-md bg-green-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-green-700 dark:text-green-300"
-                            }>{occLabel(s.pct)}</span>
+                            }>{m.hospinet[occLabelKey(s.pct)]}</span>
                           </td>
                         </tr>
                       ))}
@@ -441,7 +442,7 @@ export function HospinetIAPanel() {
                             <div className="text-[16px] font-extrabold text-gray-900 dark:text-white">{n.reseau === "militaire" ? "Militaire" : "Civil"}</div>
                           </div>
                         </div>
-                        <span className={occChip(n.pct)}>{occLabel(n.pct)}</span>
+                        <span className={occChip(n.pct)}>{m.hospinet[occLabelKey(n.pct)]}</span>
                       </div>
                       <div className="mt-2.5 space-y-1 text-[12px]">
                         <Row label={m.hospinet.facilities} val={fmtInt(n.hospitals)} tint="text-gray-900 dark:text-white" />

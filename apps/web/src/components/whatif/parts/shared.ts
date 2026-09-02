@@ -1,4 +1,5 @@
 // Aides partagées par les composants de WhatIfPageShell.tsx (extraites, exportées).
+import type { ModulesDict } from "@/lib/i18n/modules";
 import { FLUX_ICONS, NAV_ICONS, UI_ICONS } from "@/lib/icons";
 import {
   type WhatIfDeltas,
@@ -41,11 +42,13 @@ export const parseISO = (iso: string): number => {
 export interface SliderCfg {
   key: keyof WhatIfDeltas;
   icon: string;
-  label: string;
+  /** Clé du libellé dans `ModulesDict["whatif"]`. */
+  labelKey: keyof ModulesDict["whatif"];
   min: number;
   max: number;
   step: number;
-  unit: string;
+  /** Clé de l'unité dans `ModulesDict["whatif"]`. */
+  unitKey: keyof ModulesDict["whatif"];
   /** si true, la valeur "max" = empiré, sinon max = améliore */
   higherIsWorse?: boolean;
   fmt?: (v: number) => string;
@@ -55,88 +58,88 @@ export const SLIDERS: SliderCfg[] = [
   {
     key: "aggravationPct",
     icon: UI_ICONS.alert,
-    label: "Sévérité : atténuation (à droite) / aggravation (à gauche)",
+    labelKey: "slider_severity",
     min: -50,
     max: 50,
     step: 5,
-    unit: " pts",
+    unitKey: "unit_pts",
     higherIsWorse: false,
     fmt: (v) => (v > 0 ? `+${v}` : `${v}`),
   },
   {
     key: "addUnits",
     icon: UI_ICONS.truck,
-    label: "Unités mobiles supplémentaires",
+    labelKey: "slider_units",
     min: 0,
     max: 10,
     step: 1,
-    unit: " unité(s)",
+    unitKey: "unit_units",
     higherIsWorse: false,
     fmt: (v) => `+${v}`,
   },
   {
     key: "addHospitalBeds",
     icon: UI_ICONS.beds,
-    label: "Lits hôpital supplémentaires",
+    labelKey: "slider_beds",
     min: 0,
     max: 200,
     step: 10,
-    unit: " lits",
+    unitKey: "unit_beds",
     higherIsWorse: false,
     fmt: (v) => `+${v}`,
   },
   {
     key: "windMult",
     icon: FLUX_ICONS.wind,
-    label: "Multiplicateur de vent",
+    labelKey: "slider_wind",
     min: 0.5,
     max: 2,
     step: 0.05,
-    unit: " ×",
+    unitKey: "unit_times",
     higherIsWorse: true,
     fmt: (v) => v.toFixed(2),
   },
   {
     key: "rainAddMm",
     icon: FLUX_ICONS.rain,
-    label: "Pluie additionnelle (24h)",
+    labelKey: "slider_rain",
     min: 0,
     max: 200,
     step: 10,
-    unit: " mm",
+    unitKey: "unit_mm",
     higherIsWorse: true,
     fmt: (v) => `+${v}`,
   },
   {
     key: "seismicAddMag",
     icon: NAV_ICONS.seismic || UI_ICONS.alert,
-    label: "Magnitude sismique additionnelle",
+    labelKey: "slider_mag",
     min: 0,
     max: 1,
     step: 0.1,
-    unit: " Mw",
+    unitKey: "unit_mw",
     higherIsWorse: true,
     fmt: (v) => (v > 0 ? `+${v.toFixed(1)}` : "0"),
   },
   {
     key: "addCasualties",
     icon: UI_ICONS.alert || UI_ICONS.alert,
-    label: "Victimes additionnelles (blessés + disparus)",
+    labelKey: "slider_casualties",
     min: 0,
     max: 200,
     step: 10,
-    unit: " pers.",
+    unitKey: "unit_people",
     higherIsWorse: true,
     fmt: (v) => `+${v}`,
   },
   {
     key: "addAffected",
     icon: UI_ICONS.users,
-    label: "Personnes affectées / évacuées en plus",
+    labelKey: "slider_affected",
     min: 0,
     max: 1000,
     step: 50,
-    unit: " pers.",
+    unitKey: "unit_people",
     higherIsWorse: true,
     fmt: (v) => `+${v}`,
   },

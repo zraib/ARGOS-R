@@ -5,7 +5,7 @@ import type { NextRisk } from "@/lib/ai/situational/types";
 import {
   cn,
   NIV_COLORS,
-  NIV_TXT,
+  NIV_KEY,
   NIV_TXT_CLS,
   } from "@/components/dashboard/situational/shared";
 import { Bar } from "@/components/dashboard/situational/Bar";
@@ -64,7 +64,7 @@ export function RiskBars({ risks }: { risks: NextRisk[] }) {
                 <span
                   className={cn("rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase", NIV_TXT_CLS[r.niveau])}
                 >
-                  {NIV_TXT[r.niveau]}
+                  {m.situational[NIV_KEY[r.niveau]]}
                 </span>
                 <span className="font-mono text-[11px] font-black tabular-nums" style={{ color: hex }}>
                   {r.probabilitePct}%
