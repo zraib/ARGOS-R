@@ -8,7 +8,8 @@
 //      (@RequirePermission / @SelfService / @Public), que l'OpenAPI ne porte pas.
 //
 // Une documentation d'API écrite à la main ment au bout d'un mois ; celle-ci
-// se régénère (`npm run docs:api`) et un test de cohérence peut la comparer.
+// se régénère (`npm run docs:api`, qui régénère d'abord le contrat : openapi.json
+// n'est pas versionné) et un test de cohérence peut la comparer.
 // Sortie en français, identifiants inchangés.
 // ============================================================================
 import fs from "node:fs";
