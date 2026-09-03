@@ -197,6 +197,29 @@ Vider un canal ne le rouvre pas : le rendre visible de tous parce que son
 dernier intervenant a été relevé exposerait la conversation au moment précis où
 plus personne ne la surveille. Rouvrir est un geste séparé.
 
+### Un message, un auteur, un identifiant
+
+| Champ | Contenu | Pourquoi |
+| --- | --- | --- |
+| `who` | nom affiché (« Commandant Zraib Mohammed ») | ce qu'on lit dans le fil ; un matricule ne se lit pas |
+| `author` | **matricule** | l'identité ; c'est sur elle, et non sur le nom, que chaque poste décide si le message est le sien |
+| `id` | numéro strictement croissant, donné par le serveur | la clé de dédoublonnage du flux temps réel |
+
+**`mine` ne vient pas du serveur.** Le même message part vers tous les postes :
+le marquer « à moi » à l'enregistrement revenait à le dire à tout le monde, et
+l'opérateur qui rechargeait le centre voyait la conversation entière du côté de
+ses propres messages. Chaque poste le calcule depuis `author`. Les messages de
+la plateforme (jalons de boucle) n'ont pas d'auteur : ils ne sont à personne.
+
+**L'envoi passe par un brouillon local.** Le message s'affiche immédiatement —
+un poste de commandement n'attend pas le réseau pour voir sa propre phrase —
+sous un identifiant **négatif**, qu'aucun identifiant serveur ne peut prendre.
+La réponse de l'API le remplace par le message réel. Sans ce mécanisme, l'auteur
+voyait son message **deux fois** : une fois en brouillon, une fois revenu par le
+flux temps réel, sous son matricule et du côté des autres. Si l'envoi échoue, le
+brouillon disparaît et l'écran le dit : laisser à l'affichage une phrase que
+personne n'a reçue est le pire des deux.
+
 ### L'annuaire des correspondants
 
 `GET /comms/directory`, sous `comms:view` et **non** sous `users:view` :
