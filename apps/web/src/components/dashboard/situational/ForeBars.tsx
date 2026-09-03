@@ -59,11 +59,33 @@ export function ForeBars({ forecasts, generatedAt, debug }: {
         ? { main: `${forecasts.nextSat.nom} · ${fmtTimeHhMm(generatedAt + forecasts.nextSat.minutesUntilSat * 60 * 1000)}`, sub: tpl(m.situational.fb_pct_in, { p: Math.round(forecasts.nextSat.occPctNow * 100), d: fmtDur(forecasts.nextSat.minutesUntilSat) }), pct: Math.max(0, Math.min(100, forecasts.nextSat.occPctNow * 100)) + 10, tone: "or" as ToneFill }
         : { main: `${forecasts.nextSat.nom} · ${fmtTimeHhMm(generatedAt + forecasts.nextSat.minutesUntilSat * 60 * 1000)}`, sub: tpl(m.situational.fb_pct, { p: Math.round(forecasts.nextSat.occPctNow * 100) }), pct: Math.max(0, Math.min(100, forecasts.nextSat.occPctNow * 100)), tone: "rdia" as ToneFill };
 
-  const HMC = !forecasts.besoinHMC?.nombre
-    ? { main: m.situational.fb_capacity_ok, sub: m.situational.fb_no_hmc, pct: 10, tone: "green" as ToneFill }
-    : forecasts.besoinHMC.nombre >= 3
-      ? { main: tpl(m.situational.fb_hmc_needed, { n: forecasts.besoinHMC.nombre }), sub: tpl(m.situational.fb_hmc_beds, { n: forecasts.besoinHMC.litsTotal, u: forecasts.besoinHMC.litsParHMC }), pct: 92, tone: "danger" as ToneFill }
-      : { main: tpl(m.situational.fb_hmc_recommended, { n: forecasts.besoinHMC.nombre }), sub: tpl(m.situational.fb_beds, { n: forecasts.besoinHMC.litsTotal }), pct: 65, tone: "or" as ToneFill };
+  // Tension à 6 h RÉELLE : admissions attendues (55 % du flux 6 h) rapportées
+  // à la capacité mobilisable sous 6 h (35 % des lits disponibles). L'ancienne
+  // formule confondait admissions et capacité, d'où un 100 % borné à 60 %
+  // affiché sans raison ; la borne arbitraire disparaît, les seuils de couleur
+  // sont < 35 % vert, < 70 % or, sinon rouge.
+  const HMC = (() => {
+    const disp = typeof debug?._debugLitsTot === "number" && typeof debug?._debugLitsOcc === "number"
+      ? debug._debugLitsTot - debug._debugLitsOcc
+      : null;
+    const besoin = forecasts.besoinHMC;
+    const admissions6hLit = Math.round((forecasts.flux6h.total ?? 0) * 0.55);
+    const capacite6h = disp != null ? Math.max(1, Math.round(disp * 0.35)) : null;
+    const tension6h = capacite6h != null ? Math.round((admissions6hLit / capacite6h) * 100) : null;
+    if (!besoin?.nombre) {
+      const barre = tension6h != null ? Math.max(5, Math.min(100, tension6h)) : 10;
+      return {
+        main: m.situational.fb_capacity_ok,
+        sub: m.situational.fb_no_hmc,
+        pct: barre,
+        tone: barre < 35 ? ("green" as ToneFill) : barre < 70 ? ("or" as ToneFill) : ("danger" as ToneFill),
+      };
+    }
+    if (besoin.nombre >= 3) {
+      return { main: tpl(m.situational.fb_hmc_needed, { n: besoin.nombre }), sub: tpl(m.situational.fb_hmc_beds, { n: besoin.litsTotal, u: besoin.litsParHMC }), pct: Math.max(80, Math.min(100, tension6h ?? 92)), tone: "danger" as ToneFill };
+    }
+    return { main: tpl(m.situational.fb_hmc_recommended, { n: besoin.nombre }), sub: tpl(m.situational.fb_beds, { n: besoin.litsTotal }), pct: Math.max(50, Math.min(90, tension6h ?? 65)), tone: "or" as ToneFill };
+  })();
 
   const REDIR = forecasts.redirection.nHopitaux >= 3
     ? { main: tpl(m.situational.fb_redirectable_beds, { n: forecasts.redirection.litsRedirigeables }), sub: tpl(m.situational.fb_chu_switchable, { n: forecasts.redirection.nHopitaux }), pct: Math.max(0, Math.min(100, (forecasts.redirection.litsRedirigeables / 500) * 100)), tone: "green" as ToneFill }
