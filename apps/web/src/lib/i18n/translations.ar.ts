@@ -9,7 +9,7 @@
 import type { Dict } from "@/lib/i18n/translations";
 
 export const AR_DICT: Dict = {
-    app: "ARGOS", appSub: "الإنذار، الاستجابة، تدبير العمليات والكوارث", role: "رئيس قسم",
+    app: "IRIS", appSub: "النظام المتكامل لتدبير وتنسيق عمليات الإنقاذ", role: "رئيس قسم",
     acft_panel: "التتبع الجوي", acft_code: "رمز الطائرة",
     acft_code_ph: "التسجيل أو النداء أو IFF", acft_label: "التسمية", acft_label_ph: "التسمية على الخريطة",
     acft_role: "الدور", acft_track: "تتبع", acft_untrack: "إيقاف التتبع",

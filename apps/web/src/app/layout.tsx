@@ -3,10 +3,10 @@ import "./globals.css";
 import { AppFrame } from "@/components/shell/AppFrame";
 
 export const metadata: Metadata = {
-  title: "ARGOS — Poste de commandement",
+  title: "IRIS — Poste de commandement",
   description:
-    "ARGOS — Alerte, Réponse, Gestion des Opérations et Sinistres. Plateforme de commandement pour la gestion de crise (vue nationale).",
-  icons: { icon: "/argos-logo.png" },
+    "IRIS — Système Intégré de Gestion et de Coordination des Opérations de Secours. Plateforme de commandement pour la gestion de crise (vue nationale).",
+  icons: { icon: "/iris-logo.png" },
 };
 
 export const viewport: Viewport = {

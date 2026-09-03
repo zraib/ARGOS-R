@@ -114,10 +114,10 @@ export function LoginScreen() {
       <div className="my-auto grid w-full max-w-[880px] animate-fade-in-up items-center justify-items-center gap-6 lg:grid-cols-2 lg:gap-4">
         <div className="flex w-full min-w-0 max-w-sm flex-col items-center gap-4 sm:gap-6">
           <Image
-            src="/argos-logo.png"
-            alt="ARGOS"
+            src="/iris-logo.png"
+            alt="IRIS — Forces Armées Royales"
             width={320}
-            height={360}
+            height={320}
             priority
             // Le logo se réduit avec l'écran plutôt que d'imposer 320 px de large.
             className="h-auto w-32 max-w-full object-contain sm:w-44 lg:w-full lg:max-w-[320px]"
@@ -126,7 +126,7 @@ export function LoginScreen() {
             }}
           />
           <div className="text-center">
-            <div className="text-2xl font-bold tracking-wide text-rdia-600 sm:text-3xl dark:text-rdia-50">ARGOS</div>
+            <div className="text-2xl font-bold tracking-wide text-rdia-600 sm:text-3xl dark:text-rdia-50">{t.app}</div>
             <div className="mt-2 text-xs uppercase tracking-wider text-or-600 dark:text-or-500">{t.appSub}</div>
           </div>
         </div>

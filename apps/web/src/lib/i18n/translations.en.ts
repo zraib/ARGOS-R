@@ -9,7 +9,7 @@
 import type { Dict } from "@/lib/i18n/translations";
 
 export const EN_DICT: Dict = {
-    app: "ARGOS", appSub: "Alert, Response, Operations & Disaster Management", role: "Division Chief",
+    app: "IRIS", appSub: "Integrated Rescue Operations Management and Coordination System", role: "Division Chief",
     acft_panel: "Air tracking", acft_code: "Aircraft code",
     acft_code_ph: "Registration, callsign or IFF", acft_label: "Label", acft_label_ph: "Map label (e.g. Canadair 01)",
     acft_role: "Role", acft_track: "Track", acft_untrack: "Stop tracking",

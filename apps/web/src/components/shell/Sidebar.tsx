@@ -152,7 +152,7 @@ export function Sidebar() {
         className={expanded ? "flex items-center gap-3 border-b px-4 py-4" : "flex items-center justify-center border-b py-4"}
         style={{ borderColor: dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)" }}
       >
-        <Image src="/argos-logo.png" alt="ARGOS" width={48} height={48} className={expanded ? "h-12 w-12 shrink-0" : "h-9 w-9 shrink-0"} style={{ objectFit: "contain" }} />
+        <Image src="/iris-logo.png" alt="IRIS" width={48} height={48} className={expanded ? "h-12 w-12 shrink-0" : "h-9 w-9 shrink-0"} style={{ objectFit: "contain" }} />
         {expanded && (
           <div className="min-w-0">
             <div className="text-lg font-bold leading-tight tracking-wide">{t.app}</div>
