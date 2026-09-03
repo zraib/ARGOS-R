@@ -85,19 +85,31 @@ export function reachability(q: string, ctx: AiContext): AiAnswer {
 }
 
 
+// Mots à retirer avant de chercher un nom de ville : les mots-outils de la
+// question et le vocabulaire hospitalier. Les LIMITES DE MOTS sont
+// indispensables : sans elles, l'alternative « a » (et « de », « du », « les »)
+// mangeait les lettres à l'intérieur des noms — « casablanca » devenait
+// « c s bl nc » et aucune ville n'était plus reconnue.
+const MOTS_OUTILS = /\b(liste|etat|statut|bilan|situation|vue|apercu|panorama|tous|tout|ensemble|capacite|saturation|occupation|disponibilite|les|des|du|de|la|le|l|a|au|aux|pour|sur|dans|quelle|quel|quels|quelles|combien|y|il)\b/g;
+const MOTS_SANTE = /\b(hopital|hopitaux|hospinet|hospi|etablissement|etablissements|sante|chu|chr|chp|clinique|cliniques|rea|lit|lits)\b/g;
+
 /**
  * Extrait une ville d'une question « hôpitaux de X ». D'abord contre les villes
  * RÉELLEMENT présentes dans le catalogue des hôpitaux (exact, puis la plus
  * longue qui correspond — évite Fès ⊂ Safi), sinon une liste de villes usuelles.
+ * Retourne `null` dès que rien d'exploitable ne reste : la question porte alors
+ * sur le réseau entier.
  */
 export function extractHospitalCityFromQuery(q: string, hospitals: Hospital[]): { villeNorm: string; villeDisplay: string } | null {
-  const nq = norm(q);
-  const stripped = nq
-    .replace(/(liste|etat|statut|bilan|situation|vue|apercu|panorama|tous|tout|ensemble|capacite|saturation|occupation|disponibilite|les|des|du|de la|de|a|au|aux|pour|sur|dans|quelle|quel|quels|quelles|combien)/g, " ")
-    .replace(/(hopital|hopitaux|hospinet|hospi|etablissement|sante|chu|chr|chp|clinique|rea|lits|de sante)/g, " ")
+  const stripped = norm(q)
+    .replace(/[?!.,;:'"()]/g, " ")
+    .replace(MOTS_SANTE, " ")
+    .replace(MOTS_OUTILS, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (!stripped) return null;
+  // Sous trois caractères, on ne devine pas une ville.
+  if (stripped.length < 3) return null;
+  const compact = stripped.replace(/[\s-]/g, "");
 
   let best: { villeNorm: string; villeDisplay: string; score: number } | null = null;
   const vues = new Set<string>();
@@ -105,32 +117,33 @@ export function extractHospitalCityFromQuery(q: string, hospitals: Hospital[]): 
     const vRaw = (h.ville || "").trim();
     if (!vRaw) continue;
     const v = norm(vRaw);
-    if (vues.has(v)) continue;
+    if (!v || vues.has(v)) continue;
     vues.add(v);
+    const vCompact = v.replace(/[\s-]/g, "");
     let score = 0;
     if (stripped === v || stripped === v.replace(/-/g, " ")) score = 1000 + v.length;
-    else if (stripped === v.replace(/[\s-]/g, "")) score = 950 + v.length;
-    else if (stripped.includes(" " + v + " ") || stripped.startsWith(v + " ") || stripped.endsWith(" " + v)) score = 800 + v.length;
+    else if (compact === vCompact) score = 950 + v.length;
+    else if (new RegExp(`(^| )${v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}( |$)`).test(stripped)) score = 800 + v.length;
     else if (v.includes(stripped)) score = 700 + stripped.length;
-    else if (v.includes(stripped.replace(/ /g, "")) || stripped.replace(/ /g, "").includes(v.replace(/ /g, ""))) score = 300 + v.length;
+    else if (vCompact.includes(compact) || compact.includes(vCompact)) score = 300 + v.length;
     if (score > 0 && (!best || score > best.score)) best = { villeNorm: v, villeDisplay: vRaw, score };
   }
   if (best) return { villeNorm: best.villeNorm, villeDisplay: best.villeDisplay };
 
+  // Repli : villes usuelles, si le catalogue des hôpitaux est vide ou muet.
   const SEED: [RegExp, string][] = [
-    [/(^| )casa(blanca)?($| )/, "Casablanca"], [/(^| )rabat($| )/, "Rabat"], [/(^| )marrakech($| )/, "Marrakech"],
-    [/(^| )fe[sz]($| )/, "Fès"], [/(^| )tanger($| )/, "Tanger"], [/(^| )agadir($| )/, "Agadir"], [/(^| )meknes($| )/, "Meknès"],
-    [/(^| )oujda($| )/, "Oujda"], [/(^| )tetouan($| )/, "Tétouan"], [/(^| )safi($| )/, "Safi"], [/(^| )kenitra($| )/, "Kénitra"],
-    [/(^| )nador($| )/, "Nador"], [/(^| )beni\s*mellal($| )/, "Béni Mellal"], [/(^| )errachidia($| )/, "Errachidia"],
-    [/(^| )ouarzazate($| )/, "Ouarzazate"], [/(^| )temara($| )/, "Témara"], [/(^| )mohammedia($| )/, "Mohammedia"],
-    [/(^| )taza($| )/, "Taza"], [/(^| )settat($| )/, "Settat"], [/(^| )taroudant($| )/, "Taroudant"],
-    [/(^| )al\s*hoceima($| )/, "Al Hoceïma"], [/(^| )sale($| )/, "Salé"], [/(^| )guercif($| )/, "Guercif"],
-    [/(^| )berkane($| )/, "Berkane"], [/(^| )tiznit($| )/, "Tiznit"], [/(^| )essaouira($| )/, "Essaouira"],
-    [/(^| )chefchaouen($| )/, "Chefchaouen"], [/(^| )larache($| )/, "Larache"], [/(^| )laayoune($| )/, "Laâyoune"],
-    [/(^| )dakhla($| )/, "Dakhla"],
+    [/(^| )casa(blanca)?( |$)/, "Casablanca"], [/(^| )rabat( |$)/, "Rabat"], [/(^| )marrakech( |$)/, "Marrakech"],
+    [/(^| )fe[sz]( |$)/, "Fès"], [/(^| )tanger( |$)/, "Tanger"], [/(^| )agadir( |$)/, "Agadir"], [/(^| )meknes( |$)/, "Meknès"],
+    [/(^| )oujda( |$)/, "Oujda"], [/(^| )tetouan( |$)/, "Tétouan"], [/(^| )safi( |$)/, "Safi"], [/(^| )kenitra( |$)/, "Kénitra"],
+    [/(^| )nador( |$)/, "Nador"], [/(^| )beni ?mellal( |$)/, "Béni Mellal"], [/(^| )errachidia( |$)/, "Errachidia"],
+    [/(^| )ouarzazate( |$)/, "Ouarzazate"], [/(^| )temara( |$)/, "Témara"], [/(^| )mohammedia( |$)/, "Mohammedia"],
+    [/(^| )taza( |$)/, "Taza"], [/(^| )settat( |$)/, "Settat"], [/(^| )taroudant( |$)/, "Taroudant"],
+    [/(^| )al ?hoceima( |$)/, "Al Hoceïma"], [/(^| )sale( |$)/, "Salé"], [/(^| )guercif( |$)/, "Guercif"],
+    [/(^| )berkane( |$)/, "Berkane"], [/(^| )tiznit( |$)/, "Tiznit"], [/(^| )essaouira( |$)/, "Essaouira"],
+    [/(^| )chefchaouen( |$)/, "Chefchaouen"], [/(^| )larache( |$)/, "Larache"], [/(^| )laayoune( |$)/, "Laâyoune"],
+    [/(^| )dakhla( |$)/, "Dakhla"],
   ];
-  const padded = " " + stripped + " ";
-  for (const [re, name] of SEED) if (re.test(padded)) return { villeNorm: norm(name), villeDisplay: name };
+  for (const [re, name] of SEED) if (re.test(stripped)) return { villeNorm: norm(name), villeDisplay: name };
   return null;
 }
 

@@ -32,16 +32,33 @@ export interface DatedLike {
 }
 
 const HEURE_SEULE = /^(\d{1,2}):(\d{2})$/;
+const JOUR_RELATIF = /^J-(\d{1,3})(?:\s+(\d{1,2}):(\d{2}))?$/;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}/;
 
+/**
+ * Lecture stricte : « HH:MM », « J-n » (n jours avant aujourd'hui, jeu de
+ * démonstration) ou un horodatage ISO. Tout le reste est rejeté — Chrome
+ * accepte des chaînes comme « J-1 » dans `new Date()` et en fait une date à
+ * minuit, ce qui affichait « 00:00 » à la place de l'étiquette d'origine.
+ */
 function parseDateCandidate(raw: string | null | undefined): { date: Date; hourOnly: boolean } | null {
-  if (!raw || raw === "Invalid Date") return null;
-  const hm = HEURE_SEULE.exec(raw.trim());
+  if (!raw) return null;
+  const v = raw.trim();
+  const hm = HEURE_SEULE.exec(v);
   if (hm) {
     const d = new Date();
     d.setHours(Number(hm[1]), Number(hm[2]), 0, 0);
     return { date: d, hourOnly: true };
   }
-  const d = new Date(raw);
+  const rel = JOUR_RELATIF.exec(v);
+  if (rel) {
+    const d = new Date();
+    d.setDate(d.getDate() - Number(rel[1]));
+    d.setHours(rel[2] ? Number(rel[2]) : 0, rel[3] ? Number(rel[3]) : 0, 0, 0);
+    return { date: d, hourOnly: false };
+  }
+  if (!ISO_DATE.test(v)) return null;
+  const d = new Date(v);
   return Number.isNaN(d.getTime()) ? null : { date: d, hourOnly: false };
 }
 
@@ -55,6 +72,12 @@ function resolveIncidentDate(inc: DatedLike | null | undefined): { date: Date; h
   );
 }
 
+/** Étiquette brute quand aucun champ n'est une date : on montre ce qui a été saisi plutôt qu'un tiret. */
+function rawLabel(inc: DatedLike | null | undefined): string {
+  const raw = inc?.time?.trim();
+  return raw ? raw : "—";
+}
+
 /** Date VALIDE d'un incident ou sous-incident, ou `null` si aucun champ n'est exploitable. */
 export function getIncidentDate(inc: DatedLike | null | undefined): Date | null {
   return resolveIncidentDate(inc)?.date ?? null;
@@ -63,7 +86,7 @@ export function getIncidentDate(inc: DatedLike | null | undefined): Date | null 
 /** Date et heure lisibles ; une source « HH:MM » seule reste une heure. Jamais « Invalid Date ». */
 export function formatIncidentTime(inc: DatedLike | null | undefined, opts?: { withTime?: boolean }): string {
   const r = resolveIncidentDate(inc);
-  if (!r) return "—";
+  if (!r) return rawLabel(inc);
   if (r.hourOnly) return r.date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   return opts?.withTime === false
     ? r.date.toLocaleDateString([], { dateStyle: "medium" })
@@ -72,8 +95,11 @@ export function formatIncidentTime(inc: DatedLike | null | undefined, opts?: { w
 
 /** Heure « HH:MM » pour les listes. */
 export function formatIncidentHour(inc: DatedLike | null | undefined): string {
-  const d = getIncidentDate(inc);
-  return d ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
+  const r = resolveIncidentDate(inc);
+  if (!r) return rawLabel(inc);
+  // Un jour relatif sans heure (« J-1 ») garde son étiquette : « 00:00 » serait une invention.
+  if (JOUR_RELATIF.test(inc?.time?.trim() ?? "") && !/\d:\d\d/.test(inc?.time ?? "")) return rawLabel(inc);
+  return r.date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 /** Tri stable du plus récent au plus ancien ; les dates invalides vont en fin de liste. */

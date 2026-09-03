@@ -219,14 +219,17 @@ export function interpret(q: string, ctx: AiContext): AiAnswer {
   // hôpitaux + proximité
   if (/(hopital|hospinet|sante|medecin|chu|hopitaux).*(proche|voisin|autour|distance|autour|rayon)/.test(nq) || /(proche|voisin|autour|distance).*(hopital|hospinet|sante|chu)/.test(nq)) return hospitalsNearest(q, ctx);
   const hasIncCue = resolveTarget(q, ctx.incidents);
-  if (/hopital|hospinet|sante|etablissement sante/.test(nq) && hasIncCue) return hospitalsNearest(q, ctx);
-
   // Hôpitaux d'UNE ville : « hôpitaux de Marrakech », « CHU de Casa », « liste hôpitaux Rabat ».
+  // Avant la règle « hôpitaux + incident » : une ville de région (Marrakech,
+  // Casablanca…) est aussi le lieu d'incidents, et la question portait alors
+  // sur les hôpitaux les plus proches d'un incident que personne n'avait cité.
+  // Un identifiant INC-xxxx explicite garde la priorité.
   const hasHopCue = /(^|[^a-z])(hopital|hopitaux|hospinet|chu|chr|chp|clinique|etablissement|hopi)([^a-z]|$)/i.test(nq);
-  if (hasHopCue && !hasIncCue) {
+  if (hasHopCue && !/\bINC-\d+/i.test(q)) {
     const hopCity = extractHospitalCityFromQuery(q, ctx.hospitals ?? []);
     if (hopCity) return hospitalsByCity(q, ctx, hopCity);
   }
+  if (/hopital|hospinet|sante|etablissement sante/.test(nq) && hasIncCue) return hospitalsNearest(q, ctx);
 
   // unités posture globale
   if (/(posture|etat|statut|capacite|liste|disponibilite|readiness|preparation|situation|bilan|vue|apercu|panorama).*(unite|equipe|unite far|unites|far)/.test(nq) || /posture des unites|etat des unites|unites disponibles|toutes les unites|capacites des unites|situation des unites|bilan des unites/.test(nq)) return unitsStatus(q, ctx);
