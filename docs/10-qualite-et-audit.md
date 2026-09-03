@@ -17,7 +17,8 @@ npm run docs:api         # synchronise le contrat, puis régénère docs/03-api.
 Ces commandes s'exécutent **en séquence**. Résultat de la gate rejouée complète
 sur `fusion` à la fin de la passe (2 septembre 2026) : typecheck 0 erreur ·
 API 340/340 · web 96/96 · build de production API et web
-réussi.
+réussi. Rejouée après l'intégration de la branche IA (3 septembre 2026) :
+typecheck 0 erreur · API 340/340 · web 110/110.
 
 Ce que chaque étape garantit :
 
@@ -95,6 +96,7 @@ soit un travail planifié, soit une décision à prendre.
 | R-12 | Cache `apps/web/.next` très volumineux sur le poste de développement (9 Go constatés) | poste de travail | **outillé** : `npm run clean:cache` (serveurs arrêtés) — procédure dans 06 §11 ; à exécuter par l'utilisateur, le serveur de développement tournant pendant l'audit |
 | R-13 | Données CAMEO : licence | juridique | **règle outillée** (2 septembre 2026) : `nrbc/licence.spec.ts` refuse tout champ ou source `chemical_cas`, `dupont`, AEGL, ERPG, NFPA dans le module et le jeu versionné, et fixe les 31 numéros CAS existants (ni ajout ni retrait) |
 | R-15 | Une bascule 3D / fond de carte demandée **pendant le chargement des tuiles** était ignorée | ergonomie | **traité** (2 septembre 2026) : les bascules dépendent du style analysé, pas des tuiles ; 5 tests. **Incident** : la seconde retouche a retiré une garde qui coupait par accident une boucle `styledata` → `setupStyle` → `setTerrain`/`easeTo` — carte à 2 images/s, déplacement et 2D/3D inopérants. Corrigé à la racine : `setupStyle` ne se rejoue plus une fois les couches posées, et la bascule 2D/3D est idempotente |
+| R-16 | Branche `IA` : quatre commits postérieurs au découpage du 2 septembre, écrits sur l'ancienne arborescence (`assistant.ts` de 2 782 lignes, `SituationalAwarenessPanel.tsx` monolithique) | intégration | **traité** (3 septembre 2026) : report fonction par fonction sur l'arborescence découpée, un commit d'origine → un commit ici, l'autrice conservée. Trois défauts trouvés au passage et corrigés avec 13 tests : l'extraction de ville mangeait les lettres des noms (« casablanca » → « c s bl nc »), le routeur passait la question « hôpitaux de <ville> » aux hôpitaux proches d'un incident jamais cité, et les dates acceptaient tout ce que `new Date()` avale (« J-1 » affiché « 00:00 »). **Aucun commit de fusion** avec `origin/IA` : son historique porte les mentions de co-auteur retirées de `fusion`, un merge les réintroduirait |
 | R-14 | Un échec **intermittent** de `iam/users.spec.ts` observé une fois | fiabilité des tests | **traité** (2 septembre 2026) : non reproduit (6 exécutions isolées, 3 complètes, 1 avec détection de handles ouverts, chaque suite chronométrée à 2–4 s) ; cause la plus probable : le délai par défaut de jest (5 s) face au démarrage complet de l'application sous contention — porté à 30 s explicitement |
 
 ## 5. Comment l'auditeur rejoue tout cela
