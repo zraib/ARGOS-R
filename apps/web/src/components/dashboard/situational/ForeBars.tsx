@@ -19,24 +19,37 @@ export function ForeBars({ forecasts, generatedAt, debug }: {
   debug?: { _debugLitsTot?: number; _debugLitsOcc?: number };
 }) {
   const m = useModules();
-  const TTG = forecasts.ttgStable
-    ? {
+  // Lits disponibles et taux d'occupation RÉELS : la barre « temps avant
+  // saturation » montrait une constante (15 %) sans rapport avec la marge
+  // annoncée en sous-titre ; elle suit désormais l'occupation globale
+  // (100 − marge), et sa couleur la marge : ≥ 25 % vert, 15–25 % or, sinon rouge.
+  const TTG = (() => {
+    const disp = typeof debug?._debugLitsTot === "number" && typeof debug?._debugLitsOcc === "number"
+      ? debug._debugLitsTot - debug._debugLitsOcc
+      : null;
+    const tot = debug?._debugLitsTot ?? 0;
+    const occPct = tot > 0 && disp !== null ? Math.round(((tot - disp) / tot) * 100) : null;
+    const margePct = tot > 0 && disp !== null ? Math.round((disp / tot) * 100) : null;
+    const saturationAt = tpl(m.situational.fb_saturation_at, { t: fmtTimeHhMm(generatedAt + forecasts.ttgMinutes * 60 * 1000) });
+    if (forecasts.ttgStable) {
+      const sub = disp !== null && tot > 0
+        ? tpl(m.situational.fb_beds_margin, { n: disp, p: margePct ?? 0 })
+        : tpl(m.situational.fb_flow_ok, { r: Math.max(0, Math.round(((forecasts.flux6h.total / 6) / 60) * 100) / 100) });
+      return {
         main: m.situational.fb_network_stable,
-        sub: (() => {
-          if (typeof debug?._debugLitsTot === "number" && typeof debug?._debugLitsOcc === "number") {
-            const disp = debug._debugLitsTot - debug._debugLitsOcc;
-            return tpl(m.situational.fb_beds_margin, { n: disp, p: Math.round((disp / debug._debugLitsTot) * 100) });
-          }
-          return tpl(m.situational.fb_flow_ok, { r: Math.max(0, Math.round(((forecasts.flux6h.total / 6) / 60) * 100) / 100) });
-        })(),
-        pct: 15,
-        tone: "green" as ToneFill,
-      }
-    : forecasts.ttgMinutes <= 30
-      ? { main: tpl(m.situational.fb_saturation_at, { t: fmtTimeHhMm(generatedAt + forecasts.ttgMinutes * 60 * 1000) }), sub: tpl(m.situational.fb_in_flow_up, { d: fmtDur(forecasts.ttgMinutes) }), pct: Math.max(0, Math.min(100, 100 - (forecasts.ttgMinutes / 180) * 100)), tone: "danger" as ToneFill }
-      : forecasts.ttgMinutes <= 90
-        ? { main: tpl(m.situational.fb_saturation_at, { t: fmtTimeHhMm(generatedAt + forecasts.ttgMinutes * 60 * 1000) }), sub: tpl(m.situational.fb_in, { d: fmtDur(forecasts.ttgMinutes) }), pct: Math.max(0, Math.min(100, 100 - (forecasts.ttgMinutes / 180) * 100)), tone: "or" as ToneFill }
-        : { main: tpl(m.situational.fb_saturation_at, { t: fmtTimeHhMm(generatedAt + forecasts.ttgMinutes * 60 * 1000) }), sub: tpl(m.situational.fb_in, { d: fmtDur(forecasts.ttgMinutes) }), pct: 35, tone: "rdia" as ToneFill };
+        sub,
+        pct: Math.max(5, Math.min(100, occPct ?? 15)),
+        tone: (margePct ?? 100) >= 25 ? ("green" as ToneFill) : (margePct ?? 100) >= 15 ? ("or" as ToneFill) : ("rdia" as ToneFill),
+      };
+    }
+    if (forecasts.ttgMinutes <= 30) {
+      return { main: saturationAt, sub: tpl(m.situational.fb_in_flow_up, { d: fmtDur(forecasts.ttgMinutes) }), pct: Math.max(0, Math.min(100, 100 - (forecasts.ttgMinutes / 180) * 100)), tone: "danger" as ToneFill };
+    }
+    if (forecasts.ttgMinutes <= 90) {
+      return { main: saturationAt, sub: tpl(m.situational.fb_in, { d: fmtDur(forecasts.ttgMinutes) }), pct: Math.max(0, Math.min(100, 100 - (forecasts.ttgMinutes / 180) * 100)), tone: "or" as ToneFill };
+    }
+    return { main: saturationAt, sub: tpl(m.situational.fb_in, { d: fmtDur(forecasts.ttgMinutes) }), pct: Math.min(100, Math.max(15, occPct ?? 35)), tone: "rdia" as ToneFill };
+  })();
 
   const NSAT = !forecasts.nextSat
     ? { main: m.situational.fb_network_controlled, sub: m.situational.fb_no_hospital_at_risk, pct: 20, tone: "green" as ToneFill }
