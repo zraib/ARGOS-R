@@ -332,6 +332,22 @@ export interface Channel {
   name: string;
   kind: ChannelKind;
   topic?: string;
+  /**
+   * Matricules autorisés. ABSENT = canal OUVERT (les canaux thématiques
+   * historiques) ; DÉFINI = canal restreint à cette liste.
+   */
+  members?: string[];
+  /** Incident porteur, pour les canaux nés d'une déclaration. */
+  incidentId?: string;
+  archived?: boolean;
+}
+
+/** Compte joignable, tel que l'annuaire du centre de communication le rend. */
+export interface DirectoryEntry {
+  matricule: string;
+  nom: string;
+  grade?: string;
+  roles: string[];
 }
 
 export interface CommCategory {

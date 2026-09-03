@@ -16,6 +16,7 @@ import type { AuthUser } from "@/common/types/auth-user";
 import { DomainService } from "@/modules/domain/domain.service";
 import { CommsService } from "@/modules/domain/comms.service";
 import { RealtimeService } from "@/modules/realtime/realtime.service";
+import { UsersService } from "@/modules/iam/users.service";
 
 @ApiTags("domain")
 @ApiBearerAuth()
@@ -25,6 +26,7 @@ export class CommsController {
     private readonly domain: DomainService,
     private readonly comms: CommsService,
     private readonly realtime: RealtimeService,
+    private readonly users: UsersService,
   ) {}
 
   @Patch("comms/channels/:id")
@@ -77,6 +79,31 @@ export class CommsController {
   // qui ne déclare pas de permission : n'importe quel compte authentifié pouvait
   // donc écrire dans n'importe quel canal et créer des groupes. Elles sont
   // refermées ici (lot COMMS).
+  /**
+   * Annuaire des comptes, pour désigner les membres d'un canal.
+   *
+   * Sous `comms:view` et NON sous `users:view` : convoquer quelqu'un dans une
+   * conversation relève de la participation, pas de l'administration des
+   * comptes. La projection est donc réduite au strict nécessaire — matricule,
+   * nom, grade, rôles — sans rien du cycle de vie du compte (code temporaire,
+   * état du mot de passe, activation), qui reste derrière l'écran des
+   * utilisateurs.
+   */
+  @Get("comms/directory")
+  @RequirePermission("comms:view")
+  @ApiOperation({ summary: "Annuaire des comptes joignables — pour composer un canal" })
+  commsDirectory() {
+    return this.users
+      .list()
+      .filter((u) => u.status === "active")
+      .map((u) => ({
+        matricule: u.matricule,
+        nom: u.prenom ? `${u.nom} ${u.prenom}` : u.nom,
+        grade: u.grade,
+        roles: u.roles,
+      }));
+  }
+
   @Get("comms")
   @RequirePermission("comms:view")
   @ApiOperation({ summary: "Centre de communication : canaux, messages, présence" })
@@ -121,7 +148,7 @@ export class CommsController {
       "participer n'est pas administrer la structure du centre.",
   })
   createChannel(@Body() dto: CreateChannelDto) {
-    const chan = this.comms.addChannel(dto.categoryId, dto.name);
+    const chan = this.comms.addChannel(dto.categoryId, dto.name, dto.matricules);
     this.realtime.emit({ kind: "channel", action: "created", channelId: chan.id, payload: chan });
     return chan;
   }

@@ -83,6 +83,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `PATCH` | `/api/comms/channels/{id}` | `comms_admin:update` | Renommer un canal / changer son sujet. |
 | `POST` | `/api/comms/channels/{id}/members` | `comms:update` | Ajouter des membres à un canal. |
 | `DELETE` | `/api/comms/channels/{id}/members/{matricule}` | `comms:update` | Retirer un membre d'un canal. |
+| `GET` | `/api/comms/directory` | `comms:view` | Annuaire des comptes joignables — pour composer un canal |
 | `POST` | `/api/comms/messages` | `comms:view` | Envoyer un message dans un canal (audité) |
 | `GET` | `/api/dashboard/risk` | `dashboard:view` | Prédictions de risques (moteur déterministe, calculé côté serveur) |
 | `GET` | `/api/dashboard/stats` | `dashboard:view` | Statistiques de commandement : évolution 30 j, gravité, bilan humain, saturation hospitalière, posture des unités |
@@ -225,7 +226,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 ## Chiffres
 
-99 chemins · 126 opérations · 13 groupes.
+100 chemins · 127 opérations · 13 groupes.
 
 ## Modifier le contrat
 

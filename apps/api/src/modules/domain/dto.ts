@@ -305,6 +305,14 @@ export class CreateChannelDto {
   @IsString()
   @MinLength(1)
   name!: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: ["i.benfares", "n.fassi"],
+    description: "Membres convoqués à la création. Liste fournie → canal RESTREINT à ces comptes ; absente ou vide → canal ouvert.",
+  })
+  @IsOptional() @IsArray() @ArrayMaxSize(200) @IsString({ each: true })
+  matricules?: string[];
 }
 
 /** Création d'une unité (position en coordonnées SVG + géographiques). */

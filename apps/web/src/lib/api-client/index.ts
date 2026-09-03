@@ -127,8 +127,14 @@ export function createArgosClient(opts: ArgosClientOptions) {
 
     // --- centre de communication (lot COMMS) ---
     getPresence: () => client.GET("/api/comms/presence"),
-    createCommsChannel: (categoryId: string, name: string) =>
-      client.POST("/api/comms/channels", { body: { categoryId, name } }),
+    /** Annuaire des comptes joignables — pour composer un canal (permission `comms:view`). */
+    getCommsDirectory: () => client.GET("/api/comms/directory"),
+    /**
+     * Crée un canal. `matricules` fournis → canal RESTREINT à ces comptes dès sa
+     * naissance ; absents → canal ouvert, comme les canaux thématiques.
+     */
+    createCommsChannel: (categoryId: string, name: string, matricules?: string[]) =>
+      client.POST("/api/comms/channels", { body: { categoryId, name, ...(matricules?.length ? { matricules } : {}) } }),
     renameCommsChannel: (id: string, name: string) =>
       client.PATCH("/api/comms/channels/{id}", { params: { path: { id } }, body: { name } }),
     deleteCommsChannel: (id: string) =>
@@ -241,7 +247,8 @@ export function createArgosClient(opts: ArgosClientOptions) {
     sendMessage: (channelId: string, txt: string, attachment?: CommsAttachment) =>
       client.POST("/api/comms/messages", { body: { channelId, txt, ...(attachment ? { attachment } : {}) } }),
     createCommCategory: (name: string) => client.POST("/api/comms/categories", { body: { name } }),
-    createCommChannel: (categoryId: string, name: string) => client.POST("/api/comms/channels", { body: { categoryId, name } }),
+    createCommChannel: (categoryId: string, name: string, matricules?: string[]) =>
+      client.POST("/api/comms/channels", { body: { categoryId, name, ...(matricules?.length ? { matricules } : {}) } }),
     getReference: () => client.GET("/api/reference"),
     getSeismicEvents: (minmag = 2.5, region: "morocco" | "world" = "world") =>
       client.GET("/api/seismic/events", { params: { query: { minmag: String(minmag), region } } }),

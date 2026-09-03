@@ -8,6 +8,7 @@ import { useArgos, useDict } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
 import { UI_ICONS } from "@/lib/icons";
+import { tpl } from "@/lib/i18n/format";
 import type { Channel, CommAttachment } from "@/lib/types";
 
 /**
@@ -41,14 +42,22 @@ export default function CommunicationPage() {
   const sendMessage = useArgos((s) => s.sendMessage);
   const addCategory = useArgos((s) => s.addCategory);
   const addChannel = useArgos((s) => s.addChannel);
+  const comDirectory = useArgos((s) => s.comDirectory);
+  const loadCommsDirectory = useArgos((s) => s.loadCommsDirectory);
   const toggleCategory = useArgos((s) => s.toggleCategory);
   const showToast = useArgos((s) => s.showToast);
 
   const [msg, setMsg] = useState("");
   const [newCatOpen, setNewCatOpen] = useState(false);
   const [newCat, setNewCat] = useState("");
+  // Création d'un canal : le groupe visé, son nom, et LES MEMBRES convoqués.
+  // Le tout dans une boîte, pas dans un champ en ligne : composer une
+  // conversation, c'est choisir qui la reçoit, et ce choix ne tient pas sur une
+  // ligne au milieu de l'arborescence.
   const [newChanCat, setNewChanCat] = useState<string | null>(null);
   const [newChan, setNewChan] = useState("");
+  const [newChanMembres, setNewChanMembres] = useState<string[]>([]);
+  const [rechercheMembre, setRechercheMembre] = useState("");
   const [mobileView, setMobileView] = useState<MobileView>("chans");
   // --- administration et pièces jointes (lot COMMS) ---
   const [renomme, setRenomme] = useState<string | null>(null);
@@ -142,10 +151,30 @@ export default function CommunicationPage() {
     if (e.key === "Escape") setNewCatOpen(false);
     if (e.key === "Enter" && newCat.trim()) { addCategory(newCat); setNewCat(""); setNewCatOpen(false); }
   };
-  const onNewChanKey = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Escape") setNewChanCat(null);
-    if (e.key === "Enter" && newChan.trim() && newChanCat) { addChannel(newChanCat, newChan); setNewChan(""); setNewChanCat(null); }
+  /** Ouvre la boîte de création et tire l'annuaire (une fois suffit). */
+  const ouvrirNouveauCanal = (catId: string) => {
+    setNewChanCat(catId);
+    setNewChan("");
+    setNewChanMembres([]);
+    setRechercheMembre("");
+    if (comDirectory.length === 0) void loadCommsDirectory();
   };
+  const fermerNouveauCanal = () => setNewChanCat(null);
+  const creerCanal = () => {
+    if (!newChanCat || !newChan.trim()) return;
+    addChannel(newChanCat, newChan, newChanMembres);
+    fermerNouveauCanal();
+  };
+  const basculerMembre = (matricule: string) =>
+    setNewChanMembres((l) => (l.includes(matricule) ? l.filter((m) => m !== matricule) : [...l, matricule]));
+  // Filtre de l'annuaire : matricule, nom ou grade — ce que l'opérateur a en tête.
+  const annuaireFiltre = useMemo(() => {
+    const q = rechercheMembre.trim().toLowerCase();
+    if (!q) return comDirectory;
+    return comDirectory.filter((u) =>
+      `${u.matricule} ${u.nom} ${u.grade ?? ""}`.toLowerCase().includes(q),
+    );
+  }, [comDirectory, rechercheMembre]);
 
   // Boutons d'icône seule : 44 px de cible tactile sous `lg` (classe `cible-tactile`).
   const iconBtnCls =
@@ -177,7 +206,7 @@ export default function CommunicationPage() {
                   <Icon path={UI_ICONS.chevronRight} size={10} strokeWidth={2.5} className="shrink-0 transition-transform" style={{ transform: open ? "rotate(90deg)" : undefined }} />
                   <span className="truncate">{cat.name}</span>
                 </button>
-                <button className={`${iconBtnCls} p-1`} title={t.cm_new_chan} aria-label={t.cm_new_chan} onClick={() => { setNewChanCat(cat.id); setNewChan(""); }}>
+                <button className={`${iconBtnCls} p-1`} title={t.cm_new_channel} aria-label={t.cm_new_channel} onClick={() => ouvrirNouveauCanal(cat.id)}>
                   <Icon path={UI_ICONS.plus} size={12} strokeWidth={2} />
                 </button>
               </div>
@@ -198,9 +227,6 @@ export default function CommunicationPage() {
                       </button>
                     );
                   })}
-                  {newChanCat === cat.id && (
-                    <input className="input-champ text-base md:text-xs" placeholder={t.cm_new_chan} value={newChan} onChange={(e) => setNewChan(e.target.value)} onKeyDown={onNewChanKey} autoFocus />
-                  )}
                 </div>
               )}
             </div>
@@ -409,6 +435,83 @@ export default function CommunicationPage() {
         >
           {rtStatus === "connecting" ? t.notif_connecting : t.cm_stream_down}
         </p>
+      )}
+
+      {newChanCat && (
+        <Modal open title={t.cm_new_channel} onClose={fermerNouveauCanal} size="md">
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1 block text-[12px] font-semibold text-gray-700 dark:text-white/80" htmlFor="cm-nouveau-canal">
+                {t.cm_channel_name}
+              </label>
+              <input
+                id="cm-nouveau-canal"
+                className="input-champ cible-tactile w-full"
+                placeholder={t.cm_new_chan}
+                value={newChan}
+                onChange={(e) => setNewChan(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && newChan.trim()) creerCanal(); }}
+                maxLength={60}
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <div className="mb-1 flex items-baseline justify-between gap-2">
+                <span className="text-[12px] font-semibold text-gray-700 dark:text-white/80">{t.cm_chan_members}</span>
+                <span className="text-[11px] tabular-nums text-gray-400 dark:text-rdia-400">
+                  {newChanMembres.length > 0 ? tpl(t.cm_chan_members_count, { n: newChanMembres.length }) : t.cm_chan_open}
+                </span>
+              </div>
+              <input
+                className="input-champ cible-tactile mb-2 w-full text-base md:text-sm"
+                placeholder={t.cm_chan_members_search}
+                value={rechercheMembre}
+                onChange={(e) => setRechercheMembre(e.target.value)}
+              />
+              <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200 dark:border-rdia-600">
+                {annuaireFiltre.length === 0 ? (
+                  <p className="px-3 py-4 text-center text-[12px] text-gray-400 dark:text-rdia-400">{t.cm_chan_members_none}</p>
+                ) : (
+                  annuaireFiltre.map((u) => {
+                    const choisi = newChanMembres.includes(u.matricule);
+                    return (
+                      <label
+                        key={u.matricule}
+                        className={`flex min-h-11 cursor-pointer items-center gap-2.5 border-b border-gray-100 px-3 py-2 last:border-0 transition-colors dark:border-rdia-700/60 ${
+                          choisi ? "bg-or-500/10" : "hover:bg-gray-50 dark:hover:bg-rdia-600/30"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="size-4 shrink-0 accent-or-500"
+                          checked={choisi}
+                          onChange={() => basculerMembre(u.matricule)}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13px] font-medium text-gray-800 dark:text-rdia-50">
+                            {u.grade ? `${u.grade} ${u.nom}` : u.nom}
+                          </span>
+                          <span className="block truncate font-mono text-[11px] text-gray-400 dark:text-rdia-400">{u.matricule}</span>
+                        </span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+              <p className="mt-1.5 text-[11.5px] leading-snug text-gray-500 dark:text-rdia-300">{t.cm_chan_members_hint}</p>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button className="btn-secondaire cible-tactile text-sm" onClick={fermerNouveauCanal}>
+                {t.cancel}
+              </button>
+              <button className="btn-primaire cible-tactile text-sm" onClick={creerCanal} disabled={!newChan.trim()}>
+                {t.lbl_create}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {renomme && (

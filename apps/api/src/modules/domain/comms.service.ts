@@ -58,6 +58,26 @@ interface Member {
   initials: string;
 }
 
+/**
+ * Nom de canal lisible : minuscules, tout ce qui n'est ni lettre ni chiffre
+ * devient un tiret, 48 caractères au plus. « Crues de l'oued Ourika » →
+ * « crues-de-l-oued-ourika ».
+ *
+ * Les LETTRES ACCENTUÉES SONT CONSERVÉES, et les alphabets non latins avec
+ * elles : l'interface est en français, en arabe et en anglais, et un canal
+ * nommé « séisme-al-haouz » se lit mieux que « seisme-al-haouz ». C'est aussi
+ * la règle qui valait déjà pour un renommage manuel — la création s'y aligne
+ * plutôt que d'imposer deux orthographes selon le chemin emprunté.
+ */
+function slugify(source: string): string {
+  return source
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48)
+    .replace(/-+$/g, "");
+}
+
 @Injectable()
 export class CommsService {
   private readonly categories: CommCategory[] = [
@@ -151,18 +171,22 @@ export class CommsService {
    * Idempotent : rappeler la méthode pour un incident déjà pourvu rend le
    * canal existant plutôt que d'en empiler un second.
    */
-  channelForIncident(incidentId: string): Channel {
-    // L'identifiant porte déjà son préfixe (« INC-2614 ») : le re-préfixer
-    // donnerait « inc-inc-2614 ». Le slug est l'identifiant, en minuscules.
-    const slug = incidentId.toLowerCase();
-    const existing = this.categories.flatMap((c) => c.chans).find((ch) => ch.name === slug);
+  channelForIncident(incidentId: string, titre?: string): Channel {
+    // Rattachement par INCIDENT, pas par nom : le canal se nomme d'après le
+    // titre de l'incident, et un titre peut changer ou se répéter. L'identifiant
+    // technique, lui, reste dérivé de l'identifiant d'incident — la suppression
+    // en cascade et le message système le retrouvent par là.
+    const existing = this.categories.flatMap((c) => c.chans).find((ch) => ch.incidentId === incidentId);
     if (existing) return existing;
     const ops = this.categories.find((c) => c.id === "g1") ?? this.categories[0];
     const chan: Channel = {
-      id: `c-${slug}`,
-      name: slug,
+      id: `c-${incidentId.toLowerCase()}`,
+      // Le NOM est celui de l'opération, pas sa référence : « crues-de-l-oued-
+      // ourika » se reconnaît dans une liste, « inc-2623 » demande d'aller
+      // chercher à quoi il correspond. La référence reste dans le sujet.
+      name: this.uniqueChannelName(titre?.trim() ? titre : incidentId, incidentId),
       kind: "text",
-      topic: `Coordination — ${incidentId}`,
+      topic: titre?.trim() ? `Coordination — ${incidentId} · ${titre.trim()}` : `Coordination — ${incidentId}`,
       incidentId,
       // Naît restreint : la convocation des intervenants le peuplera.
       members: [],
@@ -170,6 +194,24 @@ export class CommsService {
     ops.chans.push(chan);
     this.messages[chan.id] = [];
     return chan;
+  }
+
+  /**
+   * Nom de canal à partir d'un texte libre : minuscules, sans accents, un tiret
+   * par séparateur, 48 caractères au plus. Deux incidents peuvent porter le
+   * même titre ; le second reçoit alors le numéro de sa référence en suffixe,
+   * pour que la liste reste lisible sans deviner lequel est lequel.
+   */
+  private uniqueChannelName(source: string, incidentId: string): string {
+    const base = slugify(source) || incidentId.toLowerCase();
+    const pris = new Set(this.categories.flatMap((c) => c.chans).map((ch) => ch.name));
+    if (!pris.has(base)) return base;
+    const suffixe = incidentId.replace(/^INC-/i, "").toLowerCase();
+    const avecSuffixe = `${base}-${suffixe}`;
+    if (!pris.has(avecSuffixe)) return avecSuffixe;
+    let n = 2;
+    while (pris.has(`${avecSuffixe}-${n}`)) n += 1;
+    return `${avecSuffixe}-${n}`;
   }
 
   /** Retrouve un canal par identifiant, ou `undefined`. */
@@ -181,7 +223,7 @@ export class CommsService {
   updateChannel(channelId: string, patch: { name?: string; topic?: string }): Channel {
     const chan = this.requireChannel(channelId);
     if (patch.name !== undefined) {
-      const slug = patch.name.trim().toLowerCase().replace(/\s+/g, "-");
+      const slug = slugify(patch.name);
       if (!slug) throw new BadRequestException("Le nom du canal ne peut pas être vide.");
       chan.name = slug;
     }
@@ -260,12 +302,23 @@ export class CommsService {
     });
   }
 
-  /** Crée un canal texte dans un groupe existant (slug à la Discord). */
-  addChannel(categoryId: string, name: string): Channel {
+  /**
+   * Crée un canal texte dans un groupe existant (nom à la Discord).
+   *
+   * `matricules` fournis → le canal naît RESTREINT à ces comptes, et le geste
+   * de création est aussi celui de la convocation : ouvrir un canal puis penser
+   * à y ajouter les intéressés en deux temps, c'est laisser une conversation
+   * sans destinataires. Liste absente ou vide → canal ouvert à tous, comme les
+   * canaux thématiques historiques.
+   */
+  addChannel(categoryId: string, name: string, matricules?: string[]): Channel {
     const cat = this.categories.find((c) => c.id === categoryId);
     if (!cat) throw new NotFoundException(`Groupe inconnu : ${categoryId}`);
-    const slug = name.trim().toLowerCase().replace(/\s+/g, "-");
+    const slug = slugify(name);
+    if (!slug) throw new BadRequestException("Le nom du canal ne peut pas être vide.");
+    const membres = [...new Set((matricules ?? []).map((m) => m.trim()).filter(Boolean))];
     const chan: Channel = { id: `c${Date.now()}`, name: slug, kind: "text", topic: "" };
+    if (membres.length) chan.members = membres;
     cat.chans.push(chan);
     this.messages[chan.id] = [];
     return chan;

@@ -157,8 +157,9 @@ export class IncidentsController {
     const inc = this.domain.createIncident(dto);
     // Tout incident naît avec son canal de coordination (ADR 0007, P1-a) : les
     // intervenants ont un lieu pour se parler dès la déclaration, et les jalons
-    // de boucle viendront s'y inscrire tout seuls.
-    this.comms.channelForIncident(inc.id);
+    // de boucle viendront s'y inscrire tout seuls. Le canal porte le TITRE de
+    // l'opération — c'est sous ce nom que l'état-major la désigne à l'oral.
+    this.comms.channelForIncident(inc.id, inc.titre);
     return inc;
   }
 

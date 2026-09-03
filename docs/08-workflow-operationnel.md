@@ -143,12 +143,26 @@ un jalon la réaligne.
 ## 6. Le canal d'incident
 
 Tout incident **naît avec son canal**, créé à la déclaration dans le groupe
-OPÉRATIONS et nommé par sa référence (`inc-2614`). Avant, le seul canal
-d'opération avait été créé à la main : rien ne donnait un lieu de conversation
-aux intervenants d'un incident.
+OPÉRATIONS. Avant, le seul canal d'opération avait été créé à la main : rien ne
+donnait un lieu de conversation aux intervenants d'un incident.
+
+Le canal porte le **titre de l'opération**, pas sa référence : « Crues de l'oued
+Ourika » donne `crues-de-l-oued-ourika`. C'est sous ce nom que l'état-major
+désigne l'opération à l'oral ; `inc-2623` obligeait à aller chercher à quoi la
+référence correspondait. Les lettres accentuées sont conservées — l'interface
+est en français, en arabe et en anglais.
+
+| Élément | Valeur | Pourquoi |
+| --- | --- | --- |
+| nom | `crues-de-l-oued-ourika` | ce que l'opérateur lit dans la liste |
+| sujet | `Coordination — INC-2623 · Crues de l'oued Ourika` | la référence reste, elle n'est pas perdue |
+| identifiant | `c-inc-2623` | dérivé de la référence : la suppression en cascade et les messages système retrouvent le canal par là, quel que soit le titre |
+
+Deux opérations peuvent porter le même titre : la seconde reçoit le numéro de sa
+référence en suffixe (`feu-de-forêt-2702`).
 
 La création est **idempotente** : redemander le canal d'un incident déjà pourvu
-rend l'existant plutôt que d'en empiler un second.
+rend l'existant plutôt que d'en empiler un second, et sans le renommer.
 
 ### Membres d'un canal
 
@@ -160,6 +174,17 @@ rend l'existant plutôt que d'en empiler un second.
 Un canal ouvert **devient restreint dès son premier membre** : le geste qui le
 referme doit être explicite. Les canaux d'incident, eux, naissent restreints et
 se peuplent au fil des engagements.
+
+**À la création d'un canal de discussion**, les membres se choisissent dans le
+même geste : la boîte « Nouveau canal » porte le nom et l'annuaire des comptes
+joignables (`GET /comms/directory`, permission `comms:view`). Ouvrir un canal
+puis penser à y convoquer les intéressés en deux temps, c'est laisser une
+conversation sans destinataires. Aucun membre coché → le canal reste ouvert.
+
+L'annuaire est sous `comms:view` et **non** sous `users:view` : convoquer
+quelqu'un dans une conversation relève de la participation, pas de
+l'administration des comptes. Il ne rend que matricule, nom, grade et rôles des
+comptes actifs — rien du cycle de vie du compte.
 
 ### Qui fait quoi
 

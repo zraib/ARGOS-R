@@ -12,6 +12,7 @@ import type {
   CommCategory,
   CommMessage,
   DashStats,
+  DirectoryEntry,
   FieldHospital,
   FeedItem,
   Hospital,
@@ -85,7 +86,10 @@ export interface DomainSlice {
   selectChannel: (id: string) => void;
   sendMessage: (txt: string) => void;
   addCategory: (name: string) => void;
-  addChannel: (catId: string, name: string) => void;
+  addChannel: (catId: string, name: string, matricules?: string[]) => void;
+  /** Annuaire des comptes joignables, chargé à la demande (écran de communication). */
+  comDirectory: DirectoryEntry[];
+  loadCommsDirectory: () => Promise<void>;
   toggleCategory: (id: string) => void;
   engageUnit: (unitId: string, incidentId: string, reason: string, via: "manual" | "reco", score?: number) => void;
   relieveUnit: (unitId: string) => void;
@@ -250,11 +254,18 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
       if (d?.categories) set({ comCats: d.categories });
     })();
   },
-  addChannel: (catId, name) => {
-    const slug = name.trim().toLowerCase().replace(/\s+/g, "-");
-    if (!slug) return;
+  comDirectory: [],
+  loadCommsDirectory: async () => {
+    const res = await api.getCommsDirectory();
+    if (res.error || !Array.isArray(res.data)) return;
+    set({ comDirectory: res.data as DirectoryEntry[] });
+  },
+  addChannel: (catId, name, matricules) => {
+    // Le nom part TEL QUEL : l'API le normalise (une seule orthographe, quel
+    // que soit le chemin — création ici, renommage ailleurs).
+    if (!name.trim()) return;
     void (async () => {
-      const res = await api.createCommChannel(catId, slug);
+      const res = await api.createCommChannel(catId, name.trim(), matricules);
       const created = res.data as { id?: string } | undefined;
       if (res.error || !created?.id) return;
       const comms = await api.getComms();

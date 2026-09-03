@@ -1286,6 +1286,26 @@
         ]
       }
     },
+    "/api/comms/directory": {
+      "get": {
+        "operationId": "CommsController_commsDirectory",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Annuaire des comptes joignables — pour composer un canal",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/comms": {
       "get": {
         "operationId": "CommsController_commsAll",
@@ -4726,6 +4746,17 @@
           "name": {
             "type": "string",
             "example": "point-logistique"
+          },
+          "matricules": {
+            "example": [
+              "i.benfares",
+              "n.fassi"
+            ],
+            "description": "Membres convoqués à la création. Liste fournie → canal RESTREINT à ces comptes ; absente ou vide → canal ouvert.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [

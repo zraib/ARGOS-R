@@ -642,6 +642,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/comms/directory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Annuaire des comptes joignables — pour composer un canal */
+        get: operations["CommsController_commsDirectory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/comms": {
         parameters: {
             query?: never;
@@ -2133,6 +2150,14 @@ export interface components {
             categoryId: string;
             /** @example point-logistique */
             name: string;
+            /**
+             * @description Membres convoqués à la création. Liste fournie → canal RESTREINT à ces comptes ; absente ou vide → canal ouvert.
+             * @example [
+             *       "i.benfares",
+             *       "n.fassi"
+             *     ]
+             */
+            matricules?: string[];
         };
         CreateUnitDto: {
             /** @example 6e Bataillon Médical */
@@ -3491,6 +3516,23 @@ export interface operations {
                 id: string;
                 matricule: string;
             };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommsController_commsDirectory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
