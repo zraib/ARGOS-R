@@ -21,6 +21,18 @@ export interface CommMessage {
   av: string;
   time: string;
   txt: string;
+  /**
+   * MATRICULE de l'auteur — l'identité, par opposition à `who` qui en est
+   * l'affichage. C'est le seul champ sur lequel un client peut décider si un
+   * message est le sien : le nom affiché ne suffit pas (deux homonymes, un
+   * grade qui change), et `mine` ne peut pas être décidé côté serveur puisque
+   * le même message part vers tous les postes.
+   */
+  author?: string;
+  /**
+   * NE VIENT PLUS DU SERVEUR pour les messages d'opérateur : chaque poste le
+   * calcule depuis `author`. Reste posé à `false` pour les messages système.
+   */
   mine?: boolean;
   /** Absente pour un message de texte seul — la majorité. */
   attachment?: CommAttachment;
@@ -141,16 +153,31 @@ export class CommsService {
 
   addMessage(
     channelId: string,
-    msg: { who: string; initials: string; av: string; txt: string; attachment?: CommAttachment },
+    msg: { who: string; author: string; initials: string; av: string; txt: string; attachment?: CommAttachment },
   ): CommMessage {
     const exists = this.categories.some((c) => c.chans.some((ch) => ch.id === channelId && ch.kind === "text"));
     if (!exists) throw new NotFoundException(`Canal texte inconnu : ${channelId}`);
     const list = this.messages[channelId] ?? (this.messages[channelId] = []);
     const d = new Date();
     const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-    const entry: CommMessage = { id: Date.now(), ...msg, time, mine: true };
+    // Ni `mine` ni identifiant deviné : l'identifiant est celui du serveur (le
+    // seul qui fasse foi pour dédoublonner), et l'appartenance se décide sur
+    // chaque poste. `mine: true` stocké ici faisait apparaître TOUS les
+    // messages comme les siens à quiconque rechargeait le centre.
+    const entry: CommMessage = { id: this.nextMessageId(), ...msg, time };
     list.push(entry);
     return entry;
+  }
+
+  /**
+   * Identifiant de message : strictement croissant, jamais réutilisé.
+   * `Date.now()` seul rendait deux fois la même valeur pour deux messages
+   * envoyés dans la même milliseconde.
+   */
+  private dernierId = 0;
+  private nextMessageId(): number {
+    this.dernierId = Math.max(Date.now(), this.dernierId + 1);
+    return this.dernierId;
   }
 
   /** Crée un groupe de canaux (nom affiché en capitales, comme le design). */
@@ -292,12 +319,13 @@ export class CommsService {
     const d = new Date();
     const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
     (this.messages[chan.id] ??= []).push({
-      id: Date.now(),
+      id: this.nextMessageId(),
       who: "ARGOS",
       initials: "AR",
       av: "bg-rdia-500",
       txt,
       time,
+      // La plateforme rend compte : ce n'est le message de personne.
       mine: false,
     });
   }

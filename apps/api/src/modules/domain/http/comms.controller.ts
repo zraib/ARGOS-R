@@ -18,6 +18,13 @@ import { CommsService } from "@/modules/domain/comms.service";
 import { RealtimeService } from "@/modules/realtime/realtime.service";
 import { UsersService } from "@/modules/iam/users.service";
 
+/** Initiales d'un nom affiché : « Cdt. H. Alami » → « HA ». */
+function initiales(nom: string): string {
+  const mots = nom.replace(/^[A-Za-zÀ-ÿ]+\.\s*/, "").split(/\s+/).filter(Boolean);
+  const lettres = mots.map((m) => m[0]?.toUpperCase() ?? "").join("");
+  return (lettres || nom.slice(0, 2)).slice(0, 2).toUpperCase();
+}
+
 @ApiTags("domain")
 @ApiBearerAuth()
 @Controller()
@@ -133,10 +140,19 @@ export class CommsController {
   @RequirePermission("comms:view")
   @ApiOperation({ summary: "Envoyer un message dans un canal (audité)" })
   sendMessage(@CurrentUser() user: AuthUser, @Body() dto: SendMessageDto) {
-    const initials = user.username.slice(0, 2).toUpperCase();
+    // Le message porte le NOM de son auteur, pas son matricule : dans un fil de
+    // conversation on lit « Cdt. H. Alami », pas « h.alami ». Le matricule
+    // reste dans `author`, qui est ce sur quoi chaque poste décide si le
+    // message est le sien.
+    const compte = this.users.list().find((u) => u.matricule === user.username);
+    // Le grade fait partie du nom affiché, mais PAS des initiales de l'avatar :
+    // « Commandant Zraib Mohammed » se signe ZM, pas CZ.
+    const identite = compte ? (compte.prenom ? `${compte.nom} ${compte.prenom}` : compte.nom) : user.username;
+    const nom = compte?.grade ? `${compte.grade} ${identite}` : identite;
     const msg = this.comms.addMessage(dto.channelId, {
-      who: user.username,
-      initials,
+      who: nom,
+      author: user.username,
+      initials: initiales(identite),
       av: "bg-or-500 text-rdia-600",
       txt: dto.txt,
       attachment: dto.attachment,

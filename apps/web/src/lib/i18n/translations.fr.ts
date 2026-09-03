@@ -275,6 +275,7 @@ export const FR_DICT: Dict = {
     cm_participants_add: "Convoquer un participant", cm_participants_remove: "Retirer du canal",
     cm_participants_saved: "Participants mis à jour",
     cm_participants_open: "Ce canal est ouvert à tous. Convoquer un premier participant le rend restreint : seuls ses membres le verront et pourront y écrire.",
+    cm_send_failed: "Message non envoyé — vérifiez la liaison au serveur ARGOS.",
     cm_delete_confirm: "Supprimer ce canal et toute sa conversation ? L'opération est irréversible.",
     cm_admin_only: "Créer, renommer ou supprimer un canal relève de l'administration : participer n'est pas administrer la structure du centre.",
     cm_attach: "Joindre un fichier", cm_attach_too_big: "Fichier trop volumineux — 40 Mo au maximum.",

@@ -54,10 +54,11 @@ export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice
         if (e.kind === "message") {
           const d = e.data as { channelId: string; message: CommMessage };
           if (!d?.channelId || !d.message) return;
-          // `mine` est posé par le SERVEUR pour l'auteur ; sur le flux il
-          // arrive à tout le monde. On le recalcule ici, sans quoi chacun
-          // verrait tous les messages comme les siens.
-          const message: CommMessage = { ...d.message, mine: d.message.who === s.sessionUser?.matricule };
+          // L'appartenance se décide ICI, sur le MATRICULE de l'auteur : le
+          // même message part vers tous les postes, et le nom affiché ne
+          // suffit pas à distinguer son auteur.
+          const matricule = s.sessionUser?.matricule;
+          const message: CommMessage = { ...d.message, mine: !!matricule && d.message.author === matricule };
           const liste = s.comMsgs[d.channelId] ?? [];
           // Le message peut déjà être là : l'auteur l'a inséré à l'envoi et le
           // reçoit ensuite par le flux. Dédoublonner sur l'identifiant évite

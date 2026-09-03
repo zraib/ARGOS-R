@@ -552,6 +552,7 @@ export interface Dict {
   cm_chan_members_search: string; cm_chan_members_none: string; cm_chan_members_hint: string;
   cm_participants: string; cm_participants_count: string; cm_participants_add: string;
   cm_participants_remove: string; cm_participants_saved: string; cm_participants_open: string;
+  cm_send_failed: string;
   cm_delete_confirm: string; cm_admin_only: string; cm_attach: string; cm_attach_too_big: string;
   cm_attach_refused: string; cm_attach_failed: string; cm_attach_sending: string; cm_download: string;
   cm_stream_down: string;

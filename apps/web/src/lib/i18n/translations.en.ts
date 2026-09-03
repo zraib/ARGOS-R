@@ -275,6 +275,7 @@ export const EN_DICT: Dict = {
     cm_participants_add: "Invite a participant", cm_participants_remove: "Remove from channel",
     cm_participants_saved: "Participants updated",
     cm_participants_open: "This channel is open to everyone. Inviting a first participant makes it restricted: only its members will see it and write in it.",
+    cm_send_failed: "Message not sent — check the link to the ARGOS server.",
     cm_delete_confirm: "Delete this channel and its whole conversation? This cannot be undone.",
     cm_admin_only: "Creating, renaming or deleting a channel is administration: participating is not administering the centre's structure.",
     cm_attach: "Attach a file", cm_attach_too_big: "File too large — 40 MB maximum.",

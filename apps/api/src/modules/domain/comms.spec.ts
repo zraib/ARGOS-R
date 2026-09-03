@@ -89,6 +89,41 @@ describe("CommsService — canaux", () => {
     });
   });
 
+  describe("messages — identité de l'auteur et unicité", () => {
+    it("le serveur ne décide PAS que le message est « le mien »", () => {
+      // `mine: true` stocké côté serveur revenait à dire à tous les postes que
+      // chaque message est le leur : au rechargement, l'opérateur voyait la
+      // conversation entière du côté de ses propres messages.
+      const msg = comms.addMessage("c1", { who: "Cdt. H. Alami", author: "h.alami", initials: "HA", av: "bg-or-500", txt: "Reçu." });
+      expect(msg.mine).toBeUndefined();
+    });
+
+    it("porte le matricule de son auteur, distinct du nom affiché", () => {
+      const msg = comms.addMessage("c1", { who: "Cdt. H. Alami", author: "h.alami", initials: "HA", av: "bg-or-500", txt: "Reçu." });
+      expect(msg.author).toBe("h.alami");
+      expect(msg.who).toBe("Cdt. H. Alami");
+    });
+
+    it("deux messages de la MÊME milliseconde reçoivent deux identifiants", () => {
+      // Identifiants identiques = messages confondus par le dédoublonnage du
+      // flux temps réel : le second n'apparaîtrait jamais chez les autres.
+      const a = comms.addMessage("c1", { who: "A", author: "a", initials: "A", av: "", txt: "un" });
+      const b = comms.addMessage("c1", { who: "A", author: "a", initials: "A", av: "", txt: "deux" });
+      const c = comms.addMessage("c1", { who: "A", author: "a", initials: "A", av: "", txt: "trois" });
+      expect(new Set([a.id, b.id, c.id]).size).toBe(3);
+      expect(b.id).toBeGreaterThan(a.id);
+      expect(c.id).toBeGreaterThan(b.id);
+    });
+
+    it("un message système n'est à personne", () => {
+      comms.postSystem("INC-2623", "Unité U3 engagée.");
+      const chan = comms.channelForIncident("INC-2623");
+      const dernier = comms.all().messages[chan.id].at(-1);
+      expect(dernier?.mine).toBe(false);
+      expect(dernier?.author).toBeUndefined();
+    });
+  });
+
   describe("révision de la liste des participants", () => {
     it("un participant s'ajoute et se retire après coup", () => {
       const chan = comms.addChannel("g1", "coord", ["h.alami"]);

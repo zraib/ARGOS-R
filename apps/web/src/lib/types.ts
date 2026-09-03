@@ -366,7 +366,10 @@ export interface CommAttachment {
 
 export interface CommMessage {
   id: number;
+  /** Nom affiché de l'auteur. */
   who: string;
+  /** MATRICULE de l'auteur — c'est lui, et non le nom, qui dit si le message est le nôtre. */
+  author?: string;
   initials: string;
   /** classes Tailwind pour l'avatar */
   av: string;

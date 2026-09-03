@@ -103,6 +103,25 @@ export interface DomainSlice {
   simTick: () => void;
 }
 
+/**
+ * Marque les messages de l'utilisateur courant.
+ *
+ * `mine` ne peut pas venir du serveur : le même message part vers tous les
+ * postes. Il se décide ici, sur le MATRICULE de l'auteur — le nom affiché ne
+ * suffit pas. Les messages du jeu d'amorçage et ceux de la plateforme n'ont
+ * pas d'auteur : ils ne sont à personne, ce qui est exact.
+ */
+function marquerMiens(
+  messages: Record<string, CommMessage[]>,
+  matricule: string | undefined,
+): Record<string, CommMessage[]> {
+  const sortie: Record<string, CommMessage[]> = {};
+  for (const [canal, liste] of Object.entries(messages)) {
+    sortie[canal] = liste.map((m) => ({ ...m, mine: !!matricule && !!m.author && m.author === matricule }));
+  }
+  return sortie;
+}
+
 export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = (set, get) => ({
   incidents: [],
   units: [],
@@ -163,7 +182,7 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
       dashStats: data<DashStats>(11) ?? s.dashStats,
       subCatalog: data<SubIncidentCatalog>(12) ?? s.subCatalog,
       comCats: comms?.categories ?? s.comCats,
-      comMsgs: comms?.messages ?? s.comMsgs,
+      comMsgs: comms?.messages ? marquerMiens(comms.messages, s.sessionUser?.matricule) : s.comMsgs,
       comMembers: comms?.members ?? s.comMembers,
       provinces: reference?.provinces ?? s.provinces,
       cities: reference?.cities ?? s.cities,
@@ -236,17 +255,45 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
     const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
     const nom = sessionUser?.nom ?? "Moi";
     const initials = nom.replace(/^[A-Za-zÀ-ÿ]+\.?\s*/, "").split(/\s+/).map((p) => p[0]?.toUpperCase() ?? "").join("").slice(0, 2) || nom.slice(0, 2).toUpperCase();
-    // Ajout optimiste local + persistance via l'API (POST /comms/messages).
+
+    // BROUILLON LOCAL, identifiant NÉGATIF. Le message s'affiche tout de suite
+    // — un poste de commandement ne doit pas attendre le réseau pour voir sa
+    // propre phrase — mais son identifiant ne peut pas être deviné : le
+    // serveur donnera le sien. Un identifiant négatif ne peut entrer en
+    // collision avec aucun identifiant serveur, et la réconciliation ci-dessous
+    // le remplace par le message réel. Sans cela, l'auteur voyait son message
+    // DEUX FOIS : une fois en brouillon, une fois revenu par le flux temps
+    // réel, sous son matricule et du côté des autres.
+    const brouillon = -Date.now();
     set((s) => ({
       comMsgs: {
         ...s.comMsgs,
         [comSel]: [
           ...(s.comMsgs[comSel] || []),
-          { id: Date.now(), who: nom, initials, av: "bg-or-500 text-rdia-600", time, txt: t, mine: true },
+          { id: brouillon, who: nom, author: sessionUser?.matricule, initials, av: "bg-or-500 text-rdia-600", time, txt: t, mine: true },
         ],
       },
     }));
-    void api.sendMessage(comSel, t).catch(() => {});
+
+    void (async () => {
+      const res = await api.sendMessage(comSel, t);
+      const envoye = res.error ? undefined : (res.data as CommMessage | undefined);
+      set((s) => {
+        const sansBrouillon = (s.comMsgs[comSel] ?? []).filter((m) => m.id !== brouillon);
+        // Échec : le brouillon disparaît et on le DIT. Laisser à l'écran une
+        // phrase que personne n'a reçue est le pire des deux.
+        if (!envoye?.id) return { comMsgs: { ...s.comMsgs, [comSel]: sansBrouillon } };
+        // Le flux temps réel a pu arriver avant la réponse : on ne le double pas.
+        const dejaLa = sansBrouillon.some((m) => m.id === envoye.id);
+        return {
+          comMsgs: {
+            ...s.comMsgs,
+            [comSel]: dejaLa ? sansBrouillon : [...sansBrouillon, { ...envoye, mine: true }],
+          },
+        };
+      });
+      if (!envoye?.id) get().showToast(get().dict.cm_send_failed);
+    })();
   },
   // Création persistée côté API, puis resynchronisation des canaux/messages.
   addCategory: (name) => {
@@ -264,7 +311,10 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
     const comms = await api.getComms();
     const d = comms.data as { categories?: CommCategory[]; messages?: Record<string, CommMessage[]> } | undefined;
     if (!d?.categories) return;
-    set((s) => ({ comCats: d.categories ?? s.comCats, comMsgs: d.messages ?? s.comMsgs }));
+    set((s) => ({
+      comCats: d.categories ?? s.comCats,
+      comMsgs: d.messages ? marquerMiens(d.messages, s.sessionUser?.matricule) : s.comMsgs,
+    }));
   },
   comDirectory: [],
   loadCommsDirectory: async () => {
