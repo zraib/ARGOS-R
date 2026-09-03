@@ -177,14 +177,45 @@ se peuplent au fil des engagements.
 
 **À la création d'un canal de discussion**, les membres se choisissent dans le
 même geste : la boîte « Nouveau canal » porte le nom et l'annuaire des comptes
-joignables (`GET /comms/directory`, permission `comms:view`). Ouvrir un canal
-puis penser à y convoquer les intéressés en deux temps, c'est laisser une
-conversation sans destinataires. Aucun membre coché → le canal reste ouvert.
+joignables. Ouvrir un canal puis penser à y convoquer les intéressés en deux
+temps, c'est laisser une conversation sans destinataires. Aucun membre coché →
+le canal reste ouvert.
 
-L'annuaire est sous `comms:view` et **non** sous `users:view` : convoquer
-quelqu'un dans une conversation relève de la participation, pas de
-l'administration des comptes. Il ne rend que matricule, nom, grade et rôles des
-comptes actifs — rien du cycle de vie du compte.
+**La liste se révise ensuite**, depuis le bouton « Participants » de l'en-tête du
+canal : une unité relevée sort, un renfort arrivé entre. La composition d'une
+conversation suit l'opération, elle n'est pas figée à la déclaration. Ce geste
+relève de la **conduite** (`comms:update`, que tous les rôles opérationnels
+détiennent) et non de l'administration : convoquer un renfort n'est pas du même
+ordre que renommer ou supprimer un canal.
+
+| Geste | Effet |
+| --- | --- |
+| Convoquer le **premier** participant d'un canal ouvert | le canal devient **restreint** |
+| Retirer le **dernier** participant | le canal **reste restreint**, la liste est simplement vide |
+
+Vider un canal ne le rouvre pas : le rendre visible de tous parce que son
+dernier intervenant a été relevé exposerait la conversation au moment précis où
+plus personne ne la surveille. Rouvrir est un geste séparé.
+
+### L'annuaire des correspondants
+
+`GET /comms/directory`, sous `comms:view` et **non** sous `users:view` :
+convoquer quelqu'un dans une conversation relève de la participation, pas de
+l'administration des comptes. Il ne rend que matricule, nom, grade et rôles —
+rien du cycle de vie du compte (code temporaire, état du mot de passe,
+activation), qui reste derrière l'écran des utilisateurs.
+
+Deux conditions pour y figurer, et **la seconde est celle qui compte** :
+
+1. le compte est actif (ni désactivé, ni en attente d'activation) ;
+2. il a **déjà servi** — une première connexion est enregistrée.
+
+Un compte ouvert par l'administration mais dont personne n'a encore pris
+possession n'est pas un correspondant : le convoquer n'adresse la conversation à
+personne, tout en laissant croire le contraire à qui lit la liste des
+participants. Il apparaît de lui-même à sa première connexion. L'écran
+d'administration des comptes, lui, continue de les montrer tous — c'est là qu'on
+suit ceux qui n'ont pas encore ouvert.
 
 ### Qui fait quoi
 
@@ -192,7 +223,7 @@ comptes actifs — rien du cycle de vie du compte.
 | --- | :---: | :---: | :---: | :---: |
 | Créer le canal d'un incident | ✅ à la déclaration | — | ✅ | ✅ |
 | Renommer, sujet | — | — | ✅ | ✅ |
-| Ajouter / retirer des membres | ✅ convocation | ✅ sur *ses* incidents | ✅ | ✅ |
+| Ajouter / retirer des participants | ✅ convocation | ✅ bouton « Participants » | ✅ | ✅ |
 | Archiver | ✅ avec l'incident | — | ✅ | ✅ |
 | **Supprimer** | — | ❌ | **❌ jamais** | ✅ **seul** |
 

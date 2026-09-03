@@ -88,4 +88,56 @@ describe("CommsService — canaux", () => {
       expect(() => comms.addChannel("groupe-fantome", "essai")).toThrow();
     });
   });
+
+  describe("révision de la liste des participants", () => {
+    it("un participant s'ajoute et se retire après coup", () => {
+      const chan = comms.addChannel("g1", "coord", ["h.alami"]);
+      expect(comms.addMembers(chan.id, ["y.tazi", "n.fassi"]).members).toEqual(["h.alami", "y.tazi", "n.fassi"]);
+      expect(comms.removeMember(chan.id, "y.tazi").members).toEqual(["h.alami", "n.fassi"]);
+    });
+
+    it("ajouter deux fois le même compte ne le double pas", () => {
+      const chan = comms.addChannel("g1", "coord", ["h.alami"]);
+      comms.addMembers(chan.id, ["h.alami", " h.alami "]);
+      expect(chan.members).toEqual(["h.alami"]);
+    });
+
+    it("retirer le dernier participant NE ROUVRE PAS le canal", () => {
+      // Un canal vidé de ses membres reste restreint : le rouvrir à tous parce
+      // que le dernier intervenant a été relevé exposerait la conversation au
+      // moment précis où plus personne ne la surveille.
+      const chan = comms.addChannel("g1", "coord", ["h.alami"]);
+      comms.removeMember(chan.id, "h.alami");
+      expect(chan.members).toEqual([]);
+    });
+
+    it("le premier participant REFERME un canal ouvert — le geste est explicite", () => {
+      const chan = comms.addChannel("g1", "ouvert");
+      expect(chan.members).toBeUndefined();
+      expect(comms.addMembers(chan.id, ["h.alami"]).members).toEqual(["h.alami"]);
+    });
+
+    it("retirer d'un canal OUVERT est refusé : il n'a pas de liste", () => {
+      const chan = comms.addChannel("g1", "ouvert");
+      expect(() => comms.removeMember(chan.id, "h.alami")).toThrow();
+    });
+
+    it("retirer un compte absent de la liste ne change rien et ne casse pas", () => {
+      const chan = comms.addChannel("g1", "coord", ["h.alami"]);
+      expect(comms.removeMember(chan.id, "inconnu").members).toEqual(["h.alami"]);
+    });
+
+    it("le canal d'un incident se peuple et se dépeuple comme les autres", () => {
+      const chan = comms.channelForIncident("INC-2623", "Crues de l'oued Ourika");
+      comms.addMembers(chan.id, ["h.alami", "y.tazi"]);
+      expect(chan.members).toEqual(["h.alami", "y.tazi"]);
+      comms.removeMember(chan.id, "h.alami");
+      expect(chan.members).toEqual(["y.tazi"]);
+    });
+
+    it("refuse un canal inconnu, des deux côtés", () => {
+      expect(() => comms.addMembers("c-fantome", ["h.alami"])).toThrow();
+      expect(() => comms.removeMember("c-fantome", "h.alami")).toThrow();
+    });
+  });
 });

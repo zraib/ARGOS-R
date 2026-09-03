@@ -1288,6 +1288,7 @@
     },
     "/api/comms/directory": {
       "get": {
+        "description": "Comptes actifs ET déjà connectés au moins une fois. Un compte créé mais jamais utilisé n'y figure pas.",
         "operationId": "CommsController_commsDirectory",
         "parameters": [],
         "responses": {

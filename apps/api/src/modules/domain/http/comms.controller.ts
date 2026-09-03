@@ -80,7 +80,7 @@ export class CommsController {
   // donc écrire dans n'importe quel canal et créer des groupes. Elles sont
   // refermées ici (lot COMMS).
   /**
-   * Annuaire des comptes, pour désigner les membres d'un canal.
+   * Annuaire des comptes JOIGNABLES, pour désigner les membres d'un canal.
    *
    * Sous `comms:view` et NON sous `users:view` : convoquer quelqu'un dans une
    * conversation relève de la participation, pas de l'administration des
@@ -88,14 +88,28 @@ export class CommsController {
    * nom, grade, rôles — sans rien du cycle de vie du compte (code temporaire,
    * état du mot de passe, activation), qui reste derrière l'écran des
    * utilisateurs.
+   *
+   * DEUX conditions, et la seconde est celle qui compte ici :
+   *   1. le compte est actif (ni désactivé, ni en attente d'activation) ;
+   *   2. il a DÉJÀ SERVI — une première connexion est enregistrée.
+   *
+   * Un compte ouvert par l'administration mais dont personne n'a encore pris
+   * possession n'est pas un correspondant : le convoquer dans un canal
+   * n'adresse la conversation à personne, et laisse croire le contraire à qui
+   * lit la liste des participants. Il apparaîtra de lui-même à sa première
+   * connexion. L'écran d'administration des comptes, lui, continue de les
+   * montrer tous : c'est là qu'on suit ceux qui n'ont pas encore ouvert.
    */
   @Get("comms/directory")
   @RequirePermission("comms:view")
-  @ApiOperation({ summary: "Annuaire des comptes joignables — pour composer un canal" })
+  @ApiOperation({
+    summary: "Annuaire des comptes joignables — pour composer un canal",
+    description: "Comptes actifs ET déjà connectés au moins une fois. Un compte créé mais jamais utilisé n'y figure pas.",
+  })
   commsDirectory() {
     return this.users
       .list()
-      .filter((u) => u.status === "active")
+      .filter((u) => u.status === "active" && !!u.lastLogin)
       .map((u) => ({
         matricule: u.matricule,
         nom: u.prenom ? `${u.nom} ${u.prenom}` : u.nom,

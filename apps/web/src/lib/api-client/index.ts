@@ -135,6 +135,12 @@ export function createArgosClient(opts: ArgosClientOptions) {
      */
     createCommsChannel: (categoryId: string, name: string, matricules?: string[]) =>
       client.POST("/api/comms/channels", { body: { categoryId, name, ...(matricules?.length ? { matricules } : {}) } }),
+    /** Convoque des comptes dans un canal existant. Un canal OUVERT devient restreint dès le premier. */
+    addChannelMembers: (id: string, matricules: string[]) =>
+      client.POST("/api/comms/channels/{id}/members", { params: { path: { id } }, body: { matricules } }),
+    /** Retire un participant. Le canal reste restreint, même vidé de ses membres. */
+    removeChannelMember: (id: string, matricule: string) =>
+      client.DELETE("/api/comms/channels/{id}/members/{matricule}", { params: { path: { id, matricule } } }),
     renameCommsChannel: (id: string, name: string) =>
       client.PATCH("/api/comms/channels/{id}", { params: { path: { id } }, body: { name } }),
     deleteCommsChannel: (id: string) =>

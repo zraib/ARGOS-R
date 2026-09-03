@@ -649,7 +649,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Annuaire des comptes joignables — pour composer un canal */
+        /**
+         * Annuaire des comptes joignables — pour composer un canal
+         * @description Comptes actifs ET déjà connectés au moins une fois. Un compte créé mais jamais utilisé n'y figure pas.
+         */
         get: operations["CommsController_commsDirectory"];
         put?: never;
         post?: never;

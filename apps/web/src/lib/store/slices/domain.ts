@@ -87,9 +87,15 @@ export interface DomainSlice {
   sendMessage: (txt: string) => void;
   addCategory: (name: string) => void;
   addChannel: (catId: string, name: string, matricules?: string[]) => void;
+  /** Relit canaux et messages depuis l'API — l'état des canaux est serveur. */
+  refreshComms: () => Promise<void>;
   /** Annuaire des comptes joignables, chargé à la demande (écran de communication). */
   comDirectory: DirectoryEntry[];
   loadCommsDirectory: () => Promise<void>;
+  /** Convoque des comptes dans un canal existant. Rend `true` si l'API a accepté. */
+  addChannelMembers: (channelId: string, matricules: string[]) => Promise<boolean>;
+  /** Retire un participant d'un canal. Rend `true` si l'API a accepté. */
+  removeChannelMember: (channelId: string, matricule: string) => Promise<boolean>;
   toggleCategory: (id: string) => void;
   engageUnit: (unitId: string, incidentId: string, reason: string, via: "manual" | "reco", score?: number) => void;
   relieveUnit: (unitId: string) => void;
@@ -254,11 +260,34 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
       if (d?.categories) set({ comCats: d.categories });
     })();
   },
+  refreshComms: async () => {
+    const comms = await api.getComms();
+    const d = comms.data as { categories?: CommCategory[]; messages?: Record<string, CommMessage[]> } | undefined;
+    if (!d?.categories) return;
+    set((s) => ({ comCats: d.categories ?? s.comCats, comMsgs: d.messages ?? s.comMsgs }));
+  },
   comDirectory: [],
   loadCommsDirectory: async () => {
     const res = await api.getCommsDirectory();
     if (res.error || !Array.isArray(res.data)) return;
     set({ comDirectory: res.data as DirectoryEntry[] });
+  },
+  // Après une écriture, on RELIT les canaux depuis l'API plutôt que de recopier
+  // la réponse : la liste des participants est de l'état serveur, et deux
+  // opérateurs peuvent la modifier en même temps.
+  addChannelMembers: async (channelId, matricules) => {
+    const propres = matricules.map((m) => m.trim()).filter(Boolean);
+    if (!propres.length) return false;
+    const res = await api.addChannelMembers(channelId, propres);
+    if (res.error) return false;
+    await get().refreshComms();
+    return true;
+  },
+  removeChannelMember: async (channelId, matricule) => {
+    const res = await api.removeChannelMember(channelId, matricule);
+    if (res.error) return false;
+    await get().refreshComms();
+    return true;
   },
   addChannel: (catId, name, matricules) => {
     // Le nom part TEL QUEL : l'API le normalise (une seule orthographe, quel
@@ -268,13 +297,8 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
       const res = await api.createCommChannel(catId, name.trim(), matricules);
       const created = res.data as { id?: string } | undefined;
       if (res.error || !created?.id) return;
-      const comms = await api.getComms();
-      const d = comms.data as { categories?: CommCategory[]; messages?: Record<string, CommMessage[]> } | undefined;
-      set((s) => ({
-        comCats: d?.categories ?? s.comCats,
-        comMsgs: d?.messages ?? s.comMsgs,
-        comSel: created.id as string,
-      }));
+      await get().refreshComms();
+      set({ comSel: created.id as string });
     })();
   },
   toggleCategory: (id) => set((s) => ({ comCollapsed: { ...s.comCollapsed, [id]: !s.comCollapsed[id] } })),

@@ -44,6 +44,8 @@ export default function CommunicationPage() {
   const addChannel = useArgos((s) => s.addChannel);
   const comDirectory = useArgos((s) => s.comDirectory);
   const loadCommsDirectory = useArgos((s) => s.loadCommsDirectory);
+  const addChannelMembers = useArgos((s) => s.addChannelMembers);
+  const removeChannelMember = useArgos((s) => s.removeChannelMember);
   const toggleCategory = useArgos((s) => s.toggleCategory);
   const showToast = useArgos((s) => s.showToast);
 
@@ -58,6 +60,12 @@ export default function CommunicationPage() {
   const [newChan, setNewChan] = useState("");
   const [newChanMembres, setNewChanMembres] = useState<string[]>([]);
   const [rechercheMembre, setRechercheMembre] = useState("");
+  // Gestion des participants d'un canal EXISTANT : la composition d'une
+  // conversation se révise (une unité relevée, un renfort arrivé), elle n'est
+  // pas figée à la création.
+  const [participantsOuvert, setParticipantsOuvert] = useState(false);
+  const [rechercheParticipant, setRechercheParticipant] = useState("");
+  const [majParticipants, setMajParticipants] = useState(false);
   const [mobileView, setMobileView] = useState<MobileView>("chans");
   // --- administration et pièces jointes (lot COMMS) ---
   const [renomme, setRenomme] = useState<string | null>(null);
@@ -165,6 +173,32 @@ export default function CommunicationPage() {
     addChannel(newChanCat, newChan, newChanMembres);
     fermerNouveauCanal();
   };
+  /** Ouvre la gestion des participants du canal affiché. */
+  const ouvrirParticipants = () => {
+    setParticipantsOuvert(true);
+    setRechercheParticipant("");
+    if (comDirectory.length === 0) void loadCommsDirectory();
+  };
+  /** Nom lisible d'un matricule ; à défaut, le matricule lui-même. */
+  const nomDe = (matricule: string) => {
+    const u = comDirectory.find((x) => x.matricule === matricule);
+    if (!u) return matricule;
+    return u.grade ? `${u.grade} ${u.nom}` : u.nom;
+  };
+  const convoquer = async (matricule: string) => {
+    if (!selChan || majParticipants) return;
+    setMajParticipants(true);
+    const ok = await addChannelMembers(selChan.id, [matricule]);
+    setMajParticipants(false);
+    showToast(ok ? t.cm_participants_saved : t.toast_fail);
+  };
+  const retirer = async (matricule: string) => {
+    if (!selChan || majParticipants) return;
+    setMajParticipants(true);
+    const ok = await removeChannelMember(selChan.id, matricule);
+    setMajParticipants(false);
+    showToast(ok ? t.cm_participants_saved : t.toast_fail);
+  };
   const basculerMembre = (matricule: string) =>
     setNewChanMembres((l) => (l.includes(matricule) ? l.filter((m) => m !== matricule) : [...l, matricule]));
   // Filtre de l'annuaire : matricule, nom ou grade — ce que l'opérateur a en tête.
@@ -175,6 +209,13 @@ export default function CommunicationPage() {
       `${u.matricule} ${u.nom} ${u.grade ?? ""}`.toLowerCase().includes(q),
     );
   }, [comDirectory, rechercheMembre]);
+  const participants = useMemo(() => selChan?.members ?? [], [selChan]);
+  const aConvoquer = useMemo(() => {
+    const q = rechercheParticipant.trim().toLowerCase();
+    return comDirectory
+      .filter((u) => !participants.includes(u.matricule))
+      .filter((u) => !q || `${u.matricule} ${u.nom} ${u.grade ?? ""}`.toLowerCase().includes(q));
+  }, [comDirectory, participants, rechercheParticipant]);
 
   // Boutons d'icône seule : 44 px de cible tactile sous `lg` (classe `cible-tactile`).
   const iconBtnCls =
@@ -281,6 +322,20 @@ export default function CommunicationPage() {
                 <Icon path={UI_ICONS.trash} size={15} />
               </button>
             </div>
+          )}
+          {/* PARTICIPANTS du canal — révisable par la conduite, pas seulement par
+              l'administration : convoquer un renfort ou relever une unité fait
+              partie de la conduite, renommer et supprimer n'en font pas partie. */}
+          {selChan && !isVoice && (
+            <button
+              onClick={ouvrirParticipants}
+              title={t.cm_participants}
+              aria-label={`${t.cm_participants} — ${selChan.name}`}
+              className={`${iconBtnCls} shrink-0 gap-1 px-1.5 text-[11px] font-semibold`}
+            >
+              <Icon path={UI_ICONS.users} size={15} />
+              <span className="tabular-nums">{selChan.members ? selChan.members.length : "∞"}</span>
+            </button>
           )}
           {/* Accès aux membres — sous `lg` la troisième colonne n'est pas affichée. */}
           <button
@@ -435,6 +490,86 @@ export default function CommunicationPage() {
         >
           {rtStatus === "connecting" ? t.notif_connecting : t.cm_stream_down}
         </p>
+      )}
+
+      {participantsOuvert && selChan && (
+        <Modal open title={`${t.cm_participants} — ${selChan.name}`} onClose={() => setParticipantsOuvert(false)} size="md">
+          <div className="space-y-4">
+            {!selChan.members && (
+              <p className="rounded-lg bg-or-500/10 px-3 py-2 text-[11.5px] leading-snug text-or-700 dark:text-or-300">
+                {t.cm_participants_open}
+              </p>
+            )}
+
+            {participants.length > 0 && (
+              <div>
+                <div className="mb-1 flex items-baseline justify-between gap-2">
+                  <span className="text-[12px] font-semibold text-gray-700 dark:text-white/80">{t.cm_participants}</span>
+                  <span className="text-[11px] tabular-nums text-gray-400 dark:text-rdia-400">
+                    {tpl(t.cm_participants_count, { n: participants.length })}
+                  </span>
+                </div>
+                <ul className="max-h-44 overflow-y-auto rounded-lg border border-gray-200 dark:border-rdia-600">
+                  {participants.map((m) => (
+                    <li key={m} className="flex min-h-11 items-center gap-2.5 border-b border-gray-100 px-3 py-2 last:border-0 dark:border-rdia-700/60">
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-medium text-gray-800 dark:text-rdia-50">{nomDe(m)}</span>
+                        <span className="block truncate font-mono text-[11px] text-gray-400 dark:text-rdia-400">{m}</span>
+                      </span>
+                      <button
+                        onClick={() => void retirer(m)}
+                        disabled={majParticipants}
+                        title={t.cm_participants_remove}
+                        aria-label={`${t.cm_participants_remove} — ${nomDe(m)}`}
+                        className={`${iconBtnCls} shrink-0 hover:!text-danger-500 disabled:opacity-40`}
+                      >
+                        <Icon path={UI_ICONS.close} size={14} strokeWidth={2.5} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div>
+              <span className="mb-1 block text-[12px] font-semibold text-gray-700 dark:text-white/80">{t.cm_participants_add}</span>
+              <input
+                className="input-champ cible-tactile mb-2 w-full text-base md:text-sm"
+                placeholder={t.cm_chan_members_search}
+                value={rechercheParticipant}
+                onChange={(e) => setRechercheParticipant(e.target.value)}
+              />
+              <div className="max-h-44 overflow-y-auto rounded-lg border border-gray-200 dark:border-rdia-600">
+                {aConvoquer.length === 0 ? (
+                  <p className="px-3 py-4 text-center text-[12px] text-gray-400 dark:text-rdia-400">{t.cm_chan_members_none}</p>
+                ) : (
+                  aConvoquer.map((u) => (
+                    <button
+                      key={u.matricule}
+                      onClick={() => void convoquer(u.matricule)}
+                      disabled={majParticipants}
+                      className="flex min-h-11 w-full items-center gap-2.5 border-b border-gray-100 px-3 py-2 text-start transition-colors last:border-0 hover:bg-gray-50 disabled:opacity-40 dark:border-rdia-700/60 dark:hover:bg-rdia-600/30"
+                    >
+                      <Icon path={UI_ICONS.plus} size={14} className="shrink-0 text-or-500" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-medium text-gray-800 dark:text-rdia-50">
+                          {u.grade ? `${u.grade} ${u.nom}` : u.nom}
+                        </span>
+                        <span className="block truncate font-mono text-[11px] text-gray-400 dark:text-rdia-400">{u.matricule}</span>
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button className="btn-secondaire cible-tactile text-sm" onClick={() => setParticipantsOuvert(false)}>
+                {t.cp_close}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {newChanCat && (
