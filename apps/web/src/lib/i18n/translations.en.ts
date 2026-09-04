@@ -158,7 +158,6 @@ export const EN_DICT: Dict = {
     del_denied: "Deletion refused: restricted to the Super Administrator.",
     del_failed: "Deletion failed. Check the link to the ARGOS server, then try again.",
     act_delete: "Delete permanently",
-    map_tiles_external: "External basemap — development mode, not sovereign",
     map_tiles_none: "No sovereign basemap configured",
     nrbc_pick: "Ongoing chemical incidents — pick one to display its plume:",
     nrbc_none_active: "No active chemical CBRN incident.",

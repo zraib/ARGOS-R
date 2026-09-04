@@ -158,7 +158,6 @@ export const FR_DICT: Dict = {
     del_denied: "Suppression refusée : réservée au Super Administrateur.",
     del_failed: "La suppression a échoué. Vérifiez la liaison au serveur ARGOS, puis réessayez.",
     act_delete: "Supprimer définitivement",
-    map_tiles_external: "Fond de carte externe — mode développement, non souverain",
     map_tiles_none: "Aucun fond de carte souverain configuré",
     nrbc_pick: "Incidents chimiques en cours — choisir pour afficher le panache :",
     nrbc_none_active: "Aucun incident NRBC chimique actif.",

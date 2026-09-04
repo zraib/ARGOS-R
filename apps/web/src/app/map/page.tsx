@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useArgos, useDict } from "@/lib/store";
-import { TILES_AVAILABLE, TILES_MODE } from "@/lib/map/tiles";
+import { TILES_AVAILABLE } from "@/lib/map/tiles";
 import { Badge, type BadgeType } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { HazardIcon } from "@/components/ui/HazardIcon";
@@ -581,17 +581,18 @@ export default function MapPage() {
           )}
         </div>
 
-        {/* Origine du fond de carte (ADR 0006). Une carte servie par un
-            fournisseur étranger doit se VOIR : la fuite de profil d'activité est
-            invisible par nature, le bandeau la rend constatable. La production
-            impose le mode souverain, ce bandeau n'y apparaît donc jamais. */}
-        {(TILES_MODE === "external" || !TILES_AVAILABLE) && (
+        {/* AUCUN fond de carte configuré : la carte est vide, et il faut le
+            dire — sans ce message, un opérateur croit à une zone sans donnée.
+            L'origine du fond (externe en développement) n'est plus signalée à
+            l'écran ; elle reste lisible dans `NEXT_PUBLIC_MAP_TILES` et la
+            production impose de toute façon le mode souverain. */}
+        {!TILES_AVAILABLE && (
           <div
             className="pointer-events-none absolute bottom-3 z-30 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-or-300 shadow-lg"
             style={{ ...GLASS, insetInlineStart: 12 }}
           >
             <Icon path={UI_ICONS.shield} size={13} className="shrink-0" />
-            <span>{TILES_AVAILABLE ? t.map_tiles_external : t.map_tiles_none}</span>
+            <span>{t.map_tiles_none}</span>
           </div>
         )}
 

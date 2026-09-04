@@ -403,7 +403,6 @@ export interface Dict {
   del_confirm: string; del_busy: string; del_done: string; del_denied: string; del_failed: string;
   act_delete: string;
   nrbc_night: string;
-  map_tiles_external: string;
   map_tiles_none: string;
   // --- missions : la boucle fermée (ADR 0007) ---
   ms_inbox: string;
