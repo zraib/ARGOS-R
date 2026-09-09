@@ -2,13 +2,15 @@
 
 import {
   IconName,
+  TONE_HEX,
+  type ToneFill,
   } from "@/components/dashboard/situational/shared";
 import { Icon } from "@/components/dashboard/situational/Icon";
 import { Bar } from "@/components/dashboard/situational/Bar";
 
 // ---------- Carte métrique (Flux 6h / Ruptures stock) redesign ----------------
 export function MetricBar({
-  icon, title, subtitle, big, bigUnit, pct, accent,
+  icon, title, subtitle, big, bigUnit, pct, ton,
 }: {
   icon: IconName;
   title: string;
@@ -16,8 +18,10 @@ export function MetricBar({
   big: string;
   bigUnit?: string;
   pct: number;
-  accent: string;
+  /** Ton du projet ; la couleur en est déduite, elle ne se saisit pas. */
+  ton: ToneFill;
 }) {
+  const accent = TONE_HEX[ton];
   const safePct = Math.max(0, Math.min(100, pct));
   return (
     <div

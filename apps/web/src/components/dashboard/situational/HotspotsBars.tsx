@@ -1,6 +1,7 @@
 "use client";
 
 import { tpl } from "@/lib/i18n/format";
+import { TOKEN } from "@/components/dashboard/situational/shared";
 import { useModules } from "@/lib/store";
 import type { SituationalAwareness } from "@/lib/ai/situational/types";
 import { Icon } from "@/components/dashboard/situational/Icon";
@@ -55,7 +56,9 @@ export function HotspotsBars({ data, totalIncidents }: { data: SituationalAwaren
       {/* ==== Une carte par région ==== */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 md:gap-4">
         {data.map((h, i) => {
-          const hex = h.sev === "high" ? "#EF4444" : h.sev === "medium" ? "#F59E0B" : "#4B5563";
+          // Même convention de gravité que le reste de l'application
+              // (`satTint`, `occBarClass`) : rouge, or, puis neutre.
+              const hex = h.sev === "high" ? TOKEN.danger500 : h.sev === "medium" ? TOKEN.or500 : TOKEN.gray500;
           const sevLabel = h.sev === "high" ? m.situational.hb_sev_high : h.sev === "medium" ? m.situational.hb_sev_medium : m.situational.hb_sev_low;
           const hPct = Math.max(12, (h.poids / max) * 100);
           return (
@@ -68,7 +71,7 @@ export function HotspotsBars({ data, totalIncidents }: { data: SituationalAwaren
                 boxShadow: `0 1px 0 rgba(255,255,255,0.8) inset, 0 12px 30px -22px ${hex}AA, 0 0 0 1px ${hex}08`,
               }}
             >
-              <span aria-hidden className="pointer-events-none absolute left-5 top-0 h-[3px] w-16" style={{ background: "linear-gradient(90deg,#C9A84C,transparent)" }} />
+              <span aria-hidden className="pointer-events-none absolute left-5 top-0 h-[3px] w-16" style={{ background: `linear-gradient(90deg, ${TOKEN.or500}, transparent)` }} />
               <span aria-hidden className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full opacity-20 blur-3xl" style={{ backgroundColor: hex }} />
 
               {/* rang + région + gravité */}

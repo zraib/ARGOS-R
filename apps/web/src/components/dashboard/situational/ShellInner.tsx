@@ -7,7 +7,8 @@ import {
   cn,
   LEVEL_META,
   fmtDur,
-  } from "@/components/dashboard/situational/shared";
+  TOKEN,
+} from "@/components/dashboard/situational/shared";
 import { Icon } from "@/components/dashboard/situational/Icon";
 import { Panel } from "@/components/dashboard/situational/Panel";
 import { ScoreGauge } from "@/components/dashboard/situational/ScoreGauge";
@@ -49,11 +50,11 @@ export function ShellInner({
         {/* dégradé bandeau */}
         <div className={cn("pointer-events-none absolute inset-0", lm.bannerBg)} />
         {/* accent chevelure top-left bronze signature premium */}
-        <span aria-hidden className="pointer-events-none absolute left-5 top-0 h-[3px] w-16" style={{background:"linear-gradient(90deg,#C9A84C,transparent)"}}/>
+        <span aria-hidden className="pointer-events-none absolute left-5 top-0 h-[3px] w-16" style={{ background: `linear-gradient(90deg, ${TOKEN.or500}, transparent)` }}/>
         {/* shimmer bronze hover premium */}
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-[#C9A84C]/12 to-transparent opacity-0 transition-opacity duration-700 group-hover:translate-x-full group-hover:opacity-100 duration-1400ms ease-out"
+          className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-or-500/12 to-transparent opacity-0 transition-opacity duration-700 group-hover:translate-x-full group-hover:opacity-100 duration-1400ms ease-out"
         />
         {/* halo accent bas gauche */}
         <span
@@ -153,7 +154,7 @@ export function ShellInner({
           =================================================================== */}
 
       {/* ==== ÉTAGE 1 · Panneaux A (Points chauds) ==== */}
-      <Panel id="A" title={m.situational.hotspots} right={`${sa.pointsChauds.length} zone(s)`} accent="#3B82F6">
+      <Panel id="A" title={m.situational.hotspots} right={`${sa.pointsChauds.length} zone(s)`} ton="rdia">
         <HotspotsBars data={sa.pointsChauds} totalIncidents={sa.totalIncidents} />
       </Panel>
 
@@ -161,10 +162,10 @@ export function ShellInner({
       <div className="shrink-0 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-4.5 lg:gap-5">
         {/* colonne gauche */}
         <div className="flex min-w-0 flex-col gap-4">
-          <Panel id="B" title={m.situational.anticipations} right="30 min → 12 h" accent="#D97706">
+          <Panel id="B" title={m.situational.anticipations} right="30 min → 12 h" ton="or">
             <ForeBars forecasts={sa.predictions} generatedAt={sa.generatedAt} debug={sa as unknown as { _debugLitsTot?: number; _debugLitsOcc?: number }} />
           </Panel>
-          <Panel id="C" title={m.situational.flow6h} right={sa.predictions.flux6h.tendance} accent="#F59E0B">
+          <Panel id="C" title={m.situational.flow6h} right={sa.predictions.flux6h.tendance} ton="or">
             <MetricBar
               icon="activity"
               title={`${sa.predictions.flux6h.tendance}`}
@@ -172,23 +173,23 @@ export function ShellInner({
               big={`+${sa.predictions.flux6h.total}`}
               bigUnit="patients"
               pct={Math.max(0, Math.min(100, (sa.predictions.flux6h.total / 300) * 100))}
-              accent={sa.predictions.flux6h.tendance === "↗ en hausse" ? "#F59E0B" : "#4B5563"}
+              ton={sa.predictions.flux6h.tendance === "↗ en hausse" ? "or" : "gray"}
             />
           </Panel>
         </div>
         {/* colonne droite */}
         <div className="flex min-w-0 flex-col gap-4">
-          <Panel id="D" title={m.situational.critical_factors} right={`${sa.facteursCritiques.length} détecté(s)`} accent="#EF4444">
+          <Panel id="D" title={m.situational.critical_factors} right={`${sa.facteursCritiques.length} détecté(s)`} ton="danger">
             <FactorBars data={sa.facteursCritiques} />
           </Panel>
-          <Panel id="E" title={m.situational.imminent_risks} right="H2 · H6 · H24" accent="#7C3AED">
+          <Panel id="E" title={m.situational.imminent_risks} right="H2 · H6 · H24" ton="or">
             <RiskBars risks={sa.risquesProchaines} />
           </Panel>
         </div>
       </div>
 
       {/* ==== ÉTAGE 3 · Ruptures stock (pleine largeur) ==== */}
-      <Panel id="F" title={m.situational.stock_breaks} right={sa.predictions.stockCritique.niveau} accent="#059669">
+      <Panel id="F" title={m.situational.stock_breaks} right={sa.predictions.stockCritique.niveau} ton={sa.predictions.stockCritique.niveau === "alerte" ? "danger" : sa.predictions.stockCritique.niveau === "attention" ? "or" : "green"}>
         <MetricBar
           icon="package"
           title={sa.predictions.stockCritique.niveau === "alerte" ? m.situational.stock_critical : sa.predictions.stockCritique.niveau === "attention" ? m.situational.stock_moderate : m.situational.stock_nominal}
@@ -196,7 +197,7 @@ export function ShellInner({
           big={String(sa.predictions.stockCritique.ruptures.length)}
           bigUnit={sa.predictions.stockCritique.ruptures.length > 1 ? "ruptures" : sa.predictions.stockCritique.ruptures.length === 1 ? "rupture" : ""}
           pct={sa.predictions.stockCritique.niveau === "alerte" ? 95 : sa.predictions.stockCritique.niveau === "attention" ? 65 : 15}
-          accent={sa.predictions.stockCritique.niveau === "alerte" ? "#EF4444" : sa.predictions.stockCritique.niveau === "attention" ? "#F59E0B" : "#059669"}
+          ton={sa.predictions.stockCritique.niveau === "alerte" ? "danger" : sa.predictions.stockCritique.niveau === "attention" ? "or" : "green"}
         />
       </Panel>
 

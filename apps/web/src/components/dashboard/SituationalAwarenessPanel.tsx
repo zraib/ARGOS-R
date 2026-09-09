@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
+import { TOKEN } from "@/components/dashboard/situational/shared";
 import { useArgos, useModules } from "@/lib/store";
 import {
   cn,
@@ -60,7 +61,7 @@ export default function SituationalAwarenessPanel({ className, bare }: Props) {
             {loading ? m.situational.analyzing : m.situational.init}
           </span>
         </div>
-        <Bar value={60} className="h-1.5 w-56" fill={loading ? "#F59E0B" : "#4B5563"} />
+        <Bar value={60} className="h-1.5 w-56" fill={loading ? TOKEN.or500 : TOKEN.gray500} />
       </div>,
     );
   }
