@@ -234,7 +234,7 @@ export const FR_DICT: Dict = {
     ops_needs_ph: "Couvertures, eau…",
     ops_adults: "Adultes", ops_children: "Enfants", ops_elderly: "Aînés",
     ops_no_units: "Aucune unité", ops_no_shelters: "Aucun abri",
-    ops_search_units: "Nom, ville, commandant…", ops_search_shelters: "Nom ou commune…",
+    ops_search: "Rechercher une unité, un abri…",
     ops_add_unit: "Créer une unité", ops_add_shelter: "Ouvrir un abri", ops_open_shelter: "Ouvrir l'abri",
     ops_shelter_name: "Nom de l'abri", ops_shelter_city: "Commune d'implantation",
     ops_shelter_created: "Abri ouvert et intégré au réseau OPSnet",

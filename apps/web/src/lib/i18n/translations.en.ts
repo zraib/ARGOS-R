@@ -234,7 +234,7 @@ export const EN_DICT: Dict = {
     ops_needs_ph: "Blankets, water…",
     ops_adults: "Adults", ops_children: "Children", ops_elderly: "Elderly",
     ops_no_units: "No unit", ops_no_shelters: "No shelter",
-    ops_search_units: "Name, city, commander…", ops_search_shelters: "Name or municipality…",
+    ops_search: "Search a unit, a shelter…",
     ops_add_unit: "Create a unit", ops_add_shelter: "Open a shelter", ops_open_shelter: "Open the shelter",
     ops_shelter_name: "Shelter name", ops_shelter_city: "Municipality",
     ops_shelter_created: "Shelter opened and added to the OPSnet network",

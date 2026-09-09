@@ -5,6 +5,8 @@ import { useArgos, useDict, useModules } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
 import { StatTile } from "@/components/ui/StatTile";
+import { ProgressBar } from "@/components/ui/ProgressBar";
+import { occBarClass } from "@/lib/helpers";
 import { NAV_ICONS, KPI_ICONS, UI_ICONS } from "@/lib/icons";
 import { AddUnitModal, AddShelterModal } from "@/components/org/AddEntityModals";
 import {
@@ -14,7 +16,6 @@ import {
   DispoUnites,
   PreparationUnites,
   SaturationAbris,
-  satTint,
 } from "@/components/opsnet/OpsnetCharts";
 import { OpsnetAffecteurIA } from "@/components/opsnet/OpsnetAffecteurIA";
 import { shelterPosition } from "@/lib/ai/opsnetAffecteur";
@@ -44,8 +45,6 @@ import type { Unit } from "@/lib/types";
 // qu'on la referme.
 type Onglet = "vue" | "units" | "shelters";
 
-const TH = "px-3 py-2.5 text-start text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400";
-const TD = "px-3 py-2";
 
 export default function OpsnetPage() {
   const t = useDict();
@@ -86,6 +85,8 @@ export default function OpsnetPage() {
     () => (filtre ? units.filter((u) => `${u.nom} ${u.ville} ${u.cmdt}`.toLocaleLowerCase("fr").includes(filtre)) : units),
     [units, filtre],
   );
+  // Utilisé pour savoir vers quel onglet la recherche doit conduire.
+  const unitesFiltrees = unitesVues;
   const abrisVus = useMemo(
     () => (filtre ? shelters.filter((s) => `${s.nom} ${s.ville}`.toLocaleLowerCase("fr").includes(filtre)) : shelters),
     [shelters, filtre],
@@ -140,16 +141,23 @@ export default function OpsnetPage() {
           ))}
         </div>
         <div className="ms-auto flex flex-wrap items-center gap-2">
-          {(onglet === "units" || onglet === "shelters") && (
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder={onglet === "units" ? t.ops_search_units : t.ops_search_shelters}
-              aria-label={onglet === "units" ? t.ops_search_units : t.ops_search_shelters}
-              type="search"
-              className="input-champ cible-tactile w-[200px] text-sm"
-            />
-          )}
+          {/* La recherche ne s'affichait que sur les onglets de liste : à
+              l'arrivée sur la vue d'ensemble, l'écran n'en montrait aucune.
+              Elle est désormais toujours là, et taper bascule vers l'onglet
+              qui porte des résultats — chercher sans voir où l'on cherche
+              n'apprend rien. */}
+          <input
+            value={q}
+            onChange={(e) => {
+              const v = e.target.value;
+              setQ(v);
+              if (v.trim() && onglet === "vue") setOnglet(unitesFiltrees.length ? "units" : "shelters");
+            }}
+            placeholder={t.ops_search}
+            aria-label={t.ops_search}
+            type="search"
+            className="input-champ cible-tactile w-[220px] text-sm"
+          />
           <button className="btn-secondaire cible-tactile flex items-center gap-1.5 text-sm" onClick={() => setAjoutUnite(true)}>
             <Icon path={UI_ICONS.plus} size={15} />
             {t.ops_add_unit}
@@ -192,95 +200,95 @@ export default function OpsnetPage() {
         </div>
       )}
 
-      {/* --- unités -------------------------------------------------------- */}
+      {/* --- unités : une tuile par unité, comme les établissements d'Hospinet --- */}
       {onglet === "units" && (
-        <div className="carte overflow-x-auto">
-          <table className="w-full min-w-[680px] text-sm">
-            <thead className="border-b border-gray-100 dark:border-rdia-600">
-              <tr>
-                <th className={TH}>{t.ops_unit}</th>
-                <th className={TH}>{t.lbl_city}</th>
-                <th className={TH}>{t.ops_commander}</th>
-                <th className={`${TH} text-end`}>{t.ops_strength}</th>
-                <th className={TH}>{t.ops_status}</th>
-                <th className={`${TH} text-end`}>{t.ops_readiness}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {unitesVues.map((u) => (
-                <tr
-                  key={u.id}
-                  onClick={() => setDetailU(u)}
-                  className="cursor-pointer border-b border-gray-50 transition-colors last:border-0 hover:bg-or-500/5 dark:border-rdia-700/50"
-                >
-                  <td className={`${TD} font-semibold text-gray-800 dark:text-rdia-50`}>{u.nom}</td>
-                  <td className={`${TD} text-gray-600 dark:text-rdia-200`}>{u.ville}</td>
-                  <td className={`${TD} text-gray-600 dark:text-rdia-200`}>{u.cmdt}</td>
-                  <td className={`${TD} text-end tabular-nums text-gray-700 dark:text-rdia-100`}>{u.eff}</td>
-                  <td className={TD}>
-                    <EtatUnite dispo={u.dispo} />
-                  </td>
-                  <td className={`${TD} text-end font-mono font-bold tabular-nums ${satTint(100 - u.readiness)}`}>
-                    {u.readiness}%
-                  </td>
-                </tr>
-              ))}
-              {unitesVues.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-3 py-8 text-center text-sm text-gray-500 dark:text-rdia-300">
-                    {t.ops_no_units}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        unitesVues.length === 0 ? (
+          <p className="carte p-8 text-center text-sm text-gray-500 dark:text-rdia-300">{t.ops_no_units}</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {unitesVues.map((u) => (
+              <div key={u.id} className="carte flex flex-col gap-3 p-4 sm:p-5">
+                <div className="flex items-start gap-2.5">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-or-500/15 text-or-500">
+                    <Icon path={NAV_ICONS.units} size={20} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="break-words text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{u.nom}</h3>
+                    <div className="mt-0.5 text-xs text-gray-500 dark:text-rdia-300">{u.ville}</div>
+                    <div className="mt-1"><EtatUnite dispo={u.dispo} /></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="mb-1 flex items-center justify-between text-[10px] text-gray-400 dark:text-rdia-400">
+                    <span>{t.ops_readiness}</span>
+                    <span className="font-mono">{u.readiness} %</span>
+                  </div>
+                  {/* Une préparation ÉLEVÉE est bonne : la barre se lit donc à
+                      l'envers d'un taux d'occupation, d'où le complément. */}
+                  <ProgressBar value={u.readiness} fill={occBarClass(100 - u.readiness)} />
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500 dark:text-rdia-300">{t.ops_strength}</span>
+                  <span className="font-semibold tabular-nums text-gray-800 dark:text-rdia-50">{u.eff}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="shrink-0 text-gray-500 dark:text-rdia-300">{t.ops_commander}</span>
+                  <span className="min-w-0 truncate font-semibold text-gray-800 dark:text-rdia-50">{u.cmdt}</span>
+                </div>
+                <button className="btn-secondaire min-h-[44px] w-full text-xs lg:min-h-0" onClick={() => setDetailU(u)}>
+                  {t.act_view}
+                </button>
+              </div>
+            ))}
+          </div>
+        )
       )}
 
-      {/* --- abris --------------------------------------------------------- */}
+      {/* --- abris : même tuile, grandeurs d'un lieu d'hébergement ---------- */}
       {onglet === "shelters" && (
-        <div className="carte overflow-x-auto">
-          <table className="w-full min-w-[680px] text-sm">
-            <thead className="border-b border-gray-100 dark:border-rdia-600">
-              <tr>
-                <th className={TH}>{t.ops_shelter}</th>
-                <th className={TH}>{t.lbl_city}</th>
-                <th className={`${TH} text-end`}>{t.ops_capacity}</th>
-                <th className={`${TH} text-end`}>{t.ops_occupants}</th>
-                <th className={`${TH} text-end`}>{t.ops_occupancy}</th>
-                <th className={TH}>{t.ops_supplies}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {abrisVus.map((s) => {
-                const pct = Math.round((100 * s.occupants) / Math.max(1, s.capacity));
-                return (
-                  <tr
-                    key={s.id}
-                    onClick={() => setDetailA(s)}
-                    className="cursor-pointer border-b border-gray-50 transition-colors last:border-0 hover:bg-or-500/5 dark:border-rdia-700/50"
-                  >
-                    <td className={`${TD} font-semibold text-gray-800 dark:text-rdia-50`}>{s.nom}</td>
-                    <td className={`${TD} text-gray-600 dark:text-rdia-200`}>{s.ville}</td>
-                    <td className={`${TD} text-end tabular-nums text-gray-700 dark:text-rdia-100`}>{s.capacity}</td>
-                    <td className={`${TD} text-end tabular-nums text-gray-700 dark:text-rdia-100`}>{s.occupants}</td>
-                    <td className={`${TD} text-end font-mono font-bold tabular-nums ${satTint(pct)}`}>{pct}%</td>
-                    <td className={TD}>
-                      <EtatAppro niveau={s.supplies} />
-                    </td>
-                  </tr>
-                );
-              })}
-              {abrisVus.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-3 py-8 text-center text-sm text-gray-500 dark:text-rdia-300">
-                    {t.ops_no_shelters}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        abrisVus.length === 0 ? (
+          <p className="carte p-8 text-center text-sm text-gray-500 dark:text-rdia-300">{t.ops_no_shelters}</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {abrisVus.map((a) => {
+              const pct = Math.round((100 * a.occupants) / Math.max(1, a.capacity));
+              return (
+                <div key={a.id} className="carte flex flex-col gap-3 p-4 sm:p-5">
+                  <div className="flex items-start gap-2.5">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
+                      <Icon path={NAV_ICONS.shelters} size={20} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="break-words text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{a.nom}</h3>
+                      <div className="mt-0.5 text-xs text-gray-500 dark:text-rdia-300">{a.ville}</div>
+                      <div className="mt-1"><EtatAppro niveau={a.supplies} /></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mb-1 flex items-center justify-between text-[10px] text-gray-400 dark:text-rdia-400">
+                      <span>{t.ops_occupancy}</span>
+                      <span className="font-mono">{pct} %</span>
+                    </div>
+                    <ProgressBar value={pct} fill={occBarClass(pct)} />
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500 dark:text-rdia-300">{t.ops_occupants}</span>
+                    <span className="font-semibold tabular-nums text-gray-800 dark:text-rdia-50">
+                      {a.occupants} / {a.capacity}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500 dark:text-rdia-300">{t.ops_staff}</span>
+                    <span className="font-semibold tabular-nums text-gray-800 dark:text-rdia-50">{a.staff}</span>
+                  </div>
+                  <button className="btn-secondaire min-h-[44px] w-full text-xs lg:min-h-0" onClick={() => setDetailA(a)}>
+                    {t.act_view}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )
       )}
 
       {/* --- modales ------------------------------------------------------- */}

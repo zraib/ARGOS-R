@@ -131,20 +131,24 @@ export default function HospinetPage() {
             ))}
           </div>
           <div className="ms-auto flex flex-wrap items-center gap-2">
+            {/* Toujours visible : la recherche n'apparaissait que sur l'onglet
+                des établissements, donc jamais à l'arrivée sur l'écran. Taper
+                y conduit. */}
+            <input
+              className="input-champ cible-tactile w-[220px] text-sm"
+              placeholder={t.hn_search}
+              aria-label={t.hn_search}
+              type="search"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                if (e.target.value.trim()) setVue("etabs");
+              }}
+            />
             {vue === "etabs" && (
-              <>
-                <input
-                  className="input-champ cible-tactile w-[200px] text-sm"
-                  placeholder={t.hn_search}
-                  aria-label={t.hn_search}
-                  type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-                <span className="text-xs font-semibold tabular-nums text-gray-500 dark:text-rdia-300">
-                  {shown.length} / {hospitals.length} {t.hn_count}
-                </span>
-              </>
+              <span className="text-xs font-semibold tabular-nums text-gray-500 dark:text-rdia-300">
+                {shown.length} / {hospitals.length} {t.hn_count}
+              </span>
             )}
             {canManage && (
               <button className="btn-primaire cible-tactile flex items-center gap-1.5 text-sm" onClick={() => setAdding(true)}>

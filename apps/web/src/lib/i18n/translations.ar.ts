@@ -234,7 +234,7 @@ export const AR_DICT: Dict = {
     ops_needs_ph: "أغطية، ماء…",
     ops_adults: "بالغون", ops_children: "أطفال", ops_elderly: "مسنّون",
     ops_no_units: "لا توجد وحدة", ops_no_shelters: "لا يوجد مأوى",
-    ops_search_units: "الاسم أو المدينة أو القائد…", ops_search_shelters: "الاسم أو الجماعة…",
+    ops_search: "ابحث عن وحدة أو مأوى…",
     ops_add_unit: "إنشاء وحدة", ops_add_shelter: "فتح مأوى", ops_open_shelter: "فتح المأوى",
     ops_shelter_name: "اسم المأوى", ops_shelter_city: "الجماعة",
     ops_shelter_created: "فُتح المأوى وأُدمج في شبكة OPSnet",

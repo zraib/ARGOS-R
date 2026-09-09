@@ -530,7 +530,8 @@ export interface Dict {
   ops_readiness: string; ops_capacity: string; ops_occupants: string; ops_occupancy: string;
   ops_staff: string; ops_supplies: string; ops_needs: string; ops_needs_ph: string;
   ops_adults: string; ops_children: string; ops_elderly: string; ops_no_units: string;
-  ops_no_shelters: string; ops_search_units: string; ops_search_shelters: string; ops_add_unit: string;
+  ops_no_shelters: string; ops_add_unit: string;
+  ops_search: string;
   ops_add_shelter: string; ops_open_shelter: string; ops_shelter_name: string; ops_shelter_city: string;
   ops_shelter_created: string; ops_city_help: string; ops_city_known: string; ops_city_unknown: string;
   ops_position: string; ops_pos_from_city: string; ops_pos_unresolved: string; ops_pos_unknown: string;

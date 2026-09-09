@@ -54,7 +54,7 @@ export function ShellInner({
                 </span>
               </div>
               <div className="min-w-0 flex flex-col gap-0.5 leading-tight">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-or-600/90 dark:text-or-400/90">
+                <span className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400">
                   {m.situational.level_global}
                 </span>
                 <span className={cn("text-[18px] sm:text-[19px] font-bold leading-none tracking-tight", lm.bannerText)}>
@@ -62,12 +62,12 @@ export function ShellInner({
                 </span>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
                   {sa.fromAI ? (
-                    <span className="inline-flex items-center gap-1 rounded-md border border-or-500/35 bg-or-500/12 px-1.5 py-0.5 text-[9.5px] font-black uppercase tracking-[0.2em] text-or-600 dark:text-or-400">
+                    <span className="inline-flex items-center gap-1 rounded-md border border-or-500/35 bg-or-500/12 px-1.5 py-0.5 text-[11px] font-semibold text-or-600 dark:text-or-400">
                       <Icon name="sparkles" className="h-2.5 w-2.5" />
                       IA{model ? ` · ${model}` : ""}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 rounded-md border border-or-500/35 bg-or-500/12 px-1.5 py-0.5 text-[9.5px] font-black uppercase tracking-[0.2em] text-or-600 dark:text-or-400">
+                    <span className="inline-flex items-center gap-1 rounded-md border border-or-500/35 bg-or-500/12 px-1.5 py-0.5 text-[11px] font-semibold text-or-600 dark:text-or-400">
                       <Icon name="scale" className="h-2.5 w-2.5" />
                       {m.situational.realtime}
                     </span>
@@ -87,7 +87,7 @@ export function ShellInner({
                   <Icon name="info" className={cn("h-3.5 w-3.5", lm.tint)} />
                 </div>
                 <div className="min-w-0 flex-1 flex flex-col gap-1">
-                  <span className="text-[9.5px] font-black uppercase tracking-[0.22em] text-or-600/80 dark:text-or-400/80">
+                  <span className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400">
                     {m.situational.synthesis_label}
                   </span>
                   <p className="text-[12px] sm:text-[12.5px] leading-relaxed font-semibold text-gray-800 dark:text-rdia-100">
@@ -105,7 +105,7 @@ export function ShellInner({
               type="button"
               onClick={onRefresh}
               disabled={loading}
-              className="inline-flex items-center gap-1 rounded-xl border border-gray-200/80 bg-white/90 px-2.5 py-2 text-[10px] font-black uppercase tracking-wider text-gray-700 transition hover:-translate-y-0.5 hover:border-gray-300 hover:bg-white hover:shadow-sm disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-rdia-100 dark:hover:border-white/20 dark:hover:bg-white/10"
+              className="btn-secondaire cible-tactile gap-1.5 px-3 text-xs"
             >
               <Icon name="refresh-cw" className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
               {loading ? "MAJ…" : "Actualiser"}
@@ -128,7 +128,7 @@ export function ShellInner({
           =================================================================== */}
 
       {/* ==== ÉTAGE 1 · Panneaux A (Points chauds) ==== */}
-      <Panel id="A" title={m.situational.hotspots} right={`${sa.pointsChauds.length} zone(s)`} ton="rdia">
+      <Panel title={m.situational.hotspots} right={`${sa.pointsChauds.length} zone(s)`}>
         <HotspotsBars data={sa.pointsChauds} totalIncidents={sa.totalIncidents} />
       </Panel>
 
@@ -136,10 +136,10 @@ export function ShellInner({
       <div className="shrink-0 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-4.5 lg:gap-5">
         {/* colonne gauche */}
         <div className="flex min-w-0 flex-col gap-4">
-          <Panel id="B" title={m.situational.anticipations} right="30 min → 12 h" ton="or">
+          <Panel title={m.situational.anticipations} right="30 min → 12 h">
             <ForeBars forecasts={sa.predictions} generatedAt={sa.generatedAt} debug={sa as unknown as { _debugLitsTot?: number; _debugLitsOcc?: number }} />
           </Panel>
-          <Panel id="C" title={m.situational.flow6h} right={sa.predictions.flux6h.tendance} ton="or">
+          <Panel title={m.situational.flow6h} right={sa.predictions.flux6h.tendance}>
             <MetricBar
               icon="activity"
               title={`${sa.predictions.flux6h.tendance}`}
@@ -153,17 +153,17 @@ export function ShellInner({
         </div>
         {/* colonne droite */}
         <div className="flex min-w-0 flex-col gap-4">
-          <Panel id="D" title={m.situational.critical_factors} right={`${sa.facteursCritiques.length} détecté(s)`} ton="danger">
+          <Panel title={m.situational.critical_factors} right={`${sa.facteursCritiques.length} détecté(s)`}>
             <FactorBars data={sa.facteursCritiques} />
           </Panel>
-          <Panel id="E" title={m.situational.imminent_risks} right="H2 · H6 · H24" ton="or">
+          <Panel title={m.situational.imminent_risks} right="H2 · H6 · H24">
             <RiskBars risks={sa.risquesProchaines} />
           </Panel>
         </div>
       </div>
 
       {/* ==== ÉTAGE 3 · Ruptures stock (pleine largeur) ==== */}
-      <Panel id="F" title={m.situational.stock_breaks} right={sa.predictions.stockCritique.niveau} ton={sa.predictions.stockCritique.niveau === "alerte" ? "danger" : sa.predictions.stockCritique.niveau === "attention" ? "or" : "green"}>
+      <Panel title={m.situational.stock_breaks} right={sa.predictions.stockCritique.niveau}>
         <MetricBar
           icon="package"
           title={sa.predictions.stockCritique.niveau === "alerte" ? m.situational.stock_critical : sa.predictions.stockCritique.niveau === "attention" ? m.situational.stock_moderate : m.situational.stock_nominal}
@@ -179,7 +179,7 @@ export function ShellInner({
       <footer className="flex items-center justify-between text-[10px] text-gray-400 dark:text-rdia-400 sm:text-[10.5px]">
         <div className="flex items-center gap-1.5">
           <span className="inline-flex h-1.5 w-1.5 rounded-full bg-rdia-400 dark:bg-rdia-500" />
-          <span className="font-bold uppercase tracking-[0.15em]">
+          <span className="font-semibold">
             SITREP · Mis à jour {new Date(sa.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </span>
         </div>
