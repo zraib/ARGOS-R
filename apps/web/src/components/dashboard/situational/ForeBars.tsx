@@ -7,11 +7,12 @@ import {
   fmtDur,
   fmtTimeHhMm,
   ToneFill,
-  TONE_HEX,
+  TONE_CLS,
+  TUILE,
   BarRow,
 } from "@/components/dashboard/situational/shared";
 import { Icon } from "@/components/dashboard/situational/Icon";
-import { Bar } from "@/components/dashboard/situational/Bar";
+import { ProgressBar } from "@/components/ui/ProgressBar";
 
 export function ForeBars({ forecasts, generatedAt, debug }: {
   forecasts: SituationalForecasts;
@@ -102,45 +103,31 @@ export function ForeBars({ forecasts, generatedAt, debug }: {
 
   return (
     <div className="flex flex-col gap-2">
-      {rows.map((r, i) => {
-        const hex = TONE_HEX[r.tone];
+      {rows.map((r) => {
+        const c = TONE_CLS[r.tone];
         return (
-          <div
-            key={r.id}
-            className="group flex flex-col gap-1.5 rounded-xl border p-2.5 transition-all duration-300 hover:-translate-y-0.5"
-            style={{
-              borderColor: `${hex}28`,
-              backgroundColor: `${hex}09`,
-              boxShadow: `0 6px 22px -22px ${hex}aa`,
-            }}
-          >
-            <div className="flex items-center gap-2.5 w-full min-w-0">
-              <span
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-                style={{ backgroundColor: `${hex}18`, color: hex }}
-              >
+          // Tuile d'anticipation : pastille d'icône, libellé, pourcentage,
+          // énoncé, puis la barre. Plus de bord ni d'ombre teintés — le ton
+          // vit dans la pastille, le chiffre et le remplissage.
+          <div key={r.id} className={`flex flex-col gap-2 ${TUILE}`}>
+            <div className="flex w-full min-w-0 items-center gap-2.5">
+              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${c.chip}`}>
                 <Icon name={r.icon} className="h-4 w-4" />
               </span>
-              <div className="min-w-0 flex-1 flex flex-col gap-0.5 leading-tight">
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[9.5px] font-bold uppercase tracking-wider" style={{ color: `${hex}cc` }}>
-                    0{i + 1} · {r.label}
+                  <span className="truncate text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">
+                    {r.label}
                   </span>
-                  <span className="shrink-0 font-mono text-[11px] font-black tabular-nums text-gray-800 dark:text-rdia-100">
+                  <span className={`shrink-0 font-mono text-[12px] font-bold tabular-nums ${c.text}`}>
                     {Math.round(r.pct)}%
                   </span>
                 </div>
-                <div className="truncate text-[12px] font-extrabold leading-snug text-gray-900 dark:text-rdia-50">
-                  {r.main}
-                </div>
-                {r.sub && (
-                  <div className="truncate text-[10px] leading-snug text-gray-500 dark:text-rdia-300/85">
-                    {r.sub}
-                  </div>
-                )}
+                <span className="truncate text-[13px] font-semibold text-gray-800 dark:text-rdia-50">{r.main}</span>
+                {r.sub && <span className="truncate text-xs text-gray-500 dark:text-rdia-300">{r.sub}</span>}
               </div>
             </div>
-            <Bar value={r.pct} className="h-1.5" fill={hex} />
+            <ProgressBar value={r.pct} fill={c.fill} />
           </div>
         );
       })}

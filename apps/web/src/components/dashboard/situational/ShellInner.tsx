@@ -7,7 +7,6 @@ import {
   cn,
   LEVEL_META,
   fmtDur,
-  TOKEN,
 } from "@/components/dashboard/situational/shared";
 import { Icon } from "@/components/dashboard/situational/Icon";
 import { Panel } from "@/components/dashboard/situational/Panel";
@@ -37,40 +36,18 @@ export function ShellInner({
       {/* ===================================================================
           HEADER PRINCIPAL PREMIUM · bandeau niveau global + score gauge + synthèse
           =================================================================== */}
-      <header
-        className={cn(
-          "group relative isolate shrink-0 overflow-hidden rounded-xl border bg-white shadow-sm dark:bg-rdia-700",
-          lm.banner,
-        )}
-        style={{
-          border: "1px solid rgba(175,140,60,0.22)",
-          boxShadow: "0 1px 0 rgba(255,255,255,0.7) inset, 0 26px 50px -28px rgba(30,20,0,0.14)",
-        }}
-      >
-        {/* dégradé bandeau */}
+      {/* En-tête du panneau : une carte du produit, teintée par le niveau
+          d'alerte. Le balayage lumineux, le halo flou et les rehauts en creux
+          ont été retirés — trois ornements qu'aucune autre carte ne porte. */}
+      <header className="carte relative isolate shrink-0 overflow-hidden">
         <div className={cn("pointer-events-none absolute inset-0", lm.bannerBg)} />
-        {/* accent chevelure top-left bronze signature premium */}
-        <span aria-hidden className="pointer-events-none absolute left-5 top-0 h-[3px] w-16" style={{ background: `linear-gradient(90deg, ${TOKEN.or500}, transparent)` }}/>
-        {/* shimmer bronze hover premium */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-or-500/12 to-transparent opacity-0 transition-opacity duration-700 group-hover:translate-x-full group-hover:opacity-100 duration-1400ms ease-out"
-        />
-        {/* halo accent bas gauche */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -bottom-24 -left-20 h-56 w-56 rounded-full opacity-35 blur-3xl"
-          style={{ backgroundColor: lm.accent }}
-        />
 
         <div className="relative z-10 flex flex-col gap-4 px-4 pb-4.5 pt-4.5 sm:px-5 sm:pb-5 sm:pt-5 lg:flex-row lg:items-center lg:gap-6">
           {/* ==== COLONNE GAUCHE : niveau global + synthèse opérationnelle ==== */}
           <div className="flex min-w-0 flex-1 flex-col gap-3">
             <div className="flex items-center gap-3">
-              <div
-                className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border shadow-inner", lm.bg, lm.border)}
-                style={{ boxShadow: "inset 0 0 0 1px rgba(201,168,76,0.20), 0 6px 16px -10px " + lm.accent + "88, 0 1px 0 rgba(255,255,255,0.6) inset" }}
-              >
+              {/* Pastille du niveau : même forme que celle des tuiles de chiffres. */}
+              <div className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border", lm.bg, lm.border)}>
                 <span className="relative inline-flex h-3.5 w-3.5">
                   <span className={cn("absolute inline-flex h-full w-full animate-ping rounded-full opacity-65", lm.dot)} />
                   <span className={cn("relative inline-flex h-3.5 w-3.5 rounded-full", lm.dot)} />
@@ -104,10 +81,7 @@ export function ShellInner({
             </div>
 
             {/* Synthèse opérationnelle */}
-            <div
-              className={cn("rounded-xl border p-2.5 sm:p-3", lm.border)}
-              style={{ background: lm.badgeTint, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.55), 0 8px 20px -18px rgba(30,20,0,0.22)" }}
-            >
+            <div className={cn("rounded-lg border p-2.5 sm:p-3", lm.border, lm.bg)}>
               <div className="flex items-start gap-2">
                 <div className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border", lm.bg, lm.border)}>
                   <Icon name="info" className={cn("h-3.5 w-3.5", lm.tint)} />

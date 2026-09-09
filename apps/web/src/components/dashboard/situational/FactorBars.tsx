@@ -3,61 +3,53 @@
 import { useModules } from "@/lib/store";
 import { useMemo } from "react";
 import type { CriticalFactor } from "@/lib/ai/situational/types";
-import {
-  cn,
-  IMPACT_FILL,
-  IMPACT_CLS,
-  } from "@/components/dashboard/situational/shared";
-import { Bar } from "@/components/dashboard/situational/Bar";
+import { IMPACT_TONE, TONE_CLS, TUILE } from "@/components/dashboard/situational/shared";
+import { ProgressBar } from "@/components/ui/ProgressBar";
 
-// ---------- Facteurs critiques (barres horizontales) · redesign ----------------
+/**
+ * Facteurs critiques. Une tuile par facteur, dans la grammaire du produit :
+ * rang, badge d'impact, libellé, valeur, barre. Le fond et l'ombre teintés ont
+ * disparu — l'impact se lit au badge et à la barre, qui suffisent.
+ */
 export function FactorBars({ data }: { data: CriticalFactor[] }) {
   const m = useModules();
   const sorted = useMemo(
-    () => [...data].sort((a, b) => {
-      const w = (x: CriticalFactor) => (x.impact === "haut" ? 3 : x.impact === "moyen" ? 2 : 1);
-      return w(b) - w(a);
-    }),
+    () =>
+      [...data].sort((a, b) => {
+        const w = (x: CriticalFactor) => (x.impact === "haut" ? 3 : x.impact === "moyen" ? 2 : 1);
+        return w(b) - w(a);
+      }),
     [data],
   );
   if (!sorted.length) {
-    return <div className="rounded-xl border border-dashed border-gray-200/80 p-5 text-center text-[11px] text-gray-400 dark:border-white/10">{m.situational.no_factor}</div>;
+    return (
+      <div className="rounded-lg border border-dashed border-gray-200 p-5 text-center text-xs text-gray-400 dark:border-rdia-600 dark:text-rdia-400">
+        {m.situational.no_factor}
+      </div>
+    );
   }
   return (
-    <div className="flex flex-col gap-2 w-full min-w-0">
+    <div className="flex w-full min-w-0 flex-col gap-2">
       {sorted.slice(0, 5).map((f, i) => {
+        const c = TONE_CLS[IMPACT_TONE[f.impact]];
         const pct = f.impact === "haut" ? 92 : f.impact === "moyen" ? 62 : 30;
-        const hex = IMPACT_FILL[f.impact];
         return (
-          <div
-            key={f.id}
-            className="flex flex-col gap-1 rounded-xl border p-2.5 transition-all duration-300 hover:-translate-y-0.5"
-            style={{
-              borderColor: `${hex}28`,
-              backgroundColor: `${hex}08`,
-              boxShadow: `0 6px 22px -22px ${hex}aa`,
-            }}
-          >
-            <div className="flex items-center gap-1.5 w-full min-w-0">
-              <span
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md font-mono text-[9.5px] font-black tabular-nums"
-                style={{ color: hex, backgroundColor: `${hex}18` }}
-              >
-                0{i + 1}
+          <div key={f.id} className={`flex flex-col gap-2 ${TUILE}`}>
+            <div className="flex w-full min-w-0 items-center gap-2">
+              <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md font-mono text-[10px] font-bold tabular-nums ${c.chip}`}>
+                {i + 1}
               </span>
-              <span className={cn("shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide leading-none", IMPACT_CLS[f.impact])}>
-                {f.impact}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-[12px] font-extrabold leading-snug text-gray-800 dark:text-rdia-100">
+              <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${c.badge}`}>{f.impact}</span>
+              <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-gray-800 dark:text-rdia-50">
                 {f.label}
               </span>
               {f.value !== undefined && (
-                <span className="shrink-0 font-mono text-[11px] font-black tabular-nums text-gray-900 dark:text-rdia-50 leading-none">
+                <span className="shrink-0 font-mono text-[12px] font-bold tabular-nums text-gray-700 dark:text-rdia-100">
                   {String(f.value)}
                 </span>
               )}
             </div>
-            <Bar value={pct} className="h-1.5" fill={hex} />
+            <ProgressBar value={pct} fill={c.fill} />
           </div>
         );
       })}

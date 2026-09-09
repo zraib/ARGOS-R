@@ -157,6 +157,62 @@ export const TONE_HEX: Record<ToneFill, string> = {
   rdia: TOKEN.rdia600, or: TOKEN.or500, danger: TOKEN.danger500, green: TOKEN.green500, gray: TOKEN.gray500,
 };
 
+/**
+ * Habillage d'un ton, EN CLASSES — la façon dont le reste de l'application
+ * colore un élément (voir `StatTile`, `EtatUnite` d'OPSnet, `occBarClass`).
+ *
+ * Les tuiles se peignaient jusqu'ici en style en ligne, à partir d'une couleur
+ * et de suffixes d'opacité (`${hex}28`, `${hex}09`, `boxShadow ${hex}aa`). Elles
+ * avaient donc un bord, un fond et une ombre teintés que l'on ne trouve sur
+ * aucune autre carte du produit. Ici, un ton donne la pastille d'icône, la
+ * couleur de chiffre, le remplissage de barre et le badge — rien d'autre.
+ */
+export const TONE_CLS: Record<ToneFill, { chip: string; text: string; fill: string; badge: string }> = {
+  or: {
+    chip: "bg-or-500/15 text-or-500",
+    text: "text-or-600 dark:text-or-400",
+    fill: "bg-or-500",
+    badge: "bg-or-500/12 text-or-700 dark:text-or-300",
+  },
+  danger: {
+    chip: "bg-danger-500/10 text-danger-500",
+    text: "text-danger-600 dark:text-danger-400",
+    fill: "bg-danger-500",
+    badge: "bg-danger-500/12 text-danger-700 dark:text-danger-300",
+  },
+  green: {
+    chip: "bg-green-500/10 text-green-600",
+    text: "text-green-700 dark:text-green-400",
+    fill: "bg-green-500",
+    badge: "bg-green-500/12 text-green-700 dark:text-green-400",
+  },
+  rdia: {
+    chip: "bg-rdia-500/10 text-rdia-500 dark:text-rdia-200",
+    text: "text-rdia-600 dark:text-rdia-100",
+    fill: "bg-rdia-500",
+    badge: "bg-rdia-500/10 text-rdia-700 dark:text-rdia-300",
+  },
+  gray: {
+    chip: "bg-gray-400/20 text-gray-500 dark:text-rdia-200",
+    text: "text-gray-600 dark:text-rdia-200",
+    fill: "bg-gray-400",
+    badge: "bg-gray-400/15 text-gray-600 dark:text-rdia-300",
+  },
+};
+
+/** Surface d'une tuile posée DANS un panneau — la même que les blocs de chiffres d'Hospinet. */
+export const TUILE = "rounded-lg bg-gray-50 p-3 dark:bg-rdia-800/50";
+
+/** Impact d'un facteur critique → ton du projet. */
+export const IMPACT_TONE: Record<"haut" | "moyen" | "faible", ToneFill> = {
+  haut: "danger", moyen: "or", faible: "green",
+};
+
+/** Niveau de risque → ton du projet (mêmes seuils que `satTint`). */
+export const NIV_TONE: Record<"faible" | "modere" | "eleve" | "critique", ToneFill> = {
+  critique: "danger", eleve: "or", modere: "gray", faible: "green",
+};
+
 export type BarRow = {
   icon: IconName; label: string; main: string; sub?: string;
   pct: number; tone: ToneFill;
