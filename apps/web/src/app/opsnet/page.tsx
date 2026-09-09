@@ -38,7 +38,11 @@ import type { Unit } from "@/lib/types";
 // module de déploiement (lot V-2).
 // ============================================================================
 
-type Onglet = "vue" | "units" | "shelters" | "affect";
+// L'affecteur n'est plus un onglet : c'est un OUTIL qu'on ouvre par-dessus
+// l'écran, comme dans Hospinet. Un onglet en faisait une quatrième vue à
+// parcourir ; une modale en fait un geste, et rend l'écran au dispositif dès
+// qu'on la referme.
+type Onglet = "vue" | "units" | "shelters";
 
 const TH = "px-3 py-2.5 text-start text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400";
 const TD = "px-3 py-2";
@@ -54,6 +58,7 @@ export default function OpsnetPage() {
   const [ajoutAbri, setAjoutAbri] = useState(false);
   const [detailU, setDetailU] = useState<Unit | null>(null);
   const [detailA, setDetailA] = useState<Shelter | null>(null);
+  const [affecteurOpen, setAffecteurOpen] = useState(false);
   const [q, setQ] = useState("");
 
   const kpi = useMemo(() => {
@@ -90,7 +95,6 @@ export default function OpsnetPage() {
     { k: "vue", label: t.ops_tab_overview },
     { k: "units", label: `${t.ops_tab_units} (${units.length})` },
     { k: "shelters", label: `${t.ops_tab_shelters} (${shelters.length})` },
-    { k: "affect", label: t.ops_tab_affect },
   ];
 
   return (
@@ -125,10 +129,10 @@ export default function OpsnetPage() {
               key={o.k}
               onClick={() => setOnglet(o.k)}
               aria-pressed={onglet === o.k}
-              className={`cible-tactile rounded-lg px-3 text-[12.5px] font-semibold transition-colors lg:min-h-0 lg:py-1.5 ${
+              className={`cible-tactile shrink-0 whitespace-nowrap rounded-lg px-3 text-[12.5px] font-semibold transition-colors lg:min-h-0 lg:py-1.5 ${
                 onglet === o.k
                   ? "bg-or-500 text-rdia-600"
-                  : "text-gray-500 hover:bg-or-500/10 hover:text-or-500 dark:text-rdia-300"
+                  : "bg-gray-100 text-gray-500 hover:text-or-500 dark:bg-rdia-600 dark:text-rdia-300"
               }`}
             >
               {o.label}
@@ -146,11 +150,17 @@ export default function OpsnetPage() {
               className="input-champ cible-tactile w-[200px] text-sm"
             />
           )}
-          <button className="btn-secondaire cible-tactile text-[12.5px]" onClick={() => setAjoutUnite(true)}>
+          <button className="btn-secondaire cible-tactile flex items-center gap-1.5 text-sm" onClick={() => setAjoutUnite(true)}>
+            <Icon path={UI_ICONS.plus} size={15} />
             {t.ops_add_unit}
           </button>
-          <button className="btn-primaire cible-tactile text-[12.5px]" onClick={() => setAjoutAbri(true)}>
+          <button className="btn-primaire cible-tactile flex items-center gap-1.5 text-sm" onClick={() => setAjoutAbri(true)}>
+            <Icon path={UI_ICONS.plus} size={15} />
             {t.ops_add_shelter}
+          </button>
+          <button type="button" onClick={() => setAffecteurOpen(true)} className="btn-affecteur cible-tactile">
+            <Icon path={UI_ICONS.target} size={15} strokeWidth={2} />
+            <span className="tracking-wide">{t.af_launcher}</span>
           </button>
         </div>
       </div>
@@ -273,11 +283,13 @@ export default function OpsnetPage() {
         </div>
       )}
 
-      {onglet === "affect" && <OpsnetAffecteurIA />}
-
       {/* --- modales ------------------------------------------------------- */}
       <AddUnitModal open={ajoutUnite} onClose={() => setAjoutUnite(false)} />
       <AddShelterModal open={ajoutAbri} onClose={() => setAjoutAbri(false)} />
+
+      <Modal open={affecteurOpen} onClose={() => setAffecteurOpen(false)} size="2xl" title={`${t.af_launcher} · ${t.nav_opsnet}`}>
+        <OpsnetAffecteurIA />
+      </Modal>
 
       {detailU && (
         <Modal open title={detailU.nom} onClose={() => setDetailU(null)} size="md">

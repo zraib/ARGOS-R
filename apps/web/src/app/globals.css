@@ -51,6 +51,18 @@ a:hover {
     @apply inline-flex items-center justify-center gap-2 rounded-lg border border-or-500 px-4 py-2 font-medium text-or-500 transition-colors duration-200 hover:bg-or-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50;
   }
 
+  /* Bouton « Affecteur IA » — dégradé or, forme arrondie, relief au survol.
+     Défini ICI et non dans chaque écran : Hospinet et OPSnet ouvrent le même
+     genre d'outil, et un même geste doit se présenter de la même façon. Copié
+     dans les deux pages, il aurait divergé au premier retouchage. */
+  .btn-affecteur {
+    @apply inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-or-500 to-or-600 px-3.5 py-2 text-[12.5px] font-bold text-rdia-600 transition-all duration-200 hover:from-or-500 hover:to-or-500 hover:scale-[1.02] active:scale-[0.98];
+    box-shadow: 0 4px 12px -2px rgba(234, 140, 14, 0.45);
+  }
+  .btn-affecteur:hover {
+    box-shadow: 0 6px 16px -2px rgba(234, 140, 14, 0.6);
+  }
+
   /* Champ de saisie */
   .input-champ {
     @apply w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-gray-800 transition-colors duration-200 placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-or-500;
@@ -336,6 +348,7 @@ body:has(.nav-drawer.est-ouvert) {
 @media (max-width: 1023px) {
   .btn-primaire,
   .btn-secondaire,
+  .btn-affecteur,
   .input-champ {
     min-height: 44px;
   }

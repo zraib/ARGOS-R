@@ -5,7 +5,8 @@ import { useArgos, useDict } from "@/lib/store";
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { UI_ICONS } from "@/lib/icons";
+import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
+import { StatTile } from "@/components/ui/StatTile";
 import { occBarClass } from "@/lib/helpers";
 import { hospitalDetail } from "@/lib/derive";
 import { AddHospitalModal } from "@/components/org/AddEntityModals";
@@ -31,6 +32,12 @@ export default function HospinetPage() {
   const deployField = useArgos((s) => s.deployFieldHospital);
   const showToast = useArgos((s) => s.showToast);
   const [tab, setTab] = useState<"staff" | "beds" | "veh" | "field">("staff");
+  // Onglets de la vue LISTE, repris de la disposition d'OPSnet : un bandeau
+  // de commandement toujours visible, puis une seule barre qui porte le titre,
+  // les onglets et les actions. Auparavant la synthèse et la liste
+  // s'empilaient, et il fallait dérouler tout le panneau IA pour atteindre
+  // les établissements.
+  const [vue, setVue] = useState<"apercu" | "etabs">("apercu");
   const [adding, setAdding] = useState(false);
   const [affecteurOpen, setAffecteurOpen] = useState(false);
   // Filtres de la vue liste : le référentiel compte plus de cent
@@ -69,109 +76,167 @@ export default function HospinetPage() {
           : "border-gray-200 bg-white text-gray-600 hover:border-or-400 dark:border-rdia-600 dark:bg-rdia-700 dark:text-rdia-200"
       }`;
 
+    const litsTot = hospitals.reduce((n, h) => n + h.lits, 0);
+    const litsOcc = hospitals.reduce((n, h) => n + h.occ, 0);
+    const litsLibres = hospitals.reduce((n, h) => n + Math.max(0, h.lits - h.occ - (h.reserved ?? 0)), 0);
+    const reaTot = hospitals.reduce((n, h) => n + h.rea, 0);
+    const reaLibres = hospitals.reduce((n, h) => n + Math.max(0, h.rea - h.reaOcc), 0);
+    const occPct = litsTot > 0 ? Math.round((100 * litsOcc) / litsTot) : 0;
+
+    const onglets: { k: typeof vue; label: string }[] = [
+      { k: "apercu", label: t.hn_tab_overview },
+      { k: "etabs", label: `${t.hn_facilities} (${hospitals.length})` },
+    ];
+
     return (
       <section className="flex flex-col gap-4 animate-fade-in">
-        {/* Synthèse IA · panneau d'information globale */}
-        <HospinetIAPanel />
+        {/* --- bandeau de commandement -------------------------------------- */}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatTile label={t.hn_facilities} value={hospitals.length} icon={NAV_ICONS.hospitals} tint="or" />
+          <StatTile
+            label={t.beds_free}
+            value={`${litsLibres.toLocaleString("fr-FR")} / ${litsTot.toLocaleString("fr-FR")}`}
+            icon={UI_ICONS.beds}
+            tint="green"
+          />
+          <StatTile label={t.icu} value={`${reaLibres} / ${reaTot}`} icon={UI_ICONS.alert} tint="danger" />
+          <StatTile
+            label={t.occupancy}
+            value={`${occPct} %`}
+            icon={UI_ICONS.activity}
+            tint={occPct >= 92 ? "danger" : occPct >= 75 ? "or" : "green"}
+          />
+        </div>
 
-        <div className="carte flex flex-col gap-3 p-3 sm:p-4">
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Le `min-w-[240px]` d'origine bloquait le rétrécissement : sous
-                `sm` le champ prend toute la ligne, le reste passe dessous. */}
-            <input
-              className="input-champ basis-full text-base sm:min-w-[240px] sm:flex-1 sm:basis-auto md:text-sm"
-              placeholder={t.hn_search}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-            <span className="text-xs font-semibold tabular-nums text-gray-500 dark:text-rdia-300">
-              {shown.length} / {hospitals.length} {t.hn_count}
-            </span>
+        {/* --- onglets + actions -------------------------------------------- */}
+        <div className="carte flex flex-wrap items-center gap-2 p-2.5">
+          <h1 className="flex items-center gap-2 pe-2 text-sm font-bold text-rdia-600 dark:text-rdia-50">
+            <Icon path={NAV_ICONS.hospitals} size={17} className="text-or-500" />
+            {t.hn_title}
+          </h1>
+          <div className="flex flex-wrap gap-1">
+            {onglets.map((o) => (
+              <button
+                key={o.k}
+                onClick={() => setVue(o.k)}
+                aria-pressed={vue === o.k}
+                className={`cible-tactile shrink-0 whitespace-nowrap rounded-lg px-3 text-[12.5px] font-semibold transition-colors lg:min-h-0 lg:py-1.5 ${
+                  vue === o.k
+                    ? "bg-or-500 text-rdia-600"
+                    : "bg-gray-100 text-gray-500 hover:text-or-500 dark:bg-rdia-600 dark:text-rdia-300"
+                }`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <div className="ms-auto flex flex-wrap items-center gap-2">
+            {vue === "etabs" && (
+              <>
+                <input
+                  className="input-champ cible-tactile w-[200px] text-sm"
+                  placeholder={t.hn_search}
+                  aria-label={t.hn_search}
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+                <span className="text-xs font-semibold tabular-nums text-gray-500 dark:text-rdia-300">
+                  {shown.length} / {hospitals.length} {t.hn_count}
+                </span>
+              </>
+            )}
             {canManage && (
-              <button className="btn-primaire ms-auto flex items-center gap-1.5 text-sm" onClick={() => setAdding(true)}>
+              <button className="btn-primaire cible-tactile flex items-center gap-1.5 text-sm" onClick={() => setAdding(true)}>
                 <Icon path={UI_ICONS.plus} size={15} />
                 {t.add_hosp}
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => setAffecteurOpen(true)}
-              className="group inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-or-500 to-or-600 px-3.5 py-2 text-[12.5px] font-bold text-rdia-600 shadow-[0_4px_12px_-2px_rgba(234,140,14,0.45)] transition-all duration-200 hover:from-or-500 hover:to-or-500 hover:shadow-[0_6px_16px_-2px_rgba(234,140,14,0.6)] hover:scale-[1.02] active:scale-[0.98] sm:ms-auto lg:ms-0"
-            >
+            <button type="button" onClick={() => setAffecteurOpen(true)} className="btn-affecteur cible-tactile">
               <Icon path={UI_ICONS.target} size={15} strokeWidth={2} />
-              <span className="tracking-wide">Affecteur IA</span>
+              <span className="tracking-wide">{t.af_launcher}</span>
             </button>
           </div>
-          {/* Sept puces de catégorie : bandeau défilable sous `sm` plutôt que
-              quatre lignes de repli qui repoussent la liste hors de l'écran. */}
-          <div className="-mx-3 flex items-center gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-x-visible sm:px-0 sm:pb-0">
-            <button className={chip(kindFilter === "all")} onClick={() => setKindFilter("all")}>
-              {t.flt_all}
-              <span className="tabular-nums opacity-60">{hospitals.length}</span>
-            </button>
-            {HOSPITAL_KINDS.filter((k) => (counts[k.kind] ?? 0) > 0).map((k) => (
-              <button key={k.kind} className={chip(kindFilter === k.kind)} onClick={() => setKindFilter(k.kind)}>
-                <HealthGlyph kind={k.kind} size={16} />
-                {k.label}
-                <span className="tabular-nums opacity-60">{counts[k.kind]}</span>
+        </div>
+
+        {/* --- vue d'ensemble : la synthèse IA du réseau --------------------- */}
+        {vue === "apercu" && <HospinetIAPanel />}
+
+        {/* --- établissements : filtres de catégorie puis cartes ------------- */}
+        {vue === "etabs" && (
+          <>
+            {/* Sept puces de catégorie : bandeau défilable sous `sm` plutôt que
+                quatre lignes de repli qui repoussent la liste hors de l'écran. */}
+            <div className="carte -mx-0 flex items-center gap-2 overflow-x-auto p-2.5 sm:flex-wrap sm:overflow-x-visible">
+              <button className={chip(kindFilter === "all")} onClick={() => setKindFilter("all")}>
+                {t.flt_all}
+                <span className="tabular-nums opacity-60">{hospitals.length}</span>
               </button>
-            ))}
-          </div>
-        </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {shown.map((h) => {
-            const pct = Math.round((h.occ / h.lits) * 100);
-            const kd = kindDef(hospKind(h));
-            return (
-              <div key={h.id} className="carte flex flex-col gap-3 p-4 sm:p-5">
-                <div className="flex items-start gap-2.5">
-                  <HealthGlyph kind={hospKind(h)} size={22} />
-                  <div className="min-w-0 flex-1">
-                    <h3 className="break-words text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{h.nom}</h3>
-                    <div className="mt-0.5 text-xs text-gray-500 dark:text-rdia-300">
-                      {h.ville}
-                      {h.region ? ` · ${h.region}` : ""}
+              {HOSPITAL_KINDS.filter((k) => (counts[k.kind] ?? 0) > 0).map((k) => (
+                <button key={k.kind} className={chip(kindFilter === k.kind)} onClick={() => setKindFilter(k.kind)}>
+                  <HealthGlyph kind={k.kind} size={16} />
+                  {k.label}
+                  <span className="tabular-nums opacity-60">{counts[k.kind]}</span>
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {shown.map((h) => {
+                const pct = Math.round((h.occ / h.lits) * 100);
+                const kd = kindDef(hospKind(h));
+                return (
+                  <div key={h.id} className="carte flex flex-col gap-3 p-4 sm:p-5">
+                    <div className="flex items-start gap-2.5">
+                      <HealthGlyph kind={hospKind(h)} size={22} />
+                      <div className="min-w-0 flex-1">
+                        <h3 className="break-words text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{h.nom}</h3>
+                        <div className="mt-0.5 text-xs text-gray-500 dark:text-rdia-300">
+                          {h.ville}
+                          {h.region ? ` · ${h.region}` : ""}
+                        </div>
+                        <div className="mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ color: kd.color, background: `${kd.color}1f` }}>
+                          {h.type ?? kd.long}
+                        </div>
+                      </div>
                     </div>
-                    <div className="mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ color: kd.color, background: `${kd.color}1f` }}>
-                      {h.type ?? kd.long}
+                    <div>
+                      <div className="mb-1 flex items-center justify-between text-[10px] text-gray-400 dark:text-rdia-400">
+                        <span>{t.occupancy}</span>
+                        <span className="font-mono">{pct} %</span>
+                      </div>
+                      <ProgressBar value={pct} fill={occBarClass(pct)} />
                     </div>
-                  </div>
-                </div>
-                <div>
-                  <div className="mb-1 flex items-center justify-between text-[10px] text-gray-400 dark:text-rdia-400">
-                    <span>{t.occupancy}</span>
-                    <span className="font-mono">{pct} %</span>
-                  </div>
-                  <ProgressBar value={pct} fill={occBarClass(pct)} />
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-500 dark:text-rdia-300">{t.beds_free}</span>
-                  {/* Libres = armés − occupés − RÉSERVÉS : une EVASAN acceptée
-                      mais pas encore arrivée tient déjà son lit (P2-b). */}
-                  <span className="font-semibold tabular-nums text-gray-800 dark:text-rdia-50">
-                    {h.lits - h.occ - (h.reserved ?? 0)}
-                    {(h.reserved ?? 0) > 0 && (
-                      <span className="ms-1.5 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-400">
-                        {h.reserved} {t.beds_reserved}
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500 dark:text-rdia-300">{t.beds_free}</span>
+                      {/* Libres = armés − occupés − RÉSERVÉS : une EVASAN acceptée
+                          mais pas encore arrivée tient déjà son lit (P2-b). */}
+                      <span className="font-semibold tabular-nums text-gray-800 dark:text-rdia-50">
+                        {h.lits - h.occ - (h.reserved ?? 0)}
+                        {(h.reserved ?? 0) > 0 && (
+                          <span className="ms-1.5 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                            {h.reserved} {t.beds_reserved}
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-500 dark:text-rdia-300">{t.icu}</span>
-                  <span className="font-semibold tabular-nums text-gray-800 dark:text-rdia-50">{h.rea - h.reaOcc} / {h.rea}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-500 dark:text-rdia-300">{t.staff}</span>
-                  <span className="font-semibold tabular-nums text-gray-800 dark:text-rdia-50">{h.staff}</span>
-                </div>
-                <button className="btn-secondaire min-h-[44px] w-full text-xs lg:min-h-0" onClick={() => { setTab("staff"); setSelHosp(h.id); }}>{t.view}</button>
-              </div>
-            );
-          })}
-        </div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500 dark:text-rdia-300">{t.icu}</span>
+                      <span className="font-semibold tabular-nums text-gray-800 dark:text-rdia-50">{h.rea - h.reaOcc} / {h.rea}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500 dark:text-rdia-300">{t.staff}</span>
+                      <span className="font-semibold tabular-nums text-gray-800 dark:text-rdia-50">{h.staff}</span>
+                    </div>
+                    <button className="btn-secondaire min-h-[44px] w-full text-xs lg:min-h-0" onClick={() => { setTab("staff"); setSelHosp(h.id); }}>{t.view}</button>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
         <AddHospitalModal open={adding} onClose={() => setAdding(false)} />
-        <Modal open={affecteurOpen} onClose={() => setAffecteurOpen(false)} size="2xl" title="Affecteur IA · Hospinet">
+        <Modal open={affecteurOpen} onClose={() => setAffecteurOpen(false)} size="2xl" title={`${t.af_launcher} · ${t.nav_hosp}`}>
           <HospinetAffecteurIA />
         </Modal>
       </section>

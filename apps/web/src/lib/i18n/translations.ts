@@ -322,6 +322,10 @@ export interface Dict {
   dash_incidents: string;
   hn_ia_title: string;
   hn_ia_subtitle: string;
+  af_launcher: string;
+  hn_title: string;
+  hn_tab_overview: string;
+  hn_facilities: string;
   hn_ia_regenerate: string;
   hn_ia_loading: string;
   hn_ia_fallback: string;
@@ -517,7 +521,7 @@ export interface Dict {
   trk_no_fix: string; trk_last_seen: string; trk_never_seen: string; trk_sats: string;
   // OPSnet — réseau opérationnel (lot OPSnet)
   nav_opsnet: string; ops_title: string; ops_tab_overview: string; ops_tab_units: string;
-  ops_tab_shelters: string; ops_tab_affect: string; ops_kpi_units: string; ops_kpi_available: string;
+  ops_tab_shelters: string; ops_kpi_units: string; ops_kpi_available: string;
   ops_kpi_shelters: string; ops_kpi_sheltered: string; ops_engagement_rate: string; ops_available_now: string;
   ops_shelter_saturation: string; ops_places_left: string; ops_availability: string; ops_readiness_low: string;
   ops_saturation: string; ops_supplies_state: string; ops_composition: string; ops_no_census: string;
