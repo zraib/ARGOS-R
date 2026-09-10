@@ -347,6 +347,61 @@ export interface paths {
         patch: operations["FlagsController_toggle"];
         trace?: never;
     };
+    "/api/posts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Postes posés sur la carte — ceux des opérations visibles par le compte
+         * @description Même portée que la liste des incidents : un wali voit les postes de sa région, un OPCOM ceux de son opération.
+         */
+        get: operations["PostsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/incidents/{id}/posts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Poser un poste (PC, cellule, abri, parc) sur la carte d'une opération — Super Administrateur (audité) */
+        post: operations["PostsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/incidents/{id}/posts/{postId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Retirer un poste de la carte — Super Administrateur (audité) */
+        delete: operations["PostsController_remove"];
+        options?: never;
+        head?: never;
+        /** Déplacer ou renommer un poste — Super Administrateur (audité) */
+        patch: operations["PostsController_update"];
+        trace?: never;
+    };
     "/api/incident-types": {
         parameters: {
             query?: never;
@@ -673,7 +728,7 @@ export interface paths {
          * Alertes adressées au compte connecté (incident déclaré dans sa région…)
          * @description Les plus récentes d'abord ; poussées aussi par le flux temps réel à ceux qui sont connectés.
          */
-        get: operations["CommsController_notices"];
+        get: operations["CommsController_listNotices"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2010,12 +2065,41 @@ export interface components {
         };
         ToggleRoleFeatureDto: {
             /** @enum {string} */
-            feature: "dashboard" | "dash_incident" | "dash_hospital" | "dash_shelter" | "dash_morgue" | "dash_unit" | "map" | "incidents" | "subincidents" | "hospinet" | "shelters" | "morgue" | "units" | "equipment" | "teams" | "comms" | "reports" | "analytics" | "assistant" | "users" | "settings" | "dispatch" | "triage" | "ics" | "damage" | "orsec" | "plans" | "personnel" | "workorders" | "seismic" | "audit" | "aviation" | "nrbc" | "missions" | "tracking" | "comms_admin";
+            feature: "dashboard" | "dash_incident" | "dash_hospital" | "dash_shelter" | "dash_morgue" | "dash_unit" | "map" | "incidents" | "subincidents" | "hospinet" | "shelters" | "morgue" | "units" | "equipment" | "teams" | "comms" | "reports" | "analytics" | "assistant" | "users" | "settings" | "dispatch" | "triage" | "ics" | "damage" | "orsec" | "plans" | "personnel" | "workorders" | "seismic" | "audit" | "aviation" | "nrbc" | "missions" | "tracking" | "comms_admin" | "map_edit";
             enabled: boolean;
         };
         ToggleFlagDto: {
             /** @description Nouvel état du flag */
             enabled: boolean;
+        };
+        CreatePostDto: {
+            /**
+             * @description Nature du poste : PC (opcom, tacom), cellule, abri ou parc d'équipement.
+             * @enum {string}
+             */
+            kind: "opcom" | "tacom" | "bluecell" | "greencell" | "orangecell" | "shelter" | "equipment";
+            /**
+             * @description Point du poste [lng, lat].
+             * @example [
+             *       -7.6,
+             *       33.58
+             *     ]
+             */
+            ll: number[];
+            /** @description Libellé libre — « PC avancé nord ». */
+            label?: string;
+            /** @description Entité représentée : abri (`shelter`) ou unité détentrice du parc (`equipment`). */
+            entityId?: string;
+        };
+        UpdatePostDto: {
+            /**
+             * @example [
+             *       -7.6,
+             *       33.58
+             *     ]
+             */
+            ll?: number[];
+            label?: string;
         };
         IncidentTypeLabelsDto: {
             /** @example Tempête de sable */
@@ -3138,6 +3222,100 @@ export interface operations {
             };
         };
     };
+    PostsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PostsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePostDto"];
+            };
+        };
+        responses: {
+            /** @description Abri ou unité inconnus pour un poste qui en représente un. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Incident inconnu. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PostsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                postId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Poste inconnu sur cette opération. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PostsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                postId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePostDto"];
+            };
+        };
+        responses: {
+            /** @description Poste inconnu sur cette opération. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     IncidentsController_incidentTypesList: {
         parameters: {
             query?: never;
@@ -3633,7 +3811,7 @@ export interface operations {
             };
         };
     };
-    CommsController_notices: {
+    CommsController_listNotices: {
         parameters: {
             query?: never;
             header?: never;

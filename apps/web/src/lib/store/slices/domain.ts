@@ -18,9 +18,11 @@ import type {
   FieldHospital,
   Hospital,
   Incident,
+  IncidentPost,
   IncidentTypeDef,
   Mission,
   Notice,
+  PostKind,
   Province,
   Responsible,
   SubIncidentCatalog,
@@ -31,7 +33,7 @@ import { hospKind } from "@/lib/hospitals";
 import { FEED_POOL } from "@/lib/data/seed";
 import { api } from "@/lib/api";
 import type { QueueItem, TransportMovement } from "@/lib/data/dispatch";
-import { EMPTY_CATALOG, type Catalog } from "@/lib/data/modules";
+import { EMPTY_CATALOG, type Catalog, Shelter } from "@/lib/data/modules";
 import {
   CommMembers,
   EMPTY_MEMBERS,
@@ -69,6 +71,15 @@ export interface DomainSlice {
   /** Qui tient quoi (titulaires d'entités, postes déployés) — chargé avec le domaine. */
   responsables: Responsible[];
   loadResponsables: () => Promise<void>;
+  // --- postes d'opération sur la carte (lot #12) ---
+  /** Postes des opérations visibles par le compte — l'API a déjà filtré. */
+  posts: IncidentPost[];
+  /** Abris connus — pour poser un poste d'abri et nommer le poste sur la carte. */
+  shelters: Shelter[];
+  loadPosts: () => Promise<void>;
+  createPost: (incidentId: string, body: { kind: PostKind; ll: [number, number]; label?: string; entityId?: string }) => Promise<void>;
+  movePost: (id: string, ll: [number, number]) => Promise<void>;
+  deletePost: (id: string) => Promise<void>;
   comCollapsed: Record<string, boolean>;
   // --- données de référence (depuis l'API) ---
   provinces: Province[];
@@ -145,6 +156,8 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
   comMembers: EMPTY_MEMBERS,
   comSel: "c1",
   responsables: [],
+  posts: [],
+  shelters: [],
   comCollapsed: {},
   provinces: [],
   cities: [],
@@ -170,6 +183,8 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
       api.getSubIncidentTypes(),
       api.getResponsables(),
       api.getNotices(),
+      api.getPosts(),
+      api.getShelters(),
     ]);
     const data = <T,>(i: number): T | undefined =>
       results[i].status === "fulfilled"
@@ -191,6 +206,8 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
       subCatalog: data<SubIncidentCatalog>(12) ?? s.subCatalog,
       responsables: data<Responsible[]>(13) ?? s.responsables,
       rtNotices: data<Notice[]>(14) ?? s.rtNotices,
+      posts: data<IncidentPost[]>(15) ?? s.posts,
+      shelters: data<Shelter[]>(16) ?? s.shelters,
       comCats: comms?.categories ?? s.comCats,
       comMsgs: comms?.messages ? marquerMiens(comms.messages, s.sessionUser?.matricule) : s.comMsgs,
       comMembers: comms?.members ?? s.comMembers,
@@ -254,6 +271,31 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
     get().recomputeRiskPredictions();
   },
   selectChannel: (id) => set({ comSel: id }),
+  loadPosts: async () => {
+    const res = await api.getPosts();
+    if (res.data) set({ posts: res.data as unknown as IncidentPost[] });
+  },
+  createPost: async (incidentId, body) => {
+    const res = await api.createPost(incidentId, body);
+    if (res.error || !res.data) throw new Error(apiErrorMessage(res.error));
+    await get().loadPosts();
+  },
+  // Optimiste : le marqueur reste où l'opérateur l'a lâché ; le signal temps
+  // réel qui suit l'écriture relit la liste et confirme.
+  movePost: async (id, ll) => {
+    const post = get().posts.find((p) => p.id === id);
+    if (!post) return;
+    set({ posts: get().posts.map((p) => (p.id === id ? { ...p, ll } : p)) });
+    const res = await api.updatePost(post.incidentId, id, { ll });
+    if (res.error) await get().loadPosts();
+  },
+  deletePost: async (id) => {
+    const post = get().posts.find((p) => p.id === id);
+    if (!post) return;
+    const res = await api.deletePost(post.incidentId, id);
+    if (res.error) throw new Error(apiErrorMessage(res.error));
+    await get().loadPosts();
+  },
   loadResponsables: async () => {
     const res = await api.getResponsables();
     if (res.data) set({ responsables: res.data as unknown as Responsible[] });
@@ -418,3 +460,12 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
       return { tick: s.tick + 1, feed, movements };
     }),
 });
+
+/** Le message d'un refus de l'API, tel que l'opérateur doit le lire ; sinon une phrase neutre. */
+function apiErrorMessage(err: unknown): string {
+  if (err && typeof err === "object" && "message" in err) {
+    const m = (err as { message: unknown }).message;
+    return Array.isArray(m) ? m.join(" · ") : String(m);
+  }
+  return "Refus de l'API";
+}

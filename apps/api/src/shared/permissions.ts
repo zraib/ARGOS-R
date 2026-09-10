@@ -68,6 +68,10 @@ export const LEGACY_FEATURES = [
   "missions",   // Boucles opérationnelles (ordres, demandes, transferts) — à arbitrer
   "tracking",   // Traceurs GPS FMC920 (lot N-2) — absent de la matrice, à arbitrer
   "comms_admin", // Administration des canaux (lot COMMS) — absent de la matrice, à arbitrer
+  // Mode édition de la carte (lot #12) : poser, déplacer et retirer les postes
+  // d'une opération. AUCUNE ligne dans la matrice, à dessein : seul le joker du
+  // Super Administrateur l'accorde — l'Administrateur ne l'hérite pas.
+  "map_edit",
 ] as const;
 
 export const FEATURES = [...MATRIX_FEATURES, ...LEGACY_FEATURES] as const;
@@ -111,6 +115,7 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   missions: "Missions (boucles opérationnelles)",
   tracking: "Traceurs GPS (FMC920)",
   comms_admin: "Administration des canaux",
+  map_edit: "Édition de la carte (postes d'opération)",
 };
 
 export type Permission = `${Feature}:${Action}`;
@@ -342,6 +347,9 @@ const LEGACY: Record<(typeof LEGACY_FEATURES)[number], Partial<Record<Role, Cell
   // Accordée au seul Administrateur ; le Super Administrateur la détient par
   // son joker. Dotation provisoire, à confirmer lors de l'arbitrage.
   comms_admin: { admin: ALL },
+  // Édition de la carte (lot #12) : ligne VIDE à dessein — personne, hormis le
+  // joker du Super Administrateur. L'Administrateur ne l'hérite pas.
+  map_edit: {},
   // NRBC : même logique que l'aviation — la conduite (déclarer la substance,
   // choisir le référentiel du panache) revient au commandement opératif et
   // tactique ; l'état-major et les cellules consultent. Dotation provisoire,

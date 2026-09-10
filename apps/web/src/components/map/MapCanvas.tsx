@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useArgos, useDict } from "@/lib/store";
+import { POST_DRAG_MIME, isPostKind } from "@/lib/posts";
 import { FLUX } from "@/lib/i18n/flux";
 import { canReportIncident } from "@/lib/roles";
 import { MAP_CENTER, MAP_STYLE, MAP_ZOOM } from "@/lib/map/style";
@@ -81,6 +82,11 @@ export function MapCanvas() {
   const selMarker = useArgos((s) => s.selMarker);
   const incidents = useArgos((s) => s.incidents);
   const fieldHosps = useArgos((s) => s.fieldHosps);
+  // Postes d'opération (lot #12) : la liste ET le mode — un poste devient
+  // saisissable quand le mode s'allume, il faut donc rebâtir les marqueurs.
+  const posts = useArgos((s) => s.posts);
+  const mapEdit = useArgos((s) => s.mapEdit);
+  const armedPost = useArgos((s) => s.armedPost);
   const map3d = useArgos((s) => s.map3d);
   const mapSat = useArgos((s) => s.mapSat);
   // Couche sismique (EMSC) : points colorés/dimensionnés par magnitude.
@@ -176,6 +182,13 @@ export function MapCanvas() {
     // Clic sur la carte : en mode mesure → ajoute un point ; sinon → sélectionne
     // un séisme si le clic tombe sur un marqueur (bandeau de détail).
     map.on("click", (e) => {
+      // Un chip de la boîte à outils est armé : ce clic pose le poste ici.
+      const armed = useArgos.getState().armedPost;
+      if (armed) {
+        useArgos.getState().setPendingPost({ kind: armed, ll: [e.lngLat.lng, e.lngLat.lat] });
+        useArgos.getState().armPost(null);
+        return;
+      }
       if (measureOnRef.current) {
         setPts((prev) => [...prev, [e.lngLat.lng, e.lngLat.lat]]);
         return;
@@ -305,7 +318,13 @@ export function MapCanvas() {
   // --- re-synchro des marqueurs si données / sélection / couche changent ---
   useEffect(() => {
     if (readyRef.current) syncMarkers(markersRt.current, mapRef.current);
-  }, [layers, selMarker, incidents, fieldHosps]);
+  }, [layers, selMarker, incidents, fieldHosps, posts, mapEdit]);
+
+  // Chip armé : le curseur le dit avant le clic.
+  useEffect(() => {
+    const canvas = mapRef.current?.getCanvas();
+    if (canvas) canvas.style.cursor = armedPost ? "crosshair" : "";
+  }, [armedPost]);
 
   // --- suivi aérien : interrogation du flux ---
   // Le minuteur s'arrête dès que la couche est masquée, pour ne pas consommer
@@ -476,6 +495,20 @@ export function MapCanvas() {
   return (
     <div
       className="absolute inset-0"
+      // Glisser-déposer d'un poste depuis la boîte à outils (mode édition) :
+      // le point lâché devient le poste en attente, la modale fait le reste.
+      onDragOver={(e) => {
+        if (useArgos.getState().mapEdit && e.dataTransfer.types.includes(POST_DRAG_MIME)) e.preventDefault();
+      }}
+      onDrop={(e) => {
+        const kind = e.dataTransfer.getData(POST_DRAG_MIME);
+        const map = mapRef.current, host = containerRef.current;
+        if (!isPostKind(kind) || !map || !host || !useArgos.getState().mapEdit) return;
+        e.preventDefault();
+        const rect = host.getBoundingClientRect();
+        const ll = map.unproject([e.clientX - rect.left, e.clientY - rect.top]);
+        useArgos.getState().setPendingPost({ kind, ll: [ll.lng, ll.lat] });
+      }}
       onContextMenu={(e) => {
         // Maj + clic droit : menu contextuel du point visé.
         if (!e.shiftKey) return;

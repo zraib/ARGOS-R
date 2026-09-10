@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useArgos, useDict, useModules } from "@/lib/store";
-import { incidentChannelId, isOnline, responsibleOf, type EntityKind } from "@/lib/responsibles";
+import { deployedOn, incidentChannelId, isOnline, responsibleOf, type ResponsibleKind } from "@/lib/responsibles";
+import type { Role } from "@/lib/roles";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 
@@ -19,8 +20,11 @@ import { UI_ICONS } from "@/lib/icons";
 // ============================================================================
 
 export interface ResponsibleCardProps {
-  kind: EntityKind;
+  /** Nature de l'entité — ou `incident` pour un poste déployé (OPCOM, TACOM, cellule) : `entityId` est alors l'incident. */
+  kind: ResponsibleKind;
   entityId: string;
+  /** Pour un poste déployé : le rôle qui tient le poste sur cet incident. */
+  role?: Role;
   /** Incident sur lequel l'entité est engagée : ouvre aussi son canal. */
   incidentId?: string;
   /** `dark` : sur le panneau de la carte, texte clair sur fond sombre. */
@@ -30,7 +34,7 @@ export interface ResponsibleCardProps {
   className?: string;
 }
 
-export function ResponsibleCard({ kind, entityId, incidentId, tone = "light", hideIfNone = false, className = "" }: ResponsibleCardProps) {
+export function ResponsibleCard({ kind, entityId, role, incidentId, tone = "light", hideIfNone = false, className = "" }: ResponsibleCardProps) {
   const t = useDict();
   const m = useModules();
   const router = useRouter();
@@ -44,13 +48,20 @@ export function ResponsibleCard({ kind, entityId, incidentId, tone = "light", hi
   const showToast = useArgos((s) => s.showToast);
   const [busy, setBusy] = useState(false);
 
-  const r = responsibleOf(responsables, kind, entityId);
+  // Un poste déployé se retrouve par (incident, rôle) ; une entité par (nature, identifiant).
+  const r = kind === "incident" ? deployedOn(responsables, entityId).find((x) => x.role === role) : responsibleOf(responsables, kind, entityId);
   if (!r && hideIfNone) return null;
 
   const dark = tone === "dark";
-  const kindLabel = { unit: t.resp_kind_unit, hospital: t.resp_kind_hospital, shelter: t.resp_kind_shelter, morgue: t.resp_kind_morgue, equipment: t.resp_kind_equipment }[kind];
+  const kindLabel =
+    kind === "incident"
+      ? role
+        ? m.roles[role]
+        : ""
+      : { unit: t.resp_kind_unit, hospital: t.resp_kind_hospital, shelter: t.resp_kind_shelter, morgue: t.resp_kind_morgue, equipment: t.resp_kind_equipment }[kind];
   const hasChannel = (id: string) => comCats.some((c) => c.chans.some((ch) => ch.id === id));
-  const incidentChannel = incidentId ? incidentChannelId(incidentId) : undefined;
+  const onIncident = incidentId ?? (kind === "incident" ? entityId : undefined);
+  const incidentChannel = onIncident ? incidentChannelId(onIncident) : undefined;
   const isMe = !!r && !!sessionUser && r.matricule.toLowerCase() === sessionUser.matricule.toLowerCase();
 
   const goTo = (id: string) => {

@@ -612,6 +612,151 @@
         ]
       }
     },
+    "/api/posts": {
+      "get": {
+        "description": "Même portée que la liste des incidents : un wali voit les postes de sa région, un OPCOM ceux de son opération.",
+        "operationId": "PostsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Postes posés sur la carte — ceux des opérations visibles par le compte",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/incidents/{id}/posts": {
+      "post": {
+        "operationId": "PostsController_create",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePostDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Abri ou unité inconnus pour un poste qui en représente un."
+          },
+          "404": {
+            "description": "Incident inconnu."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Poser un poste (PC, cellule, abri, parc) sur la carte d'une opération — Super Administrateur (audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/incidents/{id}/posts/{postId}": {
+      "patch": {
+        "operationId": "PostsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "postId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePostDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "404": {
+            "description": "Poste inconnu sur cette opération."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Déplacer ou renommer un poste — Super Administrateur (audité)",
+        "tags": [
+          "domain"
+        ]
+      },
+      "delete": {
+        "operationId": "PostsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "postId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Poste inconnu sur cette opération."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Retirer un poste de la carte — Super Administrateur (audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/incident-types": {
       "get": {
         "operationId": "IncidentsController_incidentTypesList",
@@ -1310,7 +1455,7 @@
     "/api/comms/notices": {
       "get": {
         "description": "Les plus récentes d'abord ; poussées aussi par le flux temps réel à ceux qui sont connectés.",
-        "operationId": "CommsController_notices",
+        "operationId": "CommsController_listNotices",
         "parameters": [],
         "responses": {
           "200": {
@@ -4262,7 +4407,8 @@
               "nrbc",
               "missions",
               "tracking",
-              "comms_admin"
+              "comms_admin",
+              "map_edit"
             ]
           },
           "enabled": {
@@ -4285,6 +4431,65 @@
         "required": [
           "enabled"
         ]
+      },
+      "CreatePostDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "opcom",
+              "tacom",
+              "bluecell",
+              "greencell",
+              "orangecell",
+              "shelter",
+              "equipment"
+            ],
+            "description": "Nature du poste : PC (opcom, tacom), cellule, abri ou parc d'équipement."
+          },
+          "ll": {
+            "example": [
+              -7.6,
+              33.58
+            ],
+            "description": "Point du poste [lng, lat].",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "label": {
+            "type": "string",
+            "description": "Libellé libre — « PC avancé nord »."
+          },
+          "entityId": {
+            "type": "string",
+            "description": "Entité représentée : abri (`shelter`) ou unité détentrice du parc (`equipment`)."
+          }
+        },
+        "required": [
+          "kind",
+          "ll"
+        ]
+      },
+      "UpdatePostDto": {
+        "type": "object",
+        "properties": {
+          "ll": {
+            "example": [
+              -7.6,
+              33.58
+            ],
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "label": {
+            "type": "string"
+          }
+        }
       },
       "IncidentTypeLabelsDto": {
         "type": "object",

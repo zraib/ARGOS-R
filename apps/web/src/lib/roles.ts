@@ -112,6 +112,15 @@ export function canDeployPosts(role: Role): boolean {
   return role === "superadmin" || role === "admin" || role === "opcom" || role === "tacom";
 }
 
+/**
+ * Mode édition de la carte (poser, déplacer, retirer les postes d'une
+ * opération) — miroir de `map_edit`, que la matrice serveur n'accorde à
+ * personne : seul le joker du Super Administrateur le détient.
+ */
+export function canEditMap(role: Role): boolean {
+  return role === "superadmin";
+}
+
 // ---------------------------------------------------------------------------
 // Responsabilités opérationnelles (miroir de shared/responsibilities.ts côté API)
 // Sert UNIQUEMENT à composer l'interface d'affectation. Le cantonnement réel

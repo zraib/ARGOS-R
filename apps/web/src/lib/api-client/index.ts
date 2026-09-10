@@ -26,6 +26,9 @@ export type CreateSubIncidentBody = Json<NonNullable<paths["/api/incidents/{id}/
 export type RegisterIncidentTypeBody = Json<NonNullable<paths["/api/incident-types"]["post"]["requestBody"]>>;
 export type CreateUnitBody = Json<NonNullable<paths["/api/units"]["post"]["requestBody"]>>;
 export type CreateShelterBody = Json<NonNullable<paths["/api/shelters"]["post"]["requestBody"]>>;
+/** Postes d'opération sur la carte (lot #12). */
+export type CreatePostBody = Json<NonNullable<paths["/api/incidents/{id}/posts"]["post"]["requestBody"]>>;
+export type UpdatePostBody = Json<NonNullable<paths["/api/incidents/{id}/posts/{postId}"]["patch"]["requestBody"]>>;
 /** Fiche d'une pièce jointe versée — le contenu vit côté serveur (lot COMMS). */
 export type CommsAttachment = { id: string; name: string; mime: string; bytes: number };
 // Traceurs GPS FMC920 (lot N-2). Le type de la RÉPONSE est exporté aussi : la
@@ -133,6 +136,12 @@ export function createArgosClient(opts: ArgosClientOptions) {
     getResponsables: () => client.GET("/api/comms/responsables"),
     /** Alertes gardées pour le compte connecté — la plus récente d'abord. */
     getNotices: () => client.GET("/api/comms/notices"),
+    /** Postes posés sur la carte des opérations visibles (permission `map:view`). */
+    getPosts: () => client.GET("/api/posts"),
+    createPost: (id: string, body: CreatePostBody) => client.POST("/api/incidents/{id}/posts", { params: { path: { id } }, body }),
+    updatePost: (id: string, postId: string, body: UpdatePostBody) =>
+      client.PATCH("/api/incidents/{id}/posts/{postId}", { params: { path: { id, postId } }, body }),
+    deletePost: (id: string, postId: string) => client.DELETE("/api/incidents/{id}/posts/{postId}", { params: { path: { id, postId } } }),
     /** Ouvre (ou retrouve) la conversation directe avec un compte — rend le canal. */
     openDirectChannel: (matricule: string) =>
       client.POST("/api/comms/direct/{matricule}", { params: { path: { matricule } } }),

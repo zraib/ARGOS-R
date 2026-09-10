@@ -1,4 +1,5 @@
-import type { EntityKind } from "@/lib/responsibles";
+import type { ResponsibleKind } from "@/lib/responsibles";
+import type { Role } from "@/lib/roles";
 // Aides partagées par les composants de page.tsx (extraites, exportées).
 import { type BadgeType } from "@/components/ui/Badge";
 import type { LayerState } from "@/lib/store";
@@ -14,8 +15,10 @@ export interface SelLine { k: string; v: string }
 export interface SelInfo {
   titre: string; sub: string; badgeType: BadgeType; badgeLabel: string;
   lines: SelLine[]; action?: () => void;
-  /** Le titulaire de l'élément (commandant, directeur…) : présence et contact. */
-  responsible?: { kind: EntityKind; entityId: string; incidentId?: string };
+  /** Le titulaire de l'élément (commandant, directeur, poste déployé…) : présence et contact. */
+  responsible?: { kind: ResponsibleKind; entityId: string; role?: Role; incidentId?: string };
+  /** Retirer l'élément de la carte — un poste, en mode édition. */
+  remove?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -34,7 +37,7 @@ export interface SelInfo {
 // les commandes natives de MapLibre (zoom, boussole, recentrage) sont remontées
 // en haut par `globals.css` pour la même raison.
 // ---------------------------------------------------------------------------
-export type SheetTab = "layers" | "aircraft" | "legend" | "selection";
+export type SheetTab = "layers" | "aircraft" | "legend" | "edit" | "selection";
 
 /** Élément réel de la carte, listé sous sa couche. */
 export interface TreeLeaf { id: string; label: string; kind: MarkerKind }

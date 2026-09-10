@@ -10,7 +10,8 @@
 import maplibregl from "maplibre-gl";
 import { useArgos } from "@/lib/store";
 import { hospKind } from "@/lib/hospitals";
-import { fieldLL, fieldMarkerHTML, hospMarkerHTML, incMarkerHTML, unitMarkerHTML, vehMarkerHTML, vehPos } from "@/lib/map/markers";
+import { fieldLL, fieldMarkerHTML, hospMarkerHTML, incMarkerHTML, postMarkerHTML, unitMarkerHTML, vehMarkerHTML, vehPos } from "@/lib/map/markers";
+import { POST_FILL, postCaption, postCode } from "@/lib/posts";
 import type { MarkerKind } from "@/lib/types";
 
 export interface VehMarker {
@@ -68,6 +69,25 @@ export function syncMarkers(rt: MarkersRuntime, map: maplibregl.Map | null) {
   if (L.hospitals) hosps.filter((h) => hospKind(h) === "mil").forEach(addHosp);
   if (L.field) state.fieldHosps.forEach((f) => add(fieldLL(f), mkEl(fieldMarkerHTML(f, isSel("field", f.nom)), "field", f.nom)));
   if (L.incidents) state.incidents.forEach((i) => add(i.ll, mkEl(incMarkerHTML(i, isSel("inc", i.id)), "inc", i.id)));
+
+  // Postes d'opération (lot #12). En mode édition, le marqueur se saisit et se
+  // déplace ; lâché, il écrit sa nouvelle position. Hors mode, il se lit.
+  if (L.posts) {
+    const edit = state.mapEdit;
+    const ctx = { shelters: state.shelters, units: state.units };
+    state.posts.forEach((p) => {
+      const el = mkEl(postMarkerHTML(postCode(p.kind, state.dict), POST_FILL[p.kind], isSel("post", p.id), postCaption(p, ctx)), "post", p.id);
+      el.style.cursor = edit ? "grab" : "pointer";
+      const mk = new maplibregl.Marker({ element: el, draggable: edit }).setLngLat(p.ll).addTo(map);
+      if (edit) {
+        mk.on("dragend", () => {
+          const { lng, lat } = mk.getLngLat();
+          void useArgos.getState().movePost(p.id, [lng, lat]);
+        });
+      }
+      rt.markers.push(mk);
+    });
+  }
 
   if (L.vehicles) {
     useArgos.getState().vehRoutes.forEach((v, routeIndex) => {

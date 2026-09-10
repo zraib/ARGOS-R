@@ -29,7 +29,9 @@ export type RealtimeEvent =
   /** La liste des présents a changé. */
   | { kind: "presence"; online: PresenceUser[] }
   /** Une alerte adressée à des comptes précis — jamais diffusée à tous. */
-  | { kind: "notice"; notice: Notice };
+  | { kind: "notice"; notice: Notice }
+  /** Les postes d'une opération ont changé : chaque poste relit ceux qu'il a le droit de voir. */
+  | { kind: "posts"; incidentId: string };
 
 /**
  * Une alerte adressée : l'incident déclaré dans la région d'un wali ou d'une

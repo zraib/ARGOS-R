@@ -19,6 +19,22 @@ export function selRing(sel: boolean): string {
   return sel ? "box-shadow: 0 0 0 3px #C9A84C, 0 0 12px rgba(201,168,76,0.8); border-radius: 9999px;" : "";
 }
 
+/**
+ * Poste d'opération : une étiquette pleine, de la couleur de sa nature, qui
+ * porte son code (OPCOM, TACOM, cellule, abri, parc) et, dessous, son libellé
+ * ou l'entité qu'il représente.
+ */
+export function postMarkerHTML(code: string, fill: string, sel: boolean, caption?: string): string {
+  return (
+    '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">' +
+    `<div style="padding:2px 6px;border-radius:6px;background:${fill};border:2px solid #0f1f14;color:#fff;font:800 9px Inter,sans-serif;letter-spacing:.04em;text-shadow:0 1px 1px rgba(0,0,0,.5);white-space:nowrap;${selRing(sel)}">${esc(code)}</div>` +
+    (caption
+      ? `<span style="font:700 9px Inter,sans-serif;color:#fff;text-shadow:0 1px 2px #000;background:rgba(15,31,20,.7);padding:0 4px;border-radius:4px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(caption)}</span>`
+      : "") +
+    "</div>"
+  );
+}
+
 export function unitMarkerHTML(u: Unit, sel: boolean): string {
   return (
     '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">' +

@@ -11,6 +11,7 @@ import type {
   Incident,
   MapSelection,
   MarkerKind,
+  PostKind,
   WeatherGridSeries,
 } from "@/lib/types";
 import { api } from "@/lib/api";
@@ -39,6 +40,16 @@ export interface MapSlice {
   map3d: boolean;
   mapSat: boolean;
   selMarker: MapSelection | null;
+  // --- mode édition de la carte (lot #12, Super Administrateur) ---
+  /** Les postes se posent, se déplacent et se retirent ; hors mode, la carte se lit seulement. */
+  mapEdit: boolean;
+  /** Nature choisie dans la boîte à outils : le prochain clic sur la carte pose ce poste. */
+  armedPost: PostKind | null;
+  /** Poste en attente de rattachement (opération, entité, libellé) — la modale de pose. */
+  pendingPost: { kind: PostKind; ll: [number, number] } | null;
+  setMapEdit: (v: boolean) => void;
+  armPost: (kind: PostKind | null) => void;
+  setPendingPost: (p: { kind: PostKind; ll: [number, number] } | null) => void;
   /** Demande le centrage de la carte sur un incident (active la couche incidents) ; null pour purger. */
   focusIncident: (inc: Incident | null) => void;
   /** Demande un centrage générique de la carte (ex: zone géographique). Consommé par MapCanvas. null = purge. */
@@ -67,7 +78,15 @@ export const createMapSlice: StateCreator<ArgosState, [], [], MapSlice> = (set, 
   selHosp: null,
   // Le réseau civil (106 établissements) est masqué par défaut : il se
   // rallume d'un clic quand l'opérateur cherche une capacité d'accueil.
-  layers: { units: true, hospitals: true, hospitalsCiv: false, incidents: true, vehicles: true, field: true, aircraft: true, missions: true },
+  layers: { units: true, posts: true, hospitals: true, hospitalsCiv: false, incidents: true, vehicles: true, field: true, aircraft: true, missions: true },
+  mapEdit: false,
+  armedPost: null,
+  pendingPost: null,
+  // Quitter le mode désarme le chip et lâche le poste en attente : rien ne
+  // reste « à moitié posé » derrière un interrupteur éteint.
+  setMapEdit: (v) => set(v ? { mapEdit: true } : { mapEdit: false, armedPost: null, pendingPost: null }),
+  armPost: (kind) => set({ armedPost: kind }),
+  setPendingPost: (p) => set({ pendingPost: p }),
   map3d: false,
   mapSat: true,
   selMarker: null,

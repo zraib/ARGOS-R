@@ -294,3 +294,31 @@ export interface TransportMovement {
   etaMin: number;
   delayMin: number;
 }
+
+// --- postes d'opération sur la carte (lot #12) ---------------------------------
+
+/** Natures de poste posables sur la carte d'une opération. */
+export const POST_KINDS = ["opcom", "tacom", "bluecell", "greencell", "orangecell", "shelter", "equipment"] as const;
+export type PostKind = (typeof POST_KINDS)[number];
+
+/**
+ * Un poste posé sur la carte d'une opération : un PC (OPCOM, TACOM), une
+ * cellule, un abri ou un parc d'équipement, à un point précis.
+ *
+ * Le poste ne porte PAS de personne : le déploiement (lot V-2) dit qui tient
+ * l'OPCOM de l'opération, l'affectation dit qui tient l'abri ou le parc. La
+ * carte joint les deux au moment d'afficher — un poste n'est qu'un lieu.
+ */
+export interface IncidentPost {
+  id: string;
+  incidentId: string;
+  kind: PostKind;
+  ll: [number, number];
+  /** Libellé libre — « PC avancé nord ». */
+  label?: string;
+  /** Entité représentée : identifiant de l'abri (`shelter`) ou de l'unité détentrice du parc (`equipment`). */
+  entityId?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}

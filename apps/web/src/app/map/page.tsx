@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { useArgos, useDict } from "@/lib/store";
+import { useArgos, useDict, useModules } from "@/lib/store";
 import { TILES_AVAILABLE } from "@/lib/map/tiles";
 import { Badge, type BadgeType } from "@/components/ui/Badge";
 import { ResponsibleCard } from "@/components/responsibility/ResponsibleCard";
@@ -24,6 +24,10 @@ import {
 } from "@/app/map/_parts/shared";
 import { MapCanvas } from "@/app/map/_parts/MapCanvas";
 import { Switch } from "@/app/map/_parts/Switch";
+import { PostToolbox, postKindLabel } from "@/components/map/PostToolbox";
+import { PlacePostModal } from "@/components/map/PlacePostModal";
+import { canEditMap } from "@/lib/roles";
+import { POST_FILL, postCaption } from "@/lib/posts";
 import { Panel } from "@/app/map/_parts/Panel";
 import { FamilyNode } from "@/app/map/_parts/FamilyNode";
 
@@ -34,6 +38,13 @@ export default function MapPage() {
   const vehRoutes = useArgos((s) => s.vehRoutes);
   const incidentTypes = useArgos((s) => s.incidentTypes);
   const lang = useArgos((s) => s.lang);
+  const m = useModules();
+  const role = useArgos((s) => s.role);
+  const posts = useArgos((s) => s.posts);
+  const shelters = useArgos((s) => s.shelters);
+  const mapEdit = useArgos((s) => s.mapEdit);
+  const deletePost = useArgos((s) => s.deletePost);
+  const showToast = useArgos((s) => s.showToast);
   const hospitals = useArgos((s) => s.hospitals);
   const layers = useArgos((s) => s.layers);
   const aircraft = useArgos((s) => s.aircraft);
@@ -64,7 +75,7 @@ export default function MapPage() {
    * style des contrôles natifs MapLibre (blanc, 44 px, rayon 12). Le bouton
    * « nrbc » ne rejoint la pile que lorsqu'un panache est actif.
    */
-  const [openPanel, setOpenPanel] = useState<"layers" | "air" | "legend" | "nrbc" | null>(null);
+  const [openPanel, setOpenPanel] = useState<"layers" | "air" | "legend" | "nrbc" | "edit" | null>(null);
 
   // --- panache NRBC (ADR 0005) ---
   const plumeIncidentId = useArgos((s) => s.plumeIncidentId);
@@ -183,6 +194,13 @@ export default function MapPage() {
           label: t.nav_inc,
           leaves: incidents.filter((i) => !i.archived).map((i) => ({ id: i.id, label: `${i.id} · ${i.titre}`, kind: "inc" })),
         },
+        {
+          // Les postes posés sur la carte (lot #12) : PC, cellules, abris et
+          // parcs d'une opération — un lieu chacun, la personne vient du déploiement.
+          key: "posts",
+          label: t.lg_posts,
+          leaves: posts.map((p) => ({ id: p.id, label: `${postKindLabel(p.kind, t, m)} · ${postCaption(p, { shelters, units }) ?? p.incidentId}`, kind: "post" as const })),
+        },
       ],
     },
   ];
@@ -230,6 +248,40 @@ export default function MapPage() {
           lines: [{ k: t.col_id, v: i.id }, { k: t.h_typev, v: typeLabel(i.type, incidentTypes, lang) }, { k: t.col_status, v: stBadge(i.st, t).label }, { k: t.col_time, v: i.time }],
         };
       }
+    } else if (kind === "post") {
+      const p = posts.find((x) => x.id === id);
+      if (p) {
+        const inc = incidents.find((i) => i.id === p.incidentId);
+        const caption = postCaption(p, { shelters, units });
+        // Qui tient le poste : le déploiement pour un PC ou une cellule
+        // (incident + rôle), l'affectation pour un abri ou un parc.
+        const responsible =
+          p.kind === "shelter" || p.kind === "equipment"
+            ? { kind: p.kind, entityId: p.entityId ?? "", incidentId: p.incidentId }
+            : { kind: "incident" as const, entityId: p.incidentId, role: p.kind };
+        selInfo = {
+          titre: caption ? `${postKindLabel(p.kind, t, m)} · ${caption}` : postKindLabel(p.kind, t, m),
+          sub: inc ? `${inc.id} · ${inc.titre}` : p.incidentId,
+          badgeType: "active",
+          badgeLabel: postKindLabel(p.kind, t, m),
+          lines: [
+            { k: t.post_incident, v: p.incidentId },
+            { k: t.post_coords, v: `${p.ll[1].toFixed(4)}, ${p.ll[0].toFixed(4)}` },
+          ],
+          responsible,
+          remove:
+            mapEdit && canEditMap(role)
+              ? () => {
+                  void deletePost(p.id)
+                    .then(() => {
+                      clearSelection();
+                      showToast(t.post_removed);
+                    })
+                    .catch((err: unknown) => showToast(`${t.toast_fail} — ${err instanceof Error ? err.message : String(err)}`));
+                }
+              : undefined,
+        };
+      }
     } else if (kind === "veh") {
       const v = vehRoutes.find((x) => x.id === id);
       if (v) selInfo = { titre: v.label, sub: v.kind, badgeType: "active", badgeLabel: t.u_deployed, lines: [{ k: t.col_status, v: "—" }] };
@@ -250,6 +302,7 @@ export default function MapPage() {
     [<rect key="u" x={-4} y={-4} width={8} height={8} fill="#C9A84C" />, t.lg_units],
     [<path key="i" d="M0,-6 L6,5 L-6,5 Z" fill="#EF4444" />, t.nav_inc],
     [<path key="v" d="M0,-5 L5,0 L0,5 L-5,0 Z" fill="#3B82F6" />, t.lg_veh],
+    [<rect key="p" x={-7} y={-4} width={14} height={8} rx={2} fill={POST_FILL.opcom} stroke="#0f1f14" />, t.lg_posts],
   ];
 
   // ---- corps des panneaux ----
@@ -492,6 +545,11 @@ export default function MapPage() {
         ))}
       </div>
       {selInfo.responsible && <ResponsibleCard tone="dark" {...selInfo.responsible} hideIfNone={selInfo.responsible.kind === "hospital"} />}
+      {selInfo.remove && (
+        <button className="btn-secondaire min-h-11 w-full text-[14px] text-danger-400 lg:min-h-0" onClick={selInfo.remove}>
+          {t.post_remove}
+        </button>
+      )}
       {selInfo.action && <button className="btn-secondaire min-h-11 w-full text-[14px] lg:min-h-0" onClick={selInfo.action}>{t.view}</button>}
     </div>
   );
@@ -504,6 +562,7 @@ export default function MapPage() {
     { key: "aircraft", label: t.acft_panel, body: <AircraftPanel /> },
     { key: "legend", label: t.legend, body: legendBody },
   ];
+  if (canEditMap(role)) sheetTabs.push({ key: "edit", label: t.map_edit_mode, body: <PostToolbox /> });
   if (selInfo) sheetTabs.push({ key: "selection", label: selInfo.titre, body: selectionBody });
   const openTab = sheetTabs.find((x) => x.key === sheet) ?? null;
 
@@ -520,6 +579,7 @@ export default function MapPage() {
       style={{ background: "#10202f" }}
     >
       <MapCanvas />
+      <PlacePostModal />
 
       {/* Surcouches : tout est posé sur la carte, chaque panneau est repliable */}
       <div className="pointer-events-none absolute inset-0 z-20">
@@ -535,6 +595,9 @@ export default function MapPage() {
                 { key: "layers" as const, icon: UI_ICONS.layers, label: t.layers },
                 { key: "air" as const, icon: UI_ICONS.plane, label: t.acft_panel },
                 { key: "legend" as const, icon: UI_ICONS.legend, label: t.legend },
+                // Le mode édition n'existe que pour qui peut poser un poste :
+                // l'API le refuserait de toute façon aux autres.
+                ...(canEditMap(role) ? [{ key: "edit" as const, icon: UI_ICONS.edit, label: t.map_edit_mode }] : []),
                 // Le bouton NRBC existe dès qu'un incident chimique est en cours
                 // (ou qu'un panache est déjà affiché) : la capacité se découvre
                 // depuis la carte, sans passer par la fiche incident.
@@ -563,12 +626,12 @@ export default function MapPage() {
             <div key={openPanel} className="anim-bulle panneau-sombre pointer-events-auto w-[300px] overflow-hidden rounded-xl shadow-lg" style={GLASS}>
               <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
                 <Icon
-                  path={openPanel === "layers" ? UI_ICONS.layers : openPanel === "air" ? UI_ICONS.plane : openPanel === "nrbc" ? UI_ICONS.nrbc : UI_ICONS.legend}
+                  path={openPanel === "layers" ? UI_ICONS.layers : openPanel === "air" ? UI_ICONS.plane : openPanel === "nrbc" ? UI_ICONS.nrbc : openPanel === "edit" ? UI_ICONS.edit : UI_ICONS.legend}
                   size={14}
                   className="shrink-0 text-or-400"
                 />
                 <span className="min-w-0 flex-1 truncate text-[13px] font-bold uppercase tracking-wider text-white/85">
-                  {openPanel === "layers" ? t.layers : openPanel === "air" ? t.acft_panel : openPanel === "nrbc" ? t.nrbc_panel : t.legend}
+                  {openPanel === "layers" ? t.layers : openPanel === "air" ? t.acft_panel : openPanel === "nrbc" ? t.nrbc_panel : openPanel === "edit" ? t.map_edit_mode : t.legend}
                 </span>
                 <button
                   onClick={() => setOpenPanel(null)}
@@ -579,7 +642,7 @@ export default function MapPage() {
                 </button>
               </div>
               <div className="max-h-[62vh] overflow-y-auto px-3 pb-3 pt-2">
-                {openPanel === "layers" ? layersBody : openPanel === "air" ? <AircraftPanel /> : openPanel === "nrbc" ? nrbcBody : legendBody}
+                {openPanel === "layers" ? layersBody : openPanel === "air" ? <AircraftPanel /> : openPanel === "nrbc" ? nrbcBody : openPanel === "edit" ? <PostToolbox /> : legendBody}
               </div>
             </div>
           )}

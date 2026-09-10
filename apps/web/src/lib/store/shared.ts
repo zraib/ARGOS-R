@@ -132,6 +132,8 @@ export interface SessionInit {
 
 export interface LayerState {
   units: boolean;
+  /** Postes d'opération posés sur la carte (PC, cellules, abris, parcs). */
+  posts: boolean;
   /** Réseau hospitalier militaire (service de santé militaire). */
   hospitals: boolean;
   /** Réseau hospitalier public civil (CHU / CHR / CHP / locaux). */

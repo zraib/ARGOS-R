@@ -93,6 +93,11 @@ export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice
           void get().loadDomain({ ai: false });
           return;
         }
+        if (e.kind === "posts") {
+          // Un poste a bougé quelque part : on relit ceux qu'on a le droit de voir.
+          void get().loadPosts();
+          return;
+        }
         if (e.kind === "channel") {
           // La structure a changé sous nos pieds : on la recharge plutôt que de
           // la rejouer à la main, une reconstitution partielle valant pire

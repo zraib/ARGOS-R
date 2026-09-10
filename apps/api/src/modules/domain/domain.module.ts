@@ -20,6 +20,7 @@ import { ResourcesController } from "@/modules/domain/http/resources.controller"
 import { HospitalsController } from "@/modules/domain/http/hospitals.controller";
 import { DashboardController } from "@/modules/domain/http/dashboard.controller";
 import { EnvironmentController } from "@/modules/domain/http/environment.controller";
+import { PostsController } from "@/modules/domain/http/posts.controller";
 import { NoticesService } from "@/modules/domain/notices.service";
 
 @Module({
@@ -27,7 +28,8 @@ import { NoticesService } from "@/modules/domain/notices.service";
   // de l'IAM. Le sens inverse n'existe pas (`IamModule` n'importe pas le
   // domaine), donc pas de cycle et pas de `forwardRef`.
   imports: [IamModule],
-  controllers: [IncidentsController, CommsController, ResourcesController, HospitalsController, DashboardController, EnvironmentController],
+  controllers: [
+    PostsController,IncidentsController, CommsController, ResourcesController, HospitalsController, DashboardController, EnvironmentController],
   providers: [
     NoticesService,
     // La passerelle de notification : SMTP dès que `SMTP_HOST` est défini

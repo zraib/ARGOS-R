@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { resolveShelterTypology, type ShelterTypologyInput } from "@/modules/domain/shelter.rules";
 import { computeAnalyticsOf, computeStats, type DomainSnapshot } from "@/modules/domain/domain.analytics";
 import { PROVINCES_MA, llToSvg } from "@/modules/domain/provinces.data";
@@ -23,9 +23,10 @@ import { loadDevState, saveDevState } from "@/common/dev-store";
 
 // Les types du domaine vivent dans domain.types.ts ; ré-exportés ici pour les
 // importateurs existants (contrôleurs, autres modules).
-export type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviStatus, DviSample, MortuaryRecord, FeedItem, QueueItem, TransportMovement } from "@/modules/domain/domain.types";
+export type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviStatus, DviSample, MortuaryRecord, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind } from "@/modules/domain/domain.types";
 export { DVI_STATUSES, DVI_SAMPLES } from "@/modules/domain/domain.types";
-import type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviSample, MortuaryRecord, FeedItem, QueueItem, TransportMovement } from "@/modules/domain/domain.types";
+import type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviSample, MortuaryRecord, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind } from "@/modules/domain/domain.types";
+import { checkPost } from "@/modules/domain/post.rules";
 
 
 /**
@@ -126,6 +127,8 @@ export class DomainService {
     { id: "M3", nom: "Site mortuaire de circonstance — Amizmiz", ville: "Amizmiz", capacity: 80, staff: 11, statut: "partial" },
   ];
 
+  /** Postes posés sur la carte des opérations (lot #12). */
+  private posts: IncidentPost[] = [];
   private readonly mortuaryRecords: MortuaryRecord[] = [
     { id: "DVI-1", mid: "M3", reference: "AH-2026-001", incidentId: "INC-2607", foundAt: "Douar Tinzert", sex: "m", ageRange: "40-55", status: "identified", samples: ["dental", "fingerprint"], identifiedAs: "M. Brahim Ait Oussaid", admittedAt: "2026-08-08T07:20:00Z", updatedAt: "2026-08-09T09:10:00Z" },
     { id: "DVI-2", mid: "M3", reference: "AH-2026-002", incidentId: "INC-2607", foundAt: "Douar Tinzert", sex: "f", ageRange: "20-35", status: "in_progress", samples: ["dna"], admittedAt: "2026-08-08T07:35:00Z", updatedAt: "2026-08-08T18:00:00Z" },
@@ -163,6 +166,7 @@ export class DomainService {
       mortuaryRecords?: MortuaryRecord[];
       equipment?: EquipItem[];
       feed?: FeedItem[];
+      posts?: IncidentPost[];
     }>("domain", {});
     const sameSeed = snap.seedVersion === DOMAIN_SEED_VERSION;
 
@@ -211,6 +215,7 @@ export class DomainService {
     if (sameSeed && snap.shelters) this.shelters.splice(0, this.shelters.length, ...snap.shelters);
     if (sameSeed && snap.morgues) this.morgues.splice(0, this.morgues.length, ...snap.morgues);
     if (sameSeed && snap.mortuaryRecords) this.mortuaryRecords.splice(0, this.mortuaryRecords.length, ...snap.mortuaryRecords);
+    if (snap.posts) this.posts = snap.posts;
     if (sameSeed && snap.equipment) this.equipment.splice(0, this.equipment.length, ...snap.equipment);
     if (snap.feed) this.feed.splice(0, this.feed.length, ...snap.feed);
     if (!sameSeed) this.persist();
@@ -230,7 +235,69 @@ export class DomainService {
       mortuaryRecords: this.mortuaryRecords,
       equipment: this.equipment,
       feed: this.feed,
+      posts: this.posts,
     });
+  }
+
+  // --- postes d'opération sur la carte (lot #12) ------------------------------
+
+  /** Postes posés sur la carte — ceux de ces incidents seulement, si la liste est donnée. */
+  listPosts(incidentIds?: readonly string[]): IncidentPost[] {
+    if (!incidentIds) return this.posts;
+    const set = new Set(incidentIds);
+    return this.posts.filter((p) => set.has(p.incidentId));
+  }
+
+  /**
+   * Pose un poste sur une opération. L'incident doit exister ; un abri ou un
+   * parc doivent représenter une entité existante (`post.rules`).
+   */
+  createPost(input: { incidentId: string; kind: PostKind; ll: [number, number]; label?: string; entityId?: string }, author: string): IncidentPost {
+    const inc = this.incidents.find((i) => i.id === input.incidentId);
+    if (!inc) throw new NotFoundException(`Incident inconnu : ${input.incidentId}`);
+    const check = checkPost(input, {
+      shelter: (id) => this.shelters.some((s) => s.id === id),
+      unit: (id) => this.units.some((u) => u.id === id),
+    });
+    if (!check.ok) throw new BadRequestException(check.reason);
+    const n = Math.max(0, ...this.posts.map((p) => parseInt(p.id.replace(/\D/g, ""), 10) || 0)) + 1;
+    const now = new Date().toISOString();
+    const post: IncidentPost = {
+      id: `P${n}`,
+      incidentId: inc.id,
+      kind: input.kind,
+      ll: input.ll,
+      label: input.label?.trim() || undefined,
+      entityId: check.entityId,
+      createdBy: author,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.posts.push(post);
+    this.pushFeed(`${inc.id} — poste ${post.kind.toUpperCase()} posé sur la carte par ${author}`, "bg-or-500", inc.id);
+    this.persist();
+    return post;
+  }
+
+  /** Déplace ou renomme un poste. `undefined` si le poste est inconnu. */
+  updatePost(id: string, patch: { ll?: [number, number]; label?: string }): IncidentPost | undefined {
+    const post = this.posts.find((p) => p.id === id);
+    if (!post) return undefined;
+    if (patch.ll) post.ll = patch.ll;
+    if (patch.label !== undefined) post.label = patch.label.trim() || undefined;
+    post.updatedAt = new Date().toISOString();
+    this.persist();
+    return post;
+  }
+
+  /** Retire un poste ; `false` s'il n'existait pas. */
+  deletePost(id: string, actor: string): boolean {
+    const post = this.posts.find((p) => p.id === id);
+    if (!post) return false;
+    this.posts = this.posts.filter((p) => p.id !== id);
+    this.pushFeed(`${post.incidentId} — poste ${post.kind.toUpperCase()} retiré de la carte par ${actor}`, "bg-gray-400", post.incidentId);
+    this.persist();
+    return true;
   }
 
   listIncidents(): Incident[] {
@@ -334,6 +401,8 @@ export class DomainService {
     for (const fn of this.cascades) await fn(id);
 
     this.incidents = this.incidents.filter((i) => i.id !== id);
+    // Les postes partent avec leur opération : un PC sans opération n'est rien.
+    this.posts = this.posts.filter((p) => p.incidentId !== id);
     this.pushFeed(`${id} — SUPPRIMÉ par ${actor}`, "bg-danger-500", id);
     this.persist();
     return { id, cascades: this.cascades.length };

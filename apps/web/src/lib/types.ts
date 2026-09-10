@@ -409,6 +409,27 @@ export interface Notice {
   type: string;
 }
 
+/** Natures de poste posables sur la carte d'une opération (miroir de l'API). */
+export type PostKind = "opcom" | "tacom" | "bluecell" | "greencell" | "orangecell" | "shelter" | "equipment";
+
+/**
+ * Un poste posé sur la carte d'une opération : un PC, une cellule, un abri ou
+ * un parc, à un point. Le poste est un lieu ; la personne qui le tient vient
+ * du déploiement ou de l'affectation, jointe à l'affichage.
+ */
+export interface IncidentPost {
+  id: string;
+  incidentId: string;
+  kind: PostKind;
+  ll: [number, number];
+  label?: string;
+  /** Abri (`shelter`) ou unité détentrice du parc (`equipment`). */
+  entityId?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Un compte réellement connecté, tel que le flux temps réel le rapporte. */
 export interface PresenceUser {
   matricule: string;
@@ -582,7 +603,7 @@ export interface SeismicNotification {
 
 // --- Sélection sur la carte opérationnelle -------------------------------
 
-export type MarkerKind = "unit" | "hosp" | "inc" | "veh" | "field" | "acft";
+export type MarkerKind = "unit" | "hosp" | "inc" | "veh" | "field" | "acft" | "post";
 
 // --- suivi aérien (feux de forêt) ---
 // Miroir des types du module `aviation` de l'API. Le poste de commandement ne

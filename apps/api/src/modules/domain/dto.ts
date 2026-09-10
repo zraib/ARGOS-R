@@ -1,7 +1,24 @@
+import { POST_KINDS } from "@/modules/domain/domain.types";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { SHELTER_BUILDINGS, SHELTER_KINDS } from "@/modules/domain/shelter.rules";
 import { REGIONS_MA } from "@/modules/domain/provinces.data";
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Length, Max, MaxLength, Min, MinLength, ValidateNested } from "class-validator";
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Length,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+  ValidateNested,
+} from "class-validator";
 import { Type } from "class-transformer";
 
 const SEV = ["high", "medium", "low"] as const;
@@ -830,4 +847,34 @@ export class DeployPostDto {
   @IsString()
   @MinLength(1)
   matricule!: string;
+}
+
+// --- postes d'opération sur la carte (lot #12) ---------------------------------
+
+export class CreatePostDto {
+  @ApiProperty({ enum: POST_KINDS, description: "Nature du poste : PC (opcom, tacom), cellule, abri ou parc d'équipement." })
+  @IsIn(POST_KINDS as unknown as string[])
+  kind!: (typeof POST_KINDS)[number];
+
+  @ApiProperty({ type: [Number], example: [-7.6, 33.58], description: "Point du poste [lng, lat]." })
+  @IsArray() @ArrayMinSize(2) @ArrayMaxSize(2) @IsNumber({}, { each: true })
+  ll!: [number, number];
+
+  @ApiPropertyOptional({ description: "Libellé libre — « PC avancé nord »." })
+  @IsOptional() @IsString() @MaxLength(60)
+  label?: string;
+
+  @ApiPropertyOptional({ description: "Entité représentée : abri (`shelter`) ou unité détentrice du parc (`equipment`)." })
+  @IsOptional() @IsString() @MaxLength(40)
+  entityId?: string;
+}
+
+export class UpdatePostDto {
+  @ApiPropertyOptional({ type: [Number], example: [-7.6, 33.58] })
+  @IsOptional() @IsArray() @ArrayMinSize(2) @ArrayMaxSize(2) @IsNumber({}, { each: true })
+  ll?: [number, number];
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsString() @MaxLength(60)
+  label?: string;
 }
