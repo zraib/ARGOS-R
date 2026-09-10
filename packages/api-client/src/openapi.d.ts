@@ -679,6 +679,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/comms/responsables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Qui tient quoi — titulaire de chaque entité affectée et de chaque poste déployé
+         * @description Une ligne par (entité, titulaire) et par (incident, poste déployé). L'état de connexion vient du flux de présence.
+         */
+        get: operations["CommsController_responsables"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/comms/direct/{matricule}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ouvrir la conversation directe avec un compte (idempotent)
+         * @description Rend le canal restreint aux deux correspondants ; le crée au premier contact.
+         */
+        post: operations["CommsController_openDirect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/comms/messages": {
         parameters: {
             query?: never;
@@ -3583,6 +3623,43 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommsController_responsables: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommsController_openDirect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                matricule: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Compte inconnu ou invisible. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

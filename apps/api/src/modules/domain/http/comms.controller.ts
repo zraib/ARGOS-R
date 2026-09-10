@@ -7,7 +7,7 @@
 // et `authz-coverage.spec.ts` en font foi.
 // ============================================================================
 
-import { Body, Delete, Get, Param, Patch, Post, Controller } from "@nestjs/common";
+import { Body, Delete, Get, NotFoundException, Param, Patch, Post, Controller } from "@nestjs/common";
 import { ApiOperation, ApiResponse, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { CreateCategoryDto, CreateChannelDto, UpdateChannelDto, ChannelMembersDto, SendMessageDto } from "@/modules/domain/dto";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
@@ -128,8 +128,52 @@ export class CommsController {
   @Get("comms")
   @RequirePermission("comms:view")
   @ApiOperation({ summary: "Centre de communication : canaux, messages, présence" })
-  commsAll() {
-    return this.comms.all();
+  commsAll(@CurrentUser() user: AuthUser) {
+    // Les conversations directes ne sortent que pour leurs deux membres.
+    return this.comms.all(user.username);
+  }
+
+  /**
+   * Qui tient quoi. La fiche d'une unité, d'un abri ou d'un hôpital, et le
+   * panneau de la carte, montrent le titulaire de l'entité et son état de
+   * connexion ; l'état vient du flux de présence, ceci ne donne que le nom.
+   * Même exposition que l'annuaire : un compte joignable n'est pas un secret.
+   */
+  @Get("comms/responsables")
+  @RequirePermission("comms:view")
+  @ApiOperation({
+    summary: "Qui tient quoi — titulaire de chaque entité affectée et de chaque poste déployé",
+    description: "Une ligne par (entité, titulaire) et par (incident, poste déployé). L'état de connexion vient du flux de présence.",
+  })
+  responsables(@CurrentUser() user: AuthUser) {
+    return this.users.listResponsibles(user.role);
+  }
+
+  /**
+   * Ouvre (ou retrouve) la conversation directe avec un compte. Geste de
+   * participation ordinaire — contacter le commandant d'une unité depuis sa
+   * fiche — d'où `comms:update`, pas l'administration des canaux.
+   */
+  @Post("comms/direct/:matricule")
+  @RequirePermission("comms:update")
+  @ApiOperation({
+    summary: "Ouvrir la conversation directe avec un compte (idempotent)",
+    description: "Rend le canal restreint aux deux correspondants ; le crée au premier contact.",
+  })
+  @ApiResponse({ status: 404, description: "Compte inconnu ou invisible." })
+  openDirect(@CurrentUser() user: AuthUser, @Param("matricule") matricule: string) {
+    const nomComplet = (u: { nom: string; prenom?: string }) => (u.prenom ? `${u.nom} ${u.prenom}` : u.nom);
+    const moi = this.users.list().find((u) => u.matricule === user.username);
+    // Vu par MON rôle : un compte invisible à mon rôle ne se contacte pas non plus.
+    const autre = this.users.list(user.role).find((u) => u.matricule.toLowerCase() === matricule.trim().toLowerCase());
+    if (!autre) throw new NotFoundException(`Compte inconnu : ${matricule}`);
+    const { channel, created } = this.comms.channelForDirect(
+      { matricule: user.username, nom: moi ? nomComplet(moi) : user.username },
+      { matricule: autre.matricule, nom: nomComplet(autre) },
+    );
+    // Aux deux correspondants seulement : les autres postes n'ont rien à recharger.
+    if (created) this.realtime.emitTo(channel.members ?? [], { kind: "channel", action: "created", channelId: channel.id, payload: channel });
+    return channel;
   }
 
   @Post("comms/messages")

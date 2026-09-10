@@ -1,3 +1,4 @@
+import type { EntityKind } from "@/lib/responsibles";
 // Aides partagées par les composants de page.tsx (extraites, exportées).
 import { type BadgeType } from "@/components/ui/Badge";
 import type { LayerState } from "@/lib/store";
@@ -13,6 +14,8 @@ export interface SelLine { k: string; v: string }
 export interface SelInfo {
   titre: string; sub: string; badgeType: BadgeType; badgeLabel: string;
   lines: SelLine[]; action?: () => void;
+  /** Le titulaire de l'élément (commandant, directeur…) : présence et contact. */
+  responsible?: { kind: EntityKind; entityId: string; incidentId?: string };
 }
 
 // ---------------------------------------------------------------------------

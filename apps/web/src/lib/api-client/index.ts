@@ -129,6 +129,11 @@ export function createArgosClient(opts: ArgosClientOptions) {
     getPresence: () => client.GET("/api/comms/presence"),
     /** Annuaire des comptes joignables — pour composer un canal (permission `comms:view`). */
     getCommsDirectory: () => client.GET("/api/comms/directory"),
+    /** Qui tient quoi — titulaire de chaque entité et de chaque poste déployé (permission `comms:view`). */
+    getResponsables: () => client.GET("/api/comms/responsables"),
+    /** Ouvre (ou retrouve) la conversation directe avec un compte — rend le canal. */
+    openDirectChannel: (matricule: string) =>
+      client.POST("/api/comms/direct/{matricule}", { params: { path: { matricule } } }),
     /**
      * Crée un canal. `matricules` fournis → canal RESTREINT à ces comptes dès sa
      * naissance ; absents → canal ouvert, comme les canaux thématiques.

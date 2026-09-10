@@ -1,3 +1,4 @@
+import type { Role } from "@/lib/roles";
 // ============================================================================
 // ARGOS — types du domaine
 // Partagés par la couche de données, le store et l'UI. En production, ils
@@ -340,6 +341,8 @@ export interface Channel {
   /** Incident porteur, pour les canaux nés d'une déclaration. */
   incidentId?: string;
   archived?: boolean;
+  /** Conversation directe entre deux comptes — servie à ses deux membres seulement. */
+  direct?: boolean;
 }
 
 /** Compte joignable, tel que l'annuaire du centre de communication le rend. */
@@ -378,6 +381,19 @@ export interface CommMessage {
   mine?: boolean;
   /** Absente pour un message de texte seul — la majorité. */
   attachment?: CommAttachment;
+}
+
+/**
+ * Qui tient quoi — une ligne par (entité, titulaire) ou (incident, poste
+ * déployé). Miroir de l'API ; l'état de connexion vient de la présence.
+ */
+export interface Responsible {
+  kind: "hospital" | "unit" | "shelter" | "morgue" | "equipment" | "incident";
+  entityId: string;
+  role: Role;
+  matricule: string;
+  nom: string;
+  grade?: string;
 }
 
 /** Un compte réellement connecté, tel que le flux temps réel le rapporte. */

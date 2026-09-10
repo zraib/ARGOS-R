@@ -1327,6 +1327,57 @@
         ]
       }
     },
+    "/api/comms/responsables": {
+      "get": {
+        "description": "Une ligne par (entité, titulaire) et par (incident, poste déployé). L'état de connexion vient du flux de présence.",
+        "operationId": "CommsController_responsables",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Qui tient quoi — titulaire de chaque entité affectée et de chaque poste déployé",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/comms/direct/{matricule}": {
+      "post": {
+        "description": "Rend le canal restreint aux deux correspondants ; le crée au premier contact.",
+        "operationId": "CommsController_openDirect",
+        "parameters": [
+          {
+            "name": "matricule",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Compte inconnu ou invisible."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ouvrir la conversation directe avec un compte (idempotent)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/comms/messages": {
       "post": {
         "operationId": "CommsController_sendMessage",

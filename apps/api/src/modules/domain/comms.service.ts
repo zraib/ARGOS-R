@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 // ============================================================================
 // ARGOS — centre de communication (Phase 2, in-memory)
@@ -57,6 +57,20 @@ interface Channel {
   incidentId?: string;
   /** Canal archivé avec son incident — conservé, masqué de la liste active. */
   archived?: boolean;
+  /**
+   * Conversation directe entre deux comptes : ne sort du serveur que pour
+   * ses deux membres, et sa composition ne se modifie pas.
+   */
+  direct?: boolean;
+}
+
+/** Groupe qui accueille les conversations directes, créé au premier besoin. */
+const DIRECT_CATEGORY_ID = "g-direct";
+
+/** Un correspondant d'une conversation directe : son matricule, son nom affiché. */
+export interface Correspondent {
+  matricule: string;
+  nom: string;
 }
 interface CommCategory {
   id: string;
@@ -143,20 +157,47 @@ export class CommsService {
     { n: "Cdt. N. Chraibi", g: "4e NRBC", av: "bg-gray-400 text-white", initials: "NC" },
   ];
 
-  all() {
+  /**
+   * Le centre tel que `viewer` (un matricule) a le droit de le voir.
+   *
+   * Une conversation directe n'existe que pour ses deux membres : elle ne
+   * sort pas du serveur pour les autres, quel que soit leur rôle — c'est le
+   * serveur qui la retient, pas l'écran qui la cache. Les autres canaux
+   * restreints restent servis comme avant : leur liste de membres gouverne
+   * la participation, pas la lecture.
+   */
+  all(viewer?: string) {
+    const visible = (ch: Channel) => !ch.direct || (!!viewer && this.isMember(ch, viewer));
+    const categories = this.categories
+      .map((c) => ({ ...c, chans: c.chans.filter(visible) }))
+      .filter((c) => c.id !== DIRECT_CATEGORY_ID || c.chans.length > 0);
+    const messages = Object.fromEntries(
+      Object.entries(this.messages).filter(([id]) => {
+        const ch = this.findChannel(id);
+        return !ch || visible(ch);
+      }),
+    );
     return {
-      categories: this.categories,
-      messages: this.messages,
+      categories,
+      messages,
       members: { online: this.online, offline: this.offline, voice: this.voice },
     };
+  }
+
+  private isMember(chan: Channel, matricule: string): boolean {
+    const m = matricule.toLowerCase();
+    return (chan.members ?? []).some((x) => x.toLowerCase() === m);
   }
 
   addMessage(
     channelId: string,
     msg: { who: string; author: string; initials: string; av: string; txt: string; attachment?: CommAttachment },
   ): CommMessage {
-    const exists = this.categories.some((c) => c.chans.some((ch) => ch.id === channelId && ch.kind === "text"));
-    if (!exists) throw new NotFoundException(`Canal texte inconnu : ${channelId}`);
+    const chan = this.findChannel(channelId);
+    if (!chan || chan.kind !== "text") throw new NotFoundException(`Canal texte inconnu : ${channelId}`);
+    // Dans une conversation directe, seuls ses deux membres prennent la
+    // parole : le serveur le vérifie sur le matricule de l'auteur.
+    if (chan.direct && !this.isMember(chan, msg.author)) throw new ForbiddenException("Cette conversation directe ne vous concerne pas.");
     const list = this.messages[channelId] ?? (this.messages[channelId] = []);
     const d = new Date();
     const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -224,6 +265,40 @@ export class CommsService {
   }
 
   /**
+   * Conversation directe entre deux comptes, ouverte au premier contact.
+   *
+   * Idempotente : l'identifiant est dérivé des deux matricules, dans l'ordre
+   * alphabétique, et rappeler la méthode rend la conversation existante. Elle
+   * naît restreinte à ses deux membres, dans un groupe dédié créé au premier
+   * besoin — après les groupes d'opération, pas au milieu.
+   */
+  channelForDirect(a: Correspondent, b: Correspondent): { channel: Channel; created: boolean } {
+    const paire = [a, b].map((c) => c.matricule.trim()).filter(Boolean);
+    if (paire.length !== 2 || paire[0].toLowerCase() === paire[1].toLowerCase()) {
+      throw new BadRequestException("Une conversation directe se tient à deux.");
+    }
+    const id = `dm-${[...paire].map((m) => m.toLowerCase()).sort().join("_")}`;
+    const existing = this.findChannel(id);
+    if (existing) return { channel: existing, created: false };
+    let cat = this.categories.find((c) => c.id === DIRECT_CATEGORY_ID);
+    if (!cat) {
+      cat = { id: DIRECT_CATEGORY_ID, name: "CONVERSATIONS DIRECTES", chans: [] };
+      this.categories.push(cat);
+    }
+    const channel: Channel = {
+      id,
+      name: slugify(`${a.nom} ${b.nom}`) || id,
+      kind: "text",
+      topic: `Conversation directe — ${a.nom} · ${b.nom}`,
+      members: paire,
+      direct: true,
+    };
+    cat.chans.push(channel);
+    this.messages[id] = [];
+    return { channel, created: true };
+  }
+
+  /**
    * Nom de canal à partir d'un texte libre : minuscules, sans accents, un tiret
    * par séparateur, 48 caractères au plus. Deux incidents peuvent porter le
    * même titre ; le second reçoit alors le numéro de sa référence en suffixe,
@@ -265,6 +340,7 @@ export class CommsService {
    */
   addMembers(channelId: string, matricules: string[]): Channel {
     const chan = this.requireChannel(channelId);
+    this.assertComposable(chan);
     const set = new Set([...(chan.members ?? []), ...matricules.map((m) => m.trim()).filter(Boolean)]);
     chan.members = [...set];
     return chan;
@@ -273,9 +349,15 @@ export class CommsService {
   /** Retire un membre. Le canal reste restreint, même vidé de ses membres. */
   removeMember(channelId: string, matricule: string): Channel {
     const chan = this.requireChannel(channelId);
+    this.assertComposable(chan);
     if (!chan.members) throw new BadRequestException("Ce canal est ouvert : il n'a pas de liste de membres.");
     chan.members = chan.members.filter((m) => m !== matricule);
     return chan;
+  }
+
+  /** Une conversation directe se tient à deux : on n'y convoque ni n'en retire personne. */
+  private assertComposable(chan: Channel): void {
+    if (chan.direct) throw new BadRequestException("Une conversation directe se tient à deux : sa composition ne se modifie pas.");
   }
 
   /** Archive le canal d'un incident (appelé avec l'archivage de l'incident). */

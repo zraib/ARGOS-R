@@ -110,6 +110,16 @@ export class RealtimeService implements OnModuleDestroy {
     for (const f of this.flux.values()) f.subject.next(event);
   }
 
+  /**
+   * Pousse un événement aux seuls flux de ces comptes. Ce qui ne concerne
+   * que deux personnes (une conversation directe) ou une région (l'alerte
+   * de son wali) ne traverse pas le fil de tout le monde.
+   */
+  emitTo(matricules: readonly string[], event: RealtimeEvent): void {
+    const cibles = new Set(matricules.map((m) => m.toLowerCase()));
+    for (const f of this.flux.values()) if (cibles.has(f.matricule.toLowerCase())) f.subject.next(event);
+  }
+
   private diffuserPresence(): void {
     this.emit({ kind: "presence", online: this.online() });
   }

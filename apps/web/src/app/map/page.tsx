@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useArgos, useDict } from "@/lib/store";
 import { TILES_AVAILABLE } from "@/lib/map/tiles";
 import { Badge, type BadgeType } from "@/components/ui/Badge";
+import { ResponsibleCard } from "@/components/responsibility/ResponsibleCard";
 import { Icon } from "@/components/ui/Icon";
 import { HazardIcon } from "@/components/ui/HazardIcon";
 import { FAMILY_PICTOGRAM } from "@/lib/hazard/pictograms";
@@ -201,6 +202,7 @@ export default function MapPage() {
         selInfo = {
           titre: u.nom, sub: u.ville, badgeType: b[u.dispo].type, badgeLabel: b[u.dispo].label,
           lines: [{ k: t.commander, v: u.cmdt }, { k: t.effectif, v: String(u.eff) }, { k: t.readiness, v: `${u.readiness} %` }],
+          responsible: { kind: "unit", entityId: u.id, incidentId: incidents.find((i) => i.responders?.units?.includes(u.id))?.id },
           action: () => { setSelUnit(u.id); clearSelection(); router.push("/equipes"); },
         };
       }
@@ -215,6 +217,7 @@ export default function MapPage() {
             { k: t.icu, v: `${h.rea - h.reaOcc} / ${h.rea}` },
             { k: t.med_staff, v: String(h.staff) },
           ],
+          responsible: { kind: "hospital", entityId: h.id },
           action: () => { setSelHosp(h.id); clearSelection(); router.push("/hospinet"); },
         };
       }
@@ -488,6 +491,7 @@ export default function MapPage() {
           </div>
         ))}
       </div>
+      {selInfo.responsible && <ResponsibleCard tone="dark" {...selInfo.responsible} hideIfNone={selInfo.responsible.kind === "hospital"} />}
       {selInfo.action && <button className="btn-secondaire min-h-11 w-full text-[14px] lg:min-h-0" onClick={selInfo.action}>{t.view}</button>}
     </div>
   );

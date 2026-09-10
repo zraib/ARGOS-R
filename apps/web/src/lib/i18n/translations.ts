@@ -204,6 +204,16 @@ export interface Dict {
   cm_members: string;
   cm_online: string;
   cm_offline: string;
+  resp_title: string;
+  resp_none: string;
+  resp_contact: string;
+  resp_incident_channel: string;
+  resp_opening: string;
+  resp_kind_unit: string;
+  resp_kind_hospital: string;
+  resp_kind_shelter: string;
+  resp_kind_morgue: string;
+  resp_kind_equipment: string;
   cm_voice: string;
   cm_join: string;
   cm_connected: string;

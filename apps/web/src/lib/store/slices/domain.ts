@@ -9,22 +9,23 @@ import type { StateCreator } from "zustand";
 import type { ArgosState } from "@/lib/store";
 import type {
   Channel,
+  City,
   CommCategory,
   CommMessage,
   DashStats,
   DirectoryEntry,
-  FieldHospital,
   FeedItem,
+  FieldHospital,
   Hospital,
-  City,
   Incident,
   IncidentTypeDef,
-  SubIncidentCatalog,
-  Province,
   Mission,
+  Province,
+  Responsible,
+  SubIncidentCatalog,
   Unit,
   VehRoute,
-  } from "@/lib/types";
+} from "@/lib/types";
 import { hospKind } from "@/lib/hospitals";
 import { FEED_POOL } from "@/lib/data/seed";
 import { api } from "@/lib/api";
@@ -64,6 +65,9 @@ export interface DomainSlice {
   comMsgs: Record<string, CommMessage[]>;
   comMembers: CommMembers;
   comSel: string;
+  /** Qui tient quoi (titulaires d'entités, postes déployés) — chargé avec le domaine. */
+  responsables: Responsible[];
+  loadResponsables: () => Promise<void>;
   comCollapsed: Record<string, boolean>;
   // --- données de référence (depuis l'API) ---
   provinces: Province[];
@@ -139,6 +143,7 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
   comMsgs: {},
   comMembers: EMPTY_MEMBERS,
   comSel: "c1",
+  responsables: [],
   comCollapsed: {},
   provinces: [],
   cities: [],
@@ -162,6 +167,7 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
       api.getIncidentTypes(),
       api.getDashboardStats(),
       api.getSubIncidentTypes(),
+      api.getResponsables(),
     ]);
     const data = <T,>(i: number): T | undefined =>
       results[i].status === "fulfilled"
@@ -181,6 +187,7 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
       incidentTypes: data<IncidentTypeDef[]>(10) ?? s.incidentTypes,
       dashStats: data<DashStats>(11) ?? s.dashStats,
       subCatalog: data<SubIncidentCatalog>(12) ?? s.subCatalog,
+      responsables: data<Responsible[]>(13) ?? s.responsables,
       comCats: comms?.categories ?? s.comCats,
       comMsgs: comms?.messages ? marquerMiens(comms.messages, s.sessionUser?.matricule) : s.comMsgs,
       comMembers: comms?.members ?? s.comMembers,
@@ -244,6 +251,10 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
     get().recomputeRiskPredictions();
   },
   selectChannel: (id) => set({ comSel: id }),
+  loadResponsables: async () => {
+    const res = await api.getResponsables();
+    if (res.data) set({ responsables: res.data as unknown as Responsible[] });
+  },
   sendMessage: (txt) => {
     const t = txt.trim();
     if (!t) return;

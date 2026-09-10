@@ -17,18 +17,21 @@ import {
   type Role,
 } from "@/shared/permissions";
 import {
+  type Assignments,
+  CIVIL_ROLES,
+  RESPONSIBILITY_KINDS,
+  RESPONSIBILITY_LABELS,
+  ROLE_RESPONSIBILITY,
+  type ResponsibilityKind,
+  type Responsible,
+  SCOPE_LABELS,
+  UNIQUE_PER_REGION_ROLES,
   isDeployableRole,
   isResponsibilityKind,
   isScopeKey,
   mandatoryScopeKeysOf,
-  scopeKeysOf,
-  SCOPE_LABELS,
   requiredAssignments,
-  RESPONSIBILITY_LABELS,
-  CIVIL_ROLES,
-  UNIQUE_PER_REGION_ROLES,
-  type Assignments,
-  type ResponsibilityKind,
+  scopeKeysOf,
 } from "@/shared/responsibilities";
 import type { ScopeResolver } from "@/common/ports/scope-resolver.port";
 import { loadDevState, saveDevState } from "@/common/dev-store";
@@ -574,6 +577,33 @@ export class UsersService implements ScopeResolver {
     return this.users
       .filter((u) => u.assignments?.incident === incidentId && this.isVisibleTo(viewer, u))
       .map(toPublic);
+  }
+
+  /**
+   * Qui tient quoi, vu par `viewer` : un titulaire par entité affectée et un
+   * par poste déployé sur un incident. Un compte suspendu ne tient rien ; un
+   * superadmin cumulant un rôle n'apparaît qu'à un superadmin, comme partout.
+   * Le rôle porté est celui qui donne la charge (`resp_unit` pour une unité),
+   * pas le premier de la liste.
+   */
+  listResponsibles(viewer: Role = "superadmin"): Responsible[] {
+    const out: Responsible[] = [];
+    for (const u of this.users) {
+      if (u.disabled || !this.isVisibleTo(viewer, u)) continue;
+      const a = u.assignments;
+      if (!a) continue;
+      const base = { matricule: u.matricule, nom: displayName(u), grade: u.grade };
+      for (const kind of RESPONSIBILITY_KINDS) {
+        const entityId = a[kind];
+        if (!entityId) continue;
+        const role = u.roles.find((r) => ROLE_RESPONSIBILITY[r] === kind);
+        if (role) out.push({ kind, entityId, role, ...base });
+      }
+      if (a.incident) {
+        for (const role of u.roles.filter(isDeployableRole)) out.push({ kind: "incident", entityId: a.incident, role, ...base });
+      }
+    }
+    return out;
   }
 
   /** Comptes occupant un poste déployable — les candidats au déploiement. */

@@ -10,6 +10,7 @@ import { StatTile } from "@/components/ui/StatTile";
 import { occBarClass } from "@/lib/helpers";
 import { hospitalDetail } from "@/lib/derive";
 import { AddHospitalModal } from "@/components/org/AddEntityModals";
+import { ResponsibleCard } from "@/components/responsibility/ResponsibleCard";
 import { Modal } from "@/components/ui/Modal";
 import { HealthGlyph } from "@/components/health/HealthGlyph";
 import { HospinetIAPanel } from "@/components/health/HospinetIAPanel";
@@ -291,6 +292,9 @@ export default function HospinetPage() {
           {stat(t.beds_free, hosp.lits - hosp.occ, "text-green-600")}
           {stat(t.icu, `${hosp.rea - hosp.reaOcc} / ${hosp.rea}`, "text-danger-500")}
         </div>
+        {/* Le directeur et son état de connexion — seuls les établissements
+            militaires ont un responsable désigné ; sans lui, rien n'est dit. */}
+        <ResponsibleCard kind="hospital" entityId={hosp.id} hideIfNone />
       </div>
 
       {tab === "staff" && (

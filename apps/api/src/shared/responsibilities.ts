@@ -199,3 +199,19 @@ export function requiredAssignments(roles: readonly Role[]): ResponsibilityKind[
 export function isResponsibilityKind(v: unknown): v is ResponsibilityKind {
   return typeof v === "string" && (RESPONSIBILITY_KINDS as readonly string[]).includes(v);
 }
+
+/**
+ * Qui tient quoi : le titulaire d'une entité affectée (hôpital, unité, abri,
+ * morgue, parc) ou d'un poste déployé sur un incident (`kind: "incident"`,
+ * `entityId` = identifiant de l'incident). Sert la fiche d'une entité et la
+ * carte, qui montrent le titulaire et son état de connexion — l'état, lui,
+ * vient du flux de présence, jamais d'ici.
+ */
+export interface Responsible {
+  kind: ResponsibilityKind | "incident";
+  entityId: string;
+  role: Role;
+  matricule: string;
+  nom: string;
+  grade?: string;
+}

@@ -9,6 +9,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { occBarClass } from "@/lib/helpers";
 import { NAV_ICONS, KPI_ICONS, UI_ICONS } from "@/lib/icons";
 import { AddUnitModal, AddShelterModal } from "@/components/org/AddEntityModals";
+import { ResponsibleCard } from "@/components/responsibility/ResponsibleCard";
 import {
   Anneau,
   Approvisionnement,
@@ -50,6 +51,7 @@ export default function OpsnetPage() {
   const t = useDict();
   const m = useModules();
   const units = useArgos((s) => s.units);
+  const incidents = useArgos((s) => s.incidents);
   const cities = useArgos((s) => s.cities);
   const shelters = useArgos((s) => s.catalog.shelters);
 
@@ -313,6 +315,14 @@ export default function OpsnetPage() {
             <Champ label={t.ops_status} value={t[`ops_${detailU.dispo}` as const]} />
             <Champ label={t.wz_lat} value={`${detailU.ll[1].toFixed(4)}, ${detailU.ll[0].toFixed(4)}`} mono />
           </dl>
+          {/* Le commandant, son état de connexion, et de quoi lui parler —
+              en direct, ou sur le canal de l'opération où l'unité est engagée. */}
+          <ResponsibleCard
+            kind="unit"
+            entityId={detailU.id}
+            incidentId={incidents.find((i) => i.responders?.units?.includes(detailU.id))?.id}
+            className="mt-4"
+          />
         </Modal>
       )}
 
@@ -341,6 +351,7 @@ export default function OpsnetPage() {
               </dd>
             </div>
           </dl>
+          <ResponsibleCard kind="shelter" entityId={detailA.id} className="mt-4" />
         </Modal>
       )}
     </section>

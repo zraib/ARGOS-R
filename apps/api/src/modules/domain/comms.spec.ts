@@ -1,3 +1,4 @@
+import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { CommsService } from "@/modules/domain/comms.service";
 
@@ -173,6 +174,55 @@ describe("CommsService — canaux", () => {
     it("refuse un canal inconnu, des deux côtés", () => {
       expect(() => comms.addMembers("c-fantome", ["h.alami"])).toThrow();
       expect(() => comms.removeMember("c-fantome", "h.alami")).toThrow();
+    });
+  });
+  describe("conversation directe", () => {
+    const a = { matricule: "h.alami", nom: "Alami Hicham" };
+    const b = { matricule: "w.casa", nom: "Bennani Karim" };
+    const msg = (author: string) => ({ who: author, author, initials: "XX", av: "", txt: "Bonjour" });
+
+    it("s'ouvre au premier contact, restreinte aux deux correspondants, dans un groupe dédié en fin de liste", () => {
+      const { channel, created } = comms.channelForDirect(a, b);
+      expect(created).toBe(true);
+      expect(channel.direct).toBe(true);
+      expect(channel.members).toEqual(["h.alami", "w.casa"]);
+      expect(channel.id).toBe("dm-h.alami_w.casa");
+      expect(channel.name).toBe("alami-hicham-bennani-karim");
+      const cats = comms.all("h.alami").categories;
+      expect(cats[cats.length - 1].id).toBe("g-direct");
+    });
+
+    it("reste idempotente, quel que soit le sens", () => {
+      const first = comms.channelForDirect(a, b).channel;
+      const again = comms.channelForDirect(b, a);
+      expect(again.created).toBe(false);
+      expect(again.channel).toBe(first);
+    });
+
+    it("ne sort du serveur que pour ses deux membres — messages compris", () => {
+      const { channel } = comms.channelForDirect(a, b);
+      comms.addMessage(channel.id, msg("h.alami"));
+      const ids = (viewer?: string) => comms.all(viewer).categories.flatMap((c) => c.chans.map((ch) => ch.id));
+      expect(ids("h.alami")).toContain(channel.id);
+      expect(ids("W.CASA")).toContain(channel.id);
+      expect(ids("p.casa")).not.toContain(channel.id);
+      expect(ids()).not.toContain(channel.id);
+      expect(comms.all("w.casa").messages[channel.id]).toHaveLength(1);
+      expect(comms.all("p.casa").messages[channel.id]).toBeUndefined();
+      // Le groupe dédié n'apparaît pas, vide, chez les autres.
+      expect(comms.all("p.casa").categories.some((c) => c.id === "g-direct")).toBe(false);
+    });
+
+    it("refuse la parole à un tiers et toute modification de sa composition", () => {
+      const { channel } = comms.channelForDirect(a, b);
+      expect(() => comms.addMessage(channel.id, msg("p.casa"))).toThrow(ForbiddenException);
+      expect(() => comms.addMembers(channel.id, ["p.casa"])).toThrow(BadRequestException);
+      expect(() => comms.removeMember(channel.id, "w.casa")).toThrow(BadRequestException);
+      expect(channel.members).toEqual(["h.alami", "w.casa"]);
+    });
+
+    it("se tient à deux : pas de conversation avec soi-même", () => {
+      expect(() => comms.channelForDirect(a, { ...a })).toThrow(BadRequestException);
     });
   });
 });
