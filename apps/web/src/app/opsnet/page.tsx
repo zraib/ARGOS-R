@@ -48,6 +48,7 @@ type Onglet = "vue" | "units" | "shelters";
 
 export default function OpsnetPage() {
   const t = useDict();
+  const m = useModules();
   const units = useArgos((s) => s.units);
   const cities = useArgos((s) => s.cities);
   const shelters = useArgos((s) => s.catalog.shelters);
@@ -260,7 +261,10 @@ export default function OpsnetPage() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <h3 className="break-words text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{a.nom}</h3>
-                      <div className="mt-0.5 text-xs text-gray-500 dark:text-rdia-300">{a.ville}</div>
+                      <div className="mt-0.5 text-xs text-gray-500 dark:text-rdia-300">
+                        {a.ville}
+                        {a.kind === "tentes" && a.tents ? ` · ${a.tents} × ${a.perTent ?? "—"}` : a.building ? ` · ${m.shelters[`b_${a.building}` as const]}` : ""}
+                      </div>
                       <div className="mt-1"><EtatAppro niveau={a.supplies} /></div>
                     </div>
                   </div>

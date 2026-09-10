@@ -181,6 +181,20 @@ export interface Shelter {
   id: string;
   nom: string;
   ville: string;
+  /** Région et province d'implantation (référentiel), quand elles sont connues. */
+  region?: string;
+  province?: string;
+  /** Position [lng, lat] : celle de la ville du référentiel, sinon du chef-lieu. Sert à la carte. */
+  ll?: [number, number];
+  /**
+   * Typologie : camp de tentes ou bâtiment en dur. Absent sur les abris
+   * enregistrés avant la typologie — lus comme « en dur, nature inconnue ».
+   */
+  kind?: "tentes" | "dur";
+  building?: "dedie" | "ecole" | "college" | "lycee" | "autre";
+  /** Camp de tentes : la capacité en découle (tentes × personnes par tente). */
+  tents?: number;
+  perTent?: number;
   capacity: number;
   occupants: number;
   staff: number;

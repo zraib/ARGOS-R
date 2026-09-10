@@ -109,6 +109,19 @@ export interface ModulesDict {
     adults: string;
     children: string;
     elderly: string;
+    kind: string;
+    kind_tent: string;
+    kind_hard: string;
+    building: string;
+    b_dedie: string;
+    b_ecole: string;
+    b_college: string;
+    b_lycee: string;
+    b_autre: string;
+    tents: string;
+    per_tent: string;
+    derived: string;
+    tent_hint: string;
   };
   damage: {
     col_building: string;

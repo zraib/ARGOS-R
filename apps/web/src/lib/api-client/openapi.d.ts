@@ -2200,8 +2200,31 @@ export interface components {
              * @example Amizmiz
              */
             ville: string;
-            /** @description Capacité d'accueil, en personnes */
-            capacity: number;
+            /**
+             * @description Typologie : camp de tentes (capacité déduite) ou bâtiment en dur (capacité saisie).
+             * @enum {string}
+             */
+            kind: "tentes" | "dur";
+            /**
+             * @description En dur : nature du bâtiment — abri dédié, école, collège, lycée, autre établissement.
+             * @enum {string}
+             */
+            building?: "dedie" | "ecole" | "college" | "lycee" | "autre";
+            /** @description Tentes : nombre de tentes. */
+            tents?: number;
+            /** @description Tentes : personnes par tente (défaut 6, standard Sphère). */
+            perTent?: number;
+            /** @description En dur : capacité d'accueil, en personnes. Ignorée pour un camp de tentes (déduite). */
+            capacity?: number;
+            /**
+             * @description Région d'implantation (référentiel).
+             * @enum {string}
+             */
+            region?: "Béni Mellal-Khénifra" | "Casablanca-Settat" | "Dakhla-Oued Ed-Dahab" | "Drâa-Tafilalet" | "Fès-Meknès" | "Guelmim-Oued Noun" | "L'Oriental" | "Laâyoune-Sakia El Hamra" | "Marrakech-Safi" | "Rabat-Salé-Kénitra" | "Souss-Massa" | "Tanger-Tétouan-Al Hoceïma";
+            /** @description Province d'implantation (référentiel). */
+            province?: string;
+            /** @description Position [lng, lat]. */
+            ll?: number[];
             /** @description Personnes déjà hébergées (défaut 0) */
             occupants?: number;
             /** @description Encadrement affecté */
@@ -2218,6 +2241,10 @@ export interface components {
             needs?: string;
         };
         UpdateShelterDto: {
+            /** @description Tentes : nombre de tentes — la capacité est recalculée. */
+            tents?: number;
+            /** @description Tentes : personnes par tente — la capacité est recalculée. */
+            perTent?: number;
             /** @description Capacité d'accueil */
             capacity?: number;
             /** @description Personnes hébergées */

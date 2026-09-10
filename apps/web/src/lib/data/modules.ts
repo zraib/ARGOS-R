@@ -74,10 +74,22 @@ export interface Victim {
 }
 
 export type SupplyStatus = "ok" | "low" | "critical";
+export type ShelterKind = "tentes" | "dur";
+export type ShelterBuilding = "dedie" | "ecole" | "college" | "lycee" | "autre";
+
 export interface Shelter {
   id: string;
   nom: string;
   ville: string;
+  region?: string;
+  province?: string;
+  /** Position [lng, lat] — sert à la carte. */
+  ll?: [number, number];
+  /** Camp de tentes ou bâtiment en dur ; absent sur les abris d'avant la typologie. */
+  kind?: ShelterKind;
+  building?: ShelterBuilding;
+  tents?: number;
+  perTent?: number;
   capacity: number;
   occupants: number;
   staff: number;

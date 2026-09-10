@@ -10,6 +10,7 @@ import { HealthGlyph } from "@/components/health/HealthGlyph";
 import { WardsEditor, autosumServices, type WardsEditorValue } from "@/components/health/WardsEditor";
 import { ARGOS_WARD_REFERENCE } from "@/lib/types";
 import type { HospitalKind, UnitReadiness } from "@/lib/types";
+import type { ShelterBuilding, ShelterKind } from "@/lib/data/modules";
 import { EMPTY_LOCATION, LocationCascade, locationLL, locationProvince, type LocationValue } from "@/components/org/LocationCascade";
 
 // ============================================================================
@@ -300,11 +301,20 @@ export function AddShelterModal({ open, onClose, onCreated }: { open: boolean; o
   const [nom, setNom] = useState("");
   const [ville, setVille] = useState("");
   const [loc, setLoc] = useState<LocationValue>(EMPTY_LOCATION);
+  const provinces = useArgos((s) => s.provinces);
   const onLoc = (next: LocationValue) => {
     setLoc(next);
     if (next.city) setVille(next.city);
   };
+  // Typologie : un camp de tentes DÉDUIT sa capacité (tentes × personnes par
+  // tente) ; un bâtiment en dur la saisit et dit sa nature. Deux chiffres pour
+  // la même chose se contrediraient au premier ravitaillement.
+  const [kind, setKind] = useState<ShelterKind>("dur");
+  const [building, setBuilding] = useState<ShelterBuilding>("dedie");
+  const [tents, setTents] = useState(20);
+  const [perTent, setPerTent] = useState(6);
   const [capacity, setCapacity] = useState(300);
+  const derived = tents * perTent;
   const [staff, setStaff] = useState(0);
   const [supplies, setSupplies] = useState<"ok" | "low" | "critical">("ok");
   const [needs, setNeeds] = useState("");
@@ -314,16 +324,21 @@ export function AddShelterModal({ open, onClose, onCreated }: { open: boolean; o
     () => cities.some((c) => c.v.trim().toLocaleLowerCase("fr") === ville.trim().toLocaleLowerCase("fr")),
     [cities, ville],
   );
-  const canSubmit = !!(nom.trim() && ville.trim() && capacity > 0);
+  const canSubmit = !!(nom.trim() && ville.trim() && (kind === "tentes" ? tents > 0 && perTent > 0 : capacity > 0));
 
   const submit = async () => {
     if (!canSubmit || busy) return;
     setBusy(true);
     try {
+      const ll = locationLL(loc, provinces, cities);
       const res = await api.createShelter({
         nom: nom.trim(),
         ville: ville.trim(),
-        capacity,
+        kind,
+        ...(kind === "tentes" ? { tents, perTent } : { building, capacity }),
+        ...(loc.region ? { region: loc.region as never } : {}),
+        ...(loc.province ? { province: loc.province } : {}),
+        ...(ll ? { ll } : {}),
         staff,
         supplies,
         ...(needs.trim() ? { needs: needs.trim() } : {}),
@@ -368,17 +383,66 @@ export function AddShelterModal({ open, onClose, onCreated }: { open: boolean; o
             {ville.trim() === "" ? t.ops_city_help : connue ? t.ops_city_known : t.ops_city_unknown}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={labelCls}>{t.ops_capacity}</label>
-            <input
-              type="number"
-              min={1}
-              className={inputCls + " w-full"}
-              value={capacity}
-              onChange={(e) => setCapacity(Math.max(1, Number(e.target.value) || 0))}
-            />
+        <div>
+          <label className={labelCls}>{m.shelters.kind}</label>
+          <div className="flex gap-2">
+            {(["dur", "tentes"] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setKind(k)}
+                aria-pressed={kind === k}
+                className={`cible-tactile flex-1 rounded-lg border px-3 text-xs font-semibold transition-colors lg:min-h-0 lg:py-2 ${
+                  kind === k ? "border-or-500 bg-or-500/15 text-or-600 dark:text-or-400" : "border-gray-200 text-gray-600 hover:border-or-400 dark:border-rdia-600 dark:text-rdia-200"
+                }`}
+              >
+                {k === "dur" ? m.shelters.kind_hard : m.shelters.kind_tent}
+              </button>
+            ))}
           </div>
+        </div>
+        {kind === "dur" ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>{m.shelters.building}</label>
+              <select className={inputCls + " w-full"} value={building} onChange={(e) => setBuilding(e.target.value as ShelterBuilding)}>
+                <option value="dedie">{m.shelters.b_dedie}</option>
+                <option value="ecole">{m.shelters.b_ecole}</option>
+                <option value="college">{m.shelters.b_college}</option>
+                <option value="lycee">{m.shelters.b_lycee}</option>
+                <option value="autre">{m.shelters.b_autre}</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>{t.ops_capacity}</label>
+              <input
+                type="number"
+                min={1}
+                className={inputCls + " w-full"}
+                value={capacity}
+                onChange={(e) => setCapacity(Math.max(1, Number(e.target.value) || 0))}
+              />
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>{m.shelters.tents}</label>
+                <input type="number" min={1} className={inputCls + " w-full"} value={tents} onChange={(e) => setTents(Math.max(1, Number(e.target.value) || 0))} />
+              </div>
+              <div>
+                <label className={labelCls}>{m.shelters.per_tent}</label>
+                <input type="number" min={1} className={inputCls + " w-full"} value={perTent} onChange={(e) => setPerTent(Math.max(1, Number(e.target.value) || 0))} />
+              </div>
+            </div>
+            <p className="mt-1.5 flex items-baseline justify-between gap-3 text-[11px] text-gray-500 dark:text-rdia-300">
+              <span>{m.shelters.tent_hint}</span>
+              <span className="shrink-0 font-semibold tabular-nums text-gray-800 dark:text-rdia-50">{m.shelters.derived} : {derived.toLocaleString("fr-FR")}</span>
+            </p>
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelCls}>{t.ops_staff}</label>
             <input

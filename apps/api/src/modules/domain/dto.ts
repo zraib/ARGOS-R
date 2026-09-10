@@ -1,7 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { SHELTER_BUILDINGS, SHELTER_KINDS } from "@/modules/domain/shelter.rules";
+import { REGIONS_MA } from "@/modules/domain/provinces.data";
 import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Length, Max, MaxLength, Min, MinLength, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
-import { REGIONS_MA } from "@/modules/domain/provinces.data";
 
 const SEV = ["high", "medium", "low"] as const;
 const ST = ["open", "prog", "closed"] as const;
@@ -602,9 +603,37 @@ export class CreateShelterDto {
   @IsString() @Length(2, 60)
   ville!: string;
 
-  @ApiProperty({ minimum: 1, description: "Capacité d'accueil, en personnes" })
-  @IsInt() @Min(1)
-  capacity!: number;
+  @ApiProperty({ enum: SHELTER_KINDS, description: "Typologie : camp de tentes (capacité déduite) ou bâtiment en dur (capacité saisie)." })
+  @IsIn(SHELTER_KINDS as unknown as string[])
+  kind!: (typeof SHELTER_KINDS)[number];
+
+  @ApiPropertyOptional({ enum: SHELTER_BUILDINGS, description: "En dur : nature du bâtiment — abri dédié, école, collège, lycée, autre établissement." })
+  @IsOptional() @IsIn(SHELTER_BUILDINGS as unknown as string[])
+  building?: (typeof SHELTER_BUILDINGS)[number];
+
+  @ApiPropertyOptional({ minimum: 1, description: "Tentes : nombre de tentes." })
+  @IsOptional() @IsInt() @Min(1)
+  tents?: number;
+
+  @ApiPropertyOptional({ minimum: 1, description: "Tentes : personnes par tente (défaut 6, standard Sphère)." })
+  @IsOptional() @IsInt() @Min(1)
+  perTent?: number;
+
+  @ApiPropertyOptional({ minimum: 1, description: "En dur : capacité d'accueil, en personnes. Ignorée pour un camp de tentes (déduite)." })
+  @IsOptional() @IsInt() @Min(1)
+  capacity?: number;
+
+  @ApiPropertyOptional({ enum: REGIONS_MA, description: "Région d'implantation (référentiel)." })
+  @IsOptional() @IsIn(REGIONS_MA)
+  region?: string;
+
+  @ApiPropertyOptional({ description: "Province d'implantation (référentiel)." })
+  @IsOptional() @IsString() @Length(1, 60)
+  province?: string;
+
+  @ApiPropertyOptional({ type: [Number], description: "Position [lng, lat]." })
+  @IsOptional() @IsArray() @ArrayMinSize(2) @ArrayMaxSize(2) @IsNumber({}, { each: true })
+  ll?: [number, number];
 
   @ApiPropertyOptional({ minimum: 0, description: "Personnes déjà hébergées (défaut 0)" })
   @IsOptional() @IsInt() @Min(0)
@@ -624,6 +653,14 @@ export class CreateShelterDto {
 }
 
 export class UpdateShelterDto {
+  @ApiPropertyOptional({ minimum: 1, description: "Tentes : nombre de tentes — la capacité est recalculée." })
+  @IsOptional() @IsInt() @Min(1)
+  tents?: number;
+
+  @ApiPropertyOptional({ minimum: 1, description: "Tentes : personnes par tente — la capacité est recalculée." })
+  @IsOptional() @IsInt() @Min(1)
+  perTent?: number;
+
   @ApiPropertyOptional({ minimum: 0, description: "Capacité d'accueil" })
   @IsOptional() @IsInt() @Min(0)
   capacity?: number;

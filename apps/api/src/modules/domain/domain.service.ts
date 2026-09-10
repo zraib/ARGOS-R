@@ -1,4 +1,5 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
+import { resolveShelterTypology, type ShelterTypologyInput } from "@/modules/domain/shelter.rules";
 import { computeAnalyticsOf, computeStats, type DomainSnapshot } from "@/modules/domain/domain.analytics";
 import { PROVINCES_MA, llToSvg } from "@/modules/domain/provinces.data";
 import { CITIES_MA } from "@/modules/domain/cities.data";
@@ -528,22 +529,32 @@ export class DomainService {
    * les occupants : un abri qu'on ouvre n'a pas encore de recensement, et des
    * chiffres inventés se liraient comme un dénombrement.
    */
-  createShelter(input: {
+  createShelter(input: ShelterTypologyInput & {
     nom: string;
     ville: string;
-    capacity: number;
+    region?: string;
+    province?: string;
+    ll?: [number, number];
     occupants?: number;
     staff?: number;
     supplies?: Shelter["supplies"];
     needs?: string;
   }): Shelter {
+    // La typologie décide de la capacité — et refuse ce qui ne tient pas.
+    const typo = resolveShelterTypology(input);
+    if (!typo.ok) throw new BadRequestException(typo.reason);
     const n = Math.max(0, ...this.shelters.map((x) => parseInt(x.id.replace(/\D/g, ""), 10) || 0)) + 1;
     const shelter: Shelter = {
       id: `AB-${String(n).padStart(2, "0")}`,
       nom: input.nom,
       ville: input.ville,
-      capacity: input.capacity,
-      occupants: Math.min(input.occupants ?? 0, input.capacity),
+      ...(input.region ? { region: input.region } : {}),
+      ...(input.province ? { province: input.province } : {}),
+      ...(input.ll ? { ll: input.ll } : {}),
+      kind: typo.value.kind,
+      ...(typo.value.kind === "dur" ? { building: typo.value.building } : { tents: typo.value.tents, perTent: typo.value.perTent }),
+      capacity: typo.value.capacity,
+      occupants: Math.min(input.occupants ?? 0, typo.value.capacity),
       staff: input.staff ?? 0,
       supplies: input.supplies ?? "ok",
       needs: input.needs?.trim() || "—",
@@ -653,6 +664,13 @@ export class DomainService {
     if (!sh) return undefined;
     for (const [k, v] of Object.entries(patch)) {
       if (v !== undefined) (sh as unknown as Record<string, unknown>)[k] = v;
+    }
+    // Camp de tentes : la capacité SUIT les tentes, elle ne se saisit pas.
+    if (sh.kind === "tentes" && (patch.tents !== undefined || patch.perTent !== undefined)) {
+      const typo = resolveShelterTypology({ ...sh, kind: "tentes" });
+      if (!typo.ok) throw new BadRequestException(typo.reason);
+      sh.capacity = typo.value.capacity;
+      sh.occupants = Math.min(sh.occupants, sh.capacity);
     }
     this.persist();
     return sh;

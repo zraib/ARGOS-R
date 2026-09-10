@@ -4860,10 +4860,68 @@
             "description": "Commune d'implantation",
             "example": "Amizmiz"
           },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "tentes",
+              "dur"
+            ],
+            "description": "Typologie : camp de tentes (capacité déduite) ou bâtiment en dur (capacité saisie)."
+          },
+          "building": {
+            "type": "string",
+            "enum": [
+              "dedie",
+              "ecole",
+              "college",
+              "lycee",
+              "autre"
+            ],
+            "description": "En dur : nature du bâtiment — abri dédié, école, collège, lycée, autre établissement."
+          },
+          "tents": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Tentes : nombre de tentes."
+          },
+          "perTent": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Tentes : personnes par tente (défaut 6, standard Sphère)."
+          },
           "capacity": {
             "type": "number",
             "minimum": 1,
-            "description": "Capacité d'accueil, en personnes"
+            "description": "En dur : capacité d'accueil, en personnes. Ignorée pour un camp de tentes (déduite)."
+          },
+          "region": {
+            "type": "string",
+            "enum": [
+              "Béni Mellal-Khénifra",
+              "Casablanca-Settat",
+              "Dakhla-Oued Ed-Dahab",
+              "Drâa-Tafilalet",
+              "Fès-Meknès",
+              "Guelmim-Oued Noun",
+              "L'Oriental",
+              "Laâyoune-Sakia El Hamra",
+              "Marrakech-Safi",
+              "Rabat-Salé-Kénitra",
+              "Souss-Massa",
+              "Tanger-Tétouan-Al Hoceïma"
+            ],
+            "description": "Région d'implantation (référentiel)."
+          },
+          "province": {
+            "type": "string",
+            "description": "Province d'implantation (référentiel)."
+          },
+          "ll": {
+            "description": "Position [lng, lat].",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
           },
           "occupants": {
             "type": "number",
@@ -4893,12 +4951,22 @@
         "required": [
           "nom",
           "ville",
-          "capacity"
+          "kind"
         ]
       },
       "UpdateShelterDto": {
         "type": "object",
         "properties": {
+          "tents": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Tentes : nombre de tentes — la capacité est recalculée."
+          },
+          "perTent": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Tentes : personnes par tente — la capacité est recalculée."
+          },
           "capacity": {
             "type": "number",
             "minimum": 0,
