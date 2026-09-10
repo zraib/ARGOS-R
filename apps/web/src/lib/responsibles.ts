@@ -28,6 +28,17 @@ export function isOnline(online: readonly PresenceUser[], matricule: string): bo
   return online.some((p) => p.matricule.toLowerCase() === m);
 }
 
+/**
+ * En ligne SOUS CE RÔLE. Un compte à plusieurs profils ouvre sa session sous
+ * l'un d'eux : connecté comme OPCOM, il n'est pas « en ligne » comme cellule
+ * bleue, même si le compte tient aussi ce rôle. La présence est celle du
+ * poste tenu, pas celle de la personne.
+ */
+export function isOnlineAs(online: readonly PresenceUser[], matricule: string, role: string): boolean {
+  const m = matricule.toLowerCase();
+  return online.some((p) => p.matricule.toLowerCase() === m && p.role === role);
+}
+
 /** Identifiant du canal d'un incident — la convention du serveur (`c-<référence>`). */
 export function incidentChannelId(incidentId: string): string {
   return `c-${incidentId.toLowerCase()}`;

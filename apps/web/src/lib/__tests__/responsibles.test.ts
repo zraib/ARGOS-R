@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deployedOn, incidentChannelId, isOnline, responsibleOf } from "@/lib/responsibles";
+import { deployedOn, incidentChannelId, isOnline, isOnlineAs, responsibleOf } from "@/lib/responsibles";
 import type { PresenceUser, Responsible } from "@/lib/types";
 
 const list: Responsible[] = [
@@ -22,6 +22,11 @@ describe("qui tient quoi", () => {
   it("la présence se lit sur le matricule, sans égard à la casse", () => {
     expect(isOnline(online, "s.bennani")).toBe(true);
     expect(isOnline(online, "s.moutaouakil")).toBe(false);
+  });
+  it("connecté comme TACOM, un compte n'est pas en ligne comme cellule bleue", () => {
+    expect(isOnlineAs(online, "s.bennani", "tacom")).toBe(true);
+    expect(isOnlineAs(online, "s.bennani", "bluecell")).toBe(false);
+    expect(isOnlineAs(online, "s.bennani", "resp_unit")).toBe(false);
   });
   it("le canal d'un incident suit la convention du serveur", () => {
     expect(incidentChannelId("INC-2616")).toBe("c-inc-2616");

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useArgos, useDict, useModules } from "@/lib/store";
 import { POST_DRAG_MIME, POST_FILL, pickGroups, type PickItem } from "@/lib/posts";
-import { isOnline } from "@/lib/responsibles";
+import { isOnlineAs } from "@/lib/responsibles";
 import { Switch } from "@/app/map/_parts/Switch";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
@@ -96,7 +96,8 @@ export function PostToolbox() {
                       const key = i.pick.matricule ?? i.pick.entityId ?? i.pick.title;
                       const armed = isArmed(i);
                       const inactif = !!i.placedOn;
-                      const present = !!i.pick.matricule && isOnline(online, i.pick.matricule);
+                      // Présent sous CE rôle : connecté comme OPCOM, on n'est pas là comme cellule.
+                      const present = !!i.pick.matricule && isOnlineAs(online, i.pick.matricule, g.kind);
                       return (
                         <button
                           key={key}
