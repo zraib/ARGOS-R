@@ -134,9 +134,12 @@ export function Modal({ open, title, onClose, size = "lg", children }: ModalProp
             <Icon path={UI_ICONS.close} size={16} strokeWidth={2} />
           </button>
         </div>
-        {/* Seul le corps défile : `overscroll-contain` empêche l'entraînement de
-            la page située derrière la modale sur mobile. */}
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 sm:px-6 sm:pb-6">
+        {/* Seul le corps défile, et VERTICALEMENT seulement : un axe `visible`
+            à côté d'un axe `auto` devient `auto` lui aussi, et tout enfant trop
+            large ouvrait un défilement horizontal au lieu d'être contenu.
+            `overscroll-contain` empêche l'entraînement de la page derrière la
+            modale sur mobile. */}
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 pb-4 sm:px-6 sm:pb-6">
           {children}
         </div>
       </div>

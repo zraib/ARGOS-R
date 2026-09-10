@@ -154,10 +154,14 @@ export function WardsEditor({
         </div>
       </div>
 
-      {/* Ajout d'un service */}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto]">
+      {/* Ajout d'un service.
+          Deux pistes seulement, et la première en `minmax(0, 1fr)` : un
+          `<select>` en grille ne rétrécit pas sous la largeur de sa plus longue
+          option (« Hépato-gastro-entérologie »), et la piste `1fr` nue le
+          laissait déborder — d'où le défilement horizontal de la modale. */}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
         <select
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-or-500 disabled:opacity-50 dark:border-rdia-600 dark:bg-rdia-700"
+          className="min-w-0 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-or-500 disabled:opacity-50 dark:border-rdia-600 dark:bg-rdia-700"
           disabled={availableOptions.length === 0}
           value=""
           onChange={(e) => {
@@ -173,10 +177,10 @@ export function WardsEditor({
             </option>
           ))}
         </select>
-        <div className="flex gap-2">
+        <div className="flex min-w-0 gap-2">
           <input
             type="text"
-            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors placeholder:text-gray-400 focus:border-or-500 dark:border-rdia-600 dark:bg-rdia-700 sm:w-56"
+            className="min-w-0 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors placeholder:text-gray-400 focus:border-or-500 dark:border-rdia-600 dark:bg-rdia-700 sm:w-44"
             placeholder={m.hospinet.custom_ward}
             value={pendingCustom}
             onChange={(e) => setPendingCustom(e.target.value)}
