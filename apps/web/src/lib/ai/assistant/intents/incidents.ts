@@ -158,7 +158,7 @@ export function incidentConcise(q: string, ctx: AiContext, kind: IncSubIntent): 
   switch (kind) {
     case "severity":
       text = `${header} · Sévérité : ${sev.toUpperCase()} · Statut : ${st}.`;
-      if (target.sev === "high") text += ` Ce type d'incident (${target.type}) est classé niveau élevé — niveau de gravité le plus haut du référentiel ARGOS pour la région ${target.region}.`;
+      if (target.sev === "high") text += ` Ce type d'incident (${target.type}) est classé niveau élevé — niveau de gravité le plus haut du référentiel IRIS pour la région ${target.region}.`;
       else if (target.sev === "medium") text += ` Sévérité moyenne — niveau standard du référentiel.`;
       else text += ` Sévérité faible — incident contenu.`;
       break;
@@ -182,7 +182,7 @@ export function incidentConcise(q: string, ctx: AiContext, kind: IncSubIntent): 
         cas ? `Bilan humain : ${cas.dead}D · ${cas.injured}B · ${cas.missing}?.` : "Bilan humain : non saisi.",
         `Contextualisation référentiels plateforme : ORSEC N3 · Unités prêtes ${ctx.dashStats?.units?.ready ?? 0} · Occup. hôp. moyen ${avgOcc ?? "—"}%${ctx.quakes?.length ? ` · Séismes≥M4.5 dernier mois : ${ctx.quakes.length}` : ""}.`,
         reco.length && reco[0].score > 0
-          ? `Classement unités les mieux adaptées (capacités + proximité + readiness) : ${reco[0].unit.nom} (score ${reco[0].score}/100, ETA ${reco[0].etaMin}min)${reco[1] ? `, ${reco[1].unit.nom} (${reco[1].score}/100)` : ""}. [Score du moteur déterministe ARGOS, sans préconisation d'engagement.]`
+          ? `Classement unités les mieux adaptées (capacités + proximité + readiness) : ${reco[0].unit.nom} (score ${reco[0].score}/100, ETA ${reco[0].etaMin}min)${reco[1] ? `, ${reco[1].unit.nom} (${reco[1].score}/100)` : ""}. [Score du moteur déterministe IRIS, sans préconisation d'engagement.]`
           : "Classement unités : à préciser selon région/capacités demandées.",
       ].join("\n");
       layer1 += " · avis contextualisé données plateforme";
@@ -227,14 +227,14 @@ export function incidentDetails(q: string, ctx: AiContext): AiAnswer {
     // Classement du moteur déterministe : un score, pas une préconisation.
     const recs = recommend(needFromIncident(target), ctx.units).slice(0, 3);
     if (recs.length && !recs[0].excluded) {
-      lines.push("Classement unités les mieux adaptées (capacités + proximité + readiness — score brut ARGOS, sans préconisation d'engagement) :");
+      lines.push("Classement unités les mieux adaptées (capacités + proximité + readiness — score brut IRIS, sans préconisation d'engagement) :");
       recs.forEach((r, i) =>
         lines.push(`  ${i + 1}. ${r.unit.nom} — score ${r.score}/100 · ETA ${r.etaMin} min · capacités ${r.matchedCaps.map((c) => CAP_LABELS[c]).join("+") || "—"}`),
       );
     }
     return {
       intent: "incident_details",
-      layer1: `détails incident ${target.id} (${placeName}) + sous-incidents + responders + classement unités ARGOS`,
+      layer1: `détails incident ${target.id} (${placeName}) + sous-incidents + responders + classement unités IRIS`,
       text: lines.join("\n"),
       incidents: [incidentRow(target)],
       units: recs.slice(0, 3).map((r) => ({

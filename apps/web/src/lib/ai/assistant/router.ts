@@ -42,7 +42,7 @@ export function interpret(q: string, ctx: AiContext): AiAnswer {
     const justGreeting = /^(bonjour|bonsoir|salut|hey|hello|coucou|bjr|cc|bon apres|bonne apres midi|good morning|good evening)/.test(nq) || /^bonjour[ !,]*$|^bonsoir[ !,]*$|^salut[ !,]*$/.test(nq);
     const acc =
       identiteCue.test(nq)
-        ? "Je suis le Copilot ARGOS, assistant opérationnel de la plateforme de gestion des incidents FAR/RM/ORSEC. Je synthétise les données de la plateforme en langage naturel. Que souhaites-tu consulter ?"
+        ? "Je suis le Copilot IRIS, assistant opérationnel de la plateforme de gestion des incidents FAR/RM/ORSEC. Je synthétise les données de la plateforme en langage naturel. Que souhaites-tu consulter ?"
         : h < 12
           ? "Bonjour opérateur, comment puis-je t'aider ?"
           : h < 18
@@ -63,7 +63,7 @@ export function interpret(q: string, ctx: AiContext): AiAnswer {
         ];
     return {
       intent: "greeting",
-      layer1: identiteCue.test(nq) ? "identité & provenance Copilot ARGOS" : "salutation opérateur",
+      layer1: identiteCue.test(nq) ? "identité & provenance Copilot IRIS" : "salutation opérateur",
       text: acc,
       suggestions: suggestionsIdentite,
     };

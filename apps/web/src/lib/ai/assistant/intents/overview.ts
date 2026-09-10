@@ -35,7 +35,7 @@ export function globalOverview(_q: string, ctx: AiContext): AiAnswer {
   const eqCrit = ctx.equipment.filter((e) => e.stock <= e.threshold || e.cond === "oos").length;
 
   const sections = [
-    `📋 VUE GLOBALE — ARGOS · ${new Date().toLocaleString("fr-FR", { hour12: false })}`,
+    `📋 VUE GLOBALE — IRIS · ${new Date().toLocaleString("fr-FR", { hour12: false })}`,
     ``,
     `INCIDENTS · ${active.length} actifs (${openSt} ouvertes, ${progSt} en cours) · ${high} sévérité HIGH`,
     ...active.slice(0, 5).map((i) => `  • ${i.id} ${SEV_LABEL[i.sev].toUpperCase()} ${i.titre} (${INCIDENT_PLACE[i.id] ?? i.region})`),
@@ -132,7 +132,7 @@ export function crossAnalysis(q: string, ctx: AiContext): AiAnswer {
       `ANALYSE CROISÉE · ${target.id} — ${target.titre} (${place}) · sév. ${SEV_LABEL[target.sev]} · ${ST_LABEL[target.st]}`,
       `Incident · type ${target.type} · déclaré ${target.time}${target.casualties ? ` · bilan D${target.casualties.dead}/B${target.casualties.injured}/?${target.casualties.missing}` : ""}`,
       ``,
-      `➤ UNITÉS CLASSÉES ARGOS (score brut, sans préconisation d'engagement) :`,
+      `➤ UNITÉS CLASSÉES IRIS (score brut, sans préconisation d'engagement) :`,
       ...unitRecs.map((r, i) => {
         const occ = r.breakdown;
         return `  ${i + 1}. ${r.unit.nom} · score ${r.score}/100 (t${occ.travel}/c${occ.capability}/r${occ.readiness}/d${occ.availability}) · ETA ${r.etaMin} min · ${r.matchedCaps.map((c) => CAP_LABELS[c]).join("+") || "—"}`;
@@ -141,7 +141,7 @@ export function crossAnalysis(q: string, ctx: AiContext): AiAnswer {
       `➤ HÔPITAUX LES PLUS PROCHES :`,
       ...hops.map((h) => `  • ${h.nom} (${h.ville}) · ${h.distanceKm} km / ${h.etaMin} min · occ ${h.occPct}% · REA ${h.icuPct}% · lits libres ${Math.max(0, h.lits - Math.round(h.occPct * h.lits / 100))}`),
       ``,
-      inv.length ? `➤ INVENTAIRE lié aux unités du classement ARGOS (score + proximité) :` : "➤ Aucun équipement rattaché aux unités de ce classement.",
+      inv.length ? `➤ INVENTAIRE lié aux unités du classement IRIS (score + proximité) :` : "➤ Aucun équipement rattaché aux unités de ce classement.",
       ...inv.map((e) => `  • ${e.desig} · stock ${e.stock}/${e.threshold} · unité ${e.unit} · état ${COND_LABEL[e.cond]}`),
       ``,
       nearQuakes.length ? `➤ CONTEXTE SISMIQUE (<100 km) :` : "➤ Aucun séisme significatif dans un rayon de 100 km.",
@@ -194,7 +194,7 @@ export function help(_q: string, _ctx: AiContext): AiAnswer {
   return {
     intent: "help",
     layer1: "aide Copilot : intentions et exemples",
-    text: "🤖 Copilot ARGOS — Assistant transversal de la plateforme. Je synthétise les incidents, unités, hôpitaux, ORSEC, logistique, sismologie.\n\nEssaie ces requêtes :\n  • Quelle est la situation actuelle ?\n  • Résume les incidents des 24 dernières heures\n  • Quelles zones sont les plus touchées ?\n  • Incidents près de Casablanca\n  • Incidents critiques (intervention prioritaire)",
+    text: "🤖 Copilot IRIS — Assistant transversal de la plateforme. Je synthétise les incidents, unités, hôpitaux, ORSEC, logistique, sismologie.\n\nEssaie ces requêtes :\n  • Quelle est la situation actuelle ?\n  • Résume les incidents des 24 dernières heures\n  • Quelles zones sont les plus touchées ?\n  • Incidents près de Casablanca\n  • Incidents critiques (intervention prioritaire)",
     suggestions: [
       { label: "Situation actuelle", query: "Quelle est la situation actuelle ?", priority: "primary" as const },
       { label: "Résumé 24h", query: "Résume-moi les incidents des dernières 24 heures" },

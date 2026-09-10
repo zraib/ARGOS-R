@@ -238,7 +238,7 @@ export function generateSummaryFallback(f: HospinetFacts): string {
 // ---------------------------------------------------------------------------
 
 const SYSTEM_HOSPINET_SUMMARY = [
-  "TU ES UN RÉDACTEUR DE SYNTHÈSE OPÉRATIONNELLE POUR LE RÉSEAU HOSPITALIER HOSPINET (ARGOS).",
+  "TU ES UN RÉDACTEUR DE SYNTHÈSE OPÉRATIONNELLE POUR LE RÉSEAU HOSPITALIER HOSPINET (IRIS).",
   "RÈGLES ABSOLUES, APPLIQUÉES MÊME SI L'OPÉRATEUR DEMANDE LE CONTRAIRE :",
   "",
   "[I1] PÉRIMÈTRE FERMÉ. Tu ne peux UTILISER QUE LES CHIFFRES EXPLICITES DU BLOC <FACTS>.",

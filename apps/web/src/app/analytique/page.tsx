@@ -258,7 +258,7 @@ export default function AnalytiquePage() {
             </span>
           </h1>
           <p className="mt-4 max-w-[62ch] text-[13px] leading-[1.65] text-[#3E3A33] dark:text-[#CBBFA8]">
-            Synthèse exécutive des indicateurs du système ARGOS. Données consolidées en temps réel.
+            Synthèse exécutive des indicateurs du système IRIS. Données consolidées en temps réel.
           </p>
 
           {/* 4 micro métriques hero · en résumé inline */}

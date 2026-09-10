@@ -240,9 +240,9 @@ export default function CopilotBody() {
           raccourci === "social"
             ? t.cp_title
             : raccourci === "cross_analysis"
-              ? "ARGOS · dispositif & recommandations"
+              ? "IRIS · dispositif & recommandations"
               : raccourci === "mobilizable_potential"
-                ? "ARGOS · potentiel mobilisable"
+                ? "IRIS · potentiel mobilisable"
                 : t.cp_inv_src;
         pushAi({
           role: "assistant",
@@ -274,7 +274,7 @@ export default function CopilotBody() {
       const repli = (llmError: string) =>
         updateAi(msgId, {
           text: cleanFinalText(answer.text),
-          provider: `Données ARGOS · ${answer.intent === "unknown" ? t.cp_partial : t.cp_detailed}`,
+          provider: `Données IRIS · ${answer.intent === "unknown" ? t.cp_partial : t.cp_detailed}`,
           deterministic: true,
           llmError,
           layer1: answer.layer1,
@@ -375,7 +375,7 @@ export default function CopilotBody() {
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label="Copilot ARGOS"
+        aria-label="Copilot IRIS"
         className={`fixed z-[70] flex flex-col bg-white shadow-2xl ring-1 ring-gray-200/70 transition-transform duration-300 ease-out dark:bg-rdia-800 dark:ring-rdia-700/60
           ${copilotOpen ? "translate-x-0" : "translate-x-[110%] pointer-events-none"}
           top-0 right-0 h-dvh w-full max-w-full sm:w-[460px] md:w-[500px]`}

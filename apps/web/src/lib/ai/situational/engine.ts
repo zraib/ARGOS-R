@@ -371,7 +371,7 @@ export function computeSituationalAwarenessFallback(input: {
 // ============================================================
 // 2) INFERENCE LLM + sanitize (fallback garanti si LLM échoue)
 // ============================================================
-const SYS = `Tu es le MODÈLE IA DE CONSCIENCE SITUATIONNELLE d'ARGOS (FAR, Maroc).
+const SYS = `Tu es le MODÈLE IA DE CONSCIENCE SITUATIONNELLE d'IRIS (FAR, Maroc).
 
 🎯 Retourne UNIQUEMENT un objet JSON valide (pas de texte, pas de markdown) :
 {
@@ -584,7 +584,7 @@ export async function computeSituationalAwarenessAI(
 ): Promise<{ data: SituationalAwareness; error?: string; model: string; aborted?: boolean }> {
   const fallback = computeSituationalAwarenessFallback(input);
   try {
-    const usermsg = `## CONTEXTE RÉEL ARGOS (100% réel)\n${buildCtx(input)}\n\n## CONSIGNE\nRetourne UNIQUEMENT l'objet JSON SituationalAwareness valide.`;
+    const usermsg = `## CONTEXTE RÉEL IRIS (100% réel)\n${buildCtx(input)}\n\n## CONSIGNE\nRetourne UNIQUEMENT l'objet JSON SituationalAwareness valide.`;
     const res = await chatComplete(cfg, [
       { role: "system", content: SYS },
       { role: "user", content: usermsg },

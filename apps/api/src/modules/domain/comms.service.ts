@@ -402,7 +402,7 @@ export class CommsService {
     const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
     (this.messages[chan.id] ??= []).push({
       id: this.nextMessageId(),
-      who: "ARGOS",
+      who: "IRIS",
       initials: "AR",
       av: "bg-rdia-500",
       txt,

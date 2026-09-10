@@ -291,7 +291,7 @@ function sanitizePrediction(
 }
 
 /** Système prompt ultra-strict mode JSON-seul + format OPÉRATEUR EXIGÉ. */
-const RISK_AI_SYSTEM = `Tu es un moteur d'analyse de risques de la PLATEFORME ARGOS.
+const RISK_AI_SYSTEM = `Tu es un moteur d'analyse de risques de la PLATEFORME IRIS.
 
 🎯 OBJECTIF OPÉRATEUR IMPÉRATIF : Produire des prédictions DIRECTEMENT EXPLOITABLES par un humain.
 Chaque prédiction DOIT fournir LES 5 ÉLÉMENTS SUIVANTS en clair :
@@ -453,7 +453,7 @@ export async function predictRiskPredictionsAI(
   signal?: AbortSignal,
 ): Promise<{ predictions: RiskPrediction[]; origin: "ai_model" | "deterministic"; error?: string; model: string; aborted?: boolean }> {
   const now = ctx.now ?? Date.now();
-  const userMsg = `## CONTEXTE RÉEL ARGOS (100% réel — AUCUNE invention autorisée)
+  const userMsg = `## CONTEXTE RÉEL IRIS (100% réel — AUCUNE invention autorisée)
 ${buildUserContextPayload(ctx)}
 
 ## CONSIGNE FINALE

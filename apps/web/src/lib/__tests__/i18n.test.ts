@@ -48,7 +48,7 @@ describe("i18n — parité des dictionnaires", () => {
     const arabe = /[؀-ۿ]/;
     // Les noms de PRODUIT ne se traduisent pas : ils s'écrivent en latin dans
     // les trois langues, comme une marque.
-    const nomsDeProduit = /^(OPSnet|Hospinet|ARGOS)$/;
+    const nomsDeProduit = /^(OPSnet|Hospinet|ARGOS|IRIS)$/;
     for (const [k, v] of Object.entries(AR_DICT)) {
       if (k.startsWith("nav_") && typeof v === "string" && !nomsDeProduit.test(v)) expect(v, k).toMatch(arabe);
     }

@@ -223,7 +223,7 @@ export function rankHospitals(
 /* ---------------- COUCHE 2 — LLM Justification ---------------- */
 
 const SYSTEM_AFFECTEUR = [
-  "Tu es l'assistant de justification de l'Affecteur Hospinet d'ARGOS, plateforme militaire de gestion des catastrophes.",
+  "Tu es l'assistant de justification de l'Affecteur Hospinet d'IRIS, plateforme militaire de gestion des catastrophes.",
   "Ton unique rôle : reformuler EN FRANÇAIS CONCIS, NEUTRE ET STRICTEMENT factuel, le classement des hôpitaux calculé par le moteur déterministe de la Couche 1.",
   "",
   "RÈGLES IMPÉRATIVES (SANS EXCEPTION) :",

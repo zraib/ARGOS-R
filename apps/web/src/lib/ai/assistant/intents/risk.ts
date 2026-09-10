@@ -150,7 +150,7 @@ export function riskPredictionAnswer(_q: string, ctx: AiContext): AiAnswer {
     k === "zone" ? "Zone" : k === "hopital" ? "Établissement" : k === "corridor" ? "Corridor" : "Incident";
   const lines: string[] = [];
   if (allCount === 0) {
-    lines.push("Aucune estimation de dégradation significative détectée dans les données ARGOS pour le moment.");
+    lines.push("Aucune estimation de dégradation significative détectée dans les données IRIS pour le moment.");
   } else {
     lines.push("🔮 **Estimations IA · dégradations probables** :\n");
     lines.push(`• Score global moyen : **${moy}/100** — ${allCount} estimation(s)`);
@@ -222,7 +222,7 @@ export function riskZoneAnswer(q: string, ctx: AiContext): AiAnswer {
     return {
       intent: "risks_zone",
       layer1: `risque sur ${label} : aucune prédiction disponible`,
-      text: `Aucune estimation IA de risque n'est actuellement documentée pour « ${label} » dans les données ARGOS.`,
+      text: `Aucune estimation IA de risque n'est actuellement documentée pour « ${label} » dans les données IRIS.`,
     };
   }
   picked.sort((a, b) => b.score - a.score);

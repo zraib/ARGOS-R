@@ -215,7 +215,7 @@ export function buildLlmUserMessage(query: string, answer: AiAnswer, lang: "fr" 
   lines.push("## INTENTION DÉTECTÉE (sans chiffre — les valeurs sont dans le JSON)");
   lines.push(summaryText);
   lines.push("");
-  lines.push(`## TA RÉPONSE MAINTENANT (${langName}, concis, factuel, markdown autorisé, titres ###, listes à puces, **gras** pour chiffres clés, 1 tableau Markdown structuré UNIQUEMENT si tu dois comparer ≥ 3 hôpitaux/incidents. RÈGLE FERME : NE termine JAMAIS par des suggestions de questions — l'interface ARGOS les affiche séparément (pastilles « Suggérés ») et tu créerais un doublon. Si des données sont DANS le JSON ci-dessus, tu les utilises TOUTES. PAS de blocs code, PAS de JSON dans ta réponse.)`);
+  lines.push(`## TA RÉPONSE MAINTENANT (${langName}, concis, factuel, markdown autorisé, titres ###, listes à puces, **gras** pour chiffres clés, 1 tableau Markdown structuré UNIQUEMENT si tu dois comparer ≥ 3 hôpitaux/incidents. RÈGLE FERME : NE termine JAMAIS par des suggestions de questions — l'interface IRIS les affiche séparément (pastilles « Suggérés ») et tu créerais un doublon. Si des données sont DANS le JSON ci-dessus, tu les utilises TOUTES. PAS de blocs code, PAS de JSON dans ta réponse.)`);
   lines.push("");
 
   return lines.join("\n");

@@ -231,7 +231,7 @@ export function hospitalsByCity(q: string, ctx: AiContext, cityOverride?: { vill
 
   const lines: string[] = [];
   if (!rows.length) {
-    lines.push(`❌ Aucun établissement hospitalier répertorié à **${villeDisplay}** dans le catalogue ARGOS à l'instant T.`);
+    lines.push(`❌ Aucun établissement hospitalier répertorié à **${villeDisplay}** dans le catalogue IRIS à l'instant T.`);
     lines.push("Les hôpitaux sont classés par ville officielle (champ ville normalisé). Vérifie éventuellement une ville voisine.");
   } else {
     lines.push(`HÔPITAUX DE **${villeDisplay}** · ${rows.length} établissement(s) · ${litsTot.toLocaleString("fr-FR")} lits au total · **${litsDispo.toLocaleString("fr-FR")} lits disponibles** (${litsTot ? Math.round(litsDispo * 100 / litsTot) : 0}% marge) · REA totale : ${reaTot} · REA libres **${reaDispo}**`);

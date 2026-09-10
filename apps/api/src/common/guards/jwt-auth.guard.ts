@@ -47,7 +47,7 @@ export class JwtAuthGuard implements CanActivate {
 
     const claims = await this.verify(token);
     const role = this.resolveRole(claims);
-    if (!role) throw new UnauthorizedException("Aucun rôle ARGOS dans le jeton");
+    if (!role) throw new UnauthorizedException("Aucun rôle IRIS dans le jeton");
 
     const username = claims.preferred_username ?? String(claims.sub ?? "inconnu");
     req.user = {

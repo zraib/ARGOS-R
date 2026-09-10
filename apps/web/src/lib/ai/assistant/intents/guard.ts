@@ -39,7 +39,7 @@ export function incidentNotFoundResponse(id: string, ctx: AiContext, intent: AiI
     intent,
     layer1: `incident ${id} introuvable dans le catalogue → réponse factuelle négative`,
     text: [
-      `❌ Incident **${id}** absent du catalogue opérationnel ARGOS à l'instant T. Cet identifiant n'existe pas dans la base des incidents en cours${dispo}.`,
+      `❌ Incident **${id}** absent du catalogue opérationnel IRIS à l'instant T. Cet identifiant n'existe pas dans la base des incidents en cours${dispo}.`,
       "Conseil : demande « liste des incidents en cours » ou ouvre une fiche depuis le tableau de bord pour lire son identifiant.",
     ].join("\n"),
     suggestions: ["Liste des incidents en cours", "Situation globale opérationnelle", "Dernier incident créé"],

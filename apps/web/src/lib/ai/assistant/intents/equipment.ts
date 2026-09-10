@@ -42,7 +42,7 @@ export function equipmentCriticalStatus(_q: string, ctx: AiContext): AiAnswer {
   const conformes = total - ruptures.length;
 
   const text = [
-    `ÉTAT DES STOCKS ÉQUIPEMENTS CRITIQUES — ARGOS`,
+    `ÉTAT DES STOCKS ÉQUIPEMENTS CRITIQUES — IRIS`,
     `Total inventaire : ${total} équipements · Conformes : ${conformes} · ${niveauLabel}`,
     `${ruptures.length} point(s) sensible(s) : ${nHorsService} HORS SERVICE · ${nSousSeuil} sous seuil · ${nRepair} en réparation + sous seuil.`,
     ruptures.length

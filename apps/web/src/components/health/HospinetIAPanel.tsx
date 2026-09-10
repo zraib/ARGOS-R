@@ -335,7 +335,7 @@ export function HospinetIAPanel() {
                 </div>
 
                 <div className="pt-0 text-center text-[10.5px] text-gray-400 dark:text-rdia-300">
-                  Données agrégées ARGOS ·{" "}
+                  Données agrégées IRIS ·{" "}
                   <button type="button" onClick={() => setExpanded(null)} className="font-semibold text-gray-800 underline-offset-2 hover:underline dark:text-white">{m.hospinet.close}</button>
                   {" "}· touche <kbd className="rounded border border-gray-200 bg-white px-1 py-0.5 dark:border-rdia-500 dark:bg-rdia-700 dark:text-rdia-100">{m.hospinet.esc}</kbd>
                 </div>
@@ -402,7 +402,7 @@ export function HospinetIAPanel() {
                 </div>
 
                 <div className="pt-0 text-center text-[10.5px] text-gray-400 dark:text-rdia-300">
-                  Données agrégées ARGOS ·{" "}
+                  Données agrégées IRIS ·{" "}
                   <button type="button" onClick={() => setExpanded(null)} className="font-semibold text-gray-800 underline-offset-2 hover:underline dark:text-white">{m.hospinet.close}</button>
                   {" "}· touche <kbd className="rounded border border-gray-200 bg-white px-1 py-0.5 dark:border-rdia-500 dark:bg-rdia-700 dark:text-rdia-100">{m.hospinet.esc}</kbd>
                 </div>
@@ -486,7 +486,7 @@ export function HospinetIAPanel() {
                 </div>
 
                 <div className="pt-0 text-center text-[10.5px] text-gray-400 dark:text-rdia-300">
-                  Données agrégées ARGOS ·{" "}
+                  Données agrégées IRIS ·{" "}
                   <button type="button" onClick={() => setExpanded(null)} className="font-semibold text-gray-800 underline-offset-2 hover:underline dark:text-white">{m.hospinet.close}</button>
                   {" "}· touche <kbd className="rounded border border-gray-200 bg-white px-1 py-0.5 dark:border-rdia-500 dark:bg-rdia-700 dark:text-rdia-100">{m.hospinet.esc}</kbd>
                 </div>

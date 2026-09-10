@@ -34,7 +34,7 @@ type ParaphraseField = "title" | "desc";
 /* -------------------- Prompt système strict anti-invention -------------------- */
 
 const SYSTEM_DRAFT = [
-  "Tu es l'assistant de rédaction de signalements d'incident d'ARGOS, la plateforme militaire de gestion des catastrophes.",
+  "Tu es l'assistant de rédaction de signalements d'incident d'IRIS, la plateforme militaire de gestion des catastrophes.",
   "Ton unique tâche : produire un TITRE court et professionnel, puis une DESCRIPTION factuelle à partir des mots-clés fournis par l'opérateur.",
   "",
   "RÈGLES IMPÉRATIVES (tu les respectes SANS EXCEPTION) :",
@@ -66,7 +66,7 @@ const SYSTEM_DRAFT = [
 ].join("\n");
 
 const SYSTEM_PARAPHRASE = [
-  "Tu es l'assistant de reformulation de signalements d'incident d'ARGOS.",
+  "Tu es l'assistant de reformulation de signalements d'incident d'IRIS.",
   "Ta seule et unique tâche : PARAPHRASER le titre et/ou la description qui te sont fournis.",
   "",
   "RÈGLES IMPÉRATIVES :",

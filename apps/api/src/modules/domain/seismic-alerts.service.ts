@@ -169,7 +169,7 @@ export class SeismicAlertsService implements OnModuleInit, OnModuleDestroy {
    */
   private dispatch(e: SeismicEvent): void {
     const { contacts } = this.config;
-    const msg = `ARGOS — ALERTE SISMIQUE NATIONALE : M${e.mag.toFixed(1)} ${e.region} (${e.time}), prof. ${e.depth} km`;
+    const msg = `IRIS — ALERTE SISMIQUE NATIONALE : M${e.mag.toFixed(1)} ${e.region} (${e.time}), prof. ${e.depth} km`;
     if (contacts.length === 0) this.logger.warn(`Séisme national M${e.mag} sans autorité configurée — aucun envoi.`);
     const entree: SeismicNotification = {
       id: `NTF-${Date.now().toString(36)}`,
