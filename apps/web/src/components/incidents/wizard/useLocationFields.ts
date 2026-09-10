@@ -1,51 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { matchPlace } from "@/lib/incidents/wizard";
-import { svgToLL } from "@/lib/helpers";
-import type { City, Province } from "@/lib/types";
 import type { WizardActions } from "./useWizardForm";
 
 // ============================================================================
-// Les gestes de l'étape localisation : chaque saisie qui désigne un lieu POSE
-// LE POINT, et le point est la seule vérité (les champs lat/lng en découlent).
-// La géolocalisation du navigateur n'est qu'une façon de plus de le poser.
+// Les gestes de l'étape localisation. Ce qu'ils font au formulaire se décide
+// dans `lib/incidents/wizard` (une seule source de vérité à la fois) ; ici ne
+// reste que la géolocalisation du navigateur, qui n'est qu'une façon de plus
+// de poser le point.
 // ============================================================================
 
-export function useLocationFields(actions: WizardActions, cities: City[], provinces: Province[]) {
+export function useLocationFields(actions: WizardActions) {
   const [geoErr, setGeoErr] = useState(false);
-
-  const onAddress = (v: string) => {
-    actions.patch({ adresse: v });
-    const m = matchPlace(v, cities, provinces);
-    if (m) actions.setPoint(m);
-  };
-  const onProv = (v: string) => {
-    const p = provinces.find((x) => x.v === v);
-    actions.update((f) => {
-      // Une ville d'une autre région ne survit pas au changement de province.
-      const c = cities.find((x) => x.v === f.city);
-      return { prov: v, ...(p && c && c.region !== p.region ? { city: "" } : {}) };
-    });
-    if (p) actions.setPoint(p.ll ?? svgToLL(p.x, p.y));
-  };
-  const onCity = (v: string) => {
-    actions.patch({ city: v });
-    const c = cities.find((x) => x.v === v);
-    if (c) actions.setPoint(c.ll);
-  };
-  const onLat = (v: string) =>
-    actions.update((f) => {
-      const la = parseFloat(v);
-      const lo = parseFloat(f.lng);
-      return { lat: v, ...(Number.isFinite(la) && Number.isFinite(lo) ? { pt: [lo, la] as [number, number] } : {}) };
-    });
-  const onLng = (v: string) =>
-    actions.update((f) => {
-      const la = parseFloat(f.lat);
-      const lo = parseFloat(v);
-      return { lng: v, ...(Number.isFinite(la) && Number.isFinite(lo) ? { pt: [lo, la] as [number, number] } : {}) };
-    });
 
   const locate = () => {
     setGeoErr(false);
@@ -60,5 +26,15 @@ export function useLocationFields(actions: WizardActions, cities: City[], provin
     );
   };
 
-  return { onAddress, onProv, onCity, onLat, onLng, onPick: actions.setPoint, locate, geoErr, resetGeoErr: () => setGeoErr(false) };
+  return {
+    onAddress: actions.setAddress,
+    onPlace: actions.choosePlace,
+    onLat: (v: string) => actions.typeCoords({ lat: v }),
+    onLng: (v: string) => actions.typeCoords({ lng: v }),
+    onPick: actions.setPoint,
+    clear: actions.clearLocation,
+    locate,
+    geoErr,
+    resetGeoErr: () => setGeoErr(false),
+  };
 }

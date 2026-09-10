@@ -2,10 +2,11 @@
 
 import dynamic from "next/dynamic";
 import { Icon } from "@/components/ui/Icon";
+import { LocationCascade } from "@/components/org/LocationCascade";
 import { UI_ICONS } from "@/lib/icons";
 import { useDict } from "@/lib/store";
-import { coordsText, type WizardForm } from "@/lib/incidents/wizard";
-import type { City, Province } from "@/lib/types";
+import { coordsText, locationLocks, type WizardForm } from "@/lib/incidents/wizard";
+import type { City } from "@/lib/types";
 import { fieldCls, labelCls } from "./styles";
 import type { useLocationFields } from "./useLocationFields";
 
@@ -22,21 +23,20 @@ const LocationPreviewMap = dynamic(
   },
 );
 
-/** Étape 3 — localisation : tout en une vue, pilotée par l'aperçu carte réel. */
-export function StepLocation({
-  form,
-  cities,
-  provinces,
-  cityOptions,
-  loc,
-}: {
-  form: WizardForm;
-  cities: City[];
-  provinces: Province[];
-  cityOptions: City[];
-  loc: ReturnType<typeof useLocationFields>;
-}) {
+/**
+ * Étape 3 — localisation : tout en une vue, pilotée par l'aperçu carte réel.
+ *
+ * Trois façons de dire où : la cascade région → province → ville, les
+ * coordonnées, ou un point sur la carte. Une seule tient à la fois — l'autre
+ * côté se remplit tout seul et se verrouille ; le point posé sur la carte
+ * remplit tout sans rien verrouiller. La ligne sous les champs dit qui tient
+ * et comment reprendre la main.
+ */
+export function StepLocation({ form, cities, loc }: { form: WizardForm; cities: City[]; loc: ReturnType<typeof useLocationFields> }) {
   const t = useDict();
+  const locks = locationLocks(form);
+  const hint =
+    form.locMode === "admin" ? t.wz_loc_hint_admin : form.locMode === "coords" ? t.wz_loc_hint_coords : form.locMode === "point" ? t.wz_loc_hint_point : null;
   return (
     <div className="grid gap-4 md:grid-cols-[minmax(240px,300px)_1fr]">
       <div className="flex flex-col gap-3">
@@ -50,40 +50,46 @@ export function StepLocation({
           </datalist>
         </div>
 
-        <div>
-          <label className={labelCls}>{t.f_prov}</label>
-          <select className={fieldCls} value={form.prov} onChange={(e) => loc.onProv(e.target.value)}>
-            <option value="">—</option>
-            {provinces.map((p) => (
-              <option key={p.v} value={p.v}>
-                {p.v} — {p.region}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className={labelCls}>{t.f_city}</label>
-          <select className={fieldCls} value={form.city} onChange={(e) => loc.onCity(e.target.value)}>
-            <option value="">—</option>
-            {cityOptions.map((c) => (
-              <option key={c.v} value={c.v}>
-                {form.prov ? c.v : `${c.v} — ${c.region}`}
-              </option>
-            ))}
-          </select>
-        </div>
+        <LocationCascade
+          value={{ region: form.region, province: form.prov, city: form.city }}
+          onChange={loc.onPlace}
+          disabled={locks.admin}
+          layout="column"
+        />
 
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className={labelCls}>{t.wz_lat}</label>
-            <input className="input-champ font-mono text-sm" inputMode="decimal" placeholder="31.630" value={form.lat} onChange={(e) => loc.onLat(e.target.value)} />
+            <input
+              className="input-champ font-mono text-sm"
+              inputMode="decimal"
+              placeholder="31.630"
+              value={form.lat}
+              disabled={locks.coords}
+              onChange={(e) => loc.onLat(e.target.value)}
+            />
           </div>
           <div>
             <label className={labelCls}>{t.wz_lng}</label>
-            <input className="input-champ font-mono text-sm" inputMode="decimal" placeholder="-8.010" value={form.lng} onChange={(e) => loc.onLng(e.target.value)} />
+            <input
+              className="input-champ font-mono text-sm"
+              inputMode="decimal"
+              placeholder="-8.010"
+              value={form.lng}
+              disabled={locks.coords}
+              onChange={(e) => loc.onLng(e.target.value)}
+            />
           </div>
         </div>
+
+        {hint && (
+          <div className="flex items-start justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-[11px] text-gray-500 dark:border-rdia-600 dark:bg-rdia-800 dark:text-rdia-300">
+            <span>{hint}</span>
+            <button type="button" className="shrink-0 font-semibold text-rdia-600 hover:underline dark:text-or-400" onClick={loc.clear}>
+              {t.wz_loc_clear}
+            </button>
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
           <button className="btn-secondaire flex items-center gap-2 text-xs" onClick={loc.locate}>

@@ -8,7 +8,7 @@
 // que tenir l'état et dessiner ; ce qui se trompe se teste ici.
 // ============================================================================
 
-import { citiesOf, distKm, nearestProvince } from "@/lib/geo";
+import { distKm, nearestProvince, provinceLL, resolvePoint } from "@/lib/geo";
 import type { CreateIncidentBody } from "@/lib/api-client";
 import { casualtyKind } from "@/lib/derive";
 import { llToSvg, svgToLL, typeLabel } from "@/lib/helpers";
@@ -19,6 +19,19 @@ import type { City, Incident, IncidentTypeDef, Lang, NrbcDetails, NrbcFamily, Pr
 export type NrbcSpill = "small" | "large";
 export type NrbcRelease = "instant" | "continuous";
 
+/**
+ * Qui tient la localisation. Une seule source à la fois : deux sources, ce
+ * serait deux vérités.
+ * - `none`   : rien n'est posé.
+ * - `admin`  : région → province → ville choisies ; le point en découle et les
+ *              coordonnées se verrouillent.
+ * - `coords` : coordonnées saisies ; le découpage administratif en découle et
+ *              se verrouille.
+ * - `point`  : point posé (carte, géolocalisation, adresse reconnue) ; tout
+ *              est déduit, rien n'est verrouillé — toucher un champ reprend la main.
+ */
+export type LocMode = "none" | "admin" | "coords" | "point";
+
 /** Ce que l'opérateur saisit, tel quel : des chaînes, jamais déjà interprétées. */
 export interface WizardForm {
   type: string | null;
@@ -28,12 +41,14 @@ export interface WizardForm {
   desc: string;
   files: string[];
   adresse: string;
+  region: string;
   prov: string;
   city: string;
   lat: string;
   lng: string;
-  /** Point résolu [lng, lat] — source de vérité unique de la localisation. */
+  /** Point résolu [lng, lat] — ce qui part à l'API et ce que la carte montre. */
   pt: [number, number] | null;
+  locMode: LocMode;
   dead: string;
   injured: string;
   missing: string;
@@ -55,11 +70,13 @@ export const EMPTY_FORM: WizardForm = {
   desc: "",
   files: [],
   adresse: "",
+  region: "",
   prov: "",
   city: "",
   lat: "",
   lng: "",
   pt: null,
+  locMode: "none",
   dead: "",
   injured: "",
   missing: "",
@@ -75,9 +92,83 @@ export const EMPTY_FORM: WizardForm = {
 
 export const LAST_STEP = 4;
 
+/** Le référentiel géographique dont la localisation a besoin. */
+export type GeoRef = { provinces: readonly Province[]; cities: readonly City[] };
+
 /** Pose le point et aligne les champs de coordonnées affichés (5 décimales). */
 export function withPoint(form: WizardForm, ll: [number, number]): WizardForm {
   return { ...form, pt: ll, lng: ll[0].toFixed(5), lat: ll[1].toFixed(5) };
+}
+
+/** Le découpage administratif tel que le point le dit — vide quand le référentiel manque. */
+function derivedPlace(ll: [number, number], geo: GeoRef): Pick<WizardForm, "region" | "prov" | "city"> {
+  const r = resolvePoint(ll, geo.provinces, geo.cities);
+  return { region: r.region ?? "", prov: r.province ?? "", city: r.city ?? "" };
+}
+
+/**
+ * Un point posé (carte, géolocalisation, adresse reconnue) : région, province,
+ * ville et coordonnées s'alignent sur lui. Rien n'est verrouillé.
+ */
+export function placePoint(form: WizardForm, ll: [number, number], geo: GeoRef): WizardForm {
+  return { ...withPoint(form, ll), ...derivedPlace(ll, geo), locMode: "point" };
+}
+
+export interface PlaceChoice {
+  region: string;
+  province: string;
+  city: string;
+}
+
+/**
+ * Un lieu choisi dans la cascade : le point est celui de la ville, sinon le
+ * chef-lieu de la province, et les coordonnées se verrouillent. Une région
+ * seule ne localise rien : le point est retiré, sans verrou.
+ */
+export function choosePlace(form: WizardForm, v: PlaceChoice, geo: GeoRef): WizardForm {
+  const base: WizardForm = { ...form, region: v.region, prov: v.province, city: v.city };
+  const city = v.city ? geo.cities.find((c) => c.v === v.city) : undefined;
+  const province = v.province ? geo.provinces.find((x) => x.v === v.province) : undefined;
+  const ll = city?.ll ?? (province ? provinceLL(province) : undefined);
+  if (!ll) return { ...base, pt: null, lat: "", lng: "", locMode: "none" };
+  return { ...withPoint(base, ll), locMode: "admin" };
+}
+
+/**
+ * Des coordonnées saisies : dès la première frappe le découpage administratif
+ * se verrouille ; dès que les deux valeurs se lisent, le point bouge et le
+ * découpage est déduit. Les deux champs vidés rendent la main.
+ */
+export function typeCoords(form: WizardForm, typed: { lat?: string; lng?: string }, geo: GeoRef): WizardForm {
+  const lat = typed.lat ?? form.lat;
+  const lng = typed.lng ?? form.lng;
+  if (!lat.trim() && !lng.trim()) return { ...form, lat, lng, pt: null, region: "", prov: "", city: "", locMode: "none" };
+  const la = parseFloat(lat);
+  const lo = parseFloat(lng);
+  if (!Number.isFinite(la) || !Number.isFinite(lo)) return { ...form, lat, lng, locMode: "coords" };
+  const ll: [number, number] = [lo, la];
+  return { ...form, lat, lng, pt: ll, ...derivedPlace(ll, geo), locMode: "coords" };
+}
+
+/**
+ * L'adresse libre : si elle nomme une ville ou une province connue, elle pose
+ * le point — sauf quand l'opérateur a déjà choisi un lieu ou saisi des
+ * coordonnées : un nom tapé dans un complément d'adresse ne renverse pas ce choix.
+ */
+export function typeAddress(form: WizardForm, adresse: string, geo: GeoRef): WizardForm {
+  const free = form.locMode === "none" || form.locMode === "point";
+  const m = free ? matchPlace(adresse, geo.cities, geo.provinces) : null;
+  return m ? placePoint({ ...form, adresse }, m, geo) : { ...form, adresse };
+}
+
+/** Efface la localisation ; l'adresse libre, tapée à la main, reste. */
+export function clearLocation(form: WizardForm): WizardForm {
+  return { ...form, region: "", prov: "", city: "", lat: "", lng: "", pt: null, locMode: "none" };
+}
+
+/** Ce qui est verrouillé : l'un des deux côtés, jamais les deux. */
+export function locationLocks(form: Pick<WizardForm, "locMode">): { admin: boolean; coords: boolean } {
+  return { admin: form.locMode === "coords", coords: form.locMode === "admin" };
 }
 
 /**
@@ -86,31 +177,31 @@ export function withPoint(form: WizardForm, ll: [number, number]): WizardForm {
  * La description est rechargée : depuis le lot V-3 l'API la conserve, et
  * rouvrir une fiche n'efface plus le récit à la première modification. Les
  * compteurs absents restent des chaînes vides, pas « 0 » : un zéro saisi et un
- * champ laissé vide ne disent pas la même chose.
+ * champ laissé vide ne disent pas la même chose. Avec le référentiel, le
+ * découpage administratif est relu depuis le point de la fiche.
  */
-export function formFromIncident(inc: Incident): WizardForm {
+export function formFromIncident(inc: Incident, geo?: GeoRef): WizardForm {
   const c = inc.casualties;
-  return withPoint(
-    {
-      ...EMPTY_FORM,
-      type: inc.type,
-      title: inc.titre,
-      desc: inc.desc ?? "",
-      adresse: inc.adresse ?? "",
-      dead: c ? String(c.dead) : "",
-      injured: c ? String(c.injured) : "",
-      missing: c ? String(c.missing) : "",
-      infected: c ? String(c.infected ?? "") : "",
-      contaminated: c ? String(c.contaminated ?? "") : "",
-      units: inc.responders?.units ?? [],
-      hospitals: inc.responders?.hospitals ?? [],
-      nrbcFamily: inc.nrbc?.family ?? null,
-      nrbcSubstance: inc.nrbc?.substanceId ?? "",
-      nrbcSpill: inc.nrbc?.spill ?? "large",
-      nrbcRelease: inc.nrbc?.release ?? "instant",
-    },
-    inc.ll,
-  );
+  const base: WizardForm = {
+    ...EMPTY_FORM,
+    type: inc.type,
+    title: inc.titre,
+    desc: inc.desc ?? "",
+    adresse: inc.adresse ?? "",
+    region: inc.region ?? "",
+    dead: c ? String(c.dead) : "",
+    injured: c ? String(c.injured) : "",
+    missing: c ? String(c.missing) : "",
+    infected: c ? String(c.infected ?? "") : "",
+    contaminated: c ? String(c.contaminated ?? "") : "",
+    units: inc.responders?.units ?? [],
+    hospitals: inc.responders?.hospitals ?? [],
+    nrbcFamily: inc.nrbc?.family ?? null,
+    nrbcSubstance: inc.nrbc?.substanceId ?? "",
+    nrbcSpill: inc.nrbc?.spill ?? "large",
+    nrbcRelease: inc.nrbc?.release ?? "instant",
+  };
+  return geo ? placePoint(base, inc.ll, geo) : withPoint(base, inc.ll);
 }
 
 // --- validation ---------------------------------------------------------------
@@ -154,7 +245,7 @@ export function rankByDistance<T extends { ll: [number, number] }>(
  * Exact d'abord, puis préfixe ; les villes avant les provinces. Sous trois
  * caractères on ne devine pas : « ra » désignerait Rabat comme Rachidia.
  */
-export function matchPlace(text: string, cities: City[], provinces: Province[]): [number, number] | null {
+export function matchPlace(text: string, cities: readonly City[], provinces: readonly Province[]): [number, number] | null {
   const q = norm(text);
   if (q.length < 3) return null;
   const c = cities.find((x) => norm(x.v) === q) ?? cities.find((x) => norm(x.v).startsWith(q));
@@ -162,15 +253,6 @@ export function matchPlace(text: string, cities: City[], provinces: Province[]):
   const p = provinces.find((x) => norm(x.v) === q) ?? provinces.find((x) => norm(x.v).startsWith(q));
   if (p) return p.ll ?? svgToLL(p.x, p.y);
   return null;
-}
-
-/**
- * Villes proposées : celles de la PROVINCE choisie, sinon toutes. Avant, le
- * filtre portait sur la région : choisir Chichaoua proposait Marrakech, Safi
- * et Essaouira, à 170 km de là.
- */
-export function cityOptionsFor(province: Province | undefined, cities: City[]): City[] {
-  return citiesOf(cities, province?.v);
 }
 
 // --- bilan humain -------------------------------------------------------------

@@ -88,7 +88,8 @@ export function resolvePoint(ll: [number, number], provinces: readonly City[] | 
   const city = nearestCity(ll, ctx.cities);
   // La ville, quand il y en a une, fait foi pour la province : elle est
   // rattachée administrativement, là où le chef-lieu le plus proche peut être
-  // celui de la province voisine.
-  const province = city ? ctx.provinces.find((p) => p.v === city.province) : nearestProvince(ll, ctx.provinces);
-  return { region: province?.region, province: province?.v, city: city?.v };
+  // celui de la province voisine. Si son rattachement manque au référentiel,
+  // le chef-lieu le plus proche reprend la main.
+  const province = (city && ctx.provinces.find((p) => p.v === city.province)) ?? nearestProvince(ll, ctx.provinces);
+  return { region: province?.region ?? city?.region, province: province?.v, city: city?.v };
 }

@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useArgos, useDict } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import type { DescriptionProposalInput } from "@/lib/ai/draft";
-import { LAST_STEP, buildIncidentBody, canNext, cityOptionsFor, formFromIncident, rankByDistance } from "@/lib/incidents/wizard";
+import { LAST_STEP, buildIncidentBody, canNext, formFromIncident, rankByDistance, type GeoRef } from "@/lib/incidents/wizard";
 import { StepCasualties } from "@/components/incidents/wizard/StepCasualties";
 import { StepDetails } from "@/components/incidents/wizard/StepDetails";
 import { StepLocation } from "@/components/incidents/wizard/StepLocation";
@@ -43,16 +43,18 @@ export function IncidentWizard() {
 
   const [step, setStep] = useState(1);
   const [busy, setBusy] = useState(false);
-  const { form, actions } = useWizardForm();
-  const loc = useLocationFields(actions, cities, provinces);
+  // Le référentiel géographique tel que les gestes de localisation le lisent.
+  const geo = useMemo<GeoRef>(() => ({ provinces, cities }), [provinces, cities]);
+  const geoRef = useRef(geo);
+  geoRef.current = geo;
+  const { form, actions } = useWizardForm(geo);
+  const loc = useLocationFields(actions);
 
   // Le catalogue de substances n'est tiré que lorsqu'il devient nécessaire.
   useEffect(() => {
     if (open && form.type === "nrbc") void ensureNrbcSubstances();
   }, [open, form.type, ensureNrbcSubstances]);
 
-  const province = useMemo(() => provinces.find((p) => p.v === form.prov), [form.prov, provinces]);
-  const cityOptions = useMemo(() => cityOptionsFor(province, cities), [province, cities]);
   // Moyens classés par proximité au point de l'incident (suggestion = le plus proche).
   const nearUnits = useMemo(() => rankByDistance(units, form.pt), [units, form.pt]);
   const nearHosps = useMemo(() => rankByDistance(hospitals, form.pt), [hospitals, form.pt]);
@@ -83,11 +85,13 @@ export function IncidentWizard() {
   }, [open, initLL, actions]);
 
   // Ouverture en mode édition : pré-remplissage depuis l'incident existant ;
-  // titre et description existent déjà, on montre donc les champs.
+  // titre et description existent déjà, on montre donc les champs. Le
+  // référentiel se lit par référence : un rechargement du magasin pendant
+  // l'édition ne doit pas rejouer ce pré-remplissage.
   useEffect(() => {
     if (open && wizEdit) {
       setStep(1);
-      actions.load(formFromIncident(wizEdit));
+      actions.load(formFromIncident(wizEdit, geoRef.current));
       ai.markGenerated(true);
     }
     // `ai` change à chaque rendu (fonctions recréées) : on ne dépend que de l'ouverture.
@@ -140,7 +144,7 @@ export function IncidentWizard() {
 
         {step === 1 && <StepType types={incidentTypes} lang={lang} value={form.type} onSelect={(id) => actions.patch({ type: id })} />}
         {step === 2 && <StepDetails form={form} actions={actions} ai={ai} lang={lang} nrbcSubstances={nrbcSubstances} />}
-        {step === 3 && <StepLocation form={form} cities={cities} provinces={provinces} cityOptions={cityOptions} loc={loc} />}
+        {step === 3 && <StepLocation form={form} cities={cities} loc={loc} />}
         {step === 4 && <StepCasualties form={form} actions={actions} nearUnits={nearUnits} nearHosps={nearHosps} />}
 
         {/* Navigation */}

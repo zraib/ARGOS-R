@@ -70,6 +70,10 @@ a:hover {
   .dark .input-champ {
     @apply border-rdia-700 bg-rdia-800 text-rdia-50 placeholder:text-rdia-300;
   }
+  /* Un champ verrouillé se lit encore, mais se voit verrouillé. */
+  .input-champ:disabled {
+    @apply cursor-not-allowed opacity-60;
+  }
 
   /* Select natif thémé — même apparence que input-champ */
   select.input-champ {

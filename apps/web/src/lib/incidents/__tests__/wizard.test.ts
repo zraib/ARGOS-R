@@ -6,12 +6,18 @@ import {
   buildNrbc,
   canNext,
   casualtySecondary,
+  choosePlace,
+  clearLocation,
   coordsText,
   formFromIncident,
+  locationLocks,
   matchPlace,
   parseCount,
+  placePoint,
   rankByDistance,
   resolvePlace,
+  typeAddress,
+  typeCoords,
   withPoint,
   type WizardForm,
 } from "@/lib/incidents/wizard";
@@ -85,6 +91,56 @@ describe("géographie", () => {
     expect(resolvePlace({ pt: null, prov: "Marrakech", city: "" }, ctx)).toEqual({ region: "Marrakech-Safi", place: "Marrakech" });
     expect(resolvePlace({ pt: [-6.85, 34.0], prov: "", city: "" }, ctx)).toEqual({ region: "Rabat-Salé-Kénitra", place: "Rabat" });
     expect(resolvePlace({ pt: null, prov: "", city: "" }, ctx)).toEqual({ region: undefined, place: undefined });
+  });
+});
+
+describe("localisation : une seule source de vérité", () => {
+  const geo = { provinces, cities };
+
+  it("un point posé remplit région, province, ville et coordonnées, sans rien verrouiller", () => {
+    const f = placePoint(EMPTY_FORM, [-8.01, 31.62], geo);
+    expect(f).toMatchObject({ region: "Marrakech-Safi", prov: "Marrakech", city: "Marrakech", lat: "31.62000", lng: "-8.01000", locMode: "point" });
+    expect(locationLocks(f)).toEqual({ admin: false, coords: false });
+    // Loin de toute ville : la province la plus proche, aucune ville inventée.
+    expect(placePoint(EMPTY_FORM, [-7.5, 31.2], geo)).toMatchObject({ prov: "Marrakech", city: "" });
+  });
+
+  it("un lieu choisi pose le point de la ville, sinon du chef-lieu, et verrouille les coordonnées", () => {
+    const ville = choosePlace(EMPTY_FORM, { region: "Marrakech-Safi", province: "Marrakech", city: "Marrakech" }, geo);
+    expect(ville.pt).toEqual([-8.0, 31.63]);
+    expect(locationLocks(ville)).toEqual({ admin: false, coords: true });
+    const prov = choosePlace(EMPTY_FORM, { region: "Rabat-Salé-Kénitra", province: "Rabat", city: "" }, geo);
+    expect(prov.pt).toEqual([-6.84, 34.02]);
+    expect(prov.locMode).toBe("admin");
+    // Une région seule ne localise rien : pas de point, pas de verrou.
+    const region = choosePlace(ville, { region: "Rabat-Salé-Kénitra", province: "", city: "" }, geo);
+    expect(region).toMatchObject({ region: "Rabat-Salé-Kénitra", prov: "", city: "", pt: null, lat: "", locMode: "none" });
+  });
+
+  it("des coordonnées saisies déduisent le découpage et verrouillent la cascade ; vidées, elles rendent la main", () => {
+    const partiel = typeCoords(EMPTY_FORM, { lat: "31.6" }, geo);
+    expect(partiel).toMatchObject({ lat: "31.6", pt: null, locMode: "coords" });
+    expect(locationLocks(partiel)).toEqual({ admin: true, coords: false });
+    const complet = typeCoords(partiel, { lng: "-8.01" }, geo);
+    expect(complet).toMatchObject({ lat: "31.6", lng: "-8.01", region: "Marrakech-Safi", prov: "Marrakech", city: "Marrakech", locMode: "coords" });
+    expect(complet.pt).toEqual([-8.01, 31.6]);
+    // À 70 km de toute ville : la province est déduite, aucune ville n'est inventée.
+    expect(typeCoords(EMPTY_FORM, { lat: "31", lng: "-8.01" }, geo)).toMatchObject({ prov: "Marrakech", city: "" });
+    expect(typeCoords(complet, { lat: "", lng: "" }, geo)).toMatchObject({ pt: null, region: "", prov: "", city: "", locMode: "none" });
+  });
+
+  it("l'adresse libre pose le point d'un lieu reconnu, sauf quand un choix explicite le tient déjà", () => {
+    expect(typeAddress(EMPTY_FORM, "marrak", geo)).toMatchObject({ adresse: "marrak", city: "Marrakech", prov: "Marrakech", locMode: "point" });
+    const choisi = choosePlace(EMPTY_FORM, { region: "Marrakech-Safi", province: "Marrakech", city: "Marrakech" }, geo);
+    const apres = typeAddress(choisi, "Marrakech, route de Safi", geo);
+    expect(apres.adresse).toBe("Marrakech, route de Safi");
+    expect(apres.pt).toEqual(choisi.pt);
+    expect(apres.locMode).toBe("admin");
+  });
+
+  it("effacer retire tout sauf l'adresse tapée à la main", () => {
+    const f = clearLocation({ ...placePoint(EMPTY_FORM, [-8.0, 31.63], geo), adresse: "Bab Doukkala" });
+    expect(f).toMatchObject({ adresse: "Bab Doukkala", region: "", prov: "", city: "", lat: "", lng: "", pt: null, locMode: "none" });
   });
 });
 
@@ -180,5 +236,12 @@ describe("rouvrir une fiche", () => {
     // Une fiche sans bilan ne remplit pas de zéros.
     expect(formFromIncident({ ...inc, casualties: undefined } as Incident).dead).toBe("");
     expect(formFromIncident({ ...inc, desc: undefined } as Incident).desc).toBe("");
+  });
+
+  it("avec le référentiel, le découpage administratif est relu sur le point de la fiche", () => {
+    const inc = { id: "INC-2", type: "flood", titre: "Crue", ll: [-8.0, 31.63], region: "Marrakech-Safi" } as unknown as Incident;
+    expect(formFromIncident(inc, { provinces, cities })).toMatchObject({ region: "Marrakech-Safi", prov: "Marrakech", city: "Marrakech", locMode: "point" });
+    // Sans référentiel, la région de la fiche est gardée telle quelle.
+    expect(formFromIncident(inc)).toMatchObject({ region: "Marrakech-Safi", prov: "", locMode: "none" });
   });
 });

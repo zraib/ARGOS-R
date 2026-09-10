@@ -30,12 +30,15 @@ export function LocationCascade({
   onChange,
   withCity = true,
   disabled = false,
+  layout = "row",
 }: {
   value: LocationValue;
   onChange: (next: LocationValue) => void;
   /** Sans ville : région et province seulement (rattachement d'un compte, par exemple). */
   withCity?: boolean;
   disabled?: boolean;
+  /** `column` empile les trois listes — pour un volet étroit comme celui du wizard. */
+  layout?: "row" | "column";
 }) {
   const t = useDict();
   const provinces = useArgos((s) => s.provinces);
@@ -69,7 +72,7 @@ export function LocationCascade({
   };
 
   return (
-    <div className={`grid grid-cols-1 gap-3 ${withCity ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+    <div className={`grid grid-cols-1 gap-3 ${layout === "column" ? "" : withCity ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
       <div>
         <label className={labelCls}>{t.f_region}</label>
         <select className={inputCls} value={value.region} onChange={(e) => setRegion(e.target.value)} disabled={disabled}>
