@@ -19,6 +19,7 @@ import { Icon } from "@/components/ui/Icon";
 import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
 import { pointInMorocco } from "@/lib/map/morocco";
 import { playGlobalAlert, playNationalAlert } from "@/lib/sound";
+import { qLocalTime } from "@/lib/map/canvas/quakes";
 
 const POLL_MS = 60_000; // 1 min
 
@@ -90,6 +91,10 @@ export function QuakeAlert() {
               </span>
             </div>
             <p className="mt-1 truncate text-xs text-gray-600 dark:text-rdia-200">{alert.region}</p>
+            {/* L'heure du séisme, en heure locale : une alerte sans heure ne se situe pas. */}
+            <p className="font-mono text-[11px] tabular-nums text-gray-500 dark:text-rdia-300">
+              {f.seis_local}: {qLocalTime(alert.time, lang)}
+            </p>
             <p className="text-[12px] text-gray-400 dark:text-rdia-400">{isMa ? f.alert_ma_body : f.alert_body}</p>
             {/* Rappel de la notification serveur des autorités (SMS + e-mail) */}
             {isMa && (
