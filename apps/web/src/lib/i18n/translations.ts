@@ -556,7 +556,11 @@ export interface Dict {
   ops_excluded_one: string; ops_excluded_why_one: string;
   ops_excluded_shelter_why_one: string; ops_no_position_note_one: string;
   // Centre de communication temps réel (lot COMMS)
-  notif_title: string; notif_none: string; notif_unread_one: string; notif_unread_many: string;
+  notif_title: string; notif_none: string;
+  notif_incident_declared: string;
+  notif_alert_one: string;
+  notif_alert_many: string;
+  notif_open_map: string; notif_unread_one: string; notif_unread_many: string;
   notif_live: string; notif_connecting: string; notif_offline: string; cm_online_real: string;
   cm_offline_real: string; cm_sessions: string; cm_since: string; cm_admin: string;
   cm_rename: string; cm_delete: string; cm_new_channel: string; cm_channel_name: string;

@@ -262,7 +262,7 @@ export const FR_DICT: Dict = {
     ops_excluded_shelter_why: "saturés, ou hors rayon.",
     ops_no_position_note: "abri(s) dont la commune est absente du référentiel : classés sans temps de route.",
     // Centre de communication temps réel (lot COMMS)
-    notif_title: "Notifications", notif_none: "Aucun message non lu",
+    notif_title: "Notifications", notif_none: "Aucun message non lu", notif_incident_declared: "Incident déclaré dans votre région", notif_alert_one: "alerte", notif_alert_many: "alertes", notif_open_map: "Voir sur la carte",
     notif_unread_one: "message non lu", notif_unread_many: "messages non lus",
     notif_live: "En direct", notif_connecting: "Reconnexion…", notif_offline: "Hors ligne",
     cm_online_real: "En ligne", cm_offline_real: "Personne d'autre n'est connecté",

@@ -17,6 +17,7 @@ import { DomainService } from "@/modules/domain/domain.service";
 import { CommsService } from "@/modules/domain/comms.service";
 import { RealtimeService } from "@/modules/realtime/realtime.service";
 import { UsersService } from "@/modules/iam/users.service";
+import { NoticesService } from "@/modules/domain/notices.service";
 
 /** Initiales d'un nom affiché : « Cdt. H. Alami » → « HA ». */
 function initiales(nom: string): string {
@@ -34,6 +35,7 @@ export class CommsController {
     private readonly comms: CommsService,
     private readonly realtime: RealtimeService,
     private readonly users: UsersService,
+    private readonly notices: NoticesService,
   ) {}
 
   @Patch("comms/channels/:id")
@@ -123,6 +125,17 @@ export class CommsController {
         grade: u.grade,
         roles: u.roles,
       }));
+  }
+
+  /** Les alertes gardées pour le compte connecté — celles qu'il aurait manquées hors ligne. */
+  @Get("comms/notices")
+  @RequirePermission("comms:view")
+  @ApiOperation({
+    summary: "Alertes adressées au compte connecté (incident déclaré dans sa région…)",
+    description: "Les plus récentes d'abord ; poussées aussi par le flux temps réel à ceux qui sont connectés.",
+  })
+  listNotices(@CurrentUser() user: AuthUser) {
+    return this.notices.listFor(user.username);
   }
 
   @Get("comms")

@@ -27,7 +27,27 @@ export type RealtimeEvent =
   /** Un canal a été créé, renommé ou supprimé. */
   | { kind: "channel"; action: "created" | "updated" | "deleted"; channelId: string; payload?: unknown }
   /** La liste des présents a changé. */
-  | { kind: "presence"; online: PresenceUser[] };
+  | { kind: "presence"; online: PresenceUser[] }
+  /** Une alerte adressée à des comptes précis — jamais diffusée à tous. */
+  | { kind: "notice"; notice: Notice };
+
+/**
+ * Une alerte adressée : l'incident déclaré dans la région d'un wali ou d'une
+ * place d'armes. Elle porte de quoi l'afficher ET de quoi centrer la carte
+ * sans rien recharger.
+ */
+export interface Notice {
+  id: string;
+  /** ISO 8601. */
+  at: string;
+  kind: "incident_declared";
+  incidentId: string;
+  titre: string;
+  region: string;
+  ll: [number, number];
+  sev: string;
+  type: string;
+}
 
 export interface PresenceUser {
   matricule: string;

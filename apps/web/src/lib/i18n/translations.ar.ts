@@ -262,7 +262,7 @@ export const AR_DICT: Dict = {
     ops_excluded_shelter_why: "مشبعة، أو خارج النطاق.",
     ops_no_position_note: "مأوى/مآوٍ جماعتها غير واردة في المرجع: رُتّبت دون زمن طريق.",
     // مركز الاتصال في الزمن الحقيقي (الدفعة COMMS)
-    notif_title: "الإشعارات", notif_none: "لا توجد رسالة غير مقروءة",
+    notif_title: "الإشعارات", notif_none: "لا توجد رسالة غير مقروءة", notif_incident_declared: "حادث مُعلن في جهتكم", notif_alert_one: "تنبيه", notif_alert_many: "تنبيهات", notif_open_map: "عرض على الخريطة",
     notif_unread_one: "رسالة غير مقروءة", notif_unread_many: "رسائل غير مقروءة",
     notif_live: "مباشر", notif_connecting: "جارٍ إعادة الاتصال…", notif_offline: "غير متصل",
     cm_online_real: "متصل", cm_offline_real: "لا أحد آخر متصل",

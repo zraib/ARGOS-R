@@ -131,6 +131,8 @@ export function createArgosClient(opts: ArgosClientOptions) {
     getCommsDirectory: () => client.GET("/api/comms/directory"),
     /** Qui tient quoi — titulaire de chaque entité et de chaque poste déployé (permission `comms:view`). */
     getResponsables: () => client.GET("/api/comms/responsables"),
+    /** Alertes gardées pour le compte connecté — la plus récente d'abord. */
+    getNotices: () => client.GET("/api/comms/notices"),
     /** Ouvre (ou retrouve) la conversation directe avec un compte — rend le canal. */
     openDirectChannel: (matricule: string) =>
       client.POST("/api/comms/direct/{matricule}", { params: { path: { matricule } } }),

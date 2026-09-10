@@ -20,6 +20,9 @@ import { DeploymentService } from "@/modules/domain/deployment.service";
 import { CommsService } from "@/modules/domain/comms.service";
 import { IncidentTypesService } from "@/modules/domain/incident-types.service";
 import { SubIncidentTypesService } from "@/modules/domain/sub-incident-types.service";
+import { NoticesService } from "@/modules/domain/notices.service";
+import { UsersService } from "@/modules/iam/users.service";
+import { REGIONAL_AUTHORITY_ROLES } from "@/shared/responsibilities";
 
 @ApiTags("domain")
 @ApiBearerAuth()
@@ -32,6 +35,8 @@ export class IncidentsController {
     private readonly comms: CommsService,
     private readonly incidentTypes: IncidentTypesService,
     private readonly subIncidentTypes: SubIncidentTypesService,
+    private readonly users: UsersService,
+    private readonly notices: NoticesService,
   ) {}
 
   @Get("incident-types")
@@ -160,6 +165,16 @@ export class IncidentsController {
     // de boucle viendront s'y inscrire tout seuls. Le canal porte le TITRE de
     // l'opération — c'est sous ce nom que l'état-major la désigne à l'oral.
     this.comms.channelForIncident(inc.id, inc.titre);
+    // Le wali et le commandant de place d'armes de la région sont prévenus à
+    // la déclaration — eux, et eux seuls : l'alerte est adressée, pas diffusée.
+    // Elle porte le point de l'incident, pour que leur carte s'y centre.
+    const autorites = this.users.listByRegion(inc.region, REGIONAL_AUTHORITY_ROLES);
+    if (autorites.length > 0) {
+      this.notices.push(
+        autorites.map((u) => u.matricule),
+        { kind: "incident_declared", incidentId: inc.id, titre: inc.titre, region: inc.region, ll: inc.ll, sev: inc.sev, type: inc.type },
+      );
+    }
     return inc;
   }
 

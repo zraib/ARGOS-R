@@ -262,7 +262,7 @@ export const EN_DICT: Dict = {
     ops_excluded_shelter_why: "saturated, or out of radius.",
     ops_no_position_note: "shelter(s) whose municipality is absent from the reference: ranked without travel time.",
     // Real-time communication centre (lot COMMS)
-    notif_title: "Notifications", notif_none: "No unread message",
+    notif_title: "Notifications", notif_none: "No unread message", notif_incident_declared: "Incident declared in your region", notif_alert_one: "alert", notif_alert_many: "alerts", notif_open_map: "Show on the map",
     notif_unread_one: "unread message", notif_unread_many: "unread messages",
     notif_live: "Live", notif_connecting: "Reconnecting…", notif_offline: "Offline",
     cm_online_real: "Online", cm_offline_real: "Nobody else is connected",

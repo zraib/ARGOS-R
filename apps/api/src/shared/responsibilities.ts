@@ -75,7 +75,12 @@ export type Assignments = Partial<Record<ResponsibilityKind, string>> & {
  * wali et qu'un commandant de place d'armes. Affecter un second est une erreur
  * de saisie, pas une nuance — l'API la refuse.
  */
-export const UNIQUE_PER_REGION_ROLES: readonly Role[] = ["wali", "place_arme"];
+/**
+ * Les autorités d'une région : le wali et le commandant de place d'armes.
+ * Prévenues à la déclaration de tout incident sur leur territoire.
+ */
+export const REGIONAL_AUTHORITY_ROLES: readonly Role[] = ["wali", "place_arme"];
+export const UNIQUE_PER_REGION_ROLES: readonly Role[] = REGIONAL_AUTHORITY_ROLES;
 
 /**
  * Autorités CIVILES : elles n'ont pas de grade militaire. Un grade saisi pour

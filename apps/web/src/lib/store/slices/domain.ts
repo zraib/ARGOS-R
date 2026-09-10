@@ -20,6 +20,7 @@ import type {
   Incident,
   IncidentTypeDef,
   Mission,
+  Notice,
   Province,
   Responsible,
   SubIncidentCatalog,
@@ -168,6 +169,7 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
       api.getDashboardStats(),
       api.getSubIncidentTypes(),
       api.getResponsables(),
+      api.getNotices(),
     ]);
     const data = <T,>(i: number): T | undefined =>
       results[i].status === "fulfilled"
@@ -188,6 +190,7 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
       dashStats: data<DashStats>(11) ?? s.dashStats,
       subCatalog: data<SubIncidentCatalog>(12) ?? s.subCatalog,
       responsables: data<Responsible[]>(13) ?? s.responsables,
+      rtNotices: data<Notice[]>(14) ?? s.rtNotices,
       comCats: comms?.categories ?? s.comCats,
       comMsgs: comms?.messages ? marquerMiens(comms.messages, s.sessionUser?.matricule) : s.comMsgs,
       comMembers: comms?.members ?? s.comMembers,

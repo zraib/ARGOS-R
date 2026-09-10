@@ -10,8 +10,10 @@ import type { ArgosState } from "@/lib/store";
 import { openRealtimeStream } from "@/lib/realtime/stream";
 import type {
   CommMessage,
+  Notice,
   PresenceUser,
   } from "@/lib/types";
+import { mergeNotice } from "@/lib/notices";
 import {
   rtHandleRef,
   } from "@/lib/store/shared";
@@ -25,18 +27,25 @@ export interface RealtimeSlice {
   rtUnread: Record<string, number>;
   /** Canal actuellement affiché ; ses messages ne comptent jamais comme non lus. */
   rtActiveChannel: string | null;
+  /** Alertes adressées au compte (incident déclaré dans sa région…), la plus récente d'abord. */
+  rtNotices: Notice[];
+  /** Identifiants des alertes déjà ouvertes — le compte de la cloche ne les recompte pas. */
+  rtNoticesSeen: string[];
   // --- temps réel (lot COMMS) ---
   /** Ouvre le flux. Idempotent : appelée à chaque montage de la coquille. */
   rtConnect: () => void;
   rtDisconnect: () => void;
   /** Marque le canal ouvert à l'écran et solde ses non-lus. */
   rtSetActiveChannel: (id: string | null) => void;
+  rtMarkNoticeSeen: (id: string) => void;
 }
 
 export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice> = (set, get) => ({
   rtOnline: [],
   rtStatus: "closed",
   rtUnread: {},
+  rtNotices: [],
+  rtNoticesSeen: [],
   rtActiveChannel: null,
   // --- temps réel (lot COMMS) ------------------------------------------------
   rtConnect: () => {
@@ -73,6 +82,17 @@ export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice
           });
           return;
         }
+        if (e.kind === "notice") {
+          // Une alerte adressée : gardée, dite à voix haute, et le domaine est
+          // rechargé — l'incident déclaré doit être sur la carte avant que
+          // l'opérateur n'y aille.
+          const n = (e.data as { notice?: Notice }).notice;
+          if (!n?.id) return;
+          set({ rtNotices: mergeNotice(s.rtNotices, n) });
+          s.showToast(`${s.dict.notif_incident_declared} — ${n.titre}`);
+          void get().loadDomain({ ai: false });
+          return;
+        }
         if (e.kind === "channel") {
           // La structure a changé sous nos pieds : on la recharge plutôt que de
           // la rejouer à la main, une reconstitution partielle valant pire
@@ -89,6 +109,7 @@ export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice
     rtHandleRef.current = null;
     set({ rtStatus: "closed", rtOnline: [] });
   },
+  rtMarkNoticeSeen: (id) => set((s) => (s.rtNoticesSeen.includes(id) ? {} : { rtNoticesSeen: [...s.rtNoticesSeen, id] })),
   rtSetActiveChannel: (id) =>
     set((s) => {
       if (!id) return { rtActiveChannel: null };

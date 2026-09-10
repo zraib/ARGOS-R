@@ -1307,6 +1307,27 @@
         ]
       }
     },
+    "/api/comms/notices": {
+      "get": {
+        "description": "Les plus récentes d'abord ; poussées aussi par le flux temps réel à ceux qui sont connectés.",
+        "operationId": "CommsController_notices",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Alertes adressées au compte connecté (incident déclaré dans sa région…)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/comms": {
       "get": {
         "operationId": "CommsController_commsAll",

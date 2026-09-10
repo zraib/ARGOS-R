@@ -606,6 +606,11 @@ export class UsersService implements ScopeResolver {
     return out;
   }
 
+  /** Comptes actifs tenant l'un de ces rôles SUR cette région — les autorités à prévenir. */
+  listByRegion(region: string, roles: readonly Role[]): ManagedUser[] {
+    return this.users.filter((u) => !u.disabled && u.assignments?.region === region && u.roles.some((r) => roles.includes(r)));
+  }
+
   /** Comptes occupant un poste déployable — les candidats au déploiement. */
   listDeployable(viewer: Role = "superadmin"): ManagedUserPublic[] {
     return this.users

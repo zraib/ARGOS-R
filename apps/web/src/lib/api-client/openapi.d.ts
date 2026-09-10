@@ -662,6 +662,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/comms/notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Alertes adressées au compte connecté (incident déclaré dans sa région…)
+         * @description Les plus récentes d'abord ; poussées aussi par le flux temps réel à ceux qui sont connectés.
+         */
+        get: operations["CommsController_notices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/comms": {
         parameters: {
             query?: never;
@@ -3597,6 +3617,23 @@ export interface operations {
         };
     };
     CommsController_commsDirectory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommsController_notices: {
         parameters: {
             query?: never;
             header?: never;

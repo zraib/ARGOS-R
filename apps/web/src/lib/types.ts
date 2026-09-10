@@ -396,6 +396,19 @@ export interface Responsible {
   grade?: string;
 }
 
+/** Une alerte adressée au compte (incident déclaré dans sa région…). Miroir de l'API. */
+export interface Notice {
+  id: string;
+  at: string;
+  kind: "incident_declared";
+  incidentId: string;
+  titre: string;
+  region: string;
+  ll: [number, number];
+  sev: string;
+  type: string;
+}
+
 /** Un compte réellement connecté, tel que le flux temps réel le rapporte. */
 export interface PresenceUser {
   matricule: string;

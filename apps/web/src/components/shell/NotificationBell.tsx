@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useArgos, useDict } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
+import { noticeTime, unseenNotices } from "@/lib/notices";
+import type { Notice } from "@/lib/types";
 
 // ============================================================================
 // Cloche de notification (lot COMMS)
@@ -13,6 +15,11 @@ import { UI_ICONS } from "@/lib/icons";
 // pas. Le canal ouvert à l'écran ne compte jamais : une pastille qui s'allume
 // pour ce qu'on est en train de lire n'apprend rien et finit par être ignorée —
 // et une pastille ignorée ne sert plus quand elle compte vraiment.
+//
+// LES ALERTES ADRESSÉES Y SONT AUSSI. L'incident déclaré dans la région d'un
+// wali ou d'une place d'armes arrive ici, en tête, et son ouverture centre la
+// carte sur l'incident : la cloche ne dit pas seulement qu'il s'est passé
+// quelque chose, elle y mène.
 //
 // L'ÉTAT DE LA LIAISON EST DIT. Un écran de commandement qui a cessé de
 // recevoir est pire qu'un écran vide : il continue d'AVOIR L'AIR à jour. La
@@ -27,11 +34,19 @@ export function NotificationBell() {
   const status = useArgos((s) => s.rtStatus);
   const comCats = useArgos((s) => s.comCats);
   const setActive = useArgos((s) => s.rtSetActiveChannel);
+  const notices = useArgos((s) => s.rtNotices);
+  const seen = useArgos((s) => s.rtNoticesSeen);
+  const markSeen = useArgos((s) => s.rtMarkNoticeSeen);
+  const incidents = useArgos((s) => s.incidents);
+  const focusIncident = useArgos((s) => s.focusIncident);
+  const setMapCenter = useArgos((s) => s.setMapCenter);
 
   const [ouvert, setOuvert] = useState(false);
   const zone = useRef<HTMLDivElement>(null);
 
-  const total = useMemo(() => Object.values(unread).reduce((a, b) => a + b, 0), [unread]);
+  const totalMessages = useMemo(() => Object.values(unread).reduce((a, b) => a + b, 0), [unread]);
+  const fraiches = useMemo(() => unseenNotices(notices, seen), [notices, seen]);
+  const total = totalMessages + fraiches.length;
 
   /** Nom lisible d'un canal — l'identifiant ne dit rien à personne. */
   const nomCanal = (id: string): string => {
@@ -72,11 +87,24 @@ export function NotificationBell() {
     router.push("/communication");
   };
 
+  /** Ouvre une alerte : la carte se centre sur l'incident, sélectionné. */
+  const ouvrirAlerte = (n: Notice) => {
+    markSeen(n.id);
+    const inc = incidents.find((i) => i.id === n.incidentId);
+    if (inc) focusIncident(inc);
+    else setMapCenter(n.ll, 10, n.titre);
+    setOuvert(false);
+    router.push("/map");
+  };
+
   // Le libellé porte le compte ET l'état de la liaison : lu d'un trait par un
   // lecteur d'écran, il dit tout ce que la pastille et la teinte disent à l'œil.
-  const libelle = `${t.notif_title} — ${
-    total > 0 ? `${total} ${total > 1 ? t.notif_unread_many : t.notif_unread_one}` : t.notif_none
-  }${status !== "open" ? ` · ${status === "connecting" ? t.notif_connecting : t.notif_offline}` : ""}`;
+  const parts: string[] = [];
+  if (fraiches.length > 0) parts.push(`${fraiches.length} ${fraiches.length > 1 ? t.notif_alert_many : t.notif_alert_one}`);
+  if (totalMessages > 0) parts.push(`${totalMessages} ${totalMessages > 1 ? t.notif_unread_many : t.notif_unread_one}`);
+  const libelle = `${t.notif_title} — ${parts.length ? parts.join(" · ") : t.notif_none}${
+    status !== "open" ? ` · ${status === "connecting" ? t.notif_connecting : t.notif_offline}` : ""
+  }`;
 
   return (
     <div ref={zone} className="relative shrink-0">
@@ -128,10 +156,33 @@ export function NotificationBell() {
             </span>
           </div>
 
-          {lignes.length === 0 ? (
+          {lignes.length === 0 && notices.length === 0 ? (
             <p className="px-3 py-4 text-center text-[12px] text-gray-500 dark:text-rdia-300">{t.notif_none}</p>
           ) : (
             <ul className="max-h-[300px] overflow-y-auto overscroll-contain py-1">
+              {notices.map((n) => {
+                const fraiche = !seen.includes(n.id);
+                return (
+                  <li key={n.id}>
+                    <button
+                      onClick={() => ouvrirAlerte(n)}
+                      title={t.notif_open_map}
+                      className="flex w-full items-start gap-2 px-3 py-2 text-start transition-colors hover:bg-or-500/10"
+                    >
+                      <Icon path={UI_ICONS.alert} size={13} className={`mt-0.5 shrink-0 ${fraiche ? "text-danger-500" : "text-gray-400"}`} />
+                      <span className="min-w-0 flex-1">
+                        <span className={`block truncate text-[12.5px] ${fraiche ? "font-semibold text-gray-800 dark:text-rdia-50" : "text-gray-600 dark:text-rdia-200"}`}>
+                          {n.titre}
+                        </span>
+                        <span className="block truncate text-[11px] text-gray-500 dark:text-rdia-300">
+                          {t.notif_incident_declared} · {n.region}
+                        </span>
+                      </span>
+                      <span className="shrink-0 font-mono text-[10px] text-gray-400">{noticeTime(n.at)}</span>
+                    </button>
+                  </li>
+                );
+              })}
               {lignes.map(([id, n]) => (
                 <li key={id}>
                   <button
