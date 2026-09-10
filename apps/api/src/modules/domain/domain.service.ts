@@ -492,15 +492,21 @@ export class DomainService {
   }
 
   /**
-   * Entités engagées sur un incident — unités ET hôpitaux confondus.
+   * Entités engagées sur un incident — unités, hôpitaux ET sites mortuaires.
    *
    * Sert la portée « entity » : un responsable d'hôpital voit les opérations où
    * SON établissement sert. La liste vit ici parce que la donnée y vit ; la
    * doctrine de visibilité la reçoit sans connaître la forme d'un incident.
+   *
+   * Une morgue n'est pas « engagée » par la fiche d'incident : elle sert dès
+   * qu'un corps de cet incident lui est admis. Sans cette lecture, le
+   * responsable de morgue — classé multi-incidents par la doctrine — ne voyait
+   * AUCUNE opération, et le default-deny passait pour une panne.
    */
   entitiesOnIncident(incidentId: string): string[] {
     const inc = this.incidents.find((i) => i.id === incidentId);
-    return [...(inc?.responders?.units ?? []), ...(inc?.responders?.hospitals ?? [])];
+    const morgues = new Set(this.mortuaryRecords.filter((r) => r.incidentId === incidentId).map((r) => r.mid));
+    return [...(inc?.responders?.units ?? []), ...(inc?.responders?.hospitals ?? []), ...morgues];
   }
 
   listUnits(): Unit[] {
