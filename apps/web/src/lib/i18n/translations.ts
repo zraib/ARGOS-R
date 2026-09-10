@@ -182,6 +182,15 @@ export interface Dict {
   post_removed: string;
   post_no_incident: string;
   post_coords: string;
+  post_search: string;
+  post_available: string;
+  post_available_many: string;
+  post_deployed_on: string;
+  post_placed_on: string;
+  post_none_kind: string;
+  post_picked: string;
+  post_deploy_note: string;
+  post_redeploy_note: string;
   now: string;
   base_sat: string;
   base_plan: string;

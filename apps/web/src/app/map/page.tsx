@@ -42,6 +42,7 @@ export default function MapPage() {
   const role = useArgos((s) => s.role);
   const posts = useArgos((s) => s.posts);
   const shelters = useArgos((s) => s.shelters);
+  const responsables = useArgos((s) => s.responsables);
   const mapEdit = useArgos((s) => s.mapEdit);
   const deletePost = useArgos((s) => s.deletePost);
   const showToast = useArgos((s) => s.showToast);
@@ -199,7 +200,7 @@ export default function MapPage() {
           // parcs d'une opération — un lieu chacun, la personne vient du déploiement.
           key: "posts",
           label: t.lg_posts,
-          leaves: posts.map((p) => ({ id: p.id, label: `${postKindLabel(p.kind, t, m)} · ${postCaption(p, { shelters, units }) ?? p.incidentId}`, kind: "post" as const })),
+          leaves: posts.map((p) => ({ id: p.id, label: `${postKindLabel(p.kind, t, m)} · ${postCaption(p, { shelters, units, responsables }) ?? p.incidentId}`, kind: "post" as const })),
         },
       ],
     },
@@ -252,13 +253,13 @@ export default function MapPage() {
       const p = posts.find((x) => x.id === id);
       if (p) {
         const inc = incidents.find((i) => i.id === p.incidentId);
-        const caption = postCaption(p, { shelters, units });
+        const caption = postCaption(p, { shelters, units, responsables });
         // Qui tient le poste : le déploiement pour un PC ou une cellule
-        // (incident + rôle), l'affectation pour un abri ou un parc.
+        // (incident + rôle + compte), l'affectation pour un abri ou un parc.
         const responsible =
           p.kind === "shelter" || p.kind === "equipment"
             ? { kind: p.kind, entityId: p.entityId ?? "", incidentId: p.incidentId }
-            : { kind: "incident" as const, entityId: p.incidentId, role: p.kind };
+            : { kind: "incident" as const, entityId: p.incidentId, role: p.kind, matricule: p.matricule };
         selInfo = {
           titre: caption ? `${postKindLabel(p.kind, t, m)} · ${caption}` : postKindLabel(p.kind, t, m),
           sub: inc ? `${inc.id} · ${inc.titre}` : p.incidentId,

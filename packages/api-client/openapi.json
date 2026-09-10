@@ -635,6 +635,7 @@
     },
     "/api/incidents/{id}/posts": {
       "post": {
+        "description": "Un poste désigne une instance : LE compte OPCOM/TACOM/cellule qui le tient — déployé sur l'opération dans le même geste, retiré de celle qu'il servait — ou L'abri / LE parc représenté. Une instance déjà posée est refusée (409).",
         "operationId": "PostsController_create",
         "parameters": [
           {
@@ -658,10 +659,13 @@
         },
         "responses": {
           "400": {
-            "description": "Abri ou unité inconnus pour un poste qui en représente un."
+            "description": "Instance manquante ou invalide (compte sans le rôle, abri ou unité inconnus)."
           },
           "404": {
             "description": "Incident inconnu."
+          },
+          "409": {
+            "description": "Instance déjà posée, ou opération close."
           }
         },
         "security": [
@@ -669,7 +673,7 @@
             "bearer": []
           }
         ],
-        "summary": "Poser un poste (PC, cellule, abri, parc) sur la carte d'une opération — Super Administrateur (audité)",
+        "summary": "Poser un poste sur la carte d'une opération — Super Administrateur (audité)",
         "tags": [
           "domain"
         ]
@@ -722,6 +726,7 @@
         ]
       },
       "delete": {
+        "description": "Retire le LIEU. Le compte reste déployé sur l'opération : le retirer de l'opération est un acte de commandement distinct (déploiements).",
         "operationId": "PostsController_remove",
         "parameters": [
           {
@@ -4466,6 +4471,10 @@
           "entityId": {
             "type": "string",
             "description": "Entité représentée : abri (`shelter`) ou unité détentrice du parc (`equipment`)."
+          },
+          "matricule": {
+            "type": "string",
+            "description": "Compte qui tient un PC ou une cellule (opcom, tacom, cellules) — déployé sur l'opération à la pose."
           }
         },
         "required": [

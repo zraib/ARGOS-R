@@ -13,6 +13,7 @@ import type {
   CommCategory,
   CommMessage,
   DashStats,
+  DeployableAccount,
   DirectoryEntry,
   FeedItem,
   FieldHospital,
@@ -76,8 +77,11 @@ export interface DomainSlice {
   posts: IncidentPost[];
   /** Abris connus — pour poser un poste d'abri et nommer le poste sur la carte. */
   shelters: Shelter[];
+  /** Comptes déployables (PC, cellules) et l'opération qu'ils servent — la boîte à outils du mode édition. */
+  deployable: DeployableAccount[];
+  loadDeployable: () => Promise<void>;
   loadPosts: () => Promise<void>;
-  createPost: (incidentId: string, body: { kind: PostKind; ll: [number, number]; label?: string; entityId?: string }) => Promise<void>;
+  createPost: (incidentId: string, body: { kind: PostKind; ll: [number, number]; label?: string; entityId?: string; matricule?: string }) => Promise<void>;
   movePost: (id: string, ll: [number, number]) => Promise<void>;
   deletePost: (id: string) => Promise<void>;
   comCollapsed: Record<string, boolean>;
@@ -158,6 +162,7 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
   responsables: [],
   posts: [],
   shelters: [],
+  deployable: [],
   comCollapsed: {},
   provinces: [],
   cities: [],
@@ -275,10 +280,16 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
     const res = await api.getPosts();
     if (res.data) set({ posts: res.data as unknown as IncidentPost[] });
   },
+  loadDeployable: async () => {
+    const res = await api.getDeployablePosts();
+    if (res.data) set({ deployable: res.data as unknown as DeployableAccount[] });
+  },
   createPost: async (incidentId, body) => {
     const res = await api.createPost(incidentId, body);
     if (res.error || !res.data) throw new Error(apiErrorMessage(res.error));
-    await get().loadPosts();
+    // Poser un PC déploie son compte : les titulaires et les disponibilités
+    // ont changé en même temps que les postes.
+    await Promise.all([get().loadPosts(), get().loadResponsables(), get().loadDeployable()]);
   },
   // Optimiste : le marqueur reste où l'opérateur l'a lâché ; le signal temps
   // réel qui suit l'écriture relit la liste et confirme.

@@ -305,9 +305,9 @@ export type PostKind = (typeof POST_KINDS)[number];
  * Un poste posé sur la carte d'une opération : un PC (OPCOM, TACOM), une
  * cellule, un abri ou un parc d'équipement, à un point précis.
  *
- * Le poste ne porte PAS de personne : le déploiement (lot V-2) dit qui tient
- * l'OPCOM de l'opération, l'affectation dit qui tient l'abri ou le parc. La
- * carte joint les deux au moment d'afficher — un poste n'est qu'un lieu.
+ * Un poste désigne une INSTANCE, jamais une nature : ce compte-ci (un OPCOM,
+ * un TACOM, une cellule — plusieurs par opération, déployés à la pose) ou
+ * cette entité-ci (un abri, un parc). Une instance n'est posée qu'une fois.
  */
 export interface IncidentPost {
   id: string;
@@ -318,6 +318,8 @@ export interface IncidentPost {
   label?: string;
   /** Entité représentée : identifiant de l'abri (`shelter`) ou de l'unité détentrice du parc (`equipment`). */
   entityId?: string;
+  /** Compte qui tient un PC ou une cellule — déployé sur l'opération à la pose du poste. */
+  matricule?: string;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

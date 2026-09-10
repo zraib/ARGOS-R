@@ -16,7 +16,7 @@ export interface SelInfo {
   titre: string; sub: string; badgeType: BadgeType; badgeLabel: string;
   lines: SelLine[]; action?: () => void;
   /** Le titulaire de l'élément (commandant, directeur, poste déployé…) : présence et contact. */
-  responsible?: { kind: ResponsibleKind; entityId: string; role?: Role; incidentId?: string };
+  responsible?: { kind: ResponsibleKind; entityId: string; role?: Role; matricule?: string; incidentId?: string };
   /** Retirer l'élément de la carte — un poste, en mode édition. */
   remove?: () => void;
 }

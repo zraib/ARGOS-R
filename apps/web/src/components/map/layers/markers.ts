@@ -74,7 +74,7 @@ export function syncMarkers(rt: MarkersRuntime, map: maplibregl.Map | null) {
   // déplace ; lâché, il écrit sa nouvelle position. Hors mode, il se lit.
   if (L.posts) {
     const edit = state.mapEdit;
-    const ctx = { shelters: state.shelters, units: state.units };
+    const ctx = { shelters: state.shelters, units: state.units, responsables: state.responsables };
     state.posts.forEach((p) => {
       const el = mkEl(postMarkerHTML(postCode(p.kind, state.dict), POST_FILL[p.kind], isSel("post", p.id), postCaption(p, ctx)), "post", p.id);
       el.style.cursor = edit ? "grab" : "pointer";

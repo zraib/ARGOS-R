@@ -425,9 +425,20 @@ export interface IncidentPost {
   label?: string;
   /** Abri (`shelter`) ou unité détentrice du parc (`equipment`). */
   entityId?: string;
+  /** Compte qui tient un PC ou une cellule — déployé sur l'opération à la pose. */
+  matricule?: string;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Un compte déployable (PC, cellule) et l'opération qu'il sert déjà — miroir de `/deployable-posts`. */
+export interface DeployableAccount {
+  matricule: string;
+  nom: string;
+  grade?: string;
+  roles: string[];
+  currentIncidentId: string | null;
 }
 
 /** Un compte réellement connecté, tel que le flux temps réel le rapporte. */

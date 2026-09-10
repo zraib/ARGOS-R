@@ -11,9 +11,9 @@ import type {
   Incident,
   MapSelection,
   MarkerKind,
-  PostKind,
   WeatherGridSeries,
 } from "@/lib/types";
+import type { PostPick } from "@/lib/posts";
 import { api } from "@/lib/api";
 import {
   LayerState,
@@ -43,13 +43,13 @@ export interface MapSlice {
   // --- mode édition de la carte (lot #12, Super Administrateur) ---
   /** Les postes se posent, se déplacent et se retirent ; hors mode, la carte se lit seulement. */
   mapEdit: boolean;
-  /** Nature choisie dans la boîte à outils : le prochain clic sur la carte pose ce poste. */
-  armedPost: PostKind | null;
-  /** Poste en attente de rattachement (opération, entité, libellé) — la modale de pose. */
-  pendingPost: { kind: PostKind; ll: [number, number] } | null;
+  /** Instance choisie dans la boîte à outils : le prochain clic sur la carte la pose. */
+  armedPost: PostPick | null;
+  /** Instance en attente de rattachement (opération, libellé) — la modale de pose. */
+  pendingPost: (PostPick & { ll: [number, number] }) | null;
   setMapEdit: (v: boolean) => void;
-  armPost: (kind: PostKind | null) => void;
-  setPendingPost: (p: { kind: PostKind; ll: [number, number] } | null) => void;
+  armPost: (pick: PostPick | null) => void;
+  setPendingPost: (p: (PostPick & { ll: [number, number] }) | null) => void;
   /** Demande le centrage de la carte sur un incident (active la couche incidents) ; null pour purger. */
   focusIncident: (inc: Incident | null) => void;
   /** Demande un centrage générique de la carte (ex: zone géographique). Consommé par MapCanvas. null = purge. */
@@ -85,7 +85,7 @@ export const createMapSlice: StateCreator<ArgosState, [], [], MapSlice> = (set, 
   // Quitter le mode désarme le chip et lâche le poste en attente : rien ne
   // reste « à moitié posé » derrière un interrupteur éteint.
   setMapEdit: (v) => set(v ? { mapEdit: true } : { mapEdit: false, armedPost: null, pendingPost: null }),
-  armPost: (kind) => set({ armedPost: kind }),
+  armPost: (pick) => set({ armedPost: pick }),
   setPendingPost: (p) => set({ pendingPost: p }),
   map3d: false,
   mapSat: true,

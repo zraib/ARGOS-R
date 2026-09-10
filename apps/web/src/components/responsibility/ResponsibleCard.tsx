@@ -25,6 +25,8 @@ export interface ResponsibleCardProps {
   entityId: string;
   /** Pour un poste déployé : le rôle qui tient le poste sur cet incident. */
   role?: Role;
+  /** Pour un poste déployé : LE compte, quand plusieurs tiennent le même rôle sur l'opération. */
+  matricule?: string;
   /** Incident sur lequel l'entité est engagée : ouvre aussi son canal. */
   incidentId?: string;
   /** `dark` : sur le panneau de la carte, texte clair sur fond sombre. */
@@ -34,7 +36,7 @@ export interface ResponsibleCardProps {
   className?: string;
 }
 
-export function ResponsibleCard({ kind, entityId, role, incidentId, tone = "light", hideIfNone = false, className = "" }: ResponsibleCardProps) {
+export function ResponsibleCard({ kind, entityId, role, matricule, incidentId, tone = "light", hideIfNone = false, className = "" }: ResponsibleCardProps) {
   const t = useDict();
   const m = useModules();
   const router = useRouter();
@@ -49,7 +51,10 @@ export function ResponsibleCard({ kind, entityId, role, incidentId, tone = "ligh
   const [busy, setBusy] = useState(false);
 
   // Un poste déployé se retrouve par (incident, rôle) ; une entité par (nature, identifiant).
-  const r = kind === "incident" ? deployedOn(responsables, entityId).find((x) => x.role === role) : responsibleOf(responsables, kind, entityId);
+  const r =
+    kind === "incident"
+      ? deployedOn(responsables, entityId).find((x) => (matricule ? x.matricule.toLowerCase() === matricule.toLowerCase() && x.role === role : x.role === role))
+      : responsibleOf(responsables, kind, entityId);
   if (!r && hideIfNone) return null;
 
   const dark = tone === "dark";

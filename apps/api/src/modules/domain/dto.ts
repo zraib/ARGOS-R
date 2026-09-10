@@ -867,6 +867,10 @@ export class CreatePostDto {
   @ApiPropertyOptional({ description: "Entité représentée : abri (`shelter`) ou unité détentrice du parc (`equipment`)." })
   @IsOptional() @IsString() @MaxLength(40)
   entityId?: string;
+
+  @ApiPropertyOptional({ description: "Compte qui tient un PC ou une cellule (opcom, tacom, cellules) — déployé sur l'opération à la pose." })
+  @IsOptional() @IsString() @MaxLength(60)
+  matricule?: string;
 }
 
 export class UpdatePostDto {

@@ -16,8 +16,10 @@ import { RequirePermission } from "@/common/decorators/require-permission.decora
 import type { AuthUser } from "@/common/types/auth-user";
 import { CreatePostDto, UpdatePostDto } from "@/modules/domain/dto";
 import { DomainService } from "@/modules/domain/domain.service";
+import { DeploymentService } from "@/modules/domain/deployment.service";
 import { VisibilityService } from "@/modules/domain/visibility.service";
 import { RealtimeService } from "@/modules/realtime/realtime.service";
+import { UsersService } from "@/modules/iam/users.service";
 
 @ApiTags("domain")
 @ApiBearerAuth()
@@ -27,7 +29,12 @@ export class PostsController {
     private readonly domain: DomainService,
     private readonly visibility: VisibilityService,
     private readonly realtime: RealtimeService,
+    private readonly deployment: DeploymentService,
+    private readonly users: UsersService,
   ) {}
+
+  /** Le compte existe et tient ce rôle — ce que les règles d'un poste demandent. */
+  private readonly accountHasRole = (matricule: string, role: string) => this.users.hasRole(matricule, role as Parameters<UsersService["hasRole"]>[1]);
 
   @Get("posts")
   @RequirePermission("map:view")
@@ -43,12 +50,22 @@ export class PostsController {
 
   @Post("incidents/:id/posts")
   @RequirePermission("map_edit:create")
-  @ApiOperation({ summary: "Poser un poste (PC, cellule, abri, parc) sur la carte d'une opération — Super Administrateur (audité)" })
-  @ApiResponse({ status: 400, description: "Abri ou unité inconnus pour un poste qui en représente un." })
+  @ApiOperation({
+    summary: "Poser un poste sur la carte d'une opération — Super Administrateur (audité)",
+    description:
+      "Un poste désigne une instance : LE compte OPCOM/TACOM/cellule qui le tient — déployé sur l'opération dans le même " +
+      "geste, retiré de celle qu'il servait — ou L'abri / LE parc représenté. Une instance déjà posée est refusée (409).",
+  })
+  @ApiResponse({ status: 400, description: "Instance manquante ou invalide (compte sans le rôle, abri ou unité inconnus)." })
   @ApiResponse({ status: 404, description: "Incident inconnu." })
+  @ApiResponse({ status: 409, description: "Instance déjà posée, ou opération close." })
   create(@Param("id") id: string, @Body() dto: CreatePostDto, @CurrentUser() user: AuthUser, @AuditMeta() audit: AuditMetaSetter) {
-    const post = this.domain.createPost({ incidentId: id, ...dto }, user.username);
-    audit({ post: post.id, kind: post.kind, onto: id, entity: post.entityId });
+    // Trancher AVANT de déployer : un poste refusé ne doit pas laisser un
+    // déploiement derrière lui.
+    const ids = this.domain.assertPostAllowed({ incidentId: id, ...dto }, this.accountHasRole);
+    const change = ids.matricule ? this.deployment.deploy(id, ids.matricule, user.username) : null;
+    const post = this.domain.createPost({ incidentId: id, ...dto }, user.username, this.accountHasRole);
+    audit({ post: post.id, kind: post.kind, onto: id, entity: post.entityId, deployed: change?.matricule, withdrawnFrom: change?.previousIncidentId ?? undefined });
     this.realtime.emit({ kind: "posts", incidentId: id });
     return post;
   }
@@ -68,7 +85,10 @@ export class PostsController {
 
   @Delete("incidents/:id/posts/:postId")
   @RequirePermission("map_edit:delete")
-  @ApiOperation({ summary: "Retirer un poste de la carte — Super Administrateur (audité)" })
+  @ApiOperation({
+    summary: "Retirer un poste de la carte — Super Administrateur (audité)",
+    description: "Retire le LIEU. Le compte reste déployé sur l'opération : le retirer de l'opération est un acte de commandement distinct (déploiements).",
+  })
   @ApiResponse({ status: 404, description: "Poste inconnu sur cette opération." })
   remove(@Param("id") id: string, @Param("postId") postId: string, @CurrentUser() user: AuthUser, @AuditMeta() audit: AuditMetaSetter) {
     const post = this.domain.listPosts([id]).find((p) => p.id === postId);

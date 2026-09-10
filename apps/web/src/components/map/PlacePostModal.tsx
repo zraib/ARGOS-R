@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { useArgos, useDict, useModules } from "@/lib/store";
 import { nearestIncident } from "@/lib/posts";
+import { tpl } from "@/lib/i18n/format";
 import { postKindLabel } from "@/components/map/PostToolbox";
 
 // ============================================================================
-// Modale de pose d'un poste (lot #12) : le point est déjà choisi sur la carte,
-// reste à dire POUR QUELLE opération — la plus proche est proposée — et, pour
-// un abri ou un parc, QUELLE entité le poste représente.
+// Modale de pose d'un poste (lot #12) : l'instance (ce compte, cet abri, ce
+// parc) et le point sont déjà choisis ; reste à dire POUR QUELLE opération —
+// la plus proche est proposée. Poser un PC ou une cellule déploie son compte
+// sur l'opération : la modale le dit avant que l'opérateur ne confirme.
 // ============================================================================
 
 const labelCls = "mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200";
@@ -21,13 +23,11 @@ export function PlacePostModal() {
   const pending = useArgos((s) => s.pendingPost);
   const setPending = useArgos((s) => s.setPendingPost);
   const incidents = useArgos((s) => s.incidents);
-  const shelters = useArgos((s) => s.shelters);
-  const units = useArgos((s) => s.units);
+  const deployable = useArgos((s) => s.deployable);
   const createPost = useArgos((s) => s.createPost);
   const showToast = useArgos((s) => s.showToast);
 
   const [incidentId, setIncidentId] = useState("");
-  const [entityId, setEntityId] = useState("");
   const [label, setLabel] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -35,27 +35,22 @@ export function PlacePostModal() {
   useEffect(() => {
     if (!pending) return;
     setIncidentId(nearestIncident(pending.ll, incidents)?.id ?? "");
-    setEntityId("");
     setLabel("");
   }, [pending, incidents]);
 
   if (!pending) return null;
 
   const actives = incidents.filter((i) => !i.archived);
-  const needsEntity = pending.kind === "shelter" || pending.kind === "equipment";
-  const entities =
-    pending.kind === "shelter"
-      ? shelters.map((s) => ({ id: s.id, nom: `${s.nom} · ${s.ville}` }))
-      : pending.kind === "equipment"
-        ? units.map((u) => ({ id: u.id, nom: `${u.nom} · ${u.ville}` }))
-        : [];
-  const canPlace = !!incidentId && (!needsEntity || !!entityId) && !busy;
+  const canPlace = !!incidentId && !busy;
+  // Un compte déjà déployé ailleurs quittera cette opération-là : dit noir sur blanc.
+  const from = pending.matricule ? deployable.find((a) => a.matricule === pending.matricule)?.currentIncidentId : null;
+  const note = pending.matricule ? (from && from !== incidentId ? tpl(t.post_redeploy_note, { from }) : t.post_deploy_note) : null;
 
   const submit = async () => {
     if (!canPlace) return;
     setBusy(true);
     try {
-      await createPost(incidentId, { kind: pending.kind, ll: pending.ll, label: label.trim() || undefined, entityId: needsEntity ? entityId : undefined });
+      await createPost(incidentId, { kind: pending.kind, ll: pending.ll, label: label.trim() || undefined, entityId: pending.entityId, matricule: pending.matricule });
       showToast(t.post_placed);
       setPending(null);
     } catch (err: unknown) {
@@ -68,6 +63,11 @@ export function PlacePostModal() {
   return (
     <Modal open title={`${t.post_place_title} — ${postKindLabel(pending.kind, t, m)}`} onClose={() => setPending(null)} size="md">
       <div className="flex flex-col gap-4">
+        <div>
+          <label className={labelCls}>{t.post_picked}</label>
+          <div className="input-champ text-sm text-gray-700 dark:text-rdia-100">{pending.title}</div>
+        </div>
+
         <div>
           <label className={labelCls}>{t.post_incident}</label>
           {actives.length === 0 ? (
@@ -84,19 +84,7 @@ export function PlacePostModal() {
           )}
         </div>
 
-        {needsEntity && (
-          <div>
-            <label className={labelCls}>{pending.kind === "shelter" ? t.post_entity_shelter : t.post_entity_equipment}</label>
-            <select className={fieldCls} value={entityId} onChange={(e) => setEntityId(e.target.value)}>
-              <option value="">—</option>
-              {entities.map((x) => (
-                <option key={x.id} value={x.id}>
-                  {x.nom}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        {note && <p className="text-xs text-or-600 dark:text-or-300">{note}</p>}
 
         <div>
           <label className={labelCls}>{t.post_label}</label>

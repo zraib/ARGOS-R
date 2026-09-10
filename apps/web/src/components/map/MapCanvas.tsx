@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useArgos, useDict } from "@/lib/store";
-import { POST_DRAG_MIME, isPostKind } from "@/lib/posts";
+import { POST_DRAG_MIME, parsePostPick } from "@/lib/posts";
 import { FLUX } from "@/lib/i18n/flux";
 import { canReportIncident } from "@/lib/roles";
 import { MAP_CENTER, MAP_STYLE, MAP_ZOOM } from "@/lib/map/style";
@@ -185,7 +185,7 @@ export function MapCanvas() {
       // Un chip de la boîte à outils est armé : ce clic pose le poste ici.
       const armed = useArgos.getState().armedPost;
       if (armed) {
-        useArgos.getState().setPendingPost({ kind: armed, ll: [e.lngLat.lng, e.lngLat.lat] });
+        useArgos.getState().setPendingPost({ ...armed, ll: [e.lngLat.lng, e.lngLat.lat] });
         useArgos.getState().armPost(null);
         return;
       }
@@ -501,13 +501,13 @@ export function MapCanvas() {
         if (useArgos.getState().mapEdit && e.dataTransfer.types.includes(POST_DRAG_MIME)) e.preventDefault();
       }}
       onDrop={(e) => {
-        const kind = e.dataTransfer.getData(POST_DRAG_MIME);
+        const pick = parsePostPick(e.dataTransfer.getData(POST_DRAG_MIME));
         const map = mapRef.current, host = containerRef.current;
-        if (!isPostKind(kind) || !map || !host || !useArgos.getState().mapEdit) return;
+        if (!pick || !map || !host || !useArgos.getState().mapEdit) return;
         e.preventDefault();
         const rect = host.getBoundingClientRect();
         const ll = map.unproject([e.clientX - rect.left, e.clientY - rect.top]);
-        useArgos.getState().setPendingPost({ kind, ll: [ll.lng, ll.lat] });
+        useArgos.getState().setPendingPost({ ...pick, ll: [ll.lng, ll.lat] });
       }}
       onContextMenu={(e) => {
         // Maj + clic droit : menu contextuel du point visé.

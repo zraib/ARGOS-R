@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { resolveShelterTypology, type ShelterTypologyInput } from "@/modules/domain/shelter.rules";
 import { computeAnalyticsOf, computeStats, type DomainSnapshot } from "@/modules/domain/domain.analytics";
 import { PROVINCES_MA, llToSvg } from "@/modules/domain/provinces.data";
@@ -26,7 +26,7 @@ import { loadDevState, saveDevState } from "@/common/dev-store";
 export type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviStatus, DviSample, MortuaryRecord, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind } from "@/modules/domain/domain.types";
 export { DVI_STATUSES, DVI_SAMPLES } from "@/modules/domain/domain.types";
 import type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviSample, MortuaryRecord, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind } from "@/modules/domain/domain.types";
-import { checkPost } from "@/modules/domain/post.rules";
+import { checkPost, type PostLookup } from "@/modules/domain/post.rules";
 
 
 /**
@@ -248,33 +248,63 @@ export class DomainService {
     return this.posts.filter((p) => set.has(p.incidentId));
   }
 
-  /**
-   * Pose un poste sur une opération. L'incident doit exister ; un abri ou un
-   * parc doivent représenter une entité existante (`post.rules`).
-   */
-  createPost(input: { incidentId: string; kind: PostKind; ll: [number, number]; label?: string; entityId?: string }, author: string): IncidentPost {
-    const inc = this.incidents.find((i) => i.id === input.incidentId);
-    if (!inc) throw new NotFoundException(`Incident inconnu : ${input.incidentId}`);
-    const check = checkPost(input, {
-      shelter: (id) => this.shelters.some((s) => s.id === id),
+  /** Ce que les règles d'un poste ont besoin de savoir de la plateforme. */
+  private postLookup(accountHasRole: (matricule: string, role: PostKind) => boolean): PostLookup {
+    const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+    return {
+      shelter: (id) => this.shelters.some((x) => x.id === id),
       unit: (id) => this.units.some((u) => u.id === id),
-    });
-    if (!check.ok) throw new BadRequestException(check.reason);
+      account: accountHasRole,
+      placedAccount: (m) => this.posts.find((p) => !!p.matricule && same(p.matricule, m))?.incidentId,
+      placedEntity: (kind, id) => this.posts.find((p) => p.kind === kind && p.entityId === id)?.incidentId,
+    };
+  }
+
+  /**
+   * Vérifie qu'un poste PEUT se poser — sans le poser. L'appelant déploie le
+   * compte AVANT de poser, et ne doit pas déployer pour rien : on tranche ici
+   * d'abord. Incident inconnu → 404 ; instance invalide → 400 ; déjà posée → 409.
+   */
+  assertPostAllowed(
+    input: { incidentId: string; kind: PostKind; entityId?: string; matricule?: string },
+    accountHasRole: (matricule: string, role: PostKind) => boolean,
+  ): { entityId?: string; matricule?: string } {
+    if (!this.incidents.some((i) => i.id === input.incidentId)) throw new NotFoundException(`Incident inconnu : ${input.incidentId}`);
+    const check = checkPost(input, this.postLookup(accountHasRole));
+    if (!check.ok) {
+      if (check.conflict) throw new ConflictException(check.reason);
+      throw new BadRequestException(check.reason);
+    }
+    return { entityId: check.entityId, matricule: check.matricule };
+  }
+
+  /** Pose un poste sur une opération — après `assertPostAllowed`, qui est rejoué ici. */
+  createPost(
+    input: { incidentId: string; kind: PostKind; ll: [number, number]; label?: string; entityId?: string; matricule?: string },
+    author: string,
+    accountHasRole: (matricule: string, role: PostKind) => boolean,
+  ): IncidentPost {
+    const ids = this.assertPostAllowed(input, accountHasRole);
     const n = Math.max(0, ...this.posts.map((p) => parseInt(p.id.replace(/\D/g, ""), 10) || 0)) + 1;
     const now = new Date().toISOString();
     const post: IncidentPost = {
       id: `P${n}`,
-      incidentId: inc.id,
+      incidentId: input.incidentId,
       kind: input.kind,
       ll: input.ll,
       label: input.label?.trim() || undefined,
-      entityId: check.entityId,
+      entityId: ids.entityId,
+      matricule: ids.matricule,
       createdBy: author,
       createdAt: now,
       updatedAt: now,
     };
     this.posts.push(post);
-    this.pushFeed(`${inc.id} — poste ${post.kind.toUpperCase()} posé sur la carte par ${author}`, "bg-or-500", inc.id);
+    this.pushFeed(
+      `${input.incidentId} — poste ${post.kind.toUpperCase()}${post.matricule ? ` (${post.matricule})` : ""} posé sur la carte par ${author}`,
+      "bg-or-500",
+      input.incidentId,
+    );
     this.persist();
     return post;
   }

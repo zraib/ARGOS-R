@@ -376,7 +376,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Poser un poste (PC, cellule, abri, parc) sur la carte d'une opération — Super Administrateur (audité) */
+        /**
+         * Poser un poste sur la carte d'une opération — Super Administrateur (audité)
+         * @description Un poste désigne une instance : LE compte OPCOM/TACOM/cellule qui le tient — déployé sur l'opération dans le même geste, retiré de celle qu'il servait — ou L'abri / LE parc représenté. Une instance déjà posée est refusée (409).
+         */
         post: operations["PostsController_create"];
         delete?: never;
         options?: never;
@@ -394,7 +397,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Retirer un poste de la carte — Super Administrateur (audité) */
+        /**
+         * Retirer un poste de la carte — Super Administrateur (audité)
+         * @description Retire le LIEU. Le compte reste déployé sur l'opération : le retirer de l'opération est un acte de commandement distinct (déploiements).
+         */
         delete: operations["PostsController_remove"];
         options?: never;
         head?: never;
@@ -2090,6 +2096,8 @@ export interface components {
             label?: string;
             /** @description Entité représentée : abri (`shelter`) ou unité détentrice du parc (`equipment`). */
             entityId?: string;
+            /** @description Compte qui tient un PC ou une cellule (opcom, tacom, cellules) — déployé sur l'opération à la pose. */
+            matricule?: string;
         };
         UpdatePostDto: {
             /**
@@ -3254,7 +3262,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Abri ou unité inconnus pour un poste qui en représente un. */
+            /** @description Instance manquante ou invalide (compte sans le rôle, abri ou unité inconnus). */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -3263,6 +3271,13 @@ export interface operations {
             };
             /** @description Incident inconnu. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Instance déjà posée, ou opération close. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
