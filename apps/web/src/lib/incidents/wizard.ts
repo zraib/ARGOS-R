@@ -8,6 +8,7 @@
 // que tenir l'état et dessiner ; ce qui se trompe se teste ici.
 // ============================================================================
 
+import { citiesOf, distKm, nearestProvince } from "@/lib/geo";
 import type { CreateIncidentBody } from "@/lib/api-client";
 import { casualtyKind } from "@/lib/derive";
 import { llToSvg, svgToLL, typeLabel } from "@/lib/helpers";
@@ -133,27 +134,10 @@ export function coordsText(pt: [number, number] | null): string {
 /** Normalisation pour l'appariement local d'adresse (minuscules, sans accents). */
 export const norm = (s: string): string => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 
-/** Province la plus proche d'un point géographique (rattachement région). */
-export function nearestProvince(ll: [number, number], provinces: Province[]): Province | undefined {
-  let best: Province | undefined;
-  let bestD = Infinity;
-  for (const p of provinces) {
-    const pll = p.ll ?? svgToLL(p.x, p.y);
-    const d = (pll[0] - ll[0]) ** 2 + (pll[1] - ll[1]) ** 2;
-    if (d < bestD) {
-      bestD = d;
-      best = p;
-    }
-  }
-  return best;
-}
-
-/** Distance approximative en km entre deux points [lng, lat] (équirectangulaire). */
-export function distKm(a: [number, number], b: [number, number]): number {
-  const dLat = (a[1] - b[1]) * 111;
-  const dLng = (a[0] - b[0]) * 111 * Math.cos((((a[1] + b[1]) / 2) * Math.PI) / 180);
-  return Math.round(Math.sqrt(dLat * dLat + dLng * dLng));
-}
+// Les aides géographiques (province la plus proche, distance, cascade) vivent
+// dans `lib/geo` — un seul endroit pour tous les écrans. Réexportées ici pour
+// les appelants historiques du wizard.
+export { distKm, nearestProvince };
 
 /** Classe les moyens du plus proche au plus loin du point (sinon ordre d'origine, km inconnu). */
 export function rankByDistance<T extends { ll: [number, number] }>(
@@ -180,10 +164,13 @@ export function matchPlace(text: string, cities: City[], provinces: Province[]):
   return null;
 }
 
-/** Villes proposées : celles de la région de la province choisie, sinon toutes. */
+/**
+ * Villes proposées : celles de la PROVINCE choisie, sinon toutes. Avant, le
+ * filtre portait sur la région : choisir Chichaoua proposait Marrakech, Safi
+ * et Essaouira, à 170 km de là.
+ */
 export function cityOptionsFor(province: Province | undefined, cities: City[]): City[] {
-  const reg = province?.region;
-  return reg ? cities.filter((c) => c.region === reg) : cities;
+  return citiesOf(cities, province?.v);
 }
 
 // --- bilan humain -------------------------------------------------------------

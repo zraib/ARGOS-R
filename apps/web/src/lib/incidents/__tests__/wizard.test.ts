@@ -31,9 +31,11 @@ const provinces: Province[] = [
   { v: "Rabat", region: "Rabat-Salé-Kénitra", x: 0, y: 0, ll: [-6.84, 34.02] },
 ];
 const cities: City[] = [
-  { v: "Marrakech", region: "Marrakech-Safi", ll: [-8.0, 31.63] },
-  { v: "Salé", region: "Rabat-Salé-Kénitra", ll: [-6.8, 34.04] },
-  { v: "Safi", region: "Marrakech-Safi", ll: [-9.23, 32.3] },
+  { v: "Marrakech", province: "Marrakech", region: "Marrakech-Safi", ll: [-8.0, 31.63] },
+  { v: "Salé", province: "Salé", region: "Rabat-Salé-Kénitra", ll: [-6.8, 34.04] },
+  // Safi est dans la RÉGION de Marrakech mais pas dans sa province : c'est
+  // exactement la différence que le filtre des villes doit faire.
+  { v: "Safi", province: "Safi", region: "Marrakech-Safi", ll: [-9.23, 32.3] },
 ];
 const ctx = { cities, provinces, incidentTypes: [], lang: "fr" as const };
 

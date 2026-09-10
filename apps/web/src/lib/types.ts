@@ -408,6 +408,8 @@ export interface Province {
 /** Ville / commune (référentiel de localisation fine, API /reference). */
 export interface City {
   v: string;
+  /** Province ou préfecture de rattachement — nom exact d'une `Province.v`. */
+  province: string;
   region: string;
   ll: [number, number];
 }

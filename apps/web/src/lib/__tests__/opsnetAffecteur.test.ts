@@ -17,7 +17,7 @@ const unite = (id: string, ll: [number, number], eff: number, dispo: Unit["dispo
 const abri = (id: string, ville: string, capacity: number, occupants: number, supplies: Shelter["supplies"]): Shelter => ({
   id, nom: id, ville, capacity, occupants, staff: 5, supplies, needs: "—", adults: 0, children: 0, elderly: 0,
 });
-const villes: City[] = [{ v: "Casablanca", region: "r", ll: CASA }, { v: "Rabat", region: "r", ll: RABAT }];
+const villes: City[] = [{ v: "Casablanca", province: "Casablanca", region: "r", ll: CASA }, { v: "Rabat", province: "Rabat", region: "r", ll: RABAT }];
 
 describe("géodésie", () => {
   it("Casablanca–Rabat ≈ 87 km, et l'ETA est prudent (45 km/h)", () => {
