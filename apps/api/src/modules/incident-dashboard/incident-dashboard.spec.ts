@@ -56,7 +56,10 @@ describe("V-3 — tableau de bord par incident", () => {
   // --- la double garde ------------------------------------------------------
 
   it("un wali ouvre le tableau de bord de SA région, pas celui d'une autre", async () => {
-    const t = await account(`w.v3.${Date.now()}`, "wali", { region: "Casablanca-Settat" });
+    // Le wali de Casablanca-Settat existe dans l'amorçage (`w.casa`) et une
+    // région n'en a qu'un : on se place dans sa peau plutôt que d'en créer un
+    // second, que l'API refuserait — à raison.
+    const t = await token("w.casa", "wali");
     await base().get(`/api/incidents/${CASA}/dashboard`).set(auth(t)).expect(200);
     // 404 et non 403 : « interdit » confirmerait l'existence de l'opération à
     // quelqu'un qui n'a pas à la connaître.

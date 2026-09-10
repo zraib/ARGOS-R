@@ -47,11 +47,15 @@ export const ROLE_RESPONSIBILITY: Partial<Record<Role, ResponsibilityKind>> = {
  * Exemple : `{ hospital: "H4", unit: "U2" }` pour un compte cumulant deux
  * responsabilités.
  *
- * TROIS RATTACHEMENTS NON-ENTITÉ (lot V-1) s'y ajoutent, parce que tous les
+ * DEUX RATTACHEMENTS NON-ENTITÉ (lot V-1) s'y ajoutent, parce que tous les
  * rôles ne répondent pas d'une entité :
  *
- *  • `region`   — le wali répond d'un TERRITOIRE, pas d'un établissement ;
- *  • `city`     — la place d'armes répond d'une ZONE (sa ville et ses environs) ;
+ *  • `region`   — le wali ET le commandant de place d'armes répondent d'un
+ *                 TERRITOIRE, pas d'un établissement. La place d'armes était
+ *                 rattachée à une ville avec un rayon de 40 km ; l'état-major a
+ *                 tranché pour la région, comme le wali — un seul rattachement,
+ *                 un seul titulaire par région, et une visibilité qui suit le
+ *                 découpage administratif plutôt qu'un cercle sur la carte ;
  *  • `incident` — la conduite déployée (OPCOM, TACOM, cellules) répond d'UNE
  *                 OPÉRATION. Un seul incident à la fois : réaffecter remplace.
  *
@@ -60,40 +64,41 @@ export const ROLE_RESPONSIBILITY: Partial<Record<Role, ResponsibilityKind>> = {
  * résolus par le même chemin (`resolveScope`), à chaque requête.
  */
 export type Assignments = Partial<Record<ResponsibilityKind, string>> & {
-  /** Région administrative (wali) — valeur canonique de `REGIONS_MA`. */
+  /** Région administrative (wali, place d'armes) — valeur canonique de `REGIONS_MA`. */
   region?: string;
-  /** Ville de rattachement (place d'armes) — le périmètre est un rayon autour. */
-  city?: string;
   /** Incident sur lequel le compte est déployé (conduite). Un seul. */
   incident?: string;
 };
 
 /**
- * Rayon de la zone de compétence d'une place d'armes, en kilomètres.
- *
- * La zone n'est pas une frontière administrative mais un cercle autour de la
- * ville de rattachement : une place d'armes commande ce qu'elle peut atteindre,
- * pas ce qui relève de sa préfecture.
+ * Rôles dont le titulaire est UNIQUE sur son territoire : une région n'a qu'un
+ * wali et qu'un commandant de place d'armes. Affecter un second est une erreur
+ * de saisie, pas une nuance — l'API la refuse.
  */
-export const PLACE_ARME_RADIUS_KM = 40;
+export const UNIQUE_PER_REGION_ROLES: readonly Role[] = ["wali", "place_arme"];
+
+/**
+ * Autorités CIVILES : elles n'ont pas de grade militaire. Un grade saisi pour
+ * un wali est une erreur ; le compte le refuse plutôt que de l'afficher.
+ */
+export const CIVIL_ROLES: readonly Role[] = ["wali"];
 
 // --- RATTACHEMENTS DE PORTÉE (lot V-1) --------------------------------------
-// Une entité se commande ; un territoire, une zone ou une opération se COUVRE.
-// Ces trois clés répondent donc à la même question que les natures ci-dessus —
+// Une entité se commande ; un territoire ou une opération se COUVRE. Ces deux
+// clés répondent donc à la même question que les natures ci-dessus —
 // « de quoi ce compte répond-il ? » — mais ne désignent pas un établissement.
 // Elles sont traitées à part parce qu'elles n'obéissent pas à `ScopeGuard`
 // (qui compare une entité visée) mais au `VisibilityService` (qui filtre une
 // liste).
 
 /** Clés de rattachement qui définissent un PÉRIMÈTRE, non une entité. */
-export const SCOPE_KEYS = ["region", "city", "incident"] as const;
+export const SCOPE_KEYS = ["region", "incident"] as const;
 
 export type ScopeKey = (typeof SCOPE_KEYS)[number];
 
 /** Libellés français (interface d'administration). */
 export const SCOPE_LABELS: Record<ScopeKey, string> = {
   region: "Région administrative",
-  city: "Ville de rattachement",
   incident: "Incident de déploiement",
 };
 
@@ -109,7 +114,7 @@ export const SCOPE_LABELS: Record<ScopeKey, string> = {
  */
 export const ROLE_SCOPE_KEY: Partial<Record<Role, ScopeKey>> = {
   wali: "region",
-  place_arme: "city",
+  place_arme: "region",
   opcom: "incident",
   tacom: "incident",
   bluecell: "incident",
@@ -122,14 +127,15 @@ export const ROLE_SCOPE_KEY: Partial<Record<Role, ScopeKey>> = {
 /**
  * Périmètres EXIGÉS dès la création du compte.
  *
- * Région et ville en font partie : un wali sans région ne voit RIEN (règle du
- * default-deny), ce qui se lit comme une panne plutôt que comme un oubli
- * d'administration. Mieux vaut refuser le compte que livrer un écran vide.
+ * La région en fait partie : un wali ou une place d'armes sans région ne voit
+ * RIEN (règle du default-deny), ce qui se lit comme une panne plutôt que comme
+ * un oubli d'administration. Mieux vaut refuser le compte que livrer un écran
+ * vide.
  *
  * L'incident n'en fait PAS partie : on crée un OPCOM bien avant de le déployer,
  * et le déploiement est un acte distinct, tracé (lot V-2).
  */
-const MANDATORY_SCOPE_KEYS: readonly ScopeKey[] = ["region", "city"];
+const MANDATORY_SCOPE_KEYS: readonly ScopeKey[] = ["region"];
 
 /** Périmètres que cet ensemble de rôles peut porter (sans doublon). */
 export function scopeKeysOf(roles: readonly Role[]): ScopeKey[] {

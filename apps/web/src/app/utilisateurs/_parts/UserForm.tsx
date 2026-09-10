@@ -1,31 +1,56 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useArgos, useModules } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
+import { regionsOf } from "@/lib/geo";
 import {
   ROLE_ICONS,
   assignableRoles,
   canAssignMultipleRoles,
+  isCivil,
   isSuperAdmin,
+  mandatoryScopeKeysOf,
   requiredAssignments,
   type Assignments,
   type ResponsibilityKind,
   type Role,
+  type ScopedAssignments,
 } from "@/lib/roles";
 import { GRADES } from "@/lib/data/grades";
-import {
-  ApiUser,
-  } from "@/app/utilisateurs/_parts/shared";
-
+import { AddHospitalModal, AddShelterModal, AddUnitModal } from "@/components/org/AddEntityModals";
+import { ApiUser } from "@/app/utilisateurs/_parts/shared";
 
 // ===========================================================================
-// Formulaire création / édition (via l'API)
+// Formulaire création / édition d'un compte (via l'API)
+//
+// Trois règles que l'écran REFLÈTE et que l'API APPLIQUE :
+//  - le wali et le commandant de place d'armes portent une région ;
+//  - une autorité civile n'a pas de grade militaire ;
+//  - un responsable est affecté à SON entité — et s'il faut la créer d'abord,
+//    la modale de création s'ouvre d'ici, sans quitter le formulaire.
 // ===========================================================================
-export 
-function UserForm({
+
+/** Message d'une réponse d'erreur de l'API (chaîne, ou liste de class-validator). */
+function apiMessage(err: unknown, fallback: string): string {
+  const m = (err as { message?: string | string[] } | undefined)?.message;
+  if (Array.isArray(m)) return m.join(" ");
+  return typeof m === "string" && m.trim() ? m : fallback;
+}
+
+/** Natures d'entité qu'on sait créer depuis le formulaire. */
+const CREATABLE: readonly ResponsibilityKind[] = ["hospital", "unit", "shelter"];
+
+/**
+ * Affectations telles que le CONTRAT les attend : la région y est l'union des
+ * douze noms officiels, pas une chaîne libre. La liste proposée à l'écran vient
+ * du même référentiel ; le passage par ce type dit que c'est l'API qui tranche.
+ */
+type AssignmentsBody = NonNullable<Parameters<typeof api.createUser>[0]["assignments"]>;
+
+export function UserForm({
   creatorRole,
   user,
   onClose,
@@ -57,16 +82,26 @@ function UserForm({
     return multiple ? kept : kept.slice(0, 1);
   });
   const [assignments, setAssignments] = useState<Assignments>(() => user?.assignments ?? {});
+  const [region, setRegion] = useState<string>(() => (user?.assignments as ScopedAssignments | undefined)?.region ?? "");
+  /** Nature d'entité dont la modale de création est ouverte. */
+  const [creating, setCreating] = useState<ResponsibilityKind | null>(null);
 
-  // Référentiels servant de choix d'affectation. Le parc d'équipement et la
-  // morgue n'ont pas encore de référentiel dédié : saisie libre en attendant.
+  // Référentiels servant de choix d'affectation. La morgue n'a pas encore de
+  // référentiel dédié : saisie libre en attendant. Le parc d'équipement est
+  // celui d'une unité — on choisit l'unité.
   const hospitals = useArgos((s) => s.hospitals);
   const units = useArgos((s) => s.units);
+  const shelters = useArgos((s) => s.catalog.shelters);
+  const provinces = useArgos((s) => s.provinces);
+  const regions = useMemo(() => regionsOf(provinces), [provinces]);
   const milHospitals = hospitals.filter((h) => (h.kind ?? "mil") === "mil");
   const neededKinds = requiredAssignments(roles);
+  const regionNeeded = mandatoryScopeKeysOf(roles).includes("region");
+  const civil = isCivil(roles);
   const entityOptions = (kind: ResponsibilityKind): { id: string; label: string }[] => {
     if (kind === "hospital") return milHospitals.map((h) => ({ id: h.id, label: `${h.nom} — ${h.ville}` }));
-    if (kind === "unit") return units.map((u) => ({ id: u.id, label: `${u.nom} — ${u.ville}` }));
+    if (kind === "unit" || kind === "equipment") return units.map((u) => ({ id: u.id, label: `${u.nom} — ${u.ville}` }));
+    if (kind === "shelter") return shelters.map((s) => ({ id: s.id, label: `${s.nom} — ${s.ville}` }));
     return [];
   };
   const [error, setError] = useState<string | null>(null);
@@ -81,17 +116,28 @@ function UserForm({
     if (multiple) setRoles((cur) => (cur.includes(r) ? cur.filter((x) => x !== r) : [...cur, r]));
     else setRoles([r]);
   };
+  const setAssignment = (kind: ResponsibilityKind, v: string) => {
+    setAssignments((a) => ({ ...a, [kind]: v }));
+    setError(null);
+  };
 
   const submit = async () => {
     if (!matricule.trim() || !nom.trim()) { setError(m.users.need_fields); return; }
     if (roles.length === 0) { setError(m.users.need_role); return; }
-    // Un rôle « responsable » sans entité affectée est refusé par l'API ; on le
-    // signale ici pour éviter un aller-retour, sans que ce soit le contrôle.
+    // Un rôle « responsable » sans entité, un wali sans région : refusés par
+    // l'API ; on le signale ici pour éviter un aller-retour, sans que ce soit
+    // le contrôle.
     const missing = neededKinds.filter((k) => !assignments[k]?.trim());
     if (missing.length > 0) { setError(m.users.need_assignment); return; }
-    // N'envoyer que les affectations réellement exigées par les rôles retenus.
-    const payload: Assignments = {};
+    if (regionNeeded && !region) { setError(m.users.region_hint); return; }
+    // N'envoyer que ce que les rôles retenus exigent : une clé de trop est
+    // refusée comme portée orpheline.
+    const payload: AssignmentsBody = {};
     for (const k of neededKinds) payload[k] = assignments[k]!.trim();
+    if (regionNeeded) payload.region = region as AssignmentsBody["region"];
+    // Une autorité civile n'a pas de grade : on n'en envoie pas, et on efface
+    // celui qu'un compte aurait pu porter avant de devenir civil.
+    const gradeOut = civil ? "" : grade.trim();
     setBusy(true);
     try {
       if (editing && user) {
@@ -100,13 +146,13 @@ function UserForm({
           nom: nom.trim(),
           prenom: prenom.trim(),
           phone: phone.trim(),
-          grade: grade.trim(),
+          grade: gradeOut,
           roles,
           assignments: payload,
         });
         const status = res.response?.status;
         if (res.error || (status !== undefined && status >= 400)) {
-          setError(status === 409 ? m.users.dup_matricule : m.users.need_role);
+          setError(apiMessage(res.error, status === 409 ? m.users.dup_matricule : m.users.need_role));
           return;
         }
         showToast(m.users.saved_toast);
@@ -118,13 +164,13 @@ function UserForm({
         nom: nom.trim(),
         prenom: prenom.trim() || undefined,
         phone: phone.trim() || undefined,
-        grade: grade.trim() || undefined,
+        grade: gradeOut || undefined,
         roles,
         assignments: payload,
       });
       if (res.error || !res.data) {
         const status = (res.response as Response | undefined)?.status;
-        setError(status === 409 ? m.users.dup_matricule : m.users.need_role);
+        setError(apiMessage(res.error, status === 409 ? m.users.dup_matricule : m.users.need_role));
         return;
       }
       const data = res.data as unknown as { user: ApiUser; tempPassword: string };
@@ -159,10 +205,16 @@ function UserForm({
           </div>
           <div>
             <label className={labelCls}>{m.users.grade}</label>
-            <select className={fieldCls} value={grade} onChange={(e) => setGrade(e.target.value)}>
-              <option value="">{m.users.grade_none}</option>
-              {GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
-            </select>
+            {civil ? (
+              // Le champ ne disparaît pas sans un mot : l'administrateur doit
+              // savoir POURQUOI il n'a pas de grade à saisir.
+              <p className="input-champ flex min-h-[44px] items-center text-sm text-gray-400 dark:text-rdia-400 md:min-h-0">{m.users.civil_no_grade}</p>
+            ) : (
+              <select className={fieldCls} value={grade} onChange={(e) => setGrade(e.target.value)}>
+                <option value="">{m.users.grade_none}</option>
+                {GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
+            )}
           </div>
           <div>
             <label className={labelCls}>{m.users.name}</label>
@@ -198,6 +250,22 @@ function UserForm({
         <p className="mt-1.5 text-[11px] text-gray-400 dark:text-rdia-400">{multiple ? m.users.multi_hint : m.users.single_hint}</p>
       </div>
 
+      {/* Territoire : le wali et le commandant de place d'armes répondent d'une
+          région. L'API refuse le compte sans, et refuse un second titulaire. */}
+      {regionNeeded && (
+        <div className="rounded-lg border border-or-500/30 bg-or-500/5 p-3 sm:p-4">
+          <div className="mb-1 flex items-center gap-2">
+            <Icon path={UI_ICONS.shield} size={14} />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-or-600 dark:text-or-400">{m.users.region}</span>
+          </div>
+          <p className="mb-3 text-[11px] text-gray-500 dark:text-rdia-300">{m.users.region_hint}</p>
+          <select className={fieldCls} value={region} onChange={(e) => { setRegion(e.target.value); setError(null); }}>
+            <option value="">{m.users.region_none}</option>
+            {regions.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+      )}
+
       {/* Rattachement : chaque rôle « responsable » exige l'entité dont il répond.
           L'API refuse la création sans, et cantonne ensuite toutes ses actions. */}
       {neededKinds.length > 0 && (
@@ -213,26 +281,42 @@ function UserForm({
             {neededKinds.map((kind) => {
               const opts = entityOptions(kind);
               const value = assignments[kind] ?? "";
-              const set = (v: string) => { setAssignments((a) => ({ ...a, [kind]: v })); setError(null); };
+              const creatable = CREATABLE.includes(kind);
               return (
                 <div key={kind}>
                   <label className={labelCls}>{m.users.responsibility[kind]}</label>
-                  {opts.length > 0 ? (
-                    <select className={fieldCls} value={value} onChange={(e) => set(e.target.value)}>
-                      <option value="">{m.users.assignment_none}</option>
-                      {opts.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-                    </select>
-                  ) : (
-                    // Morgue et parc d'équipement : référentiel pas encore livré,
-                    // saisie libre de l'identifiant en attendant.
-                    <input
-                      className={`${fieldCls} font-mono`}
-                      placeholder={m.users.assignment_id_ph}
-                      value={value}
-                      onChange={(e) => set(e.target.value)}
-                      spellCheck={false}
-                    />
-                  )}
+                  <div className="flex gap-2">
+                    {opts.length > 0 ? (
+                      <select className={`${fieldCls} min-w-0 flex-1`} value={value} onChange={(e) => setAssignment(kind, e.target.value)}>
+                        <option value="">{m.users.assignment_none}</option>
+                        {opts.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+                      </select>
+                    ) : (
+                      // Morgue : référentiel pas encore livré, saisie libre de
+                      // l'identifiant en attendant.
+                      <input
+                        className={`${fieldCls} min-w-0 flex-1 font-mono`}
+                        placeholder={m.users.assignment_id_ph}
+                        value={value}
+                        onChange={(e) => setAssignment(kind, e.target.value)}
+                        spellCheck={false}
+                      />
+                    )}
+                    {creatable && (
+                      // L'entité n'existe pas encore : sa modale s'ouvre ICI, et
+                      // l'identifiant créé est affecté au retour.
+                      <button
+                        type="button"
+                        className="btn-secondaire cible-tactile shrink-0 gap-1 px-2.5 text-xs"
+                        title={m.users.entity_missing}
+                        onClick={() => setCreating(kind)}
+                      >
+                        <Icon path={UI_ICONS.plus} size={13} />
+                        {m.users.create_entity}
+                      </button>
+                    )}
+                  </div>
+                  {creatable && <p className="mt-1 text-[10px] text-gray-400 dark:text-rdia-400">{m.users.entity_missing}</p>}
                 </div>
               );
             })}
@@ -247,6 +331,12 @@ function UserForm({
         <button className="btn-secondaire text-sm" onClick={onClose}>{m.users.cancel}</button>
         <button className="btn-primaire text-sm" onClick={() => void submit()} disabled={busy}>{busy ? "…" : editing ? m.users.save : m.users.create}</button>
       </div>
+
+      {/* Création d'entité depuis l'affectation : la même modale qu'ailleurs,
+          l'identifiant revient dans le champ. */}
+      <AddUnitModal open={creating === "unit"} onClose={() => setCreating(null)} onCreated={(id) => setAssignment("unit", id)} />
+      <AddHospitalModal open={creating === "hospital"} onClose={() => setCreating(null)} onCreated={(id) => setAssignment("hospital", id)} />
+      <AddShelterModal open={creating === "shelter"} onClose={() => setCreating(null)} onCreated={(id) => setAssignment("shelter", id)} />
     </div>
   );
 }

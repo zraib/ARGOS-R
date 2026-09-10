@@ -453,6 +453,12 @@ export interface ModulesDict {
     assignment_hint: string;
     assignment_none: string;
     assignment_id_ph: string;
+    region: string;
+    region_none: string;
+    region_hint: string;
+    civil_no_grade: string;
+    create_entity: string;
+    entity_missing: string;
     responsibility: Record<"hospital" | "unit" | "shelter" | "morgue" | "equipment", string>;
     need_fields: string;
     dup_matricule: string;

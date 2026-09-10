@@ -338,6 +338,48 @@ describe("Rattachement — validation à la création et à la modification", ()
     expect(after.assignments).toBeUndefined();
   });
 
+  // --- Territoires : un seul titulaire par région, et pas de grade pour le civil ---
+
+  it("un wali sans région est refusé, et un commandant de place d'armes aussi", () => {
+    expect(() => users.create("superadmin", "test", { matricule: "w.vide", nom: "Vide", roles: ["wali"] })).toThrow(/Région administrative/);
+    expect(() => users.create("superadmin", "test", { matricule: "p.vide", nom: "Vide", roles: ["place_arme"] })).toThrow(/Région administrative/);
+  });
+
+  it("une région n'a qu'UN wali : le second est refusé, avec le nom du premier", () => {
+    users.create("superadmin", "test", { matricule: "w.un", nom: "Premier", roles: ["wali"], assignments: { region: "Souss-Massa" } });
+    expect(() =>
+      users.create("superadmin", "test", { matricule: "w.deux", nom: "Second", roles: ["wali"], assignments: { region: "Souss-Massa" } }),
+    ).toThrow(/Souss-Massa.*Premier/);
+  });
+
+  it("une région n'a qu'UN commandant de place d'armes, même règle", () => {
+    users.create("superadmin", "test", { matricule: "p.un", nom: "Premier", grade: "Colonel", roles: ["place_arme"], assignments: { region: "L'Oriental" } });
+    expect(() =>
+      users.create("superadmin", "test", { matricule: "p.deux", nom: "Second", grade: "Colonel", roles: ["place_arme"], assignments: { region: "L'Oriental" } }),
+    ).toThrow(/déjà un/);
+  });
+
+  it("le wali et le commandant peuvent COEXISTER sur la même région : deux fonctions, pas un doublon", () => {
+    users.create("superadmin", "test", { matricule: "w.coex", nom: "Wali", roles: ["wali"], assignments: { region: "Fès-Meknès" } });
+    expect(() =>
+      users.create("superadmin", "test", { matricule: "p.coex", nom: "Cdt", roles: ["place_arme"], assignments: { region: "Fès-Meknès" } }),
+    ).not.toThrow();
+  });
+
+  it("réaffecter un wali à SA propre région n'est pas un doublon ; à une région déjà pourvue, si", () => {
+    const { user } = users.create("superadmin", "test", { matricule: "w.bouge", nom: "Mobile", roles: ["wali"], assignments: { region: "Guelmim-Oued Noun" } });
+    expect(() => users.update("superadmin", user.id, { assignments: { region: "Guelmim-Oued Noun" } })).not.toThrow();
+    expect(() => users.update("superadmin", user.id, { assignments: { region: "Souss-Massa" } })).toThrow(/déjà un/);
+  });
+
+  it("un wali est une autorité civile : un grade militaire est refusé, à la création comme à la modification", () => {
+    expect(() =>
+      users.create("superadmin", "test", { matricule: "w.grade", nom: "Gradé", grade: "Colonel", roles: ["wali"], assignments: { region: "Béni Mellal-Khénifra" } }),
+    ).toThrow(/autorité civile/);
+    const { user } = users.create("superadmin", "test", { matricule: "w.civil", nom: "Civil", roles: ["wali"], assignments: { region: "Béni Mellal-Khénifra" } });
+    expect(() => users.update("superadmin", user.id, { grade: "Général" })).toThrow(/autorité civile/);
+  });
+
   it("exige une entité quand un rôle « responsable » est AJOUTÉ à un compte existant", () => {
     const { user } = users.create("superadmin", "test", {
       matricule: "v.promu",

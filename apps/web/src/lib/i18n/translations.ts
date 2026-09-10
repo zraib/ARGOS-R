@@ -145,6 +145,7 @@ export interface Dict {
   f_attach: string;
   f_attach_hint: string;
   f_prov: string;
+  f_region: string;
   f_coords: string;
   pick_map: string;
   prev: string;

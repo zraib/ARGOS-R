@@ -507,9 +507,12 @@ export class DomainService {
   }
 
   /** Crée une unité (id séquentiel U<n>) et trace l'événement dans le fil. */
-  createUnit(input: Omit<Unit, "id">): Unit {
+  createUnit(input: Omit<Unit, "id" | "cmdt"> & { cmdt?: string }): Unit {
     const n = Math.max(0, ...this.units.map((u) => parseInt(u.id.replace(/\D/g, ""), 10) || 0)) + 1;
-    const unit: Unit = { ...input, id: `U${n}` };
+    // Le commandant n'est plus saisi à la création : c'est le compte
+    // « responsable d'unité » affecté à l'unité qui le désigne. Un tiret tant
+    // qu'aucun n'est affecté — jamais un nom inventé.
+    const unit: Unit = { ...input, cmdt: input.cmdt?.trim() || "—", id: `U${n}` };
     this.units.push(unit);
     const d = new Date();
     const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;

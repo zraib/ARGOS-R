@@ -10,6 +10,7 @@ import { HealthGlyph } from "@/components/health/HealthGlyph";
 import { WardsEditor, autosumServices, type WardsEditorValue } from "@/components/health/WardsEditor";
 import { ARGOS_WARD_REFERENCE } from "@/lib/types";
 import type { HospitalKind, UnitReadiness } from "@/lib/types";
+import { EMPTY_LOCATION, LocationCascade, locationLL, locationProvince, type LocationValue } from "@/components/org/LocationCascade";
 
 // ============================================================================
 // ARGOS — modales de création d'entités organisationnelles (unité, hôpital, abri)
@@ -21,60 +22,65 @@ import type { HospitalKind, UnitReadiness } from "@/lib/types";
 const labelCls = "mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200";
 const inputCls = "input-champ text-sm";
 
-/** Sélecteur de province (position de la nouvelle entité). */
-function ProvinceSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const t = useDict();
-  const provinces = useArgos((s) => s.provinces);
-  return (
-    <div>
-      <label className={labelCls}>{t.f_prov}</label>
-      <select className={inputCls} value={value} onChange={(e) => onChange(e.target.value)}>
-        {provinces.map((p) => (
-          <option key={p.v} value={p.v}>{p.v} — {p.region}</option>
-        ))}
-      </select>
-    </div>
-  );
-}
+/**
+ * Callback commun aux trois modales : l'identifiant de l'entité créée.
+ * Le formulaire de compte s'en sert pour affecter aussitôt l'entité qu'il
+ * vient de faire créer — sans deviner « la dernière de la liste ».
+ */
+type Created = (id: string) => void;
 
-/** Modale « Ajouter une unité » (Super Admin / Admin). */
-export function AddUnitModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+/**
+ * Modale « Ajouter une unité » (Super Admin / Admin).
+ *
+ * Plus de champ « commandant » : le commandant est le compte responsable
+ * d'unité AFFECTÉ à l'unité, pas un texte saisi ici. Un texte libre et un
+ * compte affecté auraient fini par se contredire.
+ */
+export function AddUnitModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated?: Created }) {
   const t = useDict();
   const provinces = useArgos((s) => s.provinces);
+  const cities = useArgos((s) => s.cities);
   const loadDomain = useArgos((s) => s.loadDomain);
   const showToast = useArgos((s) => s.showToast);
 
   const [nom, setNom] = useState("");
   const [ville, setVille] = useState("");
-  const [cmdt, setCmdt] = useState("");
   const [eff, setEff] = useState(200);
   const [dispo, setDispo] = useState<UnitReadiness>("ready");
   const [readiness, setReadiness] = useState(85);
-  const [prov, setProv] = useState("");
+  const [loc, setLoc] = useState<LocationValue>(EMPTY_LOCATION);
   const [busy, setBusy] = useState(false);
 
-  const canSubmit = !!(nom.trim() && ville.trim() && cmdt.trim() && eff > 0);
+  // Choisir une ville dans la cascade remplit le champ ville ; il reste
+  // modifiable pour une localité absente du référentiel.
+  const onLoc = (next: LocationValue) => {
+    setLoc(next);
+    if (next.city) setVille(next.city);
+  };
+  const canSubmit = !!(nom.trim() && ville.trim() && loc.province && eff > 0);
 
   const submit = async () => {
     if (!canSubmit || busy) return;
     setBusy(true);
     try {
-      const p = provinces.find((x) => x.v === prov) ?? provinces[0];
+      const p = locationProvince(loc, provinces);
+      if (!p) return;
       const res = await api.createUnit({
         nom: nom.trim(),
         ville: ville.trim(),
-        cmdt: cmdt.trim(),
         eff,
         dispo,
         readiness,
         x: p.x,
         y: p.y,
-        ll: svgToLL(p.x, p.y),
+        ll: locationLL(loc, provinces, cities) ?? svgToLL(p.x, p.y),
       });
       if (res.error) return;
+      const created = res.data as { id?: string } | undefined;
       await loadDomain();
       showToast(t.toast_unit);
-      setNom(""); setVille(""); setCmdt("");
+      setNom(""); setVille(""); setLoc(EMPTY_LOCATION);
+      if (created?.id) onCreated?.(created.id);
       onClose();
     } finally {
       setBusy(false);
@@ -90,15 +96,10 @@ export function AddUnitModal({ open, onClose }: { open: boolean; onClose: () => 
           <label className={labelCls}>{t.h_name}</label>
           <input className={inputCls} value={nom} onChange={(e) => setNom(e.target.value)} placeholder="6e Bataillon Médical" />
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label className={labelCls}>{t.lbl_city}</label>
-            <input className={inputCls} value={ville} onChange={(e) => setVille(e.target.value)} />
-          </div>
-          <div>
-            <label className={labelCls}>{t.commander}</label>
-            <input className={inputCls} value={cmdt} onChange={(e) => setCmdt(e.target.value)} />
-          </div>
+        <LocationCascade value={loc} onChange={onLoc} />
+        <div>
+          <label className={labelCls}>{t.lbl_city}</label>
+          <input className={inputCls} value={ville} onChange={(e) => setVille(e.target.value)} />
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
@@ -118,7 +119,6 @@ export function AddUnitModal({ open, onClose }: { open: boolean; onClose: () => 
             <input type="number" min={0} max={100} className={inputCls} value={readiness} onChange={(e) => setReadiness(Math.min(100, Math.max(0, Number(e.target.value) || 0)))} />
           </div>
         </div>
-        <ProvinceSelect value={prov} onChange={setProv} />
         <div className="flex justify-end gap-2">
           <button className="btn-secondaire text-sm" onClick={onClose}>{t.cancel}</button>
           <button className="btn-primaire text-sm" onClick={() => void submit()} disabled={!canSubmit || busy}>
@@ -131,9 +131,10 @@ export function AddUnitModal({ open, onClose }: { open: boolean; onClose: () => 
 }
 
 /** Modale « Ajouter un hôpital » (Super Admin / Admin). */
-export function AddHospitalModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function AddHospitalModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated?: Created }) {
   const t = useDict();
   const provinces = useArgos((s) => s.provinces);
+  const cities = useArgos((s) => s.cities);
   const loadDomain = useArgos((s) => s.loadDomain);
   const showToast = useArgos((s) => s.showToast);
 
@@ -143,8 +144,12 @@ export function AddHospitalModal({ open, onClose }: { open: boolean; onClose: ()
   const [staff, setStaff] = useState(250);
   const [amb, setAmb] = useState(10);
   const [heli, setHeli] = useState(1);
-  const [prov, setProv] = useState("");
+  const [loc, setLoc] = useState<LocationValue>(EMPTY_LOCATION);
   const [busy, setBusy] = useState(false);
+  const onLoc = (next: LocationValue) => {
+    setLoc(next);
+    if (next.city) setVille(next.city);
+  };
 
   // Valeurs par défaut = les 5 services flagués `default` du référentiel ARGOS (~50% part marché hospitalier).
   const defaultSvcs = (): WardsEditorValue[] =>
@@ -165,13 +170,14 @@ export function AddHospitalModal({ open, onClose }: { open: boolean; onClose: ()
   const [svcs, setSvcs] = useState<WardsEditorValue[]>(defaultSvcs());
 
   const { lits, rea } = useMemo(() => autosumServices(svcs), [svcs]);
-  const canSubmit = !!(nom.trim() && ville.trim() && lits > 0 && svcs.every((s) => s.occ <= s.total));
+  const canSubmit = !!(nom.trim() && ville.trim() && loc.province && lits > 0 && svcs.every((s) => s.occ <= s.total));
 
   const submit = async () => {
     if (!canSubmit || busy) return;
     setBusy(true);
     try {
-      const p = provinces.find((x) => x.v === prov) ?? provinces[0];
+      const p = locationProvince(loc, provinces);
+      if (!p) return;
       const res = await api.createHospital({
         nom: nom.trim(),
         ville: ville.trim(),
@@ -186,7 +192,7 @@ export function AddHospitalModal({ open, onClose }: { open: boolean; onClose: ()
         heli,
         x: p.x,
         y: p.y,
-        ll: svgToLL(p.x, p.y),
+        ll: locationLL(loc, provinces, cities) ?? svgToLL(p.x, p.y),
       });
       if (res.error) return;
       // Services de soins et taux d'occupation ne font PAS partie du contrat de
@@ -201,7 +207,8 @@ export function AddHospitalModal({ open, onClose }: { open: boolean; onClose: ()
       }
       await loadDomain();
       showToast(t.toast_hosp);
-      setNom(""); setVille(""); setSvcs(defaultSvcs());
+      setNom(""); setVille(""); setSvcs(defaultSvcs()); setLoc(EMPTY_LOCATION);
+      if (created?.id) onCreated?.(created.id);
       onClose();
     } finally {
       setBusy(false);
@@ -241,7 +248,7 @@ export function AddHospitalModal({ open, onClose }: { open: boolean; onClose: ()
             <label className={labelCls}>{t.lbl_city}</label>
             <input className={inputCls} value={ville} onChange={(e) => setVille(e.target.value)} />
           </div>
-          <ProvinceSelect value={prov} onChange={setProv} />
+          <div className="sm:col-span-2"><LocationCascade value={loc} onChange={onLoc} /></div>
         </div>
 
         <WardsEditor value={svcs} onChange={setSvcs} />
@@ -283,7 +290,7 @@ export function AddHospitalModal({ open, onClose }: { open: boolean; onClose: ()
  * Les répartitions par âge ne sont pas demandées : un abri qu'on ouvre n'a pas
  * encore de recensement, et un champ pré-rempli se lirait comme un dénombrement.
  */
-export function AddShelterModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function AddShelterModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated?: Created }) {
   const t = useDict();
   const m = useModules();
   const cities = useArgos((s) => s.cities);
@@ -292,6 +299,11 @@ export function AddShelterModal({ open, onClose }: { open: boolean; onClose: () 
 
   const [nom, setNom] = useState("");
   const [ville, setVille] = useState("");
+  const [loc, setLoc] = useState<LocationValue>(EMPTY_LOCATION);
+  const onLoc = (next: LocationValue) => {
+    setLoc(next);
+    if (next.city) setVille(next.city);
+  };
   const [capacity, setCapacity] = useState(300);
   const [staff, setStaff] = useState(0);
   const [supplies, setSupplies] = useState<"ok" | "low" | "critical">("ok");
@@ -317,8 +329,11 @@ export function AddShelterModal({ open, onClose }: { open: boolean; onClose: () 
         ...(needs.trim() ? { needs: needs.trim() } : {}),
       });
       if (res.error) return;
+      const created = res.data as { id?: string } | undefined;
       await loadDomain();
       showToast(t.ops_shelter_created);
+      setLoc(EMPTY_LOCATION);
+      if (created?.id) onCreated?.(created.id);
       onClose();
     } finally {
       setBusy(false);
@@ -332,6 +347,7 @@ export function AddShelterModal({ open, onClose }: { open: boolean; onClose: () 
           <label className={labelCls}>{t.ops_shelter_name}</label>
           <input className={inputCls + " w-full"} value={nom} onChange={(e) => setNom(e.target.value)} maxLength={80} />
         </div>
+        <LocationCascade value={loc} onChange={onLoc} />
         <div>
           <label className={labelCls}>{t.ops_shelter_city}</label>
           {/* Saisie libre AVEC liste de suggestions : le référentiel aide sans

@@ -234,11 +234,12 @@ describe("IAM users — RBAC + règles d'attribution (Phase 2)", () => {
       .expect(201);
     const id = created.body.user.id as string;
 
-    // Un patch qui ne parle QUE du grade : la région doit survivre. Le
+    // Un patch qui ne parle QUE du téléphone : la région doit survivre. Le
     // normalisateur reconstruit l'objet d'affectation à chaque écriture — omettre
     // les périmètres l'aurait vidé sans le moindre message d'erreur, et le wali
-    // se serait retrouvé aveugle après une modification anodine.
-    const patched = await base().patch(`/api/iam/users/${id}`).set(auth(t)).send({ grade: "Général" }).expect(200);
+    // se serait retrouvé aveugle après une modification anodine. (Le grade ne
+    // convient pas ici : un wali est une autorité civile, l'API le refuse.)
+    const patched = await base().patch(`/api/iam/users/${id}`).set(auth(t)).send({ phone: "+212600000001" }).expect(200);
     expect(patched.body.assignments?.region).toBe("Souss-Massa");
   });
 

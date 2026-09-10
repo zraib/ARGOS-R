@@ -327,10 +327,12 @@ export class CreateUnitDto {
   @MinLength(1)
   ville!: string;
 
-  @ApiProperty({ example: "Col. A. Senhaji" })
-  @IsString()
-  @MinLength(1)
-  cmdt!: string;
+  @ApiPropertyOptional({
+    example: "Col. A. Senhaji",
+    description: "Facultatif : le commandant est le compte « responsable d'unité » affecté à l'unité, pas un texte saisi ici.",
+  })
+  @IsOptional() @IsString() @MaxLength(80)
+  cmdt?: string;
 
   @ApiProperty({ minimum: 1 })
   @IsInt()

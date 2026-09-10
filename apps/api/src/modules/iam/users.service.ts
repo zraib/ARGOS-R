@@ -13,6 +13,7 @@ import {
   LEGACY_ROLE_MAP,
   MODULE_FEATURES,
   ROLES,
+  ROLE_LABELS,
   type Role,
 } from "@/shared/permissions";
 import {
@@ -24,6 +25,8 @@ import {
   SCOPE_LABELS,
   requiredAssignments,
   RESPONSIBILITY_LABELS,
+  CIVIL_ROLES,
+  UNIQUE_PER_REGION_ROLES,
   type Assignments,
   type ResponsibilityKind,
 } from "@/shared/responsibilities";
@@ -146,8 +149,8 @@ export class UsersService implements ScopeResolver {
     // comptes à la main à chaque installation neuve — assez fastidieux pour
     // qu'on finisse par ne plus l'éprouver du tout. Mots de passe temporaires :
     // le changement au premier login reste obligatoire, comme pour tout compte.
-    { id: "u-wali-casa", matricule: "w.casa", nom: "Bennani", prenom: "Karim", grade: "Wali", roles: ["wali"], assignments: { region: "Casablanca-Settat" }, passwordChanged: false, tempPassword: "WALI-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-08-01T08:00:00Z", lastLogin: null },
-    { id: "u-pa-casa", matricule: "p.casa", nom: "Sekkat", prenom: "Rachid", grade: "Colonel", roles: ["place_arme"], assignments: { city: "Casablanca" }, passwordChanged: false, tempPassword: "ZONE-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-08-01T08:00:00Z", lastLogin: null },
+    { id: "u-wali-casa", matricule: "w.casa", nom: "Bennani", prenom: "Karim", roles: ["wali"], assignments: { region: "Casablanca-Settat" }, passwordChanged: false, tempPassword: "WALI-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-08-01T08:00:00Z", lastLogin: null },
+    { id: "u-pa-casa", matricule: "p.casa", nom: "Sekkat", prenom: "Rachid", grade: "Colonel", roles: ["place_arme"], assignments: { region: "Casablanca-Settat" }, passwordChanged: false, tempPassword: "ZONE-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-08-01T08:00:00Z", lastLogin: null },
     // OPCOM créé NON déployé : le déploiement est un acte distinct (V-2), et un
     // compte non déployé ne voit rien — c'est la première chose à démontrer.
     { id: "u-opcom-demo", matricule: "o.chraibi", nom: "Chraibi", prenom: "Nabil", grade: "Colonel", roles: ["opcom"], passwordChanged: false, tempPassword: "OPCOM-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-08-01T08:00:00Z", lastLogin: null },
@@ -339,6 +342,42 @@ export class UsersService implements ScopeResolver {
     return Object.keys(out).length > 0 ? out : undefined;
   }
 
+  /**
+   * Une région n'a qu'UN wali et qu'UN commandant de place d'armes. Un second
+   * titulaire n'est pas une nuance mais une erreur de saisie : le compte est
+   * refusé, avec le nom du titulaire en place pour que l'administrateur sache
+   * qui déloger s'il le faut vraiment. `exceptId` exclut le compte en cours de
+   * modification — se réaffecter à sa propre région n'est pas un doublon.
+   */
+  private assertUniqueOnRegion(roles: readonly Role[], assignments: Assignments | undefined, exceptId?: string): void {
+    const region = assignments?.region;
+    if (!region) return;
+    for (const role of UNIQUE_PER_REGION_ROLES) {
+      if (!roles.includes(role)) continue;
+      const titulaire = this.users.find(
+        (u) => u.id !== exceptId && !u.disabled && u.roles.includes(role) && u.assignments?.region === region,
+      );
+      if (titulaire) {
+        throw new ConflictException(
+          `La région « ${region} » a déjà un ${ROLE_LABELS[role]} : ${displayName(titulaire)} (${titulaire.matricule}).`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Une autorité civile n'a pas de grade militaire. Le refuser à l'écriture
+   * vaut mieux que l'afficher : « Colonel » devant le nom d'un wali serait une
+   * information fausse sur un poste de commandement.
+   */
+  private assertCivilHasNoGrade(roles: readonly Role[], grade: string | undefined): void {
+    if (!grade?.trim()) return;
+    const civil = CIVIL_ROLES.find((r) => roles.includes(r));
+    if (civil) {
+      throw new BadRequestException(`Un ${ROLE_LABELS[civil]} est une autorité civile : il ne porte pas de grade militaire.`);
+    }
+  }
+
   // --- écriture ------------------------------------------------------------
 
   create(
@@ -348,6 +387,8 @@ export class UsersService implements ScopeResolver {
   ): { user: ManagedUserPublic; tempPassword: string } {
     this.validateRoles(creator, input.roles);
     const assignments = this.normalizeAssignments(input.roles, input.assignments, input.assignments !== undefined);
+    this.assertCivilHasNoGrade(input.roles, input.grade);
+    this.assertUniqueOnRegion(input.roles, assignments);
     const matricule = input.matricule.trim();
     if (this.users.some((u) => u.matricule.toLowerCase() === matricule.toLowerCase())) {
       throw new ConflictException("Ce matricule existe déjà.");
@@ -396,7 +437,9 @@ export class UsersService implements ScopeResolver {
         patch.assignments ?? u.assignments,
         patch.assignments !== undefined,
       );
+      this.assertUniqueOnRegion(u.roles, u.assignments, u.id);
     }
+    this.assertCivilHasNoGrade(u.roles, patch.grade !== undefined ? patch.grade : u.grade);
     // Le nom d'utilisateur (identifiant de connexion) n'est modifiable que par
     // le Super Administrateur, et doit rester unique.
     if (patch.matricule !== undefined && patch.matricule.trim() !== u.matricule) {

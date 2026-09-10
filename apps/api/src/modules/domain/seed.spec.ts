@@ -5,8 +5,6 @@ import request from "supertest";
 import { AppModule } from "@/app.module";
 import { SEED_INCIDENTS, SEED_UNITS } from "@/modules/domain/seed.data";
 import { REGIONS_MA } from "@/modules/domain/provinces.data";
-import { PLACE_ARME_RADIUS_KM } from "@/shared/responsibilities";
-import { CITIES_MA } from "@/modules/domain/cities.data";
 
 // ============================================================================
 // V-4 — le jeu de démonstration doit ÊTRE ÉPROUVABLE
@@ -20,19 +18,8 @@ import { CITIES_MA } from "@/modules/domain/cities.data";
 // prose des incidents, qui peut changer librement.
 // ============================================================================
 
-function haversineKm(a: [number, number], b: [number, number]): number {
-  const R = 6371;
-  const dLat = ((b[1] - a[1]) * Math.PI) / 180;
-  const dLng = ((b[0] - a[0]) * Math.PI) / 180;
-  const la1 = (a[1] * Math.PI) / 180;
-  const la2 = (b[1] * Math.PI) / 180;
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
-}
-
 describe("V-4 — jeu de démonstration", () => {
-  const CASABLANCA = CITIES_MA.find((c) => c.v === "Casablanca")!.ll as [number, number];
-
+  
   // --- cohérence du référentiel --------------------------------------------
 
   it("chaque incident porte une région CANONIQUE", () => {
@@ -71,33 +58,19 @@ describe("V-4 — jeu de démonstration", () => {
 
   // --- les propriétés dont les portées dépendent ---------------------------
 
-  it("la zone de 40 km autour de Casablanca contient des moyens ET exclut le cas limite", () => {
-    const inside = SEED_UNITS.filter((u) => haversineKm(CASABLANCA, u.ll) <= PLACE_ARME_RADIUS_KM);
-    const outside = SEED_UNITS.filter((u) => haversineKm(CASABLANCA, u.ll) > PLACE_ARME_RADIUS_KM);
-
-    // Sans moyens dans la zone, une liste vide serait indiscernable d'un bug.
-    expect(inside.length).toBeGreaterThanOrEqual(3);
-    expect(outside.length).toBeGreaterThan(0);
-
-    // Benslimane, à 44 km, est le cas qui démasque un filtre trop généreux :
-    // même région, même province, mais hors de portée. Un filtre administratif
-    // l'inclurait ; le filtre par distance ne doit pas.
-    const benslimane = SEED_UNITS.find((u) => u.ville === "Benslimane")!;
-    const d = haversineKm(CASABLANCA, benslimane.ll);
-    expect(d).toBeGreaterThan(PLACE_ARME_RADIUS_KM);
-    expect(d).toBeLessThan(PLACE_ARME_RADIUS_KM + 15); // juste au-delà, pas au loin
+  it("Casablanca-Settat porte plusieurs opérations, et d'autres régions en portent aussi", () => {
+    // La portée « région » (wali ET place d'armes, depuis le rattachement par
+    // région) ne se démontre que si le filtre laisse passer quelque chose sans
+    // tout laisser passer : des incidents dans la région, et des incidents
+    // ailleurs. Sinon une liste complète serait indiscernable d'un filtre cassé.
+    const casaSettat = SEED_INCIDENTS.filter((i) => i.region === "Casablanca-Settat");
+    const ailleurs = SEED_INCIDENTS.filter((i) => i.region !== "Casablanca-Settat");
+    expect(casaSettat.length).toBeGreaterThanOrEqual(3);
+    expect(ailleurs.length).toBeGreaterThan(0);
   });
 
-  it("Casablanca-Settat porte plusieurs opérations, dont une HORS zone", () => {
-    const casaSettat = SEED_INCIDENTS.filter((i) => i.region === "Casablanca-Settat");
-    expect(casaSettat.length).toBeGreaterThanOrEqual(3);
-
-    // C'est ce qui sépare la portée « région » (le wali les voit toutes) de la
-    // portée « zone » (la place d'armes n'en voit qu'une partie). Sans cet
-    // écart, les deux portées seraient indiscernables à la démonstration.
-    const inZone = casaSettat.filter((i) => haversineKm(CASABLANCA, i.ll) <= PLACE_ARME_RADIUS_KM);
-    expect(inZone.length).toBeGreaterThan(0);
-    expect(inZone.length).toBeLessThan(casaSettat.length);
+  it("chaque incident d'amorçage porte une région du référentiel — sinon le wali ne le verrait jamais", () => {
+    for (const inc of SEED_INCIDENTS) expect(REGIONS_MA).toContain(inc.region);
   });
 
   it("un hôpital sert PLUSIEURS opérations — la portée entité en dépend", () => {

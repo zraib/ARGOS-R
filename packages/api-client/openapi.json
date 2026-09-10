@@ -3979,12 +3979,7 @@
               "Souss-Massa",
               "Tanger-Tétouan-Al Hoceïma"
             ],
-            "description": "Région administrative (Wali) — doit appartenir au référentiel des 12 régions."
-          },
-          "city": {
-            "type": "string",
-            "example": "Casablanca",
-            "description": "Ville de rattachement (Place d'Armes) — la zone de compétence est un rayon de 40 km autour."
+            "description": "Région administrative (Wali, Place d'Armes) — doit appartenir au référentiel des 12 régions. Un seul titulaire de chaque rôle par région."
           },
           "incident": {
             "type": "string",
@@ -4778,7 +4773,8 @@
           },
           "cmdt": {
             "type": "string",
-            "example": "Col. A. Senhaji"
+            "example": "Col. A. Senhaji",
+            "description": "Facultatif : le commandant est le compte « responsable d'unité » affecté à l'unité, pas un texte saisi ici."
           },
           "eff": {
             "type": "number",
@@ -4814,7 +4810,6 @@
         "required": [
           "nom",
           "ville",
-          "cmdt",
           "eff",
           "dispo",
           "readiness",

@@ -1,8 +1,7 @@
 import { Injectable } from "@nestjs/common";
-import { DEPLOYABLE_ROLES, PLACE_ARME_RADIUS_KM, type Assignments } from "@/shared/responsibilities";
+import { DEPLOYABLE_ROLES, type Assignments } from "@/shared/responsibilities";
 import type { Role } from "@/shared/permissions";
 import type { Incident, Unit, FieldHospital } from "@/modules/domain/domain.service";
-import { CITIES_MA } from "@/modules/domain/cities.data";
 
 // ============================================================================
 // ARGOS — DOCTRINE DE VISIBILITÉ : qui voit quoi (lot V-1)
@@ -43,20 +42,8 @@ import { CITIES_MA } from "@/modules/domain/cities.data";
 export type VisibilityScope =
   | { kind: "global" }
   | { kind: "region"; region: string }
-  | { kind: "zone"; center: [number, number]; radiusKm: number }
   | { kind: "incident"; incidentId: string | null }
   | { kind: "entity"; entities: string[] };
-
-/** Distance orthodromique en km entre deux points [lng, lat]. */
-function haversineKm(a: [number, number], b: [number, number]): number {
-  const R = 6371;
-  const dLat = ((b[1] - a[1]) * Math.PI) / 180;
-  const dLng = ((b[0] - a[0]) * Math.PI) / 180;
-  const la1 = (a[1] * Math.PI) / 180;
-  const la2 = (b[1] * Math.PI) / 180;
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
-}
 
 /** Rôles qui voient tout — leur fonction l'exige. */
 const GLOBAL_ROLES: readonly Role[] = ["superadmin", "admin", "strategic"];
@@ -86,17 +73,14 @@ export class VisibilityService {
    * affectation ne vaut pas permission — c'est ce qui rend l'oubli
    * administratif visible plutôt que dangereux.
    */
-  scopeOf(role: Role, assignments: Assignments | undefined, cityLookup: (city: string) => [number, number] | undefined): VisibilityScope {
+  scopeOf(role: Role, assignments: Assignments | undefined): VisibilityScope {
     if (GLOBAL_ROLES.includes(role)) return { kind: "global" };
 
-    if (role === "wali") {
+    // Wali et commandant de place d'armes : LEUR région, rien d'autre. La
+    // place d'armes couvrait un rayon de 40 km autour d'une ville ; elle suit
+    // désormais le découpage administratif, comme le wali.
+    if (role === "wali" || role === "place_arme") {
       return { kind: "region", region: assignments?.region ?? "" };
-    }
-
-    if (role === "place_arme") {
-      const center = assignments?.city ? cityLookup(assignments.city) : undefined;
-      // Sans ville résolvable, la zone est vide — pas le pays entier.
-      return { kind: "zone", center: center ?? [0, 0], radiusKm: center ? PLACE_ARME_RADIUS_KM : -1 };
     }
 
     if (DEPLOYED_ROLES.includes(role)) {
@@ -115,15 +99,9 @@ export class VisibilityService {
     return { kind: "entity", entities: [] };
   }
 
-  /**
-   * Portée d'un compte, référentiel des villes résolu ici.
-   *
-   * Sans ce raccourci, chaque contrôleur recopiait la recherche dans
-   * `CITIES_MA` — deux copies qui finissent par diverger, et une divergence de
-   * portée est une fuite ou un écran vide.
-   */
+  /** Portée d'un compte, depuis son rôle et ses affectations (même chemin pour tous les contrôleurs). */
   scopeOfUser(role: Role, assignments: Assignments | undefined): VisibilityScope {
-    return this.scopeOf(role, assignments, (city) => CITIES_MA.find((c) => c.v === city)?.ll);
+    return this.scopeOf(role, assignments);
   }
 
   /**
@@ -144,9 +122,6 @@ export class VisibilityService {
         return incidents;
       case "region":
         return scope.region ? incidents.filter((i) => i.region === scope.region) : [];
-      case "zone":
-        if (scope.radiusKm < 0) return [];
-        return incidents.filter((i) => haversineKm(scope.center, i.ll) <= scope.radiusKm);
       case "incident":
         return scope.incidentId ? incidents.filter((i) => i.id === scope.incidentId) : [];
       case "entity": {
@@ -173,15 +148,13 @@ export class VisibilityService {
   }
 
   /**
-   * Unités visibles. Seule la ZONE restreint : une place d'armes ne commande
-   * que ce qu'elle peut atteindre. Le wali garde la vue nationale des moyens
-   * (décision produit), et la conduite déployée a besoin de voir les unités
-   * engageables sur son opération.
+   * Unités visibles : TOUTES, quelle que soit la portée. Le wali et la place
+   * d'armes gardent la vue nationale des moyens (décision produit), et la
+   * conduite déployée a besoin de voir les unités engageables sur son
+   * opération. Une unité n'est pas un secret ; un incident, si.
    */
-  filterUnits(units: Unit[], scope: VisibilityScope): Unit[] {
-    if (scope.kind !== "zone") return units;
-    if (scope.radiusKm < 0) return [];
-    return units.filter((u) => haversineKm(scope.center, u.ll) <= scope.radiusKm);
+  filterUnits(units: Unit[], _scope: VisibilityScope): Unit[] {
+    return units;
   }
 
   /**

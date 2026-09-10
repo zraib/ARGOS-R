@@ -1861,16 +1861,11 @@ export interface components {
         };
         AssignmentsDto: {
             /**
-             * @description Région administrative (Wali) — doit appartenir au référentiel des 12 régions.
+             * @description Région administrative (Wali, Place d'Armes) — doit appartenir au référentiel des 12 régions. Un seul titulaire de chaque rôle par région.
              * @example Casablanca-Settat
              * @enum {string}
              */
             region?: "Béni Mellal-Khénifra" | "Casablanca-Settat" | "Dakhla-Oued Ed-Dahab" | "Drâa-Tafilalet" | "Fès-Meknès" | "Guelmim-Oued Noun" | "L'Oriental" | "Laâyoune-Sakia El Hamra" | "Marrakech-Safi" | "Rabat-Salé-Kénitra" | "Souss-Massa" | "Tanger-Tétouan-Al Hoceïma";
-            /**
-             * @description Ville de rattachement (Place d'Armes) — la zone de compétence est un rayon de 40 km autour.
-             * @example Casablanca
-             */
-            city?: string;
             /**
              * @description Incident de déploiement (OPCOM, TACOM, cellules, resp. abri et équipement). UN SEUL à la fois.
              * @example INC-2607
@@ -2167,8 +2162,11 @@ export interface components {
             nom: string;
             /** @example Tanger */
             ville: string;
-            /** @example Col. A. Senhaji */
-            cmdt: string;
+            /**
+             * @description Facultatif : le commandant est le compte « responsable d'unité » affecté à l'unité, pas un texte saisi ici.
+             * @example Col. A. Senhaji
+             */
+            cmdt?: string;
             eff: number;
             /** @enum {string} */
             dispo: "ready" | "deployed" | "standby";

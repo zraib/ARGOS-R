@@ -1,5 +1,4 @@
 import { VisibilityService } from "@/modules/domain/visibility.service";
-import { PLACE_ARME_RADIUS_KM } from "@/shared/responsibilities";
 import type { Incident } from "@/modules/domain/domain.service";
 
 // ============================================================================
@@ -26,13 +25,12 @@ function inc(over: Partial<Incident> = {}): Incident {
   } as Incident;
 }
 
-const cityLookup = (c: string) => ({ Casablanca: CASABLANCA, Rabat: RABAT }[c]);
 const noServing = () => [];
 
 describe("Portée — global", () => {
   const v = new VisibilityService();
   it.each(["superadmin", "admin", "strategic"] as const)("%s voit tout", (role) => {
-    const scope = v.scopeOf(role, undefined, cityLookup);
+    const scope = v.scopeOf(role, undefined);
     expect(scope.kind).toBe("global");
     const all = [inc({ id: "A" }), inc({ id: "B", region: "Souss-Massa" })];
     expect(v.filterIncidents(all, scope, noServing)).toHaveLength(2);
@@ -48,49 +46,46 @@ describe("Portée — wali : sa région, et rien d'autre", () => {
   ];
 
   it("ne voit que les incidents de sa région", () => {
-    const scope = v.scopeOf("wali", { region: "Casablanca-Settat" }, cityLookup);
+    const scope = v.scopeOf("wali", { region: "Casablanca-Settat" });
     expect(v.filterIncidents(all, scope, noServing).map((i) => i.id)).toEqual(["A", "C"]);
   });
 
   it("DEFAULT-DENY : un wali SANS région ne voit RIEN", () => {
-    const scope = v.scopeOf("wali", {}, cityLookup);
+    const scope = v.scopeOf("wali", {});
     expect(v.filterIncidents(all, scope, noServing)).toHaveLength(0);
   });
 
   it("décision produit : les unités restent visibles au national", () => {
-    const scope = v.scopeOf("wali", { region: "Casablanca-Settat" }, cityLookup);
+    const scope = v.scopeOf("wali", { region: "Casablanca-Settat" });
     const units = [{ id: "U1", ll: RABAT }, { id: "U2", ll: CASABLANCA }] as never;
     expect(v.filterUnits(units, scope)).toHaveLength(2);
   });
 });
 
-describe("Portée — place d'armes : ce qu'elle peut atteindre", () => {
+describe("Portée — place d'armes : sa région, comme le wali", () => {
   const v = new VisibilityService();
-  const scope = () => v.scopeOf("place_arme", { city: "Casablanca" }, cityLookup);
+  const scope = () => v.scopeOf("place_arme", { region: "Casablanca-Settat" });
 
-  it(`voit un incident à 24 km, pas un à 87 km (rayon ${PLACE_ARME_RADIUS_KM} km)`, () => {
-    const all = [inc({ id: "PROCHE", ll: MOHAMMEDIA }), inc({ id: "LOIN", ll: RABAT })];
-    expect(v.filterIncidents(all, scope(), noServing).map((i) => i.id)).toEqual(["PROCHE"]);
+  it("voit les incidents de sa région, y compris loin de son chef-lieu", () => {
+    // Rabat est à 87 km de Casablanca : l'ancienne zone de 40 km l'excluait.
+    // C'est la RÉGION qui décide désormais, pas la distance.
+    const all = [inc({ id: "A", ll: MOHAMMEDIA }), inc({ id: "B", ll: RABAT }), inc({ id: "C", region: "Souss-Massa" })];
+    expect(v.filterIncidents(all, scope(), noServing).map((i) => i.id)).toEqual(["A", "B"]);
   });
 
-  it("la zone ignore la frontière administrative : un incident d'une AUTRE région mais proche est visible", () => {
-    // Mohammedia est dans Casablanca-Settat ; on force une autre région pour
-    // prouver que c'est la DISTANCE qui décide, pas le libellé.
-    const all = [inc({ id: "PROCHE", ll: MOHAMMEDIA, region: "Rabat-Salé-Kénitra" })];
-    expect(v.filterIncidents(all, scope(), noServing)).toHaveLength(1);
+  it("un incident proche mais d'une AUTRE région lui est invisible", () => {
+    const all = [inc({ id: "VOISIN", ll: MOHAMMEDIA, region: "Rabat-Salé-Kénitra" })];
+    expect(v.filterIncidents(all, scope(), noServing)).toHaveLength(0);
   });
 
-  it("restreint aussi les unités à la zone", () => {
+  it("décision produit : les unités restent visibles au national", () => {
     const units = [{ id: "U1", ll: MOHAMMEDIA }, { id: "U2", ll: RABAT }] as never;
-    expect(v.filterUnits(units, scope()).map((u: { id: string }) => u.id)).toEqual(["U1"]);
+    expect(v.filterUnits(units, scope())).toHaveLength(2);
   });
 
-  it("DEFAULT-DENY : sans ville, ou ville inconnue, la zone est VIDE — pas le pays", () => {
-    for (const a of [{}, { city: "Ville-Inexistante" }]) {
-      const sc = v.scopeOf("place_arme", a, cityLookup);
-      expect(v.filterIncidents([inc()], sc, noServing)).toHaveLength(0);
-      expect(v.filterUnits([{ id: "U1", ll: CASABLANCA }] as never, sc)).toHaveLength(0);
-    }
+  it("DEFAULT-DENY : sans région, la place d'armes ne voit RIEN — pas le pays", () => {
+    const sc = v.scopeOf("place_arme", {});
+    expect(v.filterIncidents([inc()], sc, noServing)).toHaveLength(0);
   });
 });
 
@@ -101,13 +96,13 @@ describe("Portée — conduite déployée : son incident, un seul", () => {
   it.each(["opcom", "tacom", "bluecell", "greencell", "orangecell", "resp_shelter", "resp_equipment"] as const)(
     "%s ne voit que l'incident de son déploiement",
     (role) => {
-      const scope = v.scopeOf(role, { incident: "B" }, cityLookup);
+      const scope = v.scopeOf(role, { incident: "B" });
       expect(v.filterIncidents(all, scope, noServing).map((i) => i.id)).toEqual(["B"]);
     },
   );
 
   it("DEFAULT-DENY : non déployé = ne voit RIEN", () => {
-    const scope = v.scopeOf("opcom", {}, cityLookup);
+    const scope = v.scopeOf("opcom", {});
     expect(v.filterIncidents(all, scope, noServing)).toHaveLength(0);
   });
 });
@@ -119,19 +114,19 @@ describe("Portée — responsable d'entité : plusieurs incidents à la fois", (
   const serving = (id: string) => ({ A: ["H1", "U2"], B: ["U5"], C: ["H1"] }[id] ?? []);
 
   it("voit TOUS les incidents où son entité sert", () => {
-    const scope = v.scopeOf("resp_hospital", { hospital: "H1" }, cityLookup);
+    const scope = v.scopeOf("resp_hospital", { hospital: "H1" });
     expect(v.filterIncidents(all, scope, serving).map((i) => i.id)).toEqual(["A", "C"]);
   });
 
   it("un compte cumulant deux responsabilités additionne ses périmètres", () => {
-    const scope = v.scopeOf("resp_unit", { hospital: "H1", unit: "U5" }, cityLookup);
+    const scope = v.scopeOf("resp_unit", { hospital: "H1", unit: "U5" });
     expect(v.filterIncidents(all, scope, serving).map((i) => i.id)).toEqual(["A", "B", "C"]);
   });
 
   it("DEFAULT-DENY : sans affectation, rien ; affecté à une entité qui ne sert rien, rien", () => {
-    expect(v.filterIncidents(all, v.scopeOf("resp_hospital", {}, cityLookup), serving)).toHaveLength(0);
+    expect(v.filterIncidents(all, v.scopeOf("resp_hospital", {}), serving)).toHaveLength(0);
     expect(
-      v.filterIncidents(all, v.scopeOf("resp_hospital", { hospital: "H9" }, cityLookup), serving),
+      v.filterIncidents(all, v.scopeOf("resp_hospital", { hospital: "H9" }), serving),
     ).toHaveLength(0);
   });
 });
@@ -139,7 +134,7 @@ describe("Portée — responsable d'entité : plusieurs incidents à la fois", (
 describe("canSeeIncident — la garde du dashboard d'incident", () => {
   const v = new VisibilityService();
   it("un OPCOM ne peut pas ouvrir le dashboard d'une AUTRE opération", () => {
-    const scope = v.scopeOf("opcom", { incident: "INC-A" }, cityLookup);
+    const scope = v.scopeOf("opcom", { incident: "INC-A" });
     expect(v.canSeeIncident(inc({ id: "INC-A" }), scope, noServing)).toBe(true);
     expect(v.canSeeIncident(inc({ id: "INC-B" }), scope, noServing)).toBe(false);
   });

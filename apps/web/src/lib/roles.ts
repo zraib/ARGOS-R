@@ -134,6 +134,54 @@ export const RESPONSIBILITY_OF_ROLE: Partial<Record<Role, ResponsibilityKind>> =
   resp_equipment: "equipment",
 };
 
+// ---------------------------------------------------------------------------
+// Rattachements de PORTÉE (miroir de SCOPE_KEYS / ROLE_SCOPE_KEY côté API).
+// Le formulaire de compte ne pouvait pas proposer de région : ce miroir ne
+// connaissait que les entités, si bien que l'API refusait chaque wali créé
+// depuis l'écran — faute de région — sans que l'écran ait pu la demander.
+// ---------------------------------------------------------------------------
+
+/** Clés de rattachement qui définissent un périmètre, non une entité. */
+export const SCOPE_KEYS = ["region", "incident"] as const;
+
+export type ScopeKey = (typeof SCOPE_KEYS)[number];
+
+/** Rôle → périmètre qu'il porte. Absent = aucun périmètre à saisir. */
+export const ROLE_SCOPE_KEY: Partial<Record<Role, ScopeKey>> = {
+  wali: "region",
+  place_arme: "region",
+  opcom: "incident",
+  tacom: "incident",
+  bluecell: "incident",
+  greencell: "incident",
+  orangecell: "incident",
+  resp_shelter: "incident",
+  resp_equipment: "incident",
+};
+
+/**
+ * Périmètres exigés DÈS la création : la région. L'incident, lui, vient du
+ * déploiement, geste distinct et tracé — on ne le saisit pas au formulaire.
+ */
+export function mandatoryScopeKeysOf(roles: readonly Role[]): ScopeKey[] {
+  const keys = new Set<ScopeKey>();
+  for (const r of roles) if (ROLE_SCOPE_KEY[r] === "region") keys.add("region");
+  return [...keys];
+}
+
+/**
+ * Autorités CIVILES : pas de grade militaire. Le formulaire masque le champ et
+ * l'API refuse la valeur — le masquage n'est qu'un confort.
+ */
+export const CIVIL_ROLES: readonly Role[] = ["wali"];
+
+export function isCivil(roles: readonly Role[]): boolean {
+  return roles.some((r) => CIVIL_ROLES.includes(r));
+}
+
+/** Entités affectées à un compte, une par nature de responsabilité — et sa région s'il en porte une. */
+export type ScopedAssignments = Assignments & { region?: string; incident?: string };
+
 /** Natures d'entité à affecter pour cet ensemble de rôles (sans doublon). */
 export function requiredAssignments(roles: readonly Role[]): ResponsibilityKind[] {
   const kinds: ResponsibilityKind[] = [];

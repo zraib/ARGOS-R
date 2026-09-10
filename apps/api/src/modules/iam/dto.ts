@@ -11,23 +11,16 @@ import { MODULE_FEATURES, ROLES, type Role } from "@/shared/permissions";
  */
 export class AssignmentsDto {
   // --- Rattachements NON-ENTITÉ (lot V-1) -----------------------------------
-  // Tous les rôles ne répondent pas d'un établissement : le wali répond d'un
-  // territoire, la place d'armes d'une zone, la conduite d'une opération.
+  // Tous les rôles ne répondent pas d'un établissement : le wali et la place
+  // d'armes répondent d'un territoire, la conduite d'une opération.
 
   @ApiPropertyOptional({
     example: "Casablanca-Settat",
     enum: REGIONS_MA,
-    description: "Région administrative (Wali) — doit appartenir au référentiel des 12 régions.",
+    description: "Région administrative (Wali, Place d'Armes) — doit appartenir au référentiel des 12 régions. Un seul titulaire de chaque rôle par région.",
   })
   @IsOptional() @IsIn(REGIONS_MA)
   region?: string;
-
-  @ApiPropertyOptional({
-    example: "Casablanca",
-    description: "Ville de rattachement (Place d'Armes) — la zone de compétence est un rayon de 40 km autour.",
-  })
-  @IsOptional() @IsString()
-  city?: string;
 
   @ApiPropertyOptional({
     example: "INC-2607",
