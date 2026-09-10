@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { DEPLOYABLE_ROLES, type Assignments } from "@/shared/responsibilities";
+import { DEPLOYABLE_ROLES, type Assignments, type ResponsibilityKind } from "@/shared/responsibilities";
 import type { Role } from "@/shared/permissions";
 import type { Incident, Unit, FieldHospital } from "@/modules/domain/domain.service";
 
@@ -43,7 +43,17 @@ export type VisibilityScope =
   | { kind: "global" }
   | { kind: "region"; region: string }
   | { kind: "incident"; incidentId: string | null }
-  | { kind: "entity"; entities: string[] };
+  | {
+      kind: "entity";
+      entities: string[];
+      /** Régions des entités : un responsable voit aussi ce qui se déclare dans la région de son établissement. */
+      regions: string[];
+      /** Opération sur laquelle le compte est déployé (responsable d'abri) — visible aussi. */
+      incidentId?: string | null;
+    };
+
+/** Résout la région d'une entité affectée — fourni par le domaine, que la doctrine ne connaît pas. */
+export type RegionOfEntity = (kind: ResponsibilityKind, id: string) => string | undefined;
 
 /** Rôles qui voient tout — leur fonction l'exige. */
 const GLOBAL_ROLES: readonly Role[] = ["superadmin", "admin", "strategic"];
@@ -60,6 +70,12 @@ const GLOBAL_ROLES: readonly Role[] = ["superadmin", "admin", "strategic"];
  */
 const DEPLOYED_ROLES = DEPLOYABLE_ROLES;
 
+/** Les régions (dédoublonnées) de ces entités, si un résolveur est fourni. */
+function regionsOf(kind: ResponsibilityKind, ids: readonly string[], regionOf?: RegionOfEntity): string[] {
+  if (!regionOf) return [];
+  return [...new Set(ids.map((id) => regionOf(kind, id)).filter((r): r is string => !!r))];
+}
+
 /** Rôles dont le périmètre est l'ensemble des incidents où leur entité sert. */
 const MULTI_INCIDENT_ROLES: readonly Role[] = ["resp_hospital", "resp_unit", "resp_morgue"];
 
@@ -73,8 +89,16 @@ export class VisibilityService {
    * affectation ne vaut pas permission — c'est ce qui rend l'oubli
    * administratif visible plutôt que dangereux.
    */
-  scopeOf(role: Role, assignments: Assignments | undefined): VisibilityScope {
+  scopeOf(role: Role, assignments: Assignments | undefined, regionOf?: RegionOfEntity): VisibilityScope {
     if (GLOBAL_ROLES.includes(role)) return { kind: "global" };
+
+    // Le responsable d'abri : SON abri, la région de son abri, et l'opération
+    // où il est déployé — avant la règle générale des postes déployables, qui
+    // l'aveuglerait sur tout le reste tant qu'on ne l'a pas déployé.
+    if (role === "resp_shelter") {
+      const entities = assignments?.shelter ? [assignments.shelter] : [];
+      return { kind: "entity", entities, regions: regionsOf("shelter", entities, regionOf), incidentId: assignments?.incident ?? null };
+    }
 
     // Wali et commandant de place d'armes : LEUR région, rien d'autre. La
     // place d'armes couvrait un rayon de 40 km autour d'une ville ; elle suit
@@ -88,20 +112,24 @@ export class VisibilityService {
     }
 
     if (MULTI_INCIDENT_ROLES.includes(role)) {
-      const entities = [assignments?.hospital, assignments?.unit, assignments?.morgue].filter(
-        (x): x is string => !!x,
-      );
-      return { kind: "entity", entities };
+      const parKind: [ResponsibilityKind, string | undefined][] = [
+        ["hospital", assignments?.hospital],
+        ["unit", assignments?.unit],
+        ["morgue", assignments?.morgue],
+      ];
+      const entities = parKind.map(([, id]) => id).filter((x): x is string => !!x);
+      const regions = [...new Set(parKind.flatMap(([kind, id]) => (id ? regionsOf(kind, [id], regionOf) : [])))];
+      return { kind: "entity", entities, regions };
     }
 
     // Rôle inconnu de la doctrine : rien. Ajouter un rôle sans le classer ici
     // le prive d'accès plutôt que de lui en ouvrir un par inadvertance.
-    return { kind: "entity", entities: [] };
+    return { kind: "entity", entities: [], regions: [] };
   }
 
   /** Portée d'un compte, depuis son rôle et ses affectations (même chemin pour tous les contrôleurs). */
-  scopeOfUser(role: Role, assignments: Assignments | undefined): VisibilityScope {
-    return this.scopeOf(role, assignments);
+  scopeOfUser(role: Role, assignments: Assignments | undefined, regionOf?: RegionOfEntity): VisibilityScope {
+    return this.scopeOf(role, assignments, regionOf);
   }
 
   /**
@@ -125,8 +153,14 @@ export class VisibilityService {
       case "incident":
         return scope.incidentId ? incidents.filter((i) => i.id === scope.incidentId) : [];
       case "entity": {
-        if (scope.entities.length === 0) return [];
+        // Ce qui le concerne : les opérations où son entité sert, celles de
+        // la région de son entité, et celle où il est déployé. Rien de tout
+        // cela → rien (default-deny).
+        if (scope.entities.length === 0 && scope.regions.length === 0 && !scope.incidentId) return [];
         return incidents.filter((i) => {
+          if (scope.incidentId && i.id === scope.incidentId) return true;
+          if (scope.regions.includes(i.region)) return true;
+          if (scope.entities.length === 0) return false;
           const serving = entitiesOnIncident(i.id);
           return scope.entities.some((e) => serving.includes(e));
         });

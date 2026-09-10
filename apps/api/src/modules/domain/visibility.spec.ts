@@ -129,6 +129,28 @@ describe("Portée — responsable d'entité : plusieurs incidents à la fois", (
       v.filterIncidents(all, v.scopeOf("resp_hospital", { hospital: "H9" }), serving),
     ).toHaveLength(0);
   });
+
+  it("voit AUSSI les incidents de la RÉGION de son entité — ce qui s'y déclare le concerne", () => {
+    const regionOf = (kind: string, id: string) => (kind === "hospital" && id === "H9" ? "Rabat-Salé-Kénitra" : undefined);
+    const incs = [inc({ id: "A" }), inc({ id: "R", region: "Rabat-Salé-Kénitra", ll: RABAT }), inc({ id: "C" })];
+    // H9 ne sert nulle part : seule la région de son établissement lui ouvre une opération.
+    const scope = v.scopeOf("resp_hospital", { hospital: "H9" }, regionOf);
+    expect(v.filterIncidents(incs, scope, serving).map((i) => i.id)).toEqual(["R"]);
+    // H1 sert A et C, et son établissement est à Rabat : les trois.
+    const scopeH1 = v.scopeOf("resp_hospital", { hospital: "H1" }, () => "Rabat-Salé-Kénitra");
+    expect(v.filterIncidents(incs, scopeH1, serving).map((i) => i.id)).toEqual(["A", "R", "C"]);
+    // Sans résolveur de région, la doctrine d'avant : les opérations servies seulement.
+    expect(v.filterIncidents(incs, v.scopeOf("resp_hospital", { hospital: "H1" }), serving).map((i) => i.id)).toEqual(["A", "C"]);
+  });
+
+  it("le responsable d'abri voit la région de son abri et l'opération où il est déployé — pas le pays", () => {
+    const regionOf = (kind: string, id: string) => (kind === "shelter" && id === "AB-1" ? "Casablanca-Settat" : undefined);
+    const incs = [inc({ id: "A" }), inc({ id: "R", region: "Rabat-Salé-Kénitra", ll: RABAT }), inc({ id: "T", region: "Tanger-Tétouan-Al Hoceïma" })];
+    expect(v.filterIncidents(incs, v.scopeOf("resp_shelter", { shelter: "AB-1" }, regionOf), noServing).map((i) => i.id)).toEqual(["A"]);
+    expect(v.filterIncidents(incs, v.scopeOf("resp_shelter", { shelter: "AB-1", incident: "T" }, regionOf), noServing).map((i) => i.id)).toEqual(["A", "T"]);
+    // DEFAULT-DENY : sans abri ni déploiement, rien.
+    expect(v.filterIncidents(incs, v.scopeOf("resp_shelter", {}, regionOf), noServing)).toHaveLength(0);
+  });
 });
 
 describe("canSeeIncident — la garde du dashboard d'incident", () => {

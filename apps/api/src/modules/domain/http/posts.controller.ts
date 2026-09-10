@@ -43,7 +43,7 @@ export class PostsController {
     description: "Même portée que la liste des incidents : un wali voit les postes de sa région, un OPCOM ceux de son opération.",
   })
   list(@CurrentUser() user: AuthUser) {
-    const scope = this.visibility.scopeOfUser(user.role, user.scope);
+    const scope = this.visibility.scopeOfUser(user.role, user.scope, (kind, id) => this.domain.regionOfEntity(kind, id));
     const visibles = this.visibility.filterIncidents(this.domain.listIncidents(), scope, (id) => this.domain.entitiesOnIncident(id));
     return this.domain.listPosts(visibles.map((i) => i.id));
   }

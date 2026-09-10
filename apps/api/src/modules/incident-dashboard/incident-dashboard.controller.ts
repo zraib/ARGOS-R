@@ -33,7 +33,7 @@ export class IncidentDashboardController {
     // « interdit » apprendrait à un compte hors portée qu'une opération existe.
     if (!inc) throw new NotFoundException(`Incident inconnu : ${id}`);
 
-    const scope = this.visibility.scopeOfUser(user.role, user.scope);
+    const scope = this.visibility.scopeOfUser(user.role, user.scope, (kind, id) => this.domain.regionOfEntity(kind, id));
     if (!this.visibility.canSeeIncident(inc, scope, (x) => this.domain.entitiesOnIncident(x))) {
       throw new NotFoundException(`Incident inconnu : ${id}`);
     }

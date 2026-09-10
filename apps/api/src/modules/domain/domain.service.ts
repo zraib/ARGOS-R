@@ -27,6 +27,7 @@ export type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, Hosp
 export { DVI_STATUSES, DVI_SAMPLES } from "@/modules/domain/domain.types";
 import type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviSample, MortuaryRecord, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind } from "@/modules/domain/domain.types";
 import { checkPost, type PostLookup } from "@/modules/domain/post.rules";
+import type { ResponsibilityKind } from "@/shared/responsibilities";
 
 
 /**
@@ -67,6 +68,33 @@ function dedupeById<T extends { id: string }>(rows: T[]): T[] {
 const LEGACY_REGION_MAP: Record<string, string> = {
   Oriental: "L'Oriental",
 };
+
+/** Clé de comparaison d'un nom de ville : minuscules, sans accents ni séparateurs. */
+function cityKey(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+}
+
+/** La région de la ville du référentiel qui porte ce nom, si elle y est. */
+function cityRegion(ville: string | undefined): string | undefined {
+  if (!ville) return undefined;
+  const k = cityKey(ville);
+  return CITIES_MA.find((c) => cityKey(c.v) === k)?.region;
+}
+
+/** La région de la ville du référentiel la plus proche d'un point. */
+function pointRegion(ll: [number, number] | undefined): string | undefined {
+  if (!ll) return undefined;
+  let best: (typeof CITIES_MA)[number] | undefined;
+  let bestD = Infinity;
+  for (const c of CITIES_MA) {
+    const d = (c.ll[0] - ll[0]) ** 2 + (c.ll[1] - ll[1]) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = c;
+    }
+  }
+  return best?.region;
+}
 
 function canonicalizeRegion(inc: Incident): Incident {
   const fixed = LEGACY_REGION_MAP[inc.region];
@@ -237,6 +265,36 @@ export class DomainService {
       feed: this.feed,
       posts: this.posts,
     });
+  }
+
+  // --- région d'une entité ------------------------------------------------------
+
+  /**
+   * La région où une entité se trouve : celle qu'elle déclare, sinon celle de
+   * sa ville dans le référentiel, sinon celle de la ville la plus proche de
+   * son point. Sert deux choses qui doivent dire la même chose : QUI est
+   * prévenu d'un incident déclaré dans une région, et QUI voit cet incident.
+   */
+  regionOfEntity(kind: ResponsibilityKind, id: string): string | undefined {
+    switch (kind) {
+      case "hospital": {
+        const h = this.hospitals.find((x) => x.id === id);
+        return h && (h.region ?? cityRegion(h.ville) ?? pointRegion(h.ll));
+      }
+      case "unit":
+      case "equipment": {
+        const u = this.units.find((x) => x.id === id);
+        return u && (cityRegion(u.ville) ?? pointRegion(u.ll));
+      }
+      case "shelter": {
+        const sh = this.shelters.find((x) => x.id === id);
+        return sh && (sh.region ?? cityRegion(sh.ville) ?? (sh.ll ? pointRegion(sh.ll) : undefined));
+      }
+      case "morgue": {
+        const m = this.morgues.find((x) => x.id === id);
+        return m && cityRegion(m.ville);
+      }
+    }
   }
 
   // --- postes d'opération sur la carte (lot #12) ------------------------------

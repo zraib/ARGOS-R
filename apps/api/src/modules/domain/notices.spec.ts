@@ -61,9 +61,20 @@ describe("Alertes — le wali et la place d'armes sont prévenus à la déclarat
     }
   });
 
-  it("ne prévient ni un poste déployable, ni les autorités d'une AUTRE région", async () => {
+  it("prévient aussi le directeur d'hôpital et le commandant d'unité dont l'établissement est dans la région", async () => {
+    const inc = await declare("Casablanca-Settat", "Crue test — responsables", [-7.61, 33.57]);
+    // H2 est à Casablanca : sa directrice est prévenue.
+    expect((await noticesOf("s.moutaouakil", "resp_hospital")).some((n) => n.incidentId === inc.id)).toBe(true);
+    // U3 est à Agadir (Souss-Massa) : son commandant ne l'est pas.
+    expect((await noticesOf("n.fassi", "resp_unit")).some((n) => n.incidentId === inc.id)).toBe(false);
+  });
+
+  it("ne prévient ni un poste déployable sans établissement dans la région, ni les autorités d'une AUTRE région", async () => {
     const inc = await declare("Marrakech-Safi", "Crue test — Ourika", [-7.79, 31.32]);
-    expect((await noticesOf("s.bennani", "tacom")).some((n) => n.incidentId === inc.id)).toBe(false);
+    // y.tazi tient une cellule, aucune entité : rien ne le rattache à la région.
+    expect((await noticesOf("y.tazi", "bluecell")).some((n) => n.incidentId === inc.id)).toBe(false);
+    // s.bennani commande U2, à Marrakech : l'incident le concerne, il est prévenu.
+    expect((await noticesOf("s.bennani", "resp_unit")).some((n) => n.incidentId === inc.id)).toBe(true);
     expect((await noticesOf("w.casa", "wali")).some((n) => n.incidentId === inc.id)).toBe(false);
     expect((await noticesOf("p.casa", "place_arme")).some((n) => n.incidentId === inc.id)).toBe(false);
   });
