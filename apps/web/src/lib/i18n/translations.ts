@@ -237,6 +237,7 @@ export interface Dict {
   cm_members: string;
   cm_online: string;
   cm_offline: string;
+  cm_dm_hint: string;
   resp_title: string;
   resp_none: string;
   resp_contact: string;

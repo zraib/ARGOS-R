@@ -31,6 +31,9 @@ export default function CommunicationPage() {
   const comMembers = useArgos((s) => s.comMembers);
   // --- temps réel (lot COMMS) ---
   const rtOnline = useArgos((s) => s.rtOnline);
+  const openDirect = useArgos((s) => s.openDirect);
+  const sessionUser = useArgos((s) => s.sessionUser);
+  const isSelf = (m: string) => !!sessionUser && m.toLowerCase() === sessionUser.matricule.toLowerCase();
   const rtStatus = useArgos((s) => s.rtStatus);
   const rtSetActiveChannel = useArgos((s) => s.rtSetActiveChannel);
   const role = useArgos((s) => s.role);
@@ -263,7 +266,7 @@ export default function CommunicationPage() {
                           active ? "bg-or-500/15 font-semibold text-or-500 dark:text-or-400" : "text-gray-500 hover:bg-gray-100 hover:text-or-500 dark:text-rdia-300 dark:hover:bg-rdia-600/40"
                         }`}
                       >
-                        <Icon path={ch.kind === "voice" ? UI_ICONS.voice : UI_ICONS.hash} size={14} className="shrink-0" />
+                        <Icon path={ch.direct ? UI_ICONS.users : ch.kind === "voice" ? UI_ICONS.voice : UI_ICONS.hash} size={14} className="shrink-0" />
                         <span className="min-w-0 truncate">{ch.name}</span>
                       </button>
                     );
@@ -455,7 +458,18 @@ export default function CommunicationPage() {
           <p className="px-1 text-[11.5px] leading-snug text-gray-500 dark:text-rdia-300">{t.cm_offline_real}</p>
         ) : (
           rtOnline.map((u) => (
-            <div key={u.matricule} className="flex items-center gap-2 px-1 py-1.5">
+            // Double-clic : la conversation directe avec ce compte — jamais avec soi-même.
+            <div
+              key={u.matricule}
+              className={`flex items-center gap-2 rounded-lg px-1 py-1.5 ${isSelf(u.matricule) ? "" : "cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-rdia-600/40"}`}
+              title={isSelf(u.matricule) ? undefined : t.cm_dm_hint}
+              onDoubleClick={() => {
+                if (isSelf(u.matricule)) return;
+                void openDirect(u.matricule)
+                  .then(() => setMobileView("chat"))
+                  .catch((err: unknown) => showToast(`${t.toast_fail} — ${err instanceof Error ? err.message : String(err)}`));
+              }}
+            >
               <div className="relative shrink-0">
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-or-500 text-[9px] font-bold text-rdia-600">
                   {u.matricule.slice(0, 2).toUpperCase()}

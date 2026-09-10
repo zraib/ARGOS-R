@@ -72,6 +72,8 @@ export interface DomainSlice {
   /** Qui tient quoi (titulaires d'entités, postes déployés) — chargé avec le domaine. */
   responsables: Responsible[];
   loadResponsables: () => Promise<void>;
+  /** Ouvre (ou retrouve) la conversation directe avec un compte, la sélectionne, et rend son identifiant. */
+  openDirect: (matricule: string) => Promise<string>;
   // --- postes d'opération sur la carte (lot #12) ---
   /** Postes des opérations visibles par le compte — l'API a déjà filtré. */
   posts: IncidentPost[];
@@ -306,6 +308,18 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
     const res = await api.deletePost(post.incidentId, id);
     if (res.error) throw new Error(apiErrorMessage(res.error));
     await get().loadPosts();
+  },
+  openDirect: async (matricule) => {
+    const res = await api.openDirectChannel(matricule);
+    const chan = res.data as { id: string } | undefined;
+    if (res.error || !chan?.id) throw new Error(apiErrorMessage(res.error));
+    // Le canal vient peut-être de naître : la liste locale ne le connaît pas
+    // encore, et l'événement temps réel n'est pas forcément arrivé.
+    const connu = get().comCats.some((c) => c.chans.some((ch) => ch.id === chan.id));
+    if (!connu) await get().loadDomain({ ai: false });
+    set({ comSel: chan.id });
+    get().rtSetActiveChannel(chan.id);
+    return chan.id;
   },
   loadResponsables: async () => {
     const res = await api.getResponsables();

@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { api } from "@/lib/api";
 import { useArgos, useDict, useModules } from "@/lib/store";
-import { deployedOn, incidentChannelId, isOnline, responsibleOf, type ResponsibleKind } from "@/lib/responsibles";
+import { deployedOn, incidentChannelId, isOnlineAs, responsibleOf, type ResponsibleKind } from "@/lib/responsibles";
 import type { Role } from "@/lib/roles";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
@@ -46,7 +45,7 @@ export function ResponsibleCard({ kind, entityId, role, matricule, incidentId, t
   const sessionUser = useArgos((s) => s.sessionUser);
   const selectChannel = useArgos((s) => s.selectChannel);
   const setActive = useArgos((s) => s.rtSetActiveChannel);
-  const loadDomain = useArgos((s) => s.loadDomain);
+  const openDirect = useArgos((s) => s.openDirect);
   const showToast = useArgos((s) => s.showToast);
   const [busy, setBusy] = useState(false);
 
@@ -80,13 +79,8 @@ export function ResponsibleCard({ kind, entityId, role, matricule, incidentId, t
     if (!r || busy) return;
     setBusy(true);
     try {
-      const res = await api.openDirectChannel(r.matricule);
-      const chan = res.data as { id: string } | undefined;
-      if (!chan?.id) throw new Error(res.error ? String((res.error as { message?: unknown }).message ?? res.error) : t.toast_fail);
-      // Le canal vient peut-être de naître : la liste locale ne le connaît
-      // pas encore, et l'événement temps réel n'est pas forcément arrivé.
-      if (!hasChannel(chan.id)) await loadDomain({ ai: false });
-      goTo(chan.id);
+      await openDirect(r.matricule);
+      router.push("/communication");
     } catch (err: unknown) {
       showToast(`${t.toast_fail} — ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -94,7 +88,9 @@ export function ResponsibleCard({ kind, entityId, role, matricule, incidentId, t
     }
   };
 
-  const en = !!r && isOnline(online, r.matricule);
+  // En ligne SOUS le rôle qui tient la charge : un directeur connecté comme
+  // TACOM n'est pas en ligne comme directeur.
+  const en = !!r && isOnlineAs(online, r.matricule, r.role);
   const label = dark ? "text-white/60" : "text-gray-400 dark:text-rdia-400";
   const strong = dark ? "text-white" : "text-gray-800 dark:text-rdia-50";
   const muted = dark ? "text-white/70" : "text-gray-500 dark:text-rdia-300";

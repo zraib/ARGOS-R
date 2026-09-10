@@ -62,6 +62,8 @@ interface Channel {
    * ses deux membres, et sa composition ne se modifie pas.
    */
   direct?: boolean;
+  /** Les deux correspondants d'une conversation directe — pour la nommer du nom de l'AUTRE, chez chacun. */
+  correspondents?: Correspondent[];
 }
 
 /** Groupe qui accueille les conversations directes, créé au premier besoin. */
@@ -168,8 +170,15 @@ export class CommsService {
    */
   all(viewer?: string) {
     const visible = (ch: Channel) => !ch.direct || (!!viewer && this.isMember(ch, viewer));
+    // Une conversation directe porte, chez chacun, le nom de l'AUTRE : on ne
+    // lit pas « alami-bennani » dans sa propre liste, on lit « Cdt. S. Bennani ».
+    const named = (ch: Channel): Channel => {
+      if (!ch.direct || !viewer || !ch.correspondents) return ch;
+      const autre = ch.correspondents.find((c) => c.matricule.toLowerCase() !== viewer.toLowerCase());
+      return autre ? { ...ch, name: autre.nom } : ch;
+    };
     const categories = this.categories
-      .map((c) => ({ ...c, chans: c.chans.filter(visible) }))
+      .map((c) => ({ ...c, chans: c.chans.filter(visible).map(named) }))
       .filter((c) => c.id !== DIRECT_CATEGORY_ID || c.chans.length > 0);
     const messages = Object.fromEntries(
       Object.entries(this.messages).filter(([id]) => {
@@ -287,11 +296,17 @@ export class CommsService {
     }
     const channel: Channel = {
       id,
+      // Le nom SERVI est celui de l'autre correspondant (voir `all`) ; celui-ci
+      // n'est qu'un repli technique, jamais affiché à un membre.
       name: slugify(`${a.nom} ${b.nom}`) || id,
       kind: "text",
-      topic: `Conversation directe — ${a.nom} · ${b.nom}`,
+      topic: "Conversation directe",
       members: paire,
       direct: true,
+      correspondents: [
+        { matricule: paire[0], nom: a.nom },
+        { matricule: paire[1], nom: b.nom },
+      ],
     };
     cat.chans.push(channel);
     this.messages[id] = [];

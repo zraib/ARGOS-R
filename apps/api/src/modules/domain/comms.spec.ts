@@ -192,6 +192,14 @@ describe("CommsService — canaux", () => {
       expect(cats[cats.length - 1].id).toBe("g-direct");
     });
 
+    it("porte, chez chacun, le nom de l'AUTRE correspondant", () => {
+      const { channel } = comms.channelForDirect(a, b);
+      const chez = (viewer: string) => comms.all(viewer).categories.flatMap((c) => c.chans).find((ch) => ch.id === channel.id);
+      expect(chez("h.alami")?.name).toBe("Bennani Karim");
+      expect(chez("W.CASA")?.name).toBe("Alami Hicham");
+      expect(chez("h.alami")?.topic).toBe("Conversation directe");
+    });
+
     it("reste idempotente, quel que soit le sens", () => {
       const first = comms.channelForDirect(a, b).channel;
       const again = comms.channelForDirect(b, a);
