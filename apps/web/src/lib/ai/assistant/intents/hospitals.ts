@@ -96,11 +96,13 @@ const MOTS_SANTE = /\b(hopital|hopitaux|hospinet|hospi|etablissement|etablisseme
 /**
  * Extrait une ville d'une question « hôpitaux de X ». D'abord contre les villes
  * RÉELLEMENT présentes dans le catalogue des hôpitaux (exact, puis la plus
- * longue qui correspond — évite Fès ⊂ Safi), sinon une liste de villes usuelles.
+ * longue qui correspond — évite Fès ⊂ Safi), puis les villes de la plateforme
+ * (unités / incidents) transmises via `extraCities`, enfin un seed minimal
+ * SI le catalogue est vide.
  * Retourne `null` dès que rien d'exploitable ne reste : la question porte alors
  * sur le réseau entier.
  */
-export function extractHospitalCityFromQuery(q: string, hospitals: Hospital[]): { villeNorm: string; villeDisplay: string } | null {
+export function extractHospitalCityFromQuery(q: string, hospitals: Hospital[], extraCities: string[] = []): { villeNorm: string; villeDisplay: string } | null {
   const stripped = norm(q)
     .replace(/[?!.,;:'"()]/g, " ")
     .replace(MOTS_SANTE, " ")
@@ -128,9 +130,26 @@ export function extractHospitalCityFromQuery(q: string, hospitals: Hospital[]): 
     else if (vCompact.includes(compact) || compact.includes(vCompact)) score = 300 + v.length;
     if (score > 0 && (!best || score > best.score)) best = { villeNorm: v, villeDisplay: vRaw, score };
   }
+  // 2) Villes de la plateforme (unités / incidents) transmises par le routeur —
+  //    évite de faire dépendre uniquement du catalogue hôpitaux.
+  for (const raw of extraCities) {
+    const vRaw = (raw || "").trim();
+    if (!vRaw) continue;
+    const v = norm(vRaw);
+    if (!v || vues.has(v)) continue;
+    vues.add(v);
+    const vCompact = v.replace(/[\s-]/g, "");
+    let score = 0;
+    if (stripped === v || stripped === v.replace(/-/g, " ")) score = 980 + v.length;
+    else if (compact === vCompact) score = 930 + v.length;
+    else if (new RegExp(`(^| )${v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}( |$)`).test(stripped)) score = 780 + v.length;
+    else if (v.includes(stripped)) score = 680 + stripped.length;
+    else if (vCompact.includes(compact) || compact.includes(vCompact)) score = 280 + v.length;
+    if (score > 0 && (!best || score > best.score)) best = { villeNorm: v, villeDisplay: vRaw, score };
+  }
   if (best) return { villeNorm: best.villeNorm, villeDisplay: best.villeDisplay };
 
-  // Repli : villes usuelles, si le catalogue des hôpitaux est vide ou muet.
+  // Repli : seed minimal (seulement si catalogue ET extraCities vides).
   const SEED: [RegExp, string][] = [
     [/(^| )casa(blanca)?( |$)/, "Casablanca"], [/(^| )rabat( |$)/, "Rabat"], [/(^| )marrakech( |$)/, "Marrakech"],
     [/(^| )fe[sz]( |$)/, "Fès"], [/(^| )tanger( |$)/, "Tanger"], [/(^| )agadir( |$)/, "Agadir"], [/(^| )meknes( |$)/, "Meknès"],

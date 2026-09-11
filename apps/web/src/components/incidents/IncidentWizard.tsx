@@ -16,8 +16,14 @@ import { useLocationFields } from "@/components/incidents/wizard/useLocationFiel
 import { useWizardForm } from "@/components/incidents/wizard/useWizardForm";
 
 /**
- * Assistant « Signaler un incident » en 4 étapes (type → détails → localisation
- * → bilan et moyens), aussi utilisé en ÉDITION d'une fiche existante.
+ * Assistant « Signaler un incident » en 4 étapes :
+ *   1. Type d'incident
+ *   2. Localisation (région/province/ville + carte) → point géo obligatoire
+ *   3. Victimes (bilan humain) + Moyens (unités, hôpitaux)
+ *   4. Détails → IA GÉNÈRE AUTOMATIQUEMENT : titre = {type} à {localisation} + description
+ *                puis l'utilisateur PEUT MODIFIER les deux champs.
+ *
+ * Aussi utilisé en ÉDITION d'une fiche existante.
  *
  * Ce fichier est la coquille : il relie le magasin, tient l'étape courante et
  * envoie la charge. Le formulaire vit dans `wizard/useWizardForm`, chaque étape
@@ -59,7 +65,6 @@ export function IncidentWizard() {
   const nearUnits = useMemo(() => rankByDistance(units, form.pt), [units, form.pt]);
   const nearHosps = useMemo(() => rankByDistance(hospitals, form.pt), [hospitals, form.pt]);
 
-  const keywordsFlat = form.keywords.join(" , ");
   const draftInput = useMemo<DescriptionProposalInput>(
     () => ({
       type: form.type,
@@ -70,9 +75,26 @@ export function IncidentWizard() {
       pt: form.pt,
       lang: (lang as "fr" | "ar" | "en") ?? "fr",
       incidentTypes,
-      keywords: keywordsFlat,
+      keywords: undefined,
+      dead: form.dead,
+      injured: form.injured,
+      missing: form.missing,
+      infected: form.infected,
+      contaminated: form.contaminated,
+      nrbcFamily: form.nrbcFamily,
+      nrbcSubstance: form.nrbcSubstance,
+      nrbcSpill: form.nrbcSpill,
+      nrbcRelease: form.nrbcRelease,
+      unitsCount: form.units.length,
+      hospitalsCount: form.hospitals.length,
     }),
-    [form.type, form.title, form.adresse, form.prov, form.city, form.pt, lang, incidentTypes, keywordsFlat],
+    [
+      form.type, form.title, form.adresse, form.prov, form.city, form.pt,
+      lang, incidentTypes,
+      form.dead, form.injured, form.missing, form.infected, form.contaminated,
+      form.nrbcFamily, form.nrbcSubstance, form.nrbcSpill, form.nrbcRelease,
+      form.units.length, form.hospitals.length,
+    ],
   );
   const ai = useDraftGeneration(draftInput, form, actions.patch);
 
@@ -97,6 +119,16 @@ export function IncidentWizard() {
     // `ai` change à chaque rendu (fonctions recréées) : on ne dépend que de l'ouverture.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, wizEdit, actions]);
+
+  // ===== DÉCLENCHEMENT AUTOMATIQUE DE L'IA À LA DERNIÈRE ÉTAPE (step 4) =====
+  // Quand l'utilisateur arrive à l'étape finale (Détails), l'IA génère le titre
+  // « {type} à {ville/province} » + la description SANS attendre de clic.
+  // Si l'IA a déjà tourné (aiGenerated true), on ne relance pas.
+  useEffect(() => {
+    if (open && step === 4 && !ai.aiGenerated && !ai.aiBusy && !wizEdit) {
+      void ai.runAiGenerate();
+    }
+  }, [open, step, ai.aiGenerated, ai.aiBusy, ai.runAiGenerate, wizEdit]);
 
   const onClose = () => {
     setStep(1);
@@ -143,9 +175,9 @@ export function IncidentWizard() {
         <Stepper steps={[t.wz1, t.wz2, t.wz3, t.wz4]} step={step} />
 
         {step === 1 && <StepType types={incidentTypes} lang={lang} value={form.type} onSelect={(id) => actions.patch({ type: id })} />}
-        {step === 2 && <StepDetails form={form} actions={actions} ai={ai} lang={lang} nrbcSubstances={nrbcSubstances} />}
-        {step === 3 && <StepLocation form={form} cities={cities} loc={loc} />}
-        {step === 4 && <StepCasualties form={form} actions={actions} nearUnits={nearUnits} nearHosps={nearHosps} />}
+        {step === 2 && <StepLocation form={form} cities={cities} loc={loc} />}
+        {step === 3 && <StepCasualties form={form} actions={actions} nearUnits={nearUnits} nearHosps={nearHosps} />}
+        {step === 4 && <StepDetails form={form} actions={actions} ai={ai} lang={lang} nrbcSubstances={nrbcSubstances} />}
 
         {/* Navigation */}
         <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-2 dark:border-rdia-700/50">

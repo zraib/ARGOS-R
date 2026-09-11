@@ -15,13 +15,55 @@ import { crossAnalysis, globalOverview, help, orsecSummary } from "./intents/ove
 import { criticalConcentration, riskPredictionAnswer, riskZoneAnswer, riskiestZone, touchedZones } from "./intents/risk";
 import { seismicStatus } from "./intents/seismic";
 import { mobilizablePotential, unitsStatus } from "./intents/units";
-import { norm } from "./labels";
+import { buildCityRegex, norm, platformCities, platformRegionGroups } from "./labels";
 import { activityPeaks, last24hSummary, todayIncidents, todayVsYesterday, trendIncidents, trends, unusualEvolution } from "./temporal";
 import type { AiAnswer, AiContext } from "./types";
+
+/**
+ * Helpers DYNAMIQUES (zéro hardcodé comme seule source) :
+ *   - Précompilés 1× par appel d'interpret() en dessous (cityRe / regionRe).
+ *   - cityRegexStr(ctx) : la string base (pour réutilisation externe).
+ */
+export function cityRegexStr(ctx: AiContext): string {
+  const base = buildCityRegex(ctx, 120);
+  return base ? `${base}|ville` : `casa|casablanca|rabat|marrakech|f[eè]s|tanger|agadir|ville`;
+}
+export function regionRegexStr(ctx: AiContext): string {
+  const groups = platformRegionGroups(ctx);
+  const parts = groups
+    .map((g) => {
+      const name = norm(g.name).replace(/-/g, "[\\s-]+");
+      const members = g.members.map((m) => norm(m).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+      return members ? `(${name}|${members})` : `(${name})`;
+    })
+    .join("|");
+  return parts ? `(r[ée]gion[\\s]+(de|du)?[\\s]+)?(${parts})` : `(r[ée]gion|rabat|casablanca|oriental)`;
+}
 
 /** Traduit une requête NL → requête Couche 1 déterministe + réponse par gabarit. */
 export function interpret(q: string, ctx: AiContext): AiAnswer {
   const nq = norm(q);
+  // =========================================================================
+  // 🔧 PRÉCOMPILATIONS 1× PAR APPEL (PERFORMANCE)
+  //   cityRe, regionRe, extraCities → évitent alloc+build répétés dans 50+
+  //   regex plus bas. Construit à partir du cache WeakMap de labels.ts.
+  // =========================================================================
+  let cityRe: RegExp, regionRe: RegExp;
+  try {
+    cityRe = new RegExp(`(^|[^a-z])(${cityRegexStr(ctx)})([^a-z]|$)`, "i");
+  } catch {
+    cityRe = /(^|[^a-z])(casa|casablanca|rabat|marrakech|ville)([^a-z]|$)/i;
+  }
+  try {
+    regionRe = new RegExp(regionRegexStr(ctx), "i");
+  } catch {
+    regionRe = /(rabat|casablanca|oriental)/i;
+  }
+  const regionCueRe = /r[ée]gion\s+(de|du)?/i;
+  const hasCity = (): boolean => cityRe.test(nq);
+  const hasRegion = (): boolean => regionRe.test(nq) || regionCueRe.test(nq);
+  const extraCities = platformCities(ctx, 180);
+
   // Exemple d'identifiant pour les pastilles : tiré du catalogue, jamais codé en dur.
   const ex = exampleIncidentId(ctx);
   // Court-circuit si rien
@@ -149,8 +191,9 @@ export function interpret(q: string, ctx: AiContext): AiAnswer {
   // 👉 Zones les plus touchées
   if (/(zones?\s+(les\s+plus\s+|plus\s+|les\s+mieux\s+)?touchées?|touch[eé]es?\s+zones?|r[ée]gions?\s+(touchées?|impactées?|affectées?)|zones?\s+impactées?|zones?\s+affectées?|quelles\s+zones?\s+.*touch|quelles\s+r[ée]gions?\s+.*touch|zones?\s+d['’]?intérêt|hotspots?|points?\s+chauds)/i.test(nq)) return touchedZones(q, ctx);
   // 👉 Incidents PROCHES d'une ville (Casablanca / Rabat / ...)
-  if (/(pr[eè]s\s+de|autour\s+de|aux\s+alentours?\s+d['’]e|aux\s+environs\s+d['’]e|proximit[ée]\s+d['’]e|(proche|voisine|avoisinante).*\s+de|(incidents?|evenements?|alertes?).*\s+(dans\s+la\s+r[ée]gion\s+de|à\s+c[ôo]té\s+de|(pr[eè]s|proche)\s+de))/i.test(nq) && /(casa|casablanca|rabat|marrakech|f[eè]s|tanger|agadir|mekn[eè]s|oujda|t[ée]touan|safi|kenitra|taza|nador|settat|beni\s+mellal|ville)/i.test(nq)) return incidentsNearCity(q, ctx);
-  if (/(incidents?\s+(à|a)\s+(casa|casablanca|rabat|marrakech|f[eè]s|tanger|agadir|mekn[eè]s|oujda)|(casa|casablanca|rabat|marrakech).*(incidents?|evenements?))/i.test(nq)) return incidentsNearCity(q, ctx);
+  const proxNearCue = /(pr[eè]s\s+de|autour\s+de|aux\s+alentours?\s+d['’]e|aux\s+environs\s+d['’]e|proximit[ée]\s+d['’]e|(proche|voisine|avoisinante).*\s+de|(incidents?|evenements?|alertes?).*\s+(dans\s+la\s+r[ée]gion\s+de|à\s+c[ôo]té\s+de|(pr[eè]s|proche)\s+de))/i.test(nq);
+  const incAtCityCue = /(incidents?\s+(à|a)\s+)|((incidents?|evenements?).*(à|a|de|sur|dans)\s+)/i.test(nq);
+  if ((proxNearCue || incAtCityCue) && hasCity()) return incidentsNearCity(q, ctx);
   // 👉 Concentration incidents CRITIQUES
   if (/(concentration|regroupement|amas|grappe|foyers?)\s+.*(critique|grave|important|critiques?|sév[èe]res?|élevés?|severes?)|o[uù]\s+(se\s+)?(concentre|regroupe)\s+(les\s+)?incidents?\s+(critiques?|graves?|prioritaires?)/i.test(nq)) return criticalConcentration(q, ctx);
   if (/(incidents?\s+critiques?|incidents?\s+graves?).*(o[uù]|région|zone|concentration|où\s+se\s+trouve(nt)?)/i.test(nq)) return criticalConcentration(q, ctx);
@@ -160,12 +203,12 @@ export function interpret(q: string, ctx: AiContext): AiAnswer {
 
   // 🔥 INTENTS MODULE IA PREDICTIONS RISQUES (avant global overview, 100% réel)
   //     → "risques à Rabat" / "risques Marrakech" / "risque sur Casablanca"
-  const riskCueCity =
-    /(risques?|estimation|pr[eé]diction|alerte\s+risque|d[eé]gradation|score\s+risque).*\s+(à|a|de|sur|pour|dans)\s+(casa|casablanca|rabat|marrakech|f[eè]s|tanger|agadir|mekn[eè]s|oujda|t[ée]touan|safi|kenitra|taza|nador|settat|beni\s+mellal|t[aâ]louet|errachidia|ouarzazate)/i;
-  const riskCityName =
-    /^(risques?|estimation|pr[eé]diction)\s+(à|a|de|sur|pour)\s+(casa|casablanca|rabat|marrakech|f[eè]s|tanger|agadir|mekn[eè]s|oujda|t[ée]touan|safi|kenitra|taza|nador|settat|beni\s+mellal|errachidia|ouarzazate)/i;
-  const riskAnyCity = /(casa|casablanca|rabat|marrakech|f[eè]s|tanger|agadir|mekn[eè]s|oujda|t[ée]touan|safi|kenitra|taza|nador|settat|beni\s+mellal|errachidia|ouarzazate).*(risques?|pr[eé]dictions?\s+(de\s+)?risques?|estimation)/i;
-  if (riskCueCity.test(nq) || riskCityName.test(nq) || riskAnyCity.test(nq)) return riskZoneAnswer(q, ctx);
+  const riskCueAny =
+    /(risques?|estimation|pr[eé]diction|alerte\s+risque|d[eé]gradation|score\s+risque)/i.test(nq);
+  const riskCityCue =
+    /^(risques?|estimation|pr[eé]diction)\s+(à|a|de|sur|pour)\s+/i.test(nq) ||
+    /\s+(à|a|de|sur|pour|dans)\s+/i.test(nq);
+  if ((riskCueAny && hasCity() && riskCityCue) || (hasCity() && riskCueAny)) return riskZoneAnswer(q, ctx);
   //     → "prédictions IA risques" / "estimation de risques" / "risques" (sans ville)
   const riskGlobal =
     /(pr[eé]dictions?\s+(de\s+)?risques?|risques?\s+(ia|ia\s*predict|estim[ée]s?|sur\s+24h|sur\s+48h|dans\s+les?\s+prochaines?\s+heure|horizon|24\s*h|48\s*h))/i;
@@ -226,7 +269,7 @@ export function interpret(q: string, ctx: AiContext): AiAnswer {
   // Un identifiant INC-xxxx explicite garde la priorité.
   const hasHopCue = /(^|[^a-z])(hopital|hopitaux|hospinet|chu|chr|chp|clinique|etablissement|hopi)([^a-z]|$)/i.test(nq);
   if (hasHopCue && !/\bINC-\d+/i.test(q)) {
-    const hopCity = extractHospitalCityFromQuery(q, ctx.hospitals ?? []);
+    const hopCity = extractHospitalCityFromQuery(q, ctx.hospitals ?? [], extraCities.map((c) => c.ville));
     if (hopCity) return hospitalsByCity(q, ctx, hopCity);
   }
   if (/hopital|hospinet|sante|etablissement sante/.test(nq) && hasIncCue) return hospitalsNearest(q, ctx);
@@ -241,9 +284,10 @@ export function interpret(q: string, ctx: AiContext): AiAnswer {
   //    → "disponibilités 100 km de Fès"
   const mobRayonExplicit = /(\d+\s*(?:km|kilom[èe]tres?)|rayon|p[ée]rim[èe]tre|autour\s+de|dans\s+(?:un\s+)?rayon)/i;
   const mobCueWords = /(potentiel\s+mobilisab|mobilisab|capacit[eé]\s+mob|capacit[ée]\s+de\s+mobi|disponibilit[eé]\s+unite|(unite|unit[ée]s).*(zone|region|perimetre|périmètre|rayon|ville))/i;
-  const mobCity = /(casa|casablanca|rabat|marrakech|f[eè]s|fes|tanger|agadir|mekn[eè]s|meknes|oujda|t[ée]touan|tetouan|safi|kenitra|taza|nador|settat|beni\s+mellal|errachidia|ouarzazate|temara|mohammedia|bouskoura|hoceima|al\s+hoceima|taroudant|tiznit|guercif|berkane|sal[ée]|skhirate)/i;
-  const mobRegion = /(region\s+(de|du)?|r[ée]gion\s+(de|du)?|rabat[\s-]+sal[eé]|casablanca[\s-]+settat|marrakech[\s-]+safi|f[eè]s[\s-]+mekn[eè]s|tanger[\s-]+t[eé]touan|souss[\s-]+massa|l'oriental|oriental)/i;
-  if ((mobRayonExplicit.test(nq) || mobCueWords.test(nq) || mobRegion.test(nq) || (mobCity.test(nq) && /(mobilisab|disponibilit[eé]|potentiel|capacit[eé]\s+mob|pretes|pret\s+a|envois?|renfort)/i.test(nq))) && !/saturation|occupation|etat\s+(des\s+)?(hopital|hospinet|hospi)/i.test(nq)) return mobilizablePotential(q, ctx);
+  const mobRegionCue = /r[ée]gion\s+(de|du)?/i.test(nq);
+  const mobHasCity = hasCity();
+  const mobHasRegion = hasRegion() || mobRegionCue;
+  if ((mobRayonExplicit.test(nq) || mobCueWords.test(nq) || mobHasRegion || (mobHasCity && /(mobilisab|disponibilit[eé]|potentiel|capacit[eé]\s+mob|pretes|pret\s+a|envois?|renfort)/i.test(nq))) && !/saturation|occupation|etat\s+(des\s+)?(hopital|hospinet|hospi)/i.test(nq)) return mobilizablePotential(q, ctx);
 
   // 🔥 PRIORITAIRE : ÉTAT GLOBAL STOCKS / RUPTURES / HORS SERVICE
   //    → Déclenche SUR LA REQUÊTE EXACTE utilisateur "état des stocks des équipements critiques

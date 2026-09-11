@@ -6,18 +6,18 @@ import { useDict, type ArgosState, useModules } from "@/lib/store";
 import type { WizardForm } from "@/lib/incidents/wizard";
 import type { Lang } from "@/lib/types";
 import { AttachmentsField } from "./AttachmentsField";
-import { KeywordChips } from "./KeywordChips";
 import { NrbcSection } from "./NrbcSection";
 import { fieldCls, labelCls } from "./styles";
 import type { DraftGeneration } from "./useDraftGeneration";
 import type { WizardActions } from "./useWizardForm";
 
 /**
- * Étape 2 — détails, en un seul chemin :
- *   1. les mots-clés, un par un ;
- *   2. UN bouton « Générer par IA » (« Régénérer » ensuite) ;
- *   3. tant que rien n'est généré, titre et description restent masqués ;
- *   4. générés, ils apparaissent, éditables, chacun avec sa paraphrase.
+ * Étape 4 (dernière) — Détails. IA auto-génère en arrivant depuis les
+ * DONNÉES STRUCTURÉES SAISIES : type incident + localisation (étape 2) +
+ * bilan humain (étape 3) + moyens déployés (étape 3) + NRBC si concerné.
+ * L'utilisateur n'a PLUS BESOIN d'écrire de mots-clés : la proposition est
+ * entièrement dérivée des champs. L'IA se déclenche à l'entrée dans l'étape.
+ * Titre et description sont ensuite MODIFIABLES librement par l'utilisateur.
  */
 export function StepDetails({
   form,
@@ -37,19 +37,11 @@ export function StepDetails({
   const regenBtn = "inline-flex items-center gap-1 rounded-md border border-or-500/30 bg-or-500/10 px-2 py-0.5 text-[10px] font-semibold text-or-700 transition-colors hover:bg-or-500/20 disabled:cursor-not-allowed disabled:opacity-40 dark:text-or-300";
   return (
     <div className="flex flex-col gap-4">
-      <KeywordChips
-        keywords={form.keywords}
-        draft={form.keywordDraft}
-        onDraft={(v) => actions.patch({ keywordDraft: v })}
-        onKey={actions.onKeywordKey}
-        onAdd={actions.addKeyword}
-        onRemove={actions.removeKeyword}
-      />
 
       <button
         type="button"
         onClick={() => void ai.runAiGenerate()}
-        disabled={!form.type || form.keywords.length === 0 || ai.aiBusy}
+        disabled={!form.type || ai.aiBusy}
         className="btn-primaire inline-flex items-center justify-center gap-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
       >
         <Icon path={ai.aiBusy ? UI_ICONS.refresh : UI_ICONS.sparkles} size={15} className={ai.aiBusy ? "animate-spin" : ""} />
@@ -86,11 +78,25 @@ export function StepDetails({
         </div>
       ) : (
         <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/60 px-4 py-6 text-center text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:border-rdia-600/60 dark:bg-white/[0.02] dark:text-rdia-400">
-          {t.f_ai_generate}
-          {" → "}
-          <span className="text-gray-500 dark:text-rdia-300">
-            {t.f_title} + {t.f_desc}
-          </span>
+          {ai.aiBusy ? (
+            <>
+              <span className="inline-flex items-center gap-2 text-or-600 dark:text-or-300">
+                <Icon path={UI_ICONS.sparkles} size={13} className="animate-pulse" />
+                {t.f_ai_generate} en cours…
+              </span>
+              <div className="mt-2 text-[10px] font-medium text-gray-500 dark:text-rdia-300 normal-case tracking-normal">
+                {t.f_title} + {t.f_desc}
+              </div>
+            </>
+          ) : (
+            <>
+              {t.f_ai_generate}
+              {" → "}
+              <span className="text-gray-500 dark:text-rdia-300">
+                {t.f_title} + {t.f_desc}
+              </span>
+            </>
+          )}
         </div>
       )}
 
