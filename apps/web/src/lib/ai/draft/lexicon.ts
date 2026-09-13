@@ -47,9 +47,11 @@ function isLikelyToponym(token: string, allLexicons: Set<string>): boolean {
   if (/^\d/.test(token) || /\d/.test(token) && n.length < 5) return false;
   // Capitalized (proper noun) OR in Moroccan dictionary → qualify
   const isProperNoun = /^[A-ZÀ-ÖÙ-Ý]/.test(token.trim());
-  const hasKnownTopo = Array.from(MOROCCAN_TOPONYMS_BASE).some((k) =>
-    k === n || n.includes(k) || k.includes(n)
-  );
+  // Le mot EST une entrée du dictionnaire, ou en CONTIENT une (« tangermed »
+  // contient « tanger ») — jamais l'inverse : « oued zem » contient « oued »,
+  // et « oued » n'est pas un lieu. Pris pour un lieu confirmé, il se faisait
+  // coller au titre par la consigne R0 (« … — Oued »).
+  const hasKnownTopo = Array.from(MOROCCAN_TOPONYMS_BASE).some((k) => k === n || (k.length >= 4 && n.includes(k)));
   return isProperNoun || hasKnownTopo;
 }
 

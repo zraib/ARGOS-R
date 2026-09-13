@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getAllLexiconUnion, toponymsFromKeywords } from "@/lib/ai/draft";
-import { keywordRecall } from "@/lib/ai/llmIncidentDraft";
+import { keywordRecall, sanitizeDraft } from "@/lib/ai/llmIncidentDraft";
 
 // ============================================================================
 // Les gardes du brouillon LLM — ce qui décide qu'une réponse est gardée
@@ -41,5 +41,26 @@ describe("lexique métier", () => {
     expect(lex.size).toBeGreaterThan(300);
     expect(lex.has("seisme")).toBe(true);
     expect(lex.has("inondation")).toBe(true);
+  });
+});
+
+describe("nettoyage S1", () => {
+  it("reconnaît ses propres mots malgré les accents : une description fidèle n'est pas un repli", () => {
+    const parsed = { title: "Carambolage sur l'autoroute A7 à Berrechid", desc: "Un carambolage est signalé sur l'autoroute A7 à Berrechid. Plusieurs blessés sont constatés et présents sur les lieux." };
+    const r = sanitizeDraft(parsed, ["carambolage", "autoroute A7", "Berrechid", "plusieurs blessés"], "GABARIT T", "GABARIT D", { lexiconWhiteList: getAllLexiconUnion() });
+    expect(r.triggered).toBe(false);
+    expect(r.desc).toBe(parsed.desc);
+  });
+  it("un chiffre que l'opérateur n'a pas saisi est retiré ; une action opérationnelle inventée force le gabarit", () => {
+    const r = sanitizeDraft({ title: "Crue à Mohammedia", desc: "Une crue est signalée à Mohammedia. Un périmètre de sécurité est mis en place." }, ["crue", "Mohammedia"], "GABARIT T", "GABARIT D", { lexiconWhiteList: getAllLexiconUnion() });
+    expect(r.triggered).toBe(true);
+    expect(r.desc).toBe("GABARIT D");
+  });
+});
+
+describe("dictionnaire des lieux", () => {
+  it("« oued » n'est pas un lieu parce que « oued zem » en est un ; « Tanger Med » en est un", () => {
+    expect(toponymsFromKeywords(["oued", "crue"])).toEqual([]);
+    expect(toponymsFromKeywords(["Tanger Med"])).toEqual(["Tanger med"]);
   });
 });
