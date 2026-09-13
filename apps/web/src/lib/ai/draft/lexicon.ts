@@ -54,7 +54,17 @@ function isLikelyToponym(token: string, allLexicons: Set<string>): boolean {
 }
 
 const ALL_LEXICON_UNION: { current: Set<string> | null } = { current: null };
-function getAllLexiconUnion(): Set<string> {
+/**
+ * L'union du lexique métier (séisme, feu, crue, NRBC…), calculée une fois.
+ *
+ * Le nettoyeur du brouillon LLM (S1) mesure la part des mots d'une réponse
+ * qui appartiennent aux mots-clés saisis, à une liste blanche neutre OU à ce
+ * lexique. Sans lui, « habitations », « provoqué » ou « inondations » comptent
+ * comme des inventions et la réponse du modèle est jetée pour le gabarit.
+ * Il circulait auparavant par une variable globale posée au chargement d'un
+ * composant — que la bibliothèque ne pouvait pas garantir.
+ */
+export function getAllLexiconUnion(): Set<string> {
   if (ALL_LEXICON_UNION.current) return ALL_LEXICON_UNION.current;
   const s = new Set<string>();
   const pools: readonly string[][] = [
@@ -102,6 +112,24 @@ export function extractToponymsFromTokens(tokens: string[]): string[] {
     }
   }
   return out;
+}
+
+/**
+ * Les lieux confirmés parmi les PUCES de mots-clés.
+ *
+ * Une puce courte (trois mots au plus) qui ressemble à un lieu est gardée
+ * entière — « Al Haouz », « Sidi Bennour » ; une puce plus longue est une
+ * phrase (« crue oued Mohammedia maisons inondées ») et se lit mot à mot.
+ * Prise entière, la phrase passait pour un lieu et la consigne R0 obligeait
+ * le modèle à l'écrire telle quelle dans le titre et la description.
+ */
+export function toponymsFromKeywords(chips: readonly string[]): string[] {
+  const lexicon = getAllLexiconUnion();
+  const candidates = chips.flatMap((chip) => {
+    const words = keywordTokens(chip);
+    return words.length <= 3 && isLikelyToponym(chip.trim(), lexicon) ? [chip.trim()] : words;
+  });
+  return extractToponymsFromTokens(candidates);
 }
 
 export function lieuOf(

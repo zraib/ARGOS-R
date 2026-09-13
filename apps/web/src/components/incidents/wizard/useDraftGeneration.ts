@@ -4,6 +4,8 @@ import { useCallback, useState } from "react";
 import { useDraftProposal } from "@/components/incidents/IncidentDraftAssist";
 import type { DescriptionProposalInput } from "@/lib/ai/draft";
 import { generateIncidentDraft, paraphraseIncidentDraft, type IncidentDraftResult } from "@/lib/ai/llmIncidentDraft";
+import { resolveProvider } from "@/lib/ai/config";
+import { useArgos } from "@/lib/store";
 import type { WizardForm } from "@/lib/incidents/wizard";
 
 // ============================================================================
@@ -38,6 +40,15 @@ export function useDraftGeneration(
   const [aiBusyT, setAiBusyT] = useState(false);
   const [aiBusyD, setAiBusyD] = useState(false);
   const [aiSalt, setAiSalt] = useState(1);
+  // Le modèle est celui des Paramètres — le même que le copilote.
+  const aiSettings = useArgos((s) => s.aiSettings);
+  const provider = resolveProvider(aiSettings);
+  // L'OPÉRATEUR PASSE DEVANT. Le runtime sert une requête à la fois, et les
+  // analyses de fond (prédictions de risque, conscience situationnelle)
+  // repartent à chaque chargement du domaine : mesuré ici, un brouillon de
+  // 2 s attendait 60 s derrière elles. On les interrompt le temps de servir
+  // l'opérateur, comme le fait le copilote ; elles reprennent ensuite.
+  const setOperatorBusy = useArgos((s) => s.setAiOperatorBusy);
 
   const setTitle = useCallback((v: string) => patch({ title: v }), [patch]);
   const setDesc = useCallback((v: string) => patch({ desc: v }), [patch]);
@@ -52,12 +63,14 @@ export function useDraftGeneration(
     if (!form.type || form.keywords.length === 0 || aiBusy) return;
     setAiBusy(true);
     setAiGenerated(false);
+    setOperatorBusy(true);
     try {
       const nextSalt = aiSalt + 1;
       setAiSalt(nextSalt);
-      applyDraft(await generateIncidentDraft(form.keywords, input, { salt: nextSalt }));
+      applyDraft(await generateIncidentDraft(form.keywords, input, { salt: nextSalt, provider }));
       setAiGenerated(true);
     } finally {
+      setOperatorBusy(false);
       setAiBusy(false);
     }
   };
@@ -65,13 +78,15 @@ export function useDraftGeneration(
   const paraphrase = async (field: "title" | "desc", setBusy: (v: boolean) => void, busy: boolean) => {
     if (!aiGenerated || busy) return;
     setBusy(true);
+    setOperatorBusy(true);
     try {
       const nextSalt = aiSalt + 1;
       setAiSalt(nextSalt);
       applyDraft(
-        await paraphraseIncidentDraft({ keywords: form.keywords, input, currentTitle: form.title, currentDesc: form.desc, field, salt: nextSalt }),
+        await paraphraseIncidentDraft({ keywords: form.keywords, input, currentTitle: form.title, currentDesc: form.desc, field, salt: nextSalt, provider }),
       );
     } finally {
+      setOperatorBusy(false);
       setBusy(false);
     }
   };

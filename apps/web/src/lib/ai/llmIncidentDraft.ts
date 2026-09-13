@@ -10,8 +10,10 @@ import {
   pickTitle,
   pickDesc,
   type DescriptionProposalInput,
-  extractToponymsFromTokens,
+  getAllLexiconUnion,
+  toponymsFromKeywords,
 } from "@/lib/ai/draft";
+import { chatComplete } from "@/lib/ai/provider";
 import {
   AI_DEFAULT_PROVIDER,
   AI_PROVIDERS,
@@ -166,7 +168,7 @@ function sanitizeDraft(
   keywords: string[],
   fallbackTitle: string,
   fallbackDesc: string,
-  opts?: { lexiconWhiteList?: Set<string> },
+  opts?: { lexiconWhiteList?: Set<string>; minCoverage?: number },
 ): { title: string; desc: string; triggered: boolean } {
   const titleRaw = typeof parsed?.title === "string" ? parsed.title.trim() : "";
   const descRaw = typeof parsed?.desc === "string" ? parsed.desc.trim() : "";
@@ -174,7 +176,13 @@ function sanitizeDraft(
   let title = stripUnauthorizedNumbers(titleRaw, keywords);
   let desc = stripUnauthorizedNumbers(descRaw, keywords);
 
-  const kwNorm = keywords.map((k) => k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "")).filter(Boolean);
+  // Un mot-clé est une puce, et une puce peut être une PHRASE (« maisons
+  // inondées ») : la couverture se mesure mot à mot, sinon la puce entière
+  // devient un seul jeton que rien dans la réponse ne peut égaler, et le
+  // modèle est accusé d'inventer les mots mêmes que l'opérateur a saisis.
+  const kwNorm = keywords
+    .flatMap((k) => k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/))
+    .filter(Boolean);
   const kwSet = new Set(kwNorm);
   const kwHit = (pattern: RegExp) => kwNorm.some((k) => pattern.test(k));
   const textHit = (t: string, pattern: RegExp) => pattern.test(t);
@@ -256,58 +264,78 @@ function sanitizeDraft(
 
   const covT = calcCoverage(title);
   const covD = calcCoverage(desc);
-  const MIN_COV = 0.65;
+  const MIN_COV = opts?.minCoverage ?? 0.65;
   if (covT < MIN_COV) { title = fallbackTitle; triggered = true; }
   if (covD < MIN_COV) { desc = fallbackDesc; triggered = true; }
 
   return { title, desc, triggered };
 }
 
-/* -------------------- Appel Ollama chat (bas niveau) -------------------- */
+/* -------------------- Rappel des mots-clés -------------------- */
+
+/** Jetons d'un texte : minuscules, sans accents, mots de trois lettres au moins. */
+function tokensOf(text: string): Set<string> {
+  return new Set(
+    text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .split(/[^a-z0-9\u0600-\u06FF]+/)
+      .filter((w) => w.length >= 3),
+  );
+}
+
+/**
+ * Part des mots-clés de l'opérateur que le texte reprend (0 à 1).
+ *
+ * C'est la garde contre la dérive : une réponse qui laisse tomber la moitié
+ * de ce que l'opérateur a saisi n'est pas la sienne. Elle remplace un
+ * chevauchement avec le GABARIT déterministe qui, mesuré ici, rejetait les
+ * bonnes réponses (21 à 29 % contre un seuil de 60 %) : une phrase naturelle
+ * ne ressemble pas à « Contexte inondation au niveau de … — éléments
+ * rapportés : … », et ce n'est pas ce qu'on lui demande. L'invention, elle,
+ * est déjà tenue par S1 (couverture lexicale) et par les filtres de nombres
+ * et de mots interdits.
+ */
+export function keywordRecall(text: string, keywords: readonly string[]): number {
+  const kw = tokensOf(keywords.join(" "));
+  if (kw.size === 0) return 1;
+  const present = tokensOf(text);
+  let hit = 0;
+  for (const w of kw) if (present.has(w)) hit++;
+  return hit / kw.size;
+}
+
+/** En dessous, la réponse a perdu trop de ce que l'opérateur a saisi. */
+const MIN_KEYWORD_RECALL = 0.5;
+/**
+ * Une reformulation remplace des mots par des synonymes (« habitations » pour
+ * « maisons ») : mesurée ici à 43 % sur une paraphrase fidèle. Le plancher
+ * est donc plus bas ; en dessous du quart, ce n'est plus une reformulation.
+ */
+const MIN_KEYWORD_RECALL_PARAPHRASE = 0.25;
+
+/* -------------------- Appel du modèle -------------------- */
 
 interface ChatOpts {
   temperature?: number;
   signal?: AbortSignal;
+  /** Fournisseur à employer — celui des Paramètres ; à défaut, le fournisseur par défaut. */
+  provider?: LlmProviderConfig;
 }
 
+/**
+ * Un seul chemin vers le modèle : celui du copilote (`chatComplete`). Le
+ * brouillon faisait son propre `fetch`, sans `think: false` ni `keep_alive` :
+ * un modèle à raisonnement dépensait tout le budget (60 s) à réfléchir avant
+ * d'écrire deux lignes, puis se faisait décharger cinq minutes plus tard. Il
+ * ignorait aussi le fournisseur réglé dans les Paramètres.
+ */
 async function ollamaChatRaw(
   messages: { role: "system" | "user" | "assistant"; content: string }[],
   opts: ChatOpts = {},
 ): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
-  const cfg = defaultCfg();
-  const temperature = opts.temperature ?? 0.3;
-  const ctrl = opts.signal ? { signal: opts.signal } : {};
-  try {
-    const resp = await fetch(`${cfg.endpoint}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: cfg.model,
-        stream: false,
-        options: {
-          temperature,
-          num_ctx: 16384,
-          num_batch: 128,
-        },
-        messages,
-      }),
-      ...ctrl,
-    });
-    if (!resp.ok) {
-      let body = "";
-      try { body = await resp.text(); } catch { /* ignore */ }
-      let short = body.slice(0, 400);
-      if (short.includes("signal: killed")) short = "processus tué (OOM)";
-      return { ok: false, error: `HTTP ${resp.status} · ${short || "erreur Ollama"}` };
-    }
-    const data = await resp.json();
-    const text: string = data?.message?.content ?? "";
-    return { ok: true, text };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "réseau";
-    if (msg.toLowerCase().includes("abort")) return { ok: false, error: "timeout" };
-    return { ok: false, error: msg };
-  }
+  const cfg: LlmProviderConfig = { ...(opts.provider ?? defaultCfg()), temperature: opts.temperature ?? 0.3 };
+  const r = await chatComplete(cfg, messages, { signal: opts.signal });
+  if (r.ok) return { ok: true, text: r.text };
+  return { ok: false, error: r.aborted ? "timeout" : (r.error ?? "erreur inconnue") };
 }
 
 /* -------------------- API publique : GENERATE -------------------- */
@@ -319,7 +347,7 @@ async function ollamaChatRaw(
 export async function generateIncidentDraft(
   keywords: string[],
   input: DescriptionProposalInput,
-  opts?: { salt?: number },
+  opts?: { salt?: number; provider?: LlmProviderConfig },
 ): Promise<IncidentDraftResult> {
   const salt = opts?.salt ?? 1;
   const fallbackTitle = pickTitle(input, salt);
@@ -332,7 +360,7 @@ export async function generateIncidentDraft(
 
   const typeLabel = input.type ?? "incident";
   const formToponyms = [input.ville?.trim(), input.province?.trim(), input.adresse?.trim()].filter(Boolean) as string[];
-  const kwToponyms = extractToponymsFromTokens(keywords);
+  const kwToponyms = toponymsFromKeywords(keywords);
   const confirmedToponyms = (() => {
     const seen = new Set<string>();
     const merged: string[] = [];
@@ -383,7 +411,7 @@ export async function generateIncidentDraft(
         { role: "system", content: SYSTEM_DRAFT },
         { role: "user", content: userMsg },
       ],
-      { temperature: 0.3, signal: ctrl.signal },
+      { temperature: 0.3, signal: ctrl.signal, provider: opts?.provider },
     );
     clearTimeout(timeout);
     if (r.ok) text = r.text;
@@ -400,12 +428,7 @@ export async function generateIncidentDraft(
          les faux-positifs sur les mots « sécheresse », « incendie », « victimes », etc.
          qui appartiennent au lexique métier mais pas toujours explicitement dans
          le keyword list de l'opérateur. */
-      const lexiconUnion = (() => {
-        try {
-          const inc = (globalThis as any).__ARGOS_LEXICON__ as Set<string> | undefined;
-          return inc ?? new Set<string>();
-        } catch { return new Set<string>(); }
-      })();
+      const lexiconUnion = getAllLexiconUnion();
 
       let cleanRes = sanitizeDraft(parsed, keywords, fallbackTitle, fallbackDesc, { lexiconWhiteList: lexiconUnion });
       let clean = { title: cleanRes.title, desc: cleanRes.desc };
@@ -444,33 +467,20 @@ export async function generateIncidentDraft(
         clean = { title: tTitle, desc: tDesc };
       }
 
-      /* ====== DURCISSEMENT S4 : ÉCART LLM vs FALLBACK SÉMANTIQUE > 40 % → FALLBACK FORCÉ.
-         Stratégie : on calcule un ratio de chevauchement lexical normalisé entre la
-         réponse du LLM post-sanitize et le fallback déterministe pickTitle/pickDesc.
-         Si le ratio < 0.6, ça signifie que le LLM a produit un texte trop éloigné
-         du périmètre autorisé par les keywords = invention probable.
-         On force alors le fallback sémantique local, quel que soit le format JSON valide. */
+      /* ====== S4 : la réponse reprend ce que l'opérateur a saisi ======
+         Le verdict de S1 (nettoyage déclenché) force le repli ; sinon la
+         réponse doit reprendre au moins la moitié des mots-clés. */
       if (clean.title && clean.desc) {
-        const tok = (s: string) =>
-          new Set(
-            s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-              .split(/[^a-z0-9\u0600-\u06FF]+/)
-              .filter((w) => w.length >= 3),
-          );
-        const overlap = (a: Set<string>, b: Set<string>): number => {
-          if (a.size === 0 && b.size === 0) return 1;
-          if (a.size === 0 || b.size === 0) return 0;
-          let inter = 0;
-          for (const w of a) if (b.has(w)) inter++;
-          return inter / Math.min(a.size, b.size);
-        };
-        const titleOverlap = overlap(tok(clean.title), tok(fallbackTitle));
-        const descOverlap = overlap(tok(clean.desc), tok(fallbackDesc));
-        const MIN_OVERLAP = 0.60;
-        if (titleOverlap < MIN_OVERLAP || descOverlap < MIN_OVERLAP || cleanRes.triggered) {
-          return { title: fallbackTitle, desc: fallbackDesc, fallback: true, llmError: llmError ?? `fallback forcé: overlap=${(Math.min(titleOverlap,descOverlap)*100).toFixed(0)}%` };
+        const recall = keywordRecall(`${clean.title} ${clean.desc}`, keywords);
+        if (cleanRes.triggered || recall < MIN_KEYWORD_RECALL) {
+          return {
+            title: fallbackTitle,
+            desc: fallbackDesc,
+            fallback: true,
+            llmError: llmError ?? (cleanRes.triggered ? "repli forcé : nettoyage S1 déclenché" : `repli forcé : rappel des mots-clés ${(recall * 100).toFixed(0)} %`),
+          };
         }
-        return { title: clean.title, desc: clean.desc, fallback: false, llmError: undefined };
+      return { title: clean.title, desc: clean.desc, fallback: false, llmError: undefined };
       }
     } else {
       llmError = llmError ?? "réponse LLM sans JSON exploitable";
@@ -502,6 +512,7 @@ export async function paraphraseIncidentDraft(
     currentDesc: string;
     field?: ParaphraseField;
     salt?: number;
+    provider?: LlmProviderConfig;
   },
 ): Promise<IncidentDraftResult> {
   const { keywords, input, currentTitle, currentDesc, field, salt = 1 } = opts;
@@ -514,7 +525,7 @@ export async function paraphraseIncidentDraft(
     return { title: fallbackTitle, desc: fallbackDesc, fallback: true };
   }
 
-  const kwToponymsPar = extractToponymsFromTokens(keywords);
+  const kwToponymsPar = toponymsFromKeywords(keywords);
   const formToponymsPar = [input.ville?.trim(), input.province?.trim(), input.adresse?.trim()].filter(Boolean) as string[];
   const confirmedToponymsPar = (() => {
     const seen = new Set<string>();
@@ -557,7 +568,7 @@ export async function paraphraseIncidentDraft(
         { role: "system", content: SYSTEM_PARAPHRASE },
         { role: "user", content: userMsg },
       ],
-      { temperature: 0.4, signal: ctrl.signal },
+      { temperature: 0.4, signal: ctrl.signal, provider: opts.provider },
     );
     clearTimeout(timeout);
     if (r.ok) text = r.text;
@@ -576,14 +587,15 @@ export async function paraphraseIncidentDraft(
       let title = tOk || fallbackTitle;
       let desc = dOk || fallbackDesc;
 
-      const lexiconUnionPar = (() => {
-        try {
-          const inc = (globalThis as any).__ARGOS_LEXICON__ as Set<string> | undefined;
-          return inc ?? new Set<string>();
-        } catch { return new Set<string>(); }
-      })();
+      // Le périmètre d'une REFORMULATION : le lexique métier ET les mots du
+      // texte d'origine — sa source de vérité. Une paraphrase remplace des mots
+      // par des synonymes ; exiger qu'elle reprenne les mots-clés à 65 % comme
+      // une génération la rejetait presque toujours (mesuré : 0,47). Les
+      // nombres, les lieux et les mots interdits restent tenus par ailleurs.
+      const lexiconUnionPar = new Set([...getAllLexiconUnion(), ...tokensOf(`${currentTitle} ${currentDesc}`)]);
+      const PARAPHRASE_MIN_COVERAGE = 0.5;
 
-      const clean0 = sanitizeDraft({ title, desc }, keywords, fallbackTitle, fallbackDesc, { lexiconWhiteList: lexiconUnionPar });
+      const clean0 = sanitizeDraft({ title, desc }, keywords, fallbackTitle, fallbackDesc, { lexiconWhiteList: lexiconUnionPar, minCoverage: PARAPHRASE_MIN_COVERAGE });
       let triggered = clean0.triggered;
       title = clean0.title; desc = clean0.desc;
 
@@ -612,34 +624,23 @@ export async function paraphraseIncidentDraft(
         title = title.replace(/\s+/g, " ").trim();
         desc = desc.replace(/\s+/g, " ").trim();
       }
-      const clean2 = sanitizeDraft({ title, desc }, keywords, fallbackTitle, fallbackDesc, { lexiconWhiteList: lexiconUnionPar });
+      const clean2 = sanitizeDraft({ title, desc }, keywords, fallbackTitle, fallbackDesc, { lexiconWhiteList: lexiconUnionPar, minCoverage: PARAPHRASE_MIN_COVERAGE });
       triggered = triggered || clean2.triggered;
       title = clean2.title; desc = clean2.desc;
 
-      /* ====== S4 paraphrase : chevauchement avec source de vérité ======
-         Pour paraphrase, on compare avec currentTitle/currentDesc (valeurs d'origine
-         qui sont la source de VÉRITÉ absolue), pas avec fallback. */
+      /* ====== S4 paraphrase : même règle qu'à la génération ======
+         Une paraphrase change les mots, pas la substance : le nettoyage S1 et
+         le rappel des mots-clés suffisent — comparer au gabarit rejetait ici
+         toute reformulation honnête. */
       if (title && desc) {
-        const tok = (s: string) =>
-          new Set(
-            s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-              .split(/[^a-z0-9\u0600-\u06FF]+/)
-              .filter((w) => w.length >= 3),
-          );
-        const overlap = (a: Set<string>, b: Set<string>): number => {
-          if (a.size === 0 && b.size === 0) return 1;
-          if (a.size === 0 || b.size === 0) return 0;
-          let inter = 0;
-          for (const w of a) if (b.has(w)) inter++;
-          return inter / Math.min(a.size, b.size);
-        };
-        const baseTitleForCompare = field === "desc" ? currentTitle : fallbackTitle;
-        const baseDescForCompare = field === "title" ? currentDesc : fallbackDesc;
-        const titleOverlap = overlap(tok(title), tok(baseTitleForCompare));
-        const descOverlap = overlap(tok(desc), tok(baseDescForCompare));
-        const MIN_OVERLAP_PARA = 0.55;
-        if (titleOverlap < MIN_OVERLAP_PARA || descOverlap < MIN_OVERLAP_PARA || triggered) {
-          return { title: fallbackTitle, desc: fallbackDesc, fallback: true, llmError: llmError ?? `fallback paraphrase forcée: overlapT=${(titleOverlap*100).toFixed(0)}% overlapD=${(descOverlap*100).toFixed(0)}%` };
+        const recall = keywordRecall(`${title} ${desc}`, keywords);
+        if (triggered || recall < MIN_KEYWORD_RECALL_PARAPHRASE) {
+          return {
+            title: fallbackTitle,
+            desc: fallbackDesc,
+            fallback: true,
+            llmError: llmError ?? (triggered ? "repli paraphrase forcé : nettoyage S1 déclenché" : `repli paraphrase forcé : rappel des mots-clés ${(recall * 100).toFixed(0)} %`),
+          };
         }
         return { title, desc, fallback: false, llmError: undefined };
       }
