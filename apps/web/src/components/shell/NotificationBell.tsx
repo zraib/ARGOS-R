@@ -18,8 +18,9 @@ import type { Notice } from "@/lib/types";
 //
 // LES ALERTES ADRESSÉES Y SONT AUSSI. L'incident déclaré dans la région d'un
 // wali ou d'une place d'armes arrive ici, en tête, et son ouverture centre la
-// carte sur l'incident : la cloche ne dit pas seulement qu'il s'est passé
-// quelque chose, elle y mène.
+// carte sur l'incident ; la demande d'un compte qui a oublié son mot de passe
+// mène à la gestion des utilisateurs : la cloche ne dit pas seulement qu'il
+// s'est passé quelque chose, elle y mène.
 //
 // L'ÉTAT DE LA LIAISON EST DIT. Un écran de commandement qui a cessé de
 // recevoir est pire qu'un écran vide : il continue d'AVOIR L'AIR à jour. La
@@ -87,13 +88,17 @@ export function NotificationBell() {
     router.push("/communication");
   };
 
-  /** Ouvre une alerte : la carte se centre sur l'incident, sélectionné. */
+  /** Ouvre une alerte : la carte se centre sur l'incident, ou la gestion des comptes s'ouvre. */
   const ouvrirAlerte = (n: Notice) => {
     markSeen(n.id);
+    setOuvert(false);
+    if (n.kind === "password_reset_requested") {
+      router.push("/utilisateurs");
+      return;
+    }
     const inc = incidents.find((i) => i.id === n.incidentId);
     if (inc) focusIncident(inc);
     else setMapCenter(n.ll, 10, n.titre);
-    setOuvert(false);
     router.push("/map");
   };
 
@@ -162,20 +167,25 @@ export function NotificationBell() {
             <ul className="max-h-[300px] overflow-y-auto overscroll-contain py-1">
               {notices.map((n) => {
                 const fraiche = !seen.includes(n.id);
+                const reset = n.kind === "password_reset_requested";
                 return (
                   <li key={n.id}>
                     <button
                       onClick={() => ouvrirAlerte(n)}
-                      title={t.notif_open_map}
+                      title={reset ? t.notif_reset_open : t.notif_open_map}
                       className="flex w-full items-start gap-2 px-3 py-2 text-start transition-colors hover:bg-or-500/10"
                     >
-                      <Icon path={UI_ICONS.alert} size={13} className={`mt-0.5 shrink-0 ${fraiche ? "text-danger-500" : "text-gray-400"}`} />
+                      <Icon
+                        path={reset ? UI_ICONS.key : UI_ICONS.alert}
+                        size={13}
+                        className={`mt-0.5 shrink-0 ${fraiche ? (reset ? "text-or-500" : "text-danger-500") : "text-gray-400"}`}
+                      />
                       <span className="min-w-0 flex-1">
                         <span className={`block truncate text-[12.5px] ${fraiche ? "font-semibold text-gray-800 dark:text-rdia-50" : "text-gray-600 dark:text-rdia-200"}`}>
-                          {n.titre}
+                          {reset ? n.nom : n.titre}
                         </span>
                         <span className="block truncate text-[11px] text-gray-500 dark:text-rdia-300">
-                          {t.notif_incident_declared} · {n.region}
+                          {reset ? `${t.notif_reset_requested} · ${n.matricule}` : `${t.notif_incident_declared} · ${n.region}`}
                         </span>
                       </span>
                       <span className="shrink-0 font-mono text-[10px] text-gray-400">{noticeTime(n.at)}</span>

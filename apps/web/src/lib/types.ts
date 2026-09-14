@@ -343,6 +343,8 @@ export interface Channel {
   archived?: boolean;
   /** Conversation directe entre deux comptes — servie à ses deux membres seulement. */
   direct?: boolean;
+  /** Les deux correspondants d'une conversation directe (le nom servi est déjà celui de l'autre). */
+  correspondents?: { matricule: string; nom: string }[];
 }
 
 /** Compte joignable, tel que l'annuaire du centre de communication le rend. */
@@ -397,9 +399,14 @@ export interface Responsible {
 }
 
 /** Une alerte adressée au compte (incident déclaré dans sa région…). Miroir de l'API. */
-export interface Notice {
+/** Ce que toute alerte adressée porte (miroir de l'API). */
+interface NoticeBase {
   id: string;
   at: string;
+}
+
+/** L'incident déclaré dans la région du compte — de quoi centrer la carte dessus. */
+export interface IncidentNotice extends NoticeBase {
   kind: "incident_declared";
   incidentId: string;
   titre: string;
@@ -408,6 +415,17 @@ export interface Notice {
   sev: string;
   type: string;
 }
+
+/** Un compte a oublié son mot de passe : l'administration doit lui régénérer un code provisoire. */
+export interface PasswordResetNotice extends NoticeBase {
+  kind: "password_reset_requested";
+  userId: string;
+  matricule: string;
+  nom: string;
+}
+
+/** Une alerte adressée — discriminée par `kind`, pour que la cloche sache où mener. */
+export type Notice = IncidentNotice | PasswordResetNotice;
 
 /** Natures de poste posables sur la carte d'une opération (miroir de l'API). */
 export type PostKind = "opcom" | "tacom" | "bluecell" | "greencell" | "orangecell" | "shelter" | "equipment";

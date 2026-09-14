@@ -5,15 +5,20 @@ import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 
 
-/** Actions d'un compte : (dés)activation, édition, suppression. */
+/** Actions d'un compte : (dés)activation, réinitialisation du mot de passe, édition, suppression. */
 export function RowActions({
-  active, showPower, canManage, canDelete, onToggleActive, onEdit, onDelete,
+  active, showPower, canManage, canReset, resetPending, canDelete, onToggleActive, onReset, onEdit, onDelete,
 }: {
   active: boolean;
   showPower: boolean;
   canManage: boolean;
+  /** Régénérer un code provisoire — jamais pour soi-même ni pour un compte qu'on ne gère pas. */
+  canReset: boolean;
+  /** Le compte a demandé de l'aide : la clé s'allume. */
+  resetPending: boolean;
   canDelete: boolean;
   onToggleActive: (next: boolean) => void;
+  onReset: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -31,6 +36,16 @@ export function RowActions({
             <Icon path={UI_ICONS.check} size={15} />
           </button>
         )
+      )}
+      {canReset && (
+        <button
+          title={m.users.reset_pw}
+          aria-label={m.users.reset_pw}
+          onClick={onReset}
+          className={`${btn} ${resetPending ? "text-amber-500 hover:bg-amber-500/10" : "text-gray-400 hover:bg-or-500/10 hover:text-or-500"}`}
+        >
+          <Icon path={UI_ICONS.key} size={15} />
+        </button>
       )}
       <button title={m.users.edit} aria-label={m.users.edit} disabled={!canManage} onClick={onEdit} className={`${btn} text-gray-400 hover:bg-or-500/10 hover:text-or-500`}>
         <Icon path={UI_ICONS.edit} size={15} />

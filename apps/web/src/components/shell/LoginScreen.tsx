@@ -26,6 +26,9 @@ export function LoginScreen() {
   const [pass, setPass] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // « Mot de passe oublié » : fermé, ouvert (explication + envoi), ou envoyé.
+  const [forgot, setForgot] = useState<"closed" | "open" | "sent">("closed");
+  const [busyForgot, setBusyForgot] = useState(false);
 
   // Les gestionnaires de mots de passe remplissent le DOM SANS déclencher
   // onChange : l'état React restait vide et le bouton restait verrouillé alors
@@ -79,6 +82,35 @@ export function LoginScreen() {
 
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") void submit();
+  };
+
+  /**
+   * Demande un code provisoire à l'administration, pour le nom d'utilisateur
+   * saisi. La réponse de l'API est la même que le compte existe ou non : ce
+   * que l'écran affiche ensuite ne révèle rien non plus.
+   */
+  const askReset = async () => {
+    if (busyForgot) return;
+    const u = (userRef.current?.value ?? user).trim();
+    if (!u) {
+      setError(t.lg_fill);
+      return;
+    }
+    setError(null);
+    setBusyForgot(true);
+    try {
+      const res = await api.requestPasswordReset(u);
+      if (res.error) {
+        setError(t.lg_api_down);
+        return;
+      }
+      setForgot("sent");
+    } catch (e) {
+      console.error("[mot de passe oublié]", e);
+      setError(t.lg_api_down);
+    } finally {
+      setBusyForgot(false);
+    }
   };
 
   // Champ de saisie : 16 px sur mobile (sous 16 px, iOS zoome au focus et décale
@@ -152,6 +184,41 @@ export function LoginScreen() {
             <button className="btn-primaire mt-2 min-h-[44px] w-full text-sm" onClick={() => void submit()} disabled={disabled}>
               {busy ? "…" : t.lg_btn}
             </button>
+            {/* Mot de passe oublié : pas d'e-mail ni de lien secret sur un réseau
+                isolé — la demande part à l'administration, qui remet un code
+                provisoire par la voie hiérarchique. Le nom d'utilisateur est
+                celui du champ ci-dessus. */}
+            {forgot === "closed" ? (
+              <button
+                type="button"
+                className="min-h-[44px] self-center text-[11.5px] font-semibold text-gray-500 underline-offset-2 hover:text-or-500 hover:underline lg:min-h-0 dark:text-rdia-300"
+                onClick={() => { setForgot("open"); setError(null); }}
+              >
+                {t.lg_forgot}
+              </button>
+            ) : (
+              <div
+                className="flex flex-col gap-2 rounded-lg border border-or-500/40 bg-or-500/10 p-3 animate-fade-in"
+                role={forgot === "sent" ? "status" : undefined}
+              >
+                <p className="flex items-start gap-2 text-[11.5px] leading-snug text-gray-600 dark:text-rdia-200">
+                  <Icon path={forgot === "sent" ? UI_ICONS.check : UI_ICONS.key} size={14} className="mt-0.5 shrink-0 text-or-500" />
+                  <span>{forgot === "sent" ? t.lg_forgot_sent : t.lg_forgot_hint}</span>
+                </p>
+                {forgot === "open" && (
+                  <button className="btn-secondaire min-h-[44px] w-full text-sm" onClick={() => void askReset()} disabled={busyForgot}>
+                    {busyForgot ? "…" : t.lg_forgot_send}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="min-h-[44px] self-center text-[11.5px] font-semibold text-gray-500 hover:text-or-500 lg:min-h-0 dark:text-rdia-300"
+                  onClick={() => setForgot("closed")}
+                >
+                  {t.lg_forgot_back}
+                </button>
+              </div>
+            )}
           </div>
           {/* Les trois boutons de langue sont des cibles tactiles : on impose la
               hauteur depuis le parent, le composant restant partagé avec la

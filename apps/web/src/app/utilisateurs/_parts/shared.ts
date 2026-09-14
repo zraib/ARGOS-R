@@ -24,6 +24,8 @@ export interface ApiUser {
   createdBy: string;
   createdAt: string;
   lastLogin: string | null;
+  /** « Mot de passe oublié » posé depuis l'écran de connexion, en attente d'un code provisoire. */
+  resetRequestedAt: string | null;
 }
 
 export type Tab = "users" | "roles";

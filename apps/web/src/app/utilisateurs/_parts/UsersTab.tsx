@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useArgos, useModules } from "@/lib/store";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useArgos, useDict, useModules } from "@/lib/store";
+import { noticeTime } from "@/lib/notices";
 import { api } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
 import { Pill } from "@/components/ui/Pill";
@@ -29,16 +30,22 @@ import { UserForm } from "@/app/utilisateurs/_parts/UserForm";
 export 
 function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; currentMatricule: string | null }) {
   const m = useModules();
+  const t = useDict();
   const showToast = useArgos((s) => s.showToast);
+  // Une demande « mot de passe oublié » arrive par la cloche : la liste se
+  // relit pour la montrer, sans attendre un rafraîchissement.
+  const resetNotices = useArgos((s) => s.rtNotices.filter((n) => n.kind === "password_reset_requested").length);
 
   const [users, setUsers] = useState<ApiUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [codes, setCodes] = useState<Record<string, string>>({});
-  // Pop-up récapitulatif du compte qui vient d'être créé (identifiants à remettre).
-  const [created, setCreated] = useState<{ user: ApiUser; code: string } | null>(null);
+  // Pop-up récapitulatif des identifiants à remettre : compte créé, ou code
+  // provisoire régénéré — même geste de remise, même écran.
+  const [recap, setRecap] = useState<{ user: ApiUser; code: string; mode: "created" | "reset" } | null>(null);
   const [form, setForm] = useState<{ mode: "create" } | { mode: "edit"; user: ApiUser } | null>(null);
   const [confirmDel, setConfirmDel] = useState<ApiUser | null>(null);
+  const [confirmReset, setConfirmReset] = useState<ApiUser | null>(null);
 
   const superAdmin = isSuperAdmin(creatorRole);
   const adminRoles = assignableRoles("admin");
@@ -57,14 +64,27 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
     void load();
   }, [load]);
 
+  // Relecture à chaque nouvelle demande reçue — pas au montage, `load` s'en charge.
+  const premiereAlerte = useRef(true);
+  useEffect(() => {
+    if (premiereAlerte.current) {
+      premiereAlerte.current = false;
+      return;
+    }
+    void load();
+  }, [resetNotices, load]);
+
   const manageable = (u: ApiUser) =>
     !u.builtin && (superAdmin || u.roles.every((r) => adminRoles.includes(r)));
 
+  // Les comptes qui appellent à l'aide passent en tête : c'est ce que
+  // l'administrateur vient chercher quand la cloche l'a mené ici.
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return users;
-    return users.filter((u) => u.matricule.toLowerCase().includes(q) || u.nom.toLowerCase().includes(q));
+    const liste = q ? users.filter((u) => u.matricule.toLowerCase().includes(q) || u.nom.toLowerCase().includes(q)) : users;
+    return [...liste].sort((a, b) => Number(!!b.resetRequestedAt) - Number(!!a.resetRequestedAt));
   }, [users, query]);
+  const enAttente = useMemo(() => users.filter((u) => u.resetRequestedAt).length, [users]);
 
   const reveal = async (u: ApiUser) => {
     if (codes[u.id]) {
@@ -113,6 +133,33 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
     void load();
   };
 
+  /**
+   * Régénère le code provisoire : l'ancien mot de passe cesse de valoir, le
+   * compte repasse par le premier login. Le code n'est montré qu'ici, une
+   * fois, à remettre par un canal sûr — comme à la création.
+   */
+  const doReset = async (u: ApiUser) => {
+    const res = await api.resetUserCode(u.id);
+    const code = (res.data as { tempPassword?: string } | undefined)?.tempPassword;
+    setConfirmReset(null);
+    if (!code) {
+      showToast(t.toast_fail);
+      return;
+    }
+    setCodes((s) => ({ ...s, [u.id]: code }));
+    setRecap({ user: u, code, mode: "reset" });
+    void load();
+  };
+
+  /** Pastille « réinitialisation demandée », avec l'heure de la demande. */
+  const demande = (u: ApiUser) =>
+    u.resetRequestedAt ? (
+      <span className="flex items-center gap-1" title={m.users.reset_requested_hint}>
+        <Pill tone="amber" label={m.users.reset_requested} size="sm" />
+        <span className="font-mono text-[10px] text-amber-600 dark:text-amber-400">{noticeTime(u.resetRequestedAt)}</span>
+      </span>
+    ) : null;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       {/* Barre d'outils : recherche pleine largeur puis action, empilées sous
@@ -127,6 +174,12 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
           {m.users.new_user}
         </button>
       </div>
+      {enAttente > 0 && (
+        <p role="status" className="flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-[12px] font-semibold text-amber-700 dark:text-amber-400">
+          <Icon path={UI_ICONS.key} size={14} className="shrink-0" />
+          {enAttente} {enAttente > 1 ? m.users.reset_pending_many : m.users.reset_pending_one}
+        </p>
+      )}
 
       {/* Tableau : à partir de `md`, six colonnes redeviennent lisibles. */}
       <div className="carte hidden min-h-0 flex-1 overflow-auto p-0 md:block">
@@ -184,6 +237,7 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
                         {u.activatedByAdmin && u.hasTempCode && (
                           <span className="text-[9px] text-gray-400 dark:text-rdia-400">{m.users.admin_activated}</span>
                         )}
+                        {demande(u)}
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -200,8 +254,11 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
                           active={active}
                           showPower={superAdmin && !u.builtin && !isSelf}
                           canManage={canManage}
+                          canReset={canManage && !isSelf}
+                          resetPending={!!u.resetRequestedAt}
                           canDelete={canManage && !isSelf}
                           onToggleActive={(next) => void toggleActive(u, next)}
+                          onReset={() => setConfirmReset(u)}
                           onEdit={() => setForm({ mode: "edit", user: u })}
                           onDelete={() => setConfirmDel(u)}
                         />
@@ -244,6 +301,7 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
                     {u.activatedByAdmin && u.hasTempCode && (
                       <div className="mt-0.5 text-[10px] text-gray-400 dark:text-rdia-400">{m.users.admin_activated}</div>
                     )}
+                    {u.resetRequestedAt && <div className="mt-1">{demande(u)}</div>}
                   </div>
                   <span className="shrink-0">
                     <Pill tone={active ? "green" : "gray"} label={active ? m.users.status_active : m.users.status_inactive} />
@@ -283,8 +341,11 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
                     active={active}
                     showPower={superAdmin && !u.builtin && !isSelf}
                     canManage={canManage}
+                    canReset={canManage && !isSelf}
+                    resetPending={!!u.resetRequestedAt}
                     canDelete={canManage && !isSelf}
                     onToggleActive={(next) => void toggleActive(u, next)}
+                    onReset={() => setConfirmReset(u)}
                     onEdit={() => setForm({ mode: "edit", user: u })}
                     onDelete={() => setConfirmDel(u)}
                   />
@@ -307,48 +368,54 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
             user={form.mode === "edit" ? form.user : undefined}
             onClose={() => setForm(null)}
             onDone={() => { setForm(null); void load(); }}
-            onCreated={(user, code) => { setForm(null); setCreated({ user, code }); void load(); }}
+            onCreated={(user, code) => { setForm(null); setRecap({ user, code, mode: "created" }); void load(); }}
           />
         )}
       </Modal>
 
-      {/* Récapitulatif du compte créé : identités + identifiants à remettre. */}
-      <Modal open={created !== null} size="md" title={m.users.created_title} onClose={() => setCreated(null)}>
-        {created && (
+      {/* Récapitulatif des identifiants à remettre : compte créé, ou code
+          provisoire régénéré pour un compte qui avait oublié son mot de passe. */}
+      <Modal
+        open={recap !== null}
+        size="md"
+        title={recap?.mode === "reset" ? m.users.reset_pw_done_title : m.users.created_title}
+        onClose={() => setRecap(null)}
+      >
+        {recap && (
           <div className="flex flex-col gap-4">
             {/* Les rôles passent à la ligne sous `sm` : sur 375 px ils écrasaient
                 le nom du compte à quelques caractères. */}
             <div className="flex flex-wrap items-center gap-3 rounded-lg bg-gray-50 p-3 dark:bg-rdia-900/40">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-or-500/15 text-xs font-bold text-or-600 dark:text-or-400">
-                {initials(fullName(created.user))}
+                {initials(fullName(recap.user))}
               </span>
               <div className="min-w-0 flex-1">
-                <div className="break-words text-sm font-bold text-rdia-600 dark:text-rdia-50">{fullName(created.user)}</div>
+                <div className="break-words text-sm font-bold text-rdia-600 dark:text-rdia-50">{fullName(recap.user)}</div>
                 <div className="truncate text-[11px] text-gray-400 dark:text-rdia-400">
-                  {created.user.grade ?? "—"}
+                  {recap.user.grade ?? "—"}
                 </div>
               </div>
               <div className="w-full sm:ms-auto sm:w-auto">
-                <RoleChips roles={created.user.roles} />
+                <RoleChips roles={recap.user.roles} />
               </div>
             </div>
 
             <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
-              <SummaryRow label={m.users.matricule} value={created.user.matricule} mono onCopy={() => void copyText(created.user.matricule)} copyLabel={m.users.copy_code} />
-              <SummaryRow label={m.users.phone} value={created.user.phone ?? "—"} mono />
-              <SummaryRow label={m.users.name} value={created.user.nom} />
-              <SummaryRow label={m.users.firstname} value={created.user.prenom ?? "—"} />
+              <SummaryRow label={m.users.matricule} value={recap.user.matricule} mono onCopy={() => void copyText(recap.user.matricule)} copyLabel={m.users.copy_code} />
+              <SummaryRow label={m.users.phone} value={recap.user.phone ?? "—"} mono />
+              <SummaryRow label={m.users.name} value={recap.user.nom} />
+              <SummaryRow label={m.users.firstname} value={recap.user.prenom ?? "—"} />
               {/* Mot de passe provisoire — mis en avant, copiable en un clic. */}
               <div className="sm:col-span-2">
                 <dt className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{m.users.col_code}</dt>
                 <dd className="flex items-center gap-2 rounded-lg border border-or-500/40 bg-or-500/10 px-3 py-2">
                   <Icon path={UI_ICONS.key} size={15} className="shrink-0 text-or-500" />
-                  <span className="min-w-0 flex-1 break-all font-mono text-base font-bold tracking-wider text-or-600 dark:text-or-400">{created.code}</span>
+                  <span className="min-w-0 flex-1 break-all font-mono text-base font-bold tracking-wider text-or-600 dark:text-or-400">{recap.code}</span>
                   <button
                     title={m.users.copy_code}
                     aria-label={m.users.copy_code}
                     className="cible-tactile flex shrink-0 items-center justify-center rounded-md p-1.5 text-or-500 transition-colors hover:bg-or-500/20"
-                    onClick={() => void copyText(created.code)}
+                    onClick={() => void copyText(recap.code)}
                   >
                     <Icon path={UI_ICONS.copy} size={16} />
                   </button>
@@ -358,11 +425,37 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
 
             <p className="flex items-start gap-2 text-[11px] leading-snug text-gray-400 dark:text-rdia-400">
               <Icon path={UI_ICONS.shield} size={13} className="mt-0.5 shrink-0 text-or-500" />
-              {m.users.created_hint}
+              {recap.mode === "reset" ? m.users.reset_pw_done_hint : m.users.created_hint}
             </p>
 
             <div className="flex justify-end">
-              <button className="btn-primaire w-full text-sm sm:w-auto" onClick={() => setCreated(null)}>{m.users.created_close}</button>
+              <button className="btn-primaire w-full text-sm sm:w-auto" onClick={() => setRecap(null)}>{m.users.created_close}</button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Réinitialiser n'est pas anodin : l'ancien mot de passe cesse de valoir. */}
+      <Modal open={confirmReset !== null} size="sm" title={m.users.reset_pw} onClose={() => setConfirmReset(null)}>
+        {confirmReset && (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3 rounded-lg bg-gray-50 p-3 dark:bg-rdia-900/40">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-or-500/15 text-[11px] font-bold text-or-600 dark:text-or-400">{initials(fullName(confirmReset))}</span>
+              <div className="min-w-0">
+                <div className="break-words font-semibold text-rdia-600 dark:text-rdia-50">{fullName(confirmReset)}</div>
+                <div className="break-all font-mono text-[11px] text-gray-400 dark:text-rdia-400">{confirmReset.matricule}</div>
+              </div>
+            </div>
+            {confirmReset.resetRequestedAt && (
+              <p className="flex items-center gap-2 text-[12px] font-semibold text-amber-700 dark:text-amber-400">
+                <Icon path={UI_ICONS.key} size={14} className="shrink-0" />
+                {m.users.reset_requested} · {noticeTime(confirmReset.resetRequestedAt)}
+              </p>
+            )}
+            <p className="text-sm text-gray-500 dark:text-rdia-300">{m.users.reset_pw_body}</p>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button className="btn-secondaire text-sm" onClick={() => setConfirmReset(null)}>{m.users.cancel}</button>
+              <button className="btn-primaire text-sm" onClick={() => void doReset(confirmReset)}>{m.users.reset_pw_confirm}</button>
             </div>
           </div>
         )}
