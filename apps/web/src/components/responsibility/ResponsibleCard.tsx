@@ -16,6 +16,11 @@ import { UI_ICONS } from "@/lib/icons";
 // tient quoi », l'état de connexion du flux de présence — pas d'un drapeau
 // stocké : un officier est en ligne quand son poste tient un flux ouvert,
 // et il ne l'est plus dès que ce flux tombe.
+//
+// « Contacter » ouvre la conversation directe EN BULLE, sur l'écran où l'on
+// est : un opérateur qui lit la carte, OPSnet ou Hospinet ne la quitte pas
+// pour dire un mot au commandant. Le canal de l'opération, lui, reste dans
+// le centre de communication — c'est un fil de conduite, pas un aparté.
 // ============================================================================
 
 export interface ResponsibleCardProps {
@@ -33,9 +38,14 @@ export interface ResponsibleCardProps {
   /** Sans titulaire, ne rien afficher plutôt qu'un « aucun » (hôpitaux civils). */
   hideIfNone?: boolean;
   className?: string;
+  /**
+   * Appelé une fois la bulle ouverte : une fiche affichée en MODALE se ferme
+   * ici, sinon son voile recouvrirait la conversation qu'on vient d'ouvrir.
+   */
+  afterContact?: () => void;
 }
 
-export function ResponsibleCard({ kind, entityId, role, matricule, incidentId, tone = "light", hideIfNone = false, className = "" }: ResponsibleCardProps) {
+export function ResponsibleCard({ kind, entityId, role, matricule, incidentId, tone = "light", hideIfNone = false, className = "", afterContact }: ResponsibleCardProps) {
   const t = useDict();
   const m = useModules();
   const router = useRouter();
@@ -45,7 +55,7 @@ export function ResponsibleCard({ kind, entityId, role, matricule, incidentId, t
   const sessionUser = useArgos((s) => s.sessionUser);
   const selectChannel = useArgos((s) => s.selectChannel);
   const setActive = useArgos((s) => s.rtSetActiveChannel);
-  const openDirect = useArgos((s) => s.openDirect);
+  const startChatWith = useArgos((s) => s.startChatWith);
   const showToast = useArgos((s) => s.showToast);
   const [busy, setBusy] = useState(false);
 
@@ -74,13 +84,13 @@ export function ResponsibleCard({ kind, entityId, role, matricule, incidentId, t
     router.push("/communication");
   };
 
-  /** La conversation directe : ouverte (ou retrouvée) côté serveur, puis affichée. */
+  /** La conversation directe : ouverte (ou retrouvée) côté serveur, puis sa bulle, ici même. */
   const contact = async () => {
     if (!r || busy) return;
     setBusy(true);
     try {
-      await openDirect(r.matricule);
-      router.push("/communication");
+      await startChatWith(r.matricule);
+      afterContact?.();
     } catch (err: unknown) {
       showToast(`${t.toast_fail} — ${err instanceof Error ? err.message : String(err)}`);
     } finally {

@@ -322,6 +322,7 @@ export default function OpsnetPage() {
             entityId={detailU.id}
             incidentId={incidents.find((i) => i.responders?.units?.includes(detailU.id))?.id}
             className="mt-4"
+            afterContact={() => setDetailU(null)}
           />
         </Modal>
       )}
@@ -351,7 +352,7 @@ export default function OpsnetPage() {
               </dd>
             </div>
           </dl>
-          <ResponsibleCard kind="shelter" entityId={detailA.id} className="mt-4" />
+          <ResponsibleCard kind="shelter" entityId={detailA.id} className="mt-4" afterContact={() => setDetailA(null)} />
         </Modal>
       )}
     </section>

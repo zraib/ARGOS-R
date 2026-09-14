@@ -70,6 +70,21 @@ export default function MapPage() {
   const [full, setFull] = useState(false);
   /** Onglet ouvert dans la feuille du bas (sous `lg`) ; `null` = feuille fermée. */
   const [sheet, setSheet] = useState<SheetTab | null>(null);
+  const chatWindows = useArgos((s) => s.chatOpen.length);
+  const setChatEndReserve = useArgos((s) => s.setChatEndReserve);
+
+  // Les bulles de conversation ne recouvrent pas la colonne de droite de la
+  // carte (commandes, panneau de sélection, rose des vents : 300 px + marges) :
+  // tant que la carte est affichée, elles partent après elle. Sous lg cette
+  // colonne vit dans la feuille du bas, qui se replie quand une bulle s'ouvre
+  // — c'est depuis elle qu'on vient de presser « Contacter ».
+  useEffect(() => {
+    setChatEndReserve(324);
+    return () => setChatEndReserve(0);
+  }, [setChatEndReserve]);
+  useEffect(() => {
+    if (chatWindows > 0) setSheet(null);
+  }, [chatWindows]);
   /**
    * Panneau ouvert dans le trio de gauche (≥ lg) : couches, suivi aérien ou
    * légende — un seul à la fois, fermé par défaut. Les boutons répliquent le

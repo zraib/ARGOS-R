@@ -67,6 +67,7 @@ export function ChatDock({ besideCopilot }: { besideCopilot: boolean }) {
   const sessionUser = useArgos((s) => s.sessionUser);
   const dockOpen = useArgos((s) => s.chatDockOpen);
   const open = useArgos((s) => s.chatOpen);
+  const reserve = useArgos((s) => s.chatEndReserve);
   const toggleDock = useArgos((s) => s.toggleChatDock);
   const openChat = useArgos((s) => s.openChat);
   const closeAll = useArgos((s) => s.closeAllChats);
@@ -78,7 +79,7 @@ export function ChatDock({ besideCopilot }: { besideCopilot: boolean }) {
   const ordonnees = useMemo(() => orderConversations(chans, comMsgs, open), [chans, comMsgs, open]);
   const nonLus = unreadDirect(chans, rtUnread);
   const mobile = width < CHAT_MOBILE_MAX;
-  const limite = maxOpenWindows(width, besideCopilot);
+  const limite = maxOpenWindows(width, besideCopilot, reserve);
   // Une fenêtre ouverte sur un canal qui a disparu (canal supprimé) ne se rend pas.
   const fenetres = useMemo(() => open.filter((id) => chans.some((c) => c.id === id)).slice(0, limite), [open, chans, limite]);
 
@@ -219,7 +220,7 @@ export function ChatDock({ besideCopilot }: { besideCopilot: boolean }) {
             key={w.id}
             channel={ch}
             leaving={w.leaving}
-            offset={windowOffset(i, width, besideCopilot)}
+            offset={windowOffset(i, width, besideCopilot, reserve)}
             bottom={bas}
             mobile={mobile}
           />
@@ -228,7 +229,7 @@ export function ChatDock({ besideCopilot }: { besideCopilot: boolean }) {
 
       {nouveau && (
         <NewChatPopover
-          offset={mobile ? marge : windowOffset(fenetres.length, width, besideCopilot)}
+          offset={mobile ? marge : windowOffset(fenetres.length, width, besideCopilot, reserve)}
           bottom={bas}
           mobile={mobile}
           limit={limite}

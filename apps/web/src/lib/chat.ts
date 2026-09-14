@@ -28,6 +28,8 @@ export const CHAT_MARGIN_XS = 16;
 export const CHAT_START_RESERVE = 420;
 /** Sous cette largeur, une seule fenêtre, pleine largeur (téléphone). */
 export const CHAT_MOBILE_MAX = 640;
+/** À partir de cette largeur, la colonne de droite de la carte existe : la réserve au bord de fin s'applique. */
+export const CHAT_DESKTOP_MIN = 1024;
 
 /** Les conversations directes vivantes — celles qui ont une tête dans le dock. */
 export function directChannels(cats: readonly CommCategory[]): Channel[] {
@@ -89,21 +91,28 @@ export function unreadDirect(chans: readonly Channel[], unread: Readonly<Record<
  * la largeur permet entre la colonne des boutons et la réserve du bord de
  * départ — au moins une, quatre au plus (au-delà on ne suit plus).
  */
-export function maxOpenWindows(viewportWidth: number, withCopilot = true): number {
+export function maxOpenWindows(viewportWidth: number, withCopilot = true, extraEnd = 0): number {
   if (viewportWidth < CHAT_MOBILE_MAX) return 1;
-  const utile = viewportWidth - windowsEnd(viewportWidth, withCopilot) - CHAT_START_RESERVE;
+  const utile = viewportWidth - windowsEnd(viewportWidth, withCopilot, extraEnd) - CHAT_START_RESERVE;
   return Math.max(1, Math.min(4, Math.floor(utile / (CHAT_WINDOW_WIDTH + CHAT_WINDOW_GAP))));
 }
 
-/** Où commencent les fenêtres depuis le bord de fin, selon la largeur et la présence du Copilot. */
-export function windowsEnd(viewportWidth: number, withCopilot = true): number {
+/**
+ * Où commencent les fenêtres depuis le bord de fin, selon la largeur, la
+ * présence du Copilot et la réserve que l'écran demande (`extraEnd`, en px :
+ * la colonne de droite de la carte — panneau de sélection, rose des vents —
+ * qu'aucune fenêtre ne doit recouvrir). La réserve ne vaut qu'au bureau : en
+ * dessous, ces panneaux vivent dans la feuille du bas.
+ */
+export function windowsEnd(viewportWidth: number, withCopilot = true, extraEnd = 0): number {
   if (viewportWidth < CHAT_MOBILE_MAX) return withCopilot ? CHAT_WINDOWS_END_XS : CHAT_MARGIN_XS;
-  return withCopilot ? CHAT_WINDOWS_END_SM : CHAT_MARGIN_SM;
+  const base = withCopilot ? CHAT_WINDOWS_END_SM : CHAT_MARGIN_SM;
+  return base + (viewportWidth >= CHAT_DESKTOP_MIN ? Math.max(0, extraEnd) : 0);
 }
 
 /** Décalage depuis le bord de fin de la fenêtre de rang `index` (0 = la plus récente, la plus près des boutons). */
-export function windowOffset(index: number, viewportWidth: number, withCopilot = true): number {
-  return windowsEnd(viewportWidth, withCopilot) + index * (CHAT_WINDOW_WIDTH + CHAT_WINDOW_GAP);
+export function windowOffset(index: number, viewportWidth: number, withCopilot = true, extraEnd = 0): number {
+  return windowsEnd(viewportWidth, withCopilot, extraEnd) + index * (CHAT_WINDOW_WIDTH + CHAT_WINDOW_GAP);
 }
 
 /** Ouvre une fenêtre en tête et retient les `limit` plus récentes. */
