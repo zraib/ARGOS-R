@@ -687,3 +687,73 @@ export interface MapSelection {
   kind: MarkerKind;
   id: string;
 }
+
+// --- crues : Google Flood Hub, servi par l'API (ADR 0010) --------------------
+// Miroir du contrat du courtier `flood.service.ts`. Le navigateur ne voit
+// jamais Google : jauges, statuts, prévisions et polygones viennent de l'API.
+
+export type FloodSeverity = "extreme" | "severe" | "above_normal" | "no_flooding" | "unknown";
+export type FloodTrend = "rise" | "fall" | "no_change" | "unknown";
+export type FloodUnit = "m" | "m3/s" | "unknown";
+
+export interface FloodThresholds {
+  warning: number;
+  danger: number;
+  extreme?: number;
+  unit: FloodUnit;
+}
+
+export interface FloodInundationMap {
+  level: "high" | "medium" | "low";
+  polygonId: string;
+  type: "probability" | "depth" | "unknown";
+}
+
+/** Une jauge et son dernier statut de crue — un marqueur sur la carte. */
+export interface FloodGauge {
+  gaugeId: string;
+  siteName: string;
+  river?: string;
+  ll: [number, number];
+  source: string;
+  qualityVerified: boolean;
+  hasModel: boolean;
+  severity: FloodSeverity;
+  trend: FloodTrend;
+  issuedTime: string | null;
+  forecastStart: string | null;
+  forecastEnd: string | null;
+  thresholds: FloodThresholds | null;
+  inundationMaps: FloodInundationMap[];
+}
+
+export interface FloodForecastPoint {
+  start: string;
+  end: string;
+  value: number;
+}
+
+export interface FloodForecast {
+  gaugeId: string;
+  issuedTime: string;
+  unit: FloodUnit;
+  thresholds: FloodThresholds | null;
+  points: FloodForecastPoint[];
+}
+
+export interface FloodFeedStatus {
+  configured: boolean;
+  source: string;
+  region: string;
+  fetchedAt: string | null;
+  degraded: boolean;
+  error: string | null;
+  attribution: string;
+}
+
+/** Un polygone d'inondation de Flood Hub, en GeoJSON. */
+export interface FloodPolygon {
+  type: "Feature";
+  properties: { polygonId: string };
+  geometry: { type: "MultiPolygon"; coordinates: number[][][][] };
+}

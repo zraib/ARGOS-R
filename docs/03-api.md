@@ -102,6 +102,10 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `PATCH` | `/api/equipment-parks/{id}/items/{eid}` | `equipment:update` | Modifier un article — dans SON parc uniquement |
 | `GET` | `/api/feed` | `dashboard:view` | Fil des événements |
 | `GET` | `/api/field-hospitals` | `hospinet:view` | Hôpitaux de campagne visibles. |
+| `GET` | `/api/floods/gauges` | `seismic:view` | Jauges du Maroc et leur dernier statut de crue (Flood Hub, proxy souverain, cache 15 min) |
+| `GET` | `/api/floods/gauges/{id}/forecast` | `seismic:view` | Dernière prévision émise pour une jauge, avec ses seuils d'alerte |
+| `GET` | `/api/floods/polygons/{id}` | `seismic:view` | Polygone d'inondation de Flood Hub (KML converti en GeoJSON) |
+| `GET` | `/api/floods/status` | `seismic:view` | État du flux des crues (clé configurée, dernière relecture, dégradation, attribution) |
 | `GET` | `/api/hospitals` | `hospinet:view` | Liste des hôpitaux |
 | `POST` | `/api/hospitals` | `hospinet:create` | Créer un hôpital (audité) |
 | `PATCH` | `/api/hospitals/{id}` | `hospinet:update` | Mettre à jour un établissement — un responsable ne peut agir que sur le sien |
@@ -236,7 +240,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 ## Chiffres
 
-109 chemins · 137 opérations · 13 groupes.
+113 chemins · 141 opérations · 13 groupes.
 
 ## Modifier le contrat
 

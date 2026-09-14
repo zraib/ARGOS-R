@@ -37,7 +37,7 @@ export interface SelInfo {
 // les commandes natives de MapLibre (zoom, boussole, recentrage) sont remontées
 // en haut par `globals.css` pour la même raison.
 // ---------------------------------------------------------------------------
-export type SheetTab = "layers" | "aircraft" | "legend" | "edit" | "selection";
+export type SheetTab = "layers" | "aircraft" | "legend" | "edit" | "flood" | "selection";
 
 /** Élément réel de la carte, listé sous sa couche. */
 export interface TreeLeaf { id: string; label: string; kind: MarkerKind }

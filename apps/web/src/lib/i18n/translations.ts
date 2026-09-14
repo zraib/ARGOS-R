@@ -615,6 +615,20 @@ export interface Dict {
   ch_online: string; ch_offline: string; ch_write: string; ch_start: string; ch_search: string;
   ch_online_now: string; ch_directory: string; ch_nobody: string; ch_more: string; ch_open_center: string;
   ch_typing: string; ch_sent: string; ch_delivered: string; ch_read: string; cm_deployed_on: string;
+  // Crues : prévisions Flood Hub (par l'API) et simulateur d'inondation (ADR 0010)
+  flood_panel: string; flood_feed: string; flood_feed_off: string; flood_feed_degraded: string; flood_feed_refresh: string;
+  flood_show_gauges: string; flood_no_gauges: string; flood_loading: string;
+  flood_sev_extreme: string; flood_sev_severe: string; flood_sev_above: string; flood_sev_none: string; flood_sev_unknown: string;
+  flood_trend_rise: string; flood_trend_fall: string; flood_trend_flat: string;
+  flood_issued: string; flood_forecast: string; flood_forecast_none: string; flood_warning: string; flood_danger: string; flood_extreme: string;
+  flood_maps: string; flood_maps_none: string; flood_use_gauge: string; flood_attribution: string; flood_gauge_close: string;
+  flood_sim: string; flood_sim_hint: string; flood_src: string; flood_src_river: string; flood_src_lake: string; flood_src_dam: string;
+  flood_seed: string; flood_pick: string; flood_picking: string; flood_seed_none: string;
+  flood_rise: string; flood_height: string; flood_atten: string; flood_extent: string;
+  flood_run: string; flood_running: string; flood_clear: string;
+  flood_area: string; flood_depth: string; flood_seed_elev: string; flood_cells: string; flood_partial: string;
+  flood_impacts: string; flood_none_hit: string; flood_hospitals: string; flood_units: string; flood_shelters: string; flood_cities: string;
+  flood_err_seed: string; flood_err_dem: string; flood_err_elevation: string;
   // Profil : notifications sonores
   pr_sounds: string; pr_sounds_hint: string; pr_sound_messages: string; pr_sound_messages_hint: string;
   pr_sound_alerts: string; pr_sound_alerts_hint: string; pr_sound_test: string; pr_sound_on: string; pr_sound_off: string;

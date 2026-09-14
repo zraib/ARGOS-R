@@ -13,6 +13,7 @@ import { SubIncidentTypesService } from "@/modules/domain/sub-incident-types.ser
 import { SeismicService } from "@/modules/domain/seismic.service";
 import { SeismicAlertsService } from "@/modules/domain/seismic-alerts.service";
 import { WeatherService } from "@/modules/domain/weather.service";
+import { FloodService } from "@/modules/domain/flood.service";
 import { DeploymentService } from "@/modules/domain/deployment.service";
 import { IncidentsController } from "@/modules/domain/http/incidents.controller";
 import { CommsController } from "@/modules/domain/http/comms.controller";
@@ -42,7 +43,7 @@ import { PostsController } from "@/modules/domain/http/posts.controller";
         return smtp ? new SmtpNotificationGateway(smtp) : new LogNotificationGateway();
       },
     },
-    DomainService, VisibilityService, DeploymentService, RiskService, CatalogService, CommsService, IncidentTypesService, SubIncidentTypesService, SeismicService, SeismicAlertsService, WeatherService],
-  exports: [NOTIFICATION_GATEWAY, DomainService, VisibilityService, DeploymentService, RiskService, CatalogService, CommsService, IncidentTypesService, SubIncidentTypesService, SeismicService, SeismicAlertsService, WeatherService],
+    DomainService, VisibilityService, DeploymentService, RiskService, CatalogService, CommsService, IncidentTypesService, SubIncidentTypesService, SeismicService, SeismicAlertsService, WeatherService, FloodService],
+  exports: [NOTIFICATION_GATEWAY, DomainService, VisibilityService, DeploymentService, RiskService, CatalogService, CommsService, IncidentTypesService, SubIncidentTypesService, SeismicService, SeismicAlertsService, WeatherService, FloodService],
 })
 export class DomainModule {}

@@ -11,6 +11,8 @@ export interface AppConfig {
   corsOrigins: string[];
   dbDriver: DbDriver;
   databaseUrl: string;
+  /** Clé de la Google Flood Forecasting API (Flood Hub) ; vide = flux des crues indisponible (ADR 0010). */
+  floodApiKey: string;
 }
 
 export default function configuration(): AppConfig {
@@ -34,5 +36,7 @@ export default function configuration(): AppConfig {
     // couche Drizzle réelle (voir infra/compose + src/db/schema.ts).
     dbDriver: (process.env.DB_DRIVER as DbDriver) ?? "memory",
     databaseUrl: process.env.DATABASE_URL ?? "postgres://argos:change-me-strong@localhost:5432/argos",
+    // Crues : la clé n'est jamais servie au navigateur — l'appel part de l'API.
+    floodApiKey: process.env.FLOOD_API_KEY ?? "",
   };
 }

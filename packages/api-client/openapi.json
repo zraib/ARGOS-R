@@ -2828,6 +2828,104 @@
         ]
       }
     },
+    "/api/floods/status": {
+      "get": {
+        "operationId": "EnvironmentController_floodStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "État du flux des crues (clé configurée, dernière relecture, dégradation, attribution)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/floods/gauges": {
+      "get": {
+        "operationId": "EnvironmentController_floodGauges",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Jauges du Maroc et leur dernier statut de crue (Flood Hub, proxy souverain, cache 15 min)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/floods/gauges/{id}/forecast": {
+      "get": {
+        "operationId": "EnvironmentController_floodForecast",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Dernière prévision émise pour une jauge, avec ses seuils d'alerte",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/floods/polygons/{id}": {
+      "get": {
+        "operationId": "EnvironmentController_floodPolygon",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Polygone d'inondation de Flood Hub (KML converti en GeoJSON)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/orders": {
       "get": {
         "operationId": "OrdersController_list",

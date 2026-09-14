@@ -252,17 +252,22 @@ export default function CommunicationPage() {
                 <div className="mt-1 flex flex-col gap-0.5">
                   {cat.chans.map((ch) => {
                     const active = comSel === ch.id;
+                    const autre = ch.direct ? correspondentOf(ch, sessionUser?.matricule) : undefined;
                     return (
-                      <button
-                        key={ch.id}
-                        onClick={() => openChannel(ch.id)}
-                        className={`flex min-h-11 w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors lg:min-h-0 lg:text-[13px] ${
-                          active ? "bg-or-500/15 font-semibold text-or-500 dark:text-or-400" : "text-gray-500 hover:bg-gray-100 hover:text-or-500 dark:text-rdia-300 dark:hover:bg-rdia-600/40"
-                        }`}
-                      >
-                        <Icon path={ch.direct ? UI_ICONS.users : ch.kind === "voice" ? UI_ICONS.voice : UI_ICONS.hash} size={14} className="shrink-0" />
-                        <span className="min-w-0 truncate">{ch.name}</span>
-                      </button>
+                      // Le raccourci carte d'un correspondant déployé vit À CÔTÉ du
+                      // bouton du canal, pas dedans : un bouton ne s'imbrique pas.
+                      <div key={ch.id} className="flex items-center gap-0.5">
+                        <button
+                          onClick={() => openChannel(ch.id)}
+                          className={`flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors lg:min-h-0 lg:text-[13px] ${
+                            active ? "bg-or-500/15 font-semibold text-or-500 dark:text-or-400" : "text-gray-500 hover:bg-gray-100 hover:text-or-500 dark:text-rdia-300 dark:hover:bg-rdia-600/40"
+                          }`}
+                        >
+                          <Icon path={ch.direct ? UI_ICONS.users : ch.kind === "voice" ? UI_ICONS.voice : UI_ICONS.hash} size={14} className="shrink-0" />
+                          <span className="min-w-0 truncate">{ch.name}</span>
+                        </button>
+                        {autre && <DeployedShortcut matricule={autre} />}
+                      </div>
                     );
                   })}
                 </div>
@@ -286,8 +291,9 @@ export default function CommunicationPage() {
           </button>
           {/* Nom du canal et sujet : empilés sur mobile, sur une ligne dès `lg`. */}
           <div className="flex min-w-0 flex-1 flex-col lg:flex-row lg:items-baseline lg:gap-3">
-            <h2 className="min-w-0 truncate text-sm font-bold text-rdia-600 lg:whitespace-nowrap dark:text-rdia-50">
-              {selChan ? (isVoice ? selChan.name : `# ${selChan.name}`) : ""}
+            <h2 className="flex min-w-0 items-center gap-1 text-sm font-bold text-rdia-600 lg:whitespace-nowrap dark:text-rdia-50">
+              {correspondant && <DeployedShortcut matricule={correspondant} />}
+              <span className="min-w-0 truncate">{selChan ? (isVoice || selChan.direct ? selChan.name : `# ${selChan.name}`) : ""}</span>
             </h2>
             <span className="min-w-0 truncate text-xs text-gray-400 dark:text-rdia-400">{selChan?.topic || (isVoice ? t.cm_voice : "")}</span>
           </div>
@@ -354,7 +360,8 @@ export default function CommunicationPage() {
                 <div key={m.id} className="flex items-start gap-2.5">
                   <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${m.av}`}>{m.initials}</div>
                   <div className="min-w-0">
-                    <div className="flex flex-wrap items-baseline gap-x-2">
+                    <div className="flex flex-wrap items-center gap-x-2">
+                      {!m.mine && m.author && <DeployedShortcut matricule={m.author} />}
                       <span className={`text-xs font-bold ${m.mine ? "text-or-500" : "text-rdia-600 dark:text-rdia-100"}`}>{m.who}</span>
                       <span className="font-mono text-[10px] text-gray-400 dark:text-rdia-400">{m.time}</span>
                       {/* Les coches : sur MES messages d'une conversation directe. */}

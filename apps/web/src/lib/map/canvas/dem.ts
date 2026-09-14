@@ -4,7 +4,7 @@
 // référence à la carte vivante. Testables seules (vitest).
 // ============================================================================
 
-import { TILES_MODE } from "@/lib/map/tiles";
+import { demTileUrl } from "@/lib/map/tiles";
 
 // --- Altitude : échantillonnage direct du MNT « terrarium » -----------------
 // Indépendant du terrain 3D (queryTerrainElevation n'est fiable que si le mesh
@@ -24,10 +24,12 @@ export async function demElevation(lng: number, lat: number): Promise<number | n
   const { xt, yt, px, py } = lngLatToTile(lng, lat, DEM_Z);
   const key = `${DEM_Z}/${xt}/${yt}`;
   if (!demCache.has(key)) {
-    // Tuiles d'altitude : source EXTERNE (AWS). En mode souverain on ne les
-    // demande pas du tout — l'altitude affichée devient « — » plutôt que de
-    // révéler à un tiers les points que l'opérateur interroge (ADR 0006).
-    if (TILES_MODE !== "external") {
+    // Tuiles d'altitude : d'où vient le fond de carte (`demTileUrl`) — la
+    // station en mode souverain, la source externe en développement. Sans
+    // source, l'altitude affichée devient « — » plutôt que de révéler à un
+    // tiers les points que l'opérateur interroge (ADR 0006).
+    const url = demTileUrl(DEM_Z, xt, yt);
+    if (!url) {
       demCache.set(key, null);
       return null;
     }
@@ -35,7 +37,7 @@ export async function demElevation(lng: number, lat: number): Promise<number | n
       // Passer par fetch + blob : un <img crossOrigin> sur ce bucket ne résout
       // pas, alors que fetch aboutit ; le blob est same-origin donc le canvas
       // n'est pas « tainted » et getImageData reste autorisé.
-      const res = await fetch(`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${DEM_Z}/${xt}/${yt}.png`);
+      const res = await fetch(url);
       if (!res.ok) throw new Error(String(res.status));
       const bmp = await createImageBitmap(await res.blob());
       const c = document.createElement("canvas");

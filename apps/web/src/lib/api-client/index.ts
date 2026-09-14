@@ -334,6 +334,11 @@ export function createArgosClient(opts: ArgosClientOptions) {
       }),
     getWeatherCities: () => client.GET("/api/weather/cities"),
     getWeatherGrid: () => client.GET("/api/weather/grid"),
+    // --- crues : Google Flood Hub par le courtier de l'API (ADR 0010) ---
+    getFloodStatus: () => client.GET("/api/floods/status"),
+    getFloodGauges: () => client.GET("/api/floods/gauges"),
+    getFloodForecast: (id: string) => client.GET("/api/floods/gauges/{id}/forecast", { params: { path: { id } } }),
+    getFloodPolygon: (id: string) => client.GET("/api/floods/polygons/{id}", { params: { path: { id } } }),
     getWeatherGridWorld: () => client.GET("/api/weather/grid-world"),
     getWeatherForecast: (lat: number, lon: number) =>
       client.GET("/api/weather/forecast", { params: { query: { lat: String(lat), lon: String(lon) } } }),

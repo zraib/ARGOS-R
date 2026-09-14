@@ -283,6 +283,10 @@ Exigences du `MASTER_PLAN.md` §4.3 :
 - **Aucune ressource externe au runtime** — pas de CDN, pas de police distante,
   pas d'analytics. Les polices sont auto-hébergées dans `apps/web/public/fonts`.
 - **CSP stricte.**
+- Les prévisions de crue (Google Flood Hub, ADR 0010) suivent la même règle :
+  appel côté serveur avec `FLOOD_API_KEY`, jamais depuis le navigateur ; sans
+  clé, le flux est « indisponible » et le simulateur d'inondation, local,
+  n'en dépend pas.
 - Les flux externes (EMSC, Open-Meteo) sont **proxifiés par l'API**, avec cache
   et dégradation gracieuse. Le navigateur ne contacte jamais une source tierce.
 - **Aucun secret dans le dépôt.** `.env.example` sert de gabarit ; le secret de

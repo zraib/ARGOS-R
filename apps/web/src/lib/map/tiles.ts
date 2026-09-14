@@ -50,3 +50,18 @@ export const EXTERNAL_TILE_HOSTS = [
   "https://tile.openstreetmap.org",
   "https://s3.amazonaws.com",
 ] as const;
+
+/**
+ * URL d'une tuile d'altitude (terrarium) dans le mode courant : la source
+ * externe en développement, le serveur de tuiles de la station en mode
+ * souverain — `null` si aucune source n'est disponible. C'est par ici que
+ * passent l'altitude sous le curseur et le simulateur d'inondation : un seul
+ * endroit décide, et le mode souverain ne demande jamais rien à un tiers.
+ */
+export function demTileUrl(z: number, x: number, y: number): string | null {
+  if (TILES_MODE === "external") return `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
+  if (!SOVEREIGN_TILES_URL) return null;
+  const raw = SOVEREIGN_TILES_URL.replace(/\/$/, "");
+  const base = raw.startsWith("/") && typeof window !== "undefined" ? `${window.location.origin}${raw}` : raw;
+  return `${base}/dem/${z}/${x}/${y}`;
+}

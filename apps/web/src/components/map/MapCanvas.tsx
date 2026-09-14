@@ -24,6 +24,7 @@ import { pulseQuakes, quakePopup, setupQuakeLayers, syncQuakes } from "@/compone
 import { applyMissions, setupMissionLayers } from "@/components/map/layers/missions";
 import { drawMeasure, setupMeasureLayer } from "@/components/map/layers/measure";
 import { PlumeRuntime, applyPlume, playPlume, setupPlumeLayers } from "@/components/map/layers/plume";
+import { applyFloodGauges, applyFloodMaps, applyFloodSeed, applyFloodSim, setupFloodLayers } from "@/components/map/layers/floods";
 import {
   WeatherRuntime,
   applyWeatherVisibility,
@@ -113,6 +114,15 @@ export function MapCanvas() {
   const plume3d = useArgos((s) => s.plume3d);
   const plumeSmoke = useArgos((s) => s.plumeSmoke);
   const plumeVigilance = useArgos((s) => s.plumeVigilance);
+  // --- crues : jauges Flood Hub, cartes d'inondation, simulateur (ADR 0010) ---
+  const floodGauges = useArgos((s) => s.floodGauges);
+  const floodGaugesOn = useArgos((s) => s.floodGaugesOn);
+  const floodSel = useArgos((s) => s.floodSel);
+  const floodPolygons = useArgos((s) => s.floodPolygons);
+  const floodMapsOn = useArgos((s) => s.floodMapsOn);
+  const floodSeed = useArgos((s) => s.floodSeed);
+  const floodSim = useArgos((s) => s.floodSim);
+  const floodArming = useArgos((s) => s.floodArming);
   const wxGrid = useArgos((s) => s.wxGrid);
   const wxWorld = useArgos((s) => s.wxWorld);
   const wxLayers = useArgos((s) => s.wxLayers);
@@ -188,6 +198,21 @@ export function MapCanvas() {
         useArgos.getState().setPendingPost({ ...armed, ll: [e.lngLat.lng, e.lngLat.lat] });
         useArgos.getState().armPost(null);
         return;
+      }
+      // Le simulateur d'inondation attend son point de départ : ce clic le pose.
+      if (useArgos.getState().floodArming) {
+        useArgos.getState().setFloodSeed([e.lngLat.lng, e.lngLat.lat]);
+        useArgos.getState().setFloodArming(false);
+        return;
+      }
+      // Une jauge de crue sous le clic : sa fiche (prévision, seuils, cartes).
+      if (map.getLayer("flood-gauges-circle")) {
+        const jauge = map.queryRenderedFeatures(e.point, { layers: ["flood-gauges-circle"] })[0];
+        const gid = jauge?.properties?.gaugeId;
+        if (typeof gid === "string") {
+          useArgos.getState().selectFloodGauge(gid);
+          return;
+        }
       }
       if (measureOnRef.current) {
         setPts((prev) => [...prev, [e.lngLat.lng, e.lngLat.lat]]);
@@ -267,7 +292,12 @@ export function MapCanvas() {
       setupWeatherLayers(wx, map);
       setupQuakeLayers(map, () => measureOnRef.current, quakeBound);
       setupPlumeLayers(plumeRt.current, map);
+      setupFloodLayers(map);
       const st = useArgos.getState();
+      applyFloodGauges(map, st.floodGauges, st.floodGaugesOn, st.floodSel);
+      applyFloodMaps(map, st.floodPolygons, st.floodMapsOn);
+      applyFloodSeed(map, st.floodSeed);
+      applyFloodSim(map, st.floodSim);
       map.setLayoutProperty("routes-line", "visibility", st.layers.vehicles ? "visible" : "none");
       applyBase(map, st.mapSat);
       apply3d(map, st.map3d);
@@ -320,11 +350,11 @@ export function MapCanvas() {
     if (readyRef.current) syncMarkers(markersRt.current, mapRef.current);
   }, [layers, selMarker, incidents, fieldHosps, posts, mapEdit]);
 
-  // Chip armé : le curseur le dit avant le clic.
+  // Chip armé, ou point de départ d'une inondation attendu : le curseur le dit avant le clic.
   useEffect(() => {
     const canvas = mapRef.current?.getCanvas();
-    if (canvas) canvas.style.cursor = armedPost ? "crosshair" : "";
-  }, [armedPost]);
+    if (canvas) canvas.style.cursor = armedPost || floodArming ? "crosshair" : "";
+  }, [armedPost, floodArming]);
 
   // --- suivi aérien : interrogation du flux ---
   // Le minuteur s'arrête dès que la couche est masquée, pour ne pas consommer
@@ -403,6 +433,20 @@ export function MapCanvas() {
   useEffect(() => {
     if (readyRef.current) applyPlume(plumeRt.current, mapRef.current);
   }, [plumeData, plumeModels, plumeEnvelope, plumeIncidentId, plume3d, plumeSmoke, plumeVigilance]);
+
+  // --- crues : jauges, cartes d'inondation, point de départ et emprise simulée ---
+  useEffect(() => {
+    if (readyRef.current) applyFloodGauges(mapRef.current, floodGauges, floodGaugesOn, floodSel);
+  }, [floodGauges, floodGaugesOn, floodSel]);
+  useEffect(() => {
+    if (readyRef.current) applyFloodMaps(mapRef.current, floodPolygons, floodMapsOn);
+  }, [floodPolygons, floodMapsOn]);
+  useEffect(() => {
+    if (readyRef.current) applyFloodSeed(mapRef.current, floodSeed);
+  }, [floodSeed]);
+  useEffect(() => {
+    if (readyRef.current) applyFloodSim(mapRef.current, floodSim);
+  }, [floodSim]);
 
   // --- grilles météo : nationale dense, mondiale, visibilité des couches ---
   useEffect(() => {

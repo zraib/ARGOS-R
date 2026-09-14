@@ -7,13 +7,14 @@
 // et `authz-coverage.spec.ts` en font foi.
 // ============================================================================
 
-import { BadRequestException, Body, Get, Patch, Query, Controller } from "@nestjs/common";
+import { BadRequestException, Body, Get, Param, Patch, Query, Controller } from "@nestjs/common";
 import { ApiOperation, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { UpdateSeismicAlertConfigDto } from "@/modules/domain/dto";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import { SeismicService } from "@/modules/domain/seismic.service";
 import { SeismicAlertsService } from "@/modules/domain/seismic-alerts.service";
 import { WeatherService } from "@/modules/domain/weather.service";
+import { FloodService } from "@/modules/domain/flood.service";
 
 @ApiTags("domain")
 @ApiBearerAuth()
@@ -23,6 +24,7 @@ export class EnvironmentController {
     private readonly seismic: SeismicService,
     private readonly seismicAlerts: SeismicAlertsService,
     private readonly weather: WeatherService,
+    private readonly floods: FloodService,
   ) {}
 
   @Get("seismic/events")
@@ -84,5 +86,35 @@ export class EnvironmentController {
     const lo = Number(lon);
     if (!Number.isFinite(la) || !Number.isFinite(lo)) throw new BadRequestException("lat/lon requis");
     return this.weather.forecast(la, lo);
+  }
+
+  // --- crues : Google Flood Hub, par le courtier de l'API (ADR 0010) ---------
+
+  @Get("floods/status")
+  @RequirePermission("seismic:view")
+  @ApiOperation({ summary: "État du flux des crues (clé configurée, dernière relecture, dégradation, attribution)" })
+  floodStatus() {
+    return this.floods.status();
+  }
+
+  @Get("floods/gauges")
+  @RequirePermission("seismic:view")
+  @ApiOperation({ summary: "Jauges du Maroc et leur dernier statut de crue (Flood Hub, proxy souverain, cache 15 min)" })
+  floodGauges() {
+    return this.floods.gauges();
+  }
+
+  @Get("floods/gauges/:id/forecast")
+  @RequirePermission("seismic:view")
+  @ApiOperation({ summary: "Dernière prévision émise pour une jauge, avec ses seuils d'alerte" })
+  floodForecast(@Param("id") id: string) {
+    return this.floods.forecast(id);
+  }
+
+  @Get("floods/polygons/:id")
+  @RequirePermission("seismic:view")
+  @ApiOperation({ summary: "Polygone d'inondation de Flood Hub (KML converti en GeoJSON)" })
+  floodPolygon(@Param("id") id: string) {
+    return this.floods.polygon(id);
   }
 }
