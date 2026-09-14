@@ -24,9 +24,12 @@ import {
   TOKEN_KEY,
   SESSION_USER_KEY,
   SESSION_ROLE_KEY,
+  SOUNDS_KEY,
+  DEFAULT_SOUNDS,
   loadAiLogFor,
   SessionUser,
   SessionInit,
+  SoundPrefs,
   } from "@/lib/store/shared";
 
 export interface SessionSlice {
@@ -206,6 +209,14 @@ export const createSessionSlice: StateCreator<ArgosState, [], [], SessionSlice> 
     } catch {
       /* flags illisibles → défauts */
     }
+    // Préférences sonores du poste : tout activé tant que rien n'a été coupé.
+    let sounds: SoundPrefs = DEFAULT_SOUNDS;
+    try {
+      const raw = localStorage.getItem(SOUNDS_KEY);
+      if (raw) sounds = { ...DEFAULT_SOUNDS, ...JSON.parse(raw) };
+    } catch {
+      /* préférences illisibles → défauts */
+    }
     document.documentElement.classList.toggle("dark", dark);
     // Restaure l'identité de session depuis sessionStorage (jeton + profil).
     // Les fonctionnalités par rôle et les flags sont rechargés depuis l'API par
@@ -226,6 +237,7 @@ export const createSessionSlice: StateCreator<ArgosState, [], [], SessionSlice> 
       authed,
       aiSettings,
       flags,
+      sounds,
       sessionUser,
       role: storedRole ?? s.role,
       aiLog,

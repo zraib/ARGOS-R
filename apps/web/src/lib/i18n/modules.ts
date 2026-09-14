@@ -500,6 +500,16 @@ export interface ModulesDict {
     copied_toast: string;
     rc_hint: string;
     rc_enter: string;
+    // Mot de passe oublié : réinitialisation par l'administration
+    reset_pw: string;
+    reset_pw_body: string;
+    reset_pw_confirm: string;
+    reset_pw_done_title: string;
+    reset_pw_done_hint: string;
+    reset_requested: string;
+    reset_requested_hint: string;
+    reset_pending_one: string;
+    reset_pending_many: string;
   };
   copilot: {
     model: string;

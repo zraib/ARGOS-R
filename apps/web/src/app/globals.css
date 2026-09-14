@@ -379,6 +379,40 @@ body:has(.nav-drawer.est-ouvert) {
   .anim-bulle { animation: none; }
 }
 
+/* --------------------------------------------------------------------------
+   Conversations flottantes (têtes et fenêtres, façon messagerie instantanée)
+   Transform + opacité seulement : les têtes se déroulent depuis le bouton
+   (vers le bord de départ ; inversé en RTL), les fenêtres montent depuis la
+   rangée des têtes. Les sorties sont plus courtes que les entrées. Tout est
+   neutralisé quand l'utilisateur réduit les animations.
+   -------------------------------------------------------------------------- */
+:root { --tete-dx: 18px; }
+[dir="rtl"] { --tete-dx: -18px; }
+@keyframes tete-in {
+  0% { opacity: 0; transform: translateX(var(--tete-dx)) scale(0.55); }
+  70% { opacity: 1; transform: translateX(0) scale(1.06); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes tete-out {
+  0% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateX(var(--tete-dx)) scale(0.55); }
+}
+@keyframes fenetre-in {
+  0% { opacity: 0; transform: translateY(16px) scale(0.96); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes fenetre-out {
+  0% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(16px) scale(0.96); }
+}
+.anim-tete-in { animation: tete-in 0.26s cubic-bezier(0.3, 1.2, 0.5, 1) both; }
+.anim-tete-out { animation: tete-out 0.18s ease-in both; }
+.anim-fenetre-in { animation: fenetre-in 0.24s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
+.anim-fenetre-out { animation: fenetre-out 0.18s ease-in both; }
+@media (prefers-reduced-motion: reduce) {
+  .anim-tete-in, .anim-tete-out, .anim-fenetre-in, .anim-fenetre-out { animation-duration: 0.01s; animation-delay: 0s !important; }
+}
+
 /* Un <select> hérité du thème clair posé sur la surcouche sombre devenait
    illisible (valeur pâle, liste déroulante claire incohérente). On force ici
    la variante sombre : valeur en blanc net, liste native sombre. */

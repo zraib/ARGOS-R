@@ -72,8 +72,13 @@ export interface DomainSlice {
   /** Qui tient quoi (titulaires d'entités, postes déployés) — chargé avec le domaine. */
   responsables: Responsible[];
   loadResponsables: () => Promise<void>;
-  /** Ouvre (ou retrouve) la conversation directe avec un compte, la sélectionne, et rend son identifiant. */
-  openDirect: (matricule: string) => Promise<string>;
+  /**
+   * Ouvre (ou retrouve) la conversation directe avec un compte et rend son
+   * identifiant. Par défaut elle devient le canal affiché du centre de
+   * communication ; `select: false` pour les fenêtres flottantes, qui ne
+   * touchent pas à ce que l'écran de communication montre.
+   */
+  openDirect: (matricule: string, opts?: { select?: boolean }) => Promise<string>;
   // --- postes d'opération sur la carte (lot #12) ---
   /** Postes des opérations visibles par le compte — l'API a déjà filtré. */
   posts: IncidentPost[];
@@ -106,7 +111,8 @@ export interface DomainSlice {
   /** Mise à jour locale optimiste d'un hôpital (services, capacités…) */
   patchHospital: (id: string, patch: Partial<Hospital>) => void;
   selectChannel: (id: string) => void;
-  sendMessage: (txt: string) => void;
+  /** Envoie dans le canal affiché, ou dans `channelId` (fenêtres flottantes). */
+  sendMessage: (txt: string, channelId?: string) => void;
   addCategory: (name: string) => void;
   addChannel: (catId: string, name: string, matricules?: string[]) => void;
   /** Relit canaux et messages depuis l'API — l'état des canaux est serveur. */
@@ -309,7 +315,7 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
     if (res.error) throw new Error(apiErrorMessage(res.error));
     await get().loadPosts();
   },
-  openDirect: async (matricule) => {
+  openDirect: async (matricule, opts) => {
     const res = await api.openDirectChannel(matricule);
     const chan = res.data as { id: string } | undefined;
     if (res.error || !chan?.id) throw new Error(apiErrorMessage(res.error));
@@ -317,18 +323,21 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
     // encore, et l'événement temps réel n'est pas forcément arrivé.
     const connu = get().comCats.some((c) => c.chans.some((ch) => ch.id === chan.id));
     if (!connu) await get().loadDomain({ ai: false });
-    set({ comSel: chan.id });
-    get().rtSetActiveChannel(chan.id);
+    if (opts?.select !== false) {
+      set({ comSel: chan.id });
+      get().rtSetActiveChannel(chan.id);
+    }
     return chan.id;
   },
   loadResponsables: async () => {
     const res = await api.getResponsables();
     if (res.data) set({ responsables: res.data as unknown as Responsible[] });
   },
-  sendMessage: (txt) => {
+  sendMessage: (txt, channelId) => {
     const t = txt.trim();
     if (!t) return;
-    const { comSel, comCats, sessionUser } = get();
+    const { comCats, sessionUser } = get();
+    const comSel = channelId ?? get().comSel;
     let chan: Channel | undefined;
     comCats.forEach((c) => c.chans.forEach((ch) => { if (ch.id === comSel) chan = ch; }));
     if (!chan || chan.kind === "voice") return;

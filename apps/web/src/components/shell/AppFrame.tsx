@@ -17,6 +17,8 @@ import { Sidebar } from "@/components/shell/Sidebar";
 import { Header } from "@/components/shell/Header";
 import { Toast } from "@/components/shell/Toast";
 import { Copilot } from "@/components/shell/Copilot";
+import { ChatDock } from "@/components/shell/chat/ChatDock";
+import { primeAudio } from "@/lib/sound";
 import { IncidentWizard } from "@/components/incidents/IncidentWizard";
 import { QuakeAlert } from "@/components/flux/QuakeAlert";
 
@@ -60,6 +62,9 @@ export function AppFrame({ children }: { children: ReactNode }) {
   const navOpen = useArgos((s) => s.navOpen);
   const closeNav = useArgos((s) => s.closeNav);
   const aiVisible = flags["assistant"] !== false;
+  // Le dock des conversations suit le module de communication : coupé
+  // globalement ou pour le rôle, il disparaît avec lui.
+  const commsVisible = flags["comms"] !== false && roleFeatures[role]?.["comms"] !== false;
   const ready = authed && !mustChangePassword && !mustChooseRole;
   const pathname = usePathname();
   const moduleKey = keyForPath(pathname);
@@ -104,6 +109,12 @@ export function AppFrame({ children }: { children: ReactNode }) {
       if (cfg.local) void warmModel(cfg, aiSystemPrompt(st.lang, st.aiSettings.systemPrompt));
     }
   }, [ready, loadDomain]);
+
+  // Les signatures sonores s'amorcent au premier geste : sans cela le premier
+  // message reçu après le chargement restait muet.
+  useEffect(() => {
+    if (ready) primeAudio();
+  }, [ready]);
 
   // Flux temps réel : ouvert avec la session, fermé avec elle. C'est CE FLUX
   // qui fait la présence — un compte est en ligne tant qu'il est ouvert. Le
@@ -214,6 +225,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
       <IncidentWizard />
       <QuakeAlert />
       <Toast />
+      {commsVisible && <ChatDock besideCopilot={aiVisible} />}
       {aiVisible && <Copilot />}
     </div>
   );

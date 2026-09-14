@@ -8,6 +8,8 @@ import { Pill } from "@/components/ui/Pill";
 import { Avatar } from "@/components/ui/Avatar";
 import { UI_ICONS } from "@/lib/icons";
 import { ROLE_ICONS } from "@/lib/roles";
+import { playMessageTone, playNotificationTone } from "@/lib/sound";
+import type { SoundPrefs } from "@/lib/store/shared";
 
 /** Redimensionne un fichier image en data URL carrée (max 256 px) via canvas. */
 function fileToDataUrl(file: File, max = 256): Promise<string> {
@@ -36,8 +38,44 @@ function fileToDataUrl(file: File, max = 256): Promise<string> {
 }
 
 /**
+ * Une signature sonore : son interrupteur, son état ÉCRIT, un bouton pour
+ * l'entendre avant de décider.
+ */
+function SoundRow({
+  id, label, hint, on, onToggle, onTest,
+}: {
+  id: keyof SoundPrefs;
+  label: string;
+  hint: string;
+  on: boolean;
+  onToggle: (on: boolean) => void;
+  onTest: () => void;
+}) {
+  const t = useDict();
+  const inputId = `son-${id}`;
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 px-3 py-2.5 dark:border-rdia-600">
+      <label htmlFor={inputId} className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+        <input id={inputId} type="checkbox" className="size-4 shrink-0 accent-or-500" checked={on} onChange={(e) => onToggle(e.target.checked)} />
+        <span className="min-w-0">
+          <span className="block text-[13px] font-semibold text-gray-800 dark:text-rdia-50">
+            {label}
+            <span className={`ms-2 text-[10px] font-bold uppercase tracking-wider ${on ? "text-green-600" : "text-gray-400 dark:text-rdia-400"}`}>{on ? t.pr_sound_on : t.pr_sound_off}</span>
+          </span>
+          <span className="block text-[11.5px] leading-snug text-gray-500 dark:text-rdia-300">{hint}</span>
+        </span>
+      </label>
+      <button type="button" className="btn-secondaire min-h-[44px] text-xs lg:min-h-0" onClick={onTest}>
+        {t.pr_sound_test}
+      </button>
+    </div>
+  );
+}
+
+/**
  * Paramètres du profil : modifier le nom affiché, la photo de profil et le mot
  * de passe (tout via l'API, audité). L'identité de session est mise à jour.
+ * Les notifications sonores, elles, sont un réglage du POSTE (localStorage).
  */
 export default function ProfilPage() {
   const t = useDict();
@@ -46,6 +84,8 @@ export default function ProfilPage() {
   const role = useArgos((s) => s.role);
   const setProfile = useArgos((s) => s.setProfile);
   const showToast = useArgos((s) => s.showToast);
+  const sounds = useArgos((s) => s.sounds);
+  const setSound = useArgos((s) => s.setSound);
 
   const [nom, setNom] = useState(sessionUser?.nom ?? "");
   const [photo, setPhoto] = useState<string | undefined>(sessionUser?.photo);
@@ -213,6 +253,31 @@ export default function ProfilPage() {
             {busyPw ? "…" : t.pr_pw_submit}
           </button>
         </div>
+      </div>
+
+      {/* Notifications sonores : deux signatures, deux interrupteurs, réglage du poste */}
+      <div className="carte flex flex-col gap-3 p-4 sm:p-5">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-rdia-600 dark:text-rdia-50">
+          <Icon path={UI_ICONS.bell} size={15} className="shrink-0 text-or-500" />
+          {t.pr_sounds}
+        </h3>
+        <p className="text-xs text-gray-500 dark:text-rdia-300">{t.pr_sounds_hint}</p>
+        <SoundRow
+          id="messages"
+          label={t.pr_sound_messages}
+          hint={t.pr_sound_messages_hint}
+          on={sounds.messages}
+          onToggle={(v) => setSound("messages", v)}
+          onTest={() => playMessageTone(Date.now(), true)}
+        />
+        <SoundRow
+          id="alerts"
+          label={t.pr_sound_alerts}
+          hint={t.pr_sound_alerts_hint}
+          on={sounds.alerts}
+          onToggle={(v) => setSound("alerts", v)}
+          onTest={playNotificationTone}
+        />
       </div>
     </section>
   );

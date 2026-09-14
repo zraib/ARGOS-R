@@ -4,7 +4,13 @@ import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import { useArgos, useDict } from "@/lib/store";
 
-/** Bouton flottant d'ouverture du Copilot (visible quand le tiroir est fermé). */
+/**
+ * Bouton flottant d'ouverture du Copilot (visible quand le tiroir est fermé).
+ *
+ * `z-40`, comme le dock des conversations : SOUS les modales (`z-50`) — à
+ * `z-50` il passait devant leur bouton d'action sur téléphone — et sous la
+ * feuille de la carte ; au-dessus des surcouches de la carte (`z-20`/`z-30`).
+ */
 export function CopilotFab({ unread }: { unread: number }) {
   const t = useDict();
   return (
@@ -12,7 +18,7 @@ export function CopilotFab({ unread }: { unread: number }) {
       aria-label={t.cp_open}
       title={t.cp_open}
       onClick={() => useArgos.getState().openCopilot()}
-      className="group fixed bottom-4 end-4 z-50 sm:bottom-6 sm:end-6"
+      className="group fixed bottom-4 end-4 z-40 sm:bottom-6 sm:end-6"
     >
       <span className="absolute -inset-1 rounded-full bg-or-500 opacity-30 blur transition-opacity duration-300 group-hover:opacity-60" />
       <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-or-500 text-rdia-900 shadow-2xl shadow-or-500/40 ring-4 ring-white dark:ring-rdia-800 transition-transform duration-200 group-hover:scale-110 active:scale-95">
@@ -23,9 +29,10 @@ export function CopilotFab({ unread }: { unread: number }) {
           </span>
         )}
       </span>
-      {/* Bulle d'aide : masquée sous sm — au doigt il n'y a pas de survol,
+      {/* Bulle d'aide AU-DESSUS du bouton : à côté, elle recouvrait le bouton
+          des conversations. Masquée sous sm — au doigt il n'y a pas de survol,
           et elle débordait de l'écran à 375 px. */}
-      <span className="absolute end-full top-1/2 me-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-rdia-800 px-2.5 py-1 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 sm:block dark:bg-rdia-700">
+      <span className="pointer-events-none absolute bottom-full end-0 mb-2 hidden whitespace-nowrap rounded-lg bg-rdia-800 px-2.5 py-1 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 sm:block dark:bg-rdia-700">
         {t.cp_title} · ⌘K
       </span>
     </button>

@@ -112,6 +112,12 @@ firstname: "Prénom", firstname_ph: "ex. Ahmed", phone: "Numéro de téléphone"
     cp_new: "Nouveau mot de passe", cp_confirm: "Confirmer le mot de passe", cp_submit: "Définir et continuer", cp_skip: "Ignorer pour l'instant",
     cp_mismatch: "Les mots de passe ne correspondent pas.", cp_weak: "8 caractères minimum.", cp_done: "Mot de passe défini — compte activé",
     rc_title: "Sélection du rôle", switch_role: "Changer de rôle", role_switched: "Rôle actif : ", copy_code: "Copier le code", copied_toast: "Code copié dans le presse-papiers", rc_hint: "Vous disposez de plusieurs rôles. Choisissez celui à activer pour cette session.", rc_enter: "Accéder à la plateforme",
+    reset_pw: "Réinitialiser le mot de passe",
+    reset_pw_body: "Un nouveau code provisoire sera généré : l'ancien mot de passe cessera de fonctionner et l'utilisateur devra en définir un nouveau à sa prochaine connexion.",
+    reset_pw_confirm: "Générer le code", reset_pw_done_title: "Code provisoire régénéré",
+    reset_pw_done_hint: "Remettez ce code à l'utilisateur par un canal sûr. Il devra définir un nouveau mot de passe à sa prochaine connexion.",
+    reset_requested: "Réinitialisation demandée", reset_requested_hint: "L'utilisateur a signalé avoir oublié son mot de passe depuis l'écran de connexion.",
+    reset_pending_one: "demande de réinitialisation en attente", reset_pending_many: "demandes de réinitialisation en attente",
   },
   copilot: {
     model: "Modèle",

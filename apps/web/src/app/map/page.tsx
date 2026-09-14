@@ -743,8 +743,8 @@ export default function MapPage() {
       {/* Feuille ancrée en bas (< lg) : mêmes panneaux, en onglets. Elle ne
           couvre jamais plus de 62 % de la hauteur utile et laisse donc voir la
           carte pendant qu'on bascule une couche. Rendue hors de la surcouche
-          `z-20` : il lui faut passer devant le bouton flottant du Copilot
-          (`z-50`), sinon celui-ci se pose au milieu du contenu. */}
+          `z-20` : il lui faut passer devant les boutons flottants (Copilot,
+          conversations, `z-40`), sinon ils se posent au milieu du contenu. */}
       {openTab && (
         <div className="panneau-sombre pointer-events-auto absolute inset-x-0 bottom-0 z-[60] flex max-h-[62dvh] flex-col overflow-hidden rounded-t-2xl shadow-2xl lg:hidden" style={GLASS}>
           <div className="flex shrink-0 items-center gap-1 border-b border-white/12 ps-1">

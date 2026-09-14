@@ -50,9 +50,10 @@ export function QuakeAlert() {
 
   const isMa = alert ? pointInMorocco(alert.lon, alert.lat) : false;
 
-  // Signature sonore au déclenchement (une fois par alerte).
+  // Signature sonore au déclenchement (une fois par alerte), si le poste
+  // n'a pas coupé les notifications sonores — lu à l'instant, pas surveillé.
   useEffect(() => {
-    if (!alert) return;
+    if (!alert || !useArgos.getState().sounds.alerts) return;
     if (pointInMorocco(alert.lon, alert.lat)) playNationalAlert();
     else playGlobalAlert();
   }, [alert]);
@@ -62,10 +63,11 @@ export function QuakeAlert() {
   const nContacts = seisConfig?.contacts.length ?? 0;
 
   return (
-    // Sous sm la pop-up s'étend d'un bord à l'autre (moins 12 px de marge) :
-    // figée à 320 px, elle ne laissait plus la place aux deux boutons d'action
-    // et débordait de son cadre à 375 px.
-    <div className="fixed bottom-4 start-3 end-3 z-[60] animate-fade-in sm:start-auto sm:end-4 sm:w-80">
+    // EN HAUT, centrée, sous l'en-tête : le bas de l'écran appartient aux
+    // boutons flottants et aux conversations. Sous sm elle prend la largeur
+    // (moins les marges) : figée à 320 px, elle ne laissait plus la place aux
+    // deux boutons d'action à 375 px.
+    <div className="fixed left-1/2 top-[4.25rem] z-[60] w-[min(92vw,22rem)] -translate-x-1/2 animate-fade-in lg:top-[4.75rem]">
       <div
         className={`rounded-2xl border bg-white shadow-2xl dark:bg-rdia-800 ${
           isMa ? "border-danger-500 ring-2 ring-danger-500/50 animate-pulse-ring" : "border-or-500/40"

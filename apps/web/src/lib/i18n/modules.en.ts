@@ -112,6 +112,12 @@ firstname: "First name", firstname_ph: "e.g. Ahmed", phone: "Phone number", phon
     cp_new: "New password", cp_confirm: "Confirm password", cp_submit: "Set and continue", cp_skip: "Skip for now",
     cp_mismatch: "Passwords do not match.", cp_weak: "8 characters minimum.", cp_done: "Password set — account activated",
     rc_title: "Role selection", switch_role: "Switch role", role_switched: "Active role: ", copy_code: "Copy code", copied_toast: "Code copied to clipboard", rc_hint: "You hold several roles. Pick the one to activate for this session.", rc_enter: "Enter the platform",
+    reset_pw: "Reset the password",
+    reset_pw_body: "A new temporary code will be generated: the current password stops working and the user must set a new one at their next sign-in.",
+    reset_pw_confirm: "Generate the code", reset_pw_done_title: "Temporary code regenerated",
+    reset_pw_done_hint: "Hand this code to the user through a safe channel. They will have to set a new password at their next sign-in.",
+    reset_requested: "Reset requested", reset_requested_hint: "The user reported a forgotten password from the sign-in screen.",
+    reset_pending_one: "reset request pending", reset_pending_many: "reset requests pending",
   },
   copilot: {
     model: "Model",

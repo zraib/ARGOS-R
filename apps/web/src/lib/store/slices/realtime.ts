@@ -14,6 +14,8 @@ import type {
   PresenceUser,
   } from "@/lib/types";
 import { mergeNotice } from "@/lib/notices";
+import { directChannels } from "@/lib/chat";
+import { playMessageTone, playNotificationTone } from "@/lib/sound";
 import {
   rtHandleRef,
   } from "@/lib/store/shared";
@@ -37,6 +39,8 @@ export interface RealtimeSlice {
   rtDisconnect: () => void;
   /** Marque le canal ouvert à l'écran et solde ses non-lus. */
   rtSetActiveChannel: (id: string | null) => void;
+  /** Solde les non-lus d'un canal sans en faire le canal affiché (fenêtre flottante ouverte). */
+  rtClearUnread: (id: string) => void;
   rtMarkNoticeSeen: (id: string) => void;
 }
 
@@ -73,24 +77,39 @@ export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice
           // reçoit ensuite par le flux. Dédoublonner sur l'identifiant évite
           // qu'il s'affiche deux fois.
           if (liste.some((m) => m.id === message.id)) return;
+          // Un canal se lit à deux endroits : le centre de communication, et
+          // une fenêtre flottante. Ni l'un ni l'autre ne compte de non-lu.
+          const sousLesYeux = d.channelId === s.rtActiveChannel || s.chatOpen.includes(d.channelId);
+          const directe = directChannels(s.comCats).some((ch) => ch.id === d.channelId);
           set({
             comMsgs: { ...s.comMsgs, [d.channelId]: [...liste, message] },
             rtUnread:
-              message.mine || d.channelId === s.rtActiveChannel
+              message.mine || sousLesYeux
                 ? s.rtUnread
                 : { ...s.rtUnread, [d.channelId]: (s.rtUnread[d.channelId] ?? 0) + 1 },
+            // Une conversation directe qui reçoit se signale d'elle-même : ses
+            // têtes se déroulent, la fenêtre reste à ouvrir — elle ne saute pas
+            // sur la carte au milieu d'un geste.
+            chatDockOpen: s.chatDockOpen || (directe && !message.mine),
           });
+          if (!message.mine && s.sounds.messages) playMessageTone();
           return;
         }
         if (e.kind === "notice") {
-          // Une alerte adressée : gardée, dite à voix haute, et le domaine est
-          // rechargé — l'incident déclaré doit être sur la carte avant que
+          // Une alerte adressée : gardée, dite à voix haute — d'une signature
+          // sonore DISTINCTE de celle des messages — et, pour un incident, le
+          // domaine est rechargé : il doit être sur la carte avant que
           // l'opérateur n'y aille.
           const n = (e.data as { notice?: Notice }).notice;
           if (!n?.id) return;
           set({ rtNotices: mergeNotice(s.rtNotices, n) });
-          s.showToast(`${s.dict.notif_incident_declared} — ${n.titre}`);
-          void get().loadDomain({ ai: false });
+          if (n.kind === "incident_declared") {
+            s.showToast(`${s.dict.notif_incident_declared} — ${n.titre}`);
+            void get().loadDomain({ ai: false });
+          } else {
+            s.showToast(`${s.dict.notif_reset_requested} — ${n.nom} (${n.matricule})`);
+          }
+          if (s.sounds.alerts) playNotificationTone();
           return;
         }
         if (e.kind === "posts") {
@@ -115,6 +134,12 @@ export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice
     set({ rtStatus: "closed", rtOnline: [] });
   },
   rtMarkNoticeSeen: (id) => set((s) => (s.rtNoticesSeen.includes(id) ? {} : { rtNoticesSeen: [...s.rtNoticesSeen, id] })),
+  rtClearUnread: (id) =>
+    set((s) => {
+      if (!(id in s.rtUnread)) return {};
+      const { [id]: _solde, ...reste } = s.rtUnread;
+      return { rtUnread: reste };
+    }),
   rtSetActiveChannel: (id) =>
     set((s) => {
       if (!id) return { rtActiveChannel: null };

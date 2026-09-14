@@ -19,7 +19,10 @@ import { loadLangResources } from "@/lib/i18n/loader";
 import {
   THEME_KEY,
   LANG_KEY,
+  SOUNDS_KEY,
+  DEFAULT_SOUNDS,
   NavGroups,
+  SoundPrefs,
   toastTimerRef,
   } from "@/lib/store/shared";
 
@@ -56,7 +59,10 @@ export interface UiSlice {
   wizEdit: Incident | null;
   /** Coordonnées [lng, lat] pré-remplies quand le wizard est ouvert depuis la carte */
   wizInitLL: [number, number] | null;
+  /** Signatures sonores activées sur ce poste (messages, autres notifications). */
+  sounds: SoundPrefs;
   setLang: (lang: Lang) => void;
+  setSound: (kind: keyof SoundPrefs, on: boolean) => void;
   toggleTheme: () => void;
   toggleSidebar: () => void;
   toggleNav: () => void;
@@ -87,6 +93,13 @@ export const createUiSlice: StateCreator<ArgosState, [], [], UiSlice> = (set, ge
   copilotOpen: false,
   wizEdit: null,
   wizInitLL: null,
+  sounds: DEFAULT_SOUNDS,
+  setSound: (kind, on) =>
+    set((s) => {
+      const sounds = { ...s.sounds, [kind]: on };
+      if (typeof window !== "undefined") localStorage.setItem(SOUNDS_KEY, JSON.stringify(sounds));
+      return { sounds };
+    }),
   setLang: (lang) => {
     if (typeof window !== "undefined") localStorage.setItem(LANG_KEY, lang);
     // Chargement PUIS commit : tant que le dictionnaire demandé n'est pas là,

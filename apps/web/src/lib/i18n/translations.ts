@@ -606,6 +606,17 @@ export interface Dict {
   cm_delete_confirm: string; cm_admin_only: string; cm_attach: string; cm_attach_too_big: string;
   cm_attach_refused: string; cm_attach_failed: string; cm_attach_sending: string; cm_download: string;
   cm_stream_down: string;
+  // Alerte adressée : un compte demande la réinitialisation de son mot de passe
+  notif_reset_requested: string; notif_reset_open: string;
+  // Écran de connexion : mot de passe oublié
+  lg_forgot: string; lg_forgot_hint: string; lg_forgot_send: string; lg_forgot_sent: string; lg_forgot_back: string;
+  // Conversations flottantes (têtes et fenêtres, façon messagerie instantanée)
+  ch_title: string; ch_open: string; ch_close: string; ch_close_all: string; ch_new: string; ch_none: string;
+  ch_online: string; ch_offline: string; ch_write: string; ch_start: string; ch_search: string;
+  ch_online_now: string; ch_directory: string; ch_nobody: string; ch_more: string; ch_open_center: string;
+  // Profil : notifications sonores
+  pr_sounds: string; pr_sounds_hint: string; pr_sound_messages: string; pr_sound_messages_hint: string;
+  pr_sound_alerts: string; pr_sound_alerts_hint: string; pr_sound_test: string; pr_sound_on: string; pr_sound_off: string;
   nav_chemlib: string;
   cl_title: string;
   // Bibliothèque des substances — refonte N-5

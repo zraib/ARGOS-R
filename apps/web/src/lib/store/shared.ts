@@ -42,6 +42,21 @@ export const SESSION_USER_KEY = "argos_session_user";
 
 export const SESSION_ROLE_KEY = "argos_session_role";
 
+/** Préférences sonores de CE poste (localStorage) : un opérateur en salle de veille coupe ce qu'il veut. */
+export const SOUNDS_KEY = "argos_sounds";
+
+/**
+ * Deux signatures, deux réglages : le « pop » d'un message reçu, et le signal
+ * des autres notifications (alertes adressées, séismes). Coupés séparément —
+ * un poste qui suit une conversation soutenue garde les alertes.
+ */
+export interface SoundPrefs {
+  messages: boolean;
+  alerts: boolean;
+}
+
+export const DEFAULT_SOUNDS: SoundPrefs = { messages: true, alerts: true };
+
 /**
  * Historique Copilot · ségrégé PAR UTILISATEUR.
  *
