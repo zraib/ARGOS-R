@@ -92,9 +92,9 @@ se copie). Marche à suivre détaillée et licences : [`../infra/geo/README.md`]
 
 ```powershell
 cd deploy
-docker compose run --rm tiles-fetch pbf          # extrait OSM du Maroc (~300 Mo) — sert aussi à Valhalla
+docker compose run --rm tiles-fetch pbf          # extrait OSM du Maroc (~250 Mo) — sert aussi à Valhalla
 docker compose run --rm tiles-osm                # tuiles vectorielles du Maroc, tous zooms (~10 min)
-docker compose run --rm tiles-fetch assets       # polices + styles « plan » et « toponymes »
+docker compose run --rm tiles-fetch assets       # polices (latin + arabe) + styles « plan » et « toponymes »
 docker compose run --rm tiles-fetch fetch dem    # relief 3D, tout le pays (~200 000 tuiles, ~6 Go)
 docker compose run --rm tiles-fetch estimate sat # combien d'imagerie le profil demande
 docker compose run --rm tiles-fetch fetch sat    # imagerie, selon infra/geo/zones.json — voir la licence !
@@ -160,6 +160,11 @@ changer pour l'accueillir (la base est déjà là).
   status`) ou le service `tiles` a refusé de démarrer faute de fichiers
   (`docker compose logs tiles`) : lancer `tiles-fetch placeholder` puis
   `docker compose restart tiles`.
+- **`tiles-osm` ou `tiles-fetch assets` échouent sur `github.com`** — l'hôte
+  est filtré sur certains réseaux ; l'outil a des replis (voir
+  `infra/geo/README.md`, « Réseaux où github.com est filtré »). Relancer
+  `tiles-fetch pbf` d'abord : il dépose ce que planetiler ne pourra pas
+  télécharger.
 - **Copilote muet** — Ollama n'est pas joignable depuis Docker : vérifier
   `OLLAMA_HOST=0.0.0.0`, puis `http://localhost/llm/api/tags` doit lister les
   modèles. Dans *Paramètres* de l'application, le point d'accès est `/llm`.

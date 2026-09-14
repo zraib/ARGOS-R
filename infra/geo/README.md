@@ -48,9 +48,9 @@ déploiement) : la station n'a besoin ni de Python ni de Java.
 
 ```powershell
 cd deploy
-docker compose run --rm tiles-fetch pbf          # 1. extrait OSM du Maroc (Geofabrik) → partagé avec Valhalla
+docker compose run --rm tiles-fetch pbf          # 1. extrait OSM du Maroc (Geofabrik) → partagé avec Valhalla, + lignes centrales des lacs
 docker compose run --rm tiles-osm                # 2. planetiler : plan-vector.mbtiles (schéma OpenMapTiles)
-docker compose run --rm tiles-fetch assets       # 3. polices, styles plan/lbl (dérivés d'OSM Bright)
+docker compose run --rm tiles-fetch assets       # 3. polices (arabe compris), styles plan/lbl (dérivés d'OSM Bright)
 docker compose run --rm tiles-fetch fetch dem    # 4. relief : ~200 000 tuiles, ~6 Go
 docker compose run --rm tiles-fetch fetch sat    # 5. imagerie selon zones.json (SAT_TILE_URL dans .env)
 docker compose run --rm tiles-fetch status
@@ -63,6 +63,22 @@ passage à quelques zones ; `--workers 4` ménage une source lente.
 
 Sans imagerie, `tiles-fetch placeholder` crée des fichiers `sat`/`dem` vides
 mais valides : le serveur démarre, la carte a le plan et les toponymes.
+
+### Réseaux où `github.com` est filtré
+
+Deux ressources y sont hébergées : les **lignes centrales des lacs** que
+planetiler télécharge, et les **polices**. L'outil s'en passe :
+
+- `tiles-fetch pbf` dépose les lignes centrales des lacs dans le cache de
+  planetiler s'il y arrive, sinon un fichier *vide mais valide* — planetiler
+  continue, seuls les noms de lacs se placent moins finement. Relancer `pbf`
+  avec `--force` quand le réseau le permet, puis `tiles-osm` ;
+- `tiles-fetch assets` lit le style OSM Bright et les glyphes **Klokantech
+  Noto Sans** (latin + arabe) sur `raw.githubusercontent.com`, un hôte
+  distinct ; si lui aussi est fermé, l'archive de démonstration de
+  tileserver-gl (`github.com`, polices Open Sans, latin seulement) sert de
+  repli. Les deux hôtes fermés : déposer `fonts/` et `styles/` à la main
+  dans le volume (copie depuis une machine où la commande est passée).
 
 ### Licence de l'imagerie — lire avant de renseigner `SAT_TILE_URL`
 
@@ -92,7 +108,7 @@ Le volume `iris_argos_tiles` (monté sur `/data` du service `tiles`) contient :
 plan-vector.mbtiles     tuiles vectorielles OSM du Maroc (planetiler)
 sat.mbtiles             imagerie raster (jpg)
 dem.mbtiles             altitude terrarium (png)
-fonts/                  glyphes des polices (Open Sans)
+fonts/                  glyphes des polices (Klokantech Noto Sans : latin + arabe)
 styles/plan/style.json  OSM Bright sans pictogrammes, sur plan-vector
 styles/lbl/style.json   les seuls calques d'étiquettes, fond transparent
 ```

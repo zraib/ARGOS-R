@@ -6,8 +6,9 @@
 #
 #   status                 ce que le volume contient (fichiers, zooms, nombre de tuiles)
 #   fetch sat|dem          télécharge une source XYZ dans un MBTiles, par zones
-#   assets                 polices, sprites et style OSM Bright → styles « plan » et « lbl »
-#   pbf                    extrait OpenStreetMap du Maroc (Geofabrik) pour planetiler et Valhalla
+#   assets                 polices et style OSM Bright → styles « plan » et « lbl »
+#   pbf                    extrait OpenStreetMap du Maroc (Geofabrik) pour planetiler et Valhalla,
+#                          et les jeux annexes de planetiler que GitHub héberge
 #   placeholder            MBTiles VIDES (sat, dem) pour que le serveur démarre sans imagerie
 #   estimate sat|dem       compte les tuiles du profil sans rien télécharger
 #
@@ -43,11 +44,31 @@ from pathlib import Path
 TILES_DIR = Path(os.environ.get("TILES_DIR", "/data"))
 ZONES_FILE = Path(os.environ.get("ZONES_FILE", "/config/zones.json"))
 PBF_DIR = Path(os.environ.get("PBF_DIR", "/pbf"))
+# Cache des sources de planetiler (volume planetiler_cache) — pour y déposer ce
+# que planetiler ne peut pas télécharger lui-même quand github.com est bloqué.
+PLANETILER_SOURCES = Path(os.environ.get("PLANETILER_SOURCES", "/planetiler-sources"))
 USER_AGENT = "ARGOS-IRIS-tiles/1.0 (provisionnement hors ligne)"
-# Données de démonstration officielles de tileserver-gl : polices, sprites et
-# style OSM Bright, dans la disposition exacte que le serveur attend.
+# Style OSM Bright courant et ses glyphes, fichier par fichier, depuis
+# raw.githubusercontent.com. Source PRINCIPALE : les polices « Klokantech Noto
+# Sans » y couvrent l'arabe, ce que l'archive de démonstration (Open Sans) ne
+# fait pas — au Maroc, la moitié des toponymes s'écrivent en arabe.
+OSM_BRIGHT_URL = os.environ.get("OSM_BRIGHT_URL", "https://raw.githubusercontent.com/openmaptiles/osm-bright-gl-style/master/style.json")
+GLYPHS_URL = os.environ.get("GLYPHS_URL", "https://raw.githubusercontent.com/openmaptiles/fonts/gh-pages/{fontstack}/{range}.pbf")
+# Les noms que le style demande → ceux que l'hébergement des glyphes connaît.
+FONT_ALIASES = {
+    "Noto Sans Regular": "Klokantech Noto Sans Regular",
+    "Noto Sans Bold": "Klokantech Noto Sans Bold",
+    "Noto Sans Italic": "Klokantech Noto Sans Italic",
+}
+# REPLI : les données de démonstration officielles de tileserver-gl (polices
+# Open Sans, latin seulement, et style OSM Bright), si raw.githubusercontent.com
+# est inaccessible mais github.com ouvert.
 ASSETS_URL = os.environ.get("TILESERVER_ASSETS_URL", "https://github.com/maptiler/tileserver-gl/releases/download/v1.3.0/test_data.zip")
 PBF_URL = os.environ.get("PBF_URL", "https://download.geofabrik.de/africa/morocco-latest.osm.pbf")
+# Lignes centrales des lacs (planetiler) : hébergées sur github.com. Sans
+# elles, seuls les noms des lacs se placent moins bien — un fichier VIDE mais
+# valide suffit pour que planetiler continue.
+LAKES_URL = os.environ.get("LAKES_URL", "https://github.com/acalcutt/osm-lakelines/releases/download/v12/lake_centerline.shp.zip")
 
 
 # --- géométrie des tuiles (Web Mercator) ---------------------------------------
@@ -128,6 +149,9 @@ class MBTiles:
 
     def close(self) -> None:
         self.finalize_zooms()
+        # Retour au journal classique : tileserver-gl monte le volume en lecture
+        # seule, et un fichier resté en mode WAL exige ses -wal/-shm à côté.
+        self.db.execute("PRAGMA journal_mode=DELETE")
         self.db.close()
 
 
@@ -276,74 +300,168 @@ def cmd_estimate(args: argparse.Namespace) -> None:
 
 # --- polices, sprites, styles ---------------------------------------------------
 
-def cmd_assets(args: argparse.Namespace) -> None:
-    """Polices, sprites et style OSM Bright → styles « plan » et « lbl » du serveur."""
-    TILES_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"Téléchargement des ressources de tileserver-gl : {ASSETS_URL}")
-    req = urllib.request.Request(ASSETS_URL, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=120) as r:
-        blob = r.read()
-    zf = zipfile.ZipFile(io.BytesIO(blob))
-    names = zf.namelist()
-    fonts_dir = TILES_DIR / "fonts"
-    sprites_dir = TILES_DIR / "sprites"
-    styles_dir = TILES_DIR / "styles"
-    for d in (fonts_dir, sprites_dir, styles_dir / "plan", styles_dir / "lbl"):
-        d.mkdir(parents=True, exist_ok=True)
-    n_fonts = 0
-    style_json = None
-    for name in names:
-        parts = name.split("/")
-        if "fonts" in parts and name.endswith(".pbf"):
-            i = parts.index("fonts")
-            target = fonts_dir.joinpath(*parts[i + 1:])
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(zf.read(name))
-            n_fonts += 1
-        elif name.endswith("style.json") and "osm-bright" in name.lower():
-            style_json = json.loads(zf.read(name).decode("utf-8"))
-        elif "sprites" in parts and (name.endswith(".png") or name.endswith(".json")):
-            i = parts.index("sprites")
-            target = sprites_dir.joinpath(*parts[i + 1:])
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(zf.read(name))
-    if not style_json:
-        sys.exit("Style OSM Bright introuvable dans l'archive : vérifier TILESERVER_ASSETS_URL")
-    print(f"  polices : {n_fonts} fichiers de glyphes")
-    # « plan » : OSM Bright sur les tuiles vectorielles du Maroc. Sans sprites
-    # (icônes) : les calques qui en dépendent sont retirés — un fond de plan
-    # se lit sans pictogrammes de commerces, et rien ne peut manquer au rendu.
+def _derive_styles(style_json: dict, styles_dir: Path) -> None:
+    """« plan » (OSM Bright sur plan-vector, sans pictogrammes) et « lbl » (étiquettes seules)."""
     plan = dict(style_json)
     plan["name"] = "IRIS plan"
     plan["sources"] = {"openmaptiles": {"type": "vector", "url": "mbtiles://{plan-vector}"}}
     plan["glyphs"] = "{fontstack}/{range}.pbf"
     plan.pop("sprite", None)
+    # Sans sprites (icônes) : les calques qui en dépendent sont retirés — un
+    # fond de plan se lit sans pictogrammes de commerces, et rien ne peut
+    # manquer au rendu.
     plan["layers"] = [l for l in style_json["layers"] if "icon-image" not in (l.get("layout") or {}) and l.get("source", "openmaptiles") == "openmaptiles"]
     for l in plan["layers"]:
         l["source"] = "openmaptiles"
+    (styles_dir / "plan").mkdir(parents=True, exist_ok=True)
     (styles_dir / "plan" / "style.json").write_text(json.dumps(plan, ensure_ascii=False, indent=1), encoding="utf-8")
     # « lbl » : les seuls calques d'étiquettes, sur fond transparent — la
     # surcouche de toponymes posée au-dessus de l'imagerie.
     lbl = dict(plan)
     lbl["name"] = "IRIS toponymes"
     lbl["layers"] = [l for l in plan["layers"] if l.get("type") == "symbol"]
+    (styles_dir / "lbl").mkdir(parents=True, exist_ok=True)
     (styles_dir / "lbl" / "style.json").write_text(json.dumps(lbl, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"  styles  : plan ({len(plan['layers'])} calques) · lbl ({len(lbl['layers'])} calques d'étiquettes) → {styles_dir}")
 
 
+def _fonts_needed(style_json: dict) -> list[str]:
+    fonts: set[str] = set()
+    for l in style_json["layers"]:
+        fonts.update((l.get("layout") or {}).get("text-font", []))
+    return sorted(fonts)
+
+
+def _assets_from_archive(fonts_dir: Path, sprites_dir: Path) -> dict | None:
+    """Polices et style depuis l'archive officielle de tileserver-gl ; `None` si elle est inaccessible."""
+    print(f"  repli : archive de démonstration {ASSETS_URL} (polices latines seulement)")
+    try:
+        req = urllib.request.Request(ASSETS_URL, headers={"User-Agent": USER_AGENT})
+        with urllib.request.urlopen(req, timeout=120) as r:
+            blob = r.read()
+    except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as e:
+        print(f"  archive inaccessible ({e})")
+        return None
+    zf = zipfile.ZipFile(io.BytesIO(blob))
+    n_fonts = 0
+    style_json = None
+    for name in zf.namelist():
+        parts = name.split("/")
+        if "fonts" in parts and name.endswith(".pbf"):
+            target = fonts_dir.joinpath(*parts[parts.index("fonts") + 1:])
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(zf.read(name))
+            n_fonts += 1
+        elif name.endswith("style.json") and "osm-bright" in name.lower():
+            style_json = json.loads(zf.read(name).decode("utf-8"))
+        elif "sprites" in parts and (name.endswith(".png") or name.endswith(".json")):
+            target = sprites_dir.joinpath(*parts[parts.index("sprites") + 1:])
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(zf.read(name))
+    print(f"  polices : {n_fonts} fichiers de glyphes (archive)")
+    return style_json
+
+
+def _apply_font_aliases(style_json: dict) -> None:
+    for l in style_json["layers"]:
+        layout = l.get("layout") or {}
+        if "text-font" in layout:
+            layout["text-font"] = [FONT_ALIASES.get(f, f) for f in layout["text-font"]]
+
+
+def _assets_from_raw(fonts_dir: Path) -> dict | None:
+    """Style OSM Bright courant et ses glyphes, fichier par fichier (256 plages par police) ; `None` si l'hôte est inaccessible."""
+    print(f"  style   : {OSM_BRIGHT_URL}")
+    try:
+        req = urllib.request.Request(OSM_BRIGHT_URL, headers={"User-Agent": USER_AGENT})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            style_json = json.loads(r.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as e:
+        print(f"  raw.githubusercontent.com inaccessible ({e})")
+        return None
+    _apply_font_aliases(style_json)
+    fonts = _fonts_needed(style_json)
+    ranges = [f"{i * 256}-{i * 256 + 255}" for i in range(256)]
+    jobs = [(f, rg) for f in fonts for rg in ranges if not (fonts_dir / f / f"{rg}.pbf").exists()]
+    print(f"  glyphes : {len(fonts)} polices ({', '.join(fonts)}) · {len(jobs)} fichiers à télécharger")
+    done = 0
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {pool.submit(fetch_one, GLYPHS_URL.replace("{fontstack}", urllib.request.quote(f)).replace("{range}", rg)): (f, rg) for f, rg in jobs}
+        for fut in as_completed(futures):
+            f, rg = futures[fut]
+            data = fut.result()
+            if data:
+                target = fonts_dir / f / f"{rg}.pbf"
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(data)
+                done += 1
+    print(f"  polices : {done} fichiers de glyphes (raw.githubusercontent.com)")
+    manquantes = [f for f in fonts if not (fonts_dir / f / "0-255.pbf").exists()]
+    if manquantes:
+        print(f"  polices introuvables : {manquantes} — vérifier GLYPHS_URL")
+        return None
+    return style_json
+
+
+def cmd_assets(args: argparse.Namespace) -> None:
+    """Polices, sprites et style OSM Bright → styles « plan » et « lbl » du serveur."""
+    TILES_DIR.mkdir(parents=True, exist_ok=True)
+    fonts_dir = TILES_DIR / "fonts"
+    sprites_dir = TILES_DIR / "sprites"
+    styles_dir = TILES_DIR / "styles"
+    for d in (fonts_dir, sprites_dir, styles_dir):
+        d.mkdir(parents=True, exist_ok=True)
+    print("Ressources du fond de plan (style OSM Bright et glyphes)")
+    style_json = _assets_from_raw(fonts_dir)
+    if style_json is None:
+        style_json = _assets_from_archive(fonts_dir, sprites_dir)
+    if style_json is None:
+        sys.exit("Aucune source de polices accessible — réessayer quand le réseau le permet, ou déposer fonts/ et styles/ à la main (voir infra/geo/README.md)")
+    _derive_styles(style_json, styles_dir)
+
+
 # --- extrait OSM ------------------------------------------------------------
+
+def _empty_shapefile_zip(target: Path, stem: str, shape_type: int = 3) -> None:
+    """Un shapefile sans aucune entité, mais complet (.shp .shx .dbf .prj) — lisible par planetiler/GeoTools."""
+    import struct
+    header = struct.pack(">i5i", 9994, 0, 0, 0, 0, 0) + struct.pack(">i", 50) + struct.pack("<ii", 1000, shape_type) + struct.pack("<8d", *([0.0] * 8))
+    dbf = bytes([0x03, 26, 1, 1]) + struct.pack("<IHH", 0, 65, 11) + bytes(20)
+    dbf += b"OSM_ID".ljust(11, b"\0") + b"N" + bytes(4) + bytes([10, 0]) + bytes(14) + b"\r\x1a"
+    prj = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]'
+    with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(f"{stem}.shp", header)
+        zf.writestr(f"{stem}.shx", header)
+        zf.writestr(f"{stem}.dbf", dbf)
+        zf.writestr(f"{stem}.prj", prj)
+
 
 def cmd_pbf(args: argparse.Namespace) -> None:
     PBF_DIR.mkdir(parents=True, exist_ok=True)
     target = PBF_DIR / "morocco-latest.osm.pbf"
     if target.exists() and not args.force:
         print(f"Déjà présent : {target} ({target.stat().st_size / 1e6:.0f} Mo) — --force pour retélécharger")
+    else:
+        print(f"Téléchargement : {PBF_URL} → {target}")
+        req = urllib.request.Request(PBF_URL, headers={"User-Agent": USER_AGENT})
+        with urllib.request.urlopen(req, timeout=120) as r, open(target, "wb") as f:
+            shutil.copyfileobj(r, f, length=1 << 20)
+        print(f"Terminé : {target.stat().st_size / 1e6:.0f} Mo")
+    # Les lignes centrales des lacs vivent sur github.com, que planetiler ne
+    # saura pas contourner s'il est bloqué : on les dépose ici, ou un fichier
+    # vide mais valide à leur place — planetiler lit ce qu'il trouve.
+    PLANETILER_SOURCES.mkdir(parents=True, exist_ok=True)
+    lakes = PLANETILER_SOURCES / "lake_centerline.shp.zip"
+    if lakes.exists() and not args.force:
+        print(f"Lacs : {lakes} présent ({lakes.stat().st_size / 1e6:.1f} Mo)")
         return
-    print(f"Téléchargement : {PBF_URL} → {target}")
-    req = urllib.request.Request(PBF_URL, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=120) as r, open(target, "wb") as f:
-        shutil.copyfileobj(r, f, length=1 << 20)
-    print(f"Terminé : {target.stat().st_size / 1e6:.0f} Mo")
+    data = fetch_one(LAKES_URL, retries=2, timeout=30)
+    if data and len(data) > 100_000:
+        lakes.write_bytes(data)
+        print(f"Lacs : téléchargés ({len(data) / 1e6:.1f} Mo)")
+    else:
+        _empty_shapefile_zip(lakes, "lake_centerline")
+        print("Lacs : github.com inaccessible — fichier vide déposé (les noms de lacs se placent moins finement, rien d'autre ne change)")
 
 
 # --- fichiers vides ---------------------------------------------------------
@@ -360,7 +478,7 @@ def cmd_placeholder(args: argparse.Namespace) -> None:
         mb.set_meta("minzoom", "0"); mb.set_meta("maxzoom", "0")
         if source == "dem":
             mb.set_meta("encoding", "terrarium")
-        mb.commit(); mb.db.close()
+        mb.commit(); mb.close()
         print(f"  {out.name} : créé vide")
 
 

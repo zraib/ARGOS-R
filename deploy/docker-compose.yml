@@ -199,6 +199,7 @@ services:
     volumes:
       - argos_tiles:/data
       - valhalla_data:/pbf
+      - planetiler_cache:/planetiler-sources
       - ../infra/geo/zones.json:/config/zones.json:ro
 
 volumes:
