@@ -1,14 +1,19 @@
 import { Injectable } from "@nestjs/common";
-import { RealtimeService, type Notice } from "@/modules/realtime/realtime.service";
+import { RealtimeService, type Notice, type NoticeInput } from "@/modules/realtime/realtime.service";
 
 // ============================================================================
 // ARGOS — alertes adressées (lot #10)
 //
 // Une alerte n'est pas un message de canal : elle s'adresse à des comptes
 // nommés — le wali et le commandant de place d'armes de la région où un
-// incident vient d'être déclaré — et à eux seuls. Elle est POUSSÉE à ceux qui
+// incident vient d'être déclaré, les administrateurs qu'un compte appelle à
+// l'aide pour son mot de passe — et à eux seuls. Elle est POUSSÉE à ceux qui
 // sont là (flux temps réel) et GARDÉE pour ceux qui ne le sont pas : un wali
 // qui ouvre son poste une heure plus tard la trouve dans sa cloche.
+//
+// Vit dans le module temps réel, GLOBAL, et non dans le domaine : l'IAM aussi
+// adresse des alertes, et le domaine dépend déjà de l'IAM — l'inverse aurait
+// fait un cycle. Une alerte est un événement poussé, elle a sa place ici.
 //
 // En mémoire, comme le reste du domaine en Phase 1 ; cinquante par compte au
 // plus, les plus récentes d'abord.
@@ -24,7 +29,7 @@ export class NoticesService {
   constructor(private readonly realtime: RealtimeService) {}
 
   /** Adresse une alerte à ces comptes : gardée pour chacun, poussée à ceux qui sont connectés. */
-  push(matricules: readonly string[], notice: Omit<Notice, "id" | "at">): Notice {
+  push(matricules: readonly string[], notice: NoticeInput): Notice {
     const n: Notice = { ...notice, id: `n${++this.compteur}-${Date.now()}`, at: new Date().toISOString() };
     for (const m of new Set(matricules.map((x) => x.trim().toLowerCase()).filter(Boolean))) {
       const list = this.parCompte.get(m) ?? [];

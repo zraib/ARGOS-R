@@ -71,6 +71,13 @@ export interface ManagedUser {
   createdBy: string;
   createdAt: string;
   lastLogin: string | null;
+  /**
+   * « Mot de passe oublié » posé depuis l'écran de connexion (ISO 8601), en
+   * attente qu'un administrateur régénère le code provisoire. Effacée dès que
+   * le code est régénéré, qu'un mot de passe est posé, ou que le compte se
+   * reconnecte de lui-même — la demande n'a alors plus d'objet.
+   */
+  resetRequestedAt?: string | null;
 }
 
 /** Projection publique : jamais de mot de passe ; code temporaire masqué. */
@@ -93,6 +100,8 @@ export interface ManagedUserPublic {
   createdBy: string;
   createdAt: string;
   lastLogin: string | null;
+  /** Demande de réinitialisation en attente — l'écran d'administration la signale. */
+  resetRequestedAt: string | null;
 }
 
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -132,6 +141,7 @@ function toPublic(u: ManagedUser): ManagedUserPublic {
     createdBy: u.createdBy,
     createdAt: u.createdAt,
     lastLogin: u.lastLogin,
+    resetRequestedAt: u.resetRequestedAt ?? null,
   };
 }
 
@@ -497,8 +507,47 @@ export class UsersService implements ScopeResolver {
     u.passwordChanged = false;
     u.password = undefined;
     u.disabled = false;
+    // La demande d'aide est SERVIE : c'est ce geste-ci qu'elle attendait.
+    u.resetRequestedAt = null;
     this.persist();
     return { tempPassword };
+  }
+
+  /**
+   * Les administrateurs à prévenir d'une demande concernant `target` : ceux
+   * qui pourraient y RÉPONDRE. Un Administrateur ne gère pas un compte
+   * privilégié (`assertManageable`) — le prévenir d'une demande qu'il ne peut
+   * pas servir ne ferait que lui révéler un compte qu'il ne doit pas voir. Un
+   * compte suspendu ne reçoit rien, et personne n'est prévenu de sa propre
+   * demande.
+   */
+  listAdminsFor(target: ManagedUser): ManagedUser[] {
+    const privileged = target.roles.some((r) => r === "superadmin" || r === "admin");
+    return this.users.filter(
+      (u) =>
+        !u.disabled &&
+        u.id !== target.id &&
+        (u.roles.includes("superadmin") || (!privileged && u.roles.includes("admin"))),
+    );
+  }
+
+  /**
+   * « Mot de passe oublié », depuis l'écran de connexion — SANS session.
+   *
+   * Pose la demande sur le compte et le rend, pour que l'appelant prévienne
+   * l'administration. Rend `null` — et l'appelant répond EXACTEMENT comme si
+   * la demande était prise — quand le compte est inconnu, suspendu, ou qu'une
+   * demande est déjà en attente : l'écran de connexion n'est pas un annuaire,
+   * et une demande répétée ne doit pas marteler la cloche des administrateurs.
+   * Le compte système n'a pas d'administrateur au-dessus de lui : son code se
+   * remet hors-bande, comme à l'installation.
+   */
+  requestPasswordReset(matricule: string): ManagedUser | null {
+    const u = this.byMatricule(matricule);
+    if (!u || u.disabled || u.builtin || u.resetRequestedAt) return null;
+    u.resetRequestedAt = new Date().toISOString();
+    this.persist();
+    return u;
   }
 
   /**
@@ -638,6 +687,8 @@ export class UsersService implements ScopeResolver {
     if (expected === undefined || password !== expected) return null;
     u.online = true;
     u.lastLogin = new Date().toISOString();
+    // Le compte s'est reconnecté de lui-même : sa demande d'aide est sans objet.
+    u.resetRequestedAt = null;
     this.persist();
     return { user: u, mustChangePassword: !u.passwordChanged, mustChooseRole: u.roles.length > 1 };
   }
@@ -666,6 +717,7 @@ export class UsersService implements ScopeResolver {
     u.password = newPassword;
     u.tempPassword = null;
     u.disabled = false;
+    u.resetRequestedAt = null;
     this.persist();
   }
 

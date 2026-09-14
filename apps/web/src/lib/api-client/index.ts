@@ -92,6 +92,8 @@ export function createArgosClient(opts: ArgosClientOptions) {
     // --- authentification / cycle de vie des comptes gérés ---
     login: (body: LoginBody) => client.POST("/api/auth/login", { body }),
     changePassword: (newPassword: string) => client.POST("/api/auth/change-password", { body: { newPassword } }),
+    /** « Mot de passe oublié », sans session — la réponse ne dit pas si le compte existe. */
+    requestPasswordReset: (matricule: string) => client.POST("/api/auth/password-reset-request", { body: { matricule } }),
     getProfile: () => client.GET("/api/auth/profile"),
     updateProfile: (patch: { nom?: string; photo?: string | null }) => client.PATCH("/api/auth/profile", { body: patch }),
     selectRole: (role: ArgosRole) => client.POST("/api/auth/select-role", { body: { role } }),

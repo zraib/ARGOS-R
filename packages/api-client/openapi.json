@@ -115,6 +115,31 @@
         ]
       }
     },
+    "/api/auth/password-reset-request": {
+      "post": {
+        "operationId": "AuthController_requestPasswordReset",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Demande prise en compte — même réponse que le compte existe ou non."
+          }
+        },
+        "summary": "Mot de passe oublié : demander un code provisoire à l'administration (sans session)",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/auth/profile": {
       "get": {
         "operationId": "AuthController_profile",
@@ -4125,6 +4150,19 @@
         "required": [
           "matricule",
           "password"
+        ]
+      },
+      "PasswordResetRequestDto": {
+        "type": "object",
+        "properties": {
+          "matricule": {
+            "type": "string",
+            "example": "n.fassi",
+            "description": "Nom d'utilisateur du compte concerné"
+          }
+        },
+        "required": [
+          "matricule"
         ]
       },
       "UpdateProfileDto": {

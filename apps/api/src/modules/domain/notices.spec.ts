@@ -90,7 +90,7 @@ describe("Alertes — le wali et la place d'armes sont prévenus à la déclarat
     const attendu = firstValueFrom(wali.events.pipe(take(1), toArray()));
     const inc = await declare("Casablanca-Settat", "Crue test — flux", [-7.61, 33.6]);
     await attendu;
-    expect(recus.some((e) => e.kind === "notice" && e.notice.incidentId === inc.id)).toBe(true);
+    expect(recus.some((e) => e.kind === "notice" && e.notice.kind === "incident_declared" && e.notice.incidentId === inc.id)).toBe(true);
     expect(recusTiers.some((e) => e.kind === "notice")).toBe(false);
     wali.close();
     tiers.close();

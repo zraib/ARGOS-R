@@ -20,7 +20,7 @@ import { DeploymentService } from "@/modules/domain/deployment.service";
 import { CommsService } from "@/modules/domain/comms.service";
 import { IncidentTypesService } from "@/modules/domain/incident-types.service";
 import { SubIncidentTypesService } from "@/modules/domain/sub-incident-types.service";
-import { NoticesService } from "@/modules/domain/notices.service";
+import { NoticesService } from "@/modules/realtime/notices.service";
 import { UsersService } from "@/modules/iam/users.service";
 import { REGIONAL_AUTHORITY_ROLES } from "@/shared/responsibilities";
 

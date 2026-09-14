@@ -33,15 +33,19 @@ export type RealtimeEvent =
   /** Les postes d'une opération ont changé : chaque poste relit ceux qu'il a le droit de voir. */
   | { kind: "posts"; incidentId: string };
 
-/**
- * Une alerte adressée : l'incident déclaré dans la région d'un wali ou d'une
- * place d'armes. Elle porte de quoi l'afficher ET de quoi centrer la carte
- * sans rien recharger.
- */
-export interface Notice {
+/** Ce que toute alerte adressée porte : de quoi la ranger et l'horodater. */
+interface NoticeBase {
   id: string;
   /** ISO 8601. */
   at: string;
+}
+
+/**
+ * L'incident déclaré dans la région d'un wali, d'une place d'armes ou d'un
+ * responsable d'établissement. Elle porte de quoi l'afficher ET de quoi
+ * centrer la carte sans rien recharger.
+ */
+export interface IncidentNotice extends NoticeBase {
   kind: "incident_declared";
   incidentId: string;
   titre: string;
@@ -50,6 +54,24 @@ export interface Notice {
   sev: string;
   type: string;
 }
+
+/**
+ * Un compte a oublié son mot de passe : l'administration doit lui régénérer un
+ * code provisoire et le lui remettre. Adressée aux seuls administrateurs qui
+ * peuvent gérer ce compte.
+ */
+export interface PasswordResetNotice extends NoticeBase {
+  kind: "password_reset_requested";
+  userId: string;
+  matricule: string;
+  nom: string;
+}
+
+/** Une alerte adressée — discriminée par `kind`, pour que l'écran sache quoi en faire. */
+export type Notice = IncidentNotice | PasswordResetNotice;
+
+/** Ce que l'émetteur fournit : tout sauf l'identifiant et l'heure, posés à l'émission. */
+export type NoticeInput = Omit<IncidentNotice, "id" | "at"> | Omit<PasswordResetNotice, "id" | "at">;
 
 export interface PresenceUser {
   matricule: string;

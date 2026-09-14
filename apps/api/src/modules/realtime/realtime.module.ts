@@ -1,6 +1,7 @@
 import { Global, Module } from "@nestjs/common";
 import { RealtimeService } from "@/modules/realtime/realtime.service";
 import { AttachmentsService } from "@/modules/realtime/attachments.service";
+import { NoticesService } from "@/modules/realtime/notices.service";
 import { RealtimeController } from "@/modules/realtime/realtime.controller";
 
 // ============================================================================
@@ -16,7 +17,7 @@ import { RealtimeController } from "@/modules/realtime/realtime.controller";
 @Global()
 @Module({
   controllers: [RealtimeController],
-  providers: [RealtimeService, AttachmentsService],
-  exports: [RealtimeService, AttachmentsService],
+  providers: [RealtimeService, AttachmentsService, NoticesService],
+  exports: [RealtimeService, AttachmentsService, NoticesService],
 })
 export class RealtimeModule {}

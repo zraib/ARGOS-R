@@ -49,6 +49,31 @@ mot de passe) est livré dans `infra/keycloak/argos-realm.json`.
 connexion → changement de mot de passe obligatoire → actif. Le Super
 Administrateur peut forcer l'activation ou régénérer le code.
 
+### Mot de passe oublié
+
+Pas de messagerie sur un réseau isolé, donc ni e-mail ni lien secret. Le
+circuit est celui de la création du compte :
+
+1. depuis l'écran de connexion, `POST /auth/password-reset-request` (route
+   publique) pose la demande sur le compte — la réponse est **identique que
+   le compte existe ou non** (202, `{ ok: true }`) : l'écran de connexion
+   n'est pas un annuaire ;
+2. les administrateurs **capables de servir la demande** reçoivent une alerte
+   adressée (`kind: password_reset_requested`, cloche + flux temps réel) — un
+   Administrateur n'est pas prévenu d'une demande sur un compte privilégié
+   qu'il ne peut pas gérer ; le compte système n'a pas d'administrateur
+   au-dessus de lui, son code se remet hors-bande ;
+3. un administrateur régénère le code provisoire (`POST /iam/users/:id/reset-code`)
+   et le remet par la voie hiérarchique ; l'ancien mot de passe cesse de
+   valoir et le compte repasse par le premier login (mot de passe personnel).
+
+Débit borné par compte (une demande par minute) et par adresse (vingt par
+dix minutes), en mémoire (`RateWindow`) ; une demande déjà en attente ne fait
+pas sonner deux fois ; le journal d'audit garde le nom demandé et si une
+demande a été posée. Le drapeau s'efface quand le code est régénéré, qu'un mot
+de passe est posé, ou que le compte se reconnecte de lui-même. Tests :
+`iam/password-reset.spec.ts`, `iam/rate-window.spec.ts`.
+
 ## 3. Catalogue de permissions
 
 Format **`fonctionnalité:action`**, défini dans `apps/api/src/shared/permissions.ts`.

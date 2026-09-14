@@ -34,6 +34,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `POST` | `/api/auth/change-password` | authentifié (soi-même) | Changer son mot de passe (1er login) — active le compte |
 | `POST` | `/api/auth/dev-token` | **publique** | Jeton de développement (mode dev uniquement) |
 | `POST` | `/api/auth/login` | **publique** | Connexion d'un compte géré (matricule + code/mot de passe) |
+| `POST` | `/api/auth/password-reset-request` | **publique** | Mot de passe oublié : demander un code provisoire à l'administration (sans session) |
 | `GET` | `/api/auth/profile` | authentifié (soi-même) | Profil du compte connecté (nom, grade, rôles, photo) |
 | `PATCH` | `/api/auth/profile` | authentifié (soi-même) | Modifier son profil : nom affiché et/ou photo (audité) |
 | `POST` | `/api/auth/select-role` | authentifié (soi-même) | Choisir le rôle actif (compte multi-rôles) — nouveau jeton |
@@ -83,8 +84,11 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `PATCH` | `/api/comms/channels/{id}` | `comms_admin:update` | Renommer un canal / changer son sujet. |
 | `POST` | `/api/comms/channels/{id}/members` | `comms:update` | Ajouter des membres à un canal. |
 | `DELETE` | `/api/comms/channels/{id}/members/{matricule}` | `comms:update` | Retirer un membre d'un canal. |
+| `POST` | `/api/comms/direct/{matricule}` | `comms:update` | Ouvrir la conversation directe avec un compte (idempotent) |
 | `GET` | `/api/comms/directory` | `comms:view` | Annuaire des comptes joignables — pour composer un canal |
 | `POST` | `/api/comms/messages` | `comms:view` | Envoyer un message dans un canal (audité) |
+| `GET` | `/api/comms/notices` | `comms:view` | Alertes adressées au compte connecté (incident déclaré dans sa région…) |
+| `GET` | `/api/comms/responsables` | `comms:view` | Qui tient quoi — titulaire de chaque entité affectée et de chaque poste déployé |
 | `GET` | `/api/dashboard/risk` | `dashboard:view` | Prédictions de risques (moteur déterministe, calculé côté serveur) |
 | `GET` | `/api/dashboard/stats` | `dashboard:view` | Statistiques de commandement : évolution 30 j, gravité, bilan humain, saturation hospitalière, posture des unités |
 | `GET` | `/api/deployable-posts` | `incidents:update` | Comptes déployables, avec leur affectation courante. |
@@ -112,6 +116,9 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `GET` | `/api/incidents/{id}/deployments` | `incidents:view` | Postes déployés sur cette opération. |
 | `POST` | `/api/incidents/{id}/deployments` | `incidents:update` | Déployer un poste sur l'opération. |
 | `DELETE` | `/api/incidents/{id}/deployments/{matricule}` | `incidents:update` | Retirer un poste de l'opération. |
+| `POST` | `/api/incidents/{id}/posts` | `map_edit:create` | Poser un poste sur la carte d'une opération — Super Administrateur (audité) |
+| `DELETE` | `/api/incidents/{id}/posts/{postId}` | `map_edit:delete` | Retirer un poste de la carte — Super Administrateur (audité) |
+| `PATCH` | `/api/incidents/{id}/posts/{postId}` | `map_edit:update` | Déplacer ou renommer un poste — Super Administrateur (audité) |
 | `POST` | `/api/incidents/{id}/sub-incidents` | `subincidents:create` | Rattacher un sous-incident (aléa secondaire) à un incident (audité) |
 | `DELETE` | `/api/incidents/{id}/sub-incidents/{subId}` | `subincidents:archive` | Détacher un sous-incident (audité) |
 | `GET` | `/api/morgues` | `morgue:view` | Sites mortuaires |
@@ -119,6 +126,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `GET` | `/api/morgues/{id}/records` | `morgue:view` | Registre d'identification d'un site mortuaire |
 | `POST` | `/api/morgues/{id}/records` | `morgue:create` | Admettre un corps sous référence provisoire — dans SON site uniquement |
 | `PATCH` | `/api/morgues/{id}/records/{rid}` | `morgue:update` | Faire évoluer un dossier d'identification — dans SON site uniquement |
+| `GET` | `/api/posts` | `map:view` | Postes posés sur la carte — ceux des opérations visibles par le compte |
 | `GET` | `/api/reference` | authentifié (soi-même) | Données de référence : provinces, routes d'animation carte |
 | `GET` | `/api/seismic/alert-config` | `seismic:view` | Configuration des alertes sismiques (seuils national/mondial, autorités notifiées) |
 | `PATCH` | `/api/seismic/alert-config` | `settings:update` | Mettre à jour la configuration des alertes sismiques (audité) |
@@ -226,7 +234,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 ## Chiffres
 
-100 chemins · 127 opérations · 13 groupes.
+107 chemins · 135 opérations · 13 groupes.
 
 ## Modifier le contrat
 

@@ -1,12 +1,15 @@
-import { Body, Controller, ForbiddenException, Get, Patch, Post, UnauthorizedException } from "@nestjs/common";
+import { Body, Controller, ForbiddenException, Get, HttpCode, Ip, Patch, Post, UnauthorizedException } from "@nestjs/common";
 import { SelfService } from "@/common/decorators/self-service.decorator";
 import { ConfigService } from "@nestjs/config";
-import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { SignJWT } from "jose";
 import { Public } from "@/common/decorators/public.decorator";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
-import { ChangePasswordDto, DevTokenDto, LoginDto, SelectRoleDto, UpdateProfileDto } from "@/modules/iam/dto";
+import { AuditMeta, type AuditMetaSetter } from "@/common/decorators/audit-meta.decorator";
+import { ChangePasswordDto, DevTokenDto, LoginDto, PasswordResetRequestDto, SelectRoleDto, UpdateProfileDto } from "@/modules/iam/dto";
 import { displayName, UsersService } from "@/modules/iam/users.service";
+import { RateWindow } from "@/modules/iam/rate-window";
+import { NoticesService } from "@/modules/realtime/notices.service";
 import type { AuthUser } from "@/common/types/auth-user";
 import type { Role } from "@/shared/permissions";
 import type { AppConfig } from "@/config/configuration";
@@ -14,9 +17,19 @@ import type { AppConfig } from "@/config/configuration";
 @ApiTags("auth")
 @Controller("auth")
 export class AuthController {
+  /**
+   * Débit des demandes « mot de passe oublié » : une par compte et par minute,
+   * vingt par adresse et par dix minutes. La route est publique : sans borne,
+   * elle serait le moyen le moins cher de faire sonner la cloche de tous les
+   * administrateurs, ou de parcourir les noms d'utilisateur.
+   */
+  private readonly resetByAccount = new RateWindow(1, 60_000);
+  private readonly resetByAddress = new RateWindow(20, 10 * 60_000);
+
   constructor(
     private readonly config: ConfigService<AppConfig, true>,
     private readonly users: UsersService,
+    private readonly notices: NoticesService,
   ) {}
 
   /** Signe un jeton HS256 local (mode dev). Interdit hors mode développement. */
@@ -74,6 +87,36 @@ export class AuthController {
       mustChangePassword: res.mustChangePassword,
       mustChooseRole: res.mustChooseRole,
     };
+  }
+
+  /**
+   * « Mot de passe oublié » — depuis l'écran de connexion, SANS session.
+   *
+   * Pas d'e-mail (aucune messagerie sur un réseau isolé), pas de lien secret :
+   * la demande est posée sur le compte et PORTÉE aux administrateurs qui
+   * peuvent y répondre, par la cloche et le flux temps réel. L'un d'eux
+   * régénère un code provisoire et le remet par la voie hiérarchique — le
+   * circuit de la création du compte. La réponse est LA MÊME que le compte
+   * existe ou non : l'écran de connexion n'est pas un annuaire. Le journal
+   * d'audit, lui, garde ce qui a été demandé et si une demande a été posée.
+   */
+  @Public()
+  @Post("password-reset-request")
+  @HttpCode(202)
+  @ApiOperation({ summary: "Mot de passe oublié : demander un code provisoire à l'administration (sans session)" })
+  @ApiResponse({ status: 202, description: "Demande prise en compte — même réponse que le compte existe ou non." })
+  requestPasswordReset(@Body() dto: PasswordResetRequestDto, @Ip() ip: string, @AuditMeta() audit: AuditMetaSetter) {
+    const key = dto.matricule.trim().toLowerCase();
+    const admis = this.resetByAddress.allow(ip ?? "?") && this.resetByAccount.allow(key);
+    const user = admis ? this.users.requestPasswordReset(key) : null;
+    if (user) {
+      this.notices.push(
+        this.users.listAdminsFor(user).map((a) => a.matricule),
+        { kind: "password_reset_requested", userId: user.id, matricule: user.matricule, nom: displayName(user) },
+      );
+    }
+    audit({ matricule: key, registered: !!user });
+    return { ok: true };
   }
 
   /** Profil du compte courant (identité + photo). */

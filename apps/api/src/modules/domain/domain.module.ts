@@ -21,7 +21,6 @@ import { HospitalsController } from "@/modules/domain/http/hospitals.controller"
 import { DashboardController } from "@/modules/domain/http/dashboard.controller";
 import { EnvironmentController } from "@/modules/domain/http/environment.controller";
 import { PostsController } from "@/modules/domain/http/posts.controller";
-import { NoticesService } from "@/modules/domain/notices.service";
 
 @Module({
   // Le déploiement écrit dans le REGISTRE DES COMPTES : le domaine a donc besoin
@@ -31,7 +30,8 @@ import { NoticesService } from "@/modules/domain/notices.service";
   controllers: [
     PostsController,IncidentsController, CommsController, ResourcesController, HospitalsController, DashboardController, EnvironmentController],
   providers: [
-    NoticesService,
+    // Les alertes adressées (`NoticesService`) viennent du module temps réel,
+    // global : l'IAM les émet aussi, et il ne peut pas dépendre du domaine.
     // La passerelle de notification : SMTP dès que `SMTP_HOST` est défini
     // (mailpit en développement, relais de l'organisme en production), sinon la
     // journalisation — qui DIT qu'elle n'envoie rien (registre R-5).

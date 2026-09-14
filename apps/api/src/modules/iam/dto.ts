@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { REGIONS_MA } from "@/modules/domain/provinces.data";
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsBoolean, IsIn, IsOptional, IsString, MinLength, ValidateNested } from "class-validator";
+import { ArrayMinSize, IsArray, IsBoolean, IsIn, IsOptional, IsString, MaxLength, MinLength, ValidateNested } from "class-validator";
 import { MODULE_FEATURES, ROLES, type Role } from "@/shared/permissions";
 
 /**
@@ -73,6 +73,15 @@ export class LoginDto {
   @IsString()
   @MinLength(1)
   password!: string;
+}
+
+/** « Mot de passe oublié » — depuis l'écran de connexion, sans session. */
+export class PasswordResetRequestDto {
+  @ApiProperty({ example: "n.fassi", description: "Nom d'utilisateur du compte concerné" })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  matricule!: string;
 }
 
 /** Changement du mot de passe (1er login). */

@@ -89,6 +89,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/password-reset-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mot de passe oublié : demander un code provisoire à l'administration (sans session) */
+        post: operations["AuthController_requestPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/profile": {
         parameters: {
             query?: never;
@@ -1967,6 +1984,13 @@ export interface components {
             /** @example A7X2-K9D3 */
             password: string;
         };
+        PasswordResetRequestDto: {
+            /**
+             * @description Nom d'utilisateur du compte concerné
+             * @example n.fassi
+             */
+            matricule: string;
+        };
         UpdateProfileDto: {
             /** @description Nom affiché */
             nom?: string;
@@ -2871,6 +2895,28 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthController_requestPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequestDto"];
+            };
+        };
+        responses: {
+            /** @description Demande prise en compte — même réponse que le compte existe ou non. */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };

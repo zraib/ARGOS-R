@@ -17,7 +17,7 @@ import { DomainService } from "@/modules/domain/domain.service";
 import { CommsService } from "@/modules/domain/comms.service";
 import { RealtimeService } from "@/modules/realtime/realtime.service";
 import { UsersService } from "@/modules/iam/users.service";
-import { NoticesService } from "@/modules/domain/notices.service";
+import { NoticesService } from "@/modules/realtime/notices.service";
 
 /** Initiales d'un nom affiché : « Cdt. H. Alami » → « HA ». */
 function initiales(nom: string): string {
