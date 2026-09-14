@@ -8,80 +8,109 @@ sans fond et le dit, plutôt que de laisser fuir vers un tiers le profil
 d'activité de l'état-major (quelle région est regardée, quand, avec quelle
 intensité).
 
-Ce dossier contient ce que le serveur de tuiles sert. **Rien n'y est versionné**
-hormis ce guide : les fichiers de tuiles pèsent des gigaoctets et, pour
-l'imagerie, relèvent d'une licence propre à l'organisme.
+Ce dossier contient les **outils** qui remplissent le serveur de tuiles de la
+station (`deploy/docker-compose.yml`, service `tiles`). Rien de lourd n'y est
+versionné : les tuiles pèsent des gigaoctets et, pour l'imagerie, relèvent
+d'une licence propre à l'organisme.
 
 ## 1. Ce que le frontend attend
 
-| Source | Fichier attendu | Contenu | Zoom max |
+Quatre sources, sous `/tiles/{source}/{z}/{x}/{y}` — le motif câblé dans
+`sovereignSources()` du style :
+
+| Source | Contenu | D'où elle vient | Zoom |
 | --- | --- | --- | --- |
-| `sat` | `tiles/sat.mbtiles` | imagerie (raster, PNG/JPEG 256 px) | 19 |
-| `plan` | `tiles/plan.mbtiles` | fond planimétrique (raster) | 19 |
-| `lbl` | `tiles/lbl.mbtiles` | repères et toponymes (raster, fond transparent) | 19 |
-| `dem` | `tiles/dem.mbtiles` | altitude encodée **terrarium** (raster-dem) | 13 |
+| `plan` | fond planimétrique (raster) | **rendu à la demande** par tileserver-gl depuis les tuiles vectorielles OSM du Maroc (`plan-vector.mbtiles`) | 0–19, tout le pays |
+| `lbl` | toponymes et limites, fond transparent | idem, style « étiquettes seules » | 0–19, tout le pays |
+| `sat` | imagerie (raster JPEG) | `sat.mbtiles`, téléchargé **par zones** (`zones.json`) | 0–13 pays, 14–17 villes, plus au besoin |
+| `dem` | altitude terrarium (relief 3D) | `dem.mbtiles`, tuiles ouvertes AWS Terrain Tiles | 0–13, tout le pays |
 
-Le serveur est [martin](https://github.com/maplibre/martin) (`infra/compose`,
-service `martin`, port publié 3007). Il sert chaque fichier sous
-`/{source}/{z}/{x}/{y}` — c'est le motif câblé dans `sovereignSources()` du
-style. Un fichier absent donne des tuiles vides, pas un style cassé ; sans
-`dem`, la vue 3D s'incline mais ne pose pas de relief.
+Le plan et les toponymes sont **rendus**, pas stockés tuile par tuile : les
+données vectorielles du Maroc entier tiennent en quelques centaines de
+mégaoctets et couvrent tous les niveaux de zoom. C'est ce qui rend « tout le
+pays, tous les zooms » possible pour le plan — et impossible pour l'imagerie :
 
-## 2. Produire les fichiers
+| Imagerie jusqu'au zoom | Maroc entier | Casablanca |
+| --- | --- | --- |
+| 13 | 197 725 tuiles ≈ 4 Go | — |
+| 15 | 3,1 M ≈ 69 Go | 1 428 |
+| 17 | 50 M ≈ 1,1 To | 21 503 ≈ 0,5 Go |
+| 19 | **803 M ≈ 17,7 To** | 340 805 ≈ 7,5 Go |
 
-Les outils cités sont libres ; les procédures sont indiquées, **pas exécutées
-dans ce dépôt** (ni Docker ni données sur le poste de développement).
+D'où le profil de `zones.json` : le pays à z13, vingt-deux agglomérations à
+z17, et des zones d'intérêt opérationnel à z18–19 à activer au cas par cas
+(`enabled`). `tiles-fetch estimate sat` chiffre le profil avant de lancer.
 
-### Plan (`plan.mbtiles`)
+## 2. Remplir le volume (une fois, avec Internet)
 
-1. Extrait OpenStreetMap du Maroc (Geofabrik, `morocco-latest.osm.pbf`) — à
-   télécharger une fois, hors ligne ensuite.
-2. Tuiles vectorielles : `planetiler` (`java -jar planetiler.jar --osm-path=morocco-latest.osm.pbf --output=plan-vector.mbtiles`).
-3. Rendu raster à partir du vectoriel : `tileserver-gl` (style OpenMapTiles,
-   ex. *OSM Bright*) puis export raster des niveaux 0–19 sur l'emprise du Maroc
-   (`tileserver-gl --mbtiles plan-vector.mbtiles` + `mb-util`), ou tout autre
-   rendu (Mapnik) vers un MBTiles raster.
+Tout s'exécute dans des conteneurs (profil `tiles-build` du compose de
+déploiement) : la station n'a besoin ni de Python ni de Java.
 
-### Imagerie (`sat.mbtiles`)
-
-Aucune source libre n'égale l'imagerie propriétaire : le fichier vient de
-l'organisme (mosaïque institutionnelle) ou d'une mosaïque Sentinel-2 (ESA,
-10 m). Découpage : `gdal2tiles.py --xyz -z 0-19 mosaique.tif tuiles/` puis
-`mb-util --image_format=jpg tuiles/ sat.mbtiles`.
-
-### Repères (`lbl.mbtiles`)
-
-Rendu raster **transparent** des seuls toponymes et limites (même chaîne que le
-plan, style ne contenant que les couches `place_*`, `boundary`), exporté en PNG.
-
-### Altitude (`dem.mbtiles`)
-
-Modèle numérique de terrain (Copernicus DEM 30 m ou SRTM 1"), encodé en
-**terrarium** — `altitude = (R × 256 + G + B / 256) − 32768` — avec
-`rio rgbify` (`rio rgbify -b -32768 -i 1 --format png dem.tif dem.mbtiles`) ou
-équivalent, niveaux 0–13.
-
-## 3. Brancher
-
-```bash
-# 1. déposer les quatre fichiers ici
-ls infra/geo/tiles/          # sat.mbtiles plan.mbtiles lbl.mbtiles dem.mbtiles
-# 2. démarrer la pile (martin monte ../geo/tiles en lecture seule)
-docker compose -f infra/compose/docker-compose.yml up -d martin
-curl -s http://localhost:3007/catalog | head       # les quatre sources listées
-# 3. côté web
-NEXT_PUBLIC_MAP_TILES=sovereign
-NEXT_PUBLIC_TILES_URL=https://<hôte-argos>/tiles   # route Traefik vers martin
+```powershell
+cd deploy
+docker compose run --rm tiles-fetch pbf          # 1. extrait OSM du Maroc (Geofabrik) → partagé avec Valhalla
+docker compose run --rm tiles-osm                # 2. planetiler : plan-vector.mbtiles (schéma OpenMapTiles)
+docker compose run --rm tiles-fetch assets       # 3. polices, styles plan/lbl (dérivés d'OSM Bright)
+docker compose run --rm tiles-fetch fetch dem    # 4. relief : ~200 000 tuiles, ~6 Go
+docker compose run --rm tiles-fetch fetch sat    # 5. imagerie selon zones.json (SAT_TILE_URL dans .env)
+docker compose run --rm tiles-fetch status
+docker compose restart tiles
 ```
 
-La CSP (`apps/web/next.config.mjs`) n'admet en `img-src`/`connect-src` que
-l'origine de `NEXT_PUBLIC_TILES_URL` en mode souverain — et rien si elle est
-absente.
+Un téléchargement interrompu **reprend** : relancer la même commande ne
+redemande que les tuiles absentes. `--zones casablanca,rabat-sale` limite un
+passage à quelques zones ; `--workers 4` ménage une source lente.
+
+Sans imagerie, `tiles-fetch placeholder` crée des fichiers `sat`/`dem` vides
+mais valides : le serveur démarre, la carte a le plan et les toponymes.
+
+### Licence de l'imagerie — lire avant de renseigner `SAT_TILE_URL`
+
+L'outil télécharge n'importe quel gabarit XYZ (`{z}`, `{x}`, `{y}`, dans
+l'ordre propre à la source). Il ne vérifie pas le droit de le faire : c'est à
+l'organisme de le détenir. **Aspirer en masse un service public** — Esri World
+Imagery, tuiles OpenStreetMap — **viole leurs conditions d'utilisation** ;
+l'imagerie Esri/Maxar hors ligne s'obtient par une licence ArcGIS (export de
+paquets de tuiles) ou par une mosaïque institutionnelle. Sources compatibles
+avec un usage hors ligne :
+
+- une **mosaïque de l'organisme** découpée en tuiles (`gdal2tiles.py --xyz`)
+  et servie depuis un serveur interne ;
+- **Sentinel-2** (ESA, 10 m, licence ouverte) via un service de tuiles
+  institutionnel ou une mosaïque locale ;
+- un service ArcGIS **sous licence** de l'organisme.
+
+Le relief (`dem`) vient des AWS Terrain Tiles (Mapzen), ouvertes ; le plan et
+les toponymes d'OpenStreetMap (ODbL), rendus localement — attribution à
+conserver dans l'interface (déjà présente).
+
+## 3. Où va quoi
+
+Le volume `iris_argos_tiles` (monté sur `/data` du service `tiles`) contient :
+
+```
+plan-vector.mbtiles     tuiles vectorielles OSM du Maroc (planetiler)
+sat.mbtiles             imagerie raster (jpg)
+dem.mbtiles             altitude terrarium (png)
+fonts/                  glyphes des polices (Open Sans)
+styles/plan/style.json  OSM Bright sans pictogrammes, sur plan-vector
+styles/lbl/style.json   les seuls calques d'étiquettes, fond transparent
+```
+
+`tileserver/config.json` est la configuration du serveur (versionnée) ;
+`zones.json` le profil de téléchargement ; `tools/tiles.py` l'outil.
+
+Le compose de **développement** (`../compose`) garde martin pour servir des
+couches PostGIS ; le déploiement, lui, utilise tileserver-gl parce qu'il rend
+le plan et les toponymes depuis le vectoriel.
 
 ## 4. Vérifier
 
+- `http://<station>/tiles/` — catalogue de tileserver-gl : `plan`, `lbl`,
+  `sat`, `dem` listés ;
+- `http://<station>/tiles/plan/6/31/25` — une tuile du plan (Maroc central) ;
 - `/map` : fond visible, aucun bandeau « non souverain », onglet Réseau du
-  navigateur : toutes les requêtes de tuiles vers l'hôte ARGOS, aucune vers
-  `arcgisonline`, `openstreetmap` ou `amazonaws`.
+  navigateur : toutes les requêtes de tuiles vers la station, aucune vers
+  `arcgisonline`, `openstreetmap` ou `amazonaws` ;
 - `npm run test:web` : `lib/map/__tests__/tiles.test.ts` vérifie la règle
   (production ⇒ souverain, souverain sans URL ⇒ carte sans fond).

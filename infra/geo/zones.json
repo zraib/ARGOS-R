@@ -1,0 +1,31 @@
+{
+  "_comment": "Profils de téléchargement des tuiles raster (imagerie « sat », altitude « dem »). bbox = [ouest, sud, est, nord] en degrés. Le pays entier au-delà de z13 est hors de portée (Maroc à z19 : ~800 millions de tuiles, ~18 To) : l'imagerie fine se prend PAR ZONE. Ajouter une zone = un objet de plus ; enabled:false la met de côté sans la perdre. Estimer avant de lancer : docker compose run --rm tiles-fetch estimate sat",
+  "sat": [
+    { "name": "maroc",            "bbox": [-17.20, 20.70, -0.95, 36.00], "minzoom": 0,  "maxzoom": 13, "note": "tout le territoire, y compris les provinces du Sud (~200 000 tuiles)" },
+    { "name": "rabat-sale",       "bbox": [-6.95, 33.85, -6.70, 34.10],  "minzoom": 14, "maxzoom": 17 },
+    { "name": "casablanca",       "bbox": [-7.75, 33.45, -7.35, 33.70],  "minzoom": 14, "maxzoom": 17 },
+    { "name": "mohammedia",       "bbox": [-7.45, 33.65, -7.33, 33.73],  "minzoom": 14, "maxzoom": 17 },
+    { "name": "kenitra",          "bbox": [-6.65, 34.20, -6.50, 34.32],  "minzoom": 14, "maxzoom": 17 },
+    { "name": "fes",              "bbox": [-5.10, 33.95, -4.85, 34.10],  "minzoom": 14, "maxzoom": 17 },
+    { "name": "meknes",           "bbox": [-5.65, 33.80, -5.45, 33.95],  "minzoom": 14, "maxzoom": 17 },
+    { "name": "tanger",           "bbox": [-5.95, 35.65, -5.70, 35.85],  "minzoom": 14, "maxzoom": 17 },
+    { "name": "tetouan",          "bbox": [-5.45, 35.53, -5.30, 35.62],  "minzoom": 14, "maxzoom": 17 },
+    { "name": "al-hoceima",       "bbox": [-3.98, 35.20, -3.88, 35.27],  "minzoom": 14, "maxzoom": 17 },
+    { "name": "nador",            "bbox": [-3.00, 35.13, -2.88, 35.20],  "minzoom": 14, "maxzoom": 17 },
+    { "name": "oujda",            "bbox": [-2.05, 34.60, -1.80, 34.75],  "minzoom": 14, "maxzoom": 17 },
+    { "name": "marrakech",        "bbox": [-8.15, 31.55, -7.85, 31.75],  "minzoom": 14, "maxzoom": 17 },
+    { "name": "safi",             "bbox": [-9.30, 32.25, -9.20, 32.33],  "minzoom": 14, "maxzoom": 17 },
+    { "name": "el-jadida",        "bbox": [-8.55, 33.20, -8.45, 33.28],  "minzoom": 14, "maxzoom": 17 },
+    { "name": "beni-mellal",      "bbox": [-6.45, 32.30, -6.25, 32.40],  "minzoom": 14, "maxzoom": 17 },
+    { "name": "agadir",           "bbox": [-9.70, 30.30, -9.45, 30.50],  "minzoom": 14, "maxzoom": 17 },
+    { "name": "errachidia",       "bbox": [-4.50, 31.88, -4.38, 31.98],  "minzoom": 14, "maxzoom": 17 },
+    { "name": "ouarzazate",       "bbox": [-6.95, 30.88, -6.85, 30.95],  "minzoom": 14, "maxzoom": 17 },
+    { "name": "guelmim",          "bbox": [-10.15, 28.90, -9.95, 29.05], "minzoom": 14, "maxzoom": 17 },
+    { "name": "laayoune",         "bbox": [-13.30, 27.05, -13.10, 27.20], "minzoom": 14, "maxzoom": 17 },
+    { "name": "dakhla",           "bbox": [-15.98, 23.65, -15.85, 23.75], "minzoom": 14, "maxzoom": 17 },
+    { "name": "al-haouz-seisme",  "bbox": [-8.60, 30.90, -7.70, 31.40],  "minzoom": 14, "maxzoom": 18, "enabled": false, "note": "exemple de zone d'intérêt opérationnel — activer au besoin (~600 000 tuiles à z18)" }
+  ],
+  "dem": [
+    { "name": "maroc", "bbox": [-17.20, 20.70, -0.95, 36.00], "minzoom": 0, "maxzoom": 13, "note": "le relief 3D n'a besoin que de z0–13 (apps/web/src/lib/map/style.ts)" }
+  ]
+}

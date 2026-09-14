@@ -60,7 +60,12 @@ const EXTERNAL_SOURCES: StyleSpecification["sources"] = {
  */
 function sovereignSources(): StyleSpecification["sources"] {
   if (!SOVEREIGN_TILES_URL) return {};
-  const base = SOVEREIGN_TILES_URL.replace(/\/$/, "");
+  // Une base RELATIVE (`/tiles`, derrière le reverse proxy de la station) est
+  // rendue absolue sur l'origine de la page : les sources d'un style MapLibre
+  // sont des URL complètes. Côté serveur (pas de `window`) elle reste telle
+  // quelle — le navigateur recalcule le style au montage de la carte.
+  const raw = SOVEREIGN_TILES_URL.replace(/\/$/, "");
+  const base = raw.startsWith("/") && typeof window !== "undefined" ? `${window.location.origin}${raw}` : raw;
   return {
     sat: { type: "raster", tiles: [`${base}/sat/{z}/{x}/{y}`], tileSize: 256, maxzoom: 19 },
     plan: { type: "raster", tiles: [`${base}/plan/{z}/{x}/{y}`], tileSize: 256, maxzoom: 19 },

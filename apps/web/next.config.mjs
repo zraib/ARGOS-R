@@ -40,7 +40,29 @@ const tileHosts = TILES_MODE === "external" ? EXTERNAL_TILE_HOSTS : [sovereignTi
  * machine, websocket HMR) ; en production, seule l'origine de l'API déclarée
  * est admise.
  */
-const apiOrigin = process.env.NEXT_PUBLIC_API_URL ?? "";
+// `same-origin` (déploiement derrière le reverse proxy) : l'API est servie sous
+// la même origine que la page, `'self'` suffit — aucun hôte à ajouter.
+const apiOrigin = (() => {
+  const v = (process.env.NEXT_PUBLIC_API_URL ?? "").trim();
+  if (!v || v === "same-origin") return "";
+  try {
+    return new URL(v).origin;
+  } catch {
+    return "";
+  }
+})();
+// Le moteur de langage local (Ollama). Relatif (`/llm`, via le proxy) : rien à
+// ouvrir ; absolu (`http://127.0.0.1:11434` sur le poste du développeur) :
+// son origine, et elle seule.
+const llmOrigin = (() => {
+  const v = (process.env.NEXT_PUBLIC_LLM_URL ?? "").trim();
+  if (!v || v.startsWith("/")) return "";
+  try {
+    return new URL(v).origin;
+  } catch {
+    return "";
+  }
+})();
 //
 // La CSP n'autorise le joker QUE comme premier label de domaine (`*.exemple.fr`)
 // — `http://192.168.*:*` est une source INVALIDE, silencieusement ignorée par le
@@ -50,7 +72,7 @@ const apiOrigin = process.env.NEXT_PUBLIC_API_URL ?? "";
 // développement vérifie la FORME de la CSP, elle n'est pas la frontière de
 // sécurité. La frontière, c'est la politique de production, exacte et stricte.
 const connectSrc = IS_PROD
-  ? ["'self'", apiOrigin, sovereignTileOrigin].filter(Boolean)
+  ? ["'self'", apiOrigin, sovereignTileOrigin, llmOrigin].filter(Boolean)
   : ["'self'", "http:", "https:", "ws:", "wss:"];
 
 /**
@@ -88,6 +110,9 @@ const csp = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Sortie autonome : `.next/standalone/server.js` + le strict nécessaire de
+  // node_modules — ce que l'image Docker copie (apps/web/Dockerfile).
+  output: "standalone",
   transpilePackages: ["maplibre-gl"],
   // Autorise l'accès aux ressources de dev (HMR) depuis l'aperçu navigateur
   // servi sur 127.0.0.1 en plus de localhost (Next 16 bloque par défaut).

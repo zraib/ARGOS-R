@@ -13,10 +13,19 @@ import { createArgosClient } from "@/lib/api-client";
  * l'appareil du LECTEUR : depuis un téléphone du réseau local, chaque appel
  * partait vers le téléphone lui-même — d'où « API injoignable » alors que le
  * serveur tournait. (Côté serveur/SSR, repli local — le navigateur recalcule.)
+ *
+ * `same-origin` : l'API est servie sous l'origine de la page (déploiement
+ * derrière le reverse proxy, `/api/...`). La base est alors vide et les
+ * chemins du client — qui portent déjà `/api` — sont relatifs : l'image web
+ * ne connaît pas l'adresse de la station, et n'a pas à la connaître.
  */
-export const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ??
-  (typeof window !== "undefined" ? `http://${window.location.hostname}:3005` : "http://127.0.0.1:3005");
+function apiBase(): string {
+  const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (configured === "same-origin") return "";
+  if (configured) return configured;
+  return typeof window !== "undefined" ? `http://${window.location.hostname}:3005` : "http://127.0.0.1:3005";
+}
+export const API_BASE = apiBase();
 export const TOKEN_KEY = "argos_token";
 
 export function getStoredToken(): string | null {

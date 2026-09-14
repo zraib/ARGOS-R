@@ -1,0 +1,14 @@
+# Ce que l'image web n'embarque jamais
+node_modules
+.next
+coverage
+*.log
+.env
+.env.*
+!.env.example
+tsconfig.tsbuildinfo
+CONTEXT.md
+README.md
+**/__tests__
+**/*.test.ts
+**/*.test.tsx

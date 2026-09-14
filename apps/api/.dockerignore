@@ -1,0 +1,16 @@
+# Ce que l'image de l'API n'embarque jamais
+node_modules
+dist
+.dev-data
+data
+coverage
+*.log
+.env
+.env.*
+!.env.example
+openapi.json
+scripts
+jest.config.js
+jest.setup.js
+**/*.spec.ts
+README.md

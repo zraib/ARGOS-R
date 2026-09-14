@@ -2,31 +2,55 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 // ============================================================================
-// ARGOS — persistance dev (instantané JSON sur disque)
-// En mode dev, les dépôts sont in-memory : l'état est perdu à chaque
-// redémarrage — le compte fondateur repasse en « 1er login » (code ARGOS-2026)
-// et les données de domaine sont réinitialisées. Cet utilitaire écrit/relit un
-// instantané JSON pour que l'état SURVIVE aux redémarrages sur le poste du
-// développeur, SANS base de données ni Docker.
+// ARGOS — instantané JSON sur disque : la persistance de tout ce qui n'est pas
+// encore en base
 //
-// - Désactivable :         DEV_PERSIST=off
-// - Ignoré (base réelle) : DB_DRIVER=postgres  ou  NODE_ENV=production
-// - Dossier (défaut) :     <cwd>/.dev-data  (git-ignoré) — réglable via DEV_DATA_DIR
-// - Réinitialiser :        supprimer le dossier .dev-data
+// Les dépôts du domaine (incidents, unités, hôpitaux, abris, comptes IAM,
+// missions, comptes rendus, types d'incident, alertes sismiques, météo) sont
+// in-memory en Phase 1 ; seuls l'audit, les drapeaux de fonctionnalité et les
+// bons de travail ont un dépôt Drizzle (DB_DRIVER=postgres). Cet utilitaire
+// écrit et relit un instantané JSON par module pour que l'état SURVIVE aux
+// redémarrages — sur le poste du développeur comme sur la station déployée.
+//
+// QUI DÉCIDE. `STATE_SNAPSHOT` tranche explicitement :
+//   - `on`  : persistance active, quels que soient NODE_ENV et DB_DRIVER — c'est
+//             le réglage du DÉPLOIEMENT (deploy/), où le dossier est un volume
+//             Docker. Avec DB_DRIVER=postgres, les modules qui ont un dépôt
+//             Drizzle n'appellent pas cet utilitaire : pas de double écriture.
+//   - `off` : jamais (tests, ou base complète le jour où tout y sera).
+//   - absent : le réglage historique — actif en mémoire, hors production et
+//             hors tests. `DEV_PERSIST` reste lu, pour compatibilité.
+// Sans `STATE_SNAPSHOT=on`, un déploiement en NODE_ENV=production perdrait
+// TOUT le domaine à chaque redémarrage sans qu'aucun message ne le dise :
+// c'est exactement le cas que ce réglage rend impossible à ignorer.
+//
+// - Dossier (défaut) : <cwd>/.dev-data (git-ignoré) — réglable via DEV_DATA_DIR
+//   (le déploiement monte un volume sur /data).
+// - Réinitialiser : supprimer le dossier.
 // ============================================================================
 
 const DATA_DIR = process.env.DEV_DATA_DIR ?? resolve(process.cwd(), ".dev-data");
 
-/**
- * Persistance active : mode mémoire, hors production ET hors tests (isolation
- * des specs), non désactivée explicitement.
- */
 const NODE_ENV = process.env.NODE_ENV ?? "development";
-export const DEV_PERSIST =
-  (process.env.DEV_PERSIST ?? "on").toLowerCase() !== "off" &&
-  (process.env.DB_DRIVER ?? "memory") === "memory" &&
-  NODE_ENV !== "production" &&
-  NODE_ENV !== "test";
+
+/** Lecture du réglage explicite : `on`, `off`, ou rien. */
+function explicitSetting(): "on" | "off" | undefined {
+  const raw = (process.env.STATE_SNAPSHOT ?? process.env.DEV_PERSIST ?? "").trim().toLowerCase();
+  return raw === "on" || raw === "off" ? raw : undefined;
+}
+
+/**
+ * Persistance active : explicitement demandée, sinon le réglage historique —
+ * mode mémoire, hors production ET hors tests (isolation des specs).
+ */
+export const DEV_PERSIST = (() => {
+  const explicit = explicitSetting();
+  if (explicit) return explicit === "on";
+  return (process.env.DB_DRIVER ?? "memory") === "memory" && NODE_ENV !== "production" && NODE_ENV !== "test";
+})();
+
+/** Où l'instantané est écrit — pour le dire au démarrage et dans la santé. */
+export const STATE_SNAPSHOT_DIR = DATA_DIR;
 
 /** Relit un instantané ; renvoie le repli si absent / illisible / persistance off. */
 export function loadDevState<T>(name: string, fallback: T): T {

@@ -1,0 +1,27 @@
+{
+  "_comment": "Configuration de tileserver-gl (deploy/docker-compose.yml, service tiles). Tout vit dans le volume argos_tiles monté sur /data : MBTiles, polices, styles, sprites — remplis par le profil tiles-build (infra/geo/README.md).",
+  "options": {
+    "paths": {
+      "root": "/data",
+      "fonts": "fonts",
+      "sprites": "sprites",
+      "styles": "styles",
+      "mbtiles": "."
+    },
+    "formatQuality": { "jpeg": 85, "webp": 90 },
+    "maxScaleFactor": 2,
+    "maxSize": 2048,
+    "serveAllFonts": true,
+    "serveStaticMaps": false,
+    "allowRemoteMarkerIcons": false
+  },
+  "styles": {
+    "plan": { "style": "plan/style.json", "tilejson": { "type": "baselayer" } },
+    "lbl":  { "style": "lbl/style.json",  "tilejson": { "type": "overlay" } }
+  },
+  "data": {
+    "plan-vector": { "mbtiles": "plan-vector.mbtiles" },
+    "sat": { "mbtiles": "sat.mbtiles" },
+    "dem": { "mbtiles": "dem.mbtiles" }
+  }
+}

@@ -38,3 +38,14 @@ MASTER_PLAN.md
 **/CLAUDE.md
 *claude*
 .gstack/
+
+# graphify — graphe de connaissances généré (graph.json, graph.html, rapport) : artefact local, pas une source
+graphify-out/
+
+# Déploiement (deploy/) : secrets et sauvegardes locales, jamais versionnés
+deploy/.env
+deploy/backups/
+# Tuiles souveraines : gigaoctets, et licences propres à l'organisme
+infra/geo/tiles/
+infra/geo/fonts/
+infra/geo/styles/

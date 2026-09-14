@@ -1,0 +1,209 @@
+# ============================================================================
+# ARGOS / IRIS — pile de DÉPLOIEMENT sur une station (Docker Desktop, Windows)
+#
+# Une seule origine HTTP pour tout : le reverse proxy (Traefik) sert le poste
+# de commandement web à la racine, l'API sous /api, les tuiles sous /tiles, le
+# routage sous /routing et le moteur de langage local sous /llm. Le navigateur
+# n'a donc qu'un hôte à connaître — celui de la station — et les images ne
+# contiennent aucune adresse : la CSP de production (`'self'`) reste fermée.
+#
+#   copy .env.example .env      # puis remplir les secrets
+#   docker compose up -d --build
+#   http://localhost            (ou http://<nom-ou-IP-de-la-station>)
+#
+# Les données vivent dans des volumes nommés (db_data, api_data, valhalla_data,
+# argos_tiles) : `docker compose down` les conserve ; `down -v` les détruit.
+# Voir README.md pour la station Windows et scripts/ pour la sauvegarde.
+# ============================================================================
+name: iris
+
+services:
+  # --- Edge : Traefik (configuration FICHIER, sans socket Docker) ------------
+  proxy:
+    image: traefik:v3.7
+    command:
+      - "--providers.file.filename=/etc/traefik/dynamic.yml"
+      - "--providers.file.watch=true"
+      - "--entrypoints.web.address=:80"
+      - "--api.dashboard=false"
+      - "--log.level=INFO"
+      - "--accesslog=false"
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    volumes:
+      - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
+    # host.docker.internal = la station elle-même (Ollama y tourne nativement,
+    # avec le GPU). Docker Desktop le fournit ; la ligne le garantit aussi ailleurs.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      web:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # --- Poste de commandement web (Next.js standalone) -----------------------
+  web:
+    build:
+      context: ../apps/web
+      dockerfile: Dockerfile
+      args:
+        # Tout relatif : voir l'en-tête. Ne pas y mettre d'adresse de station.
+        NEXT_PUBLIC_API_URL: same-origin
+        NEXT_PUBLIC_MAP_TILES: sovereign
+        NEXT_PUBLIC_TILES_URL: /tiles
+        NEXT_PUBLIC_ROUTING_ENGINE: valhalla
+        NEXT_PUBLIC_ROUTING_URL: /routing
+        NEXT_PUBLIC_LLM_URL: /llm
+    image: iris-web:latest
+    expose: ["3004"]
+    restart: unless-stopped
+
+  # --- API (NestJS) -----------------------------------------------------------
+  api:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    image: iris-api:latest
+    environment:
+      NODE_ENV: production
+      PORT: "3005"
+      # Comptes gérés DANS l'application (matricule + mot de passe, codes
+      # temporaires) — le mode qui fonctionne de bout en bout aujourd'hui.
+      # Keycloak (OIDC) reste possible : AUTH_MODE=keycloak + KEYCLOAK_ISSUER.
+      AUTH_MODE: ${AUTH_MODE:-dev}
+      AUTH_DEV_SECRET: ${AUTH_DEV_SECRET:?AUTH_DEV_SECRET requis (secret long et aléatoire)}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://keycloak:8080/realms/argos}
+      KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-argos-api}
+      # Même origine que la page : aucun appel inter-origines en fonctionnement
+      # normal ; la liste ci-dessous ne sert qu'aux outils qui appellent l'API
+      # directement (documentation /api/docs depuis un autre hôte, scripts).
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+      # Persistance : PostgreSQL pour ce qui a un dépôt Drizzle (audit, drapeaux,
+      # bons de travail) ; instantané JSON dans le volume /data pour le reste
+      # (domaine, comptes, missions, comptes rendus…). STATE_SNAPSHOT=on est
+      # ce qui rend cet instantané actif en production — ne pas le retirer.
+      DB_DRIVER: ${DB_DRIVER:-postgres}
+      DATABASE_URL: postgres://${POSTGRES_USER:-argos}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis}@db:5432/${POSTGRES_DB:-argos}
+      STATE_SNAPSHOT: "on"
+      DEV_DATA_DIR: /data
+      ARGOS_ATTACHMENTS_DIR: /data/attachments
+      # Flux externes (réseau sortant requis) : exercise = noria simulée sans réseau.
+      AVIATION_FEED: ${AVIATION_FEED:-exercise}
+      AVIATION_FEED_TTL_MS: "5000"
+    volumes:
+      - api_data:/data
+    expose: ["3005"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # --- Données : PostgreSQL 16 + PostGIS + TimescaleDB -----------------------
+  db:
+    image: timescale/timescaledb-ha:pg16.15-ts2.30.0
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-argos}
+      POSTGRES_USER: ${POSTGRES_USER:-argos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis}
+    command: ["postgres", "-c", "shared_preload_libraries=timescaledb"]
+    volumes:
+      - db_data:/home/postgres/pgdata/data
+      # Extensions créées à la PREMIÈRE initialisation (PostGIS pour les
+      # géométries des migrations, TimescaleDB pour l'audit).
+      - ./db/init.sql:/docker-entrypoint-initdb.d/10-extensions.sql:ro
+    # Pas de port publié : la base n'est joignable que depuis la pile. Pour un
+    # outil d'administration, décommenter (127.0.0.1 = la station seulement).
+    # ports: ["127.0.0.1:5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-argos} -d ${POSTGRES_DB:-argos}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # --- Tuiles : tileserver-gl -----------------------------------------------
+  # Sert les MBTiles du volume argos_tiles (voir ../infra/geo) :
+  #   sat, dem  → fichiers raster tels quels ;
+  #   plan, lbl → RENDUS à la demande depuis les tuiles vectorielles OSM du
+  #               Maroc (styles ../infra/geo/styles) — tous les niveaux de
+  #               zoom, sans stocker un raster par tuile.
+  # Le chemin public /tiles/{source}/{z}/{x}/{y} est traduit par Traefik
+  # (traefik/dynamic.yml) vers les chemins propres de tileserver-gl.
+  tiles:
+    image: maptiler/tileserver-gl:v5.6.0
+    command: ["--config", "/config/config.json", "--port", "8080", "--public_url", "${PUBLIC_URL:-http://localhost}/tiles/"]
+    volumes:
+      # Tout est dans le volume : MBTiles, polices, styles (voir tools/tiles.py assets).
+      - argos_tiles:/data:ro
+      - ../infra/geo/tileserver:/config:ro
+    expose: ["8080"]
+    restart: unless-stopped
+
+  # --- Routage : Valhalla (auto-hébergé) ------------------------------------
+  # Au PREMIER démarrage l'image lit l'extrait OSM du Maroc dans le volume
+  # (déposé par le profil `tiles-build`, ou téléchargé si la station a Internet)
+  # et construit ses tuiles de routage : plusieurs minutes. Ensuite : immédiat.
+  routing:
+    image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+    environment:
+      tile_urls: ${VALHALLA_TILE_URLS:-https://download.geofabrik.de/africa/morocco-latest.osm.pbf}
+      server_threads: ${VALHALLA_THREADS:-2}
+      build_elevation: "False"
+      build_admins: "True"
+      build_time_zones: "True"
+      force_rebuild: "False"
+      use_tiles_ignore_pbf: "True"
+    volumes:
+      - valhalla_data:/custom_files
+    expose: ["8002"]
+    restart: unless-stopped
+
+  # =========================================================================
+  # PROFIL `tiles-build` — provisionnement HORS LIGNE des tuiles (à lancer
+  # UNE fois, sur une machine qui a Internet, puis à copier). Voir
+  # ../infra/geo/README.md pour la marche à suivre et les licences.
+  # =========================================================================
+  # Tuiles VECTORIELLES du Maroc (schéma OpenMapTiles) depuis l'extrait OSM
+  # déposé par `tiles-fetch pbf` — le même fichier sert à Valhalla. Les jeux
+  # annexes (Natural Earth, polygones d'eau) sont téléchargés une fois.
+  tiles-osm:
+    profiles: ["tiles-build"]
+    image: ghcr.io/onthegomap/planetiler:latest
+    command:
+      - "--download"
+      - "--osm-path=/pbf/morocco-latest.osm.pbf"
+      - "--output=/data/plan-vector.mbtiles"
+      - "--force"
+      - "--nodemap-type=array"
+      - "--storage=mmap"
+    volumes:
+      - argos_tiles:/data
+      - valhalla_data:/pbf:ro
+      - planetiler_cache:/data/sources
+
+  tiles-fetch:
+    profiles: ["tiles-build"]
+    build:
+      context: ../infra/geo/tools
+      dockerfile: Dockerfile
+    image: iris-tiles-tools:latest
+    # Imagerie et altitude : téléchargeur XYZ → MBTiles, piloté par
+    # ../infra/geo/zones.json (voir README). Exemple :
+    #   docker compose run --rm tiles-fetch dem
+    #   docker compose run --rm tiles-fetch sat --source "$SAT_TILE_URL"
+    environment:
+      SAT_TILE_URL: ${SAT_TILE_URL:-}
+      DEM_TILE_URL: ${DEM_TILE_URL:-https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png}
+    volumes:
+      - argos_tiles:/data
+      - valhalla_data:/pbf
+      - ../infra/geo/zones.json:/config/zones.json:ro
+
+volumes:
+  db_data:
+  api_data:
+  valhalla_data:
+  argos_tiles:
+  planetiler_cache:

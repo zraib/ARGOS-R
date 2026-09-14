@@ -1,0 +1,12 @@
+# Fins de ligne : LF partout dans le dépôt. Un clone sur Windows avec
+# core.autocrlf=true convertirait scripts, Dockerfiles et fichiers de
+# configuration en CRLF, et les conteneurs Linux ne les liraient plus.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pbf binary
+*.mbtiles binary

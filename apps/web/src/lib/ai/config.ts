@@ -31,7 +31,10 @@ export const AI_PROVIDERS: Record<LlmProviderId, LlmProviderConfig> = {
   // en silence et l'assistant paraît simplement « ne pas marcher ». Le nom se
   // règle à l'exécution (Paramètres, Super Admin) : cette valeur n'est qu'un
   // point de départ, aligné sur ce qui est réellement servi ici.
-  ollama: { id: "ollama", label: "Ollama (local)", endpoint: "http://127.0.0.1:11434", model: "qwen3.6:latest", local: true },
+  // Le point d'accès se règle à la construction (`NEXT_PUBLIC_LLM_URL`) : en
+  // déploiement il vaut `/llm`, chemin du reverse proxy vers l'Ollama de la
+  // station — même origine que la page, donc ni CORS ni ouverture de CSP.
+  ollama: { id: "ollama", label: "Ollama (local)", endpoint: process.env.NEXT_PUBLIC_LLM_URL?.trim() || "http://127.0.0.1:11434", model: "qwen3.6:latest", local: true },
   vllm: { id: "vllm", label: "vLLM (local)", endpoint: "http://127.0.0.1:8000", model: "qwen2.5:14b-instruct", local: true },
 };
 

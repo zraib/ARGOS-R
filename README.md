@@ -204,5 +204,16 @@ traiter avant un déploiement réel :
 - l'attribution fine des permissions par rôle, aujourd'hui provisoire hors
   administration, en attente de la matrice `docs/matrice-roles-fonctionnalites.xlsx` ;
 - la passerelle SMS (l'e-mail part par SMTP dès que `SMTP_HOST` est défini ; sans lui, l'envoi est journalisé et l'historique le dit) ;
-- la bascule effective sur PostgreSQL et Keycloak, dont les livrables sont
-  prêts dans `infra/`.
+- la bascule du **domaine** sur PostgreSQL (aujourd'hui l'audit, les drapeaux
+  et les bons de travail y sont ; incidents, comptes et communications vivent
+  dans un instantané JSON durable) et Keycloak, dont les livrables sont prêts
+  dans `infra/`.
+
+## Déploiement sur une station
+
+[`deploy/`](deploy/README.md) fait tourner la pile complète sur une machine
+Windows avec Docker Desktop : proxy, poste web, API, PostgreSQL/PostGIS,
+serveur de tuiles hors ligne (plan et toponymes rendus depuis OpenStreetMap
+pour tout le Maroc, imagerie et relief par zones — [`infra/geo/`](infra/geo/README.md)),
+moteur d'itinéraire Valhalla, et l'Ollama de la station pour l'IA. Sauvegarde
+et restauration par scripts PowerShell.
