@@ -206,11 +206,13 @@ export function formFromIncident(inc: Incident, geo?: GeoRef): WizardForm {
 
 // --- validation ---------------------------------------------------------------
 
-/** Peut-on passer à l'étape suivante ? Type choisi, puis titre, puis point posé. */
+/** Peut-on passer à l'étape suivante ?
+ *  Ordre : 1 Type → 2 Localisation → 3 Victimes/Moyens → 4 Détails (Titre+Description, IA auto)
+ */
 export function canNext(step: number, form: Pick<WizardForm, "type" | "title" | "pt">): boolean {
   if (step === 1) return !!form.type;
-  if (step === 2) return !!form.title.trim();
-  if (step === 3) return form.pt !== null;
+  if (step === 2) return form.pt !== null;
+  if (step === 3) return true;
   return true;
 }
 

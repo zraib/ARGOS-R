@@ -46,13 +46,14 @@ const cities: City[] = [
 const ctx = { cities, provinces, incidentTypes: [], lang: "fr" as const };
 
 describe("validation par étape", () => {
-  it("chaque étape exige la sienne : type, puis titre, puis point", () => {
+  it("chaque étape exige la sienne : le type, puis le point ; le bilan et les détails ne bloquent pas", () => {
+    // Ordre : 1 Type → 2 Localisation → 3 Victimes et moyens → 4 Détails (titre et
+    // description générés à l'arrivée sur l'étape ; un titre vide a un repli).
     expect(canNext(1, EMPTY_FORM)).toBe(false);
     expect(canNext(1, { ...EMPTY_FORM, type: "flood" })).toBe(true);
-    expect(canNext(2, { ...EMPTY_FORM, title: "   " })).toBe(false);
-    expect(canNext(2, { ...EMPTY_FORM, title: "Crue" })).toBe(true);
-    expect(canNext(3, EMPTY_FORM)).toBe(false);
-    expect(canNext(3, withPoint(EMPTY_FORM, [-8, 31.6]))).toBe(true);
+    expect(canNext(2, { ...EMPTY_FORM, type: "flood" })).toBe(false);
+    expect(canNext(2, withPoint({ ...EMPTY_FORM, type: "flood" }, [-8, 31.6]))).toBe(true);
+    expect(canNext(3, EMPTY_FORM)).toBe(true);
     expect(canNext(4, EMPTY_FORM)).toBe(true);
   });
 

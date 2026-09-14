@@ -9,12 +9,17 @@ import { useArgos } from "@/lib/store";
 import type { WizardForm } from "@/lib/incidents/wizard";
 
 // ============================================================================
-// Génération du titre et de la description par l'IA (étape 2).
+// Génération du titre et de la description par l'IA (dernière étape : 4).
 //
-// UNE SEULE méthode de génération, sur demande : des mots-clés → un bouton →
-// titre + description, puis deux paraphrases séparées. Jamais d'application
-// automatique : tant que rien n'a été généré, les champs restent masqués. Le
-// `salt` change à chaque geste, ce qui rend « régénérer » reproductible.
+// MÉCANISME NOUVEAU (depuis réorganisation) :
+//   - Déclenchée AUTOMATIQUEMENT quand l'utilisateur arrive à l'étape 4
+//     (useEffect dans IncidentWizard), plus besoin d'un bouton initial.
+//   - Si keywords présents : appelle generateIncidentDraft (moteur IA + fallback).
+//   - Si keywords VIDE : appelle TOUT DE MÊME, le fallback sémantique
+//     (pickTitle / pickDesc) fournira un titre correct « type + localisation »
+//     car les champs ville/province/type existent dans DescriptionProposalInput.
+//   - Boutons « Régénérer » et « Paraphraser titre/desc » gardés pour édition manuelle.
+//   - Champs titre et description restent 100% éditables par l'utilisateur après IA.
 // ============================================================================
 
 export interface DraftGeneration {
@@ -60,7 +65,7 @@ export function useDraftGeneration(
   );
 
   const runAiGenerate = async () => {
-    if (!form.type || form.keywords.length === 0 || aiBusy) return;
+    if (!form.type || aiBusy) return;
     setAiBusy(true);
     setAiGenerated(false);
     setOperatorBusy(true);

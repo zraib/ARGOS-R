@@ -6,7 +6,11 @@
 // modifiable sans relire le tout. Voir `index.ts` pour la surface publique.
 // ============================================================================
 
-import { CITY_COORDS, COND_LABEL, DISPO_LABEL, INCIDENT_PLACE, UNIT_CODE, norm } from "../labels";
+import {
+  CITY_COORDS, COND_LABEL, DISPO_LABEL, norm,
+  platformRegionGroups, resolveCityCoords, resolveIncidentRegion, resolveUnitId,
+  type RegionGroup,
+} from "../labels";
 import type { AiAnswer, AiContext } from "../types";
 import { etaMinutes, UNIT_CAPS, CAP_LABELS, type Capability, haversineKm } from "@/lib/reco";
 import type { Incident } from "@/lib/types";
@@ -46,20 +50,29 @@ export function unitsStatus(_q: string, ctx: AiContext): AiAnswer {
 }
 
 /**
- * Centre géographique de « potentiel mobilisable ». Ordre : l'incident cible
- * (point, lieu connu, titre) → une ville de CITY_COORDS (la plus longue qui
- * correspond) → une ville du catalogue des unités → un groupe régional.
+ * Centre géographique de « potentiel mobilisable ».
+ *   1. Incident cible (ll > region > titre).
+ *   2. Mots-clés de la requête : DYNAMIQUE resolveCityCoords(ctx).
+ *   3. Villes référencées dans unités (catalogue).
+ *   4. Groupe régional : DYNAMIQUE platformRegionGroups(ctx), seed fallback SEULEMENT SI catalogue vide.
  */
 function detectMobilityCenter(q: string, ctx: AiContext, inc?: Incident): { ville: string; center: [number, number] } | null {
   const nq = norm(q);
   const cityKeys = Object.keys(CITY_COORDS).sort((a, b) => b.length - a.length);
   if (inc) {
-    const ville = INCIDENT_PLACE[inc.id] ?? inc.region ?? inc.titre;
+    const ville = resolveIncidentRegion(inc.id, inc);
     if (inc.ll?.length === 2) return { ville, center: inc.ll };
+    const resolved = resolveCityCoords(inc.region ?? inc.titre, ctx);
+    if (resolved) return { ville, center: resolved.center };
     const keyC = cityKeys.find((k) => norm(inc.region ?? "").includes(norm(k)) || norm(inc.titre).includes(norm(k)));
     if (keyC) return { ville, center: CITY_COORDS[keyC] };
   }
-  for (const k of cityKeys) if (nq.includes(norm(k))) return { ville: k, center: CITY_COORDS[k] };
+
+  // 2 — DYNAMIQUE : villes connues de la plateforme (resolveCityCoords = unités d'abord, puis hôpitaux, puis incidents, seed en dernier).
+  const fromQuery = resolveCityCoords(nq, ctx);
+  if (fromQuery) return { ville: fromQuery.ville, center: fromQuery.center };
+
+  // 3 — Catalogue des unités : match sur le nom de ville (compatible avec les noms ajoutés dans la BDD)
   const candidateVilles = Array.from(new Set(ctx.units.map((u) => u.ville))).sort((a, b) => b.length - a.length);
   for (const v of candidateVilles) {
     if (nq.includes(norm(v))) {
@@ -67,20 +80,17 @@ function detectMobilityCenter(q: string, ctx: AiContext, inc?: Incident): { vill
       if (found) return { ville: v, center: found.ll };
     }
   }
+
+  // 4 — DYNAMIQUE : groupes régionaux depuis la plateforme. Seed fallback seulement si catalogue vide.
   const regionGroup = /region\s+(de\s+)?(\w[\w\s-]*\w|\w)/i.exec(q);
   const regionRaw = regionGroup ? regionGroup[2].trim().toLowerCase() : "";
-  const regionHints: [string, ...string[]][] = [
-    ["rabat-salé", "rabat", "salé", "temara", "skhirate"],
-    ["casablanca-settat", "casa", "casablanca", "settat", "mohammedia", "bouskoura"],
-    ["marrakech-safi", "marrakech", "safi", "el kelaa des sraghna"],
-    ["fès-meknès", "fès", "fes", "meknès", "meknes"],
-    ["tanger-tétouan-al hoceima", "tanger", "tetouan", "tétouan", "hoceima", "al hoceima"],
-    ["souss-massa", "agadir", "taroudant", "tiznit"],
-    ["oriental", "oujda", "nador", "berkane", "guercif"],
-  ];
+  const regionHints: RegionGroup[] = platformRegionGroups(ctx);
   for (const g of regionHints) {
-    const [name, ...members] = g;
-    if (regionRaw === norm(name).replace(/-/g, " ") || members.some((m) => nq.includes(norm(m)))) {
+    const name = g.name;
+    const members = g.members;
+    const nameMatch = regionRaw && (regionRaw === norm(name).replace(/-/g, " ") || regionRaw === norm(name));
+    const memberMatch = members.some((m) => nq.includes(norm(m)));
+    if (nameMatch || memberMatch) {
       const unitsInGroup = ctx.units.filter((u) => members.some((m) => norm(u.ville).includes(norm(m))));
       if (unitsInGroup.length) {
         const lats = unitsInGroup.map((u) => u.ll[1]);
@@ -118,7 +128,8 @@ function computeMobilityPerimeter(ctx: AiContext, center: [number, number], vill
   const capLines = [...capCounts.entries()].sort((a, b) => b[1] - a[1]).map(([c, n]) => `  • ${CAP_LABELS[c]} : ${n} unité(s)`);
   const topUnitIds = new Set(withDist.filter((x) => x.unit.dispo === "ready").slice(0, 5).map((x) => x.unit.id));
   const topEquip = ctx.equipment.filter((e) => {
-    const uid = UNIT_CODE[e.unit];
+    // DYNAMIQUE : resolveUnitId → catalogue d'abord, UNIT_CODE (seed) seulement fallback.
+    const uid = resolveUnitId(e.unit, ctx);
     return uid ? topUnitIds.has(uid) : false;
   }).slice(0, 8);
   const titleVille = ville ? ville[0].toUpperCase() + ville.slice(1) : "zone cible";
