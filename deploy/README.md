@@ -142,7 +142,8 @@ plateforme n'en dépend pas.
 | Incidents, unités, hôpitaux, abris, morgues, **comptes**, missions, comptes rendus, canaux et messages | instantané JSON du volume `iris_api_data` (`STATE_SNAPSHOT=on`) | `backup.ps1` (archive) |
 | Pièces jointes des messages | `iris_api_data/attachments` | `backup.ps1` (archive) |
 | Tuiles, polices, styles | `iris_argos_tiles` | à recopier une fois (`docker run --rm -v iris_argos_tiles:/data -v D:\tuiles:/out alpine tar czf /out/tiles.tgz -C /data .`) |
-| Tuiles de routage, extrait OSM | `iris_valhalla_data` | se reconstruit |
+| Tuiles de routage, extrait OSM | `iris_valhalla_data` | se reconstruit (~3 min depuis l'extrait) |
+| Jeux annexes de planetiler (Natural Earth, lacs, polygones d'eau) | `iris_planetiler_cache` | se retélécharge ; inutile une fois `plan-vector.mbtiles` produit |
 
 Honnêteté sur l'état : en Phase 1, le domaine et les comptes vivent dans
 l'instantané JSON, pas dans PostgreSQL. C'est durable (volume Docker,
