@@ -5,9 +5,11 @@
 // (ArgosState) : une tranche peut lire les autres, jamais les importer.
 //
 // Deux choses distinctes vivent ici, et l'écran les sépare de même : les
-// PRÉVISIONS (jauges de Google Flood Hub, servies par l'API — jamais appelées
-// depuis le navigateur) et la SIMULATION (une emprise calculée ici même, sur
-// le relief, sans réseau autre que les tuiles d'altitude de la carte).
+// PRÉVISIONS (jauges servies par l'API — GloFAS par Open-Meteo sans clé, ou
+// Google Flood Hub avec — jamais appelées depuis le navigateur) et la
+// SIMULATION (une emprise calculée ici même, sur le relief, sans réseau autre
+// que les tuiles d'altitude de la carte), lue en animation : l'eau gagne les
+// cellules dans l'ordre où elle les a atteintes.
 // ============================================================================
 
 import type { StateCreator } from "zustand";
@@ -19,12 +21,13 @@ import {
   cellSizeMeters,
   damBreakRule,
   floodFill,
-  floodImage,
   floodedAmong,
   floodedAreaKm2,
   gridCorners,
   gridPixel,
   riseRule,
+  type DemGrid,
+  type FloodFillResult,
 } from "@/lib/flood/bathtub";
 import { shelterPosition } from "@/lib/ai/opsnetAffecteur";
 
@@ -51,7 +54,7 @@ export interface FloodImpacts {
   cities: string[];
 }
 
-/** Ce qu'une simulation laisse : l'image de l'emprise, ses chiffres, ce qu'elle touche. */
+/** Ce qu'une simulation laisse : le relief et la propagation (pour la dessiner à tout instant), ses chiffres, ce qu'elle touche. */
 export interface FloodSimResult {
   seed: [number, number];
   params: FloodSimParams;
@@ -61,8 +64,9 @@ export interface FloodSimResult {
   cells: number;
   cellMeters: number;
   corners: [[number, number], [number, number], [number, number], [number, number]];
-  /** L'emprise, en PNG (data URL) posée sur la carte entre ses quatre coins. */
-  image: string;
+  /** Le relief et la propagation : la couche de la carte en tire l'image de chaque instant. */
+  grid: DemGrid;
+  fill: FloodFillResult;
   impacts: FloodImpacts;
   /** Des tuiles d'altitude manquaient, ou la borne de calcul a été atteinte : l'emprise est incomplète. */
   partial: boolean;
@@ -91,6 +95,9 @@ export interface FloodSlice {
   floodSim: FloodSimResult | null;
   floodSimBusy: boolean;
   floodSimError: FloodSimError | null;
+  /** Avancement de la lecture, 0 (le point de départ) à 1 (l'emprise entière). */
+  floodProgress: number;
+  floodPlaying: boolean;
   loadFloodGauges: () => Promise<void>;
   toggleFloodGauges: () => void;
   selectFloodGauge: (id: string | null) => Promise<void>;
@@ -100,19 +107,8 @@ export interface FloodSlice {
   setFloodParams: (patch: Partial<FloodSimParams>) => void;
   runFloodSim: () => Promise<void>;
   clearFloodSim: () => void;
-}
-
-/** Une image RVBA → PNG en data URL, par un canevas (navigateur seulement). */
-function rasterToDataUrl(rgba: Uint8ClampedArray, width: number, height: number): string {
-  const c = document.createElement("canvas");
-  c.width = width;
-  c.height = height;
-  const ctx = c.getContext("2d");
-  if (!ctx) return "";
-  const img = ctx.createImageData(width, height);
-  img.data.set(rgba);
-  ctx.putImageData(img, 0, 0);
-  return c.toDataURL("image/png");
+  setFloodProgress: (p: number) => void;
+  setFloodPlaying: (v: boolean) => void;
 }
 
 /** Les éléments qui portent une position — un élément sans point n'est ni dedans ni dehors. */
@@ -135,6 +131,8 @@ export const createFloodSlice: StateCreator<ArgosState, [], [], FloodSlice> = (s
   floodSim: null,
   floodSimBusy: false,
   floodSimError: null,
+  floodProgress: 1,
+  floodPlaying: false,
 
   loadFloodGauges: async () => {
     if (get().floodBusy) return;
@@ -187,12 +185,15 @@ export const createFloodSlice: StateCreator<ArgosState, [], [], FloodSlice> = (s
   setFloodArming: (v) => set({ floodArming: v }),
   setFloodSeed: (ll) => set({ floodSeed: ll, floodArming: false, floodSimError: null }),
   setFloodParams: (patch) => set((s) => ({ floodParams: { ...s.floodParams, ...patch } })),
-  clearFloodSim: () => set({ floodSim: null, floodSimError: null }),
+  clearFloodSim: () => set({ floodSim: null, floodSimError: null, floodPlaying: false, floodProgress: 1 }),
+  setFloodProgress: (p) => set({ floodProgress: Math.min(1, Math.max(0, p)) }),
+  // Relancer depuis la fin repart du début ; sinon la lecture reprend où elle en était.
+  setFloodPlaying: (v) => set((s) => ({ floodPlaying: v && s.floodSim !== null, floodProgress: v && s.floodProgress >= 1 ? 0 : s.floodProgress })),
 
   /**
-   * Calcule l'emprise sur le relief chargé autour du point de départ, la
-   * dessine, et relève ce qu'elle atteint (hôpitaux, unités, abris, villes).
-   * Tout se passe ici : aucune donnée ne part vers un service.
+   * Calcule l'emprise sur le relief chargé autour du point de départ, relève
+   * ce qu'elle atteint (hôpitaux, unités, abris, villes) et lance la lecture
+   * animée. Tout se passe ici : aucune donnée ne part vers un service.
    */
   runFloodSim: async () => {
     const s0 = get();
@@ -202,7 +203,7 @@ export const createFloodSlice: StateCreator<ArgosState, [], [], FloodSlice> = (s
       return;
     }
     if (s0.floodSimBusy) return;
-    set({ floodSimBusy: true, floodSimError: null });
+    set({ floodSimBusy: true, floodSimError: null, floodPlaying: false });
     try {
       const params = s0.floodParams;
       // 5 × 5 tuiles : ~20 km de côté à z13 (~19 m par cellule), ~40 km à z12.
@@ -251,10 +252,14 @@ export const createFloodSlice: StateCreator<ArgosState, [], [], FloodSlice> = (s
           cells: fill.cells,
           cellMeters,
           corners: gridCorners(grid),
-          image: rasterToDataUrl(floodImage(grid, fill), grid.width, grid.height),
+          grid,
+          fill,
           impacts,
           partial: inconnues || fill.cells >= FLOOD_MAX_CELLS,
         },
+        // La lecture part du point de départ dès que le résultat est là.
+        floodProgress: 0,
+        floodPlaying: true,
       });
     } catch {
       set({ floodSimError: "dem" });

@@ -35,8 +35,12 @@ export interface FloodFillResult {
   mask: Uint8Array;
   /** Lame d'eau (m) par cellule inondée, 0 ailleurs. */
   depth: Float32Array;
+  /** Distance parcourue par l'eau (m) pour atteindre chaque cellule inondée — l'ordre dans lequel l'emprise se remplit. */
+  dist: Float32Array;
   cells: number;
   maxDepth: number;
+  /** La plus grande distance parcourue : la fin de l'animation. */
+  maxDist: number;
   seedElev: number;
 }
 
@@ -122,7 +126,7 @@ export function floodFill(grid: DemGrid, seedPx: number, seedPy: number, rule: F
   const dist = new Float32Array(n);
   const seed = seedPy * width + seedPx;
   const seedElev = elev[seed];
-  const result: FloodFillResult = { mask, depth, cells: 0, maxDepth: 0, seedElev };
+  const result: FloodFillResult = { mask, depth, dist, cells: 0, maxDepth: 0, maxDist: 0, seedElev };
   if (!Number.isFinite(seedElev)) return result;
   const lame0 = Math.min(rule.cap - seedElev, rule.hmax(0));
   if (lame0 <= 0) return result;
@@ -160,6 +164,7 @@ export function floodFill(grid: DemGrid, seedPx: number, seedPy: number, rule: F
       surface[v] = sol + lame;
       dist[v] = dc;
       if (lame > result.maxDepth) result.maxDepth = lame;
+      if (dc > result.maxDist) result.maxDist = dc;
       queue.push(v);
     }
   }
@@ -184,22 +189,37 @@ export function floodedAmong<T extends { ll: [number, number] }>(grid: DemGrid, 
   return items.filter((it) => floodContains(grid, fill, it.ll[0], it.ll[1]));
 }
 
+/** La couleur d'une lame — de bleu clair (faible) à bleu profond (forte) ; la légende du panneau reprend les deux bouts. */
+export const FLOOD_SHALLOW_RGB: readonly [number, number, number] = [96, 165, 250];
+export const FLOOD_DEEP_RGB: readonly [number, number, number] = [30, 78, 184];
+
 /**
- * L'image de l'emprise (RVBA, ligne par ligne) : bleu, d'autant plus soutenu
- * et opaque que la lame est forte. Transparente hors de l'emprise.
+ * L'image de l'emprise (RVBA, ligne par ligne) jusqu'au FRONT donné : seules
+ * les cellules que l'eau a atteintes en moins de `front` mètres de parcours
+ * sont peintes — bleu d'autant plus soutenu et opaque que la lame est forte,
+ * transparent ailleurs. `front = Infinity` peint tout. `out` se réutilise
+ * d'une image à l'autre (l'animation en dessine vingt par seconde).
  */
-export function floodImage(grid: DemGrid, fill: FloodFillResult): Uint8ClampedArray {
-  const out = new Uint8ClampedArray(grid.width * grid.height * 4);
+export function floodImageAt(grid: DemGrid, fill: FloodFillResult, front: number, out?: Uint8ClampedArray): Uint8ClampedArray {
+  const n = grid.width * grid.height * 4;
+  const img = out && out.length === n ? out : new Uint8ClampedArray(n);
   const ref = Math.max(1, fill.maxDepth);
   for (let i = 0; i < fill.mask.length; i++) {
-    if (!fill.mask[i]) continue;
-    const t = Math.min(1, fill.depth[i] / ref);
     const o = i * 4;
-    // De bleu clair (lame faible) à bleu profond (lame forte).
-    out[o] = Math.round(96 - 66 * t);
-    out[o + 1] = Math.round(165 - 87 * t);
-    out[o + 2] = Math.round(250 - 66 * t);
-    out[o + 3] = Math.round(110 + 110 * t);
+    if (!fill.mask[i] || fill.dist[i] > front) {
+      img[o + 3] = 0;
+      continue;
+    }
+    const t = Math.min(1, fill.depth[i] / ref);
+    img[o] = Math.round(FLOOD_SHALLOW_RGB[0] + (FLOOD_DEEP_RGB[0] - FLOOD_SHALLOW_RGB[0]) * t);
+    img[o + 1] = Math.round(FLOOD_SHALLOW_RGB[1] + (FLOOD_DEEP_RGB[1] - FLOOD_SHALLOW_RGB[1]) * t);
+    img[o + 2] = Math.round(FLOOD_SHALLOW_RGB[2] + (FLOOD_DEEP_RGB[2] - FLOOD_SHALLOW_RGB[2]) * t);
+    img[o + 3] = Math.round(110 + 110 * t);
   }
-  return out;
+  return img;
+}
+
+/** L'image de l'emprise entière. */
+export function floodImage(grid: DemGrid, fill: FloodFillResult): Uint8ClampedArray {
+  return floodImageAt(grid, fill, Infinity);
 }

@@ -5,6 +5,7 @@ import {
   floodContains,
   floodFill,
   floodImage,
+  floodImageAt,
   floodedAmong,
   floodedAreaKm2,
   gridCorners,
@@ -99,5 +100,22 @@ describe("simulateur d'inondation « baignoire »", () => {
     const img = floodImage(g, r);
     expect(img[3]).toBeGreaterThan(0);
     expect(img[(3 * 4 + 3) * 4 + 3]).toBe(0);
+  });
+
+  it("l'eau avance de proche en proche : la distance parcourue ordonne les cellules, et l'image se révèle jusqu'au front", () => {
+    // Couloir plat de 6 cellules de 100 m, départ à l'ouest.
+    const g = grille(6, 1, () => 0);
+    const r = floodFill(g, 0, 0, riseRule(0, 2), 100);
+    expect(Array.from(r.dist)).toEqual([0, 100, 200, 300, 400, 500]);
+    expect(r.maxDist).toBe(500);
+    // Front à 250 m : trois cellules peintes, les autres transparentes.
+    const partielle = floodImageAt(g, r, 250);
+    expect([0, 1, 2, 3, 4, 5].map((i) => partielle[i * 4 + 3] > 0)).toEqual([true, true, true, false, false, false]);
+    // Le tampon se réutilise et se remet à jour dans les deux sens.
+    const suite = floodImageAt(g, r, 500, partielle);
+    expect(suite).toBe(partielle);
+    expect(suite[5 * 4 + 3]).toBeGreaterThan(0);
+    const retour = floodImageAt(g, r, 0, suite);
+    expect([0, 1, 2, 3, 4, 5].map((i) => retour[i * 4 + 3] > 0)).toEqual([true, false, false, false, false, false]);
   });
 });

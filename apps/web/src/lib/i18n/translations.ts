@@ -616,7 +616,7 @@ export interface Dict {
   ch_online_now: string; ch_directory: string; ch_nobody: string; ch_more: string; ch_open_center: string;
   ch_typing: string; ch_sent: string; ch_delivered: string; ch_read: string; cm_deployed_on: string;
   // Crues : prévisions Flood Hub (par l'API) et simulateur d'inondation (ADR 0010)
-  flood_panel: string; flood_feed: string; flood_feed_off: string; flood_feed_degraded: string; flood_feed_refresh: string;
+  flood_panel: string; flood_feed: string; flood_feed_down: string; flood_feed_degraded: string; flood_feed_refresh: string; flood_provider_om: string; flood_provider_google: string; flood_peak: string;
   flood_show_gauges: string; flood_no_gauges: string; flood_loading: string;
   flood_sev_extreme: string; flood_sev_severe: string; flood_sev_above: string; flood_sev_none: string; flood_sev_unknown: string;
   flood_trend_rise: string; flood_trend_fall: string; flood_trend_flat: string;
@@ -629,6 +629,7 @@ export interface Dict {
   flood_area: string; flood_depth: string; flood_seed_elev: string; flood_cells: string; flood_partial: string;
   flood_impacts: string; flood_none_hit: string; flood_hospitals: string; flood_units: string; flood_shelters: string; flood_cities: string;
   flood_err_seed: string; flood_err_dem: string; flood_err_elevation: string;
+  flood_play: string; flood_pause: string; flood_replay: string; flood_progress: string; flood_legend: string; flood_shallow: string; flood_deep: string;
   // Profil : notifications sonores
   pr_sounds: string; pr_sounds_hint: string; pr_sound_messages: string; pr_sound_messages_hint: string;
   pr_sound_alerts: string; pr_sound_alerts_hint: string; pr_sound_test: string; pr_sound_on: string; pr_sound_off: string;

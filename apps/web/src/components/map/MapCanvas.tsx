@@ -24,7 +24,7 @@ import { pulseQuakes, quakePopup, setupQuakeLayers, syncQuakes } from "@/compone
 import { applyMissions, setupMissionLayers } from "@/components/map/layers/missions";
 import { drawMeasure, setupMeasureLayer } from "@/components/map/layers/measure";
 import { PlumeRuntime, applyPlume, playPlume, setupPlumeLayers } from "@/components/map/layers/plume";
-import { applyFloodGauges, applyFloodMaps, applyFloodSeed, applyFloodSim, setupFloodLayers } from "@/components/map/layers/floods";
+import { FloodRuntime, applyFloodGauges, applyFloodMaps, applyFloodSeed, applyFloodSim, playFlood, setupFloodLayers } from "@/components/map/layers/floods";
 import {
   WeatherRuntime,
   applyWeatherVisibility,
@@ -56,6 +56,7 @@ export function MapCanvas() {
   const acftRegistry = useRef<AircraftRegistry>(new Map());
   const plumeRt = useRef(new PlumeRuntime());
   const wxRt = useRef(new WeatherRuntime());
+  const floodRt = useRef(new FloodRuntime());
   const quakeBound = useRef(false); // handlers hover/clic de la couche séismes posés une fois
   const quakePopupRef = useRef<maplibregl.Popup | null>(null); // bandeau collé au séisme
   const [wxTimeIdx, setWxTimeIdx] = useState(0);
@@ -122,6 +123,8 @@ export function MapCanvas() {
   const floodMapsOn = useArgos((s) => s.floodMapsOn);
   const floodSeed = useArgos((s) => s.floodSeed);
   const floodSim = useArgos((s) => s.floodSim);
+  const floodProgress = useArgos((s) => s.floodProgress);
+  const floodPlaying = useArgos((s) => s.floodPlaying);
   const floodArming = useArgos((s) => s.floodArming);
   const wxGrid = useArgos((s) => s.wxGrid);
   const wxWorld = useArgos((s) => s.wxWorld);
@@ -297,7 +300,7 @@ export function MapCanvas() {
       applyFloodGauges(map, st.floodGauges, st.floodGaugesOn, st.floodSel);
       applyFloodMaps(map, st.floodPolygons, st.floodMapsOn);
       applyFloodSeed(map, st.floodSeed);
-      applyFloodSim(map, st.floodSim);
+      applyFloodSim(floodRt.current, map, st.floodSim, st.floodProgress, st.floodPlaying);
       map.setLayoutProperty("routes-line", "visibility", st.layers.vehicles ? "visible" : "none");
       applyBase(map, st.mapSat);
       apply3d(map, st.map3d);
@@ -444,9 +447,17 @@ export function MapCanvas() {
   useEffect(() => {
     if (readyRef.current) applyFloodSeed(mapRef.current, floodSeed);
   }, [floodSeed]);
+  // L'emprise simulée suit la simulation et, hors lecture, le curseur du
+  // panneau ; la lecture elle-même tourne en boucle d'animation et publie
+  // l'avancement — l'effet ne repeint pas derrière elle.
   useEffect(() => {
-    if (readyRef.current) applyFloodSim(mapRef.current, floodSim);
-  }, [floodSim]);
+    if (!readyRef.current) return;
+    if (floodPlaying) applyFloodSim(floodRt.current, mapRef.current, floodSim, useArgos.getState().floodProgress, true);
+    else applyFloodSim(floodRt.current, mapRef.current, floodSim, floodProgress, false);
+  }, [floodSim, floodProgress, floodPlaying]);
+  useEffect(() => {
+    if (readyRef.current) return playFlood(floodRt.current, mapRef.current, floodSim, floodPlaying);
+  }, [floodSim, floodPlaying]);
 
   // --- grilles météo : nationale dense, mondiale, visibilité des couches ---
   useEffect(() => {

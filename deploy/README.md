@@ -118,13 +118,14 @@ réglages dans `.env` :
 - `VALHALLA_TILE_URLS=` (vide) — Valhalla lit l'extrait OSM déjà déposé par
   `tiles-fetch pbf` au lieu de le télécharger ;
 - `AVIATION_FEED=exercise` — le suivi aérien passe en noria simulée.
-- `FLOOD_API_KEY` vide — les prévisions de crue (Google Flood Hub, ADR 0010)
-  affichent « flux indisponible » ; le simulateur d'inondation de la carte,
-  lui, calcule sur les tuiles d'altitude de la station et reste disponible.
+- `FLOOD_API_KEY` vide (défaut) — les prévisions de crue (ADR 0010) viennent
+  de GloFAS via Open-Meteo, sans clé ; posée, la clé bascule le courtier sur
+  Google Flood Hub (jauges, seuils et cartes d'inondation du fournisseur).
 
-Les flux sismique (EMSC) et météo (Open-Meteo) ont besoin d'Internet ; sans
-lui, leurs modules affichent « flux indisponible » et le reste de la
-plateforme n'en dépend pas.
+Les flux sismique (EMSC), météo et crues (Open-Meteo) ont besoin d'Internet ;
+sans lui, leurs modules affichent « flux indisponible » et le reste de la
+plateforme n'en dépend pas — le simulateur d'inondation de la carte, lui,
+calcule sur les tuiles d'altitude de la station et reste disponible.
 
 ## 6. Exploitation
 

@@ -182,6 +182,9 @@ export const UI_ICONS = {
   copy: "M20 9h-9a2 2 0 00-2 2v9a2 2 0 002 2h9a2 2 0 002-2v-9a2 2 0 00-2-2z M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1",
   sliders: "M4 6h16 M4 12h16 M4 18h16 M9 4v4 M15 10v4 M7 16v4",
   refresh: "M21 12a9 9 0 11-3.2-6.9 M21 3v6h-6",
+  /** Lecture / pause des animations de la carte (simulation de crue). */
+  play: "M7 4l13 8-13 8V4z",
+  pause: "M8 5v14 M16 5v14",
   refreshCw: "M21 12a9 9 0 11-3.2-6.9 M21 3v6h-6",
   sparkles: "M12 3v4 M12 17v4 M3 12h4 M17 12h4 M5.6 5.6l2.8 2.8 M15.6 15.6l2.8 2.8 M5.6 18.4l2.8-2.8 M15.6 8.4l2.8-2.8",
   scale: "M12 3l7 4v10l-7 4-7-4V7z M12 8v8 M8 10l4 2 4-2 M8 14l4 2 4-2",

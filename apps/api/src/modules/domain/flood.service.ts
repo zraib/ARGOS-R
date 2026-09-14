@@ -1,18 +1,38 @@
 import { Inject, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { AppConfig } from "@/config/configuration";
+import { loadDevState, saveDevState } from "@/common/dev-store";
+import {
+  RIVER_POINTS,
+  neighborhood,
+  openMeteoForecastUrl,
+  openMeteoHistoryUrl,
+  parseOpenMeteoDaily,
+  peakOf,
+  severityFrom,
+  snapToChannel,
+  thresholdsFromHistory,
+  trendFrom,
+  type DailySeries,
+} from "@/modules/domain/flood.openmeteo";
 
 // ============================================================================
-// ARGOS — courtier des crues (Google Flood Forecasting API, « Flood Hub »)
+// ARGOS — courtier des crues : Open-Meteo Flood (GloFAS) par défaut, Google
+// Flood Hub sur clé
 //
-// Le navigateur ne parle JAMAIS à Google : l'API interroge Flood Hub côté
-// serveur avec SA clé, normalise les jauges, statuts, prévisions et cartes
-// d'inondation dans un contrat stable, et met en cache (15 min) — comme la
-// sismologie (EMSC) et la météo (Open-Meteo), ADR 0002/0006. Sans clé, le flux
-// est « indisponible » et l'écran le dit ; le simulateur d'inondation, lui,
-// n'en dépend pas. Voir docs/adr/0010.
+// Le navigateur ne parle JAMAIS à un fournisseur : l'API interroge la source
+// côté serveur, normalise jauges, statuts, prévisions et cartes d'inondation
+// dans UN contrat stable, et met en cache — comme la sismologie (EMSC) et la
+// météo (Open-Meteo), ADR 0002/0006. Deux fournisseurs, un contrat :
+//   - Open-Meteo Flood (GloFAS v4, Copernicus/ECMWF) : sans clé, libre,
+//     auto-hébergeable — le défaut ; seuils dérivés de l'historique
+//     (`flood.openmeteo.ts`), pas de carte d'inondation ;
+//   - Google Flood Hub : dès que `FLOOD_API_KEY` est posée — seuils du
+//     modèle, tendance, cartes d'inondation KML.
+// Une panne rend le dernier cache connu et le DIT ; le simulateur
+// d'inondation, lui, n'en dépend pas. Voir docs/adr/0010.
 //
-// Données CC BY 4.0 (Google) — l'attribution est portée à l'écran.
+// Données CC BY 4.0 dans les deux cas — l'attribution est portée à l'écran.
 // ============================================================================
 
 export type FloodSeverity = "extreme" | "severe" | "above_normal" | "no_flooding" | "unknown";
@@ -48,6 +68,8 @@ export interface FloodGauge {
   forecastStart: string | null;
   forecastEnd: string | null;
   thresholds: FloodThresholds | null;
+  /** Le pic prévu sur la fenêtre de prévision, dans l'unité des seuils — ce qu'on lit même sans seuil. */
+  peak: number | null;
   inundationMaps: FloodInundationMap[];
 }
 
@@ -65,8 +87,13 @@ export interface FloodForecast {
   points: FloodForecastPoint[];
 }
 
+export type FloodProvider = "open-meteo-glofas" | "google-flood-hub";
+
 export interface FloodFeedStatus {
+  /** Toujours vrai : Open-Meteo ne demande rien ; Google prend le relais sur clé. */
   configured: boolean;
+  /** Le fournisseur en service. */
+  provider: FloodProvider;
   source: string;
   region: string;
   fetchedAt: string | null;
@@ -83,7 +110,11 @@ export interface FloodPolygon {
   geometry: { type: "MultiPolygon"; coordinates: number[][][][] };
 }
 
-/** Ce que le service demande au réseau — remplaçable dans les tests. */
+/**
+ * Ce que le service demande au réseau — remplaçable dans les tests. Un chemin
+ * relatif vise Google (la clé s'y ajoute) ; une URL absolue est appelée telle
+ * quelle (Open-Meteo).
+ */
 export type FloodFetcher = (path: string, init?: { method?: "GET" | "POST"; body?: unknown }) => Promise<unknown>;
 /** Jeton d'injection du récupérateur ; sans fournisseur enregistré, l'appel réel à Google est employé. */
 export const FLOOD_FETCHER = Symbol("FLOOD_FETCHER");
@@ -106,7 +137,22 @@ const TTL_MS = 15 * 60_000;
 const POLYGON_TTL_MS = 6 * 60 * 60_000;
 const TIMEOUT_MS = 12_000;
 const BATCH = 100;
-const ATTRIBUTION = "Google Flood Hub — données CC BY 4.0";
+const ATTRIBUTION: Record<FloodProvider, string> = {
+  "google-flood-hub": "Google Flood Hub — données CC BY 4.0",
+  "open-meteo-glofas": "Open-Meteo Flood · GloFAS v4 (Copernicus / ECMWF) — CC BY 4.0 ; seuils dérivés de quatre ans d’historique",
+};
+const OM_FORECAST_TTL_MS = 6 * 60 * 60_000;
+/** Les seuils changent lentement : un mois sur disque, puis relecture point par point. */
+const OM_THRESHOLDS_TTL_MS = 30 * 24 * 60 * 60_000;
+/** Après un « 429 » (quota), on laisse passer un quart d'heure avant de redemander. */
+const OM_BACKOFF_MS = 15 * 60_000;
+/** Espacement des requêtes d'historique : une par point, et le quota par minute reste respecté. */
+const OM_WARMUP_GAP_MS = 25_000;
+
+/** Ce que le disque garde des seuils Open-Meteo : par point, quand et quoi. */
+interface OmThresholdsDisk {
+  thresholds?: Record<string, { at: number; th: FloodThresholds | null }>;
+}
 const SEVERITY_RANK: Record<FloodSeverity, number> = { extreme: 0, severe: 1, above_normal: 2, no_flooding: 3, unknown: 4 };
 
 // --- normalisation (pure, testée seule) --------------------------------------
@@ -169,6 +215,7 @@ export function normalizeGauge(status: RawStatus, gauge: RawGauge | undefined, m
     forecastStart: status.forecastTimeRange?.start ?? null,
     forecastEnd: status.forecastTimeRange?.end ?? null,
     thresholds: thresholdsOf(model),
+    peak: null,
     inundationMaps: (status.inundationMapSet?.inundationMaps ?? [])
       .filter((m): m is { level: string; serializedPolygonId: string } => !!m.serializedPolygonId && !!m.level)
       .map((m) => ({
@@ -216,7 +263,16 @@ export class FloodService {
   private readonly log = new Logger("Floods");
   private readonly fetcher: FloodFetcher;
   private gaugesCache: { at: number; data: FloodGauge[] } | null = null;
+  private gaugesProvider: FloodProvider | null = null;
   private readonly models = new Map<string, RawModel>();
+  /** Open-Meteo : la cellule de lit retenue par point et sa série prévue (cache 6 h). */
+  private omForecasts: { at: number; cells: Map<string, [number, number]>; series: Map<string, DailySeries> } | null = null;
+  /** Seuils par point, dérivés de l'historique — sur disque, un mois. */
+  private readonly omThresholds: Record<string, { at: number; th: FloodThresholds | null }>;
+  private omWarmup: Promise<void> | null = null;
+  private omBackoffUntil = 0;
+  /** Espacement des requêtes d'historique (raccourci par les tests). */
+  warmupGapMs = OM_WARMUP_GAP_MS;
   private readonly polygons = new Map<string, { at: number; data: FloodPolygon }>();
   private enCours: Promise<FloodGauge[]> | null = null;
   private lastError: string | null = null;
@@ -228,50 +284,164 @@ export class FloodService {
     @Optional() @Inject(FLOOD_FETCHER) fetcher?: FloodFetcher,
   ) {
     this.fetcher = fetcher ?? ((path, init) => this.fetchGoogle(path, init));
+    this.omThresholds = loadDevState<OmThresholdsDisk>("floods", {}).thresholds ?? {};
   }
 
   private get key(): string {
     return this.config.get("floodApiKey", { infer: true }) ?? "";
   }
 
-  /** L'appel réel : clé en paramètre, délai borné, échec NOMMÉ (statut HTTP). */
+  /** Le fournisseur en service : Google dès qu'une clé est posée, Open-Meteo sinon. */
+  get provider(): FloodProvider {
+    return this.key ? "google-flood-hub" : "open-meteo-glofas";
+  }
+
+  /** L'appel réel : clé en paramètre pour Google, URL telle quelle pour Open-Meteo ; délai borné, échec NOMMÉ. */
   private async fetchGoogle(path: string, init?: { method?: "GET" | "POST"; body?: unknown }): Promise<unknown> {
+    const absolue = /^https?:\/\//.test(path);
     const sep = path.includes("?") ? "&" : "?";
-    const res = await fetch(`${BASE}/${path}${sep}key=${encodeURIComponent(this.key)}`, {
+    const url = absolue ? path : `${BASE}/${path}${sep}key=${encodeURIComponent(this.key)}`;
+    const res = await fetch(url, {
       method: init?.method ?? "GET",
       headers: { Accept: "application/json", ...(init?.body !== undefined ? { "Content-Type": "application/json" } : {}) },
       body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-    if (!res.ok) throw new Error(`Flood Hub ${res.status}`);
+    if (!res.ok) throw new Error(`${absolue ? "Open-Meteo" : "Flood Hub"} ${res.status}`);
     return res.json();
   }
 
   status(): FloodFeedStatus {
+    const provider = this.provider;
     return {
-      configured: this.key !== "",
-      source: "google-flood-hub",
+      configured: true,
+      provider,
+      source: provider,
       region: REGION,
       fetchedAt: this.gaugesCache ? new Date(this.gaugesCache.at).toISOString() : null,
       degraded: this.lastError !== null,
       error: this.lastError,
-      attribution: ATTRIBUTION,
+      attribution: ATTRIBUTION[provider],
     };
   }
 
   /**
    * Les jauges du Maroc et leur dernier statut, par gravité décroissante.
    * Cache 15 min ; dégradation sur le dernier cache connu, sinon liste vide.
-   * Sans clé : liste vide, et `status()` le dit.
+   * Un changement de fournisseur (clé posée ou retirée) invalide le cache.
    */
   async gauges(): Promise<FloodGauge[]> {
-    if (!this.key) return [];
-    if (this.gaugesCache && Date.now() - this.gaugesCache.at < TTL_MS) return this.gaugesCache.data;
+    const frais = this.gaugesCache && this.gaugesProvider === this.provider && Date.now() - this.gaugesCache.at < TTL_MS;
+    if (frais) return this.gaugesCache!.data;
     if (this.enCours) return this.enCours;
-    this.enCours = this.relire().finally(() => {
+    const lecture = this.provider === "google-flood-hub" ? this.relire() : this.relireOpenMeteo();
+    this.enCours = lecture.finally(() => {
       this.enCours = null;
     });
     return this.enCours;
+  }
+
+  /** Un « 429 » est un quota, pas une panne : on attend avant de redemander. */
+  private noterQuota(e: unknown): void {
+    if ((e as Error).message?.includes("429")) this.omBackoffUntil = Date.now() + OM_BACKOFF_MS;
+  }
+
+  /**
+   * Open-Meteo : UNE requête toutes les 6 h — les 3 × 3 cellules de chaque
+   * point sur deux semaines — qui choisit le lit de l'oued ET donne sa
+   * prévision. Les seuils viennent du disque ; ceux qui manquent se calculent
+   * en arrière-plan, point par point, sans bloquer la réponse.
+   */
+  private async relireOpenMeteo(): Promise<FloodGauge[]> {
+    if (Date.now() < this.omBackoffUntil) return this.gaugesCache?.data ?? [];
+    try {
+      if (!this.omForecasts || Date.now() - this.omForecasts.at > OM_FORECAST_TTL_MS) {
+        const toutes = parseOpenMeteoDaily(await this.fetcher(openMeteoForecastUrl(RIVER_POINTS)), RIVER_POINTS.length * 9);
+        const choix = snapToChannel(RIVER_POINTS, toutes);
+        const cells = new Map<string, [number, number]>();
+        const series = new Map<string, DailySeries>();
+        RIVER_POINTS.forEach((p, i) => {
+          cells.set(p.gaugeId, neighborhood(p.ll)[choix[i]]);
+          // Les sept jours passés servent au choix de la cellule, pas à la prévision servie.
+          const serie = toutes[i * 9 + choix[i]] ?? { time: [], values: [] };
+          const debut = Math.max(0, serie.time.length - 7);
+          series.set(p.gaugeId, { time: serie.time.slice(debut), values: serie.values.slice(debut) });
+        });
+        this.omForecasts = { at: Date.now(), cells, series };
+      }
+      this.warmupThresholds();
+      const issued = new Date(this.omForecasts.at).toISOString();
+      const data = RIVER_POINTS.map((p): FloodGauge => {
+        const serie = this.omForecasts!.series.get(p.gaugeId) ?? { time: [], values: [] };
+        const thresholds = this.omThresholds[p.gaugeId]?.th ?? null;
+        return {
+          gaugeId: p.gaugeId,
+          siteName: p.siteName,
+          river: p.river,
+          // Le marqueur reste au point nommé ; c'est la cellule de lit qui est lue.
+          ll: p.ll,
+          source: "GloFAS v4 (Open-Meteo)",
+          qualityVerified: false,
+          hasModel: serie.values.length > 0,
+          severity: severityFrom(peakOf(serie.values), thresholds),
+          trend: trendFrom(serie.values),
+          issuedTime: issued,
+          forecastStart: serie.time[0] ?? null,
+          forecastEnd: serie.time[serie.time.length - 1] ?? null,
+          thresholds,
+          peak: peakOf(serie.values),
+          inundationMaps: [],
+        };
+      }).sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || a.siteName.localeCompare(b.siteName, "fr"));
+      this.gaugesCache = { at: Date.now(), data };
+      this.gaugesProvider = "open-meteo-glofas";
+      this.lastError = null;
+      return data;
+    } catch (e) {
+      this.noterQuota(e);
+      this.lastError = (e as Error).message;
+      this.log.warn(`Open-Meteo Flood indisponible : ${this.lastError}`);
+      return this.gaugesCache?.data ?? [];
+    }
+  }
+
+  /**
+   * Les seuils qui manquent ou datent, point par point, espacés : quatre ans
+   * d'historique de la cellule de lit, les maxima annuels, le disque. Une
+   * seule passe à la fois ; un « 429 » l'interrompt et remet à plus tard.
+   * Rend la promesse pour que les tests l'attendent ; l'écran, lui, n'attend
+   * pas — les jauges concernées disent « inconnu » jusque-là.
+   */
+  warmupThresholds(): Promise<void> {
+    if (this.omWarmup) return this.omWarmup;
+    const cells = this.omForecasts?.cells;
+    if (!cells) return Promise.resolve();
+    const aFaire = RIVER_POINTS.filter((p) => {
+      const d = this.omThresholds[p.gaugeId];
+      return !d || Date.now() - d.at > OM_THRESHOLDS_TTL_MS;
+    });
+    if (aFaire.length === 0) return Promise.resolve();
+    this.omWarmup = (async () => {
+      for (const [i, p] of aFaire.entries()) {
+        if (Date.now() < this.omBackoffUntil) break;
+        try {
+          const ll = cells.get(p.gaugeId) ?? p.ll;
+          const hist = parseOpenMeteoDaily(await this.fetcher(openMeteoHistoryUrl(ll)), 1)[0];
+          this.omThresholds[p.gaugeId] = { at: Date.now(), th: thresholdsFromHistory(hist) };
+          saveDevState("floods", { thresholds: this.omThresholds });
+          // Les jauges déjà servies se relisent avec leurs seuils au prochain appel.
+          this.gaugesCache = null;
+        } catch (e) {
+          this.noterQuota(e);
+          this.log.warn(`seuils Open-Meteo indisponibles pour ${p.gaugeId} : ${(e as Error).message}`);
+          if (Date.now() < this.omBackoffUntil) break;
+        }
+        if (i < aFaire.length - 1 && this.warmupGapMs > 0) await new Promise((r) => setTimeout(r, this.warmupGapMs));
+      }
+    })().finally(() => {
+      this.omWarmup = null;
+    });
+    return this.omWarmup;
   }
 
   private async relire(): Promise<FloodGauge[]> {
@@ -299,6 +469,7 @@ export class FloodService {
         .filter((g): g is FloodGauge => g !== null)
         .sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || a.siteName.localeCompare(b.siteName, "fr"));
       this.gaugesCache = { at: Date.now(), data };
+      this.gaugesProvider = "google-flood-hub";
       this.lastError = null;
       return data;
     } catch (e) {
@@ -326,7 +497,19 @@ export class FloodService {
 
   /** La dernière prévision émise pour une jauge, avec ses seuils. */
   async forecast(gaugeId: string): Promise<FloodForecast> {
-    if (!this.key) throw new NotFoundException("Flux des crues indisponible : aucune clé configurée.");
+    if (this.provider === "open-meteo-glofas") {
+      if (!this.omForecasts || this.gaugesProvider !== "open-meteo-glofas") await this.gauges();
+      const serie = this.omForecasts?.series.get(gaugeId);
+      if (!serie || serie.values.length === 0) throw new NotFoundException(`Aucune prévision pour le point ${gaugeId}.`);
+      const thresholds = this.omThresholds[gaugeId]?.th ?? null;
+      return {
+        gaugeId,
+        issuedTime: new Date(this.omForecasts!.at).toISOString(),
+        unit: "m3/s",
+        thresholds,
+        points: serie.time.flatMap((t, i) => (serie.values[i] === null ? [] : [{ start: t, end: t, value: serie.values[i] as number }])),
+      };
+    }
     const res = (await this.fetcher(`gauges:queryGaugeForecasts?gaugeIds=${encodeURIComponent(gaugeId)}`)) as {
       forecasts?: Record<string, { forecasts?: RawForecast[] }>;
     };
@@ -354,9 +537,9 @@ export class FloodService {
     };
   }
 
-  /** Un polygone d'inondation de Flood Hub, converti en GeoJSON (cache 6 h : ces cartes changent peu). */
+  /** Un polygone d'inondation de Flood Hub, converti en GeoJSON (cache 6 h : ces cartes changent peu). Open-Meteo n'en a pas. */
   async polygon(polygonId: string): Promise<FloodPolygon> {
-    if (!this.key) throw new NotFoundException("Flux des crues indisponible : aucune clé configurée.");
+    if (this.provider !== "google-flood-hub") throw new NotFoundException("Aucune carte d'inondation sans Google Flood Hub.");
     const hit = this.polygons.get(polygonId);
     if (hit && Date.now() - hit.at < POLYGON_TTL_MS) return hit.data;
     const res = (await this.fetcher(`serializedPolygons/${encodeURIComponent(polygonId)}`)) as { polygonId?: string; kml?: string };

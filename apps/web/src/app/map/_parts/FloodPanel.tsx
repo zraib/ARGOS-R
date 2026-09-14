@@ -6,16 +6,19 @@ import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import { tpl } from "@/lib/i18n/format";
 import { FLOOD_SEVERITY_COLOR } from "@/components/map/layers/floods";
+import { FLOOD_DEEP_RGB, FLOOD_SHALLOW_RGB } from "@/lib/flood/bathtub";
 import type { FloodSource } from "@/lib/store/slices/flood";
 import type { FloodGauge, FloodSeverity, FloodTrend, FloodUnit } from "@/lib/types";
 
 // ============================================================================
 // Panneau « Crues » de la carte (ADR 0010) — deux blocs, volontairement
 // distincts à l'écran :
-//   1. les PRÉVISIONS de Google Flood Hub, servies par l'API : jauges du pays,
-//      gravité, tendance, seuils, prévision et cartes d'inondation ;
+//   1. les PRÉVISIONS servies par l'API — GloFAS (Copernicus) par Open-Meteo
+//      sans clé, Google Flood Hub dès qu'une clé est posée : jauges du pays,
+//      gravité, tendance, pic, seuils, prévision et cartes d'inondation ;
 //   2. le SIMULATEUR d'inondation, calculé ici même sur le relief : rivière,
-//      lac ou barrage, une hauteur d'eau, une emprise et ce qu'elle atteint.
+//      lac ou barrage, une hauteur d'eau, une emprise lue en animation sur la
+//      carte, et ce qu'elle atteint.
 // Une prévision est une information ; une simulation est une hypothèse. Les
 // mélanger ferait lire l'une pour l'autre.
 // ============================================================================
@@ -48,6 +51,10 @@ export function FloodPanel() {
   const sim = useArgos((s) => s.floodSim);
   const simBusy = useArgos((s) => s.floodSimBusy);
   const simError = useArgos((s) => s.floodSimError);
+  const progress = useArgos((s) => s.floodProgress);
+  const playing = useArgos((s) => s.floodPlaying);
+  const setFloodProgress = useArgos((s) => s.setFloodProgress);
+  const setFloodPlaying = useArgos((s) => s.setFloodPlaying);
   const loadFloodGauges = useArgos((s) => s.loadFloodGauges);
   const toggleFloodGauges = useArgos((s) => s.toggleFloodGauges);
   const selectFloodGauge = useArgos((s) => s.selectFloodGauge);
@@ -59,7 +66,7 @@ export function FloodPanel() {
   const clearFloodSim = useArgos((s) => s.clearFloodSim);
   const setMapCenter = useArgos((s) => s.setMapCenter);
 
-  // Le statut du flux se lit dès l'ouverture : il dit s'il y a une clé.
+  // Le statut du flux se lit dès l'ouverture : il dit quel fournisseur sert.
   useEffect(() => {
     if (!status) void loadFloodGauges();
   }, [status, loadFloodGauges]);
@@ -74,6 +81,9 @@ export function FloodPanel() {
   const trendLabel: Record<FloodTrend, string> = { rise: t.flood_trend_rise, fall: t.flood_trend_fall, no_change: t.flood_trend_flat, unknown: "" };
   const jauge = gauges.find((g) => g.gaugeId === sel) ?? null;
   const unite = (u: FloodUnit) => (u === "m3/s" ? "m³/s" : u === "m" ? "m" : "");
+  /** « 1 240 m³/s » — le pic prévu d'une jauge, dans l'unité de ses seuils (débit GloFAS quand ils manquent encore). */
+  const pic = (g: FloodGauge) => (g.peak === null ? "" : `${g.peak >= 100 ? Math.round(g.peak) : g.peak.toFixed(1)} ${unite(g.thresholds?.unit ?? "m3/s")}`);
+  const pct = Math.round(progress * 100);
   const ouvrir = (g: FloodGauge) => {
     void selectFloodGauge(g.gaugeId);
     setMapCenter(g.ll, 11, g.siteName);
@@ -84,7 +94,14 @@ export function FloodPanel() {
       {/* ------------------------------------------------ prévisions Flood Hub */}
       <section className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
-          <span className={lbl}>{t.flood_feed}</span>
+          <span className="min-w-0">
+            <span className={lbl}>{t.flood_feed}</span>
+            {status && (
+              <span className="block truncate text-[10.5px] text-white/45">
+                {status.provider === "google-flood-hub" ? t.flood_provider_google : t.flood_provider_om}
+              </span>
+            )}
+          </span>
           <button
             type="button"
             onClick={() => void loadFloodGauges()}
@@ -96,10 +113,12 @@ export function FloodPanel() {
             <Icon path={UI_ICONS.refresh} size={14} className={busy ? "animate-spin" : ""} />
           </button>
         </div>
-        {status && !status.configured && (
-          <p className="rounded-lg bg-or-500/15 px-2.5 py-1.5 text-[11.5px] leading-snug text-or-300">{t.flood_feed_off}</p>
+        {/* Le flux ne répond pas : sans rien à montrer, on le dit sans alarmer
+            (le serveur réessaie) ; avec un dernier relevé, on date ce qu'on montre. */}
+        {status?.degraded && gauges.length === 0 && (
+          <p className="rounded-lg bg-or-500/15 px-2.5 py-1.5 text-[11.5px] leading-snug text-or-300">{t.flood_feed_down}</p>
         )}
-        {status?.degraded && (
+        {status?.degraded && gauges.length > 0 && (
           <p className="rounded-lg bg-danger-500/15 px-2.5 py-1.5 text-[11.5px] leading-snug text-danger-300">
             {tpl(t.flood_feed_degraded, { at: quand(status.fetchedAt) })}
           </p>
@@ -110,7 +129,7 @@ export function FloodPanel() {
           <span className="ms-auto font-mono text-[11px] text-white/50">{gauges.length}</span>
         </label>
 
-        {status?.configured && gauges.length === 0 && !busy && <p className="text-[11.5px] text-white/50">{t.flood_no_gauges}</p>}
+        {status && !status.degraded && gauges.length === 0 && !busy && <p className="text-[11.5px] text-white/50">{t.flood_no_gauges}</p>}
         {busy && gauges.length === 0 && <p className="text-[11.5px] text-white/50">{t.flood_loading}</p>}
 
         {gauges.length > 0 && (
@@ -130,6 +149,7 @@ export function FloodPanel() {
                       {g.river ? `${g.river} · ` : ""}
                       {sevLabel[g.severity]}
                       {g.trend !== "unknown" ? ` · ${trendLabel[g.trend]}` : ""}
+                      {g.peak !== null ? ` · ${pic(g)}` : ""}
                     </span>
                   </span>
                 </button>
@@ -162,6 +182,12 @@ export function FloodPanel() {
             <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11.5px]">
               <dt className="text-white/55">{t.flood_issued}</dt>
               <dd className="text-end font-mono text-white">{quand(jauge.issuedTime)}</dd>
+              {jauge.peak !== null && (
+                <>
+                  <dt className="text-white/55">{t.flood_peak}</dt>
+                  <dd className="text-end font-mono font-semibold text-white">{pic(jauge)}</dd>
+                </>
+              )}
               {jauge.thresholds && (
                 <>
                   <dt className="text-white/55">{t.flood_warning}</dt>
@@ -322,6 +348,46 @@ export function FloodPanel() {
 
         {sim && (
           <div className="flex flex-col gap-2 rounded-lg border border-white/15 p-2.5">
+            {/* Lecture : l'eau gagne la vallée sur la carte ; le curseur suit,
+                et se saisit — le tirer met en pause à l'instant choisi. */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setFloodPlaying(!playing)}
+                aria-label={playing ? t.flood_pause : pct >= 100 ? t.flood_replay : t.flood_play}
+                title={playing ? t.flood_pause : pct >= 100 ? t.flood_replay : t.flood_play}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-or-500 text-rdia-900 transition-colors hover:bg-or-400 lg:h-9 lg:w-9"
+              >
+                <Icon path={playing ? UI_ICONS.pause : pct >= 100 ? UI_ICONS.refresh : UI_ICONS.play} size={16} strokeWidth={2.2} />
+              </button>
+              <label className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="flex justify-between">
+                  <span className={lbl}>{t.flood_progress}</span>
+                  <span className="font-mono text-[11px] text-white">{pct} %</span>
+                </span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={pct}
+                  onChange={(e) => {
+                    setFloodPlaying(false);
+                    setFloodProgress(Number(e.target.value) / 100);
+                  }}
+                  className="w-full accent-or-500"
+                />
+              </label>
+            </div>
+            <div className="flex items-center gap-2 text-[10.5px] text-white/60">
+              <span className="shrink-0">{t.flood_legend} · {t.flood_shallow}</span>
+              <span
+                className="h-2 min-w-0 flex-1 rounded-full"
+                style={{ background: `linear-gradient(to right, rgb(${FLOOD_SHALLOW_RGB.join(",")}), rgb(${FLOOD_DEEP_RGB.join(",")}))` }}
+                aria-hidden="true"
+              />
+              <span className="shrink-0">{t.flood_deep} · {sim.maxDepth.toFixed(1)} m</span>
+            </div>
             <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11.5px]">
               <dt className="text-white/55">{t.flood_area}</dt>
               <dd className="text-end font-mono font-semibold text-white">{sim.areaKm2.toFixed(1)} km²</dd>

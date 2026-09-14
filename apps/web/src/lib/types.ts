@@ -724,6 +724,8 @@ export interface FloodGauge {
   forecastStart: string | null;
   forecastEnd: string | null;
   thresholds: FloodThresholds | null;
+  /** Le pic prévu sur la fenêtre, dans l'unité des seuils — lisible même quand les seuils manquent encore. */
+  peak: number | null;
   inundationMaps: FloodInundationMap[];
 }
 
@@ -741,8 +743,12 @@ export interface FloodForecast {
   points: FloodForecastPoint[];
 }
 
+export type FloodProvider = "open-meteo-glofas" | "google-flood-hub";
+
 export interface FloodFeedStatus {
   configured: boolean;
+  /** GloFAS par Open-Meteo sans clé ; Google Flood Hub dès qu'une clé est posée sur le serveur. */
+  provider: FloodProvider;
   source: string;
   region: string;
   fetchedAt: string | null;

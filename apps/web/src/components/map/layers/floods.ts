@@ -1,18 +1,36 @@
 // ============================================================================
 // components/map/layers/floods.ts — les crues sur la carte (ADR 0010)
 //
-// Quatre choses, quatre sources : les jauges Flood Hub (un point coloré par
+// Quatre choses, quatre sources : les jauges de crue (un point coloré par
 // gravité, plus gros quand sa fiche est ouverte), les cartes d'inondation de
 // la jauge choisie (polygones de Flood Hub), le point de départ du simulateur,
-// et l'emprise simulée — une image posée entre ses quatre coins, sous les
-// points pour que rien ne la cache. Idempotent : `setupStyle` rejoue tout
-// après un changement de fond.
+// et l'emprise simulée — un CANEVAS posé entre ses quatre coins, sous les
+// points pour que rien ne la cache, repeint à chaque pas de la lecture : l'eau
+// gagne les cellules dans l'ordre où la propagation les a atteintes.
+// Idempotent : `setupStyle` rejoue tout après un changement de fond.
 // ============================================================================
 
 import maplibregl from "maplibre-gl";
 import { useArgos } from "@/lib/store";
 import type { FloodGauge, FloodInundationMap, FloodPolygon } from "@/lib/types";
 import type { FloodSimResult } from "@/lib/store/slices/flood";
+import { floodImageAt } from "@/lib/flood/bathtub";
+
+/** Durée de la lecture complète (s) — le temps de voir l'eau gagner la vallée, pas de s'ennuyer. */
+const FLOOD_PLAY_SECONDS = 6;
+/** Cadence de repeinte du canevas et de l'avancement affiché ; le navigateur, lui, tourne à sa fréquence. */
+const FLOOD_PAINT_HZ = 20;
+
+/**
+ * Ce que la lecture garde entre deux images : le canevas hors écran, le tampon
+ * RVBA réutilisé, la dernière simulation peinte, la boucle en cours.
+ */
+export class FloodRuntime {
+  canvas: HTMLCanvasElement | null = null;
+  buffer: Uint8ClampedArray | null = null;
+  painted: { sim: FloodSimResult; progress: number } | null = null;
+  raf = 0;
+}
 
 /** Une couleur par gravité — la même dans le panneau ; le libellé la double toujours. */
 export const FLOOD_SEVERITY_COLOR: Record<FloodGauge["severity"], string> = {
@@ -111,22 +129,100 @@ export function applyFloodSeed(map: maplibregl.Map | null, seed: [number, number
   src.setData(seed ? { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Point", coordinates: seed }, properties: {} }] } : VIDE);
 }
 
-/** L'emprise simulée : une image entre ses coins, retirée quand il n'y a plus de simulation. */
-export function applyFloodSim(map: maplibregl.Map | null, sim: FloodSimResult | null): void {
+/** Le front d'eau (m parcourus) à cet avancement — l'avancement est linéaire en distance, pas en cellules. */
+function frontAt(sim: FloodSimResult, progress: number): number {
+  return progress >= 1 ? Infinity : sim.fill.maxDist * progress;
+}
+
+/** Peint dans le canevas l'emprise jusqu'à l'avancement donné (rien à refaire si c'est déjà l'image affichée). */
+export function paintFlood(rt: FloodRuntime, sim: FloodSimResult, progress: number): void {
+  const { grid } = sim;
+  if (!rt.canvas || rt.canvas.width !== grid.width || rt.canvas.height !== grid.height) {
+    rt.canvas = document.createElement("canvas");
+    rt.canvas.width = grid.width;
+    rt.canvas.height = grid.height;
+    rt.buffer = null;
+    rt.painted = null;
+  }
+  if (rt.painted && rt.painted.sim === sim && rt.painted.progress === progress) return;
+  const ctx = rt.canvas.getContext("2d");
+  if (!ctx) return;
+  rt.buffer = floodImageAt(grid, sim.fill, frontAt(sim, progress), rt.buffer ?? undefined);
+  const img = ctx.createImageData(grid.width, grid.height);
+  img.data.set(rt.buffer);
+  ctx.putImageData(img, 0, 0);
+  rt.painted = { sim, progress };
+}
+
+/**
+ * L'emprise simulée : un canevas entre ses coins, retiré quand il n'y a plus
+ * de simulation. La source est déclarée `animate` : MapLibre relit le canevas
+ * à chaque image tant qu'il joue ; en pause, `pause()` fige l'image et arrête
+ * de relire.
+ */
+export function applyFloodSim(rt: FloodRuntime, map: maplibregl.Map | null, sim: FloodSimResult | null, progress: number, playing: boolean): void {
   if (!map || !map.getSource("flood-maps")) return;
-  const existante = map.getSource("flood-sim") as maplibregl.ImageSource | undefined;
-  if (!sim || !sim.image) {
+  const existante = map.getSource("flood-sim") as maplibregl.CanvasSource | undefined;
+  if (!sim) {
     if (map.getLayer("flood-sim-raster")) map.removeLayer("flood-sim-raster");
     if (existante) map.removeSource("flood-sim");
+    rt.painted = null;
     return;
   }
+  paintFlood(rt, sim, progress);
+  if (!rt.canvas) return;
   if (existante) {
-    existante.updateImage({ url: sim.image, coordinates: sim.corners });
+    existante.setCoordinates(sim.corners);
+    if (playing) existante.play();
+    else {
+      existante.pause();
+      // Un dernier rendu pour que l'image en pause soit celle de l'avancement demandé.
+      map.triggerRepaint();
+    }
     return;
   }
-  map.addSource("flood-sim", { type: "image", url: sim.image, coordinates: sim.corners });
+  map.addSource("flood-sim", { type: "canvas", canvas: rt.canvas, coordinates: sim.corners, animate: true });
   map.addLayer(
     { id: "flood-sim-raster", type: "raster", source: "flood-sim", paint: { "raster-opacity": 0.8, "raster-resampling": "nearest" } },
     "flood-maps-fill",
   );
+  if (!playing) (map.getSource("flood-sim") as maplibregl.CanvasSource).pause();
+}
+
+/**
+ * La lecture : de l'avancement courant à 1 en `FLOOD_PLAY_SECONDS` (au prorata
+ * du chemin restant), en repeignant le canevas et en publiant l'avancement au
+ * magasin vingt fois par seconde — le curseur du panneau le suit. S'arrête
+ * seule à la fin et se déclare arrêtée. Sous « réduire les animations », pas
+ * de lecture : l'emprise entière, tout de suite. Rend la fonction d'arrêt.
+ */
+export function playFlood(rt: FloodRuntime, map: maplibregl.Map | null, sim: FloodSimResult | null, playing: boolean): (() => void) | undefined {
+  cancelAnimationFrame(rt.raf);
+  if (!playing || !sim || !map) return;
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  const depart = useArgos.getState().floodProgress;
+  if (reduced || sim.fill.maxDist <= 0) {
+    useArgos.setState({ floodProgress: 1, floodPlaying: false });
+    return;
+  }
+  const duree = FLOOD_PLAY_SECONDS * 1000 * (1 - depart);
+  let t0 = 0;
+  let dernierPas = -1;
+  const tick = (t: number) => {
+    if (t0 === 0) t0 = t;
+    const avancement = duree > 0 ? Math.min(1, depart + ((t - t0) / duree) * (1 - depart)) : 1;
+    const pas = Math.floor(avancement * FLOOD_PAINT_HZ * FLOOD_PLAY_SECONDS);
+    if (pas !== dernierPas || avancement >= 1) {
+      dernierPas = pas;
+      paintFlood(rt, sim, avancement);
+      useArgos.setState({ floodProgress: avancement });
+    }
+    if (avancement >= 1) {
+      useArgos.getState().setFloodPlaying(false);
+      return;
+    }
+    rt.raf = requestAnimationFrame(tick);
+  };
+  rt.raf = requestAnimationFrame(tick);
+  return () => cancelAnimationFrame(rt.raf);
 }

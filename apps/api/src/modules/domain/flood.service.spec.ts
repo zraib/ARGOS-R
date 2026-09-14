@@ -42,10 +42,12 @@ describe("courtier des crues (Flood Hub)", () => {
     expect(normalizeGauge({ gaugeId: "g2", severity: "EXTREME" }, undefined, undefined)).toBeNull();
   });
 
-  it("sans clé : aucune jauge, et le statut le dit", async () => {
-    const svc = new FloodService(config(""), async () => { throw new Error("ne doit pas appeler"); });
+  it("sans clé, Open-Meteo sert ; si lui aussi manque, aucune jauge et le statut le dit", async () => {
+    const svc = new FloodService(config(""), async () => { throw new Error("Open-Meteo 503"); });
+    expect(svc.status()).toMatchObject({ configured: true, provider: "open-meteo-glofas" });
     expect(await svc.gauges()).toEqual([]);
-    expect(svc.status()).toMatchObject({ configured: false, degraded: false });
+    expect(svc.status()).toMatchObject({ degraded: true, error: "Open-Meteo 503" });
+    await expect(svc.polygon("p")).rejects.toThrow(/Google Flood Hub/);
   });
 
   it("relit statuts, fiches et modèles, trie par gravité, met en cache", async () => {
@@ -64,7 +66,7 @@ describe("courtier des crues (Flood Hub)", () => {
     expect(jauges[1].thresholds).toBeNull();
     await svc.gauges();
     expect(appels.filter((a) => a === "floodStatus:searchLatestFloodStatusByArea")).toHaveLength(1);
-    expect(svc.status()).toMatchObject({ configured: true, degraded: false, error: null });
+    expect(svc.status()).toMatchObject({ configured: true, provider: "google-flood-hub", degraded: false, error: null });
   });
 
   it("une panne rend le dernier cache connu — et le dit", async () => {
