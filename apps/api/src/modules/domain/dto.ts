@@ -304,6 +304,18 @@ export class SendMessageDto {
   attachment?: MessageAttachmentDto;
 }
 
+/** Accusé de réception ou de lecture, jusqu'à un identifiant de message. */
+export class ReceiptDto {
+  @ApiProperty({ enum: ["delivered", "read"], description: "« remis » ou « lu » — lire implique avoir reçu." })
+  @IsIn(["delivered", "read"])
+  state!: "delivered" | "read";
+
+  @ApiProperty({ minimum: 0, description: "Identifiant du dernier message concerné ; les précédents le sont aussi." })
+  @IsInt()
+  @Min(0)
+  upToId!: number;
+}
+
 /** Création d'un groupe de canaux. */
 export class CreateCategoryDto {
   @ApiProperty({ example: "COORDINATION CIVILE" })

@@ -614,6 +614,7 @@ export interface Dict {
   ch_title: string; ch_open: string; ch_close: string; ch_close_all: string; ch_new: string; ch_none: string;
   ch_online: string; ch_offline: string; ch_write: string; ch_start: string; ch_search: string;
   ch_online_now: string; ch_directory: string; ch_nobody: string; ch_more: string; ch_open_center: string;
+  ch_typing: string; ch_sent: string; ch_delivered: string; ch_read: string; cm_deployed_on: string;
   // Profil : notifications sonores
   pr_sounds: string; pr_sounds_hint: string; pr_sound_messages: string; pr_sound_messages_hint: string;
   pr_sound_alerts: string; pr_sound_alerts_hint: string; pr_sound_test: string; pr_sound_on: string; pr_sound_off: string;

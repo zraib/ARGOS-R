@@ -71,17 +71,11 @@ export default function MapPage() {
   /** Onglet ouvert dans la feuille du bas (sous `lg`) ; `null` = feuille fermée. */
   const [sheet, setSheet] = useState<SheetTab | null>(null);
   const chatWindows = useArgos((s) => s.chatOpen.length);
-  const setChatEndReserve = useArgos((s) => s.setChatEndReserve);
 
-  // Les bulles de conversation ne recouvrent pas la colonne de droite de la
-  // carte (commandes, panneau de sélection, rose des vents : 300 px + marges) :
-  // tant que la carte est affichée, elles partent après elle. Sous lg cette
-  // colonne vit dans la feuille du bas, qui se replie quand une bulle s'ouvre
-  // — c'est depuis elle qu'on vient de presser « Contacter ».
-  useEffect(() => {
-    setChatEndReserve(324);
-    return () => setChatEndReserve(0);
-  }, [setChatEndReserve]);
+  // Sous lg, la sélection vit dans la feuille du bas, qui se replie quand une
+  // bulle de conversation s'ouvre — c'est depuis elle qu'on vient de presser
+  // « Contacter ». Au bureau, c'est le panneau de sélection qui se borne
+  // (voir plus bas) : la bulle s'ouvre au niveau des têtes, il s'écarte.
   useEffect(() => {
     if (chatWindows > 0) setSheet(null);
   }, [chatWindows]);
@@ -738,9 +732,13 @@ export default function MapPage() {
 
           {selInfo && (
             <div className="hidden lg:block">
+              {/* Une bulle ouverte monte jusqu'à 532 px du bas : le panneau se
+                  borne à ce qui reste au-dessus, et défile — plutôt que de
+                  passer sous la conversation qu'on vient d'ouvrir. */}
               <Panel
                 title={selInfo.titre}
                 width={240}
+                bodyClassName={chatWindows > 0 ? "max-h-[calc(100dvh-620px)] overflow-y-auto overscroll-contain" : undefined}
                 right={
                   <button className="me-2 rounded-lg p-1 text-white/60 transition-colors hover:text-or-400" onClick={clearSelection} aria-label={t.cancel}>
                     <Icon path={UI_ICONS.close} size={13} strokeWidth={2} />

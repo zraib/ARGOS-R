@@ -5,18 +5,25 @@ import { useRouter } from "next/navigation";
 import { useArgos, useDict } from "@/lib/store";
 import { Avatar } from "@/components/ui/Avatar";
 import { Icon } from "@/components/ui/Icon";
+import { Attachment } from "@/components/comms/Attachment";
+import { Receipt } from "@/components/comms/Receipt";
+import { TypingIndicator } from "@/components/comms/TypingIndicator";
+import { DeployedShortcut } from "@/components/comms/DeployedShortcut";
 import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
 import { tpl } from "@/lib/i18n/format";
 import { CHAT_WINDOW_WIDTH, correspondentOf, isOnline } from "@/lib/chat";
+import { ATTACHMENT_ACCEPT, uploadAttachment } from "@/lib/comms/attachments";
+import { receiptState } from "@/lib/comms/receipts";
 import type { Channel, CommMessage } from "@/lib/types";
 
 const AUCUN: CommMessage[] = [];
 
 /**
- * Une fenêtre de conversation directe, posée au-dessus de la rangée des têtes.
- * Elle porte le nom du correspondant et son état de connexion, le fil en
- * bulles, une saisie. Ce n'est qu'une autre vue du canal : le centre de
- * communication montre la même chose, avec les pièces jointes en plus.
+ * Une fenêtre de conversation directe, posée juste au-dessus de la rangée des
+ * têtes. Elle porte le nom du correspondant et son état de connexion, le fil
+ * en bulles — avec les pièces jointes en place, et les deux coches de mes
+ * messages —, « il écrit… », une saisie qui envoie texte et fichiers. Ce n'est
+ * qu'une autre vue du canal : le centre de communication montre la même chose.
  */
 export function ChatWindow({
   channel, leaving, offset, bottom, mobile,
@@ -33,24 +40,30 @@ export function ChatWindow({
   const router = useRouter();
   const messages = useArgos((s) => s.comMsgs[channel.id]) ?? AUCUN;
   const rtOnline = useArgos((s) => s.rtOnline);
+  const frappe = useArgos((s) => s.rtTyping[channel.id]);
   const sessionUser = useArgos((s) => s.sessionUser);
   const sendMessage = useArgos((s) => s.sendMessage);
+  const rtSendTyping = useArgos((s) => s.rtSendTyping);
   const closeChat = useArgos((s) => s.closeChat);
   const selectChannel = useArgos((s) => s.selectChannel);
   const closeAll = useArgos((s) => s.closeAllChats);
   const [txt, setTxt] = useState("");
+  const [envoiPJ, setEnvoiPJ] = useState(false);
+  const [erreurPJ, setErreurPJ] = useState<string | null>(null);
   const fil = useRef<HTMLDivElement>(null);
   const saisie = useRef<HTMLInputElement>(null);
+  const fichier = useRef<HTMLInputElement>(null);
 
   const autre = correspondentOf(channel, sessionUser?.matricule);
   const online = isOnline(autre, rtOnline);
 
-  // Le fil suit le dernier message ; le curseur va dans la saisie à l'ouverture
-  // — sauf sur téléphone, où le clavier surgirait sur la moitié de l'écran.
+  // Le fil suit le dernier message (et « il écrit… ») ; le curseur va dans la
+  // saisie à l'ouverture — sauf sur téléphone, où le clavier surgirait sur la
+  // moitié de l'écran.
   useEffect(() => {
     const el = fil.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages.length]);
+  }, [messages.length, frappe]);
   useEffect(() => {
     if (!mobile && !leaving) saisie.current?.focus();
   }, [mobile, leaving]);
@@ -62,6 +75,23 @@ export function ChatWindow({
   };
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") envoyer();
+  };
+  /** Le fichier part dès qu'il est choisi, le texte tapé pour légende (voir `lib/comms/attachments`). */
+  const joindre = async (f: File) => {
+    setErreurPJ(null);
+    setEnvoiPJ(true);
+    try {
+      const res = await uploadAttachment(f);
+      if (!res.ok) {
+        setErreurPJ(res.reason === "too_big" ? t.cm_attach_too_big : res.reason === "refused" ? t.cm_attach_refused : t.cm_attach_failed);
+        return;
+      }
+      sendMessage(txt, channel.id, res.attachment);
+      setTxt("");
+    } finally {
+      setEnvoiPJ(false);
+      if (fichier.current) fichier.current.value = "";
+    }
   };
   const ouvrirCentre = () => {
     selectChannel(channel.id);
@@ -86,7 +116,8 @@ export function ChatWindow({
         height: mobile ? "min(520px, 70dvh)" : "min(440px, calc(100dvh - 140px))",
       }}
     >
-      {/* En-tête : le correspondant, son état — ÉCRIT, pas seulement coloré. */}
+      {/* En-tête : le correspondant, son état — ÉCRIT, pas seulement coloré —,
+          et son poste sur la carte s'il est déployé. */}
       <div className="flex shrink-0 items-center gap-2.5 bg-rdia-700 px-3 py-2 text-white dark:bg-rdia-900">
         <div className="relative shrink-0">
           <Avatar nom={channel.name} size={32} />
@@ -97,7 +128,10 @@ export function ChatWindow({
           />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-bold">{channel.name}</div>
+          <div className="flex items-center gap-1">
+            {autre && <DeployedShortcut matricule={autre} tone="dark" />}
+            <span className="min-w-0 truncate text-[13px] font-bold">{channel.name}</span>
+          </div>
           <div className={`truncate text-[10.5px] font-semibold ${online ? "text-green-400" : "text-white/50"}`}>
             {online ? t.ch_online : t.ch_offline}
           </div>
@@ -116,9 +150,9 @@ export function ChatWindow({
         </button>
       </div>
 
-      {/* Fil en bulles : les miens à la fin de ligne, en or ; les siens au début. */}
+      {/* Fil en bulles : les miens à la fin de ligne, en or, avec leurs coches ; les siens au début. */}
       <div ref={fil} className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain bg-gray-50/60 p-3 dark:bg-rdia-900/40">
-        {messages.length === 0 && (
+        {messages.length === 0 && !frappe && (
           <p className="m-auto px-4 text-center text-[12px] leading-snug text-gray-400 dark:text-rdia-400">
             {tpl(t.ch_start, { nom: channel.name })}
           </p>
@@ -126,44 +160,65 @@ export function ChatWindow({
         {messages.map((m) => (
           <div key={m.id} className={`flex max-w-[85%] flex-col ${m.mine ? "items-end self-end" : "items-start self-start"}`}>
             <div
-              className={`break-words rounded-2xl px-3 py-1.5 text-[13px] leading-snug ${
+              className={`min-w-0 max-w-full break-words rounded-2xl px-3 py-1.5 text-[13px] leading-snug ${
                 m.mine
                   ? "rounded-ee-md bg-or-500 text-rdia-900"
                   : "rounded-es-md bg-white text-gray-800 shadow-sm dark:bg-rdia-700 dark:text-rdia-50"
               }`}
             >
               {m.txt && <span>{m.txt}</span>}
-              {m.attachment && (
-                <button
-                  type="button"
-                  onClick={ouvrirCentre}
-                  className={`flex items-center gap-1.5 text-[12px] font-semibold underline-offset-2 hover:underline ${m.txt ? "mt-1" : ""}`}
-                >
-                  <Icon path={UI_ICONS.paperclip} size={13} className="shrink-0" />
-                  <span className="truncate">{m.attachment.name}</span>
-                </button>
-              )}
+              {m.attachment && <Attachment att={m.attachment} compact />}
             </div>
-            <span className="mt-0.5 px-1 font-mono text-[9.5px] text-gray-400 dark:text-rdia-400">{m.time}</span>
+            <span className="mt-0.5 flex items-center gap-1 px-1 font-mono text-[9.5px] text-gray-400 dark:text-rdia-400">
+              {m.time}
+              {m.mine && m.id > 0 && <Receipt state={receiptState(m, autre)} tone="list" />}
+            </span>
           </div>
         ))}
+        {frappe && <TypingIndicator nom={frappe.nom} />}
       </div>
 
-      {/* Saisie : 16 px sous md (iOS zoome en dessous), bouton de 44 px au doigt. */}
-      <div className="flex shrink-0 items-center gap-1.5 border-t border-gray-200 p-2 dark:border-rdia-600">
+      {/* Saisie : 16 px sous md (iOS zoome en dessous), boutons de 44 px au doigt.
+          Le fichier part dès qu'il est choisi : demander un second geste ferait
+          perdre la pièce à qui presse Entrée par réflexe. */}
+      <div className="flex shrink-0 items-center gap-1 border-t border-gray-200 p-2 dark:border-rdia-600">
+        <input
+          ref={fichier}
+          type="file"
+          className="sr-only"
+          accept={ATTACHMENT_ACCEPT}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void joindre(f);
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => fichier.current?.click()}
+          disabled={envoiPJ}
+          title={t.cm_attach}
+          aria-label={t.cm_attach}
+          className="cible-tactile flex shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 disabled:opacity-40 lg:min-h-0 lg:min-w-0 lg:p-2 dark:hover:bg-rdia-600"
+        >
+          <Icon path={UI_ICONS.paperclip} size={16} />
+        </button>
         <input
           ref={saisie}
           className="input-champ min-w-0 flex-1 text-base md:text-sm"
           placeholder={tpl(t.ch_write, { nom: channel.name })}
           value={txt}
-          onChange={(e) => setTxt(e.target.value)}
+          onChange={(e) => {
+            setTxt(e.target.value);
+            // Le correspondant voit qu'on écrit — au plus un signal toutes les deux secondes.
+            if (e.target.value) rtSendTyping(channel.id);
+          }}
           onKeyDown={onKey}
           aria-label={tpl(t.ch_write, { nom: channel.name })}
         />
         <button
           type="button"
           onClick={envoyer}
-          disabled={!txt.trim()}
+          disabled={!txt.trim() || envoiPJ}
           aria-label={t.send}
           title={t.send}
           className="btn-primaire cible-tactile shrink-0 px-3 text-sm disabled:opacity-40 lg:min-h-0"
@@ -171,6 +226,14 @@ export function ChatWindow({
           <Icon path={UI_ICONS.send} size={16} strokeWidth={2} />
         </button>
       </div>
+      {(envoiPJ || erreurPJ) && (
+        <p
+          role={erreurPJ ? "alert" : undefined}
+          className={`px-3 pb-2 text-[11px] font-semibold ${erreurPJ ? "text-danger-400" : "text-gray-500 dark:text-rdia-300"}`}
+        >
+          {erreurPJ ?? t.cm_attach_sending}
+        </p>
+      )}
     </section>
   );
 }

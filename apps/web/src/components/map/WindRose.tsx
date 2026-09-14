@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useArgos, useDict } from "@/lib/store";
+import { CHAT_MOBILE_MAX, maxOpenWindows, windowOffset } from "@/lib/chat";
+import { useViewportWidth } from "@/components/shell/chat/useViewportWidth";
 
 import { OVERLAY_STYLE } from "@/lib/map/overlay";
 import { LOW_WIND_KMH, cardinal } from "@/lib/map/wind";
@@ -26,6 +28,8 @@ export function WindRose() {
   const plume3d = useArgos((s) => s.plume3d);
   const map3d = useArgos((s) => s.map3d);
   const plumeHour = useArgos((s) => s.plumeHour);
+  const chatWindows = useArgos((s) => s.chatOpen.length);
+  const largeur = useViewportWidth();
 
   // L'aiguille tourne par le PLUS COURT chemin. Sans accumulation d'angle, un
   // passage de 350° à 10° ferait faire un tour complet à l'envers — un vent qui
@@ -47,6 +51,11 @@ export function WindRose() {
   if (!plumeData?.wind || !(map3d || plume3d || plumePlaying)) return null;
 
   const { speedKmh, fromDeg, isDay, time } = plumeData.wind;
+  // Des bulles de conversation ouvertes montent depuis le même coin : la rose
+  // passe à côté de la dernière (sur téléphone la bulle prend la largeur, la
+  // rose reste où elle est).
+  const ouvertes = Math.min(chatWindows, maxOpenWindows(largeur));
+  const bordFin = largeur >= CHAT_MOBILE_MAX && ouvertes > 0 ? windowOffset(ouvertes, largeur) : 12;
   const faible = speedKmh < LOW_WIND_KMH;
   const rose = cardinal(fromDeg, lang);
 
@@ -59,7 +68,7 @@ export function WindRose() {
       // plutôt qu'à côté — le décalage vertical vaut dans les deux sens
       // d'écriture, un décalage latéral non.
       className="pointer-events-none absolute bottom-[88px] z-30 flex items-center gap-3 rounded-xl px-3 py-2.5 shadow-lg animate-fade-in"
-      style={{ ...OVERLAY_STYLE, insetInlineEnd: 12 }}
+      style={{ ...OVERLAY_STYLE, insetInlineEnd: bordFin }}
       // Un seul libellé pour tout le bloc : lu d'un trait, la phrase a un sens.
       // Sans `aria-live` — la valeur change à chaque échéance et une annonce
       // continue couvrirait tout le reste.

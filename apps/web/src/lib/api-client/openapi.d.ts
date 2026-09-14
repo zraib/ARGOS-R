@@ -683,6 +683,40 @@ export interface paths {
         patch: operations["CommsController_updateChannel"];
         trace?: never;
     };
+    "/api/comms/channels/{id}/receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accuser réception ou lecture des messages d'une conversation directe, jusqu'à `upToId`. */
+        post: operations["CommsController_receipt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/comms/channels/{id}/typing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Signaler qu'on écrit dans une conversation directe (transitoire, non journalisé). */
+        post: operations["CommsController_typing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/comms/channels/{id}/members": {
         parameters: {
             query?: never;
@@ -2293,6 +2327,15 @@ export interface components {
             /** @example Coordination secteur nord */
             topic?: string;
         };
+        ReceiptDto: {
+            /**
+             * @description « remis » ou « lu » — lire implique avoir reçu.
+             * @enum {string}
+             */
+            state: "delivered" | "read";
+            /** @description Identifiant du dernier message concerné ; les précédents le sont aussi. */
+            upToId: number;
+        };
         ChannelMembersDto: {
             /**
              * @example [
@@ -3805,6 +3848,48 @@ export interface operations {
         responses: {
             /** @description Canal inconnu. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommsController_receipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiptDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommsController_typing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

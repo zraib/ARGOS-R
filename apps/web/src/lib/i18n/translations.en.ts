@@ -295,6 +295,7 @@ export const EN_DICT: Dict = {
     ch_online: "Online", ch_offline: "Offline", ch_write: "Message {nom}…", ch_start: "Start of your conversation with {nom}.",
     ch_search: "Search a contact…", ch_online_now: "Online now", ch_directory: "Directory", ch_nobody: "Nobody matches.",
     ch_more: "{n} more conversation(s)", ch_open_center: "Open in the communication centre",
+    ch_typing: "{nom} is typing…", ch_sent: "Sent", ch_delivered: "Delivered", ch_read: "Read", cm_deployed_on: "Deployed on {id} — see their position on the map",
     pr_sounds: "Sound notifications", pr_sounds_hint: "Two distinct signatures, so you know what arrives without looking at the screen. Setting local to this workstation.",
     pr_sound_messages: "New message", pr_sound_messages_hint: "A short pop for every message received in a channel or a conversation.",
     pr_sound_alerts: "Other notifications", pr_sound_alerts_hint: "Addressed alerts (incident declared in your region, reset request) and seismic alerts.",

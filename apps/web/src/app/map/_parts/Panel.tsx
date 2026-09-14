@@ -10,8 +10,8 @@ import {
 
 /** Panneau flottant repliable posé sur la carte. */
 export function Panel({
-  title, children, defaultOpen = true, width, right,
-}: { title: ReactNode; children: ReactNode; defaultOpen?: boolean; width?: number; right?: ReactNode }) {
+  title, children, defaultOpen = true, width, right, bodyClassName,
+}: { title: ReactNode; children: ReactNode; defaultOpen?: boolean; width?: number; right?: ReactNode; bodyClassName?: string }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="pointer-events-auto overflow-hidden rounded-xl shadow-lg" style={{ ...GLASS, width }}>
@@ -25,7 +25,7 @@ export function Panel({
         </button>
         {right}
       </div>
-      {open && <div className="px-3 pb-3">{children}</div>}
+      {open && <div className={`px-3 pb-3 ${bodyClassName ?? ""}`}>{children}</div>}
     </div>
   );
 }

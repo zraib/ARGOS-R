@@ -270,6 +270,11 @@ export function createArgosClient(opts: ArgosClientOptions) {
     /** Envoie un message, avec ou sans pièce jointe déjà versée. */
     sendMessage: (channelId: string, txt: string, attachment?: CommsAttachment) =>
       client.POST("/api/comms/messages", { body: { channelId, txt, ...(attachment ? { attachment } : {}) } }),
+    /** Accusé « remis » / « lu » d'une conversation directe, jusqu'à ce message. */
+    sendReceipt: (channelId: string, state: "delivered" | "read", upToId: number) =>
+      client.POST("/api/comms/channels/{id}/receipts", { params: { path: { id: channelId } }, body: { state, upToId } }),
+    /** « En train d'écrire » — un signal transitoire, jamais gardé. */
+    sendTyping: (channelId: string) => client.POST("/api/comms/channels/{id}/typing", { params: { path: { id: channelId } } }),
     createCommCategory: (name: string) => client.POST("/api/comms/categories", { body: { name } }),
     createCommChannel: (categoryId: string, name: string, matricules?: string[]) =>
       client.POST("/api/comms/channels", { body: { categoryId, name, ...(matricules?.length ? { matricules } : {}) } }),

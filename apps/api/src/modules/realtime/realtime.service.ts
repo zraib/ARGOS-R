@@ -31,7 +31,11 @@ export type RealtimeEvent =
   /** Une alerte adressée à des comptes précis — jamais diffusée à tous. */
   | { kind: "notice"; notice: Notice }
   /** Les postes d'une opération ont changé : chaque poste relit ceux qu'il a le droit de voir. */
-  | { kind: "posts"; incidentId: string };
+  | { kind: "posts"; incidentId: string }
+  /** Accusé d'une conversation directe : le correspondant a reçu (« remis ») ou lu les messages jusqu'à `upToId`. */
+  | { kind: "receipt"; channelId: string; by: string; state: "delivered" | "read"; upToId: number }
+  /** Le correspondant écrit — transitoire, jamais gardé. */
+  | { kind: "typing"; channelId: string; matricule: string; nom: string };
 
 /** Ce que toute alerte adressée porte : de quoi la ranger et l'horodater. */
 interface NoticeBase {

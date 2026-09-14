@@ -19,12 +19,6 @@ export interface ChatSlice {
   chatDockOpen: boolean;
   /** Fenêtres ouvertes (identifiants de canaux directs), la plus récente en tête. */
   chatOpen: string[];
-  /**
-   * Réserve au bord de fin (px), posée par l'écran affiché : la carte y garde
-   * sa colonne de droite. Zéro partout ailleurs. Ne vaut qu'au bureau.
-   */
-  chatEndReserve: number;
-  setChatEndReserve: (px: number) => void;
   toggleChatDock: () => void;
   /**
    * Ouvre la fenêtre d'une conversation, en tête, et ne garde que `limit`
@@ -42,17 +36,16 @@ export interface ChatSlice {
 export const createChatSlice: StateCreator<ArgosState, [], [], ChatSlice> = (set, get) => ({
   chatDockOpen: false,
   chatOpen: [],
-  chatEndReserve: 0,
-  setChatEndReserve: (px) => set((s) => (s.chatEndReserve === px ? {} : { chatEndReserve: px })),
   toggleChatDock: () => set((s) => (s.chatDockOpen ? { chatDockOpen: false, chatOpen: [] } : { chatDockOpen: true })),
   openChat: (id, limit) => {
     // Sans limite fournie (fiche d'unité, panneau de la carte), elle se lit
     // sur la largeur du moment, comme le dock le fait pour lui-même.
-    const s0 = get();
     const largeur = typeof window === "undefined" ? 1280 : window.innerWidth;
-    const bornee = limit ?? maxOpenWindows(largeur, s0.flags["assistant"] !== false, s0.chatEndReserve);
+    const bornee = limit ?? maxOpenWindows(largeur, get().flags["assistant"] !== false);
     set((s) => ({ chatDockOpen: true, chatOpen: withOpened(s.chatOpen, id, bornee) }));
     get().rtClearUnread(id);
+    // Ouverte, la conversation est sous les yeux : le correspondant voit « lu ».
+    get().rtMarkRead(id);
   },
   closeChat: (id) => set((s) => ({ chatOpen: s.chatOpen.filter((x) => x !== id) })),
   closeAllChats: () => set({ chatDockOpen: false, chatOpen: [] }),

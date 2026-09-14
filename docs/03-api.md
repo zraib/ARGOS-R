@@ -84,6 +84,8 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `PATCH` | `/api/comms/channels/{id}` | `comms_admin:update` | Renommer un canal / changer son sujet. |
 | `POST` | `/api/comms/channels/{id}/members` | `comms:update` | Ajouter des membres à un canal. |
 | `DELETE` | `/api/comms/channels/{id}/members/{matricule}` | `comms:update` | Retirer un membre d'un canal. |
+| `POST` | `/api/comms/channels/{id}/receipts` | `comms:view` | Accuser réception ou lecture des messages d'une conversation directe, jusqu'à `upToId`. |
+| `POST` | `/api/comms/channels/{id}/typing` | `comms:view` | Signaler qu'on écrit dans une conversation directe (transitoire, non journalisé). |
 | `POST` | `/api/comms/direct/{matricule}` | `comms:update` | Ouvrir la conversation directe avec un compte (idempotent) |
 | `GET` | `/api/comms/directory` | `comms:view` | Annuaire des comptes joignables — pour composer un canal |
 | `POST` | `/api/comms/messages` | `comms:view` | Envoyer un message dans un canal (audité) |
@@ -234,7 +236,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 ## Chiffres
 
-107 chemins · 135 opérations · 13 groupes.
+109 chemins · 137 opérations · 13 groupes.
 
 ## Modifier le contrat
 

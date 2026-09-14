@@ -1384,6 +1384,74 @@
         ]
       }
     },
+    "/api/comms/channels/{id}/receipts": {
+      "post": {
+        "operationId": "CommsController_receipt",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiptDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Accuser réception ou lecture des messages d'une conversation directe, jusqu'à `upToId`.",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/comms/channels/{id}/typing": {
+      "post": {
+        "operationId": "CommsController_typing",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Signaler qu'on écrit dans une conversation directe (transitoire, non journalisé).",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/comms/channels/{id}/members": {
       "post": {
         "description": "Un canal OUVERT devient restreint dès son premier membre — le geste est explicite.",
@@ -4977,6 +5045,28 @@
             "example": "Coordination secteur nord"
           }
         }
+      },
+      "ReceiptDto": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "delivered",
+              "read"
+            ],
+            "description": "« remis » ou « lu » — lire implique avoir reçu."
+          },
+          "upToId": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Identifiant du dernier message concerné ; les précédents le sont aussi."
+          }
+        },
+        "required": [
+          "state",
+          "upToId"
+        ]
       },
       "ChannelMembersDto": {
         "type": "object",

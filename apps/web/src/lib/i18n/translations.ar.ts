@@ -295,6 +295,7 @@ export const AR_DICT: Dict = {
     ch_online: "متصل", ch_offline: "غير متصل", ch_write: "اكتب إلى {nom}…", ch_start: "بداية المحادثة مع {nom}.",
     ch_search: "ابحث عن مراسل…", ch_online_now: "المتصلون الآن", ch_directory: "الدليل", ch_nobody: "لا أحد يطابق البحث.",
     ch_more: "{n} محادثة أخرى", ch_open_center: "فتح في مركز الاتصالات",
+    ch_typing: "{nom} يكتب…", ch_sent: "أُرسل", ch_delivered: "وصل", ch_read: "قُرئ", cm_deployed_on: "منتشر في {id} — عرض موقعه على الخريطة",
     pr_sounds: "التنبيهات الصوتية", pr_sounds_hint: "نغمتان مميزتان لمعرفة ما يصل دون النظر إلى الشاشة. إعداد خاص بهذا الجهاز.",
     pr_sound_messages: "رسالة جديدة", pr_sound_messages_hint: "نغمة قصيرة عند كل رسالة تصل في قناة أو محادثة.",
     pr_sound_alerts: "التنبيهات الأخرى", pr_sound_alerts_hint: "التنبيهات الموجَّهة (حادث مُعلن في جهتكم، طلب إعادة تعيين) والتنبيهات الزلزالية.",

@@ -3,7 +3,7 @@ import { INestApplication, ValidationPipe } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { AppModule } from "@/app.module";
-import { RealtimeService } from "@/modules/realtime/realtime.service";
+import { RealtimeService, type RealtimeEvent } from "@/modules/realtime/realtime.service";
 import { AttachmentsService } from "@/modules/realtime/attachments.service";
 
 // ============================================================================
@@ -229,6 +229,71 @@ describe("COMMS — gardes, présence, pièces jointes", () => {
 
     it("une pièce jointe inconnue répond 404, pas un fichier vide", async () => {
       await base().get("/api/comms/attachments/inexistant").set(bearer(admin)).expect(404);
+    });
+  });
+
+  // --- accusés et frappe : les deux coches et « en train d'écrire » ----------
+  //
+  // Conversation DIRECTE seulement. Ce que ces tests verrouillent : l'accusé
+  // marque les messages de l'AUTRE (jamais les siens), il est poussé à
+  // l'auteur et à lui seul, il se relit à froid ; la frappe n'atteint que le
+  // correspondant et n'entre PAS au journal d'audit — elle se répète à chaque
+  // touche.
+
+  describe("accusés de réception et de lecture, signal de frappe", () => {
+    let dm: string;
+    const flux = (matricule: string, role: string) => {
+      const s = app.get(RealtimeService).open(matricule, role);
+      const recus: RealtimeEvent[] = [];
+      s.events.subscribe((e) => recus.push(e));
+      return { recus, close: s.close };
+    };
+    const compte = (b: unknown) => (Array.isArray(b) ? b.length : ((b as { entries?: unknown[] }).entries?.length ?? 0));
+
+    beforeAll(async () => {
+      dm = (await base().post("/api/comms/direct/h.alami").set(bearer(admin)).expect(201)).body.id as string;
+    });
+
+    it("un message reçu se marque « remis » puis « lu » — chez l'auteur, sur le flux, et à la relecture", async () => {
+      const auteur = flux("m.zraib", "superadmin");
+      const alami = await jeton("h.alami", "admin");
+      const id = (await base().post("/api/comms/messages").set(bearer(admin)).send({ channelId: dm, txt: "Reçu ?" }).expect(201)).body.id as number;
+      expect((await base().post(`/api/comms/channels/${dm}/receipts`).set(bearer(alami)).send({ state: "delivered", upToId: id }).expect(200)).body.applied).toBe(true);
+      expect((await base().post(`/api/comms/channels/${dm}/receipts`).set(bearer(alami)).send({ state: "read", upToId: id }).expect(200)).body.applied).toBe(true);
+      // Un accusé répété ne change rien, donc ne sonne pas.
+      expect((await base().post(`/api/comms/channels/${dm}/receipts`).set(bearer(alami)).send({ state: "read", upToId: id }).expect(200)).body.applied).toBe(false);
+      const recus = auteur.recus.filter((e): e is Extract<RealtimeEvent, { kind: "receipt" }> => e.kind === "receipt");
+      expect(recus.map((e) => e.state)).toEqual(["delivered", "read"]);
+      expect(recus.every((e) => e.by === "h.alami" && e.channelId === dm && e.upToId === id)).toBe(true);
+      const comms = (await base().get("/api/comms").set(bearer(admin)).expect(200)).body as { messages: Record<string, { id: number; deliveredBy?: string[]; readBy?: string[] }[]> };
+      const msg = comms.messages[dm].find((m) => m.id === id);
+      expect(msg?.deliveredBy).toEqual(["h.alami"]);
+      expect(msg?.readBy).toEqual(["h.alami"]);
+      auteur.close();
+    });
+
+    it("ne marque jamais ses propres messages, et rien hors conversation directe", async () => {
+      // m.zraib n'a que SES messages dans la conversation : rien à marquer.
+      expect((await base().post(`/api/comms/channels/${dm}/receipts`).set(bearer(admin)).send({ state: "read", upToId: Number.MAX_SAFE_INTEGER }).expect(200)).body.applied).toBe(false);
+      // Un canal de conduite n'a pas de coches.
+      expect((await base().post("/api/comms/channels/c1/receipts").set(bearer(admin)).send({ state: "read", upToId: Number.MAX_SAFE_INTEGER }).expect(200)).body.applied).toBe(false);
+      // Un tiers n'accuse rien dans une conversation qui ne le concerne pas.
+      const tiers = await jeton("y.tazi", "tacom");
+      await base().post(`/api/comms/channels/${dm}/receipts`).set(bearer(tiers)).send({ state: "read", upToId: 1 }).expect(403);
+    });
+
+    it("la frappe n'atteint que le correspondant et n'entre pas au journal d'audit", async () => {
+      const alami = flux("h.alami", "admin");
+      const tiers = flux("y.tazi", "tacom");
+      const avant = compte((await base().get("/api/audit").set(bearer(admin)).expect(200)).body);
+      expect((await base().post(`/api/comms/channels/${dm}/typing`).set(bearer(admin)).expect(200)).body.applied).toBe(true);
+      expect((await base().post("/api/comms/channels/c1/typing").set(bearer(admin)).expect(200)).body.applied).toBe(false);
+      const apres = compte((await base().get("/api/audit").set(bearer(admin)).expect(200)).body);
+      expect(alami.recus.some((e) => e.kind === "typing" && e.matricule === "m.zraib" && e.channelId === dm && e.nom.length > 0)).toBe(true);
+      expect(tiers.recus.some((e) => e.kind === "typing")).toBe(false);
+      expect(apres).toBe(avant);
+      alami.close();
+      tiers.close();
     });
   });
 });

@@ -15,10 +15,26 @@ import type {
   } from "@/lib/types";
 import { mergeNotice } from "@/lib/notices";
 import { directChannels } from "@/lib/chat";
+import { applyReceipt, lastForeignId } from "@/lib/comms/receipts";
 import { playMessageTone, playNotificationTone } from "@/lib/sound";
+import { api } from "@/lib/api";
 import {
   rtHandleRef,
   } from "@/lib/store/shared";
+
+/** Un signal de frappe s'éteint seul, passé ce délai sans nouveau signal. */
+const TYPING_TTL_MS = 4_000;
+/** On ne dit pas « j'écris » à chaque touche : au plus une fois par canal et par deux secondes. */
+const TYPING_THROTTLE_MS = 2_000;
+// Hors de l'état : des minuteurs et des horodatages, pas de quoi rendre un écran.
+const typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const typingSent = new Map<string, number>();
+
+export interface TypingSignal {
+  matricule: string;
+  nom: string;
+  at: number;
+}
 
 export interface RealtimeSlice {
   // --- temps réel (lot COMMS) ---
@@ -33,6 +49,8 @@ export interface RealtimeSlice {
   rtNotices: Notice[];
   /** Identifiants des alertes déjà ouvertes — le compte de la cloche ne les recompte pas. */
   rtNoticesSeen: string[];
+  /** Qui écrit dans quel canal, à l'instant — un signal qui s'éteint seul. */
+  rtTyping: Record<string, TypingSignal>;
   // --- temps réel (lot COMMS) ---
   /** Ouvre le flux. Idempotent : appelée à chaque montage de la coquille. */
   rtConnect: () => void;
@@ -42,6 +60,12 @@ export interface RealtimeSlice {
   /** Solde les non-lus d'un canal sans en faire le canal affiché (fenêtre flottante ouverte). */
   rtClearUnread: (id: string) => void;
   rtMarkNoticeSeen: (id: string) => void;
+  /** Note (ou éteint, `null`) le signal de frappe d'un canal. */
+  rtNoteTyping: (channelId: string, who: { matricule: string; nom: string } | null) => void;
+  /** Accuse lecture des messages du correspondant — la conversation directe est sous les yeux. */
+  rtMarkRead: (channelId: string) => void;
+  /** Dit au correspondant qu'on écrit, sans marteler le serveur. */
+  rtSendTyping: (channelId: string) => void;
 }
 
 export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice> = (set, get) => ({
@@ -50,6 +74,7 @@ export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice
   rtUnread: {},
   rtNotices: [],
   rtNoticesSeen: [],
+  rtTyping: {},
   rtActiveChannel: null,
   // --- temps réel (lot COMMS) ------------------------------------------------
   rtConnect: () => {
@@ -93,6 +118,27 @@ export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice
             chatDockOpen: s.chatDockOpen || (directe && !message.mine),
           });
           if (!message.mine && s.sounds.messages) playMessageTone();
+          if (!message.mine) {
+            // Accusé au correspondant : « remis » — « lu » si la conversation est
+            // sous les yeux. Et s'il vient de parler, il n'écrit plus.
+            if (directe) void api.sendReceipt(d.channelId, sousLesYeux ? "read" : "delivered", message.id);
+            get().rtNoteTyping(d.channelId, null);
+          }
+          return;
+        }
+        if (e.kind === "receipt") {
+          // Le correspondant a reçu, ou lu, mes messages jusqu'à `upToId`.
+          const r = e.data as { channelId?: string; by?: string; state?: "delivered" | "read"; upToId?: number };
+          if (!r.channelId || !r.by || !r.state || typeof r.upToId !== "number") return;
+          const liste = s.comMsgs[r.channelId];
+          if (!liste) return;
+          const maj = applyReceipt(liste, r.by, r.state, r.upToId);
+          if (maj !== liste) set({ comMsgs: { ...s.comMsgs, [r.channelId]: [...maj] } });
+          return;
+        }
+        if (e.kind === "typing") {
+          const ty = e.data as { channelId?: string; matricule?: string; nom?: string };
+          if (ty.channelId && ty.matricule) get().rtNoteTyping(ty.channelId, { matricule: ty.matricule, nom: ty.nom ?? ty.matricule });
           return;
         }
         if (e.kind === "notice") {
@@ -131,7 +177,38 @@ export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice
   rtDisconnect: () => {
     rtHandleRef.current?.close();
     rtHandleRef.current = null;
-    set({ rtStatus: "closed", rtOnline: [] });
+    for (const t of typingTimers.values()) clearTimeout(t);
+    typingTimers.clear();
+    set({ rtStatus: "closed", rtOnline: [], rtTyping: {} });
+  },
+  rtNoteTyping: (channelId, who) => {
+    const en_cours = typingTimers.get(channelId);
+    if (en_cours) clearTimeout(en_cours);
+    typingTimers.delete(channelId);
+    if (!who) {
+      set((s) => {
+        if (!(channelId in s.rtTyping)) return {};
+        const { [channelId]: _fini, ...reste } = s.rtTyping;
+        return { rtTyping: reste };
+      });
+      return;
+    }
+    set((s) => ({ rtTyping: { ...s.rtTyping, [channelId]: { ...who, at: Date.now() } } }));
+    typingTimers.set(channelId, setTimeout(() => get().rtNoteTyping(channelId, null), TYPING_TTL_MS));
+  },
+  rtMarkRead: (channelId) => {
+    const s = get();
+    if (!directChannels(s.comCats).some((ch) => ch.id === channelId)) return;
+    const jusqua = lastForeignId(s.comMsgs[channelId] ?? []);
+    if (jusqua > 0) void api.sendReceipt(channelId, "read", jusqua);
+  },
+  rtSendTyping: (channelId) => {
+    const s = get();
+    if (!directChannels(s.comCats).some((ch) => ch.id === channelId)) return;
+    const now = Date.now();
+    if (now - (typingSent.get(channelId) ?? 0) < TYPING_THROTTLE_MS) return;
+    typingSent.set(channelId, now);
+    void api.sendTyping(channelId);
   },
   rtMarkNoticeSeen: (id) => set((s) => (s.rtNoticesSeen.includes(id) ? {} : { rtNoticesSeen: [...s.rtNoticesSeen, id] })),
   rtClearUnread: (id) =>
@@ -140,10 +217,13 @@ export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice
       const { [id]: _solde, ...reste } = s.rtUnread;
       return { rtUnread: reste };
     }),
-  rtSetActiveChannel: (id) =>
+  rtSetActiveChannel: (id) => {
     set((s) => {
       if (!id) return { rtActiveChannel: null };
       const { [id]: _solde, ...reste } = s.rtUnread;
       return { rtActiveChannel: id, rtUnread: reste };
-    }),
+    });
+    // Affiché au centre de communication : le correspondant voit « lu ».
+    if (id) get().rtMarkRead(id);
+  },
 });

@@ -1,6 +1,8 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
 import { Observable, concatMap } from "rxjs";
 import { AuditService } from "@/modules/audit/audit.service";
+import { SKIP_AUDIT_KEY } from "@/common/decorators/skip-audit.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
 import type { RequestWithAuditMeta } from "@/common/decorators/audit-meta.decorator";
 
@@ -10,16 +12,21 @@ const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
  * Journalise automatiquement chaque MUTATION réussie (POST/PUT/PATCH/DELETE)
  * dans le journal d'audit chaîné, avec l'acteur, le rôle et la route. Les
  * lectures privilégiées peuvent aussi être auditées explicitement au besoin.
+ * Une route marquée `@SkipAudit()` (signal transitoire) n'y entre pas.
  */
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
-  constructor(private readonly audit: AuditService) {}
+  constructor(
+    private readonly audit: AuditService,
+    private readonly reflector: Reflector,
+  ) {}
 
   intercept(ctx: ExecutionContext, next: CallHandler): Observable<unknown> {
     const req = ctx
       .switchToHttp()
       .getRequest<{ method: string; originalUrl: string; url: string; user?: AuthUser } & RequestWithAuditMeta>();
     if (!MUTATING.has(req.method)) return next.handle();
+    if (this.reflector.getAllAndOverride<boolean>(SKIP_AUDIT_KEY, [ctx.getHandler(), ctx.getClass()])) return next.handle();
 
     return next.handle().pipe(
       // On journalise AVANT d'émettre la réponse (garantit l'écriture du log).

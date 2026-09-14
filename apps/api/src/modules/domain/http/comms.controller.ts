@@ -7,10 +7,11 @@
 // et `authz-coverage.spec.ts` en font foi.
 // ============================================================================
 
-import { Body, Delete, Get, NotFoundException, Param, Patch, Post, Controller } from "@nestjs/common";
+import { Body, Delete, Get, HttpCode, NotFoundException, Param, Patch, Post, Controller } from "@nestjs/common";
 import { ApiOperation, ApiResponse, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
-import { CreateCategoryDto, CreateChannelDto, UpdateChannelDto, ChannelMembersDto, SendMessageDto } from "@/modules/domain/dto";
+import { CreateCategoryDto, CreateChannelDto, UpdateChannelDto, ChannelMembersDto, ReceiptDto, SendMessageDto } from "@/modules/domain/dto";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
+import { SkipAudit } from "@/common/decorators/skip-audit.decorator";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
 import { DomainService } from "@/modules/domain/domain.service";
@@ -38,6 +39,23 @@ export class CommsController {
     private readonly notices: NoticesService,
   ) {}
 
+  /** « Nom Prénom » d'un compte ; à défaut, son matricule. */
+  private identiteDe(username: string): string {
+    const compte = this.users.list().find((u) => u.matricule === username);
+    return compte ? (compte.prenom ? `${compte.nom} ${compte.prenom}` : compte.nom) : username;
+  }
+
+  /**
+   * Le nom tel qu'il s'affiche dans un fil : le grade devant l'identité. Le
+   * grade fait partie du nom affiché, mais PAS des initiales de l'avatar —
+   * « Commandant Zraib Mohammed » se signe ZM, pas CZ.
+   */
+  private nomAffiche(username: string): string {
+    const compte = this.users.list().find((u) => u.matricule === username);
+    const identite = this.identiteDe(username);
+    return compte?.grade ? `${compte.grade} ${identite}` : identite;
+  }
+
   @Patch("comms/channels/:id")
   // ADMINISTRATION, pas participation : un canal renommé sous les pieds d'une
   // conduite en cours ne se rattrape pas. `comms:update` reste ce qui gouverne
@@ -49,6 +67,36 @@ export class CommsController {
     const chan = this.comms.updateChannel(id, dto);
     this.realtime.emit({ kind: "channel", action: "updated", channelId: id, payload: chan });
     return chan;
+  }
+
+  /**
+   * Accusé de réception (« remis ») ou de lecture (« lu ») — les deux coches.
+   * Conversation directe seulement ; poussé au correspondant, et hors du
+   * journal d'audit : recevoir n'est pas agir.
+   */
+  @Post("comms/channels/:id/receipts")
+  @RequirePermission("comms:view")
+  @SkipAudit()
+  @HttpCode(200)
+  @ApiOperation({ summary: "Accuser réception ou lecture des messages d'une conversation directe, jusqu'à `upToId`." })
+  receipt(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: ReceiptDto) {
+    const r = this.comms.markReceipt(id, user.username, dto.state, dto.upToId);
+    if (r?.changed) {
+      this.realtime.emitTo(r.notify, { kind: "receipt", channelId: id, by: user.username, state: dto.state, upToId: dto.upToId });
+    }
+    return { applied: !!r?.changed };
+  }
+
+  /** « En train d'écrire » : un signal, pas un acte — ni gardé, ni audité, poussé au seul correspondant. */
+  @Post("comms/channels/:id/typing")
+  @RequirePermission("comms:view")
+  @SkipAudit()
+  @HttpCode(200)
+  @ApiOperation({ summary: "Signaler qu'on écrit dans une conversation directe (transitoire, non journalisé)." })
+  typing(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    const cibles = this.comms.typingTargets(id, user.username);
+    if (cibles) this.realtime.emitTo(cibles, { kind: "typing", channelId: id, matricule: user.username, nom: this.nomAffiche(user.username) });
+    return { applied: !!cibles };
   }
 
   @Post("comms/channels/:id/members")
@@ -201,13 +249,9 @@ export class CommsController {
     // conversation on lit « Cdt. H. Alami », pas « h.alami ». Le matricule
     // reste dans `author`, qui est ce sur quoi chaque poste décide si le
     // message est le sien.
-    const compte = this.users.list().find((u) => u.matricule === user.username);
-    // Le grade fait partie du nom affiché, mais PAS des initiales de l'avatar :
-    // « Commandant Zraib Mohammed » se signe ZM, pas CZ.
-    const identite = compte ? (compte.prenom ? `${compte.nom} ${compte.prenom}` : compte.nom) : user.username;
-    const nom = compte?.grade ? `${compte.grade} ${identite}` : identite;
+    const identite = this.identiteDe(user.username);
     const msg = this.comms.addMessage(dto.channelId, {
-      who: nom,
+      who: this.nomAffiche(user.username),
       author: user.username,
       initials: initiales(identite),
       av: "bg-or-500 text-rdia-600",

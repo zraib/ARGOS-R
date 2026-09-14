@@ -22,6 +22,12 @@ export function deployedOn(list: readonly Responsible[], incidentId: string): Re
   return list.filter((r) => r.kind === "incident" && r.entityId === incidentId);
 }
 
+/** L'opération sur laquelle un compte est déployé (`entityId` = l'incident), s'il l'est. */
+export function deploymentOf(list: readonly Responsible[], matricule: string): Responsible | undefined {
+  const m = matricule.toLowerCase();
+  return list.find((r) => r.kind === "incident" && r.matricule.toLowerCase() === m);
+}
+
 /** En ligne = un flux ouvert sur le serveur, rien d'autre ; la casse du matricule ne compte pas. */
 export function isOnline(online: readonly PresenceUser[], matricule: string): boolean {
   const m = matricule.toLowerCase();

@@ -36,6 +36,12 @@ export interface CommMessage {
   mine?: boolean;
   /** Absente pour un message de texte seul — la majorité. */
   attachment?: CommAttachment;
+  /**
+   * Accusés d'une conversation DIRECTE : qui a reçu, qui a lu — des matricules,
+   * jamais celui de l'auteur. Les deux coches de l'écran en découlent.
+   */
+  deliveredBy?: string[];
+  readBy?: string[];
 }
 interface Channel {
   id: string;
@@ -198,15 +204,67 @@ export class CommsService {
     return (chan.members ?? []).some((x) => x.toLowerCase() === m);
   }
 
+  /**
+   * Le canal où `matricule` peut prendre la parole : un canal texte, et — s'il
+   * est direct — dont il est membre. Le serveur le vérifie sur le matricule,
+   * pour le message comme pour le signal de frappe et l'accusé.
+   */
+  private speakable(channelId: string, matricule: string): Channel {
+    const chan = this.findChannel(channelId);
+    if (!chan || chan.kind !== "text") throw new NotFoundException(`Canal texte inconnu : ${channelId}`);
+    if (chan.direct && !this.isMember(chan, matricule)) throw new ForbiddenException("Cette conversation directe ne vous concerne pas.");
+    return chan;
+  }
+
+  /** Les autres membres d'un canal restreint — à qui un accusé ou un signal de frappe s'adresse. */
+  private otherMembers(chan: Channel, matricule: string): string[] {
+    const m = matricule.toLowerCase();
+    return (chan.members ?? []).filter((x) => x.toLowerCase() !== m);
+  }
+
+  /**
+   * Accusé de réception (« remis ») ou de lecture (« lu ») — conversation
+   * DIRECTE seulement : dans un canal de conduite, « lu par tous » n'aurait
+   * pas de sens net. Marque tous les messages de l'AUTRE jusqu'à `upToId` ;
+   * lire implique avoir reçu. Rend qui prévenir et si quelque chose a changé
+   * (un accusé répété ne fait pas sonner deux fois) ; `null` hors direct.
+   */
+  markReceipt(
+    channelId: string,
+    matricule: string,
+    state: "delivered" | "read",
+    upToId: number,
+  ): { notify: string[]; changed: boolean } | null {
+    const chan = this.speakable(channelId, matricule);
+    if (!chan.direct) return null;
+    const me = matricule.toLowerCase();
+    const sans = (liste: string[] | undefined) => !liste?.some((x) => x.toLowerCase() === me);
+    let changed = false;
+    for (const msg of this.messages[channelId] ?? []) {
+      if (msg.id > upToId || !msg.author || msg.author.toLowerCase() === me) continue;
+      if (sans(msg.deliveredBy)) {
+        msg.deliveredBy = [...(msg.deliveredBy ?? []), matricule];
+        changed = true;
+      }
+      if (state === "read" && sans(msg.readBy)) {
+        msg.readBy = [...(msg.readBy ?? []), matricule];
+        changed = true;
+      }
+    }
+    return { notify: this.otherMembers(chan, matricule), changed };
+  }
+
+  /** Signal de frappe : les correspondants à prévenir — `null` hors conversation directe. */
+  typingTargets(channelId: string, matricule: string): string[] | null {
+    const chan = this.speakable(channelId, matricule);
+    return chan.direct ? this.otherMembers(chan, matricule) : null;
+  }
+
   addMessage(
     channelId: string,
     msg: { who: string; author: string; initials: string; av: string; txt: string; attachment?: CommAttachment },
   ): CommMessage {
-    const chan = this.findChannel(channelId);
-    if (!chan || chan.kind !== "text") throw new NotFoundException(`Canal texte inconnu : ${channelId}`);
-    // Dans une conversation directe, seuls ses deux membres prennent la
-    // parole : le serveur le vérifie sur le matricule de l'auteur.
-    if (chan.direct && !this.isMember(chan, msg.author)) throw new ForbiddenException("Cette conversation directe ne vous concerne pas.");
+    this.speakable(channelId, msg.author);
     const list = this.messages[channelId] ?? (this.messages[channelId] = []);
     const d = new Date();
     const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;

@@ -10,6 +10,7 @@ import type { ArgosState } from "@/lib/store";
 import type {
   Channel,
   City,
+  CommAttachment,
   CommCategory,
   CommMessage,
   DashStats,
@@ -111,8 +112,8 @@ export interface DomainSlice {
   /** Mise à jour locale optimiste d'un hôpital (services, capacités…) */
   patchHospital: (id: string, patch: Partial<Hospital>) => void;
   selectChannel: (id: string) => void;
-  /** Envoie dans le canal affiché, ou dans `channelId` (fenêtres flottantes). */
-  sendMessage: (txt: string, channelId?: string) => void;
+  /** Envoie dans le canal affiché, ou dans `channelId` (fenêtres flottantes) — avec, au besoin, une pièce déjà versée. */
+  sendMessage: (txt: string, channelId?: string, attachment?: CommAttachment) => void;
   addCategory: (name: string) => void;
   addChannel: (catId: string, name: string, matricules?: string[]) => void;
   /** Relit canaux et messages depuis l'API — l'état des canaux est serveur. */
@@ -333,9 +334,10 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
     const res = await api.getResponsables();
     if (res.data) set({ responsables: res.data as unknown as Responsible[] });
   },
-  sendMessage: (txt, channelId) => {
+  sendMessage: (txt, channelId, attachment) => {
     const t = txt.trim();
-    if (!t) return;
+    // Une photo sans légende est un geste ordinaire ; le couple (texte vide, pièce absente) ne part pas.
+    if (!t && !attachment) return;
     const { comCats, sessionUser } = get();
     const comSel = channelId ?? get().comSel;
     let chan: Channel | undefined;
@@ -360,13 +362,13 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
         ...s.comMsgs,
         [comSel]: [
           ...(s.comMsgs[comSel] || []),
-          { id: brouillon, who: nom, author: sessionUser?.matricule, initials, av: "bg-or-500 text-rdia-600", time, txt: t, mine: true },
+          { id: brouillon, who: nom, author: sessionUser?.matricule, initials, av: "bg-or-500 text-rdia-600", time, txt: t, mine: true, attachment },
         ],
       },
     }));
 
     void (async () => {
-      const res = await api.sendMessage(comSel, t);
+      const res = await api.sendMessage(comSel, t, attachment);
       const envoye = res.error ? undefined : (res.data as CommMessage | undefined);
       set((s) => {
         const sansBrouillon = (s.comMsgs[comSel] ?? []).filter((m) => m.id !== brouillon);

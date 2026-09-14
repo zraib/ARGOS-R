@@ -149,6 +149,9 @@ export function createArgosClient(opts: ArgosClientOptions) {
     getCatalog: () => client.GET("/api/catalog"),
     getComms: () => client.GET("/api/comms"),
     sendMessage: (channelId: string, txt: string) => client.POST("/api/comms/messages", { body: { channelId, txt } }),
+    sendReceipt: (channelId: string, state: "delivered" | "read", upToId: number) =>
+      client.POST("/api/comms/channels/{id}/receipts", { params: { path: { id: channelId } }, body: { state, upToId } }),
+    sendTyping: (channelId: string) => client.POST("/api/comms/channels/{id}/typing", { params: { path: { id: channelId } } }),
     createCommCategory: (name: string) => client.POST("/api/comms/categories", { body: { name } }),
     createCommChannel: (categoryId: string, name: string) => client.POST("/api/comms/channels", { body: { categoryId, name } }),
     getReference: () => client.GET("/api/reference"),

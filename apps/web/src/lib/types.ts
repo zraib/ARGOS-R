@@ -383,6 +383,9 @@ export interface CommMessage {
   mine?: boolean;
   /** Absente pour un message de texte seul — la majorité. */
   attachment?: CommAttachment;
+  /** Accusés d'une conversation directe : qui a reçu, qui a lu (matricules) — les coches en découlent. */
+  deliveredBy?: string[];
+  readBy?: string[];
 }
 
 /**

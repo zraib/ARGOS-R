@@ -248,6 +248,14 @@ précédente, ce qui rend toute altération détectable.
 - Vérification d'intégrité : `GET /api/audit/verify` (`audit:log:verify`)
 - Consultable dans l'écran `/parametres` (Super Administrateur).
 
+Deux routes portent un **signal**, pas un acte, et restent hors du journal
+(`@SkipAudit()`, lu par `AuditInterceptor`) : « en train d'écrire »
+(`POST /comms/channels/:id/typing`) et les accusés de réception/lecture
+(`POST /comms/channels/:id/receipts`). Elles se répètent à chaque frappe et
+n'engagent rien ; les journaliser noierait la chaîne. Elles restent gardées
+(`comms:view`) et cantonnées aux conversations directes dont l'appelant est
+membre — test `realtime/comms.spec.ts`.
+
 ## 8. Alertes sismiques et notification des autorités
 
 Deux seuils distincts, configurables dans `/parametres` :

@@ -82,16 +82,6 @@ describe("conversations flottantes", () => {
     expect(maxOpenWindows(1024, false)).toBe(1);
   });
 
-  it("respecte la réserve que l'écran demande au bord de fin — au bureau seulement", () => {
-    // La carte réserve sa colonne de droite (324 px) : les fenêtres partent après elle.
-    expect(windowOffset(0, 1440, true, 324)).toBe(92 + 324);
-    // 1440 − 416 − 420 = 604 → une seule fenêtre.
-    expect(maxOpenWindows(1440, true, 324)).toBe(1);
-    // Sous 1024 px la colonne n'existe pas ; sur téléphone la fenêtre prend la largeur.
-    expect(windowOffset(0, 1000, true, 324)).toBe(92);
-    expect(windowOffset(0, 375, true, 324)).toBe(84);
-    expect(windowOffset(0, 1440, true, -50)).toBe(92);
-  });
 
   it("ouvrir met en tête et ne garde que les plus récentes", () => {
     expect(withOpened(["a", "b"], "c", 2)).toEqual(["c", "a"]);

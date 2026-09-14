@@ -1,15 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { api, API_BASE, getStoredToken } from "@/lib/api";
-import type { CommsAttachment } from "@/lib/api-client";
+import { api } from "@/lib/api";
 import { isSuperAdmin } from "@/lib/roles";
 import { useArgos, useDict } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
+import { Attachment } from "@/components/comms/Attachment";
+import { Receipt } from "@/components/comms/Receipt";
+import { TypingIndicator } from "@/components/comms/TypingIndicator";
+import { DeployedShortcut } from "@/components/comms/DeployedShortcut";
 import { UI_ICONS } from "@/lib/icons";
 import { tpl } from "@/lib/i18n/format";
-import type { Channel, CommAttachment } from "@/lib/types";
+import { ATTACHMENT_ACCEPT, uploadAttachment } from "@/lib/comms/attachments";
+import { receiptState } from "@/lib/comms/receipts";
+import { correspondentOf } from "@/lib/chat";
+import type { Channel } from "@/lib/types";
 
 /**
  * Vue visible sous `lg`.
@@ -51,6 +57,8 @@ export default function CommunicationPage() {
   const removeChannelMember = useArgos((s) => s.removeChannelMember);
   const toggleCategory = useArgos((s) => s.toggleCategory);
   const showToast = useArgos((s) => s.showToast);
+  const rtTyping = useArgos((s) => s.rtTyping);
+  const rtSendTyping = useArgos((s) => s.rtSendTyping);
 
   const [msg, setMsg] = useState("");
   const [newCatOpen, setNewCatOpen] = useState(false);
@@ -84,6 +92,9 @@ export default function CommunicationPage() {
   }, [comCats, comSel]);
   const isVoice = selChan?.kind === "voice";
   const msgs = (comMsgs[comSel] || []).slice().reverse();
+  // Dans une conversation directe : les coches de mes messages, et la frappe de l'autre.
+  const correspondant = selChan?.direct ? correspondentOf(selChan, sessionUser?.matricule) : undefined;
+  const frappe = selChan?.direct ? rtTyping[selChan.id] : undefined;
 
   // Le canal ouvert à l'écran ne compte jamais comme non lu : une pastille qui
   // s'allume pour ce qu'on est en train de lire finit par être ignorée, et une
@@ -99,38 +110,21 @@ export default function CommunicationPage() {
   };
 
   /**
-   * Verse un fichier puis l'envoie comme message.
-   *
-   * En DEUX temps, à dessein : le contenu part par une route dédiée qui vérifie
-   * son type contre ses octets réels, et seule la FICHE de la pièce voyage
-   * ensuite dans le message. Un fichier refusé ne laisse donc jamais un message
-   * orphelin dans le canal.
+   * Verse un fichier puis l'envoie comme message — en deux temps (voir
+   * `lib/comms/attachments`) : un fichier refusé ne laisse jamais un message
+   * orphelin dans le canal. Le texte tapé sert de légende.
    */
   const joindre = async (f: File) => {
     setErreurPJ(null);
-    if (f.size > 40 * 1024 * 1024) {
-      setErreurPJ(t.cm_attach_too_big);
-      return;
-    }
     setEnvoiPJ(true);
     try {
-      const form = new FormData();
-      form.append("file", f);
-      const res = await fetch(`${API_BASE}/api/comms/attachments`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${getStoredToken() ?? ""}` },
-        body: form,
-      });
+      const res = await uploadAttachment(f);
       if (!res.ok) {
-        setErreurPJ(res.status === 400 ? t.cm_attach_refused : t.cm_attach_failed);
+        setErreurPJ(res.reason === "too_big" ? t.cm_attach_too_big : res.reason === "refused" ? t.cm_attach_refused : t.cm_attach_failed);
         return;
       }
-      const att = (await res.json()) as CommsAttachment;
-      await api.sendMessage(comSel, msg.trim(), att);
+      sendMessage(msg, undefined, res.attachment);
       setMsg("");
-      await loadDomain();
-    } catch {
-      setErreurPJ(t.cm_attach_failed);
     } finally {
       setEnvoiPJ(false);
       if (fichierRef.current) fichierRef.current.value = "";
@@ -354,6 +348,8 @@ export default function CommunicationPage() {
         {selChan && !isVoice && (
           <>
             <div className="flex min-h-0 flex-1 flex-col-reverse gap-4 overflow-y-auto overscroll-contain p-3 sm:p-4">
+              {/* En tête du fil (la colonne est inversée) : « X écrit… ». */}
+              {frappe && <TypingIndicator nom={frappe.nom} />}
               {msgs.map((m) => (
                 <div key={m.id} className="flex items-start gap-2.5">
                   <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${m.av}`}>{m.initials}</div>
@@ -361,11 +357,13 @@ export default function CommunicationPage() {
                     <div className="flex flex-wrap items-baseline gap-x-2">
                       <span className={`text-xs font-bold ${m.mine ? "text-or-500" : "text-rdia-600 dark:text-rdia-100"}`}>{m.who}</span>
                       <span className="font-mono text-[10px] text-gray-400 dark:text-rdia-400">{m.time}</span>
+                      {/* Les coches : sur MES messages d'une conversation directe. */}
+                      {m.mine && correspondant && <Receipt state={receiptState(m, correspondant)} tone="list" />}
                     </div>
                     {m.txt && (
                       <div className="break-words text-sm leading-snug text-gray-700 dark:text-rdia-100">{m.txt}</div>
                     )}
-                    {m.attachment && <PieceJointe att={m.attachment} />}
+                    {m.attachment && <Attachment att={m.attachment} />}
                   </div>
                 </div>
               ))}
@@ -382,7 +380,7 @@ export default function CommunicationPage() {
                 ref={fichierRef}
                 type="file"
                 className="sr-only"
-                accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,application/pdf,text/plain,text/csv"
+                accept={ATTACHMENT_ACCEPT}
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) void joindre(f);
@@ -397,7 +395,17 @@ export default function CommunicationPage() {
               >
                 <Icon path={UI_ICONS.paperclip} size={17} />
               </button>
-              <input className="input-champ min-w-0 flex-1 text-base md:text-sm" placeholder={t.cm_msg_ph} value={msg} onChange={(e) => setMsg(e.target.value)} onKeyDown={onMsgKey} />
+              <input
+                className="input-champ min-w-0 flex-1 text-base md:text-sm"
+                placeholder={t.cm_msg_ph}
+                value={msg}
+                onChange={(e) => {
+                  setMsg(e.target.value);
+                  // Le correspondant d'une conversation directe voit qu'on écrit.
+                  if (selChan?.direct && e.target.value) rtSendTyping(selChan.id);
+                }}
+                onKeyDown={onMsgKey}
+              />
               <button className="btn-primaire cible-tactile shrink-0 px-3 text-sm" onClick={send} aria-label={t.send} disabled={envoiPJ}>
                 <Icon path={UI_ICONS.send} size={16} strokeWidth={2} />
               </button>
@@ -481,7 +489,11 @@ export default function CommunicationPage() {
                 />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-xs font-semibold text-gray-700 dark:text-rdia-100">{u.matricule}</div>
+                <div className="flex items-center gap-1">
+                  {/* Déployé sur une opération : le raccourci mène à sa position sur la carte. */}
+                  <DeployedShortcut matricule={u.matricule} />
+                  <span className="min-w-0 truncate text-xs font-semibold text-gray-700 dark:text-rdia-100">{u.matricule}</span>
+                </div>
                 <div className="truncate text-[10px] text-gray-400 dark:text-rdia-400">
                   {u.role}
                   {/* Deux onglets d'un même officier font UN présent : on le dit
@@ -694,105 +706,5 @@ export default function CommunicationPage() {
         </Modal>
       )}
     </section>
-  );
-}
-
-
-/**
- * Rendu d'une pièce jointe.
- *
- * L'image et la vidéo s'affichent EN PLACE : une photo de dégâts qu'il faut
- * télécharger pour voir arrive trop tard. Le reste — PDF, texte, CSV — se
- * télécharge, parce que rendre un document dans la page est une surface
- * d'attaque que rien ne justifie ici.
- *
- * Le jeton porteur ne pouvant pas voyager dans une balise `img`, le contenu est
- * récupéré par `fetch` authentifié puis exposé en URL d'objet locale. C'est
- * aussi ce qui évite qu'une pièce jointe soit lisible par une simple URL.
- */
-function PieceJointe({ att }: { att: CommAttachment }) {
-  const t = useDict();
-  const [url, setUrl] = useState<string | null>(null);
-  const [echec, setEchec] = useState(false);
-  const image = att.mime.startsWith("image/");
-  const video = att.mime.startsWith("video/");
-
-  useEffect(() => {
-    if (!image && !video) return;
-    let vivant = true;
-    let objet: string | null = null;
-    void (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/comms/attachments/${att.id}`, {
-          headers: { Authorization: `Bearer ${getStoredToken() ?? ""}` },
-        });
-        if (!res.ok) throw new Error(String(res.status));
-        objet = URL.createObjectURL(await res.blob());
-        if (vivant) setUrl(objet);
-      } catch {
-        if (vivant) setEchec(true);
-      }
-    })();
-    return () => {
-      vivant = false;
-      // L'URL d'objet est RÉVOQUÉE : sans cela chaque défilement du fil
-      // retiendrait des mégaoctets de vidéo jusqu'au rechargement de la page.
-      if (objet) URL.revokeObjectURL(objet);
-    };
-  }, [att.id, image, video]);
-
-  const ko = att.bytes < 1024 * 1024
-    ? `${Math.max(1, Math.round(att.bytes / 1024))} Ko`
-    : `${(att.bytes / 1048576).toFixed(1)} Mo`;
-
-  const telecharger = async () => {
-    const res = await fetch(`${API_BASE}/api/comms/attachments/${att.id}`, {
-      headers: { Authorization: `Bearer ${getStoredToken() ?? ""}` },
-    });
-    if (!res.ok) return;
-    const objet = URL.createObjectURL(await res.blob());
-    const a = document.createElement("a");
-    a.href = objet;
-    a.download = att.name;
-    a.click();
-    URL.revokeObjectURL(objet);
-  };
-
-  if ((image || video) && !echec) {
-    return (
-      <figure className="mt-1.5 max-w-[380px] overflow-hidden rounded-lg border border-gray-200 dark:border-rdia-600">
-        {url ? (
-          image ? (
-            // eslint-disable-next-line @next/next/no-img-element -- URL d'objet locale : `next/image` ne sait pas la servir.
-            <img src={url} alt={att.name} className="block max-h-[320px] w-full object-contain bg-black/5" />
-          ) : (
-            <video src={url} controls className="block max-h-[320px] w-full bg-black" />
-          )
-        ) : (
-          <div className="h-32 w-full animate-pulse bg-gray-100 motion-reduce:animate-none dark:bg-rdia-800/40" />
-        )}
-        <figcaption className="flex items-center gap-2 px-2 py-1.5 text-[10.5px] text-gray-500 dark:text-rdia-300">
-          <span className="min-w-0 flex-1 truncate">{att.name}</span>
-          <span className="shrink-0 tabular-nums">{ko}</span>
-          <button onClick={() => void telecharger()} title={t.cm_download} aria-label={`${t.cm_download} — ${att.name}`}>
-            <Icon path={UI_ICONS.download} size={13} className="shrink-0 hover:text-or-500" />
-          </button>
-        </figcaption>
-      </figure>
-    );
-  }
-
-  return (
-    <button
-      onClick={() => void telecharger()}
-      className="mt-1.5 flex w-full max-w-[320px] items-center gap-2 rounded-lg border border-gray-200 px-2.5 py-2 text-start transition-colors hover:border-or-500/60 dark:border-rdia-600"
-    >
-      <Icon path={UI_ICONS.file} size={16} className="shrink-0 text-gray-400" />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[12px] font-semibold text-gray-800 dark:text-rdia-50">{att.name}</span>
-        <span className="block text-[10.5px] tabular-nums text-gray-500 dark:text-rdia-300">{ko}</span>
-      </span>
-      <Icon path={UI_ICONS.download} size={14} className="shrink-0 text-gray-400" />
-    </button>
   );
 }
