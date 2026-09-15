@@ -212,6 +212,16 @@ export interface ModulesDict {
     triage_outcomes: string;
     severity_dist: string;
     minutes: string;
+    title: string; subtitle: string; live: string; synth_title: string;
+    st_attention: string; st_nominal: string; st_monitor: string; synth_tension: string; synth_critical: string; synth_nominal: string;
+    hero_incidents: string; hero_ongoing: string; hero_closed: string; hero_high: string; lbl_response: string; lbl_closure: string; lbl_means: string;
+    kpi_sla_ok: string; kpi_sla_over: string; kpi_care: string; kpi_remaining: string; kpi_high_load: string; kpi_margin: string;
+    section_charts: string; section_notes: string;
+    ch_segments: string; ch_under_sla: string; ch_over_sla: string; ch_today: string; ch_window: string; ch_vs_prev_up: string; ch_vs_prev_down: string; ch_stable: string;
+    ch_triage_zones: string; ch_priority: string; ch_standard: string; ch_weighted: string; ch_global: string; ch_peak: string; ch_sat_crit: string; ch_sat_ok: string;
+    ch_ref: string; ch_high_found: string; ch_no_critical: string;
+    note_hosp: string; note_tension: string; note_ok: string; note_above: string; note_none: string; note_peak: string; note_sites: string;
+    note_posture: string; note_fop: string; note_watch: string; note_posture_high: string; note_posture_ok: string; lbl_open: string; lbl_ongoing: string; lbl_closed: string;
   };
   dispatch: {
     strip_ops: string;

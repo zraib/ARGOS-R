@@ -15,6 +15,10 @@ navigateur ──http://<station>──▶ proxy (Traefik, :80)
                                    └─ /llm       → Ollama sur la station (hors Docker, GPU)
 ```
 
+> Première installation, sans expérience de Docker ? Suivez le
+> [guide pas à pas pour débutant](GUIDE-DEBUTANT-WINDOWS.md) — il reprend
+> chaque étape de ce README avec ce qu'il faut voir avant de continuer.
+
 Une seule origine HTTP : le navigateur ne connaît que l'adresse de la station,
 les images Docker ne contiennent aucune adresse, et la politique de sécurité de
 contenu du poste web reste fermée (`'self'`).
