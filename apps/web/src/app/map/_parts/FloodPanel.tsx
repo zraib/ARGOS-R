@@ -5,12 +5,13 @@ import { useArgos, useDict } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import { tpl } from "@/lib/i18n/format";
-import { FLOOD_SEVERITY_COLOR, frameAt, headProgress } from "@/components/map/layers/floods";
+import { FLOOD_SEVERITY_COLOR } from "@/components/map/layers/floods";
 import { FLOOD_COLOR_REF_M, FLOOD_DEEP_RGB, FLOOD_SHALLOW_RGB } from "@/lib/flood/frames";
 import { scenarioOf, type FloodSource } from "@/lib/flood/hydro";
-import type { FloodPoiKind } from "@/lib/flood/run";
+import { frameAt } from "@/lib/sim/spread";
 import { FLOOD_DEFAULT_PARAMS } from "@/lib/store/slices/flood";
 import type { FloodGauge, FloodSeverity, FloodTrend, FloodUnit } from "@/lib/types";
+import { Impacts, Lecteur, Reglage, lbl, nombre } from "@/app/map/_parts/simui";
 
 // ============================================================================
 // Panneau « Crues » de la carte (ADR 0010) — deux blocs, volontairement
@@ -26,7 +27,6 @@ import type { FloodGauge, FloodSeverity, FloodTrend, FloodUnit } from "@/lib/typ
 // mélanger ferait lire l'une pour l'autre.
 // ============================================================================
 
-const lbl = "text-[10px] font-bold uppercase tracking-wider text-white/60";
 const champ = "w-full rounded-lg border border-white/15 bg-white/5 px-2 py-1.5 text-[13px] text-white";
 const btn = "btn-secondaire min-h-11 w-full text-[13px] lg:min-h-0";
 
@@ -36,58 +36,6 @@ function quand(iso: string | null): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-
-/** « 13 500 », « 245 », « 36.3 » — un nombre lisible selon sa taille (espace fine insécable aux milliers). */
-function nombre(n: number): string {
-  if (!Number.isFinite(n)) return "—";
-  if (Math.abs(n) >= 100) return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-  return n.toFixed(1);
-}
-
-/** Heures et minutes d'une durée simulée, pour l'horloge « t + 2 h 35 ». */
-function hm(seconds: number): { h: number; m: string } {
-  const total = Math.max(0, Math.round(seconds / 60));
-  return { h: Math.floor(total / 60), m: String(total % 60).padStart(2, "0") };
-}
-
-/** Un réglage numérique : la valeur se tape ou se glisse. */
-function Reglage({
-  label, value, unit, min, max, step, onChange,
-}: {
-  label: string;
-  value: number;
-  unit: string;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (v: number) => void;
-}) {
-  const poser = (raw: string) => {
-    const v = Number(raw);
-    if (Number.isFinite(v)) onChange(Math.min(max, Math.max(min, v)));
-  };
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="flex items-center justify-between gap-2">
-        <span className={lbl}>{label}</span>
-        <span className="flex items-center gap-1">
-          <input
-            type="number"
-            min={min}
-            max={max}
-            step={step}
-            value={value}
-            onChange={(e) => poser(e.target.value)}
-            className="w-24 rounded-md border border-white/15 bg-white/5 px-1.5 py-0.5 text-end font-mono text-[11.5px] text-white"
-            aria-label={label}
-          />
-          <span className="w-9 text-[11px] text-white/60">{unit}</span>
-        </span>
-      </span>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => poser(e.target.value)} className="w-full accent-or-500" aria-hidden="true" tabIndex={-1} />
-    </label>
-  );
 }
 
 export function FloodPanel() {
@@ -106,7 +54,6 @@ export function FloodPanel() {
   const run = useArgos((s) => s.floodSim);
   // Relu à chaque nouvelle image : la course est mutable, le magasin ne signale que son compte d'images.
   useArgos((s) => s.floodFrames);
-  const done = useArgos((s) => s.floodDone);
   const partial = useArgos((s) => s.floodPartial);
   const simBusy = useArgos((s) => s.floodSimBusy);
   const simError = useArgos((s) => s.floodSimError);
@@ -138,7 +85,6 @@ export function FloodPanel() {
     unknown: t.flood_sev_unknown,
   };
   const trendLabel: Record<FloodTrend, string> = { rise: t.flood_trend_rise, fall: t.flood_trend_fall, no_change: t.flood_trend_flat, unknown: "" };
-  const kindLabel: Record<FloodPoiKind, string> = { hospital: t.flood_hospitals, unit: t.flood_units, shelter: t.flood_shelters, city: t.flood_cities };
   const jauge = gauges.find((g) => g.gaugeId === sel) ?? null;
   const unite = (u: FloodUnit) => (u === "m3/s" ? "m³/s" : u === "m" ? "m" : "");
   /** « 1 240 m³/s » — le pic prévu d'une jauge, dans l'unité de ses seuils (débit GloFAS quand ils manquent encore). */
@@ -158,12 +104,9 @@ export function FloodPanel() {
         ? tpl(t.flood_derived_q, { q: nombre(scenario.peakQ) })
         : tpl(t.flood_derived_dam, { q: nombre(scenario.peakQ), d: (scenario.durationS / 3600).toFixed(1) });
 
-  // L'instant lu : son image, ses chiffres, l'heure simulée.
+  // L'instant lu : son image et ses chiffres.
   const image = run ? run.frames[frameAt(run, progress).k] : null;
   const tSim = run ? progress * run.horizonS : 0;
-  const horloge = tpl(t.flood_clock, hm(tSim));
-  const pct = Math.round(progress * 100);
-  const tete = run ? Math.round(headProgress(run) * 100) : 0;
 
   return (
     <div className="flex flex-col gap-4 text-[13px] text-white/85">
@@ -358,10 +301,10 @@ export function FloodPanel() {
           ))}
         </div>
 
-        <div className={lbl}>{t.flood_seed}</div>
+        <div className={lbl}>{t.sim_seed}</div>
         <div className="flex items-center gap-2">
           <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-white">
-            {seed ? `${seed[1].toFixed(4)}, ${seed[0].toFixed(4)}` : t.flood_seed_none}
+            {seed ? `${seed[1].toFixed(4)}, ${seed[0].toFixed(4)}` : t.sim_seed_none}
           </span>
           <button
             type="button"
@@ -371,7 +314,7 @@ export function FloodPanel() {
               arming ? "bg-or-500 text-rdia-900" : "bg-white/10 text-white hover:bg-white/20"
             }`}
           >
-            {arming ? t.flood_picking : t.flood_pick}
+            {arming ? t.sim_picking : t.sim_pick}
           </button>
         </div>
 
@@ -394,68 +337,44 @@ export function FloodPanel() {
           </>
         )}
         <p className="text-[11px] font-semibold text-or-300">{derive}</p>
-        <Reglage label={t.flood_horizon} value={params.horizonH} unit="h" min={1} max={24} step={1} onChange={(v) => setFloodParams({ horizonH: v })} />
+        <Reglage label={t.sim_horizon} value={params.horizonH} unit="h" min={1} max={24} step={1} onChange={(v) => setFloodParams({ horizonH: v })} />
 
         <label className="flex flex-col gap-1">
-          <span className={lbl}>{t.flood_extent}</span>
+          <span className={lbl}>{t.sim_extent}</span>
           <select className={champ} value={params.extentKm} onChange={(e) => setFloodParams({ extentKm: Number(e.target.value) === 50 ? 50 : 25 })}>
-            <option value={25}>{t.flood_extent_25}</option>
-            <option value={50}>{t.flood_extent_50}</option>
+            <option value={25}>{t.sim_extent_25}</option>
+            <option value={50}>{t.sim_extent_50}</option>
           </select>
         </label>
 
         <div className="flex gap-2">
           <button type="button" className="btn-primaire min-h-11 flex-1 text-[13px] lg:min-h-0" onClick={() => void runFloodSim()} disabled={simBusy || !seed}>
-            {simBusy ? t.flood_running : t.flood_run}
+            {simBusy ? t.sim_running : t.sim_run}
           </button>
           {(run || simBusy) && (
             <button type="button" className={`${btn} w-auto`} onClick={clearFloodSim}>
-              {t.flood_clear}
+              {t.sim_clear}
             </button>
           )}
         </div>
         {simError && (
           <p role="alert" className="rounded-lg bg-danger-500/15 px-2.5 py-1.5 text-[11.5px] leading-snug text-danger-300">
-            {simError === "seed" ? t.flood_err_seed : simError === "elevation" ? t.flood_err_elevation : t.flood_err_dem}
+            {simError === "seed" ? t.sim_err_seed : simError === "elevation" ? t.sim_err_elevation : t.sim_err_dem}
           </p>
         )}
 
         {run && image && (
           <div className="flex flex-col gap-2 rounded-lg border border-white/15 p-2.5">
-            {/* Lecture : l'eau gagne la vallée sur la carte en temps simulé ;
-                le curseur suit, et se saisit — le tirer met en pause à l'instant choisi. */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setFloodPlaying(!playing)}
-                aria-label={playing ? t.flood_pause : pct >= 100 ? t.flood_replay : t.flood_play}
-                title={playing ? t.flood_pause : pct >= 100 ? t.flood_replay : t.flood_play}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-or-500 text-rdia-900 transition-colors hover:bg-or-400 lg:h-9 lg:w-9"
-              >
-                <Icon path={playing ? UI_ICONS.pause : pct >= 100 ? UI_ICONS.refresh : UI_ICONS.play} size={16} strokeWidth={2.2} />
-              </button>
-              <label className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-[13px] font-bold text-white">{horloge}</span>
-                  <span className="font-mono text-[10.5px] text-white/55">
-                    {!done && !run.aborted ? tpl(t.flood_computing, { pct: tete }) : `${pct} %`}
-                  </span>
-                </span>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={pct}
-                  aria-label={t.flood_progress}
-                  onChange={(e) => {
-                    setFloodPlaying(false);
-                    setFloodProgress(Math.min(Number(e.target.value) / 100, headProgress(run)));
-                  }}
-                  className="w-full accent-or-500"
-                />
-              </label>
-            </div>
+            <Lecteur
+              run={run}
+              progress={progress}
+              playing={playing}
+              onToggle={() => setFloodPlaying(!playing)}
+              onSeek={(p) => {
+                setFloodPlaying(false);
+                setFloodProgress(p);
+              }}
+            />
             <div className="flex items-center gap-2 text-[10.5px] text-white/60">
               <span className="shrink-0">{t.flood_legend} · 0.1 m</span>
               <span
@@ -480,30 +399,11 @@ export function FloodPanel() {
                   <dd className="text-end font-mono text-white">{(image.volumeOut / 1e6).toFixed(2)} hm³</dd>
                 </>
               )}
-              <dt className="text-white/55">{t.flood_cells}</dt>
+              <dt className="text-white/55">{t.sim_cells}</dt>
               <dd className="text-end font-mono text-white">{Math.round(run.sim.dx)} m</dd>
             </dl>
-            {partial && <p className="text-[11px] leading-snug text-or-300">{t.flood_partial}</p>}
-            <div className={lbl}>{t.flood_impacts}</div>
-            {run.impacts.length === 0 ? (
-              <p className="text-[11px] text-white/50">{t.flood_none_hit}</p>
-            ) : (
-              <ul className="flex flex-col gap-0.5 text-[11.5px]">
-                {run.impacts.map((i) => {
-                  const { h, m } = hm(i.reachedAt);
-                  return (
-                    // Ce que l'eau n'a pas encore atteint à l'instant lu reste en retrait.
-                    <li key={i.id} className={`flex items-baseline justify-between gap-2 ${i.reachedAt > tSim ? "opacity-45" : ""}`}>
-                      <span className="min-w-0 truncate">
-                        <span className="font-semibold text-or-300">{kindLabel[i.kind]}</span>
-                        <span className="text-white/80"> · {i.nom}</span>
-                      </span>
-                      <span className="shrink-0 font-mono text-[10.5px] text-white/60">{tpl(t.flood_reached_at, { t: `${h} h ${m}` })}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+            {partial && <p className="text-[11px] leading-snug text-or-300">{t.sim_partial}</p>}
+            <Impacts run={run} tSim={tSim} />
           </div>
         )}
       </section>

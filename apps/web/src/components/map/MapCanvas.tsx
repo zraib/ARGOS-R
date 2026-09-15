@@ -35,6 +35,7 @@ import {
   playFlood,
   setupFloodLayers,
 } from "@/components/map/layers/floods";
+import { FireRuntime, applyFireSeed, applyFireSim, fitFireExtent, focusFireStart, playFire, setupFireLayers } from "@/components/map/layers/fire";
 import {
   WeatherRuntime,
   applyWeatherVisibility,
@@ -67,6 +68,7 @@ export function MapCanvas() {
   const plumeRt = useRef(new PlumeRuntime());
   const wxRt = useRef(new WeatherRuntime());
   const floodRt = useRef(new FloodRuntime());
+  const fireRt = useRef(new FireRuntime());
   const quakeBound = useRef(false); // handlers hover/clic de la couche séismes posés une fois
   const quakePopupRef = useRef<maplibregl.Popup | null>(null); // bandeau collé au séisme
   const [wxTimeIdx, setWxTimeIdx] = useState(0);
@@ -138,6 +140,14 @@ export function MapCanvas() {
   const floodProgress = useArgos((s) => s.floodProgress);
   const floodPlaying = useArgos((s) => s.floodPlaying);
   const floodArming = useArgos((s) => s.floodArming);
+  // --- feux de forêt : point d'allumage et front simulé (ADR 0011) ---
+  const fireSeed = useArgos((s) => s.fireSeed);
+  const fireSim = useArgos((s) => s.fireSim);
+  const fireFrames = useArgos((s) => s.fireFrames);
+  const fireDone = useArgos((s) => s.fireDone);
+  const fireProgress = useArgos((s) => s.fireProgress);
+  const firePlaying = useArgos((s) => s.firePlaying);
+  const fireArming = useArgos((s) => s.fireArming);
   const wxGrid = useArgos((s) => s.wxGrid);
   const wxWorld = useArgos((s) => s.wxWorld);
   const wxLayers = useArgos((s) => s.wxLayers);
@@ -218,6 +228,11 @@ export function MapCanvas() {
       if (useArgos.getState().floodArming) {
         useArgos.getState().setFloodSeed([e.lngLat.lng, e.lngLat.lat]);
         useArgos.getState().setFloodArming(false);
+        return;
+      }
+      // Le simulateur de feu attend son point d'allumage : ce clic le pose.
+      if (useArgos.getState().fireArming) {
+        useArgos.getState().setFireSeed([e.lngLat.lng, e.lngLat.lat]);
         return;
       }
       // Une jauge de crue sous le clic : sa fiche (prévision, seuils, cartes).
@@ -308,7 +323,10 @@ export function MapCanvas() {
       setupQuakeLayers(map, () => measureOnRef.current, quakeBound);
       setupPlumeLayers(plumeRt.current, map);
       setupFloodLayers(map);
+      setupFireLayers(map);
       const st = useArgos.getState();
+      applyFireSeed(map, st.fireSeed);
+      applyFireSim(fireRt.current, map, st.fireSim, st.fireProgress, st.firePlaying);
       applyFloodGauges(map, st.floodGauges, st.floodGaugesOn, st.floodSel);
       applyFloodMaps(map, st.floodPolygons, st.floodMapsOn);
       applyFloodSeed(map, st.floodSeed);
@@ -368,8 +386,8 @@ export function MapCanvas() {
   // Chip armé, ou point de départ d'une inondation attendu : le curseur le dit avant le clic.
   useEffect(() => {
     const canvas = mapRef.current?.getCanvas();
-    if (canvas) canvas.style.cursor = armedPost || floodArming ? "crosshair" : "";
-  }, [armedPost, floodArming]);
+    if (canvas) canvas.style.cursor = armedPost || floodArming || fireArming ? "crosshair" : "";
+  }, [armedPost, floodArming, fireArming]);
 
   // --- suivi aérien : interrogation du flux ---
   // Le minuteur s'arrête dès que la couche est masquée, pour ne pas consommer
@@ -478,6 +496,25 @@ export function MapCanvas() {
   useEffect(() => {
     if (readyRef.current && floodDone) fitFloodExtent(mapRef.current, floodSim);
   }, [floodDone, floodSim]);
+
+  // --- feux de forêt : même mécanique que l'eau, sur sa propre couche ---
+  useEffect(() => {
+    if (readyRef.current) applyFireSeed(mapRef.current, fireSeed);
+  }, [fireSeed]);
+  useEffect(() => {
+    if (!readyRef.current) return;
+    if (firePlaying) applyFireSim(fireRt.current, mapRef.current, fireSim, useArgos.getState().fireProgress, true);
+    else applyFireSim(fireRt.current, mapRef.current, fireSim, fireProgress, false);
+  }, [fireSim, fireFrames, fireProgress, firePlaying]);
+  useEffect(() => {
+    if (readyRef.current) return playFire(fireRt.current, mapRef.current, fireSim, firePlaying);
+  }, [fireSim, firePlaying]);
+  useEffect(() => {
+    if (readyRef.current && fireSim) focusFireStart(mapRef.current, useArgos.getState().fireSeed);
+  }, [fireSim]);
+  useEffect(() => {
+    if (readyRef.current && fireDone) fitFireExtent(mapRef.current, fireSim);
+  }, [fireDone, fireSim]);
 
   // --- grilles météo : nationale dense, mondiale, visibilité des couches ---
   useEffect(() => {

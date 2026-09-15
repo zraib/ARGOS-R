@@ -124,7 +124,7 @@ describe("images et course d'une simulation", () => {
     expect(frameDepth(f1, 0, 0)).toBe(0);
     sim.h[a] = 3;
     const f2 = snapshotFrame(sim, 100);
-    expect(f2.depth.every((d) => d === 0 || d === Math.round(3 / FRAME_QUANTUM))).toBe(true);
+    expect(f2.data.every((d) => d === 0 || d === Math.round(3 / FRAME_QUANTUM))).toBe(true);
     const zone = unionBox(frameBox(f1), frameBox(f2))!;
     const out = new Uint8ClampedArray(12 * 12 * 4);
     paintFrames(out, 12, zone, f1, f2, 0.5);

@@ -30,6 +30,7 @@ import { canEditMap } from "@/lib/roles";
 import { POST_FILL, postCaption } from "@/lib/posts";
 import { Panel } from "@/app/map/_parts/Panel";
 import { FloodPanel } from "@/app/map/_parts/FloodPanel";
+import { FirePanel } from "@/app/map/_parts/FirePanel";
 import { FamilyNode } from "@/app/map/_parts/FamilyNode";
 
 export default function MapPage() {
@@ -86,13 +87,14 @@ export default function MapPage() {
    * style des contrôles natifs MapLibre (blanc, 44 px, rayon 12). Le bouton
    * « nrbc » ne rejoint la pile que lorsqu'un panache est actif.
    */
-  const [openPanel, setOpenPanel] = useState<"layers" | "air" | "legend" | "nrbc" | "edit" | "flood" | null>(null);
+  const [openPanel, setOpenPanel] = useState<"layers" | "air" | "legend" | "nrbc" | "edit" | "flood" | "fire" | null>(null);
   // Le simulateur attend un clic sur la carte : sous lg, la feuille se replie
   // pour la laisser voir — c'est depuis elle qu'on vient d'armer le point.
   const floodArming = useArgos((s) => s.floodArming);
+  const fireArming = useArgos((s) => s.fireArming);
   useEffect(() => {
-    if (floodArming) setSheet(null);
-  }, [floodArming]);
+    if (floodArming || fireArming) setSheet(null);
+  }, [floodArming, fireArming]);
 
   // --- panache NRBC (ADR 0005) ---
   const plumeIncidentId = useArgos((s) => s.plumeIncidentId);
@@ -581,6 +583,7 @@ export default function MapPage() {
   ];
   if (canEditMap(role)) sheetTabs.push({ key: "edit", label: t.map_edit_mode, body: <PostToolbox /> });
   sheetTabs.push({ key: "flood", label: t.flood_panel, body: <FloodPanel /> });
+  sheetTabs.push({ key: "fire", label: t.fire_panel, body: <FirePanel /> });
   if (selInfo) sheetTabs.push({ key: "selection", label: selInfo.titre, body: selectionBody });
   const openTab = sheetTabs.find((x) => x.key === sheet) ?? null;
 
@@ -615,6 +618,8 @@ export default function MapPage() {
                 { key: "legend" as const, icon: UI_ICONS.legend, label: t.legend },
                 // Crues : prévisions Flood Hub et simulateur d'inondation (ADR 0010).
                 { key: "flood" as const, icon: TYPE_ICONS.flood, label: t.flood_panel },
+                // Feux de forêt : simulateur de propagation du front (ADR 0011).
+                { key: "fire" as const, icon: TYPE_ICONS.wildfire, label: t.fire_panel },
                 // Le mode édition n'existe que pour qui peut poser un poste :
                 // l'API le refuserait de toute façon aux autres.
                 ...(canEditMap(role) ? [{ key: "edit" as const, icon: UI_ICONS.edit, label: t.map_edit_mode }] : []),
@@ -646,12 +651,12 @@ export default function MapPage() {
             <div key={openPanel} className="anim-bulle panneau-sombre pointer-events-auto w-[300px] overflow-hidden rounded-xl shadow-lg" style={GLASS}>
               <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
                 <Icon
-                  path={openPanel === "layers" ? UI_ICONS.layers : openPanel === "air" ? UI_ICONS.plane : openPanel === "nrbc" ? UI_ICONS.nrbc : openPanel === "edit" ? UI_ICONS.edit : openPanel === "flood" ? TYPE_ICONS.flood : UI_ICONS.legend}
+                  path={openPanel === "layers" ? UI_ICONS.layers : openPanel === "air" ? UI_ICONS.plane : openPanel === "nrbc" ? UI_ICONS.nrbc : openPanel === "edit" ? UI_ICONS.edit : openPanel === "flood" ? TYPE_ICONS.flood : openPanel === "fire" ? TYPE_ICONS.wildfire : UI_ICONS.legend}
                   size={14}
                   className="shrink-0 text-or-400"
                 />
                 <span className="min-w-0 flex-1 truncate text-[13px] font-bold uppercase tracking-wider text-white/85">
-                  {openPanel === "layers" ? t.layers : openPanel === "air" ? t.acft_panel : openPanel === "nrbc" ? t.nrbc_panel : openPanel === "edit" ? t.map_edit_mode : openPanel === "flood" ? t.flood_panel : t.legend}
+                  {openPanel === "layers" ? t.layers : openPanel === "air" ? t.acft_panel : openPanel === "nrbc" ? t.nrbc_panel : openPanel === "edit" ? t.map_edit_mode : openPanel === "flood" ? t.flood_panel : openPanel === "fire" ? t.fire_panel : t.legend}
                 </span>
                 <button
                   onClick={() => setOpenPanel(null)}
@@ -662,7 +667,7 @@ export default function MapPage() {
                 </button>
               </div>
               <div className="max-h-[62vh] overflow-y-auto px-3 pb-3 pt-2">
-                {openPanel === "layers" ? layersBody : openPanel === "air" ? <AircraftPanel /> : openPanel === "nrbc" ? nrbcBody : openPanel === "edit" ? <PostToolbox /> : openPanel === "flood" ? <FloodPanel /> : legendBody}
+                {openPanel === "layers" ? layersBody : openPanel === "air" ? <AircraftPanel /> : openPanel === "nrbc" ? nrbcBody : openPanel === "edit" ? <PostToolbox /> : openPanel === "flood" ? <FloodPanel /> : openPanel === "fire" ? <FirePanel /> : legendBody}
               </div>
             </div>
           )}

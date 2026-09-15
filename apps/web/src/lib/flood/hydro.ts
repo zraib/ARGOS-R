@@ -19,6 +19,9 @@
 // ============================================================================
 
 import type { DemGrid } from "@/lib/flood/grid";
+import type { PixelBox } from "@/lib/sim/spread";
+
+export type { PixelBox };
 
 const G = 9.81;
 
@@ -112,14 +115,6 @@ export function scenarioOf(p: FloodScenarioParams): FloodScenario {
 }
 
 // --- la simulation ----------------------------------------------------------------
-
-export interface PixelBox {
-  x0: number;
-  y0: number;
-  /** Exclusifs. */
-  x1: number;
-  y1: number;
-}
 
 /**
  * L'état de l'eau sur la grille et son avancement pas à pas. Les bords de la

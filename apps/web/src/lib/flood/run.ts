@@ -11,21 +11,11 @@
 import { gridPixel, type DemGrid } from "@/lib/flood/grid";
 import { FloodSimulation, type Hydrograph, type HydroParams } from "@/lib/flood/hydro";
 import { snapshotFrame, type FloodFrame } from "@/lib/flood/frames";
+import { now, poiCells, souffle, type SpreadImpact, type SpreadPoi, type SpreadRun } from "@/lib/sim/spread";
 
-export type FloodPoiKind = "hospital" | "unit" | "shelter" | "city";
-
-export interface FloodPoi {
-  id: string;
-  kind: FloodPoiKind;
-  nom: string;
-  ll: [number, number];
-}
-
-/** Un point d'intérêt que l'eau a atteint : quand (s simulées) et sous quelle lame (m) alors. */
-export interface FloodImpact extends FloodPoi {
-  reachedAt: number;
-  depth: number;
-}
+export type FloodPoi = SpreadPoi;
+/** Un point d'intérêt que l'eau a atteint : quand (s simulées) et sous quelle lame (m, `value`) alors. */
+export type FloodImpact = SpreadImpact;
 
 /** Lame (m) à partir de laquelle un point d'intérêt est dit atteint. */
 export const REACH_DEPTH = 0.1;
@@ -39,12 +29,12 @@ export interface FloodRunInit {
   /** Horizon simulé (s) et espacement des instantanés (s). */
   horizonS: number;
   frameEveryS: number;
-  pois: readonly FloodPoi[];
+  pois: readonly SpreadPoi[];
   params?: HydroParams;
 }
 
 /** Une simulation en cours ou finie : ses images, ses impacts, son état. Mutable, partagée par référence. */
-export class FloodRun {
+export class FloodRun implements SpreadRun<FloodFrame> {
   readonly grid: DemGrid;
   readonly sim: FloodSimulation;
   readonly frames: FloodFrame[] = [];
@@ -56,7 +46,7 @@ export class FloodRun {
   readonly controller = new AbortController();
   done = false;
   aborted = false;
-  private readonly poiCells: { poi: FloodPoi; i: number }[] = [];
+  private readonly pois: { poi: SpreadPoi; i: number }[];
   private readonly reached = new Set<string>();
 
   constructor(init: FloodRunInit) {
@@ -65,10 +55,7 @@ export class FloodRun {
     this.horizonS = init.horizonS;
     this.frameEveryS = init.frameEveryS;
     this.nFrames = Math.floor(init.horizonS / init.frameEveryS + 1e-6) + 1;
-    for (const poi of init.pois) {
-      const p = gridPixel(init.grid, poi.ll[0], poi.ll[1]);
-      if (p) this.poiCells.push({ poi, i: p.py * init.grid.width + p.px });
-    }
+    this.pois = poiCells(init.grid, init.pois, gridPixel);
     this.frames.push(snapshotFrame(this.sim, 0));
   }
 
@@ -80,12 +67,12 @@ export class FloodRun {
   /** Dépose l'instantané de l'instant `t` et relève les points que l'eau vient d'atteindre. */
   capture(t: number): void {
     this.frames.push(snapshotFrame(this.sim, t));
-    for (const { poi, i } of this.poiCells) {
+    for (const { poi, i } of this.pois) {
       if (this.reached.has(poi.id)) continue;
       const d = this.sim.h[i];
       if (d < REACH_DEPTH) continue;
       this.reached.add(poi.id);
-      this.impacts.push({ ...poi, reachedAt: t, depth: d });
+      this.impacts.push({ ...poi, reachedAt: t, value: d });
     }
   }
 
@@ -93,9 +80,6 @@ export class FloodRun {
     this.controller.abort();
   }
 }
-
-const now = (): number => (typeof performance !== "undefined" ? performance.now() : Date.now());
-const souffle = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 
 /**
  * Fait courir la simulation jusqu'à son horizon par tranches de `budgetMs`,
