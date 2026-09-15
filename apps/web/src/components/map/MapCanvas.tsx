@@ -24,7 +24,17 @@ import { pulseQuakes, quakePopup, setupQuakeLayers, syncQuakes } from "@/compone
 import { applyMissions, setupMissionLayers } from "@/components/map/layers/missions";
 import { drawMeasure, setupMeasureLayer } from "@/components/map/layers/measure";
 import { PlumeRuntime, applyPlume, playPlume, setupPlumeLayers } from "@/components/map/layers/plume";
-import { FloodRuntime, applyFloodGauges, applyFloodMaps, applyFloodSeed, applyFloodSim, playFlood, setupFloodLayers } from "@/components/map/layers/floods";
+import {
+  FloodRuntime,
+  applyFloodGauges,
+  applyFloodMaps,
+  applyFloodSeed,
+  applyFloodSim,
+  fitFloodExtent,
+  focusFloodStart,
+  playFlood,
+  setupFloodLayers,
+} from "@/components/map/layers/floods";
 import {
   WeatherRuntime,
   applyWeatherVisibility,
@@ -123,6 +133,8 @@ export function MapCanvas() {
   const floodMapsOn = useArgos((s) => s.floodMapsOn);
   const floodSeed = useArgos((s) => s.floodSeed);
   const floodSim = useArgos((s) => s.floodSim);
+  const floodFrames = useArgos((s) => s.floodFrames);
+  const floodDone = useArgos((s) => s.floodDone);
   const floodProgress = useArgos((s) => s.floodProgress);
   const floodPlaying = useArgos((s) => s.floodPlaying);
   const floodArming = useArgos((s) => s.floodArming);
@@ -447,17 +459,25 @@ export function MapCanvas() {
   useEffect(() => {
     if (readyRef.current) applyFloodSeed(mapRef.current, floodSeed);
   }, [floodSeed]);
-  // L'emprise simulée suit la simulation et, hors lecture, le curseur du
-  // panneau ; la lecture elle-même tourne en boucle d'animation et publie
-  // l'avancement — l'effet ne repeint pas derrière elle.
+  // L'eau simulée suit la course (ses images arrivent au fil du calcul) et,
+  // hors lecture, le curseur du panneau ; la lecture elle-même tourne en
+  // boucle d'animation et publie l'avancement — l'effet ne repeint pas
+  // derrière elle. Une course qui démarre amène la carte sur son point de
+  // départ ; finie, elle encadre l'eau si elle est sortie du champ.
   useEffect(() => {
     if (!readyRef.current) return;
     if (floodPlaying) applyFloodSim(floodRt.current, mapRef.current, floodSim, useArgos.getState().floodProgress, true);
     else applyFloodSim(floodRt.current, mapRef.current, floodSim, floodProgress, false);
-  }, [floodSim, floodProgress, floodPlaying]);
+  }, [floodSim, floodFrames, floodProgress, floodPlaying]);
   useEffect(() => {
     if (readyRef.current) return playFlood(floodRt.current, mapRef.current, floodSim, floodPlaying);
   }, [floodSim, floodPlaying]);
+  useEffect(() => {
+    if (readyRef.current && floodSim) focusFloodStart(mapRef.current, useArgos.getState().floodSeed);
+  }, [floodSim]);
+  useEffect(() => {
+    if (readyRef.current && floodDone) fitFloodExtent(mapRef.current, floodSim);
+  }, [floodDone, floodSim]);
 
   // --- grilles météo : nationale dense, mondiale, visibilité des couches ---
   useEffect(() => {

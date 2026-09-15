@@ -11,7 +11,7 @@
 // ============================================================================
 
 import { demTileUrl } from "@/lib/map/tiles";
-import { TILE, lngLatToTileFrac, type DemGrid } from "@/lib/flood/bathtub";
+import { TILE, lngLatToTileFrac, type DemGrid } from "@/lib/flood/grid";
 
 /** Décode une tuile terrarium en altitudes ; `null` si elle manque. */
 async function tuile(z: number, x: number, y: number): Promise<Float32Array | null> {

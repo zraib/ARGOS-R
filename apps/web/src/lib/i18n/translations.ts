@@ -617,16 +617,19 @@ export interface Dict {
   ch_typing: string; ch_sent: string; ch_delivered: string; ch_read: string; cm_deployed_on: string;
   // Crues : prévisions Flood Hub (par l'API) et simulateur d'inondation (ADR 0010)
   flood_panel: string; flood_feed: string; flood_feed_down: string; flood_feed_degraded: string; flood_feed_refresh: string; flood_provider_om: string; flood_provider_google: string; flood_peak: string;
+  flood_attribution_om: string; flood_attribution_google: string;
   flood_show_gauges: string; flood_no_gauges: string; flood_loading: string;
   flood_sev_extreme: string; flood_sev_severe: string; flood_sev_above: string; flood_sev_none: string; flood_sev_unknown: string;
   flood_trend_rise: string; flood_trend_fall: string; flood_trend_flat: string;
   flood_issued: string; flood_forecast: string; flood_forecast_none: string; flood_warning: string; flood_danger: string; flood_extreme: string;
-  flood_maps: string; flood_maps_none: string; flood_use_gauge: string; flood_attribution: string; flood_gauge_close: string;
+  flood_maps: string; flood_maps_none: string; flood_use_gauge: string; flood_gauge_close: string;
   flood_sim: string; flood_sim_hint: string; flood_src: string; flood_src_river: string; flood_src_lake: string; flood_src_dam: string;
   flood_seed: string; flood_pick: string; flood_picking: string; flood_seed_none: string;
-  flood_rise: string; flood_height: string; flood_atten: string; flood_extent: string;
+  flood_peak_q: string; flood_duration: string; flood_volume: string; flood_dam_volume: string; flood_dam_height: string; flood_horizon: string;
+  flood_derived_volume: string; flood_derived_q: string; flood_derived_dam: string; flood_extent: string; flood_extent_25: string; flood_extent_50: string;
   flood_run: string; flood_running: string; flood_clear: string;
   flood_area: string; flood_depth: string; flood_seed_elev: string; flood_cells: string; flood_partial: string;
+  flood_clock: string; flood_computing: string; flood_volume_ground: string; flood_volume_in: string; flood_volume_out: string; flood_reached_at: string;
   flood_impacts: string; flood_none_hit: string; flood_hospitals: string; flood_units: string; flood_shelters: string; flood_cities: string;
   flood_err_seed: string; flood_err_dem: string; flood_err_elevation: string;
   flood_play: string; flood_pause: string; flood_replay: string; flood_progress: string; flood_legend: string; flood_shallow: string; flood_deep: string;

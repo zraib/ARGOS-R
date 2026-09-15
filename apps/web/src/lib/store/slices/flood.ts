@@ -1,5 +1,5 @@
 // ============================================================================
-// lib/store/slices/flood.ts — crues : jauges Flood Hub et simulateur d'inondation (ADR 0010)
+// lib/store/slices/flood.ts — crues : prévisions du courtier et simulateur d'inondation (ADR 0010)
 //
 // Tranche du magasin Zustand. `set`/`get` portent sur l'état COMPLET
 // (ArgosState) : une tranche peut lire les autres, jamais les importer.
@@ -7,9 +7,9 @@
 // Deux choses distinctes vivent ici, et l'écran les sépare de même : les
 // PRÉVISIONS (jauges servies par l'API — GloFAS par Open-Meteo sans clé, ou
 // Google Flood Hub avec — jamais appelées depuis le navigateur) et la
-// SIMULATION (une emprise calculée ici même, sur le relief, sans réseau autre
-// que les tuiles d'altitude de la carte), lue en animation : l'eau gagne les
-// cellules dans l'ordre où elle les a atteintes.
+// SIMULATION (un volume d'eau qui se propage pas à pas sur le relief, calculé
+// ici même, sans réseau autre que les tuiles d'altitude de la carte), lue en
+// animation au fil du calcul.
 // ============================================================================
 
 import type { StateCreator } from "zustand";
@@ -17,64 +17,21 @@ import type { ArgosState } from "@/lib/store";
 import type { FloodFeedStatus, FloodForecast, FloodGauge, FloodInundationMap, FloodPolygon } from "@/lib/types";
 import { api } from "@/lib/api";
 import { loadDemGrid } from "@/lib/flood/dem";
-import {
-  cellSizeMeters,
-  damBreakRule,
-  floodFill,
-  floodedAmong,
-  floodedAreaKm2,
-  gridCorners,
-  gridPixel,
-  riseRule,
-  type DemGrid,
-  type FloodFillResult,
-} from "@/lib/flood/bathtub";
+import { cellSizeMeters, gridPixel } from "@/lib/flood/grid";
+import { scenarioOf, type FloodScenarioParams, type FloodSource } from "@/lib/flood/hydro";
+import { FloodRun, driveFloodRun, type FloodPoi } from "@/lib/flood/run";
 import { shelterPosition } from "@/lib/ai/opsnetAffecteur";
 
-export type FloodSource = "river" | "lake" | "dam";
-/** Pourquoi une simulation n'a pas abouti — chaque cause a sa phrase à l'écran. */
+export type { FloodSource };
+export type FloodSimParams = FloodScenarioParams;
+/** Pourquoi une simulation n'a pas démarré — chaque cause a sa phrase à l'écran. */
 export type FloodSimError = "seed" | "dem" | "elevation";
 
-export interface FloodSimParams {
-  source: FloodSource;
-  /** Rivière, lac : montée de la surface au-dessus du point de départ (m). */
-  riseM: number;
-  /** Barrage : lame d'eau au pied de l'ouvrage (m). */
-  heightM: number;
-  /** Barrage : distance à laquelle la lame s'éteint (km). */
-  attenuationKm: number;
-  /** Étendue du relief chargé autour du point (km de côté, en ordre de grandeur). */
-  extentKm: 20 | 40;
-}
-
-export interface FloodImpacts {
-  hospitals: string[];
-  units: string[];
-  shelters: string[];
-  cities: string[];
-}
-
-/** Ce qu'une simulation laisse : le relief et la propagation (pour la dessiner à tout instant), ses chiffres, ce qu'elle touche. */
-export interface FloodSimResult {
-  seed: [number, number];
-  params: FloodSimParams;
-  seedElev: number;
-  areaKm2: number;
-  maxDepth: number;
-  cells: number;
-  cellMeters: number;
-  corners: [[number, number], [number, number], [number, number], [number, number]];
-  /** Le relief et la propagation : la couche de la carte en tire l'image de chaque instant. */
-  grid: DemGrid;
-  fill: FloodFillResult;
-  impacts: FloodImpacts;
-  /** Des tuiles d'altitude manquaient, ou la borne de calcul a été atteinte : l'emprise est incomplète. */
-  partial: boolean;
-}
-
-export const FLOOD_DEFAULT_PARAMS: FloodSimParams = { source: "river", riseM: 3, heightM: 15, attenuationKm: 20, extentKm: 20 };
-/** Borne du calcul : au-delà, l'emprise est dite partielle plutôt que de figer l'écran. */
-const FLOOD_MAX_CELLS = 1_200_000;
+export const FLOOD_DEFAULT_PARAMS: FloodSimParams = { source: "river", peakQ: 1500, durationH: 6, volumeHm3: 50, damHeightM: 40, horizonH: 6, extentKm: 25 };
+/** Images gardées sur l'horizon : assez pour un curseur fin, peu pour la mémoire. */
+const FLOOD_FRAMES = 120;
+/** Zoom des tuiles d'altitude par étendue : 3 × 3 tuiles font ≈ 25 km à z12 et ≈ 50 km à z11 sous la latitude du Maroc. */
+const FLOOD_ZOOM: Record<FloodSimParams["extentKm"], number> = { 25: 12, 50: 11 };
 
 export interface FloodSlice {
   floodStatus: FloodFeedStatus | null;
@@ -92,10 +49,16 @@ export interface FloodSlice {
   /** Le prochain clic sur la carte pose le point de départ. */
   floodArming: boolean;
   floodParams: FloodSimParams;
-  floodSim: FloodSimResult | null;
+  /** La simulation en cours ou finie — mutable, partagée par référence ; `floodFrames` et `floodDone` signalent ses changements. */
+  floodSim: FloodRun | null;
+  floodFrames: number;
+  floodDone: boolean;
+  /** Le relief avait des trous (tuiles absentes) : l'eau ne les traverse pas, l'emprise peut être tronquée. */
+  floodPartial: boolean;
+  /** Relief en chargement ou calcul en cours. */
   floodSimBusy: boolean;
   floodSimError: FloodSimError | null;
-  /** Avancement de la lecture, 0 (le point de départ) à 1 (l'emprise entière). */
+  /** Avancement de la lecture, 0 (l'instant du départ) à 1 (l'horizon). */
   floodProgress: number;
   floodPlaying: boolean;
   loadFloodGauges: () => Promise<void>;
@@ -129,9 +92,12 @@ export const createFloodSlice: StateCreator<ArgosState, [], [], FloodSlice> = (s
   floodArming: false,
   floodParams: FLOOD_DEFAULT_PARAMS,
   floodSim: null,
+  floodFrames: 0,
+  floodDone: false,
+  floodPartial: false,
   floodSimBusy: false,
   floodSimError: null,
-  floodProgress: 1,
+  floodProgress: 0,
   floodPlaying: false,
 
   loadFloodGauges: async () => {
@@ -185,15 +151,20 @@ export const createFloodSlice: StateCreator<ArgosState, [], [], FloodSlice> = (s
   setFloodArming: (v) => set({ floodArming: v }),
   setFloodSeed: (ll) => set({ floodSeed: ll, floodArming: false, floodSimError: null }),
   setFloodParams: (patch) => set((s) => ({ floodParams: { ...s.floodParams, ...patch } })),
-  clearFloodSim: () => set({ floodSim: null, floodSimError: null, floodPlaying: false, floodProgress: 1 }),
+  clearFloodSim: () => {
+    get().floodSim?.abort();
+    set({ floodSim: null, floodFrames: 0, floodDone: false, floodPartial: false, floodSimBusy: false, floodSimError: null, floodPlaying: false, floodProgress: 0 });
+  },
   setFloodProgress: (p) => set({ floodProgress: Math.min(1, Math.max(0, p)) }),
   // Relancer depuis la fin repart du début ; sinon la lecture reprend où elle en était.
   setFloodPlaying: (v) => set((s) => ({ floodPlaying: v && s.floodSim !== null, floodProgress: v && s.floodProgress >= 1 ? 0 : s.floodProgress })),
 
   /**
-   * Calcule l'emprise sur le relief chargé autour du point de départ, relève
-   * ce qu'elle atteint (hôpitaux, unités, abris, villes) et lance la lecture
-   * animée. Tout se passe ici : aucune donnée ne part vers un service.
+   * Charge le relief autour du point de départ, lance la propagation du
+   * scénario (débit, volume, durée) et sa lecture ; le calcul court en
+   * arrière-plan et ses images arrivent au fil de l'eau. Il relève au passage
+   * quand l'eau atteint hôpitaux, unités, abris et villes. Tout se passe ici :
+   * aucune donnée ne part vers un service.
    */
   runFloodSim: async () => {
     const s0 = get();
@@ -203,28 +174,23 @@ export const createFloodSlice: StateCreator<ArgosState, [], [], FloodSlice> = (s
       return;
     }
     if (s0.floodSimBusy) return;
-    set({ floodSimBusy: true, floodSimError: null, floodPlaying: false });
+    s0.floodSim?.abort();
+    set({ floodSimBusy: true, floodSimError: null, floodSim: null, floodFrames: 0, floodDone: false, floodPlaying: false, floodProgress: 0 });
+    const params = s0.floodParams;
+    const z = FLOOD_ZOOM[params.extentKm];
+    let run: FloodRun;
     try {
-      const params = s0.floodParams;
-      // 5 × 5 tuiles : ~20 km de côté à z13 (~19 m par cellule), ~40 km à z12.
-      const z = params.extentKm === 20 ? 13 : 12;
-      const grid = await loadDemGrid(seed, z, 2);
+      const grid = await loadDemGrid(seed, z, 1);
       if (!grid) {
-        set({ floodSimError: "dem" });
+        set({ floodSimError: "dem", floodSimBusy: false });
         return;
       }
       const p = gridPixel(grid, seed[0], seed[1]);
       const seedElev = p ? grid.elev[p.py * grid.width + p.px] : NaN;
       if (!p || !Number.isFinite(seedElev)) {
-        set({ floodSimError: "elevation" });
+        set({ floodSimError: "elevation", floodSimBusy: false });
         return;
       }
-      const cellMeters = cellSizeMeters(z, seed[1]);
-      const rule =
-        params.source === "dam"
-          ? damBreakRule(seedElev, params.heightM, params.attenuationKm * 1000)
-          : riseRule(seedElev, params.riseM);
-      const fill = floodFill(grid, p.px, p.py, rule, cellMeters, FLOOD_MAX_CELLS);
       let inconnues = false;
       for (let i = 0; i < grid.elev.length; i += 97) {
         if (!Number.isFinite(grid.elev[i])) {
@@ -233,38 +199,38 @@ export const createFloodSlice: StateCreator<ArgosState, [], [], FloodSlice> = (s
         }
       }
       const st = get();
-      const abris = st.shelters
-        .map((a) => ({ nom: a.nom, ll: shelterPosition(a, st.cities) }))
-        .filter((a): a is { nom: string; ll: [number, number] } => a.ll !== null);
-      const impacts: FloodImpacts = {
-        hospitals: floodedAmong(grid, fill, avecPosition(st.hospitals)).map((h) => h.nom),
-        units: floodedAmong(grid, fill, avecPosition(st.units)).map((u) => u.nom),
-        shelters: floodedAmong(grid, fill, abris).map((a) => a.nom),
-        cities: floodedAmong(grid, fill, st.cities).map((c) => c.v),
-      };
-      set({
-        floodSim: {
-          seed,
-          params,
-          seedElev,
-          areaKm2: floodedAreaKm2(fill, cellMeters),
-          maxDepth: fill.maxDepth,
-          cells: fill.cells,
-          cellMeters,
-          corners: gridCorners(grid),
-          grid,
-          fill,
-          impacts,
-          partial: inconnues || fill.cells >= FLOOD_MAX_CELLS,
-        },
-        // La lecture part du point de départ dès que le résultat est là.
-        floodProgress: 0,
-        floodPlaying: true,
+      const pois: FloodPoi[] = [
+        ...avecPosition(st.hospitals).map((h): FloodPoi => ({ id: `h:${h.nom}`, kind: "hospital", nom: h.nom, ll: h.ll })),
+        ...avecPosition(st.units).map((u): FloodPoi => ({ id: `u:${u.nom}`, kind: "unit", nom: u.nom, ll: u.ll })),
+        ...st.shelters
+          .map((a) => ({ nom: a.nom, ll: shelterPosition(a, st.cities) }))
+          .filter((a): a is { nom: string; ll: [number, number] } => a.ll !== null)
+          .map((a): FloodPoi => ({ id: `a:${a.nom}`, kind: "shelter", nom: a.nom, ll: a.ll })),
+        ...st.cities.map((c): FloodPoi => ({ id: `c:${c.v}`, kind: "city", nom: c.v, ll: c.ll })),
+      ];
+      const scenario = scenarioOf(params);
+      const horizonS = params.horizonH * 3600;
+      run = new FloodRun({
+        grid,
+        cellMeters: cellSizeMeters(z, seed[1]),
+        seedPx: p.px,
+        seedPy: p.py,
+        hydrograph: scenario.hydrograph,
+        horizonS,
+        frameEveryS: horizonS / FLOOD_FRAMES,
+        pois,
       });
+      set({ floodSim: run, floodFrames: 1, floodDone: false, floodPartial: inconnues, floodProgress: 0, floodPlaying: true });
     } catch {
-      set({ floodSimError: "dem" });
-    } finally {
-      set({ floodSimBusy: false });
+      set({ floodSimError: "dem", floodSimBusy: false });
+      return;
     }
+    // Le calcul court ; ses images arrivent au fil de l'eau et la lecture les suit.
+    // Une course remplacée ou effacée entre-temps ne touche plus au magasin.
+    void driveFloodRun(run, (r) => {
+      if (get().floodSim === r) set({ floodFrames: r.frames.length, floodDone: r.done });
+    }).finally(() => {
+      if (get().floodSim === run) set({ floodSimBusy: false });
+    });
   },
 });

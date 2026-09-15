@@ -15,7 +15,7 @@ dépendance runtime.
 | [0007](0007-missions-boucle-fermee.md) | Missions : la boucle fermée des gestes opérationnels | **accepté** (lot S1) | `apps/api/src/modules/missions`, permission `missions:*` |
 | [0009](0009-dotations-provisoires-a-arbitrer.md) | Dotations provisoires de la matrice : ce que l'état-major doit arbitrer | **proposé** | `permissions.ts` (bloc `LEGACY`), 14 fonctionnalités |
 | [0008](0008-ecouteur-tcp-traceurs-fmc920.md) | Traceurs FMC920 : ARGOS est le serveur du boîtier (Codec 8 sur TCP) | **accepté** (lot N-2) | `apps/api/src/modules/tracking`, permission `tracking:*`, second port en écoute |
-| [0010](0010-crues-flood-hub-et-simulateur.md) | Crues : prévisions GloFAS (Open-Meteo, sans clé) ou Google Flood Hub (sur clé) par le courtier, simulateur d'inondation local animé | **accepté** | `flood.service.ts`, `flood.openmeteo.ts`, routes `floods/*`, `lib/flood/`, panneau « Crues » de la carte, `FLOOD_API_KEY` |
+| [0010](0010-crues-flood-hub-et-simulateur.md) | Crues : prévisions GloFAS (Open-Meteo, sans clé) ou Google Flood Hub (sur clé) par le courtier, simulateur d'inondation hydraulique local (onde inertielle, débit et volume, animé) | **accepté** | `flood.service.ts`, `flood.openmeteo.ts`, routes `floods/*`, `lib/flood/`, panneau « Crues » de la carte, `FLOOD_API_KEY` |
 
 ## Écrire un ADR
 
