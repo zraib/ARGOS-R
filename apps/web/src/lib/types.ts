@@ -635,7 +635,7 @@ export interface SeismicNotification {
 
 // --- Sélection sur la carte opérationnelle -------------------------------
 
-export type MarkerKind = "unit" | "hosp" | "inc" | "veh" | "field" | "acft" | "post";
+export type MarkerKind = "unit" | "hosp" | "inc" | "veh" | "field" | "acft" | "post" | "morgue";
 
 // --- suivi aérien (feux de forêt) ---
 // Miroir des types du module `aviation` de l'API. Le poste de commandement ne
@@ -762,4 +762,60 @@ export interface FloodPolygon {
   type: "Feature";
   properties: { polygonId: string };
   geometry: { type: "MultiPolygon"; coordinates: number[][][][] };
+}
+
+// --- service morgue (miroir de l'API : sites, registre DVI, chaîne de garde) ---
+
+/** Site mortuaire (permanent ou de circonstance), ou morgue MOBILE déployée sur le terrain. */
+export interface MorgueSite {
+  id: string;
+  nom: string;
+  ville: string;
+  /** Emplacements réfrigérés. */
+  capacity: number;
+  staff: number;
+  statut: "op" | "partial" | "closed";
+  /** Fixe ou mobile ; absent = fixe. */
+  kind?: "fixed" | "mobile";
+  code?: string;
+  ll?: [number, number];
+  /** Morgue mobile : où elle est déployée, pour quel incident — `null` une fois repliée. */
+  deployment?: { site: string; ll: [number, number]; incidentId?: string; at: string; by: string } | null;
+}
+
+export const DVI_STATUSES = ["unidentified", "in_progress", "identified", "released"] as const;
+export type DviStatus = (typeof DVI_STATUSES)[number];
+export const DVI_SAMPLES = ["dna", "dental", "fingerprint"] as const;
+export type DviSample = (typeof DVI_SAMPLES)[number];
+
+/** Une étape de la chaîne de garde : datée, signée, d'où à où. */
+export type CustodyStep = "recovered" | "hospital" | "transferred" | "received" | "released";
+export interface CustodyEvent {
+  at: string;
+  step: CustodyStep;
+  from?: string;
+  to?: string;
+  by: string;
+  note?: string;
+}
+
+/** Un corps admis dans un site mortuaire, sous référence unique, avec son parcours d'identification et sa chaîne de garde. */
+export interface MortuaryRecord {
+  id: string;
+  mid: string;
+  reference: string;
+  incidentId?: string;
+  foundAt?: string;
+  sex?: "m" | "f" | "unknown";
+  ageRange?: string;
+  status: DviStatus;
+  samples: DviSample[];
+  identifiedAs?: string;
+  releasedTo?: string;
+  origin?: { kind: "hospital" | "field"; id?: string; label: string };
+  custody?: CustodyEvent[];
+  /** Transfert annoncé, réception à confirmer par le site. */
+  pendingReceipt?: boolean;
+  admittedAt: string;
+  updatedAt: string;
 }

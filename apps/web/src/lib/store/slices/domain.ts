@@ -5,6 +5,7 @@
 // (ArgosState) : une tranche peut lire les autres, jamais les importer.
 // ============================================================================
 
+import type { MorgueSite } from "@/lib/types";
 import type { StateCreator } from "zustand";
 import type { ArgosState } from "@/lib/store";
 import type {
@@ -85,6 +86,9 @@ export interface DomainSlice {
   posts: IncidentPost[];
   /** Abris connus — pour poser un poste d'abri et nommer le poste sur la carte. */
   shelters: Shelter[];
+  /** Sites mortuaires (fixes et mobiles) — carte, Hospinet, service morgue ; vides pour qui n'a pas `morgue:view`. */
+  morgues: MorgueSite[];
+  reloadMorgues: () => Promise<void>;
   /** Comptes déployables (PC, cellules) et l'opération qu'ils servent — la boîte à outils du mode édition. */
   deployable: DeployableAccount[];
   loadDeployable: () => Promise<void>;
@@ -171,6 +175,15 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
   responsables: [],
   posts: [],
   shelters: [],
+  morgues: [],
+  reloadMorgues: async () => {
+    try {
+      const res = await api.getMorgues();
+      if (Array.isArray(res.data)) set({ morgues: res.data as unknown as MorgueSite[] });
+    } catch {
+      /* hors périmètre ou flux indisponible : la liste précédente reste */
+    }
+  },
   deployable: [],
   comCollapsed: {},
   provinces: [],
@@ -199,6 +212,7 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
       api.getNotices(),
       api.getPosts(),
       api.getShelters(),
+      api.getMorgues(),
     ]);
     const data = <T,>(i: number): T | undefined =>
       results[i].status === "fulfilled"
@@ -222,6 +236,7 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
       rtNotices: data<Notice[]>(14) ?? s.rtNotices,
       posts: data<IncidentPost[]>(15) ?? s.posts,
       shelters: data<Shelter[]>(16) ?? s.shelters,
+      morgues: data<MorgueSite[]>(17) ?? s.morgues,
       comCats: comms?.categories ?? s.comCats,
       comMsgs: comms?.messages ? marquerMiens(comms.messages, s.sessionUser?.matricule) : s.comMsgs,
       comMembers: comms?.members ?? s.comMembers,

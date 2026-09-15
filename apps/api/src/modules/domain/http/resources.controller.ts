@@ -7,9 +7,9 @@
 // et `authz-coverage.spec.ts` en font foi.
 // ============================================================================
 
-import { Body, ConflictException, Delete, Get, NotFoundException, Param, Patch, Post, Controller } from "@nestjs/common";
-import { ApiOperation, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
-import { AdmitBodyDto, CreateEquipDto, CreateUnitDto, UpdateEquipDto, UpdateMorgueDto, UpdateMortuaryRecordDto, CreateShelterDto, UpdateShelterDto, UpdateUnitDto } from "@/modules/domain/dto";
+import { Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from "@nestjs/swagger";
+import { AdmitBodyDto, CreateEquipDto, CreateUnitDto, DeployMobileMorgueDto, TransferBodyDto, UpdateEquipDto, UpdateMorgueDto, UpdateMortuaryRecordDto, CreateShelterDto, UpdateShelterDto, UpdateUnitDto } from "@/modules/domain/dto";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import { RequireScope } from "@/common/decorators/require-scope.decorator";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
@@ -163,19 +163,69 @@ export class ResourcesController {
   @RequirePermission("morgue:create")
   @RequireScope("morgue")
   @ApiOperation({ summary: "Admettre un corps sous référence provisoire — dans SON site uniquement" })
-  admitBody(@Param("id") id: string, @Body() dto: AdmitBodyDto) {
+  admitBody(@Param("id") id: string, @Body() dto: AdmitBodyDto, @CurrentUser() user: AuthUser) {
     if (!this.domain.findMorgue(id)) throw new NotFoundException(`Site mortuaire introuvable : ${id}`);
-    return this.domain.admitBody(id, dto);
+    return this.domain.admitBody(id, dto, user.username);
   }
 
   @Patch("morgues/:id/records/:rid")
   @RequirePermission("morgue:update")
   @RequireScope("morgue")
   @ApiOperation({ summary: "Faire évoluer un dossier d'identification — dans SON site uniquement" })
-  updateMortuaryRecord(@Param("id") id: string, @Param("rid") rid: string, @Body() dto: UpdateMortuaryRecordDto) {
-    const res = this.domain.updateMortuaryRecord(id, rid, dto);
+  updateMortuaryRecord(@Param("id") id: string, @Param("rid") rid: string, @Body() dto: UpdateMortuaryRecordDto, @CurrentUser() user: AuthUser) {
+    const res = this.domain.updateMortuaryRecord(id, rid, dto, user.username);
     if (res.missing) throw new NotFoundException(`Dossier introuvable dans ${id} : ${rid}`);
     // Violation d'un invariant du parcours DVI → 409 (règle métier, pas saisie).
+    if (res.error) throw new ConflictException(res.error);
+    return res.record;
+  }
+
+  // --- service morgue : registre de tous les sites, morgues mobiles, chaîne de garde ---
+
+  @Get("morgues/registry")
+  @RequirePermission("morgue:view")
+  @ApiOperation({ summary: "Registre mortuaire de tous les sites — par incident au besoin" })
+  @ApiQuery({ name: "incidentId", required: false })
+  mortuaryRegistry(@Query("incidentId") incidentId?: string) {
+    return this.domain.listMortuaryRegistry(incidentId || undefined);
+  }
+
+  @Post("morgues/mobile")
+  @RequirePermission("morgue:create")
+  @ApiOperation({ summary: "Déployer une morgue mobile (conteneur réfrigéré) sur le terrain" })
+  deployMobileMorgue(@Body() dto: DeployMobileMorgueDto, @CurrentUser() user: AuthUser) {
+    return this.domain.deployMobileMorgue(dto, user.username);
+  }
+
+  @Post("morgues/:id/recall")
+  @RequirePermission("morgue:update")
+  @RequireScope("morgue")
+  @ApiOperation({ summary: "Replier une morgue mobile — vide de tout corps" })
+  recallMorgue(@Param("id") id: string) {
+    const res = this.domain.recallMorgue(id);
+    if (res.missing) throw new NotFoundException(`Site mortuaire introuvable : ${id}`);
+    if (res.error) throw new ConflictException(res.error);
+    return res.site;
+  }
+
+  @Post("morgues/:id/records/:rid/receive")
+  @RequirePermission("morgue:update")
+  @RequireScope("morgue")
+  @ApiOperation({ summary: "Confirmer la réception d'un corps transféré — dans SON site uniquement" })
+  receiveBody(@Param("id") id: string, @Param("rid") rid: string, @CurrentUser() user: AuthUser) {
+    const res = this.domain.receiveBody(id, rid, user.username);
+    if (res.missing) throw new NotFoundException(`Dossier introuvable dans ${id} : ${rid}`);
+    if (res.error) throw new ConflictException(res.error);
+    return res.record;
+  }
+
+  @Post("morgues/:id/records/:rid/transfer")
+  @RequirePermission("morgue:update")
+  @RequireScope("morgue")
+  @ApiOperation({ summary: "Transférer un corps vers un autre site mortuaire — depuis SON site uniquement" })
+  transferBody(@Param("id") id: string, @Param("rid") rid: string, @Body() dto: TransferBodyDto, @CurrentUser() user: AuthUser) {
+    const res = this.domain.transferBody(id, rid, dto.toMid, user.username, dto.note);
+    if (res.missing) throw new NotFoundException(`Dossier introuvable dans ${id} : ${rid}`);
     if (res.error) throw new ConflictException(res.error);
     return res.record;
   }

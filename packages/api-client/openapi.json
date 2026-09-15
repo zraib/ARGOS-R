@@ -2229,6 +2229,178 @@
         ]
       }
     },
+    "/api/morgues/registry": {
+      "get": {
+        "operationId": "ResourcesController_mortuaryRegistry",
+        "parameters": [
+          {
+            "name": "incidentId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Registre mortuaire de tous les sites — par incident au besoin",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/morgues/mobile": {
+      "post": {
+        "operationId": "ResourcesController_deployMobileMorgue",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeployMobileMorgueDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Déployer une morgue mobile (conteneur réfrigéré) sur le terrain",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/morgues/{id}/recall": {
+      "post": {
+        "operationId": "ResourcesController_recallMorgue",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Replier une morgue mobile — vide de tout corps",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/morgues/{id}/records/{rid}/receive": {
+      "post": {
+        "operationId": "ResourcesController_receiveBody",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "rid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Confirmer la réception d'un corps transféré — dans SON site uniquement",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/morgues/{id}/records/{rid}/transfer": {
+      "post": {
+        "operationId": "ResourcesController_transferBody",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "rid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferBodyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Transférer un corps vers un autre site mortuaire — depuis SON site uniquement",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/hospitals": {
       "get": {
         "operationId": "HospitalsController_hospitals",
@@ -2377,6 +2549,45 @@
           }
         ],
         "summary": "Ouvrir un service de soins — dans SON établissement uniquement",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/hospitals/{id}/deceased": {
+      "post": {
+        "operationId": "HospitalsController_declareDeath",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HospitalDeathDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Décès en établissement : annoncer le transfert du corps vers un site mortuaire — depuis SON établissement uniquement",
         "tags": [
           "domain"
         ]
@@ -5619,7 +5830,7 @@
           "reference": {
             "type": "string",
             "example": "AH-2026-004",
-            "description": "Référence provisoire attribuée à l'admission"
+            "description": "Référence provisoire ; absente, le site l'attribue (code-année-numéro)"
           },
           "incidentId": {
             "type": "string",
@@ -5656,10 +5867,7 @@
               ]
             }
           }
-        },
-        "required": [
-          "reference"
-        ]
+        }
       },
       "UpdateMortuaryRecordDto": {
         "type": "object",
@@ -5708,6 +5916,72 @@
             "type": "string"
           }
         }
+      },
+      "DeployMobileMorgueDto": {
+        "type": "object",
+        "properties": {
+          "nom": {
+            "type": "string",
+            "example": "Morgue mobile n° 2 — conteneur 40 pieds",
+            "description": "Désignation de l'unité"
+          },
+          "capacity": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Emplacements réfrigérés"
+          },
+          "staff": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Effectif affecté"
+          },
+          "site": {
+            "type": "string",
+            "example": "Stade d'Amizmiz",
+            "description": "Lieu de déploiement"
+          },
+          "ll": {
+            "minItems": 2,
+            "maxItems": 2,
+            "example": [
+              -8.24,
+              31.22
+            ],
+            "description": "[longitude, latitude]",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "incidentId": {
+            "type": "string",
+            "example": "INC-2607",
+            "description": "Incident servi"
+          }
+        },
+        "required": [
+          "nom",
+          "capacity",
+          "site",
+          "ll"
+        ]
+      },
+      "TransferBodyDto": {
+        "type": "object",
+        "properties": {
+          "toMid": {
+            "type": "string",
+            "example": "M1",
+            "description": "Site mortuaire de destination"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "toMid"
+        ]
       },
       "CreateHospitalDto": {
         "type": "object",
@@ -5832,6 +6106,47 @@
             "description": "Hélicoptères sanitaires"
           }
         }
+      },
+      "HospitalDeathDto": {
+        "type": "object",
+        "properties": {
+          "mid": {
+            "type": "string",
+            "example": "M2",
+            "description": "Site mortuaire de destination"
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence ; absente, le site de destination l'attribue"
+          },
+          "incidentId": {
+            "type": "string",
+            "example": "INC-2607"
+          },
+          "identifiedAs": {
+            "type": "string",
+            "description": "Identité du patient décédé, si connue"
+          },
+          "sex": {
+            "type": "string",
+            "enum": [
+              "m",
+              "f",
+              "unknown"
+            ]
+          },
+          "ageRange": {
+            "type": "string",
+            "example": "40-55"
+          },
+          "note": {
+            "type": "string",
+            "description": "Circonstances, service, remarques pour la chaîne de garde"
+          }
+        },
+        "required": [
+          "mid"
+        ]
       },
       "CreateWardDto": {
         "type": "object",

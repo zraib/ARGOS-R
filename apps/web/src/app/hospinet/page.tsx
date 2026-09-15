@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useArgos, useDict } from "@/lib/store";
+import { useEffect, useMemo, useState } from "react";
+import { useArgos, useDict, useModules } from "@/lib/store";
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -16,7 +16,9 @@ import { HealthGlyph } from "@/components/health/HealthGlyph";
 import { HospinetIAPanel } from "@/components/health/HospinetIAPanel";
 import { HospinetAffecteurIA } from "@/components/health/HospinetAffecteurIA";
 import { HOSPITAL_KINDS, hospKind, kindDef } from "@/lib/hospitals";
-import type { HospitalKind } from "@/lib/types";
+import { HospitalDeathModal } from "@/components/morgue/HospitalDeathModal";
+import { api } from "@/lib/api";
+import type { HospitalKind, MortuaryRecord } from "@/lib/types";
 
 const TH = "px-4 py-3 text-start text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400";
 const TD = "px-4 py-2.5";
@@ -48,6 +50,27 @@ export default function HospinetPage() {
 
   const canManage = role === "superadmin" || role === "admin";
   const hosp = selHosp ? hospitals.find((h) => h.id === selHosp) : null;
+  // Décès en établissement → site mortuaire : qui peut écrire sur Hospinet
+  // le déclare ; les transferts annoncés par cet établissement s'affichent
+  // jusqu'à leur réception (registre du service morgue).
+  const m = useModules();
+  const morgues = useArgos((s) => s.morgues);
+  const [deathOpen, setDeathOpen] = useState(false);
+  const [registry, setRegistry] = useState<MortuaryRecord[]>([]);
+  const canDeclare = role === "superadmin" || role === "admin" || role === "greencell" || role === "resp_hospital";
+  const hospId = hosp?.id ?? null;
+  const nbSites = morgues.length;
+  useEffect(() => {
+    if (!hospId || nbSites === 0) return;
+    let vivant = true;
+    void api.getMortuaryRegistry().then((res) => {
+      if (vivant && Array.isArray(res.data)) setRegistry(res.data as unknown as MortuaryRecord[]);
+    });
+    return () => {
+      vivant = false;
+    };
+  }, [hospId, nbSites, deathOpen]);
+  const transfertsEnCours = hosp ? registry.filter((r) => r.origin?.kind === "hospital" && r.origin.id === hosp.id && r.pendingReceipt) : [];
 
   // Nombre d'établissements par catégorie (puces de filtre).
   const counts = useMemo(() => {
@@ -295,6 +318,26 @@ export default function HospinetPage() {
         {/* Le directeur et son état de connexion — seuls les établissements
             militaires ont un responsable désigné ; sans lui, rien n'est dit. */}
         <ResponsibleCard kind="hospital" entityId={hosp.id} hideIfNone />
+        {/* Décès en établissement : le corps part vers un site mortuaire,
+            réception à confirmer là-bas — la traçabilité commence ici. */}
+        {morgues.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 dark:border-rdia-700/60">
+            {canDeclare && (
+              <button type="button" onClick={() => setDeathOpen(true)} className="cible-tactile btn-secondaire flex items-center gap-1.5 text-sm">
+                <Icon path={NAV_ICONS.morgue} size={14} />
+                {m.morgue.h_death}
+              </button>
+            )}
+            <span className="text-[11.5px] text-gray-500 dark:text-rdia-300">
+              {transfertsEnCours.length === 0
+                ? m.morgue.h_none
+                : transfertsEnCours.map((r) => `${r.reference} — ${m.morgue.h_pending} ${morgues.find((s) => s.id === r.mid)?.nom ?? r.mid}`).join(" · ")}
+            </span>
+          </div>
+        )}
+        {deathOpen && (
+          <HospitalDeathModal hospital={hosp} sites={morgues} records={registry} onClose={() => setDeathOpen(false)} onDone={() => setDeathOpen(false)} />
+        )}
       </div>
 
       {tab === "staff" && (

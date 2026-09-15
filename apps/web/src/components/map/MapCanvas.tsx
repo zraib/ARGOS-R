@@ -36,6 +36,7 @@ import {
   setupFloodLayers,
 } from "@/components/map/layers/floods";
 import { FireRuntime, applyFireSeed, applyFireSim, fitFireExtent, focusFireStart, playFire, setupFireLayers } from "@/components/map/layers/fire";
+import { applyMorgues, setupMorgueLayers } from "@/components/map/layers/morgues";
 import {
   WeatherRuntime,
   applyWeatherVisibility,
@@ -148,6 +149,7 @@ export function MapCanvas() {
   const fireProgress = useArgos((s) => s.fireProgress);
   const firePlaying = useArgos((s) => s.firePlaying);
   const fireArming = useArgos((s) => s.fireArming);
+  const morgues = useArgos((s) => s.morgues);
   const wxGrid = useArgos((s) => s.wxGrid);
   const wxWorld = useArgos((s) => s.wxWorld);
   const wxLayers = useArgos((s) => s.wxLayers);
@@ -324,7 +326,9 @@ export function MapCanvas() {
       setupPlumeLayers(plumeRt.current, map);
       setupFloodLayers(map);
       setupFireLayers(map);
+      setupMorgueLayers(map);
       const st = useArgos.getState();
+      applyMorgues(map, st.morgues, st.layers.morgues);
       applyFireSeed(map, st.fireSeed);
       applyFireSim(fireRt.current, map, st.fireSim, st.fireProgress, st.firePlaying);
       applyFloodGauges(map, st.floodGauges, st.floodGaugesOn, st.floodSel);
@@ -429,6 +433,7 @@ export function MapCanvas() {
       selMarker.kind === "inc" ? st.incidents.find((i) => i.id === selMarker.id)?.ll
       : selMarker.kind === "unit" ? st.units.find((u) => u.id === selMarker.id)?.ll
       : selMarker.kind === "hosp" ? st.hospitals.find((h) => h.id === selMarker.id)?.ll
+      : selMarker.kind === "morgue" ? st.morgues.find((x) => x.id === selMarker.id)?.ll
       : undefined;
     if (ll) map.flyTo({ center: ll, zoom: Math.max(map.getZoom(), 10.5), duration: 1200 });
   }, [selMarker]);
@@ -496,6 +501,11 @@ export function MapCanvas() {
   useEffect(() => {
     if (readyRef.current && floodDone) fitFloodExtent(mapRef.current, floodSim);
   }, [floodDone, floodSim]);
+
+  // --- sites mortuaires : une couche, un interrupteur ---
+  useEffect(() => {
+    if (readyRef.current) applyMorgues(mapRef.current, morgues, layers.morgues);
+  }, [morgues, layers.morgues]);
 
   // --- feux de forêt : même mécanique que l'eau, sur sa propre couche ---
   useEffect(() => {

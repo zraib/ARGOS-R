@@ -391,6 +391,21 @@ export interface ModulesDict {
     supply: Record<"ok" | "low" | "critical", string>;
     ward_status: Record<"open" | "saturated" | "closed", string>;
   };
+  morgue: {
+    title: string; subtitle: string; refresh: string;
+    sites: string; sites_sub: string; site_fixed: string; site_mobile: string; places_free: string; present: string; pending: string; pending_short: string; unidentified: string;
+    deploy: string; deploy_btn: string; deploy_hint: string; d_name: string; d_name_ph: string; d_capacity: string; d_staff: string; d_site: string; d_site_ph: string;
+    d_incident: string; d_incident_none: string; d_city: string; d_position_incident: string; d_err: string; deployed: string;
+    recall: string; recalled: string; recall_confirm: string;
+    registry: string; filter_site: string; filter_incident: string; filter_pending: string; search_ph: string; no_record: string;
+    col_ref: string; col_site: string; col_status: string; col_identity: string; col_origin: string; col_last: string; col_actions: string;
+    origin_field: string; origin_hospital: string; unknown: string;
+    receive: string; received: string; transfer: string; transferred: string; transfer_title: string; t_to: string; t_note: string; t_note_ph: string; t_free: string;
+    detail: string; custody_none: string; by: string; pending_badge: string; map: string; open_site: string;
+    h_death: string; h_death_title: string; h_hint: string; h_to: string; h_identity: string; h_identity_ph: string; h_incident: string; h_note: string; h_declared: string; h_pending: string; h_none: string;
+    err_denied: string; err_conflict: string;
+    custody: Record<"recovered" | "hospital" | "transferred" | "received" | "released", string>;
+  };
   roles: Record<
     | "superadmin" | "admin" | "strategic" | "tacom" | "bluecell" | "greencell" | "orangecell"
     | "place_arme" | "wali" | "opcom"

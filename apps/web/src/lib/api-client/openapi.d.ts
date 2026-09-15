@@ -1086,6 +1086,91 @@ export interface paths {
         patch: operations["ResourcesController_updateMortuaryRecord"];
         trace?: never;
     };
+    "/api/morgues/registry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Registre mortuaire de tous les sites — par incident au besoin */
+        get: operations["ResourcesController_mortuaryRegistry"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/morgues/mobile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Déployer une morgue mobile (conteneur réfrigéré) sur le terrain */
+        post: operations["ResourcesController_deployMobileMorgue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/morgues/{id}/recall": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Replier une morgue mobile — vide de tout corps */
+        post: operations["ResourcesController_recallMorgue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/morgues/{id}/records/{rid}/receive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirmer la réception d'un corps transféré — dans SON site uniquement */
+        post: operations["ResourcesController_receiveBody"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/morgues/{id}/records/{rid}/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Transférer un corps vers un autre site mortuaire — depuis SON site uniquement */
+        post: operations["ResourcesController_transferBody"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/hospitals": {
         parameters: {
             query?: never;
@@ -1133,6 +1218,23 @@ export interface paths {
         put?: never;
         /** Ouvrir un service de soins — dans SON établissement uniquement */
         post: operations["HospitalsController_createWard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hospitals/{id}/deceased": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Décès en établissement : annoncer le transfert du corps vers un site mortuaire — depuis SON établissement uniquement */
+        post: operations["HospitalsController_declareDeath"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2585,10 +2687,10 @@ export interface components {
         };
         AdmitBodyDto: {
             /**
-             * @description Référence provisoire attribuée à l'admission
+             * @description Référence provisoire ; absente, le site l'attribue (code-année-numéro)
              * @example AH-2026-004
              */
-            reference: string;
+            reference?: string;
             /**
              * @description Incident d'origine
              * @example INC-2607
@@ -2624,6 +2726,43 @@ export interface components {
             /** @enum {string} */
             sex?: "m" | "f" | "unknown";
             ageRange?: string;
+        };
+        DeployMobileMorgueDto: {
+            /**
+             * @description Désignation de l'unité
+             * @example Morgue mobile n° 2 — conteneur 40 pieds
+             */
+            nom: string;
+            /** @description Emplacements réfrigérés */
+            capacity: number;
+            /** @description Effectif affecté */
+            staff?: number;
+            /**
+             * @description Lieu de déploiement
+             * @example Stade d'Amizmiz
+             */
+            site: string;
+            /**
+             * @description [longitude, latitude]
+             * @example [
+             *       -8.24,
+             *       31.22
+             *     ]
+             */
+            ll: number[];
+            /**
+             * @description Incident servi
+             * @example INC-2607
+             */
+            incidentId?: string;
+        };
+        TransferBodyDto: {
+            /**
+             * @description Site mortuaire de destination
+             * @example M1
+             */
+            toMid: string;
+            note?: string;
         };
         CreateHospitalDto: {
             /** @example Hôpital Militaire de Tanger */
@@ -2670,6 +2809,25 @@ export interface components {
             amb?: number;
             /** @description Hélicoptères sanitaires */
             heli?: number;
+        };
+        HospitalDeathDto: {
+            /**
+             * @description Site mortuaire de destination
+             * @example M2
+             */
+            mid: string;
+            /** @description Référence ; absente, le site de destination l'attribue */
+            reference?: string;
+            /** @example INC-2607 */
+            incidentId?: string;
+            /** @description Identité du patient décédé, si connue */
+            identifiedAs?: string;
+            /** @enum {string} */
+            sex?: "m" | "f" | "unknown";
+            /** @example 40-55 */
+            ageRange?: string;
+            /** @description Circonstances, service, remarques pour la chaîne de garde */
+            note?: string;
         };
         CreateWardDto: {
             /** @example Réanimation polyvalente */
@@ -4473,6 +4631,109 @@ export interface operations {
             };
         };
     };
+    ResourcesController_mortuaryRegistry: {
+        parameters: {
+            query?: {
+                incidentId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_deployMobileMorgue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeployMobileMorgueDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_recallMorgue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_receiveBody: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_transferBody: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferBodyDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     HospitalsController_hospitals: {
         parameters: {
             query?: never;
@@ -4565,6 +4826,29 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreateWardDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HospitalsController_declareDeath: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HospitalDeathDto"];
             };
         };
         responses: {

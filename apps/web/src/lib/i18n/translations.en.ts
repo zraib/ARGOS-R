@@ -217,7 +217,7 @@ export const EN_DICT: Dict = {
     trk_last_seen: "Last contact", trk_never_seen: "Never seen since declaration",
     trk_sats: "sat.",
     // OPSnet — operational network (units + shelters)
-    nav_opsnet: "OPSnet", ops_title: "OPSnet — operational network",
+    nav_opsnet: "OPSnet", nav_morgue: "Morgue service", lg_morgues: "Mortuary sites", ops_title: "OPSnet — operational network",
     ops_tab_overview: "Overview", ops_tab_units: "Units", ops_tab_shelters: "Shelters",
     ops_kpi_units: "Network units", ops_kpi_available: "Deployable strength",
     ops_kpi_shelters: "Open shelters", ops_kpi_sheltered: "Sheltered / capacity",

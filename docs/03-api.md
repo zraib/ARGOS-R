@@ -109,6 +109,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `GET` | `/api/hospitals` | `hospinet:view` | Liste des hôpitaux |
 | `POST` | `/api/hospitals` | `hospinet:create` | Créer un hôpital (audité) |
 | `PATCH` | `/api/hospitals/{id}` | `hospinet:update` | Mettre à jour un établissement — un responsable ne peut agir que sur le sien |
+| `POST` | `/api/hospitals/{id}/deceased` | `hospinet:update` | Décès en établissement : annoncer le transfert du corps vers un site mortuaire — depuis SON établissement uniquement |
 | `GET` | `/api/hospitals/{id}/wards` | `hospinet:view` | Services de soins d'un établissement |
 | `POST` | `/api/hospitals/{id}/wards` | `hospinet:create` | Ouvrir un service de soins — dans SON établissement uniquement |
 | `DELETE` | `/api/hospitals/{id}/wards/{wid}` | `hospinet:archive` | Fermer un service de soins — dans SON établissement uniquement |
@@ -129,9 +130,14 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `DELETE` | `/api/incidents/{id}/sub-incidents/{subId}` | `subincidents:archive` | Détacher un sous-incident (audité) |
 | `GET` | `/api/morgues` | `morgue:view` | Sites mortuaires |
 | `PATCH` | `/api/morgues/{id}` | `morgue:update` | Mettre à jour un site mortuaire — le sien uniquement |
+| `POST` | `/api/morgues/{id}/recall` | `morgue:update` | Replier une morgue mobile — vide de tout corps |
 | `GET` | `/api/morgues/{id}/records` | `morgue:view` | Registre d'identification d'un site mortuaire |
 | `POST` | `/api/morgues/{id}/records` | `morgue:create` | Admettre un corps sous référence provisoire — dans SON site uniquement |
 | `PATCH` | `/api/morgues/{id}/records/{rid}` | `morgue:update` | Faire évoluer un dossier d'identification — dans SON site uniquement |
+| `POST` | `/api/morgues/{id}/records/{rid}/receive` | `morgue:update` | Confirmer la réception d'un corps transféré — dans SON site uniquement |
+| `POST` | `/api/morgues/{id}/records/{rid}/transfer` | `morgue:update` | Transférer un corps vers un autre site mortuaire — depuis SON site uniquement |
+| `POST` | `/api/morgues/mobile` | `morgue:create` | Déployer une morgue mobile (conteneur réfrigéré) sur le terrain |
+| `GET` | `/api/morgues/registry` | `morgue:view` | Registre mortuaire de tous les sites — par incident au besoin |
 | `GET` | `/api/posts` | `map:view` | Postes posés sur la carte — ceux des opérations visibles par le compte |
 | `GET` | `/api/reference` | authentifié (soi-même) | Données de référence : provinces, routes d'animation carte |
 | `GET` | `/api/seismic/alert-config` | `seismic:view` | Configuration des alertes sismiques (seuils national/mondial, autorités notifiées) |
@@ -240,7 +246,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 ## Chiffres
 
-113 chemins · 141 opérations · 13 groupes.
+119 chemins · 147 opérations · 13 groupes.
 
 ## Modifier le contrat
 

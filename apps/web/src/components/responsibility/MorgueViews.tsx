@@ -17,26 +17,12 @@ import { Pill, type Tone } from "@/components/ui/Pill";
 import { KPI_ICONS, UI_ICONS } from "@/lib/icons";
 import { loadBarClass } from "@/lib/responsibility";
 import { Loading, useSupervision, RespHeader, Section } from "@/components/responsibility/Shared";
+import { DVI_SAMPLES, DVI_STATUSES, type DviSample, type DviStatus, type MorgueSite, type MortuaryRecord } from "@/lib/types";
 
-export interface MorgueSite {
-  id: string; nom: string; ville: string; capacity: number; staff: number;
-  statut: "op" | "partial" | "closed";
-}
+export type { MorgueSite, MortuaryRecord, DviStatus, DviSample };
+export { DVI_SAMPLES, DVI_STATUSES };
 
-export const DVI_STATUSES = ["unidentified", "in_progress", "identified", "released"] as const;
-export const DVI_SAMPLES = ["dna", "dental", "fingerprint"] as const;
-export type DviStatus = (typeof DVI_STATUSES)[number];
-export type DviSample = (typeof DVI_SAMPLES)[number];
-
-export interface MortuaryRecord {
-  id: string; mid: string; reference: string;
-  incidentId?: string; foundAt?: string; sex?: "m" | "f" | "unknown"; ageRange?: string;
-  status: DviStatus; samples: DviSample[];
-  identifiedAs?: string; releasedTo?: string;
-  admittedAt: string; updatedAt: string;
-}
-
-const STATUS_TONES: Record<DviStatus, Tone> = {
+export const STATUS_TONES: Record<DviStatus, Tone> = {
   unidentified: "red", in_progress: "amber", identified: "blue", released: "green",
 };
 
@@ -191,6 +177,12 @@ export function MorgueManagement({ mid }: { mid: string }) {
   const [admitting, setAdmitting] = useState(false);
   const [editing, setEditing] = useState<MortuaryRecord | null>(null);
   if (!site) return <Loading />;
+  const receptionner = async (r: MortuaryRecord) => {
+    const res = await api.receiveBody(mid, r.id);
+    if (res.error) { showToast(m.resp.err_denied); return; }
+    showToast(m.morgue.received);
+    reload();
+  };
 
   return (
     <section className="flex flex-col gap-4 animate-fade-in">
@@ -217,6 +209,7 @@ export function MorgueManagement({ mid }: { mid: string }) {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-xs font-semibold text-gray-800 dark:text-rdia-50">{r.reference}</span>
                   <Pill tone={STATUS_TONES[r.status]} label={m.resp.dvi_status[r.status]} />
+                  {r.pendingReceipt && <Pill tone="amber" label={m.morgue.pending_badge} />}
                 </div>
                 <div className="mt-0.5 truncate text-[10px] text-gray-400 dark:text-rdia-400">
                   {r.identifiedAs ?? m.resp.g_unknown} · {r.foundAt ?? "—"}
@@ -226,6 +219,11 @@ export function MorgueManagement({ mid }: { mid: string }) {
               <div className="min-w-0 flex-1 basis-32 text-[10px] text-gray-500 dark:text-rdia-300 sm:flex-none sm:basis-[130px]">
                 {r.samples.length > 0 ? r.samples.map((s) => m.resp.dvi_sample[s]).join(" · ") : "—"}
               </div>
+              {r.pendingReceipt && (
+                <button type="button" onClick={() => void receptionner(r)} className="cible-tactile rounded-lg bg-or-500 px-2 py-1 text-[11px] font-bold text-rdia-900 hover:bg-or-400">
+                  {m.morgue.receive}
+                </button>
+              )}
               <button
                 title={r.status === "released" ? m.resp.g_closed : m.resp.edit}
                 disabled={r.status === "released"}
@@ -294,7 +292,7 @@ function SiteForm({ site, onSaved }: { site: MorgueSite; onSaved: () => void }) 
 }
 
 /** Admission d'un corps sous référence provisoire. */
-function AdmitForm({ mid, onClose, onDone }: { mid: string; onClose: () => void; onDone: () => void }) {
+export function AdmitForm({ mid, onClose, onDone }: { mid: string; onClose: () => void; onDone: () => void }) {
   const m = useModules();
   const showToast = useArgos((s) => s.showToast);
   const incidents = useArgos((s) => s.incidents);
@@ -307,11 +305,10 @@ function AdmitForm({ mid, onClose, onDone }: { mid: string; onClose: () => void;
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
-    if (!reference.trim()) { setError(m.resp.g_err_reference); return; }
     setBusy(true);
     try {
       const res = await api.admitBody(mid, {
-        reference: reference.trim(),
+        reference: reference.trim() || undefined,
         incidentId: incidentId || undefined,
         foundAt: foundAt.trim() || undefined,
         sex,
@@ -371,7 +368,7 @@ function AdmitForm({ mid, onClose, onDone }: { mid: string; onClose: () => void;
 }
 
 /** Évolution d'un dossier : étape, prélèvements, identité, restitution. */
-function RecordForm({ mid, record, onClose, onDone }: { mid: string; record: MortuaryRecord; onClose: () => void; onDone: () => void }) {
+export function RecordForm({ mid, record, onClose, onDone }: { mid: string; record: MortuaryRecord; onClose: () => void; onDone: () => void }) {
   const m = useModules();
   const showToast = useArgos((s) => s.showToast);
   const [status, setStatus] = useState<DviStatus>(record.status);

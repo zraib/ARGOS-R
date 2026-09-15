@@ -160,6 +160,8 @@ export interface LayerState {
   aircraft: boolean;
   /** Boucles opérationnelles : liens unité → incident des ordres en cours. */
   missions: boolean;
+  /** Sites mortuaires fixes et morgues mobiles déployées. */
+  morgues: boolean;
 }
 
 export interface NavGroups {

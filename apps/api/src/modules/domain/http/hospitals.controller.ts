@@ -7,9 +7,9 @@
 // et `authz-coverage.spec.ts` en font foi.
 // ============================================================================
 
-import { Body, Delete, Get, NotFoundException, Param, Patch, Post, Controller } from "@nestjs/common";
+import { Body, ConflictException, Delete, Get, NotFoundException, Param, Patch, Post, Controller } from "@nestjs/common";
 import { ApiOperation, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
-import { CreateHospitalDto, CreateWardDto, UpdateHospitalDto, UpdateWardDto } from "@/modules/domain/dto";
+import { CreateHospitalDto, CreateWardDto, HospitalDeathDto, UpdateHospitalDto, UpdateWardDto } from "@/modules/domain/dto";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import { RequireScope } from "@/common/decorators/require-scope.decorator";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
@@ -60,6 +60,18 @@ export class HospitalsController {
   listWards(@Param("id") id: string) {
     if (!this.domain.findHospital(id)) throw new NotFoundException(`Établissement introuvable : ${id}`);
     return this.domain.listWards(id);
+  }
+
+  @Post("hospitals/:id/deceased")
+  @RequirePermission("hospinet:update")
+  @RequireScope("hospital")
+  @ApiOperation({ summary: "Décès en établissement : annoncer le transfert du corps vers un site mortuaire — depuis SON établissement uniquement" })
+  declareDeath(@Param("id") id: string, @Body() dto: HospitalDeathDto, @CurrentUser() user: AuthUser) {
+    const res = this.domain.declareHospitalDeath(id, dto, user.username);
+    if (res.missing === "hospital") throw new NotFoundException(`Établissement introuvable : ${id}`);
+    if (res.missing === "morgue") throw new NotFoundException(`Site mortuaire introuvable : ${dto.mid}`);
+    if (res.error) throw new ConflictException(res.error);
+    return res.record;
   }
 
   @Post("hospitals/:id/wards")

@@ -78,7 +78,7 @@ export const createMapSlice: StateCreator<ArgosState, [], [], MapSlice> = (set, 
   selHosp: null,
   // Le réseau civil (106 établissements) est masqué par défaut : il se
   // rallume d'un clic quand l'opérateur cherche une capacité d'accueil.
-  layers: { units: true, posts: true, hospitals: true, hospitalsCiv: false, incidents: true, vehicles: true, field: true, aircraft: true, missions: true },
+  layers: { units: true, posts: true, hospitals: true, hospitalsCiv: false, incidents: true, vehicles: true, field: true, aircraft: true, missions: true, morgues: true },
   mapEdit: false,
   armedPost: null,
   pendingPost: null,

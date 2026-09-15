@@ -744,9 +744,9 @@ export class UpdateMorgueDto {
 
 /** Admission d'un corps sous référence provisoire. */
 export class AdmitBodyDto {
-  @ApiProperty({ example: "AH-2026-004", description: "Référence provisoire attribuée à l'admission" })
-  @IsString() @MinLength(1) @MaxLength(40)
-  reference!: string;
+  @ApiPropertyOptional({ example: "AH-2026-004", description: "Référence provisoire ; absente, le site l'attribue (code-année-numéro)" })
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(40)
+  reference?: string;
 
   @ApiPropertyOptional({ example: "INC-2607", description: "Incident d'origine" })
   @IsOptional() @IsString()
@@ -767,6 +767,63 @@ export class AdmitBodyDto {
   @ApiPropertyOptional({ enum: DVI_SAMPLE_VALUES, isArray: true, description: "Prélèvements déjà réalisés" })
   @IsOptional() @IsArray() @IsIn(DVI_SAMPLE_VALUES as unknown as string[], { each: true })
   samples?: (typeof DVI_SAMPLE_VALUES)[number][];
+}
+
+/** Déploiement d'une morgue mobile (conteneur réfrigéré) sur le terrain. */
+export class DeployMobileMorgueDto {
+  @ApiProperty({ example: "Morgue mobile n° 2 — conteneur 40 pieds", description: "Désignation de l'unité" })
+  @IsString() @MinLength(2) @MaxLength(80)
+  nom!: string;
+  @ApiProperty({ minimum: 1, description: "Emplacements réfrigérés" })
+  @IsInt() @Min(1)
+  capacity!: number;
+  @ApiPropertyOptional({ minimum: 0, description: "Effectif affecté" })
+  @IsOptional() @IsInt() @Min(0)
+  staff?: number;
+  @ApiProperty({ example: "Stade d'Amizmiz", description: "Lieu de déploiement" })
+  @IsString() @MinLength(2) @MaxLength(120)
+  site!: string;
+  @ApiProperty({ type: [Number], minItems: 2, maxItems: 2, example: [-8.24, 31.22], description: "[longitude, latitude]" })
+  @IsArray() @ArrayMinSize(2) @ArrayMaxSize(2) @IsNumber({}, { each: true })
+  ll!: [number, number];
+  @ApiPropertyOptional({ example: "INC-2607", description: "Incident servi" })
+  @IsOptional() @IsString()
+  incidentId?: string;
+}
+
+/** Décès en établissement : le corps part vers un site mortuaire, réception à confirmer là-bas. */
+export class HospitalDeathDto {
+  @ApiProperty({ example: "M2", description: "Site mortuaire de destination" })
+  @IsString() @MinLength(1)
+  mid!: string;
+  @ApiPropertyOptional({ description: "Référence ; absente, le site de destination l'attribue" })
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(40)
+  reference?: string;
+  @ApiPropertyOptional({ example: "INC-2607" })
+  @IsOptional() @IsString()
+  incidentId?: string;
+  @ApiPropertyOptional({ description: "Identité du patient décédé, si connue" })
+  @IsOptional() @IsString() @MaxLength(160)
+  identifiedAs?: string;
+  @ApiPropertyOptional({ enum: DVI_SEX_VALUES })
+  @IsOptional() @IsIn(DVI_SEX_VALUES as unknown as string[])
+  sex?: (typeof DVI_SEX_VALUES)[number];
+  @ApiPropertyOptional({ example: "40-55" })
+  @IsOptional() @IsString() @MaxLength(20)
+  ageRange?: string;
+  @ApiPropertyOptional({ description: "Circonstances, service, remarques pour la chaîne de garde" })
+  @IsOptional() @IsString() @MaxLength(300)
+  note?: string;
+}
+
+/** Transfert d'un corps vers un autre site mortuaire. */
+export class TransferBodyDto {
+  @ApiProperty({ example: "M1", description: "Site mortuaire de destination" })
+  @IsString() @MinLength(1)
+  toMid!: string;
+  @ApiPropertyOptional({ maxLength: 300 })
+  @IsOptional() @IsString() @MaxLength(300)
+  note?: string;
 }
 
 /** Évolution d'un dossier d'identification. */

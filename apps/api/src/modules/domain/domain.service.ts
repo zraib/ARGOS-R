@@ -12,6 +12,7 @@ import {
   SEED_UNITS,
 } from "@/modules/domain/seed.data";
 import { checkRecordUpdate } from "@/modules/domain/dvi.rules";
+import { checkCapacity, checkReceive, checkTransfer, custodyEvent, nextReference } from "@/modules/domain/morgue.rules";
 import { loadDevState, saveDevState } from "@/common/dev-store";
 
 // ============================================================================
@@ -101,6 +102,13 @@ function canonicalizeRegion(inc: Incident): Incident {
   return fixed ? { ...inc, region: fixed } : inc;
 }
 
+/** Les sites mortuaires de départ — permanents, avec leur code de référence et leur position. */
+const MORGUE_SEEDS: readonly MorgueSite[] = [
+  { id: "M1", nom: "Institut médico-légal — HMI Mohammed V", ville: "Rabat", capacity: 60, staff: 18, statut: "op", kind: "fixed", code: "RBT", ll: [-6.8498, 33.9716] },
+  { id: "M2", nom: "Chambre mortuaire — HM Avicenne", ville: "Marrakech", capacity: 45, staff: 14, statut: "op", kind: "fixed", code: "MRK", ll: [-8.0136, 31.6465] },
+  { id: "M3", nom: "Site mortuaire de circonstance — Amizmiz", ville: "Amizmiz", capacity: 80, staff: 11, statut: "partial", kind: "fixed", code: "AMZ", ll: [-8.2417, 31.2186] },
+];
+
 @Injectable()
 export class DomainService {
   private incidents: Incident[] = structuredClone(SEED_INCIDENTS);
@@ -149,11 +157,7 @@ export class DomainService {
   private readonly shelters: Shelter[] = structuredClone(SHELTERS) as Shelter[];
 
   // Sites mortuaires engagés sur le séisme d'Al Haouz.
-  private readonly morgues: MorgueSite[] = [
-    { id: "M1", nom: "Institut médico-légal — HMI Mohammed V", ville: "Rabat", capacity: 60, staff: 18, statut: "op" },
-    { id: "M2", nom: "Chambre mortuaire — HM Avicenne", ville: "Marrakech", capacity: 45, staff: 14, statut: "op" },
-    { id: "M3", nom: "Site mortuaire de circonstance — Amizmiz", ville: "Amizmiz", capacity: 80, staff: 11, statut: "partial" },
-  ];
+  private readonly morgues: MorgueSite[] = structuredClone(MORGUE_SEEDS as MorgueSite[]);
 
   /** Postes posés sur la carte des opérations (lot #12). */
   private posts: IncidentPost[] = [];
@@ -241,7 +245,18 @@ export class DomainService {
     if (sameSeed && snap.fieldHospitals) this.fieldHospitals.splice(0, this.fieldHospitals.length, ...snap.fieldHospitals);
     if (sameSeed && snap.wards) this.wards.splice(0, this.wards.length, ...snap.wards);
     if (sameSeed && snap.shelters) this.shelters.splice(0, this.shelters.length, ...snap.shelters);
-    if (sameSeed && snap.morgues) this.morgues.splice(0, this.morgues.length, ...snap.morgues);
+    if (sameSeed && snap.morgues) {
+      this.morgues.splice(0, this.morgues.length, ...snap.morgues);
+      // Les instantanés antérieurs au service morgue ignorent la nature, le
+      // code et la position des sites : on les complète depuis les graines.
+      for (const m of this.morgues) {
+        const graine = MORGUE_SEEDS.find((g) => g.id === m.id);
+        if (!graine) continue;
+        m.kind ??= graine.kind;
+        m.code ??= graine.code;
+        m.ll ??= graine.ll;
+      }
+    }
     if (sameSeed && snap.mortuaryRecords) this.mortuaryRecords.splice(0, this.mortuaryRecords.length, ...snap.mortuaryRecords);
     if (snap.posts) this.posts = snap.posts;
     if (sameSeed && snap.equipment) this.equipment.splice(0, this.equipment.length, ...snap.equipment);
@@ -898,25 +913,160 @@ export class DomainService {
       .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
   }
 
-  /** Admission d'un corps sous référence provisoire (statut « non identifié »). */
+  private nextRecordId(): string {
+    const n = Math.max(0, ...this.mortuaryRecords.map((r) => parseInt(r.id.replace(/\D/g, ""), 10) || 0)) + 1;
+    return `DVI-${n}`;
+  }
+
+  /** La prochaine référence d'un site : code, année, numéro d'ordre — jamais réattribuée. */
+  nextReference(site: MorgueSite): string {
+    return nextReference(site.code ?? site.id, new Date().getUTCFullYear(), this.mortuaryRecords.map((r) => r.reference));
+  }
+
+  /**
+   * Admission d'un corps sous référence provisoire (statut « non identifié »),
+   * première étape de sa chaîne de garde — reçu par le site, signé par qui l'acte.
+   */
   admitBody(
     mid: string,
-    input: Omit<MortuaryRecord, "id" | "mid" | "status" | "samples" | "admittedAt" | "updatedAt"> & { samples?: DviSample[] },
+    input: Omit<MortuaryRecord, "id" | "mid" | "status" | "samples" | "admittedAt" | "updatedAt" | "reference"> & { reference?: string; samples?: DviSample[] },
+    by = "—",
   ): MortuaryRecord {
-    const n = Math.max(0, ...this.mortuaryRecords.map((r) => parseInt(r.id.replace(/\D/g, ""), 10) || 0)) + 1;
+    const site = this.findMorgue(mid);
     const now = new Date().toISOString();
+    const reference = input.reference?.trim() || (site ? this.nextReference(site) : `${mid}-${now.slice(0, 4)}-001`);
     const rec: MortuaryRecord = {
       ...input,
-      id: `DVI-${n}`,
+      reference,
+      id: this.nextRecordId(),
       mid,
       status: "unidentified",
       samples: input.samples ?? [],
+      origin: input.origin ?? { kind: "field", label: input.foundAt ?? "" },
+      custody: [custodyEvent("received", by, { to: site?.nom ?? mid }, now)],
       admittedAt: now,
       updatedAt: now,
     };
     this.mortuaryRecords.push(rec);
     this.persist();
     return rec;
+  }
+
+  /** Le registre de TOUS les sites (service morgue), du plus récent au plus ancien, par incident au besoin. */
+  listMortuaryRegistry(incidentId?: string): MortuaryRecord[] {
+    return this.mortuaryRecords
+      .filter((r) => !incidentId || r.incidentId === incidentId)
+      .slice()
+      .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
+  }
+
+  /**
+   * Décès en établissement : l'hôpital annonce le transfert du corps vers un
+   * site mortuaire ; le dossier naît là-bas, « réception à confirmer », avec
+   * ses deux premières étapes de garde (l'hôpital, puis le transfert).
+   */
+  declareHospitalDeath(
+    hospitalId: string,
+    input: { mid: string; reference?: string; incidentId?: string; identifiedAs?: string; sex?: "m" | "f" | "unknown"; ageRange?: string; note?: string },
+    by: string,
+  ): { record?: MortuaryRecord; error?: string; missing?: "hospital" | "morgue" } {
+    const hospital = this.hospitals.find((h) => h.id === hospitalId);
+    if (!hospital) return { missing: "hospital" };
+    const site = this.findMorgue(input.mid);
+    if (!site) return { missing: "morgue" };
+    const plein = checkCapacity(site, this.mortuaryRecords);
+    if (plein) return { error: plein };
+    const reference = input.reference?.trim() || this.nextReference(site);
+    if (this.mortuaryRecords.some((r) => r.reference === reference)) return { error: `Référence ${reference} déjà attribuée.` };
+    const now = new Date().toISOString();
+    const identite = input.identifiedAs?.trim();
+    const rec: MortuaryRecord = {
+      id: this.nextRecordId(),
+      mid: site.id,
+      reference,
+      incidentId: input.incidentId || undefined,
+      foundAt: hospital.nom,
+      sex: input.sex,
+      ageRange: input.ageRange?.trim() || undefined,
+      status: identite ? "identified" : "unidentified",
+      samples: [],
+      identifiedAs: identite || undefined,
+      origin: { kind: "hospital", id: hospital.id, label: hospital.nom },
+      custody: [
+        custodyEvent("hospital", by, { to: hospital.nom, note: input.note }, now),
+        custodyEvent("transferred", by, { from: hospital.nom, to: site.nom }, now),
+      ],
+      pendingReceipt: true,
+      admittedAt: now,
+      updatedAt: now,
+    };
+    this.mortuaryRecords.push(rec);
+    this.persist();
+    return { record: rec };
+  }
+
+  /** Le site confirme qu'il a le corps : la réception clôt le transfert. */
+  receiveBody(mid: string, rid: string, by: string): { record?: MortuaryRecord; error?: string; missing?: boolean } {
+    const rec = this.mortuaryRecords.find((r) => r.id === rid && r.mid === mid);
+    const site = this.findMorgue(mid);
+    if (!rec || !site) return { missing: true };
+    const error = checkReceive(rec);
+    if (error) return { error };
+    rec.pendingReceipt = false;
+    rec.custody = [...(rec.custody ?? []), custodyEvent("received", by, { to: site.nom })];
+    rec.updatedAt = new Date().toISOString();
+    this.persist();
+    return { record: rec };
+  }
+
+  /** Le corps part vers un autre site (morgue mobile → institut, par exemple) ; réception à confirmer là-bas. */
+  transferBody(mid: string, rid: string, toMid: string, by: string, note?: string): { record?: MortuaryRecord; error?: string; missing?: boolean } {
+    const rec = this.mortuaryRecords.find((r) => r.id === rid && r.mid === mid);
+    const from = this.findMorgue(mid);
+    if (!rec || !from) return { missing: true };
+    const to = this.findMorgue(toMid);
+    const error = checkTransfer(rec, from, to) ?? (to ? checkCapacity(to, this.mortuaryRecords) : null);
+    if (error || !to) return { error: error ?? "Site de destination introuvable." };
+    rec.mid = to.id;
+    rec.pendingReceipt = true;
+    rec.custody = [...(rec.custody ?? []), custodyEvent("transferred", by, { from: from.nom, to: to.nom, note })];
+    rec.updatedAt = new Date().toISOString();
+    this.persist();
+    return { record: rec };
+  }
+
+  /** Une morgue mobile part sur le terrain : un site de plus, à sa position, pour un incident. */
+  deployMobileMorgue(input: { nom: string; capacity: number; staff?: number; ll: [number, number]; site: string; incidentId?: string }, by: string): MorgueSite {
+    let n = this.morgues.filter((m) => m.kind === "mobile").length + 1;
+    while (this.morgues.some((m) => m.id === `MM${n}`)) n++;
+    const m: MorgueSite = {
+      id: `MM${n}`,
+      nom: input.nom.trim(),
+      ville: input.site.trim(),
+      capacity: input.capacity,
+      staff: input.staff ?? 0,
+      statut: "op",
+      kind: "mobile",
+      code: `MM${n}`,
+      ll: input.ll,
+      deployment: { site: input.site.trim(), ll: input.ll, incidentId: input.incidentId || undefined, at: new Date().toISOString(), by },
+    };
+    this.morgues.push(m);
+    this.persist();
+    return m;
+  }
+
+  /** Une morgue mobile se replie : fermée, plus déployée ; ses dossiers restent, à transférer. */
+  recallMorgue(id: string): { site?: MorgueSite; error?: string; missing?: boolean } {
+    const m = this.findMorgue(id);
+    if (!m) return { missing: true };
+    if (m.kind !== "mobile") return { error: "Seule une morgue mobile se replie." };
+    const presents = this.mortuaryRecords.filter((r) => r.mid === id && r.status !== "released").length;
+    if (presents > 0) return { error: `${presents} corps encore présents : transférez-les avant de replier l'unité.` };
+    m.statut = "closed";
+    m.deployment = null;
+    this.persist();
+    return { site: m };
   }
 
   /**
@@ -928,6 +1078,7 @@ export class DomainService {
     mid: string,
     rid: string,
     patch: Partial<Omit<MortuaryRecord, "id" | "mid" | "admittedAt" | "updatedAt">>,
+    by = "—",
   ): { record?: MortuaryRecord; error?: string; missing?: boolean } {
     const rec = this.mortuaryRecords.find((r) => r.id === rid && r.mid === mid);
     if (!rec) return { missing: true };
@@ -936,6 +1087,8 @@ export class DomainService {
     for (const [k, v] of Object.entries(patch)) {
       if (v !== undefined) (rec as unknown as Record<string, unknown>)[k] = v;
     }
+    // La restitution est la dernière étape de la chaîne de garde : datée, signée, à qui.
+    if (patch.status === "released") rec.custody = [...(rec.custody ?? []), custodyEvent("released", by, { to: rec.releasedTo })];
     rec.updatedAt = new Date().toISOString();
     this.persist();
     return { record: rec };

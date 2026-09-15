@@ -251,9 +251,12 @@ const MATRIX: Record<(typeof MATRIX_FEATURES)[number], Partial<Record<Role, Cell
   // V-1 : « situation et déploiement des abris » relève de la vue d'ensemble
   // demandée au rôle stratégique.
   shelters: { admin: ALL, opcom: V, tacom: V, resp_shelter: AMV, strategic: V },
+  // Service morgue : la vue d'ensemble revient au stratégique et aux autorités
+  // de région ; le responsable d'hôpital voit les sites pour y adresser un
+  // décès (l'annonce elle-même passe par SA route hospinet).
   morgue: {
-    admin: ALL, opcom: V, tacom: V, bluecell: V, greencell: V, orangecell: V,
-    resp_morgue: AMV,
+    admin: ALL, strategic: V, wali: V, place_arme: V, opcom: V, tacom: V, bluecell: V, greencell: V, orangecell: V,
+    resp_morgue: AMV, resp_hospital: V,
   },
   units: {
     admin: ALL, opcom: V, tacom: V, bluecell: V, greencell: V, orangecell: V,

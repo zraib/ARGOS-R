@@ -17,6 +17,7 @@ dépendance runtime.
 | [0008](0008-ecouteur-tcp-traceurs-fmc920.md) | Traceurs FMC920 : ARGOS est le serveur du boîtier (Codec 8 sur TCP) | **accepté** (lot N-2) | `apps/api/src/modules/tracking`, permission `tracking:*`, second port en écoute |
 | [0010](0010-crues-flood-hub-et-simulateur.md) | Crues : prévisions GloFAS (Open-Meteo, sans clé) ou Google Flood Hub (sur clé) par le courtier, simulateur d'inondation hydraulique local (onde inertielle, débit et volume, animé) | **accepté** | `flood.service.ts`, `flood.openmeteo.ts`, routes `floods/*`, `lib/flood/`, panneau « Crues » de la carte, `FLOOD_API_KEY` |
 | [0011](0011-feux-de-foret-simulateur.md) | Feux de forêt : simulateur de propagation local (temps minimal de parcours, vent, pente, combustible), socle commun des propagations | **accepté** | `lib/fire/`, `lib/sim/spread.ts`, `layers/{spread,fire}.ts`, panneau « Feux de forêt » de la carte |
+| [0012](0012-service-morgue-chaine-de-garde.md) | Service morgue : morgues mobiles, chaîne de garde, traçabilité hôpital → site (doctrine DVI / OMS-CICR) | **accepté** | `morgue.rules.ts`, routes `morgues/*`, `hospitals/:id/deceased`, page `/morgue`, `components/morgue/`, couche `layers/morgues.ts` |
 
 ## Écrire un ADR
 

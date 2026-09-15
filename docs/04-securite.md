@@ -287,6 +287,11 @@ Exigences du `MASTER_PLAN.md` §4.3 :
   serveur — GloFAS via Open-Meteo sans clé, Google Flood Hub avec
   `FLOOD_API_KEY`, jamais depuis le navigateur ; le simulateur d'inondation,
   local, n'en dépend pas.
+- Le service morgue (ADR 0012) : lecture du registre pour `morgue:view`
+  (commandement, stratégique, autorités de région, responsable d'hôpital) ;
+  toute écriture cantonnée au site du compte (`@RequireScope("morgue")`) ou
+  à son établissement (`hospitals/:id/deceased`, `@RequireScope("hospital")`) ;
+  la chaîne de garde porte le matricule qui acte chaque étape.
 - Les flux externes (EMSC, Open-Meteo) sont **proxifiés par l'API**, avec cache
   et dégradation gracieuse. Le navigateur ne contacte jamais une source tierce.
 - **Aucun secret dans le dépôt.** `.env.example` sert de gabarit ; le secret de

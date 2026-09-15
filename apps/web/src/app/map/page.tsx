@@ -92,6 +92,7 @@ export default function MapPage() {
   // pour la laisser voir — c'est depuis elle qu'on vient d'armer le point.
   const floodArming = useArgos((s) => s.floodArming);
   const fireArming = useArgos((s) => s.fireArming);
+  const morgues = useArgos((s) => s.morgues);
   useEffect(() => {
     if (floodArming || fireArming) setSheet(null);
   }, [floodArming, fireArming]);
@@ -189,6 +190,12 @@ export default function MapPage() {
             .map((h) => ({ id: h.id, label: `${h.nom} · ${h.ville}`, kind: "hosp" })),
         },
         { key: "field", label: t.field, leaves: fieldHosps.map((f) => ({ id: f.nom, label: f.nom, kind: "field" })) },
+        // Les sites mortuaires et les morgues mobiles déployées (service morgue).
+        {
+          key: "morgues",
+          label: t.lg_morgues,
+          leaves: morgues.filter((s) => !(s.kind === "mobile" && !s.deployment)).map((s) => ({ id: s.id, label: `${s.nom} · ${s.ville}`, kind: "morgue" as const })),
+        },
       ],
     },
     {
@@ -241,6 +248,21 @@ export default function MapPage() {
           lines: [{ k: t.commander, v: u.cmdt }, { k: t.effectif, v: String(u.eff) }, { k: t.readiness, v: `${u.readiness} %` }],
           responsible: { kind: "unit", entityId: u.id, incidentId: incidents.find((i) => i.responders?.units?.includes(u.id))?.id },
           action: () => { setSelUnit(u.id); clearSelection(); router.push("/equipes"); },
+        };
+      }
+    } else if (kind === "morgue") {
+      const site = morgues.find((x) => x.id === id);
+      if (site) {
+        selInfo = {
+          titre: site.nom, sub: site.ville, badgeType: site.statut === "op" ? "active" : site.statut === "partial" ? "medium" : "on_hold", badgeLabel: m.resp.morgue_statut[site.statut],
+          lines: [
+            { k: t.lg_morgues, v: site.kind === "mobile" ? m.morgue.site_mobile : m.morgue.site_fixed },
+            { k: m.morgue.d_capacity, v: String(site.capacity) },
+            { k: m.resp.g_staff, v: String(site.staff) },
+            ...(site.deployment?.incidentId ? [{ k: m.morgue.d_incident, v: site.deployment.incidentId }] : []),
+          ],
+          responsible: { kind: "morgue", entityId: site.id },
+          action: () => { clearSelection(); router.push("/morgue"); },
         };
       }
     } else if (kind === "hosp") {

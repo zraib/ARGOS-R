@@ -217,7 +217,7 @@ export const AR_DICT: Dict = {
     trk_last_seen: "آخر اتصال منذ", trk_never_seen: "لم يُرَ منذ تسجيله",
     trk_sats: "قمر",
     // OPSnet — الشبكة العملياتية (الوحدات والمآوي)
-    nav_opsnet: "OPSnet", ops_title: "OPSnet — الشبكة العملياتية",
+    nav_opsnet: "OPSnet", nav_morgue: "مصلحة المشرحة", lg_morgues: "المواقع الجنائزية", ops_title: "OPSnet — الشبكة العملياتية",
     ops_tab_overview: "نظرة عامة", ops_tab_units: "الوحدات", ops_tab_shelters: "المآوي",
     ops_kpi_units: "وحدات الشبكة", ops_kpi_available: "القوة القابلة للانتشار",
     ops_kpi_shelters: "المآوي المفتوحة", ops_kpi_sheltered: "المُؤوَون / الطاقة",

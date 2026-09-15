@@ -42,6 +42,9 @@ export type UpdateShelterBody = Json<NonNullable<paths["/api/shelters/{id}"]["pa
 export type UpdateMorgueBody = Json<NonNullable<paths["/api/morgues/{id}"]["patch"]["requestBody"]>>;
 export type AdmitBodyBody = Json<NonNullable<paths["/api/morgues/{id}/records"]["post"]["requestBody"]>>;
 export type UpdateRecordBody = Json<NonNullable<paths["/api/morgues/{id}/records/{rid}"]["patch"]["requestBody"]>>;
+export type DeployMobileMorgueBody = Json<NonNullable<paths["/api/morgues/mobile"]["post"]["requestBody"]>>;
+export type TransferBodyBody = Json<NonNullable<paths["/api/morgues/{id}/records/{rid}/transfer"]["post"]["requestBody"]>>;
+export type HospitalDeathBody = Json<NonNullable<paths["/api/hospitals/{id}/deceased"]["post"]["requestBody"]>>;
 export type CreateEquipBody = Json<NonNullable<paths["/api/equipment-parks/{id}/items"]["post"]["requestBody"]>>;
 export type UpdateEquipBody = Json<NonNullable<paths["/api/equipment-parks/{id}/items/{eid}"]["patch"]["requestBody"]>>;
 export type CreateWardBody = Json<NonNullable<paths["/api/hospitals/{id}/wards"]["post"]["requestBody"]>>;
@@ -254,6 +257,16 @@ export function createArgosClient(opts: ArgosClientOptions) {
       client.POST("/api/morgues/{id}/records", { params: { path: { id } }, body }),
     updateMortuaryRecord: (id: string, rid: string, body: UpdateRecordBody) =>
       client.PATCH("/api/morgues/{id}/records/{rid}", { params: { path: { id, rid } }, body }),
+    // Service morgue : registre de tous les sites, morgues mobiles, chaîne de garde.
+    getMortuaryRegistry: (incidentId?: string) =>
+      client.GET("/api/morgues/registry", { params: { query: incidentId ? { incidentId } : {} } }),
+    deployMobileMorgue: (body: DeployMobileMorgueBody) => client.POST("/api/morgues/mobile", { body }),
+    recallMorgue: (id: string) => client.POST("/api/morgues/{id}/recall", { params: { path: { id } } }),
+    receiveBody: (id: string, rid: string) => client.POST("/api/morgues/{id}/records/{rid}/receive", { params: { path: { id, rid } } }),
+    transferBody: (id: string, rid: string, body: TransferBodyBody) =>
+      client.POST("/api/morgues/{id}/records/{rid}/transfer", { params: { path: { id, rid } }, body }),
+    declareHospitalDeath: (id: string, body: HospitalDeathBody) =>
+      client.POST("/api/hospitals/{id}/deceased", { params: { path: { id } }, body }),
     getParkItems: (id: string) => client.GET("/api/equipment-parks/{id}/items", { params: { path: { id } } }),
     addParkItem: (id: string, body: CreateEquipBody) =>
       client.POST("/api/equipment-parks/{id}/items", { params: { path: { id } }, body }),

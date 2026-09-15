@@ -211,7 +211,7 @@ export interface Shelter {
 // un parcours d'identification jalonné de prélèvements, puis sont restitués aux
 // familles. Le registre est horodaté à chaque étape.
 
-/** Site mortuaire (permanent ou de circonstance). */
+/** Site mortuaire (permanent ou de circonstance), ou morgue MOBILE déployée sur le terrain. */
 export interface MorgueSite {
   id: string;
   nom: string;
@@ -221,6 +221,31 @@ export interface MorgueSite {
   /** Effectif affecté au site (médecins légistes, techniciens). */
   staff: number;
   statut: "op" | "partial" | "closed";
+  /** Fixe (institut, chambre mortuaire) ou mobile (conteneur réfrigéré déployable) ; absent = fixe. */
+  kind?: "fixed" | "mobile";
+  /** Code court des références (« RBT-2026-012 »). */
+  code?: string;
+  ll?: [number, number];
+  /** Morgue mobile : où elle est déployée, pour quel incident, depuis quand, par qui — `null` une fois repliée. */
+  deployment?: { site: string; ll: [number, number]; incidentId?: string; at: string; by: string } | null;
+}
+
+/**
+ * Étapes de la chaîne de garde d'un corps (pratiques DVI / CICR) : chaque
+ * changement de responsabilité est daté et signé — c'est la traçabilité
+ * entre l'hôpital, le terrain et les sites mortuaires.
+ */
+export const CUSTODY_STEPS = ["recovered", "hospital", "transferred", "received", "released"] as const;
+export type CustodyStep = (typeof CUSTODY_STEPS)[number];
+
+export interface CustodyEvent {
+  at: string;
+  step: CustodyStep;
+  from?: string;
+  to?: string;
+  /** Qui a acté l'étape (matricule). */
+  by: string;
+  note?: string;
 }
 
 /** Étapes du parcours d'identification. */
@@ -253,6 +278,12 @@ export interface MortuaryRecord {
   identifiedAs?: string;
   /** Personne à qui le corps a été restitué — exigée au statut « restitué ». */
   releasedTo?: string;
+  /** D'où vient le corps : un hôpital (décès en établissement) ou le terrain. */
+  origin?: { kind: "hospital" | "field"; id?: string; label: string };
+  /** La chaîne de garde, dans l'ordre ; absente sur les dossiers antérieurs. */
+  custody?: CustodyEvent[];
+  /** Transfert annoncé par l'expéditeur, réception à confirmer par le site : le corps n'est pas encore « chez lui ». */
+  pendingReceipt?: boolean;
   /** Horodatages ISO 8601 : admission et dernière évolution. */
   admittedAt: string;
   updatedAt: string;

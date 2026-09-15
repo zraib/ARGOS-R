@@ -22,7 +22,8 @@ export type NavKey =
   // Traceurs GPS FMC920 (lot N-2).
   | "trackers"
   // Réseau opérationnel : unités + abris (lot OPSnet).
-  | "opsnet";
+  | "opsnet"
+  | "morgue";
 
 export type GroupKey = "res" | "dis" | "cmd";
 
@@ -76,6 +77,7 @@ export const HREF: Record<NavKey, string> = {
   chemlib: "/substances",
   trackers: "/traceurs",
   opsnet: "/opsnet",
+  morgue: "/morgue",
 };
 
 export const NAV: NavEntry[] = [
@@ -125,6 +127,15 @@ export const NAV: NavEntry[] = [
   // OPSnet — pendant d'Hospinet pour les moyens d'action et d'accueil. Posé
   // juste après lui : un état-major lit ses deux réseaux d'affilée.
   item("opsnet", HREF.opsnet),
+  // Service morgue — sites, morgues mobiles, registre des corps. Restreint
+  // aux rôles détenant `morgue:view` côté API (l'API reste l'autorité).
+  {
+    kind: "item",
+    key: "morgue",
+    href: HREF.morgue,
+    icon: NAV_ICONS.morgue,
+    roles: ["superadmin", "admin", "strategic", "place_arme", "wali", "opcom", "tacom", "bluecell", "greencell", "orangecell", "resp_morgue", "resp_hospital"],
+  },
   { kind: "group", key: "dis", icon: NAV_ICONS.dis, children: [item("ics", HREF.ics)] },
   item("damage", HREF.damage),
   item("shelters", HREF.shelters),
@@ -182,7 +193,7 @@ const LABEL_KEYS: Record<NavKey | GroupKey, keyof Dict> = {
   equip: "nav_equip", units: "nav_units", personnel: "nav_pers", workorders: "nav_wo",
   hospitals: "nav_hosp", ics: "nav_ics", damage: "nav_damage", shelters: "nav_shelters",
   orsec: "nav_orsec", plans: "nav_plans", comms: "nav_comms", reports: "nav_reports", analytics: "nav_analytics", assistant: "nav_assistant", simulation: "nav_simulation", users: "nav_users", settings: "nav_settings", myresp: "nav_myresp", myrespManage: "nav_myresp_manage", supervision: "nav_supervision",
-  res: "nav_res", dis: "nav_dis", cmd: "nav_cmd", chemlib: "nav_chemlib", trackers: "nav_trackers", opsnet: "nav_opsnet",
+  res: "nav_res", dis: "nav_dis", cmd: "nav_cmd", chemlib: "nav_chemlib", trackers: "nav_trackers", opsnet: "nav_opsnet", morgue: "nav_morgue",
 };
 
 export function navLabel(key: NavKey | GroupKey, t: Dict): string {

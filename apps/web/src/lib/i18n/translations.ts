@@ -562,7 +562,7 @@ export interface Dict {
   trk_saving: string; trk_save_failed: string; trk_load_failed: string;
   trk_no_fix: string; trk_last_seen: string; trk_never_seen: string; trk_sats: string;
   // OPSnet — réseau opérationnel (lot OPSnet)
-  nav_opsnet: string; ops_title: string; ops_tab_overview: string; ops_tab_units: string;
+  nav_opsnet: string; nav_morgue: string; lg_morgues: string; ops_title: string; ops_tab_overview: string; ops_tab_units: string;
   ops_tab_shelters: string; ops_kpi_units: string; ops_kpi_available: string;
   ops_kpi_shelters: string; ops_kpi_sheltered: string; ops_engagement_rate: string; ops_available_now: string;
   ops_shelter_saturation: string; ops_places_left: string; ops_availability: string; ops_readiness_low: string;
