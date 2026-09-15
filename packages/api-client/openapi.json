@@ -1082,6 +1082,201 @@
         ]
       }
     },
+    "/api/incidents/{id}/victims": {
+      "get": {
+        "operationId": "IncidentsController_victims",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Victimes nommées d'un incident — dans son périmètre de visibilité",
+        "tags": [
+          "domain"
+        ]
+      },
+      "post": {
+        "operationId": "IncidentsController_addVictim",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVictimDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ajouter une victime nommée (décédé, blessé, disparu) — dans son périmètre",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/incidents/{id}/victims/{vid}": {
+      "patch": {
+        "operationId": "IncidentsController_updateVictim",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateVictimDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Corriger une victime nommée — dans son périmètre",
+        "tags": [
+          "domain"
+        ]
+      },
+      "delete": {
+        "operationId": "IncidentsController_removeVictim",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Retirer une victime nommée — tant qu'elle n'est pas affectée à une morgue, dans son périmètre",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/incidents/{id}/victims/{vid}/morgue": {
+      "post": {
+        "operationId": "IncidentsController_assignVictimMorgue",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignMorgueDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Affecter un décédé à une morgue : le dossier s'ouvre là-bas, réception à confirmer — dans son périmètre",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/sub-incident-types": {
       "get": {
         "operationId": "IncidentsController_subIncidentTypesList",
@@ -4829,6 +5024,7 @@
               "map",
               "incidents",
               "subincidents",
+              "victims",
               "hospinet",
               "shelters",
               "morgue",
@@ -5084,6 +5280,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "morgues": {
+            "example": [
+              "M1"
+            ],
+            "description": "Sites mortuaires rattachés — dès qu'un décès est déclaré",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -5307,6 +5513,133 @@
             "$ref": "#/components/schemas/NrbcDto"
           }
         }
+      },
+      "CreateVictimDto": {
+        "type": "object",
+        "properties": {
+          "lastName": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "firstName": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "cni": {
+            "type": "string",
+            "description": "Carte nationale d'identité, si elle existe",
+            "maxLength": 20
+          },
+          "sex": {
+            "type": "string",
+            "enum": [
+              "m",
+              "f",
+              "unknown"
+            ]
+          },
+          "age": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 130,
+            "description": "Âge en années, si connu"
+          },
+          "deathAt": {
+            "type": "string",
+            "description": "Heure du décès (ISO 8601), si connue"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "dead",
+              "injured",
+              "missing"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "hospitalId": {
+            "type": "string",
+            "description": "Blessé : établissement d'évacuation"
+          },
+          "lastSeen": {
+            "type": "string",
+            "description": "Disparu : dernier lieu où la personne a été vue",
+            "maxLength": 160
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "UpdateVictimDto": {
+        "type": "object",
+        "properties": {
+          "lastName": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "firstName": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "cni": {
+            "type": "string",
+            "description": "Carte nationale d'identité, si elle existe",
+            "maxLength": 20
+          },
+          "sex": {
+            "type": "string",
+            "enum": [
+              "m",
+              "f",
+              "unknown"
+            ]
+          },
+          "age": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 130,
+            "description": "Âge en années, si connu"
+          },
+          "deathAt": {
+            "type": "string",
+            "description": "Heure du décès (ISO 8601), si connue"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "dead",
+              "injured",
+              "missing"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "hospitalId": {
+            "type": "string"
+          },
+          "lastSeen": {
+            "type": "string",
+            "maxLength": 160
+          }
+        }
+      },
+      "AssignMorgueDto": {
+        "type": "object",
+        "properties": {
+          "mid": {
+            "type": "string",
+            "example": "M1"
+          }
+        },
+        "required": [
+          "mid"
+        ]
       },
       "CreateSubIncidentDto": {
         "type": "object",
@@ -5832,6 +6165,19 @@
       "UpdateMorgueDto": {
         "type": "object",
         "properties": {
+          "nom": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "field",
+              "temporary",
+              "hospital",
+              "truck"
+            ]
+          },
           "capacity": {
             "type": "number",
             "minimum": 0,
@@ -5849,12 +6195,61 @@
               "partial",
               "closed"
             ]
+          },
+          "region": {
+            "type": "string"
+          },
+          "province": {
+            "type": "string"
+          },
+          "ville": {
+            "type": "string"
+          },
+          "ll": {
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "[longitude, latitude]",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
           }
         }
       },
       "AdmitBodyDto": {
         "type": "object",
         "properties": {
+          "lastName": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "firstName": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "cni": {
+            "type": "string",
+            "description": "Carte nationale d'identité, si elle existe",
+            "maxLength": 20
+          },
+          "sex": {
+            "type": "string",
+            "enum": [
+              "m",
+              "f",
+              "unknown"
+            ]
+          },
+          "age": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 130,
+            "description": "Âge en années, si connu"
+          },
+          "deathAt": {
+            "type": "string",
+            "description": "Heure du décès (ISO 8601), si connue"
+          },
           "reference": {
             "type": "string",
             "example": "AH-2026-004",
@@ -5869,14 +6264,6 @@
             "type": "string",
             "example": "Douar Tinzert",
             "description": "Lieu de découverte"
-          },
-          "sex": {
-            "type": "string",
-            "enum": [
-              "m",
-              "f",
-              "unknown"
-            ]
           },
           "ageRange": {
             "type": "string",
@@ -5900,6 +6287,37 @@
       "UpdateMortuaryRecordDto": {
         "type": "object",
         "properties": {
+          "lastName": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "firstName": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "cni": {
+            "type": "string",
+            "description": "Carte nationale d'identité, si elle existe",
+            "maxLength": 20
+          },
+          "sex": {
+            "type": "string",
+            "enum": [
+              "m",
+              "f",
+              "unknown"
+            ]
+          },
+          "age": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 130,
+            "description": "Âge en années, si connu"
+          },
+          "deathAt": {
+            "type": "string",
+            "description": "Heure du décès (ISO 8601), si connue"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -5909,6 +6327,29 @@
               "released"
             ],
             "description": "Étape du parcours d'identification"
+          },
+          "idMethod": {
+            "type": "string",
+            "enum": [
+              "dna",
+              "fingerprint",
+              "dental",
+              "body_mark"
+            ],
+            "description": "Mode d'identification : ADN, empreinte digitale, dentaire, signe corporel"
+          },
+          "identifiedAt": {
+            "type": "string",
+            "description": "Date d'identification (ISO 8601)"
+          },
+          "identifiedBy": {
+            "type": "string",
+            "description": "Identifié par (nom ou matricule)",
+            "maxLength": 120
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500
           },
           "samples": {
             "type": "array",
@@ -5932,14 +6373,6 @@
           "foundAt": {
             "type": "string"
           },
-          "sex": {
-            "type": "string",
-            "enum": [
-              "m",
-              "f",
-              "unknown"
-            ]
-          },
           "ageRange": {
             "type": "string"
           }
@@ -5952,12 +6385,23 @@
             "type": "string",
             "example": "Chambre mortuaire — Hôpital Militaire Moulay Ismaïl"
           },
+          "type": {
+            "type": "string",
+            "enum": [
+              "field",
+              "temporary",
+              "hospital",
+              "truck"
+            ],
+            "description": "field = champ mortuaire ; temporary = morgue temporaire ; hospital = morgue hospitalière ; truck = camion réfrigéré"
+          },
           "level": {
             "type": "string",
             "enum": [
               "regional",
               "city"
             ],
+            "default": "city",
             "description": "regional = institut médico-légal de la région ; city = morgue de ville"
           },
           "region": {
@@ -5998,7 +6442,7 @@
         },
         "required": [
           "nom",
-          "level",
+          "type",
           "region",
           "ville",
           "capacity"
@@ -6011,6 +6455,16 @@
             "type": "string",
             "example": "Morgue mobile n° 2 — conteneur 40 pieds",
             "description": "Désignation de l'unité"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "truck",
+              "field",
+              "temporary"
+            ],
+            "default": "truck",
+            "description": "Camion réfrigéré (défaut), champ mortuaire, morgue temporaire"
           },
           "capacity": {
             "type": "number",
@@ -6197,6 +6651,37 @@
       "HospitalDeathDto": {
         "type": "object",
         "properties": {
+          "lastName": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "firstName": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "cni": {
+            "type": "string",
+            "description": "Carte nationale d'identité, si elle existe",
+            "maxLength": 20
+          },
+          "sex": {
+            "type": "string",
+            "enum": [
+              "m",
+              "f",
+              "unknown"
+            ]
+          },
+          "age": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 130,
+            "description": "Âge en années, si connu"
+          },
+          "deathAt": {
+            "type": "string",
+            "description": "Heure du décès (ISO 8601), si connue"
+          },
           "mid": {
             "type": "string",
             "example": "M2",
@@ -6213,14 +6698,6 @@
           "identifiedAs": {
             "type": "string",
             "description": "Identité du patient décédé, si connue"
-          },
-          "sex": {
-            "type": "string",
-            "enum": [
-              "m",
-              "f",
-              "unknown"
-            ]
           },
           "ageRange": {
             "type": "string",

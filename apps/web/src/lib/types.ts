@@ -152,8 +152,8 @@ export interface Incident {
     contaminated?: number;
     rescued?: number;
   };
-  /** Premiers intervenants rattachés : identifiants d'unités / d'hôpitaux */
-  responders?: { units: string[]; hospitals: string[] };
+  /** Premiers intervenants rattachés : identifiants d'unités / d'hôpitaux — et de sites mortuaires dès qu'un décès est déclaré. */
+  responders?: { units: string[]; hospitals: string[]; morgues?: string[] };
   /** Sous-incidents (aléas secondaires rattachés après la déclaration) */
   subIncidents?: SubIncident[];
   /** Volet NRBC (incidents de type nrbc) */
@@ -767,6 +767,11 @@ export interface FloodPolygon {
 // --- service morgue (miroir de l'API : sites, registre DVI, chaîne de garde) ---
 
 export type MorgueLevel = "regional" | "city";
+/** Nature d'un site : champ mortuaire, morgue temporaire, morgue hospitalière, camion réfrigéré. */
+export type MorgueType = "field" | "temporary" | "hospital" | "truck";
+export const MORGUE_TYPES: readonly MorgueType[] = ["hospital", "temporary", "field", "truck"];
+/** Statut lu : « plein » est dérivé de la capacité, jamais saisi. */
+export type MorgueStatus = "op" | "partial" | "closed" | "full";
 
 /** Site mortuaire (permanent ou de circonstance), ou morgue MOBILE déployée sur le terrain. */
 export interface MorgueSite {
@@ -776,7 +781,8 @@ export interface MorgueSite {
   /** Emplacements réfrigérés. */
   capacity: number;
   staff: number;
-  statut: "op" | "partial" | "closed";
+  statut: MorgueStatus;
+  type?: MorgueType;
   /** Fixe ou mobile ; absent = fixe. */
   kind?: "fixed" | "mobile";
   /** Échelon d'un site fixe : régional (institut médico-légal) ou de ville (chambre mortuaire d'un établissement). */
@@ -795,6 +801,39 @@ export const DVI_STATUSES = ["unidentified", "in_progress", "identified", "relea
 export type DviStatus = (typeof DVI_STATUSES)[number];
 export const DVI_SAMPLES = ["dna", "dental", "fingerprint"] as const;
 export type DviSample = (typeof DVI_SAMPLES)[number];
+
+export type Sex = "m" | "f" | "unknown";
+/** Mode d'identification retenu à la morgue. */
+export type IdMethod = "dna" | "fingerprint" | "dental" | "body_mark";
+export const ID_METHODS: readonly IdMethod[] = ["dna", "fingerprint", "dental", "body_mark"];
+
+/** Identité d'une personne telle qu'on la connaît — chaque champ absent tant qu'il est inconnu. */
+export interface PersonIdentity {
+  lastName?: string;
+  firstName?: string;
+  cni?: string;
+  sex?: Sex;
+  age?: number;
+}
+
+export type VictimKind = "dead" | "injured" | "missing";
+export const VICTIM_KINDS: readonly VictimKind[] = ["dead", "injured", "missing"];
+
+/** Une victime nommée d'un incident — le bilan affiné par les intervenants ; un décédé porte sa morgue d'affectation. */
+export interface IncidentVictim extends PersonIdentity {
+  id: string;
+  incidentId: string;
+  kind: VictimKind;
+  note?: string;
+  deathAt?: string;
+  morgueId?: string;
+  recordId?: string;
+  hospitalId?: string;
+  lastSeen?: string;
+  createdAt: string;
+  updatedAt: string;
+  by: string;
+}
 
 /** Une étape de la chaîne de garde : datée, signée, d'où à où. */
 export type CustodyStep = "recovered" | "hospital" | "transferred" | "received" | "released";
@@ -820,6 +859,17 @@ export interface MortuaryRecord {
   samples: DviSample[];
   identifiedAs?: string;
   releasedTo?: string;
+  lastName?: string;
+  firstName?: string;
+  cni?: string;
+  age?: number;
+  /** Heure du décès (ISO), corrigée à la morgue ; absente = non connue. */
+  deathAt?: string;
+  idMethod?: IdMethod;
+  identifiedAt?: string;
+  identifiedBy?: string;
+  note?: string;
+  victimId?: string;
   origin?: { kind: "hospital" | "field"; id?: string; label: string };
   custody?: CustodyEvent[];
   /** Transfert annoncé, réception à confirmer par le site. */

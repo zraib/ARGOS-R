@@ -128,6 +128,11 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `PATCH` | `/api/incidents/{id}/posts/{postId}` | `map_edit:update` | Déplacer ou renommer un poste — Super Administrateur (audité) |
 | `POST` | `/api/incidents/{id}/sub-incidents` | `subincidents:create` | Rattacher un sous-incident (aléa secondaire) à un incident (audité) |
 | `DELETE` | `/api/incidents/{id}/sub-incidents/{subId}` | `subincidents:archive` | Détacher un sous-incident (audité) |
+| `GET` | `/api/incidents/{id}/victims` | `victims:view` | Victimes nommées d'un incident — dans son périmètre de visibilité |
+| `POST` | `/api/incidents/{id}/victims` | `victims:create` | Ajouter une victime nommée (décédé, blessé, disparu) — dans son périmètre |
+| `DELETE` | `/api/incidents/{id}/victims/{vid}` | `victims:update` | Retirer une victime nommée — tant qu'elle n'est pas affectée à une morgue, dans son périmètre |
+| `PATCH` | `/api/incidents/{id}/victims/{vid}` | `victims:update` | Corriger une victime nommée — dans son périmètre |
+| `POST` | `/api/incidents/{id}/victims/{vid}/morgue` | `victims:update` | Affecter un décédé à une morgue : le dossier s'ouvre là-bas, réception à confirmer — dans son périmètre |
 | `GET` | `/api/morgues` | `morgue:view` | Sites mortuaires |
 | `POST` | `/api/morgues` | `morgue:create` | Créer un site mortuaire fixe — de ville ou régional, rattaché à un établissement |
 | `PATCH` | `/api/morgues/{id}` | `morgue:update` | Mettre à jour un site mortuaire — le sien uniquement |
@@ -247,7 +252,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 ## Chiffres
 
-119 chemins · 148 opérations · 13 groupes.
+122 chemins · 153 opérations · 13 groupes.
 
 ## Modifier le contrat
 

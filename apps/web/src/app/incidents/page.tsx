@@ -14,6 +14,7 @@ import { compareIncidentDate, formatIncidentHour } from "@/lib/derive";
 import type { Incident, IncidentStatus } from "@/lib/types";
 import { predictIncidentEvolution, type IncidentEvolution } from "@/lib/ai/risk/incidentEvolution";
 import { IncidentEvolutionCard } from "@/components/incidents/IncidentEvolutionCard";
+import { VictimsModal } from "@/components/incidents/VictimsModal";
 import { DeleteIncidentModal } from "@/components/incidents/DeleteIncidentModal";
 import {
   TH,
@@ -57,6 +58,8 @@ export default function IncidentsPage() {
   const [sortBy, setSortBy] = useState<"time" | "sev" | "type">("time");
   const [sortOpen, setSortOpen] = useState(false);
   const [viewInc, setViewInc] = useState<Incident | null>(null);
+  /** Le bilan des victimes à affiner (décédés, blessés, disparus) — une modale à part, par-dessus la liste. */
+  const [victimsFor, setVictimsFor] = useState<Incident | null>(null);
   // Lignes dépliées : arborescence des sous-incidents sous l'incident parent.
   const [expanded, setExpanded] = useState<string[]>([]);
   // Ajout d'un sous-incident : modale SÉPARÉE (pas imbriquée dans la modale de détails).
@@ -463,7 +466,8 @@ export default function IncidentsPage() {
       </div>
 
       {/* Détails masqués tant que la modale d'ajout de sous-incident est ouverte : une seule modale à la fois (pas d'imbrication). */}
-      {viewInc && !addSubFor && <DetailsModal incident={viewInc} onClose={() => setViewInc(null)} onMap={toMap} onEdit={(inc) => { openWizardEdit(inc); setViewInc(null); }} onAddSub={(inc) => setAddSubFor(inc)} />}
+      {victimsFor && <VictimsModal incident={victimsFor} onClose={() => setVictimsFor(null)} />}
+      {viewInc && !addSubFor && !victimsFor && <DetailsModal incident={viewInc} onClose={() => setViewInc(null)} onMap={toMap} onVictims={(inc) => setVictimsFor(inc)} onEdit={(inc) => { openWizardEdit(inc); setViewInc(null); }} onAddSub={(inc) => setAddSubFor(inc)} />}
       {addSubFor && <SubIncidentWizard incident={addSubFor} onClose={() => setAddSubFor(null)} />}
       {stChange && (
         <StatusConfirm

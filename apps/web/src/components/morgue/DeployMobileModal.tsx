@@ -16,6 +16,7 @@ export function DeployMobileModal({ onClose, onDone }: { onClose: () => void; on
   const cities = useArgos((s) => s.cities);
   const actifs = incidents.filter((i) => !i.archived);
   const [nom, setNom] = useState("");
+  const [type, setType] = useState<"truck" | "field" | "temporary">("truck");
   const [capacity, setCapacity] = useState(24);
   const [staff, setStaff] = useState(4);
   const [incidentId, setIncidentId] = useState(actifs[0]?.id ?? "");
@@ -36,7 +37,7 @@ export function DeployMobileModal({ onClose, onDone }: { onClose: () => void; on
     }
     setBusy(true);
     try {
-      const res = await api.deployMobileMorgue({ nom: nom.trim(), capacity, staff, site: site.trim(), ll, incidentId: incidentId || undefined });
+      const res = await api.deployMobileMorgue({ nom: nom.trim(), type, capacity, staff, site: site.trim(), ll, incidentId: incidentId || undefined });
       const code = res.response?.status;
       if (res.error || (code !== undefined && code >= 400)) {
         setError(m.morgue.err_denied);
@@ -57,6 +58,16 @@ export function DeployMobileModal({ onClose, onDone }: { onClose: () => void; on
           <div className="sm:col-span-2">
             <label className={labelCls}>{m.morgue.d_name}</label>
             <input className="input-champ text-base md:text-sm" placeholder={m.morgue.d_name_ph} value={nom} onChange={(e) => { setNom(e.target.value); setError(null); }} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={labelCls}>{m.morgue.a_type}</label>
+            <div className="flex flex-wrap gap-2">
+              {(["truck", "field", "temporary"] as const).map((k) => (
+                <button key={k} type="button" onClick={() => setType(k)} aria-pressed={type === k} className={`cible-tactile rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${type === k ? "border-or-500 bg-or-500/15 text-or-600 dark:text-or-400" : "border-gray-200 text-gray-600 hover:border-or-400 dark:border-rdia-600 dark:text-rdia-200"}`}>
+                  {m.morgue.types[k]}
+                </button>
+              ))}
+            </div>
           </div>
           <div>
             <label className={labelCls}>{m.morgue.d_capacity}</label>

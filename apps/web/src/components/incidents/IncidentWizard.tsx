@@ -42,6 +42,7 @@ export function IncidentWizard() {
   const cities = useArgos((s) => s.cities);
   const units = useArgos((s) => s.units);
   const hospitals = useArgos((s) => s.hospitals);
+  const morgues = useArgos((s) => s.morgues);
   const incidentTypes = useArgos((s) => s.incidentTypes);
   const showToast = useArgos((s) => s.showToast);
   const nrbcSubstances = useArgos((s) => s.nrbcSubstances);
@@ -64,6 +65,11 @@ export function IncidentWizard() {
   // Moyens classés par proximité au point de l'incident (suggestion = le plus proche).
   const nearUnits = useMemo(() => rankByDistance(units, form.pt), [units, form.pt]);
   const nearHosps = useMemo(() => rankByDistance(hospitals, form.pt), [hospitals, form.pt]);
+  // Les sites mortuaires ouverts (mobiles repliées exclues), proposés dès qu'un décès est déclaré.
+  const nearMorgues = useMemo(
+    () => rankByDistance(morgues.filter((m): m is typeof m & { ll: [number, number] } => !!m.ll && m.statut !== "closed" && !(m.kind === "mobile" && !m.deployment)), form.pt),
+    [morgues, form.pt],
+  );
 
   const draftInput = useMemo<DescriptionProposalInput>(
     () => ({
@@ -176,7 +182,7 @@ export function IncidentWizard() {
 
         {step === 1 && <StepType types={incidentTypes} lang={lang} value={form.type} onSelect={(id) => actions.patch({ type: id })} />}
         {step === 2 && <StepLocation form={form} cities={cities} loc={loc} />}
-        {step === 3 && <StepCasualties form={form} actions={actions} nearUnits={nearUnits} nearHosps={nearHosps} />}
+        {step === 3 && <StepCasualties form={form} actions={actions} nearUnits={nearUnits} nearHosps={nearHosps} nearMorgues={nearMorgues} />}
         {step === 4 && <StepDetails form={form} actions={actions} ai={ai} lang={lang} nrbcSubstances={nrbcSubstances} />}
 
         {/* Navigation */}

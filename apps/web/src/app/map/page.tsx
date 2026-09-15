@@ -256,13 +256,15 @@ export default function MapPage() {
         selInfo = {
           titre: site.nom, sub: site.ville, badgeType: site.statut === "op" ? "active" : site.statut === "partial" ? "medium" : "on_hold", badgeLabel: m.resp.morgue_statut[site.statut],
           lines: [
-            { k: t.lg_morgues, v: site.kind === "mobile" ? m.morgue.site_mobile : m.morgue.site_fixed },
+            { k: m.morgue.f_type, v: site.type ? m.morgue.types[site.type] : site.kind === "mobile" ? m.morgue.site_mobile : m.morgue.site_fixed },
+            { k: m.morgue.col_status, v: m.resp.morgue_statut[site.statut] },
             { k: m.morgue.d_capacity, v: String(site.capacity) },
             { k: m.resp.g_staff, v: String(site.staff) },
             ...(site.deployment?.incidentId ? [{ k: m.morgue.d_incident, v: site.deployment.incidentId }] : []),
           ],
           responsible: { kind: "morgue", entityId: site.id },
-          action: () => { clearSelection(); router.push("/morgue"); },
+          // La fiche complète — type, statut, capacité, corps — s'ouvre dans le service.
+          action: () => { clearSelection(); router.push(`/morgue?site=${encodeURIComponent(site.id)}`); },
         };
       }
     } else if (kind === "hosp") {

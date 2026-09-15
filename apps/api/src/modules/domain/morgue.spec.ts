@@ -84,12 +84,75 @@ describe("décès en établissement, réception, transfert, morgue mobile", () =
     expect(sites.filter((m) => m.level === "regional").length).toBeGreaterThanOrEqual(3);
     expect(sites.find((m) => m.id === "M2")).toMatchObject({ level: "city", hospitalId: "H4", region: "Marrakech-Safi" });
     expect(d.regionOfEntity("morgue", "M3")).toBe("Marrakech-Safi");
-    const cree = d.createMorgue({ nom: "Chambre mortuaire — Hôpital Militaire Hassan II", level: "city", region: "Laâyoune-Sakia El Hamra", province: "Laâyoune", ville: "Laâyoune", hospitalId: "H6", capacity: 20 });
+    const cree = d.createMorgue({ nom: "Chambre mortuaire — Hôpital Militaire Hassan II", type: "hospital", level: "city", region: "Laâyoune-Sakia El Hamra", province: "Laâyoune", ville: "Laâyoune", hospitalId: "H6", capacity: 20 });
     expect(cree.site).toMatchObject({ kind: "fixed", level: "city", hospitalId: "H6", statut: "op", code: "LAA" });
     expect(cree.site?.ll).toEqual(d.listHospitals().find((h) => h.id === "H6")?.ll);
     expect(d.regionOfEntity("morgue", cree.site!.id)).toBe("Laâyoune-Sakia El Hamra");
-    expect(d.createMorgue({ nom: "X", level: "city", region: "R", ville: "V", hospitalId: "H-inconnu", capacity: 5 }).error).toMatch(/introuvable/);
+    expect(d.createMorgue({ nom: "X", type: "temporary", level: "city", region: "R", ville: "V", hospitalId: "H-inconnu", capacity: 5 }).error).toMatch(/introuvable/);
     expect(d.nextReference(cree.site!)).toBe(`LAA-${new Date().getUTCFullYear()}-001`);
+  });
+
+  it("le bilan nommé : une victime décédée, affectée à une morgue, ouvre son dossier là-bas avec sa préliminaire", () => {
+    const inc = d.listIncidents()[0];
+    const avant = inc.casualties?.dead ?? 0;
+    const v = d.addVictim(inc.id, { kind: "dead", lastName: "Alaoui", firstName: "Karim", cni: "AB123456", sex: "m", age: 42, deathAt: "2026-09-15T06:30:00Z", note: "Retrouvé sous les décombres" }, "c.bleue")!;
+    expect(v.id).toMatch(/^VIC-\d+$/);
+    expect(d.listVictims(inc.id)).toHaveLength(1);
+    // Les compteurs ne disent jamais moins que les victimes nommées.
+    expect(d.findIncident(inc.id)?.casualties?.dead).toBeGreaterThanOrEqual(Math.max(1, avant));
+    // Un blessé ne s'affecte pas à une morgue ; un décédé, oui — une fois.
+    const blesse = d.addVictim(inc.id, { kind: "injured", firstName: "Sara" }, "c.bleue")!;
+    expect(d.assignVictimMorgue(inc.id, blesse.id, "M1", "c.bleue").error).toMatch(/décédé/);
+    const res = d.assignVictimMorgue(inc.id, v.id, "M5", "c.bleue");
+    expect(res.error).toBeUndefined();
+    expect(res.record).toMatchObject({ mid: "M5", pendingReceipt: true, status: "in_progress", lastName: "Alaoui", firstName: "Karim", cni: "AB123456", age: 42, deathAt: "2026-09-15T06:30:00Z", victimId: v.id, incidentId: inc.id });
+    expect(res.record?.custody?.map((c) => c.step)).toEqual(["recovered", "transferred"]);
+    expect(res.record?.origin?.kind).toBe("field");
+    expect(res.victim).toMatchObject({ morgueId: "M5", recordId: res.record?.id });
+    expect(d.assignVictimMorgue(inc.id, v.id, "M1", "c.bleue").error).toMatch(/déjà affecté/);
+    expect(d.entitiesOnIncident(inc.id)).toContain("M5");
+    // Une correction du terrain suit jusqu'à la morgue tant qu'elle n'a pas confirmé ; retirer est refusé.
+    d.updateVictim(inc.id, v.id, { age: 43 }, "c.bleue");
+    expect(d.listMortuaryRecords("M5").find((r) => r.id === res.record?.id)?.age).toBe(43);
+    expect(d.removeVictim(inc.id, v.id).error).toMatch(/affecté/);
+    expect(d.updateVictim(inc.id, v.id, { kind: "missing" }, "c.bleue").error).toMatch(/nature/);
+    expect(d.removeVictim(inc.id, blesse.id).ok).toBe(true);
+  });
+
+  it("les compteurs sont un plancher recalculé, pas un cliquet : reclasser ou retirer redescend", () => {
+    const inc = d.listIncidents()[1];
+    d.updateIncident(inc.id, { casualties: { dead: 0, injured: 0, missing: 0 } });
+    const a = d.addVictim(inc.id, { kind: "dead" }, "c.bleue")!;
+    expect(d.findIncident(inc.id)?.casualties).toMatchObject({ dead: 1, injured: 0 });
+    // Reclassé blessé : plus de décès, un blessé — pas les deux.
+    d.updateVictim(inc.id, a.id, { kind: "injured" }, "c.bleue");
+    expect(d.findIncident(inc.id)?.casualties).toMatchObject({ dead: 0, injured: 1 });
+    // Retiré : tout redescend au chiffre déclaré.
+    d.removeVictim(inc.id, a.id);
+    expect(d.findIncident(inc.id)?.casualties).toMatchObject({ dead: 0, injured: 0 });
+    // Un chiffre déclaré plus haut que les nommés reste ce que l'opérateur a dit.
+    d.updateIncident(inc.id, { casualties: { dead: 5, injured: 2, missing: 1 } });
+    d.addVictim(inc.id, { kind: "dead" }, "c.bleue");
+    expect(d.findIncident(inc.id)?.casualties).toMatchObject({ dead: 5, injured: 2, missing: 1 });
+  });
+
+  it("la morgue reçoit, puis identifie : nom et prénom composent l'identité confirmée ; le site plein se lit « plein »", () => {
+    const rec = d.listMortuaryRecords("M5").find((r) => r.victimId)!;
+    expect(d.receiveBody("M5", rec.id, "m.legiste").record?.pendingReceipt).toBe(false);
+    const res = d.updateMortuaryRecord("M5", rec.id, { status: "identified", lastName: "Alaoui", firstName: "Karim", cni: "AB123456", sex: "m", age: 43, deathAt: "2026-09-15T06:10:00Z", idMethod: "fingerprint", identifiedAt: "2026-09-15T10:00:00Z", identifiedBy: "Dr. Benali", note: "Empreintes concordantes" }, "m.legiste");
+    expect(res.error).toBeUndefined();
+    expect(res.record).toMatchObject({ status: "identified", identifiedAs: "Alaoui Karim", idMethod: "fingerprint", identifiedBy: "Dr. Benali", deathAt: "2026-09-15T06:10:00Z" });
+    // Une fois confirmée, la préliminaire du terrain ne l'écrase plus.
+    const v = d.listVictims(d.listIncidents()[0].id).find((x) => x.recordId === rec.id)!;
+    d.updateVictim(v.incidentId, v.id, { age: 50 }, "c.bleue");
+    expect(d.listMortuaryRecords("M5").find((r) => r.id === rec.id)?.age).toBe(43);
+    // « Plein » se lit, ne se saisit pas.
+    const petite = d.deployMobileMorgue({ nom: "Cellule 1 place", capacity: 1, ll: [-8, 31], site: "Douar" }, "m.zraib");
+    expect(petite.type).toBe("truck");
+    expect(d.listMorgues().find((m) => m.id === petite.id)?.statut).toBe("op");
+    d.admitBody(petite.id, {}, "t.mobile");
+    expect(d.listMorgues().find((m) => m.id === petite.id)?.statut).toBe("full");
+    expect(d.listMorgues().find((m) => m.id === "M1")?.type).toBe("hospital");
   });
 
   it("un site plein ou fermé ne reçoit pas ; l'admission directe attribue sa référence et sa première garde", () => {

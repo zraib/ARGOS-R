@@ -57,7 +57,7 @@ export function nearestSites(
 ): { site: MorgueSite; km: number | null; free: number; attached: boolean }[] {
   const groupe = (s: MorgueSite) => (prefer.hospitalId && s.hospitalId === prefer.hospitalId ? 0 : prefer.region && s.region === prefer.region ? (levelOf(s) === "regional" ? 1 : 2) : 3);
   return sites
-    .filter((s) => s.statut !== "closed" && !(s.kind === "mobile" && !s.deployment))
+    .filter((s) => s.statut !== "closed" && s.statut !== "full" && !(s.kind === "mobile" && !s.deployment))
     .map((site) => ({ site, km: from && site.ll ? distanceKm(from, site.ll) : null, free: freePlaces(site, records), attached: !!prefer.hospitalId && site.hospitalId === prefer.hospitalId }))
     .sort((a, b) => groupe(a.site) - groupe(b.site) || (a.km ?? Infinity) - (b.km ?? Infinity));
 }

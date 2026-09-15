@@ -20,6 +20,7 @@ import {
   typeCoords,
   withPoint,
   type WizardForm,
+  needsMorgue,
 } from "@/lib/incidents/wizard";
 import type { City, Incident, Province } from "@/lib/types";
 
@@ -193,6 +194,15 @@ describe("la charge envoyée à l'API", () => {
   it("sans point ou sans région résolvable, rien ne part", () => {
     expect(buildIncidentBody({ ...rempli, pt: null }, ctx)).toBeNull();
     expect(buildIncidentBody(withPoint(EMPTY_FORM, [-8, 31.6]), { ...ctx, provinces: [], cities: [] })).toBeNull();
+  });
+
+  it("les morgues cochées ne partent qu'avec un décès déclaré, comme intervenants", () => {
+    const base = { ...rempli, dead: "0", morgues: ["M1"] };
+    expect(needsMorgue(base)).toBe(false);
+    expect(buildIncidentBody(base, ctx)?.responders).toEqual({ units: ["u1"], hospitals: [] });
+    const avecDeces = { ...base, dead: "2" };
+    expect(needsMorgue(avecDeces)).toBe(true);
+    expect(buildIncidentBody(avecDeces, ctx)?.responders).toEqual({ units: ["u1"], hospitals: [], morgues: ["M1"] });
   });
 
   it("titre et adresse sont nettoyés, la région vient de la ville, les blocs vides sont omis", () => {

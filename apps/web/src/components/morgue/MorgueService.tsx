@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useArgos, useModules } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
@@ -14,6 +14,7 @@ import { loadBarClass } from "@/lib/responsibility";
 import { freePlaces, lastCustody, levelOf, presentBodies, sortRegistry, sortSites, type SiteLevel } from "@/lib/morgue";
 import { STATUS_TONES } from "@/components/responsibility/MorgueViews";
 import { AddMorgueModal } from "@/components/morgue/AddMorgueModal";
+import { MORGUE_STATUS_TONE, MorgueDetailModal } from "@/components/morgue/MorgueDetailModal";
 import { DeployMobileModal } from "@/components/morgue/DeployMobileModal";
 import { RecordDetailModal, quand } from "@/components/morgue/RecordDetailModal";
 import { TransferModal } from "@/components/morgue/TransferModal";
@@ -56,6 +57,10 @@ export function MorgueService() {
   const [deploying, setDeploying] = useState(false);
   const [detail, setDetail] = useState<MortuaryRecord | null>(null);
   const [transferring, setTransferring] = useState<MortuaryRecord | null>(null);
+  // La fiche d'un site : ouverte par un clic sur sa carte, ou par `?site=` (depuis la carte de la situation).
+  const params = useSearchParams();
+  const [openSite, setOpenSite] = useState<string | null>(params.get("site"));
+  const siteOuvert = openSite ? morgues.find((s) => s.id === openSite) ?? null : null;
 
   // Qui agit : le service (admin) et les responsables de site ; les autres lisent.
   const canWrite = role === "superadmin" || role === "admin" || role === "resp_morgue";
@@ -240,23 +245,23 @@ export function MorgueService() {
               return (
                 <div key={site.id} className="carte flex flex-col gap-3 p-4">
                   <div className="flex items-start gap-2">
-                    <div className="min-w-0 flex-1">
+                    <button type="button" onClick={() => setOpenSite(site.id)} className="min-w-0 flex-1 text-start" title={m.morgue.open_detail}>
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <h3 className="truncate text-sm font-bold text-rdia-600 dark:text-rdia-50">{site.nom}</h3>
+                        <h3 className="truncate text-sm font-bold text-rdia-600 hover:text-or-500 dark:text-rdia-50">{site.nom}</h3>
                         <Pill tone={LEVEL_TONE[echelon]} label={levelLabel[echelon]} size="sm" />
+                        <Pill tone={MORGUE_STATUS_TONE[site.statut]} label={m.resp.morgue_statut[site.statut]} size="sm" />
+                        {site.type && <span className="text-[10.5px] text-gray-400 dark:text-rdia-400">{m.morgue.types[site.type]}</span>}
                       </div>
                       <div className="text-xs text-gray-500 dark:text-rdia-300">
                         {site.ville}
                         {site.province && site.province !== site.ville ? ` · ${site.province}` : ""}
                         {site.deployment?.incidentId ? ` · ${site.deployment.incidentId}` : ""}
-                        {" · "}
-                        {m.resp.morgue_statut[site.statut]}
                       </div>
                       <div className="mt-0.5 flex items-center gap-1 text-[11px] text-gray-500 dark:text-rdia-300">
                         <Icon path={NAV_ICONS.hospitals} size={12} className="shrink-0 text-or-500" />
                         <span className="truncate">{hosp ? `${m.morgue.attached} ${hosp.nom}` : m.morgue.not_attached}</span>
                       </div>
-                    </div>
+                    </button>
                     {site.ll && (
                       <button type="button" onClick={() => sur(site)} title={m.morgue.map} aria-label={`${m.morgue.map} — ${site.nom}`} className="cible-tactile flex shrink-0 items-center justify-center rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600">
                         <Icon path={NAV_ICONS.map} size={15} />
@@ -367,6 +372,7 @@ export function MorgueService() {
         </div>
       </div>
 
+      {siteOuvert && <MorgueDetailModal site={siteOuvert} records={records} onClose={() => setOpenSite(null)} onChanged={refresh} />}
       {adding && <AddMorgueModal onClose={() => setAdding(false)} onDone={() => { setAdding(false); refresh(); }} />}
       {deploying && <DeployMobileModal onClose={() => setDeploying(false)} onDone={() => { setDeploying(false); refresh(); }} />}
       {detail && <RecordDetailModal record={detail} sites={morgues} onClose={() => setDetail(null)} />}

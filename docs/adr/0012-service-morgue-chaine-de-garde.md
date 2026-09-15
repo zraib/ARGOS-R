@@ -5,6 +5,10 @@
 - **Révisé le 2026-09-15 :** la morgue suit la logique des hôpitaux — un
   échelon (régionale / de ville), une région, un établissement de
   rattachement ; création d'un site comme d'un hôpital.
+- **Révisé le 2026-09-15 (bis) :** le bilan des victimes de l'incident
+  (victimes nommées, identification préliminaire d'un décédé, affectation à
+  une morgue), la nature et le statut « plein » des sites, la fiche complète
+  d'une morgue avec ses corps, l'identification complète à la morgue.
 - **Portée :** `apps/api` : `domain.types.ts` (sites, chaîne de garde),
   `morgue.rules.ts`, `domain.service.ts`, routes `morgues/registry`,
   `morgues/mobile`, `morgues/:id/recall`, `morgues/:id/records/:rid/{receive,transfer}`,
@@ -83,6 +87,41 @@ restitué qui ne bouge plus.
    l'établissement et liste ses transferts en attente. Les vues « Ma
    responsabilité » du responsable de site gagnent la réception et le badge
    « réception à confirmer ».
+
+8. **Le bilan des victimes part de l'incident.** Dès qu'un décès est déclaré,
+   le wizard propose les **sites mortuaires** comme il propose unités et
+   hôpitaux (`responders.morgues`) — la morgue sert l'incident dès la
+   déclaration. Après la déclaration, les intervenants **affinent le bilan**
+   (`victims`, matrice dédiée : cellules opérations et logistique,
+   responsables d'unité et d'hôpital écrivent ; morgue et autorités lisent ;
+   chaque route est cantonnée au périmètre de visibilité de l'incident,
+   comme les déploiements) : les compteurs (décédés, blessés, disparus)
+   corrigés, et des **victimes nommées** — pour un décédé, l'**identification
+   préliminaire** (nom, prénom, CNI si elle existe, sexe féminin / masculin /
+   inconnu, âge ou « non identifié », heure du décès ou « non connue »),
+   **à confirmer par la morgue d'affectation**. Les compteurs lus valent
+   `max(déclaré, nommés)` par nature, recalculés à chaque changement (jamais
+   un cliquet). **Affecter** un décédé ouvre son dossier à la morgue avec la
+   préliminaire, réception à confirmer, deux étapes de garde (relevé sur le
+   terrain, transfert) ; les corrections du terrain suivent tant que la
+   morgue n'a pas confirmé ; un décédé affecté ne se retire plus.
+9. **La fiche d'un site dit tout, corps compris.** Un site porte une
+   **nature** (champ mortuaire, morgue temporaire, morgue hospitalière,
+   camion réfrigéré), un **statut** lu (opérationnel, partiel, non
+   opérationnel — et **plein**, dérivé, jamais saisi, quand la capacité est
+   atteinte ; un site plein ne reçoit plus), sa capacité totale, sa
+   localisation comme à la déclaration d'incident (cascade région →
+   province → ville, point sur la carte), son rattachement. Un clic sur la
+   morgue (service ou carte) ouvre la fiche avec **ses corps**, chacun avec
+   sa fiche de présentation et l'heure du décès si elle est connue, sinon
+   « non connue ».
+10. **L'identification se fait à la morgue.** Elle reçoit la préliminaire et
+    la complète avec des informations exactes : heure du décès corrigée,
+    nom, prénom, CNI, sexe (féminin / masculin), âge, **mode**
+    d'identification (ADN, empreinte digitale, dentaire, signe corporel),
+    date d'identification, identifié par, note. Confirmer compose
+    l'identité (« Nom Prénom ») que la règle DVI exige et passe le dossier
+    « identifié » ; dès lors la préliminaire du terrain ne l'écrase plus.
 
 ## Conséquences
 

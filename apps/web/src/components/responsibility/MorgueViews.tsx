@@ -18,6 +18,8 @@ import { KPI_ICONS, UI_ICONS } from "@/lib/icons";
 import { loadBarClass } from "@/lib/responsibility";
 import { Loading, useSupervision, RespHeader, Section } from "@/components/responsibility/Shared";
 import { DVI_SAMPLES, DVI_STATUSES, type DviSample, type DviStatus, type MorgueSite, type MortuaryRecord } from "@/lib/types";
+import { IdentifyModal } from "@/components/morgue/IdentifyModal";
+import { personName, whenShort } from "@/lib/victims";
 
 export type { MorgueSite, MortuaryRecord, DviStatus, DviSample };
 export { DVI_SAMPLES, DVI_STATUSES };
@@ -176,6 +178,7 @@ export function MorgueManagement({ mid }: { mid: string }) {
   const showToast = useArgos((s) => s.showToast);
   const [admitting, setAdmitting] = useState(false);
   const [editing, setEditing] = useState<MortuaryRecord | null>(null);
+  const [identifying, setIdentifying] = useState<MortuaryRecord | null>(null);
   if (!site) return <Loading />;
   const receptionner = async (r: MortuaryRecord) => {
     const res = await api.receiveBody(mid, r.id);
@@ -212,7 +215,7 @@ export function MorgueManagement({ mid }: { mid: string }) {
                   {r.pendingReceipt && <Pill tone="amber" label={m.morgue.pending_badge} />}
                 </div>
                 <div className="mt-0.5 truncate text-[10px] text-gray-400 dark:text-rdia-400">
-                  {r.identifiedAs ?? m.resp.g_unknown} · {r.foundAt ?? "—"}
+                  {personName(r) ?? r.identifiedAs ?? m.resp.g_unknown} · {r.foundAt ?? "—"} · {m.victims.death_at.toLowerCase()} {whenShort(r.deathAt) ?? m.victims.time_unknown}
                   {r.releasedTo ? ` · ${m.resp.g_released_to} ${r.releasedTo}` : ""}
                 </div>
               </div>
@@ -222,6 +225,11 @@ export function MorgueManagement({ mid }: { mid: string }) {
               {r.pendingReceipt && (
                 <button type="button" onClick={() => void receptionner(r)} className="cible-tactile rounded-lg bg-or-500 px-2 py-1 text-[11px] font-bold text-rdia-900 hover:bg-or-400">
                   {m.morgue.receive}
+                </button>
+              )}
+              {!r.pendingReceipt && r.status !== "released" && (
+                <button type="button" onClick={() => setIdentifying(r)} className="cible-tactile rounded-lg border border-or-500 px-2 py-1 text-[11px] font-semibold text-or-600 hover:bg-or-500/10 dark:text-or-400">
+                  {m.morgue.identify}
                 </button>
               )}
               <button
@@ -239,6 +247,7 @@ export function MorgueManagement({ mid }: { mid: string }) {
 
       {admitting && <AdmitForm mid={mid} onClose={() => setAdmitting(false)} onDone={() => { setAdmitting(false); reload(); }} />}
       {editing && <RecordForm mid={mid} record={editing} onClose={() => setEditing(null)} onDone={() => { setEditing(null); reload(); }} />}
+      {identifying && <IdentifyModal record={identifying} onClose={() => setIdentifying(null)} onDone={() => { setIdentifying(null); reload(); }} />}
     </section>
   );
 }
@@ -247,7 +256,8 @@ export function MorgueManagement({ mid }: { mid: string }) {
 function SiteForm({ site, onSaved }: { site: MorgueSite; onSaved: () => void }) {
   const m = useModules();
   const showToast = useArgos((s) => s.showToast);
-  const [form, setForm] = useState({ capacity: site.capacity, staff: site.staff, statut: site.statut });
+  // « Plein » se constate, ne se saisit pas : le formulaire ne propose que les statuts déclarables.
+  const [form, setForm] = useState<{ capacity: number; staff: number; statut: "op" | "partial" | "closed" }>({ capacity: site.capacity, staff: site.staff, statut: site.statut === "full" ? "op" : site.statut });
   const [busy, setBusy] = useState(false);
 
   const save = async () => {
@@ -277,7 +287,7 @@ function SiteForm({ site, onSaved }: { site: MorgueSite; onSaved: () => void }) 
         </div>
         <div>
           <label className={labelCls}>{m.resp.g_status}</label>
-          <select className="input-champ text-base md:text-sm" value={form.statut} onChange={(e) => setForm((f) => ({ ...f, statut: e.target.value as MorgueSite["statut"] }))}>
+          <select className="input-champ text-base md:text-sm" value={form.statut} onChange={(e) => setForm((f) => ({ ...f, statut: e.target.value as "op" | "partial" | "closed" }))}>
             {(["op", "partial", "closed"] as const).map((s) => <option key={s} value={s}>{m.resp.morgue_statut[s]}</option>)}
           </select>
         </div>

@@ -9,7 +9,7 @@
 // un dossier restitué qui ne bouge plus.
 // ============================================================================
 
-import type { CustodyEvent, CustodyStep, MorgueSite, MortuaryRecord } from "@/modules/domain/domain.types";
+import type { CustodyEvent, CustodyStep, MorgueSite, MorgueStatus, MorgueType, MortuaryRecord, PersonIdentity } from "@/modules/domain/domain.types";
 
 /** La prochaine référence d'un site : son code, l'année, un numéro d'ordre à trois chiffres jamais réattribué. */
 export function nextReference(code: string, year: number, existing: readonly string[]): string {
@@ -58,4 +58,22 @@ export function checkCapacity(site: MorgueSite, records: readonly MortuaryRecord
 /** Emplacements libres d'un site : sa capacité moins les corps présents ou annoncés, restitués exclus. */
 export function freePlaces(site: MorgueSite, records: readonly MortuaryRecord[]): number {
   return site.capacity - records.filter((r) => r.mid === site.id && r.status !== "released").length;
+}
+
+/** Le statut tel qu'il se lit : un site ouvert dont la capacité est atteinte est « plein ». */
+export function siteStatus(site: MorgueSite, records: readonly MortuaryRecord[]): MorgueStatus {
+  if (site.statut === "closed") return "closed";
+  return freePlaces(site, records) <= 0 ? "full" : site.statut === "full" ? "op" : site.statut;
+}
+
+/** La nature d'un site quand elle n'est pas dite : hospitalière si rattachée, camion si mobile, temporaire sinon. */
+export function defaultMorgueType(site: Pick<MorgueSite, "kind" | "hospitalId">): MorgueType {
+  if (site.kind === "mobile") return "truck";
+  return site.hospitalId ? "hospital" : "temporary";
+}
+
+/** « Nom Prénom » quand l'un ou l'autre est connu, sinon `undefined` — ce que la règle DVI lit comme identité confirmée. */
+export function displayName(id: PersonIdentity): string | undefined {
+  const s = [id.lastName?.trim(), id.firstName?.trim()].filter((x): x is string => !!x).join(" ");
+  return s || undefined;
 }

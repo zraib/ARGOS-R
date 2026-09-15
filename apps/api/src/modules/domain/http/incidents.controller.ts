@@ -7,9 +7,9 @@
 // et `authz-coverage.spec.ts` en font foi.
 // ============================================================================
 
-import { BadRequestException, Body, Delete, Get, NotFoundException, Param, Patch, Post, Query, Controller } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
-import { AlertLevelDto, PublishSitrepDto, CreateIncidentDto, CreateSubIncidentDto, RegisterIncidentTypeDto, UpdateIncidentDto, DeployPostDto } from "@/modules/domain/dto";
+import { AlertLevelDto, AssignMorgueDto, CreateVictimDto, PublishSitrepDto, CreateIncidentDto, CreateSubIncidentDto, RegisterIncidentTypeDto, UpdateIncidentDto, UpdateVictimDto, DeployPostDto } from "@/modules/domain/dto";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
@@ -193,6 +193,64 @@ export class IncidentsController {
     const inc = this.domain.updateIncident(id, dto);
     if (!inc) throw new NotFoundException(`Incident inconnu : ${id}`);
     return inc;
+  }
+
+  // --- bilan des victimes : décédés (identification préliminaire), blessés, disparus ---
+  // Les intervenants affinent ce que la déclaration n'a compté qu'en nombre ;
+  // un décédé affecté à une morgue y ouvre son dossier, réception à confirmer.
+  // Le RBAC dit QUI peut affiner ; la visibilité (`assertCanSee`) dit SUR
+  // QUEL incident — une cellule déployée n'affine que le sien, un responsable
+  // d'hôpital ceux qui l'engagent. Des identités et des CNI sont en jeu.
+
+  @Get("incidents/:id/victims")
+  @RequirePermission("victims:view")
+  @ApiOperation({ summary: "Victimes nommées d'un incident — dans son périmètre de visibilité" })
+  victims(@Param("id") id: string, @CurrentUser() user: AuthUser) {
+    this.assertCanSee(id, user);
+    return this.domain.listVictims(id);
+  }
+
+  @Post("incidents/:id/victims")
+  @RequirePermission("victims:create")
+  @ApiOperation({ summary: "Ajouter une victime nommée (décédé, blessé, disparu) — dans son périmètre" })
+  addVictim(@Param("id") id: string, @Body() dto: CreateVictimDto, @CurrentUser() user: AuthUser) {
+    this.assertCanSee(id, user);
+    const v = this.domain.addVictim(id, dto, user.username);
+    if (!v) throw new NotFoundException(`Incident inconnu : ${id}`);
+    return v;
+  }
+
+  @Patch("incidents/:id/victims/:vid")
+  @RequirePermission("victims:update")
+  @ApiOperation({ summary: "Corriger une victime nommée — dans son périmètre" })
+  updateVictim(@Param("id") id: string, @Param("vid") vid: string, @Body() dto: UpdateVictimDto, @CurrentUser() user: AuthUser) {
+    this.assertCanSee(id, user);
+    const res = this.domain.updateVictim(id, vid, dto, user.username);
+    if (res.missing) throw new NotFoundException(`Victime introuvable : ${vid}`);
+    if (res.error) throw new ConflictException(res.error);
+    return res.victim;
+  }
+
+  @Delete("incidents/:id/victims/:vid")
+  @RequirePermission("victims:update")
+  @ApiOperation({ summary: "Retirer une victime nommée — tant qu'elle n'est pas affectée à une morgue, dans son périmètre" })
+  removeVictim(@Param("id") id: string, @Param("vid") vid: string, @CurrentUser() user: AuthUser) {
+    this.assertCanSee(id, user);
+    const res = this.domain.removeVictim(id, vid);
+    if (res.missing) throw new NotFoundException(`Victime introuvable : ${vid}`);
+    if (res.error) throw new ConflictException(res.error);
+    return { ok: true };
+  }
+
+  @Post("incidents/:id/victims/:vid/morgue")
+  @RequirePermission("victims:update")
+  @ApiOperation({ summary: "Affecter un décédé à une morgue : le dossier s'ouvre là-bas, réception à confirmer — dans son périmètre" })
+  assignVictimMorgue(@Param("id") id: string, @Param("vid") vid: string, @Body() dto: AssignMorgueDto, @CurrentUser() user: AuthUser) {
+    this.assertCanSee(id, user);
+    const res = this.domain.assignVictimMorgue(id, vid, dto.mid, user.username);
+    if (res.missing) throw new NotFoundException(`Victime introuvable : ${vid}`);
+    if (res.error) throw new ConflictException(res.error);
+    return res.victim;
   }
 
   @Get("sub-incident-types")

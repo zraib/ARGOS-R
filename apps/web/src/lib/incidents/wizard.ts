@@ -56,6 +56,8 @@ export interface WizardForm {
   contaminated: string;
   units: string[];
   hospitals: string[];
+  /** Sites mortuaires proposés dès qu'un décès est déclaré, comme les unités et les hôpitaux. */
+  morgues: string[];
   nrbcFamily: NrbcFamily | null;
   nrbcSubstance: string;
   nrbcSpill: NrbcSpill;
@@ -84,6 +86,7 @@ export const EMPTY_FORM: WizardForm = {
   contaminated: "",
   units: [],
   hospitals: [],
+  morgues: [],
   nrbcFamily: null,
   nrbcSubstance: "",
   nrbcSpill: "large",
@@ -196,6 +199,7 @@ export function formFromIncident(inc: Incident, geo?: GeoRef): WizardForm {
     contaminated: c ? String(c.contaminated ?? "") : "",
     units: inc.responders?.units ?? [],
     hospitals: inc.responders?.hospitals ?? [],
+    morgues: inc.responders?.morgues ?? [],
     nrbcFamily: inc.nrbc?.family ?? null,
     nrbcSubstance: inc.nrbc?.substanceId ?? "",
     nrbcSpill: inc.nrbc?.spill ?? "large",
@@ -343,8 +347,13 @@ export interface IncidentWizardBody {
   y: number;
   ll: [number, number];
   casualties?: CasualtiesBody;
-  responders?: { units: string[]; hospitals: string[] };
+  responders?: { units: string[]; hospitals: string[]; morgues?: string[] };
   nrbc?: NrbcDetails;
+}
+
+/** Au moins un décédé déclaré : la déclaration propose alors les sites mortuaires. */
+export function needsMorgue(form: Pick<WizardForm, "dead">): boolean {
+  return parseCount(form.dead) >= 1;
 }
 
 /**
@@ -376,7 +385,12 @@ export function buildIncidentBody(form: WizardForm, ctx: WizardContext): Inciden
   if (!region) return null;
   const { x, y } = llToSvg(form.pt);
   const type = form.type ?? ctx.incidentTypes[0]?.id ?? "earthquake";
-  const responders = form.units.length + form.hospitals.length > 0 ? { units: form.units, hospitals: form.hospitals } : undefined;
+  // Les morgues ne partent qu'avec un décès déclaré : sans lui, un site coché par erreur ne rattache personne.
+  const morgues = needsMorgue(form) ? form.morgues : [];
+  const responders =
+    form.units.length + form.hospitals.length + morgues.length > 0
+      ? { units: form.units, hospitals: form.hospitals, ...(morgues.length > 0 ? { morgues } : {}) }
+      : undefined;
   return {
     type,
     titre: form.title.trim() || typeLabel(form.type ?? "", ctx.incidentTypes, ctx.lang) + (place ? ` — ${place}` : ""),

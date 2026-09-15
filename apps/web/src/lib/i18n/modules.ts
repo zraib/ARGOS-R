@@ -393,7 +393,7 @@ export interface ModulesDict {
     e_stock: string; e_threshold: string; e_threshold_field: string; e_err_fields: string;
     e_remove_title: string; e_remove_text: string;
     equip_cond: Record<"ok" | "repair" | "oos", string>;
-    morgue_statut: Record<"op" | "partial" | "closed", string>;
+    morgue_statut: Record<"op" | "partial" | "closed" | "full", string>;
     dvi_status: Record<"unidentified" | "in_progress" | "identified" | "released", string>;
     dvi_sample: Record<"dna" | "dental" | "fingerprint", string>;
     dvi_sex: Record<"m" | "f" | "unknown", string>;
@@ -418,6 +418,17 @@ export interface ModulesDict {
     attached: string; attached_short: string; not_attached: string; hosp_block: string; hosp_none: string; hosp_nearest: string; open_service: string;
     add: string; add_btn: string; add_title: string; a_name: string; a_name_ph: string; a_level: string; a_level_hint: string; a_hospital: string; a_hospital_none: string; a_hospital_hint: string; added: string;
     custody: Record<"recovered" | "hospital" | "transferred" | "received" | "released", string>;
+    types: Record<"field" | "temporary" | "hospital" | "truck", string>;
+    f_type: string; f_capacity: string; f_present: string; f_location: string; f_position: string; f_code: string; full_hint: string; bodies: string; open_detail: string;
+    a_type: string; a_map_hint: string; a_map_full: string; a_map_exit: string;
+    identify: string; id_prelim: string; id_to_confirm: string; id_method: string; id_methods: Record<"dna" | "fingerprint" | "dental" | "body_mark", string>;
+    id_death_at: string; id_at: string; id_by: string; id_confirm: string; id_done: string; id_none: string; id_err_required: string; id_sex_hint: string;
+  };
+  victims: {
+    title: string; hint: string; refine: string; counts_saved: string; save_counts: string; add: string; added: string; saved: string; none: string; remove_confirm: string;
+    dead_hint: string; prelim_hint: string; fields_hint: string; unidentified: string; age_unknown: string; years: string; time_unknown: string; death_at: string; death_at_hint: string;
+    f_name: string; f_last: string; f_first: string; f_cni: string; f_cni_ph: string; f_age: string; f_age_ph: string; f_hospital: string; f_hospital_none: string; last_seen: string;
+    assign: string; assign_hint: string; assigned: string; no_morgue: string; at_morgue: string; confirmed: string; no_site: string;
   };
   roles: Record<
     | "superadmin" | "admin" | "strategic" | "tacom" | "bluecell" | "greencell" | "orangecell"

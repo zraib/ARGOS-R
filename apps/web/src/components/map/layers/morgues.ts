@@ -61,7 +61,8 @@ export function applyMorgues(map: maplibregl.Map | null, morgues: readonly Morgu
             type: "Feature",
             geometry: { type: "Point", coordinates: m.ll },
             // Ambre : mobile ; ardoise foncée : régionale ; ardoise claire : de ville.
-            properties: { id: m.id, label: m.nom, color: m.kind === "mobile" ? "#d97706" : m.level === "regional" ? "#334155" : "#64748b" },
+            // Ambre : mobile ; ardoise foncée : régionale ; ardoise claire : de ville ; rouge sombre : plein.
+            properties: { id: m.id, label: m.nom, color: m.statut === "full" ? "#991b1b" : m.kind === "mobile" ? "#d97706" : m.level === "regional" ? "#334155" : "#64748b" },
           }))
       : [],
   });

@@ -44,6 +44,8 @@ export type AdmitBodyBody = Json<NonNullable<paths["/api/morgues/{id}/records"][
 export type UpdateRecordBody = Json<NonNullable<paths["/api/morgues/{id}/records/{rid}"]["patch"]["requestBody"]>>;
 export type DeployMobileMorgueBody = Json<NonNullable<paths["/api/morgues/mobile"]["post"]["requestBody"]>>;
 export type CreateMorgueBody = Json<NonNullable<paths["/api/morgues"]["post"]["requestBody"]>>;
+export type CreateVictimBody = Json<NonNullable<paths["/api/incidents/{id}/victims"]["post"]["requestBody"]>>;
+export type UpdateVictimBody = Json<NonNullable<paths["/api/incidents/{id}/victims/{vid}"]["patch"]["requestBody"]>>;
 export type TransferBodyBody = Json<NonNullable<paths["/api/morgues/{id}/records/{rid}/transfer"]["post"]["requestBody"]>>;
 export type HospitalDeathBody = Json<NonNullable<paths["/api/hospitals/{id}/deceased"]["post"]["requestBody"]>>;
 export type CreateEquipBody = Json<NonNullable<paths["/api/equipment-parks/{id}/items"]["post"]["requestBody"]>>;
@@ -262,6 +264,14 @@ export function createArgosClient(opts: ArgosClientOptions) {
     getMortuaryRegistry: (incidentId?: string) =>
       client.GET("/api/morgues/registry", { params: { query: incidentId ? { incidentId } : {} } }),
     createMorgue: (body: CreateMorgueBody) => client.POST("/api/morgues", { body }),
+    // Bilan des victimes d'un incident : décédés (préliminaire), blessés, disparus.
+    getVictims: (id: string) => client.GET("/api/incidents/{id}/victims", { params: { path: { id } } }),
+    addVictim: (id: string, body: CreateVictimBody) => client.POST("/api/incidents/{id}/victims", { params: { path: { id } }, body }),
+    updateVictim: (id: string, vid: string, body: UpdateVictimBody) =>
+      client.PATCH("/api/incidents/{id}/victims/{vid}", { params: { path: { id, vid } }, body }),
+    removeVictim: (id: string, vid: string) => client.DELETE("/api/incidents/{id}/victims/{vid}", { params: { path: { id, vid } } }),
+    assignVictimMorgue: (id: string, vid: string, mid: string) =>
+      client.POST("/api/incidents/{id}/victims/{vid}/morgue", { params: { path: { id, vid } }, body: { mid } }),
     deployMobileMorgue: (body: DeployMobileMorgueBody) => client.POST("/api/morgues/mobile", { body }),
     recallMorgue: (id: string) => client.POST("/api/morgues/{id}/recall", { params: { path: { id } } }),
     receiveBody: (id: string, rid: string) => client.POST("/api/morgues/{id}/records/{rid}/receive", { params: { path: { id, rid } } }),

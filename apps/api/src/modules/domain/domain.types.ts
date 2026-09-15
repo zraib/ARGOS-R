@@ -35,8 +35,14 @@ export interface Incident {
   ll: [number, number];
   /** Bilan humain saisi à la déclaration (optionnel). */
   casualties?: { dead: number; injured: number; missing: number };
-  /** Premiers intervenants rattachés : identifiants d'unités / d'hôpitaux. */
-  responders?: { units: string[]; hospitals: string[] };
+  /**
+   * Le bilan tel que l'opérateur l'a DÉCLARÉ ou corrigé. `casualties` en est
+   * la lecture : jamais moins que les victimes nommées de chaque nature,
+   * recalculée à chaque changement — pas un cliquet qui ne redescend jamais.
+   */
+  declaredCasualties?: { dead: number; injured: number; missing: number };
+  /** Premiers intervenants rattachés : unités, hôpitaux — et sites mortuaires dès qu'un décès est déclaré. */
+  responders?: { units: string[]; hospitals: string[]; morgues?: string[] };
   /** Sous-incidents (aléas secondaires rattachés après la déclaration). */
   subIncidents?: SubIncident[];
   /** Volet NRBC (famille, substance, ampleur) — incidents de type `nrbc`. */
@@ -211,6 +217,16 @@ export interface Shelter {
 // un parcours d'identification jalonné de prélèvements, puis sont restitués aux
 // familles. Le registre est horodaté à chaque étape.
 
+/** Nature d'un site mortuaire : champ mortuaire, morgue temporaire, morgue hospitalière, camion réfrigéré. */
+export const MORGUE_TYPES = ["field", "temporary", "hospital", "truck"] as const;
+export type MorgueType = (typeof MORGUE_TYPES)[number];
+
+/**
+ * Statut d'un site : opérationnel, partiel, non opérationnel (`closed`) — et
+ * `full`, DÉRIVÉ, quand la capacité est atteinte (jamais saisi, toujours lu).
+ */
+export type MorgueStatus = "op" | "partial" | "closed" | "full";
+
 /** Site mortuaire (permanent ou de circonstance), ou morgue MOBILE déployée sur le terrain. */
 export interface MorgueSite {
   id: string;
@@ -220,7 +236,9 @@ export interface MorgueSite {
   capacity: number;
   /** Effectif affecté au site (médecins légistes, techniciens). */
   staff: number;
-  statut: "op" | "partial" | "closed";
+  statut: MorgueStatus;
+  /** Nature du site ; absente sur les données antérieures (déduite du rattachement et de la mobilité). */
+  type?: MorgueType;
   /** Fixe (institut, chambre mortuaire) ou mobile (conteneur réfrigéré déployable) ; absent = fixe. */
   kind?: "fixed" | "mobile";
   /**
@@ -266,6 +284,27 @@ export type DviStatus = (typeof DVI_STATUSES)[number];
 export const DVI_SAMPLES = ["dna", "dental", "fingerprint"] as const;
 export type DviSample = (typeof DVI_SAMPLES)[number];
 
+/** Mode d'identification retenu : ADN, empreinte digitale, dentaire, signe corporel. */
+export const ID_METHODS = ["dna", "fingerprint", "dental", "body_mark"] as const;
+export type IdMethod = (typeof ID_METHODS)[number];
+
+export type Sex = "m" | "f" | "unknown";
+
+/**
+ * Identité d'une personne, telle qu'on la connaît — préliminaire sur le
+ * terrain, confirmée à la morgue. Chaque champ est absent tant qu'il est
+ * inconnu : l'écran dit alors « non identifié », il n'invente rien.
+ */
+export interface PersonIdentity {
+  lastName?: string;
+  firstName?: string;
+  /** Carte nationale d'identité, si elle existe. */
+  cni?: string;
+  sex?: Sex;
+  /** Âge (années), si connu. */
+  age?: number;
+}
+
 /**
  * Enregistrement d'un corps admis dans un site mortuaire.
  * `reference` est la référence PROVISOIRE attribuée à l'admission : elle reste
@@ -288,6 +327,20 @@ export interface MortuaryRecord {
   identifiedAs?: string;
   /** Personne à qui le corps a été restitué — exigée au statut « restitué ». */
   releasedTo?: string;
+  // --- identité et identification (reprennent la préliminaire du terrain, complétée à la morgue) ---
+  lastName?: string;
+  firstName?: string;
+  cni?: string;
+  age?: number;
+  /** Heure du décès (ISO 8601), corrigée à la morgue ; absente = non connue. */
+  deathAt?: string;
+  /** Mode d'identification retenu, quand et par qui, note. */
+  idMethod?: IdMethod;
+  identifiedAt?: string;
+  identifiedBy?: string;
+  note?: string;
+  /** La victime de l'incident dont ce dossier est issu, s'il vient du terrain. */
+  victimId?: string;
   /** D'où vient le corps : un hôpital (décès en établissement) ou le terrain. */
   origin?: { kind: "hospital" | "field"; id?: string; label: string };
   /** La chaîne de garde, dans l'ordre ; absente sur les dossiers antérieurs. */
@@ -297,6 +350,34 @@ export interface MortuaryRecord {
   /** Horodatages ISO 8601 : admission et dernière évolution. */
   admittedAt: string;
   updatedAt: string;
+}
+
+// --- bilan des victimes d'un incident --------------------------------------
+// Les compteurs (`casualties`) disent COMBIEN ; les victimes nommées disent
+// QUI, quand les intervenants le savent : identification préliminaire d'un
+// décédé (à confirmer par la morgue d'affectation), blessé évacué, disparu.
+
+export const VICTIM_KINDS = ["dead", "injured", "missing"] as const;
+export type VictimKind = (typeof VICTIM_KINDS)[number];
+
+export interface IncidentVictim extends PersonIdentity {
+  id: string;
+  incidentId: string;
+  kind: VictimKind;
+  note?: string;
+  /** Décédé : heure du décès si connue. */
+  deathAt?: string;
+  /** Décédé : morgue d'affectation et dossier ouvert là-bas. */
+  morgueId?: string;
+  recordId?: string;
+  /** Blessé : établissement d'évacuation. */
+  hospitalId?: string;
+  /** Disparu : dernier lieu où la personne a été vue. */
+  lastSeen?: string;
+  createdAt: string;
+  updatedAt: string;
+  /** Qui a saisi / corrigé (matricule). */
+  by: string;
 }
 
 export interface FeedItem {

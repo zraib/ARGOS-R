@@ -292,7 +292,7 @@ export interface Dict {
   wz_dead: string;
   wz_injured: string;
   wz_missing: string;
-  wz_units_near: string;
+  wz_units_near: string; wz_morgues_near: string; wz_morgues_hint: string; wz_morgues_none: string;
   wz_hospitals_near: string;
   wz_suggested: string;
   act_view: string;

@@ -5,6 +5,8 @@ import { useArgos, useModules } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { nearestSites } from "@/lib/morgue";
+import { fromLocalInput } from "@/lib/victims";
+import { EMPTY_IDENTITY, IdentityFields, identityBody, type IdentityDraft } from "@/components/morgue/IdentityFields";
 import type { Hospital, MorgueSite, MortuaryRecord } from "@/lib/types";
 
 /**
@@ -27,9 +29,8 @@ export function HospitalDeathModal({
   // La chambre mortuaire de l'établissement d'abord, puis la régionale, puis le plus proche.
   const choix = nearestSites(hospital.ll, sites, records, { hospitalId: hospital.id, region: hospital.region });
   const [mid, setMid] = useState(choix.find((c) => c.free > 0)?.site.id ?? choix[0]?.site.id ?? "");
-  const [identifiedAs, setIdentifiedAs] = useState("");
-  const [sex, setSex] = useState<"m" | "f" | "unknown">("unknown");
-  const [ageRange, setAgeRange] = useState("");
+  const [identity, setIdentity] = useState<IdentityDraft>(EMPTY_IDENTITY);
+  const [deathAt, setDeathAt] = useState("");
   const [incidentId, setIncidentId] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -42,9 +43,8 @@ export function HospitalDeathModal({
     try {
       const res = await api.declareHospitalDeath(hospital.id, {
         mid,
-        identifiedAs: identifiedAs.trim() || undefined,
-        sex,
-        ageRange: ageRange.trim() || undefined,
+        ...identityBody(identity),
+        deathAt: fromLocalInput(deathAt),
         incidentId: incidentId || undefined,
         note: note.trim() || undefined,
       });
@@ -77,18 +77,11 @@ export function HospitalDeathModal({
             </select>
           </div>
           <div className="sm:col-span-2">
-            <label className={labelCls}>{m.morgue.h_identity}</label>
-            <input className="input-champ text-base md:text-sm" placeholder={m.morgue.h_identity_ph} value={identifiedAs} onChange={(e) => setIdentifiedAs(e.target.value)} />
+            <IdentityFields value={identity} onChange={setIdentity} />
           </div>
-          <div>
-            <label className={labelCls}>{m.resp.g_sex}</label>
-            <select className="input-champ text-base md:text-sm" value={sex} onChange={(e) => setSex(e.target.value as "m" | "f" | "unknown")}>
-              {(["unknown", "m", "f"] as const).map((s) => <option key={s} value={s}>{m.resp.dvi_sex[s]}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelCls}>{m.resp.g_age}</label>
-            <input className="input-champ text-base md:text-sm" placeholder="40-55" value={ageRange} onChange={(e) => setAgeRange(e.target.value)} />
+          <div className="sm:col-span-2">
+            <label className={labelCls}>{m.victims.death_at}</label>
+            <input type="datetime-local" className="input-champ text-base md:text-sm" value={deathAt} onChange={(e) => setDeathAt(e.target.value)} />
           </div>
           <div className="sm:col-span-2">
             <label className={labelCls}>{m.morgue.h_incident}</label>

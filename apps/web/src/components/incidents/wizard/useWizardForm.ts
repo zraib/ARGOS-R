@@ -39,6 +39,7 @@ export interface WizardActions {
   reset: () => void;
   toggleUnit: (id: string) => void;
   toggleHosp: (id: string) => void;
+  toggleMorgue: (id: string) => void;
   addKeyword: () => void;
   removeKeyword: (index: number) => void;
   onKeywordKey: (e: KeyboardEvent<HTMLInputElement>) => void;
@@ -60,10 +61,11 @@ export function useWizardForm(geo: GeoRef): { form: WizardForm; actions: WizardA
   const load = useCallback((f: WizardForm) => setForm(f), []);
   const reset = useCallback(() => setForm(EMPTY_FORM), []);
 
-  const toggleIn = (key: "units" | "hospitals", id: string) =>
+  const toggleIn = (key: "units" | "hospitals" | "morgues", id: string) =>
     update((f) => ({ [key]: f[key].includes(id) ? f[key].filter((x) => x !== id) : [...f[key], id] }));
   const toggleUnit = useCallback((id: string) => toggleIn("units", id), [update]); // eslint-disable-line react-hooks/exhaustive-deps
   const toggleHosp = useCallback((id: string) => toggleIn("hospitals", id), [update]); // eslint-disable-line react-hooks/exhaustive-deps
+  const toggleMorgue = useCallback((id: string) => toggleIn("morgues", id), [update]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Ajoute le mot-clé en cours de saisie (Entrée, virgule ou bouton). Un doublon est simplement effacé. */
   const addKeyword = useCallback(
@@ -106,11 +108,12 @@ export function useWizardForm(geo: GeoRef): { form: WizardForm; actions: WizardA
       reset,
       toggleUnit,
       toggleHosp,
+      toggleMorgue,
       addKeyword,
       removeKeyword,
       onKeywordKey,
     }),
-    [patch, update, setPoint, setAddress, choose, coords, clearLoc, load, reset, toggleUnit, toggleHosp, addKeyword, removeKeyword, onKeywordKey],
+    [patch, update, setPoint, setAddress, choose, coords, clearLoc, load, reset, toggleUnit, toggleHosp, toggleMorgue, addKeyword, removeKeyword, onKeywordKey],
   );
   return { form, actions };
 }

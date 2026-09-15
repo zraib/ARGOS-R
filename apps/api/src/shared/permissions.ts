@@ -33,6 +33,7 @@ export const MATRIX_FEATURES = [
   "map",            // Carte
   "incidents",      // Incident
   "subincidents",   // Sous-incidents
+  "victims",        // Bilan des victimes (décédés, blessés, disparus)
   "hospinet",       // Hospinet
   "shelters",       // Abri
   "morgue",         // Morgue
@@ -88,6 +89,7 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   map: "Carte",
   incidents: "Incident",
   subincidents: "Sous-incidents",
+  victims: "Bilan des victimes",
   hospinet: "Hospinet",
   shelters: "Abri",
   morgue: "Morgue",
@@ -239,6 +241,14 @@ const MATRIX: Record<(typeof MATRIX_FEATURES)[number], Partial<Record<Role, Cell
   },
   subincidents: {
     admin: ALL, opcom: ALL, tacom: ALL, bluecell: AMV, greencell: V, orangecell: V,
+  },
+  // Le bilan des victimes s'affine par ceux qui sont sur place — cellules
+  // opérations et logistique, responsables d'unité et d'hôpital — ; la morgue
+  // et les autorités le lisent.
+  victims: {
+    admin: ALL, opcom: ALL, tacom: ALL, bluecell: AMV, greencell: AMV, orangecell: V,
+    resp_unit: AMV, resp_hospital: AMV, resp_morgue: V,
+    strategic: V, wali: V, place_arme: V,
   },
   hospinet: {
     admin: ALL, opcom: V, tacom: V, bluecell: V, greencell: AMV, orangecell: V,

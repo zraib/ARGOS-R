@@ -1,7 +1,7 @@
 "use client";
 
 import { useDict, useModules } from "@/lib/store";
-import { casualtySecondary, type WizardForm } from "@/lib/incidents/wizard";
+import { casualtySecondary, needsMorgue, type WizardForm } from "@/lib/incidents/wizard";
 import { ResponderRow } from "./ResponderRow";
 import { labelCls, sectionCls } from "./styles";
 import type { WizardActions } from "./useWizardForm";
@@ -14,11 +14,13 @@ export function StepCasualties({
   actions,
   nearUnits,
   nearHosps,
+  nearMorgues,
 }: {
   form: WizardForm;
   actions: WizardActions;
   nearUnits: Ranked[];
   nearHosps: Ranked[];
+  nearMorgues: Ranked[];
 }) {
   const t = useDict();
   const m = useModules();
@@ -69,6 +71,22 @@ export function StepCasualties({
             ))}
           </div>
         </div>
+        {/* Un décès au moins : les sites mortuaires se proposent comme les unités et les hôpitaux. */}
+        {needsMorgue(form) && (
+          <div className="sm:col-span-2">
+            <div className={sectionCls}>
+              {t.wz_morgues_near}
+              {form.morgues.length > 0 && <span className="ml-1 text-or-500">({form.morgues.length})</span>}
+            </div>
+            <p className="mb-2 text-[11px] text-gray-400 dark:text-rdia-400">{t.wz_morgues_hint}</p>
+            <div className="grid max-h-[34vh] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+              {nearMorgues.map((s, i) => (
+                <ResponderRow key={s.id} item={s} selected={form.morgues.includes(s.id)} suggested={form.pt !== null && i === 0} onToggle={actions.toggleMorgue} />
+              ))}
+              {nearMorgues.length === 0 && <p className="text-[11px] text-gray-400 dark:text-rdia-400">{t.wz_morgues_none}</p>}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

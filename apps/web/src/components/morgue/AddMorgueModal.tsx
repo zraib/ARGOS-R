@@ -1,11 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { useArgos, useModules } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { EMPTY_LOCATION, LocationCascade, locationLL, locationProvince, type LocationValue } from "@/components/org/LocationCascade";
-import type { MorgueLevel } from "@/lib/types";
+import { MORGUE_TYPES, type MorgueLevel, type MorgueType } from "@/lib/types";
+
+// La carte (MapLibre) a besoin de `window` : chargée côté client seulement, comme au wizard.
+const LocationPreviewMap = dynamic(() => import("@/components/incidents/LocationPreviewMap").then((x) => x.LocationPreviewMap), { ssr: false });
 
 /**
  * Un site mortuaire fixe de plus — même logique que l'ajout d'un hôpital :
@@ -21,6 +25,9 @@ export function AddMorgueModal({ onClose, onDone }: { onClose: () => void; onDon
   const cities = useArgos((s) => s.cities);
   const [nom, setNom] = useState("");
   const [level, setLevel] = useState<MorgueLevel>("city");
+  const [type, setType] = useState<MorgueType>("hospital");
+  /** Un point posé sur la carte prime sur l'établissement et la ville. */
+  const [pin, setPin] = useState<[number, number] | null>(null);
   const [loc, setLoc] = useState<LocationValue>(EMPTY_LOCATION);
   const [hospitalId, setHospitalId] = useState("");
   const [capacity, setCapacity] = useState(30);
@@ -32,7 +39,9 @@ export function AddMorgueModal({ onClose, onDone }: { onClose: () => void; onDon
   // Les établissements de la région choisie d'abord ; tous si aucune région.
   const candidats = [...hospitals].sort((a, b) => Number((b.region ?? "") === loc.region) - Number((a.region ?? "") === loc.region) || a.nom.localeCompare(b.nom, "fr"));
   const p = locationProvince(loc, provinces);
-  const canSubmit = !!(nom.trim() && loc.region && (loc.city || hospitalId) && capacity > 0);
+  const canSubmit = !!(nom.trim() && loc.region && (loc.city || hospitalId || pin) && capacity > 0);
+  const hospSel = hospitals.find((h) => h.id === hospitalId);
+  const apercu = pin ?? hospSel?.ll ?? locationLL(loc, provinces, cities) ?? null;
 
   const submit = async () => {
     if (!canSubmit || busy) return;
@@ -41,6 +50,7 @@ export function AddMorgueModal({ onClose, onDone }: { onClose: () => void; onDon
       const hosp = hospitals.find((h) => h.id === hospitalId);
       const res = await api.createMorgue({
         nom: nom.trim(),
+        type,
         level,
         region: loc.region,
         province: p?.v,
@@ -48,7 +58,7 @@ export function AddMorgueModal({ onClose, onDone }: { onClose: () => void; onDon
         hospitalId: hospitalId || undefined,
         capacity,
         staff,
-        ll: hosp?.ll ?? locationLL(loc, provinces, cities),
+        ll: pin ?? hosp?.ll ?? locationLL(loc, provinces, cities),
       });
       const code = res.response?.status;
       if (res.error || (code !== undefined && code >= 400)) {
@@ -88,7 +98,22 @@ export function AddMorgueModal({ onClose, onDone }: { onClose: () => void; onDon
           </div>
           <p className="mt-1 text-[11px] text-gray-400 dark:text-rdia-400">{m.morgue.a_level_hint}</p>
         </div>
-        <LocationCascade value={loc} onChange={setLoc} />
+        <div>
+          <label className={labelCls}>{m.morgue.a_type}</label>
+          <div className="flex flex-wrap gap-2">
+            {MORGUE_TYPES.map((k) => (
+              <button key={k} type="button" onClick={() => setType(k)} aria-pressed={type === k} className={`cible-tactile rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${type === k ? "border-or-500 bg-or-500/15 text-or-600 dark:text-or-400" : "border-gray-200 text-gray-600 hover:border-or-400 dark:border-rdia-600 dark:text-rdia-200"}`}>
+                {m.morgue.types[k]}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* La localisation, comme à la déclaration d'un incident : la cascade, puis un point sur la carte. */}
+        <LocationCascade value={loc} onChange={(next) => { setLoc(next); setPin(null); }} />
+        <div className="h-56 overflow-hidden rounded-lg border border-gray-200 dark:border-rdia-600">
+          <LocationPreviewMap value={apercu} onPick={setPin} labels={{ hint: m.morgue.a_map_hint, full: m.morgue.a_map_full, exit: m.morgue.a_map_exit }} />
+        </div>
+        {pin && <p className="-mt-2 font-mono text-[11px] text-gray-500 dark:text-rdia-300">{pin[1].toFixed(4)}, {pin[0].toFixed(4)}</p>}
         <div>
           <label className={labelCls}>{m.morgue.a_hospital}</label>
           <select className="input-champ text-base md:text-sm" value={hospitalId} onChange={(e) => setHospitalId(e.target.value)}>

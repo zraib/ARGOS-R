@@ -547,6 +547,59 @@ export interface paths {
         patch: operations["IncidentsController_updateIncident"];
         trace?: never;
     };
+    "/api/incidents/{id}/victims": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Victimes nommées d'un incident — dans son périmètre de visibilité */
+        get: operations["IncidentsController_victims"];
+        put?: never;
+        /** Ajouter une victime nommée (décédé, blessé, disparu) — dans son périmètre */
+        post: operations["IncidentsController_addVictim"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/incidents/{id}/victims/{vid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Retirer une victime nommée — tant qu'elle n'est pas affectée à une morgue, dans son périmètre */
+        delete: operations["IncidentsController_removeVictim"];
+        options?: never;
+        head?: never;
+        /** Corriger une victime nommée — dans son périmètre */
+        patch: operations["IncidentsController_updateVictim"];
+        trace?: never;
+    };
+    "/api/incidents/{id}/victims/{vid}/morgue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Affecter un décédé à une morgue : le dossier s'ouvre là-bas, réception à confirmer — dans son périmètre */
+        post: operations["IncidentsController_assignVictimMorgue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sub-incident-types": {
         parameters: {
             query?: never;
@@ -2300,7 +2353,7 @@ export interface components {
         };
         ToggleRoleFeatureDto: {
             /** @enum {string} */
-            feature: "dashboard" | "dash_incident" | "dash_hospital" | "dash_shelter" | "dash_morgue" | "dash_unit" | "map" | "incidents" | "subincidents" | "hospinet" | "shelters" | "morgue" | "units" | "equipment" | "teams" | "comms" | "reports" | "analytics" | "assistant" | "users" | "settings" | "dispatch" | "triage" | "ics" | "damage" | "orsec" | "plans" | "personnel" | "workorders" | "seismic" | "audit" | "aviation" | "nrbc" | "missions" | "tracking" | "comms_admin" | "map_edit";
+            feature: "dashboard" | "dash_incident" | "dash_hospital" | "dash_shelter" | "dash_morgue" | "dash_unit" | "map" | "incidents" | "subincidents" | "victims" | "hospinet" | "shelters" | "morgue" | "units" | "equipment" | "teams" | "comms" | "reports" | "analytics" | "assistant" | "users" | "settings" | "dispatch" | "triage" | "ics" | "damage" | "orsec" | "plans" | "personnel" | "workorders" | "seismic" | "audit" | "aviation" | "nrbc" | "missions" | "tracking" | "comms_admin" | "map_edit";
             enabled: boolean;
         };
         ToggleFlagDto: {
@@ -2393,6 +2446,13 @@ export interface components {
              *     ]
              */
             hospitals: string[];
+            /**
+             * @description Sites mortuaires rattachés — dès qu'un décès est déclaré
+             * @example [
+             *       "M1"
+             *     ]
+             */
+            morgues?: string[];
         };
         NrbcDto: {
             /**
@@ -2467,6 +2527,46 @@ export interface components {
             casualties?: components["schemas"]["CasualtiesDto"];
             responders?: components["schemas"]["RespondersDto"];
             nrbc?: components["schemas"]["NrbcDto"];
+        };
+        CreateVictimDto: {
+            lastName?: string;
+            firstName?: string;
+            /** @description Carte nationale d'identité, si elle existe */
+            cni?: string;
+            /** @enum {string} */
+            sex?: "m" | "f" | "unknown";
+            /** @description Âge en années, si connu */
+            age?: number;
+            /** @description Heure du décès (ISO 8601), si connue */
+            deathAt?: string;
+            /** @enum {string} */
+            kind: "dead" | "injured" | "missing";
+            note?: string;
+            /** @description Blessé : établissement d'évacuation */
+            hospitalId?: string;
+            /** @description Disparu : dernier lieu où la personne a été vue */
+            lastSeen?: string;
+        };
+        UpdateVictimDto: {
+            lastName?: string;
+            firstName?: string;
+            /** @description Carte nationale d'identité, si elle existe */
+            cni?: string;
+            /** @enum {string} */
+            sex?: "m" | "f" | "unknown";
+            /** @description Âge en années, si connu */
+            age?: number;
+            /** @description Heure du décès (ISO 8601), si connue */
+            deathAt?: string;
+            /** @enum {string} */
+            kind?: "dead" | "injured" | "missing";
+            note?: string;
+            hospitalId?: string;
+            lastSeen?: string;
+        };
+        AssignMorgueDto: {
+            /** @example M1 */
+            mid: string;
         };
         CreateSubIncidentDto: {
             /**
@@ -2679,14 +2779,32 @@ export interface components {
             cond?: "ok" | "repair" | "oos";
         };
         UpdateMorgueDto: {
+            nom?: string;
+            /** @enum {string} */
+            type?: "field" | "temporary" | "hospital" | "truck";
             /** @description Emplacements réfrigérés */
             capacity?: number;
             /** @description Effectif du site */
             staff?: number;
             /** @enum {string} */
             statut?: "op" | "partial" | "closed";
+            region?: string;
+            province?: string;
+            ville?: string;
+            /** @description [longitude, latitude] */
+            ll?: number[];
         };
         AdmitBodyDto: {
+            lastName?: string;
+            firstName?: string;
+            /** @description Carte nationale d'identité, si elle existe */
+            cni?: string;
+            /** @enum {string} */
+            sex?: "m" | "f" | "unknown";
+            /** @description Âge en années, si connu */
+            age?: number;
+            /** @description Heure du décès (ISO 8601), si connue */
+            deathAt?: string;
             /**
              * @description Référence provisoire ; absente, le site l'attribue (code-année-numéro)
              * @example AH-2026-004
@@ -2702,8 +2820,6 @@ export interface components {
              * @example Douar Tinzert
              */
             foundAt?: string;
-            /** @enum {string} */
-            sex?: "m" | "f" | "unknown";
             /**
              * @description Tranche d'âge estimée
              * @example 40-55
@@ -2713,26 +2829,50 @@ export interface components {
             samples?: ("dna" | "dental" | "fingerprint")[];
         };
         UpdateMortuaryRecordDto: {
+            lastName?: string;
+            firstName?: string;
+            /** @description Carte nationale d'identité, si elle existe */
+            cni?: string;
+            /** @enum {string} */
+            sex?: "m" | "f" | "unknown";
+            /** @description Âge en années, si connu */
+            age?: number;
+            /** @description Heure du décès (ISO 8601), si connue */
+            deathAt?: string;
             /**
              * @description Étape du parcours d'identification
              * @enum {string}
              */
             status?: "unidentified" | "in_progress" | "identified" | "released";
+            /**
+             * @description Mode d'identification : ADN, empreinte digitale, dentaire, signe corporel
+             * @enum {string}
+             */
+            idMethod?: "dna" | "fingerprint" | "dental" | "body_mark";
+            /** @description Date d'identification (ISO 8601) */
+            identifiedAt?: string;
+            /** @description Identifié par (nom ou matricule) */
+            identifiedBy?: string;
+            note?: string;
             samples?: ("dna" | "dental" | "fingerprint")[];
             /** @description Identité confirmée — obligatoire dès « identifié » */
             identifiedAs?: string;
             /** @description Personne à qui le corps est remis — obligatoire à la restitution */
             releasedTo?: string;
             foundAt?: string;
-            /** @enum {string} */
-            sex?: "m" | "f" | "unknown";
             ageRange?: string;
         };
         CreateMorgueDto: {
             /** @example Chambre mortuaire — Hôpital Militaire Moulay Ismaïl */
             nom: string;
             /**
+             * @description field = champ mortuaire ; temporary = morgue temporaire ; hospital = morgue hospitalière ; truck = camion réfrigéré
+             * @enum {string}
+             */
+            type: "field" | "temporary" | "hospital" | "truck";
+            /**
              * @description regional = institut médico-légal de la région ; city = morgue de ville
+             * @default city
              * @enum {string}
              */
             level: "regional" | "city";
@@ -2759,6 +2899,12 @@ export interface components {
              * @example Morgue mobile n° 2 — conteneur 40 pieds
              */
             nom: string;
+            /**
+             * @description Camion réfrigéré (défaut), champ mortuaire, morgue temporaire
+             * @default truck
+             * @enum {string}
+             */
+            type: "truck" | "field" | "temporary";
             /** @description Emplacements réfrigérés */
             capacity: number;
             /** @description Effectif affecté */
@@ -2837,6 +2983,16 @@ export interface components {
             heli?: number;
         };
         HospitalDeathDto: {
+            lastName?: string;
+            firstName?: string;
+            /** @description Carte nationale d'identité, si elle existe */
+            cni?: string;
+            /** @enum {string} */
+            sex?: "m" | "f" | "unknown";
+            /** @description Âge en années, si connu */
+            age?: number;
+            /** @description Heure du décès (ISO 8601), si connue */
+            deathAt?: string;
             /**
              * @description Site mortuaire de destination
              * @example M2
@@ -2848,8 +3004,6 @@ export interface components {
             incidentId?: string;
             /** @description Identité du patient décédé, si connue */
             identifiedAs?: string;
-            /** @enum {string} */
-            sex?: "m" | "f" | "unknown";
             /** @example 40-55 */
             ageRange?: string;
             /** @description Circonstances, service, remarques pour la chaîne de garde */
@@ -3886,6 +4040,116 @@ export interface operations {
         };
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IncidentsController_victims: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IncidentsController_addVictim: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateVictimDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IncidentsController_removeVictim: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                vid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IncidentsController_updateVictim: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                vid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateVictimDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IncidentsController_assignVictimMorgue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                vid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignMorgueDto"];
+            };
+        };
+        responses: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

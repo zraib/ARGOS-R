@@ -12,7 +12,7 @@ import {
   SEED_UNITS,
 } from "@/modules/domain/seed.data";
 import { checkRecordUpdate } from "@/modules/domain/dvi.rules";
-import { checkCapacity, checkReceive, checkTransfer, custodyEvent, nextReference } from "@/modules/domain/morgue.rules";
+import { checkCapacity, checkReceive, checkTransfer, custodyEvent, defaultMorgueType, displayName, nextReference, siteStatus } from "@/modules/domain/morgue.rules";
 import { loadDevState, saveDevState } from "@/common/dev-store";
 
 // ============================================================================
@@ -24,9 +24,9 @@ import { loadDevState, saveDevState } from "@/common/dev-store";
 
 // Les types du domaine vivent dans domain.types.ts ; ré-exportés ici pour les
 // importateurs existants (contrôleurs, autres modules).
-export type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviStatus, DviSample, MortuaryRecord, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind } from "@/modules/domain/domain.types";
+export type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviStatus, DviSample, MortuaryRecord, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind } from "@/modules/domain/domain.types";
 export { DVI_STATUSES, DVI_SAMPLES } from "@/modules/domain/domain.types";
-import type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviSample, MortuaryRecord, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind } from "@/modules/domain/domain.types";
+import type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviSample, MortuaryRecord, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind, PersonIdentity, MorgueType } from "@/modules/domain/domain.types";
 import { checkPost, type PostLookup } from "@/modules/domain/post.rules";
 import type { ResponsibilityKind } from "@/shared/responsibilities";
 
@@ -109,13 +109,13 @@ function canonicalizeRegion(inc: Incident): Incident {
  * rattachée à l'hôpital qui l'abrite.
  */
 const MORGUE_SEEDS: readonly MorgueSite[] = [
-  { id: "M1", nom: "Institut médico-légal — HMI Mohammed V", ville: "Rabat", region: "Rabat-Salé-Kénitra", province: "Rabat", level: "regional", hospitalId: "H1", capacity: 60, staff: 18, statut: "op", kind: "fixed", code: "RBT", ll: [-6.8498, 33.9716] },
-  { id: "M2", nom: "Chambre mortuaire — HM Avicenne", ville: "Marrakech", region: "Marrakech-Safi", province: "Marrakech", level: "city", hospitalId: "H4", capacity: 45, staff: 14, statut: "op", kind: "fixed", code: "MRK", ll: [-8.0136, 31.6465] },
-  { id: "M3", nom: "Site mortuaire de circonstance — Amizmiz", ville: "Amizmiz", region: "Marrakech-Safi", province: "Al Haouz", level: "city", capacity: 80, staff: 11, statut: "partial", kind: "fixed", code: "AMZ", ll: [-8.2417, 31.2186] },
-  { id: "M4", nom: "Morgue régionale — HM Moulay Youssef", ville: "Casablanca", region: "Casablanca-Settat", province: "Casablanca", level: "regional", hospitalId: "H2", capacity: 90, staff: 22, statut: "op", kind: "fixed", code: "CAS", ll: [-7.6114, 33.5822] },
-  { id: "M5", nom: "Morgue régionale — HM Avicenne", ville: "Marrakech", region: "Marrakech-Safi", province: "Marrakech", level: "regional", hospitalId: "H4", capacity: 70, staff: 16, statut: "op", kind: "fixed", code: "MRR", ll: [-8.0102, 31.6438] },
-  { id: "M6", nom: "Chambre mortuaire — HM Moulay Ismaïl", ville: "Meknès", region: "Fès-Meknès", province: "Meknès", level: "city", hospitalId: "H3", capacity: 30, staff: 8, statut: "op", kind: "fixed", code: "MKN", ll: [-5.5473, 33.8935] },
-  { id: "M7", nom: "Morgue régionale — HM Ben Sergao", ville: "Agadir", region: "Souss-Massa", province: "Agadir Ida-Ou-Tanane", level: "regional", hospitalId: "H5", capacity: 50, staff: 12, statut: "op", kind: "fixed", code: "AGA", ll: [-9.5495, 30.3811] },
+  { id: "M1", nom: "Institut médico-légal — HMI Mohammed V", ville: "Rabat", region: "Rabat-Salé-Kénitra", province: "Rabat", level: "regional", type: "hospital", hospitalId: "H1", capacity: 60, staff: 18, statut: "op", kind: "fixed", code: "RBT", ll: [-6.8498, 33.9716] },
+  { id: "M2", nom: "Chambre mortuaire — HM Avicenne", ville: "Marrakech", region: "Marrakech-Safi", province: "Marrakech", level: "city", type: "hospital", hospitalId: "H4", capacity: 45, staff: 14, statut: "op", kind: "fixed", code: "MRK", ll: [-8.0136, 31.6465] },
+  { id: "M3", nom: "Site mortuaire de circonstance — Amizmiz", ville: "Amizmiz", region: "Marrakech-Safi", province: "Al Haouz", level: "city", type: "temporary", capacity: 80, staff: 11, statut: "partial", kind: "fixed", code: "AMZ", ll: [-8.2417, 31.2186] },
+  { id: "M4", nom: "Morgue régionale — HM Moulay Youssef", ville: "Casablanca", region: "Casablanca-Settat", province: "Casablanca", level: "regional", type: "hospital", hospitalId: "H2", capacity: 90, staff: 22, statut: "op", kind: "fixed", code: "CAS", ll: [-7.6114, 33.5822] },
+  { id: "M5", nom: "Morgue régionale — HM Avicenne", ville: "Marrakech", region: "Marrakech-Safi", province: "Marrakech", level: "regional", type: "hospital", hospitalId: "H4", capacity: 70, staff: 16, statut: "op", kind: "fixed", code: "MRR", ll: [-8.0102, 31.6438] },
+  { id: "M6", nom: "Chambre mortuaire — HM Moulay Ismaïl", ville: "Meknès", region: "Fès-Meknès", province: "Meknès", level: "city", type: "hospital", hospitalId: "H3", capacity: 30, staff: 8, statut: "op", kind: "fixed", code: "MKN", ll: [-5.5473, 33.8935] },
+  { id: "M7", nom: "Morgue régionale — HM Ben Sergao", ville: "Agadir", region: "Souss-Massa", province: "Agadir Ida-Ou-Tanane", level: "regional", type: "hospital", hospitalId: "H5", capacity: 50, staff: 12, statut: "op", kind: "fixed", code: "AGA", ll: [-9.5495, 30.3811] },
 ];
 
 @Injectable()
@@ -170,6 +170,9 @@ export class DomainService {
 
   /** Postes posés sur la carte des opérations (lot #12). */
   private posts: IncidentPost[] = [];
+  /** Le bilan nommé des incidents : décédés (identification préliminaire), blessés, disparus. */
+  private readonly victims: IncidentVictim[] = [];
+
   private readonly mortuaryRecords: MortuaryRecord[] = [
     { id: "DVI-1", mid: "M3", reference: "AH-2026-001", incidentId: "INC-2607", foundAt: "Douar Tinzert", sex: "m", ageRange: "40-55", status: "identified", samples: ["dental", "fingerprint"], identifiedAs: "M. Brahim Ait Oussaid", admittedAt: "2026-08-08T07:20:00Z", updatedAt: "2026-08-09T09:10:00Z" },
     { id: "DVI-2", mid: "M3", reference: "AH-2026-002", incidentId: "INC-2607", foundAt: "Douar Tinzert", sex: "f", ageRange: "20-35", status: "in_progress", samples: ["dna"], admittedAt: "2026-08-08T07:35:00Z", updatedAt: "2026-08-08T18:00:00Z" },
@@ -205,6 +208,7 @@ export class DomainService {
       shelters?: Shelter[];
       morgues?: MorgueSite[];
       mortuaryRecords?: MortuaryRecord[];
+      victims?: IncidentVictim[];
       equipment?: EquipItem[];
       feed?: FeedItem[];
       posts?: IncidentPost[];
@@ -270,13 +274,16 @@ export class DomainService {
         m.region ??= graine.region;
         m.province ??= graine.province;
         m.hospitalId ??= graine.hospitalId;
+        m.type ??= graine.type;
       }
+      for (const m of this.morgues) m.type ??= defaultMorgueType(m);
       for (const graine of MORGUE_SEEDS) {
         if (!this.morgues.some((m) => m.id === graine.id)) this.morgues.push(structuredClone(graine));
       }
     }
     if (sameSeed && snap.mortuaryRecords) this.mortuaryRecords.splice(0, this.mortuaryRecords.length, ...snap.mortuaryRecords);
     if (snap.posts) this.posts = snap.posts;
+    if (snap.victims) this.victims.splice(0, this.victims.length, ...snap.victims);
     if (sameSeed && snap.equipment) this.equipment.splice(0, this.equipment.length, ...snap.equipment);
     if (snap.feed) this.feed.splice(0, this.feed.length, ...snap.feed);
     if (!sameSeed) this.persist();
@@ -294,6 +301,7 @@ export class DomainService {
       shelters: this.shelters,
       morgues: this.morgues,
       mortuaryRecords: this.mortuaryRecords,
+      victims: this.victims,
       equipment: this.equipment,
       feed: this.feed,
       posts: this.posts,
@@ -456,6 +464,11 @@ export class DomainService {
     // les valeurs existantes (titre, type, gravité…) lors d'une mise à jour partielle.
     for (const [k, v] of Object.entries(patch)) {
       if (v !== undefined) (inc as unknown as Record<string, unknown>)[k] = v;
+    }
+    // Un bilan corrigé par l'opérateur devient le nouveau chiffre déclaré ; la lecture garde le plancher des victimes nommées.
+    if (patch.casualties) {
+      inc.declaredCasualties = { dead: patch.casualties.dead, injured: patch.casualties.injured, missing: patch.casualties.missing };
+      this.reconcileCasualties(inc);
     }
     this.persist();
     return inc;
@@ -696,7 +709,7 @@ export class DomainService {
   entitiesOnIncident(incidentId: string): string[] {
     const inc = this.incidents.find((i) => i.id === incidentId);
     const morgues = new Set(this.mortuaryRecords.filter((r) => r.incidentId === incidentId).map((r) => r.mid));
-    return [...(inc?.responders?.units ?? []), ...(inc?.responders?.hospitals ?? []), ...morgues];
+    return [...(inc?.responders?.units ?? []), ...(inc?.responders?.hospitals ?? []), ...(inc?.responders?.morgues ?? []), ...morgues];
   }
 
   listUnits(): Unit[] {
@@ -905,8 +918,9 @@ export class DomainService {
 
   // --- morgue / registre DVI ---------------------------------------------
 
+  /** Les sites avec leur statut tel qu'il se lit : « plein » quand la capacité est atteinte. */
   listMorgues(): MorgueSite[] {
-    return this.morgues;
+    return this.morgues.map((m) => ({ ...m, type: m.type ?? defaultMorgueType(m), statut: siteStatus(m, this.mortuaryRecords) }));
   }
 
   findMorgue(id: string): MorgueSite | undefined {
@@ -958,7 +972,8 @@ export class DomainService {
       reference,
       id: this.nextRecordId(),
       mid,
-      status: "unidentified",
+      // Un nom connu à l'admission : l'identification est « en cours », pas confirmée.
+      status: displayName(input) ? "in_progress" : "unidentified",
       samples: input.samples ?? [],
       origin: input.origin ?? { kind: "field", label: input.foundAt ?? "" },
       custody: [custodyEvent("received", by, { to: site?.nom ?? mid }, now)],
@@ -985,7 +1000,7 @@ export class DomainService {
    */
   declareHospitalDeath(
     hospitalId: string,
-    input: { mid: string; reference?: string; incidentId?: string; identifiedAs?: string; sex?: "m" | "f" | "unknown"; ageRange?: string; note?: string },
+    input: PersonIdentity & { mid: string; reference?: string; incidentId?: string; identifiedAs?: string; ageRange?: string; note?: string; deathAt?: string },
     by: string,
   ): { record?: MortuaryRecord; error?: string; missing?: "hospital" | "morgue" } {
     const hospital = this.hospitals.find((h) => h.id === hospitalId);
@@ -997,7 +1012,7 @@ export class DomainService {
     const reference = input.reference?.trim() || this.nextReference(site);
     if (this.mortuaryRecords.some((r) => r.reference === reference)) return { error: `Référence ${reference} déjà attribuée.` };
     const now = new Date().toISOString();
-    const identite = input.identifiedAs?.trim();
+    const identite = input.identifiedAs?.trim() || displayName(input);
     const rec: MortuaryRecord = {
       id: this.nextRecordId(),
       mid: site.id,
@@ -1006,6 +1021,12 @@ export class DomainService {
       foundAt: hospital.nom,
       sex: input.sex,
       ageRange: input.ageRange?.trim() || undefined,
+      lastName: input.lastName?.trim() || undefined,
+      firstName: input.firstName?.trim() || undefined,
+      cni: input.cni?.trim() || undefined,
+      age: input.age,
+      deathAt: input.deathAt || undefined,
+      // L'hôpital connaît son patient : l'identité qu'il donne est confirmée.
       status: identite ? "identified" : "unidentified",
       samples: [],
       identifiedAs: identite || undefined,
@@ -1053,8 +1074,162 @@ export class DomainService {
     return { record: rec };
   }
 
+  // --- bilan des victimes d'un incident -----------------------------------------------
+  // Les compteurs disent COMBIEN ; les victimes nommées disent QUI. Un décédé
+  // affecté à une morgue y ouvre son dossier — la préliminaire du terrain part
+  // avec lui, la morgue confirme.
+
+  findIncident(id: string): Incident | undefined {
+    return this.incidents.find((i) => i.id === id);
+  }
+
+  listVictims(incidentId: string): IncidentVictim[] {
+    return this.victims.filter((v) => v.incidentId === incidentId);
+  }
+
+  private nextVictimId(): string {
+    const n = Math.max(0, ...this.victims.map((v) => parseInt(v.id.replace(/\D/g, ""), 10) || 0)) + 1;
+    return `VIC-${n}`;
+  }
+
+  /**
+   * Les compteurs lus = max(déclaré, victimes nommées) par nature, RECALCULÉ
+   * depuis le chiffre déclaré à chaque changement : reclasser ou retirer une
+   * victime nommée fait redescendre ce qu'elle avait fait monter.
+   */
+  private reconcileCasualties(inc: Incident): void {
+    const c = inc.casualties ?? { dead: 0, injured: 0, missing: 0 };
+    const base = (inc.declaredCasualties ??= { dead: c.dead, injured: c.injured, missing: c.missing });
+    const nommes = (k: VictimKind) => this.victims.filter((v) => v.incidentId === inc.id && v.kind === k).length;
+    inc.casualties = { ...c, dead: Math.max(base.dead, nommes("dead")), injured: Math.max(base.injured, nommes("injured")), missing: Math.max(base.missing, nommes("missing")) };
+  }
+
+  addVictim(
+    incidentId: string,
+    input: PersonIdentity & { kind: VictimKind; note?: string; deathAt?: string; hospitalId?: string; lastSeen?: string },
+    by: string,
+  ): IncidentVictim | undefined {
+    const inc = this.incidents.find((i) => i.id === incidentId);
+    if (!inc) return undefined;
+    const now = new Date().toISOString();
+    const v: IncidentVictim = {
+      id: this.nextVictimId(),
+      incidentId,
+      kind: input.kind,
+      lastName: input.lastName?.trim() || undefined,
+      firstName: input.firstName?.trim() || undefined,
+      cni: input.cni?.trim() || undefined,
+      sex: input.sex ?? "unknown",
+      age: input.age,
+      note: input.note?.trim() || undefined,
+      deathAt: input.kind === "dead" ? input.deathAt || undefined : undefined,
+      hospitalId: input.kind === "injured" ? input.hospitalId || undefined : undefined,
+      lastSeen: input.kind === "missing" ? input.lastSeen?.trim() || undefined : undefined,
+      createdAt: now,
+      updatedAt: now,
+      by,
+    };
+    this.victims.push(v);
+    this.reconcileCasualties(inc);
+    this.persist();
+    return v;
+  }
+
+  updateVictim(
+    incidentId: string,
+    vid: string,
+    patch: Partial<PersonIdentity & { kind: VictimKind; note: string; deathAt: string; hospitalId: string; lastSeen: string }>,
+    by: string,
+  ): { victim?: IncidentVictim; error?: string; missing?: boolean } {
+    const v = this.victims.find((x) => x.id === vid && x.incidentId === incidentId);
+    const inc = this.incidents.find((i) => i.id === incidentId);
+    if (!v || !inc) return { missing: true };
+    if (patch.kind && patch.kind !== v.kind && v.recordId) return { error: `${v.id} est affecté à une morgue : sa nature ne change plus.` };
+    for (const [k, val] of Object.entries(patch)) {
+      if (val !== undefined) (v as unknown as Record<string, unknown>)[k] = typeof val === "string" ? val.trim() || undefined : val;
+    }
+    v.updatedAt = new Date().toISOString();
+    v.by = by;
+    // La préliminaire suit jusqu'à la morgue tant qu'elle n'a pas confirmé.
+    const rec = v.recordId ? this.mortuaryRecords.find((r) => r.id === v.recordId) : undefined;
+    if (rec && rec.status !== "identified" && rec.status !== "released") {
+      rec.lastName = v.lastName;
+      rec.firstName = v.firstName;
+      rec.cni = v.cni;
+      rec.sex = v.sex;
+      rec.age = v.age;
+      rec.deathAt ??= v.deathAt;
+      rec.updatedAt = v.updatedAt;
+    }
+    this.reconcileCasualties(inc);
+    this.persist();
+    return { victim: v };
+  }
+
+  removeVictim(incidentId: string, vid: string): { ok?: true; error?: string; missing?: boolean } {
+    const i = this.victims.findIndex((x) => x.id === vid && x.incidentId === incidentId);
+    if (i < 0) return { missing: true };
+    if (this.victims[i].recordId) return { error: `${vid} est affecté à une morgue : le dossier existe là-bas, la victime ne s'efface plus.` };
+    const [v] = this.victims.splice(i, 1);
+    const inc = this.incidents.find((x) => x.id === v.incidentId);
+    if (inc) this.reconcileCasualties(inc);
+    this.persist();
+    return { ok: true };
+  }
+
+  /**
+   * Affecte un décédé à une morgue : son dossier s'ouvre là-bas avec la
+   * préliminaire du terrain, réception à confirmer, deux premières étapes de
+   * garde (relevé sur le terrain, transfert). La morgue confirme ensuite
+   * l'identité — c'est elle qui « identifie ».
+   */
+  assignVictimMorgue(incidentId: string, vid: string, mid: string, by: string): { victim?: IncidentVictim; record?: MortuaryRecord; error?: string; missing?: boolean } {
+    const v = this.victims.find((x) => x.id === vid && x.incidentId === incidentId);
+    const inc = this.incidents.find((i) => i.id === incidentId);
+    if (!v || !inc) return { missing: true };
+    if (v.kind !== "dead") return { error: `${vid} n'est pas un décédé.` };
+    if (v.recordId) return { error: `${vid} est déjà affecté à une morgue (${v.morgueId}).` };
+    const site = this.findMorgue(mid);
+    if (!site) return { error: `Site mortuaire introuvable : ${mid}.` };
+    const plein = checkCapacity(site, this.mortuaryRecords);
+    if (plein) return { error: plein };
+    const now = new Date().toISOString();
+    const lieu = inc.adresse?.trim() || inc.titre;
+    const rec: MortuaryRecord = {
+      id: this.nextRecordId(),
+      mid: site.id,
+      reference: this.nextReference(site),
+      incidentId,
+      foundAt: lieu,
+      sex: v.sex,
+      lastName: v.lastName,
+      firstName: v.firstName,
+      cni: v.cni,
+      age: v.age,
+      deathAt: v.deathAt,
+      status: displayName(v) ? "in_progress" : "unidentified",
+      samples: [],
+      origin: { kind: "field", label: lieu },
+      custody: [custodyEvent("recovered", by, { to: lieu, note: v.note }, now), custodyEvent("transferred", by, { from: lieu, to: site.nom }, now)],
+      pendingReceipt: true,
+      victimId: v.id,
+      admittedAt: now,
+      updatedAt: now,
+    };
+    this.mortuaryRecords.push(rec);
+    v.morgueId = site.id;
+    v.recordId = rec.id;
+    v.updatedAt = now;
+    v.by = by;
+    // La morgue sert désormais cet incident.
+    const resp = (inc.responders ??= { units: [], hospitals: [] });
+    if (!(resp.morgues ??= []).includes(site.id)) resp.morgues.push(site.id);
+    this.persist();
+    return { victim: v, record: rec };
+  }
+
   /** Un site mortuaire fixe de plus — de ville ou régional, rattaché à un établissement, à sa position. */
-  createMorgue(input: { nom: string; level: "regional" | "city"; region: string; province?: string; ville: string; hospitalId?: string; capacity: number; staff?: number; ll?: [number, number] }): { site?: MorgueSite; error?: string } {
+  createMorgue(input: { nom: string; type: MorgueType; level?: "regional" | "city"; region: string; province?: string; ville: string; hospitalId?: string; capacity: number; staff?: number; ll?: [number, number] }): { site?: MorgueSite; error?: string } {
     const hospital = input.hospitalId ? this.hospitals.find((h) => h.id === input.hospitalId) : undefined;
     if (input.hospitalId && !hospital) return { error: `Établissement introuvable : ${input.hospitalId}.` };
     let n = this.morgues.filter((m) => m.kind !== "mobile").length + 1;
@@ -1070,7 +1245,8 @@ export class DomainService {
       ville: input.ville.trim(),
       region: input.region.trim(),
       province: input.province?.trim() || undefined,
-      level: input.level,
+      level: input.level ?? "city",
+      type: input.type,
       hospitalId: hospital?.id,
       capacity: input.capacity,
       staff: input.staff ?? 0,
@@ -1085,7 +1261,7 @@ export class DomainService {
   }
 
   /** Une morgue mobile part sur le terrain : un site de plus, à sa position, pour un incident. */
-  deployMobileMorgue(input: { nom: string; capacity: number; staff?: number; ll: [number, number]; site: string; incidentId?: string }, by: string): MorgueSite {
+  deployMobileMorgue(input: { nom: string; type?: MorgueType; capacity: number; staff?: number; ll: [number, number]; site: string; incidentId?: string }, by: string): MorgueSite {
     let n = this.morgues.filter((m) => m.kind === "mobile").length + 1;
     while (this.morgues.some((m) => m.id === `MM${n}`)) n++;
     const m: MorgueSite = {
@@ -1096,6 +1272,7 @@ export class DomainService {
       staff: input.staff ?? 0,
       statut: "op",
       kind: "mobile",
+      type: input.type ?? "truck",
       code: `MM${n}`,
       ll: input.ll,
       deployment: { site: input.site.trim(), ll: input.ll, incidentId: input.incidentId || undefined, at: new Date().toISOString(), by },
@@ -1131,6 +1308,9 @@ export class DomainService {
   ): { record?: MortuaryRecord; error?: string; missing?: boolean } {
     const rec = this.mortuaryRecords.find((r) => r.id === rid && r.mid === mid);
     if (!rec) return { missing: true };
+    // Nom et prénom saisis à la morgue composent l'identité confirmée que la règle DVI attend.
+    const nom = displayName({ lastName: patch.lastName ?? rec.lastName, firstName: patch.firstName ?? rec.firstName });
+    if (nom && patch.identifiedAs === undefined && (patch.lastName !== undefined || patch.firstName !== undefined)) patch = { ...patch, identifiedAs: nom };
     const error = checkRecordUpdate(rec, patch);
     if (error) return { error };
     for (const [k, v] of Object.entries(patch)) {
