@@ -69,7 +69,10 @@ seul un rendu que l'application contrôle le permet.
 4. **L'arabe des étiquettes** est mis en forme par le greffon RTL de MapLibre
    (`@mapbox/mapbox-gl-rtl-text`, BSD-2-Clause), **auto-hébergé**
    (`public/vendor`, copié par `scripts/vendor.mjs` avant `dev` et `build`) —
-   aucun CDN, la CSP `script-src 'self'` reste fermée.
+   aucun CDN. Il est en WebAssembly : la CSP de production ajoute
+   `'wasm-unsafe-eval'` à `script-src` (compilation Wasm seulement, aucune
+   évaluation de JS) ; sans lui MapLibre retient toutes les étiquettes des
+   tuiles qui portent de l'arabe, et la carte du Maroc n'a plus un nom.
 5. **Le mode hors ligne reste entier** : `MAP_TILES=sovereign` plus
    `COMPOSE_PROFILES=sovereign` lancent le serveur de tuiles, et le
    provisionnement `infra/geo` s'applique tel quel. Le service `tiles` passe
