@@ -431,10 +431,10 @@ function markdownToBlocks(markdown: string): Block[] {
     for (const c of classified) {
       if (c.kind === "empty") continue;
       if (!cur || cur.kind !== c.kind) {
-        cur = { kind: c.kind, items: [(c as any).content] };
+        cur = { kind: c.kind, items: [c.content] };
         runs.push(cur);
       } else {
-        cur.items.push((c as any).content);
+        cur.items.push(c.content);
       }
     }
     if (!runs.length) {
