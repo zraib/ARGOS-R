@@ -49,3 +49,6 @@ deploy/backups/
 infra/geo/tiles/
 infra/geo/fonts/
 infra/geo/styles/
+
+# rapports de démonstration et documents de présentation — hors dépôt
+/rapports/
