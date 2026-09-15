@@ -8,7 +8,8 @@
 // reflète pour ne pas proposer l'impossible.
 // ============================================================================
 
-import type { CustodyEvent, MorgueSite, MortuaryRecord } from "@/lib/types";
+import type { CustodyEvent, IdMethod, MorgueSite, MortuaryRecord, PersonIdentity } from "@/lib/types";
+import { fromLocalInput, identityBody, type IdentityDraft } from "@/lib/victims";
 
 /** Corps présents ou annoncés sur un site — restitués exclus. */
 export function presentBodies(site: MorgueSite, records: readonly MortuaryRecord[]): number {
@@ -76,4 +77,62 @@ export function lastCustody(rec: MortuaryRecord): CustodyEvent | null {
 export function sortRegistry(records: readonly MortuaryRecord[]): MortuaryRecord[] {
   const rang = (r: MortuaryRecord) => (r.pendingReceipt ? 0 : r.status === "unidentified" ? 1 : r.status === "released" ? 3 : 2);
   return [...records].sort((a, b) => rang(a) - rang(b) || (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
+}
+
+// --- identification progressive : ce qui change, et rien d'autre --------------
+
+/** Le brouillon du formulaire d'identification / modification d'un dossier. */
+export interface RecordDraft {
+  identity: IdentityDraft;
+  /** Valeurs des champs `datetime-local` (vides = non renseigné). */
+  deathAt: string;
+  identifiedAt: string;
+  method: IdMethod | "";
+  identifiedBy: string;
+  note: string;
+  /** Changement de statut demandé ; absent = inchangé. */
+  status?: "in_progress" | "identified";
+}
+
+/** Ce que le formulaire peut envoyer (sans la signature). */
+export type RecordPatch = Partial<PersonIdentity> & {
+  deathAt?: string;
+  identifiedAt?: string;
+  idMethod?: IdMethod;
+  identifiedBy?: string;
+  note?: string;
+  status?: "in_progress" | "identified";
+};
+
+const sameInstant = (a: string | undefined, b: string | undefined): boolean => {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return new Date(a).getTime() === new Date(b).getTime();
+};
+
+/**
+ * Le patch d'un dossier : uniquement les champs dont la valeur diffère de
+ * celle du dossier. Un champ laissé tel quel ne part pas — l'historique du
+ * dossier ne porte que ce qui a changé, et rien n'est imposé : vide reste
+ * « non renseigné ».
+ */
+export function recordPatch(record: MortuaryRecord, d: RecordDraft): RecordPatch {
+  const out: RecordPatch = {};
+  const id = identityBody(d.identity);
+  if ((id.lastName ?? "") !== (record.lastName ?? "")) out.lastName = id.lastName ?? "";
+  if ((id.firstName ?? "") !== (record.firstName ?? "")) out.firstName = id.firstName ?? "";
+  if ((id.cni ?? "") !== (record.cni ?? "")) out.cni = id.cni ?? "";
+  if ((id.sex ?? "unknown") !== (record.sex ?? "unknown")) out.sex = id.sex;
+  if (id.age !== record.age) out.age = id.age;
+  const deathAt = fromLocalInput(d.deathAt);
+  if (!sameInstant(deathAt, record.deathAt)) out.deathAt = deathAt ?? "";
+  const identifiedAt = fromLocalInput(d.identifiedAt);
+  if (!sameInstant(identifiedAt, record.identifiedAt)) out.identifiedAt = identifiedAt ?? "";
+  if ((d.method || undefined) !== record.idMethod) out.idMethod = d.method || undefined;
+  if (d.identifiedBy.trim() !== (record.identifiedBy ?? "")) out.identifiedBy = d.identifiedBy.trim();
+  if (d.note.trim() !== (record.note ?? "")) out.note = d.note.trim();
+  if (d.status && d.status !== record.status) out.status = d.status;
+  // Les clés posées à `undefined` (effacement d'un mode) n'ont rien à dire au serveur.
+  for (const k of Object.keys(out) as (keyof RecordPatch)[]) if (out[k] === undefined) delete out[k];
+  return out;
 }

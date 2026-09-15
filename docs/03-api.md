@@ -139,7 +139,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `POST` | `/api/morgues/{id}/recall` | `morgue:update` | Replier une morgue mobile — vide de tout corps |
 | `GET` | `/api/morgues/{id}/records` | `morgue:view` | Registre d'identification d'un site mortuaire |
 | `POST` | `/api/morgues/{id}/records` | `morgue:create` | Admettre un corps sous référence provisoire — dans SON site uniquement |
-| `PATCH` | `/api/morgues/{id}/records/{rid}` | `morgue:update` | Faire évoluer un dossier d'identification — dans SON site uniquement |
+| `PATCH` | `/api/morgues/{id}/records/{rid}` | `morgue:update` | Faire évoluer un dossier d'identification — dans SON site uniquement, mot de passe exigé (step-up) |
 | `POST` | `/api/morgues/{id}/records/{rid}/receive` | `morgue:update` | Confirmer la réception d'un corps transféré — dans SON site uniquement |
 | `POST` | `/api/morgues/{id}/records/{rid}/transfer` | `morgue:update` | Transférer un corps vers un autre site mortuaire — depuis SON site uniquement |
 | `POST` | `/api/morgues/mobile` | `morgue:create` | Déployer une morgue mobile (conteneur réfrigéré) sur le terrain |
@@ -229,6 +229,8 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `DELETE` | `/api/tracking/trackers/{id}` | `tracking:delete` | Supprimer définitivement un traceur — SUPERADMIN uniquement. |
 | `GET` | `/api/tracking/trackers/{id}` | `tracking:view` | Un traceur et sa trace récente. |
 | `PATCH` | `/api/tracking/trackers/{id}` | `tracking:update` | Modifier le libellé, le rattachement, l'engagement, ou archiver. |
+| `POST` | `/api/tracking/trackers/{id}/position` | authentifié (soi-même) | Verser la position de mon téléphone sur MON partage (application) — seul le compte du partage peut verser, et seulement sur un partage actif : un compte ne dit que sa propre position. |
+| `GET` | `/api/tracking/trackers/mine` | authentifié (soi-même) | Le partage de position de MON compte (null si aucun n'est déclaré). |
 
 ## Communications — canaux, messages, temps réel, pièces jointes
 
@@ -252,7 +254,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 ## Chiffres
 
-122 chemins · 153 opérations · 13 groupes.
+124 chemins · 155 opérations · 13 groupes.
 
 ## Modifier le contrat
 

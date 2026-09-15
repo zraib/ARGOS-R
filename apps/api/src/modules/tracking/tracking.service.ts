@@ -1,7 +1,7 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException, ForbiddenException, ConflictException } from "@nestjs/common";
 import { TRACKER_REGISTRY, type TrackerRegistry } from "@/modules/tracking/ports/tracker-registry.port";
 import { IMEI_LENGTH, type AvlRecord } from "@/modules/tracking/codec8";
-import type { Tracker, TrackerFix, TrackerPatch, TrackerTarget } from "@/modules/tracking/tracking.types";
+import { Tracker, TrackerFix, TrackerPatch, TrackerTarget, appKey, SharedPosition, TrackerSource } from "@/modules/tracking/tracking.types";
 
 // ============================================================================
 // ARGOS — cas d'usage du suivi de traceurs FMC920 (lot N-2)
@@ -41,26 +41,46 @@ export class TrackingService {
   }
 
   async declare(input: {
-    imei: string;
+    source?: TrackerSource;
+    imei?: string;
+    account?: string;
     label: string;
     target?: TrackerTarget | null;
     incidentId?: string | null;
     actor: string;
   }): Promise<Tracker> {
-    const imei = input.imei.trim();
-    // Contrôlé ici ET par le DTO : le DTO garde l'entrée HTTP, cette règle garde
-    // le domaine — un futur import en masse n'aura pas de DTO devant lui.
-    if (!new RegExp(`^\\d{${IMEI_LENGTH}}$`).test(imei)) {
-      throw new BadRequestException(`L'IMEI doit compter ${IMEI_LENGTH} chiffres.`);
-    }
-    if (await this.registry.findByImei(imei)) {
-      // Deux traceurs sous le même IMEI rendraient le rattachement ambigu à la
-      // poignée de main : les positions d'un moyen iraient à l'autre.
-      throw new BadRequestException(`IMEI déjà déclaré : ${imei}`);
+    const source: TrackerSource = input.source ?? "device";
+    let imei: string;
+    let account: string | undefined;
+    let id: string;
+    if (source === "app") {
+      // Partage par l'application : la clé tient la place de l'IMEI, un compte
+      // n'a qu'un partage — deux partages du même compte diraient deux positions
+      // pour une seule personne.
+      account = (input.account ?? input.actor).trim().toLowerCase();
+      if (!account) throw new BadRequestException("Le compte qui partage sa position est requis.");
+      imei = appKey(account);
+      id = `trk-app-${account}`;
+      if (await this.registry.findByImei(imei)) throw new BadRequestException(`Ce compte partage déjà sa position : ${account}`);
+    } else {
+      imei = (input.imei ?? "").trim();
+      // Contrôlé ici ET par le DTO : le DTO garde l'entrée HTTP, cette règle garde
+      // le domaine — un futur import en masse n'aura pas de DTO devant lui.
+      if (!new RegExp(`^\\d{${IMEI_LENGTH}}$`).test(imei)) {
+        throw new BadRequestException(`L'IMEI doit compter ${IMEI_LENGTH} chiffres.`);
+      }
+      if (await this.registry.findByImei(imei)) {
+        // Deux traceurs sous le même IMEI rendraient le rattachement ambigu à la
+        // poignée de main : les positions d'un moyen iraient à l'autre.
+        throw new BadRequestException(`IMEI déjà déclaré : ${imei}`);
+      }
+      id = `trk-${imei}`;
     }
     return this.registry.add({
-      id: `trk-${imei}`,
+      id,
       imei,
+      source,
+      ...(account ? { account } : {}),
       label: input.label.trim(),
       target: input.target ?? null,
       incidentId: input.incidentId ?? null,
@@ -81,6 +101,41 @@ export class TrackingService {
   async remove(id: string): Promise<void> {
     await this.get(id);
     return this.registry.remove(id);
+  }
+
+  /** Le partage de position du compte `account`, s'il en a déclaré un (archivé compris). */
+  async mine(account: string): Promise<Tracker | null> {
+    return this.registry.findByImei(appKey(account));
+  }
+
+  /**
+   * Verse une position partagée par l'application. Seul le compte du partage
+   * peut le faire, et seulement sur un partage actif : c'est ce qui rend
+   * l'entrée HTTP acceptable là où l'ingestion des boîtiers reste TCP — un
+   * compte ne peut dire que SA propre position, jamais celle d'un moyen.
+   */
+  async sharePosition(id: string, account: string, pos: SharedPosition): Promise<Tracker> {
+    const tracker = await this.get(id);
+    if (tracker.source !== "app") throw new ConflictException("Ce traceur est un boîtier : ses positions n'entrent que par le réseau.");
+    if (tracker.account !== account.trim().toLowerCase()) throw new ForbiddenException("Seul le compte qui partage sa position peut la verser.");
+    if (tracker.archived) throw new ConflictException("Partage archivé : réactivez-le avant de partager.");
+    const [lng, lat] = pos.ll;
+    if (!Number.isFinite(lng) || !Number.isFinite(lat) || Math.abs(lat) > 90 || Math.abs(lng) > 180) throw new BadRequestException("Position hors du globe.");
+    const now = Date.now();
+    const at = pos.at !== undefined && pos.at > 0 && pos.at <= now + 60_000 ? pos.at : now;
+    const fix: TrackerFix = {
+      at,
+      ll: [lng, lat],
+      speedKmh: Math.max(0, Math.round(pos.speedKmh ?? 0)),
+      headingDeg: Math.round(((pos.headingDeg ?? 0) % 360 + 360) % 360),
+      altitudeM: Math.round(pos.altitudeM ?? 0),
+      // Un téléphone ne dit pas ses satellites : sa précision tient lieu de qualité.
+      satellites: pos.accuracyM !== undefined && pos.accuracyM <= 50 ? 1 : 0,
+      priority: "low",
+    };
+    await this.registry.appendFix(id, fix);
+    await this.registry.touch(id, new Date(now).toISOString());
+    return this.get(id);
   }
 
   // --- ingestion ------------------------------------------------------------

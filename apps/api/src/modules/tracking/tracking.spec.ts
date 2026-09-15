@@ -137,6 +137,50 @@ describe("N-2 — traceurs FMC920", () => {
     });
   });
 
+  // --- partage de position par l'application -------------------------------
+
+  describe("partage de position par l'application (ADR 0008, révision)", () => {
+    it("se déclare sans IMEI, pour un compte, une seule fois", async () => {
+      const res = await base()
+        .post("/api/tracking/trackers")
+        .set(auth())
+        .send({ source: "app", account: "n.fassi", label: "Lt Fassi — téléphone", target: { kind: "personnel", id: "n.fassi" }, incidentId: "INC-2612" })
+        .expect(201);
+      expect(res.body).toMatchObject({ id: "trk-app-n.fassi", source: "app", account: "n.fassi", imei: "app:n.fassi", incidentId: "INC-2612" });
+      await base().post("/api/tracking/trackers").set(auth()).send({ source: "app", account: "n.fassi", label: "Doublon" }).expect(400);
+      // Un boîtier, lui, exige toujours son IMEI.
+      await base().post("/api/tracking/trackers").set(auth()).send({ label: "Sans IMEI" }).expect(400);
+    });
+
+    it("le compte retrouve SON partage, même sans droit de voir le registre", async () => {
+      const t = await jeton("n.fassi", "resp_unit");
+      const res = await base().get("/api/tracking/trackers/mine").set({ Authorization: `Bearer ${t}` }).expect(200);
+      expect(res.body.tracker?.id).toBe("trk-app-n.fassi");
+      const autre = await jeton("resp.h4", "resp_hospital");
+      expect((await base().get("/api/tracking/trackers/mine").set({ Authorization: `Bearer ${autre}` }).expect(200)).body.tracker).toBeNull();
+    });
+
+    it("seul le compte du partage verse sa position ; un boîtier n'accepte rien par HTTP", async () => {
+      const t = await jeton("n.fassi", "resp_unit");
+      const res = await base()
+        .post("/api/tracking/trackers/trk-app-n.fassi/position")
+        .set({ Authorization: `Bearer ${t}` })
+        .send({ ll: [-7.61, 33.59], accuracyM: 12, speedKmh: 4.4, headingDeg: 360 })
+        .expect(201);
+      expect(res.body.last).toMatchObject({ ll: [-7.61, 33.59], speedKmh: 4, headingDeg: 0, satellites: 1, priority: "low" });
+      expect(res.body.lastSeenAt).not.toBeNull();
+      // Un autre compte — même le superadmin — ne peut pas parler à sa place.
+      await base().post("/api/tracking/trackers/trk-app-n.fassi/position").set(auth()).send({ ll: [-7.6, 33.6] }).expect(403);
+      // Hors du globe : refusé.
+      await base().post("/api/tracking/trackers/trk-app-n.fassi/position").set({ Authorization: `Bearer ${t}` }).send({ ll: [-200, 33.6] }).expect(400);
+      // Le boîtier FMC920 n'a pas d'entrée HTTP.
+      await base().post(`/api/tracking/trackers/trk-${IMEI}/position`).set(auth()).send({ ll: [-7.6, 33.6] }).expect(409);
+      // Archivé : le partage s'arrête.
+      await base().patch("/api/tracking/trackers/trk-app-n.fassi").set(auth()).send({ archived: true }).expect(200);
+      await base().post("/api/tracking/trackers/trk-app-n.fassi/position").set({ Authorization: `Bearer ${t}` }).send({ ll: [-7.6, 33.6] }).expect(409);
+    });
+  });
+
   // --- la chaîne TCP --------------------------------------------------------
 
   describe("chaîne TCP complète", () => {

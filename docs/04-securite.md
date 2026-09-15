@@ -307,7 +307,14 @@ Exigences du `MASTER_PLAN.md` §4.3 :
   (commandement, stratégique, autorités de région, responsable d'hôpital) ;
   toute écriture cantonnée au site du compte (`@RequireScope("morgue")`) ou
   à son établissement (`hospitals/:id/deceased`, `@RequireScope("hospital")`) ;
-  la chaîne de garde porte le matricule qui acte chaque étape.
+  la chaîne de garde porte le matricule qui acte chaque étape. Toute
+  modification d'un dossier (`PATCH morgues/:id/records/:rid`) est **signée**
+  par le mot de passe du compte (step-up vérifié côté API, 403 sinon) et
+  **tracée** dans `history[]` (qui, quand, avant → après) — ADR 0012 (ter).
+- Partage de position par l'application (ADR 0008, révision) : deux routes
+  `@SelfService` (`GET tracking/trackers/mine`, `POST tracking/trackers/:id/position`)
+  dont le service vérifie que le partage est celui du compte appelant — un
+  compte ne dit que sa propre position, jamais celle d'un moyen.
 - Les flux externes (EMSC, Open-Meteo) sont **proxifiés par l'API**, avec cache
   et dégradation gracieuse. Le navigateur ne contacte jamais une source tierce.
 - **Exposition temporaire par tunnel** (ADR 0013, `deploy/scripts/tunnel.ps1`) :

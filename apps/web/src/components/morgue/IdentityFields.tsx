@@ -1,32 +1,15 @@
 "use client";
 
 import { useModules } from "@/lib/store";
-import { SEXES } from "@/lib/victims";
-import type { PersonIdentity, Sex } from "@/lib/types";
+import { SEXES, type IdentityDraft } from "@/lib/victims";
+import type { Sex } from "@/lib/types";
 
 export const labelCls = "mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200";
 export const inputCls = "input-champ text-base md:text-sm";
 
-/** Les champs d'identité, les mêmes sur le terrain et à la morgue : nom, prénom, CNI, sexe, âge. */
-export type IdentityDraft = { lastName: string; firstName: string; cni: string; sex: Sex; age: string };
-
-export const EMPTY_IDENTITY: IdentityDraft = { lastName: "", firstName: "", cni: "", sex: "unknown", age: "" };
-
-export function identityDraftOf(p: PersonIdentity): IdentityDraft {
-  return { lastName: p.lastName ?? "", firstName: p.firstName ?? "", cni: p.cni ?? "", sex: p.sex ?? "unknown", age: p.age === undefined ? "" : String(p.age) };
-}
-
-/** Ce qui part à l'API : les champs vides restent absents (« non identifié »), jamais des chaînes vides. */
-export function identityBody(d: IdentityDraft): PersonIdentity {
-  const age = d.age.trim() === "" ? undefined : Math.max(0, Math.min(130, parseInt(d.age, 10) || 0));
-  return {
-    lastName: d.lastName.trim() || undefined,
-    firstName: d.firstName.trim() || undefined,
-    cni: d.cni.trim() || undefined,
-    sex: d.sex,
-    age,
-  };
-}
+// Les aides pures du brouillon d'identité vivent dans lib/victims.ts (testables, partagées avec lib/morgue.ts).
+export { EMPTY_IDENTITY, identityBody, identityDraftOf } from "@/lib/victims";
+export type { IdentityDraft } from "@/lib/victims";
 
 export function IdentityFields({
   value, onChange, sexes = SEXES, disabled = false,

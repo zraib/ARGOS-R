@@ -1136,7 +1136,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Faire évoluer un dossier d'identification — dans SON site uniquement */
+        /** Faire évoluer un dossier d'identification — dans SON site uniquement, mot de passe exigé (step-up) */
         patch: operations["ResourcesController_updateMortuaryRecord"];
         trace?: never;
     };
@@ -1935,6 +1935,40 @@ export interface paths {
          * @description Le registre EST la liste blanche de l'écouteur TCP. Déclarer un traceur n'est pas un rangement : c'est l'acte qui autorise un boîtier à parler à ARGOS.
          */
         post: operations["TrackingController_declare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tracking/trackers/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Le partage de position de MON compte (null si aucun n'est déclaré). */
+        get: operations["TrackingController_mine"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tracking/trackers/{id}/position": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verser la position de mon téléphone sur MON partage (application) — seul le compte du partage peut verser, et seulement sur un partage actif : un compte ne dit que sa propre position. */
+        post: operations["TrackingController_share"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2861,6 +2895,8 @@ export interface components {
             releasedTo?: string;
             foundAt?: string;
             ageRange?: string;
+            /** @description Mot de passe du compte qui agit — exigé pour toute modification d'un dossier (identification, correction, restitution) */
+            password: string;
         };
         CreateMorgueDto: {
             /** @example Chambre mortuaire — Hôpital Militaire Moulay Ismaïl */
@@ -3131,6 +3167,23 @@ export interface components {
             incidentId?: string;
             archived?: boolean;
         };
+        SharePositionDto: {
+            /**
+             * @description [lng, lat] en degrés.
+             * @example [
+             *       -7.6,
+             *       33.58
+             *     ]
+             */
+            ll: number[];
+            /** @description Millisecondes UTC de la mesure (défaut : réception). */
+            at?: number;
+            /** @description Précision horizontale en mètres. */
+            accuracyM?: number;
+            speedKmh?: number;
+            headingDeg?: number;
+            altitudeM?: number;
+        };
         TrackerTargetDto: {
             /**
              * @description Nature du moyen équipé.
@@ -3145,10 +3198,20 @@ export interface components {
         };
         DeclareTrackerDto: {
             /**
-             * @description IMEI à 15 chiffres, imprimé sous le boîtier. C'est la SEULE identité que le protocole Teltonika présente : un IMEI non déclaré ici est refusé à la poignée de main.
+             * @description device = boîtier FMC920 (IMEI) ; app = partage de position par l'application d'un compte. Absent : device.
+             * @enum {string}
+             */
+            source?: "device" | "app";
+            /**
+             * @description Boîtier seulement — IMEI à 15 chiffres, imprimé sous le boîtier. C'est la SEULE identité que le protocole Teltonika présente : un IMEI non déclaré ici est refusé à la poignée de main.
              * @example 356307042441013
              */
-            imei: string;
+            imei?: string;
+            /**
+             * @description Partage par l'application seulement — matricule du compte qui partagera sa position (défaut : le compte qui déclare).
+             * @example n.fassi
+             */
+            account?: string;
             /**
              * @description Nom d'usage affiché sur la carte.
              * @example Ambulance 04
@@ -4942,7 +5005,8 @@ export interface operations {
             };
         };
         responses: {
-            200: {
+            /** @description Mot de passe absent ou incorrect : le geste n'est pas signé. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6015,8 +6079,56 @@ export interface operations {
             };
         };
         responses: {
-            /** @description IMEI mal formé ou déjà déclaré. */
+            /** @description IMEI mal formé ou déjà déclaré ; compte partageant déjà sa position. */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TrackingController_mine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TrackingController_share: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SharePositionDto"];
+            };
+        };
+        responses: {
+            /** @description Ce partage n'est pas celui du compte connecté. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Boîtier (positions par le réseau seulement) ou partage archivé. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

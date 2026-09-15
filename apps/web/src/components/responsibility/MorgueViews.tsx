@@ -19,6 +19,7 @@ import { loadBarClass } from "@/lib/responsibility";
 import { Loading, useSupervision, RespHeader, Section } from "@/components/responsibility/Shared";
 import { DVI_SAMPLES, DVI_STATUSES, type DviSample, type DviStatus, type MorgueSite, type MortuaryRecord } from "@/lib/types";
 import { IdentifyModal } from "@/components/morgue/IdentifyModal";
+import { SignatureField } from "@/components/morgue/SignatureField";
 import { personName, whenShort } from "@/lib/victims";
 
 export type { MorgueSite, MortuaryRecord, DviStatus, DviSample };
@@ -385,6 +386,8 @@ export function RecordForm({ mid, record, onClose, onDone }: { mid: string; reco
   const [samples, setSamples] = useState<DviSample[]>(record.samples);
   const [identifiedAs, setIdentifiedAs] = useState(record.identifiedAs ?? "");
   const [releasedTo, setReleasedTo] = useState(record.releasedTo ?? "");
+  const [password, setPassword] = useState("");
+  const [pwError, setPwError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -395,18 +398,21 @@ export function RecordForm({ mid, record, onClose, onDone }: { mid: string; reco
     // Miroir des invariants API — l'API reste l'autorité (409 sinon).
     if ((status === "identified" || status === "released") && !identifiedAs.trim()) { setError(m.resp.g_err_identity); return; }
     if (status === "released" && !releasedTo.trim()) { setError(m.resp.g_err_released); return; }
+    if (!password) { setPwError(m.morgue.pw_required); return; }
     setBusy(true);
     try {
       const res = await api.updateMortuaryRecord(mid, record.id, {
         status, samples,
         identifiedAs: identifiedAs.trim() || undefined,
         releasedTo: releasedTo.trim() || undefined,
+        password,
       });
       // Lire le code AVANT de restreindre le type sur `res.error`.
       const code = res.response?.status;
       if (res.error || (code !== undefined && code >= 400)) {
-        // 409 = invariant DVI refusé par le serveur ; 403 = hors périmètre.
-        setError(code === 409 ? m.resp.g_err_transition : m.resp.err_denied);
+        // 409 = invariant DVI refusé par le serveur ; 403 = signature refusée (mot de passe) ou hors périmètre.
+        if (code === 403) setPwError(m.morgue.pw_wrong);
+        else setError(code === 409 ? m.resp.g_err_transition : m.resp.err_denied);
         return;
       }
       showToast(m.resp.g_record_saved);
@@ -464,6 +470,8 @@ export function RecordForm({ mid, record, onClose, onDone }: { mid: string; reco
             <p className="mt-1 text-[11px] text-gray-400 dark:text-rdia-400">{m.resp.g_released_hint}</p>
           </div>
         )}
+
+        <SignatureField value={password} onChange={(v) => { setPassword(v); setPwError(null); }} error={pwError} disabled={busy} />
 
         {error && <p className="text-xs font-semibold text-danger-500">{error}</p>}
         <div className="flex flex-wrap justify-end gap-2">

@@ -130,8 +130,8 @@ describe("ABAC — cantonnement des responsables à leur entité", () => {
     await base().patch("/api/shelters/AB-01").set("Authorization", `Bearer ${shTok}`).send({ occupants: 1 }).expect(403);
   });
 
-  it("le responsable de morgue tient SON registre, et pas celui d'un autre site", async () => {
-    users.create("superadmin", "test", {
+  it("le responsable de morgue tient SON registre, et pas celui d'un autre site — chaque geste sur un dossier signé par son mot de passe", async () => {
+    const { tempPassword: mdp } = users.create("superadmin", "test", {
       matricule: "resp.m3",
       nom: "Sabri",
       roles: ["resp_morgue"],
@@ -147,25 +147,42 @@ describe("ABAC — cantonnement des responsables à leur entité", () => {
     expect(admitted.body.status).toBe("unidentified");
     const rid = admitted.body.id as string;
 
+    // Sans mot de passe : la saisie est refusée (400) ; avec un mauvais : le geste n'est pas signé (403).
+    await base().patch(`/api/morgues/M3/records/${rid}`).set("Authorization", `Bearer ${tok}`).send({ status: "in_progress" }).expect(400);
+    await base().patch(`/api/morgues/M3/records/${rid}`).set("Authorization", `Bearer ${tok}`).send({ status: "in_progress", password: "faux" }).expect(403);
+
     // Identification sans identité confirmée → 409 (invariant DVI).
     await base()
       .patch(`/api/morgues/M3/records/${rid}`)
       .set("Authorization", `Bearer ${tok}`)
-      .send({ status: "identified" })
+      .send({ status: "identified", password: mdp })
       .expect(409);
 
+    // Identification PROGRESSIVE : un détail à la fois, sans nom ni sexe imposés — chaque
+    // modification est enregistrée et tracée (qui, quand, avant → après).
+    const partiel = await base().patch(`/api/morgues/M3/records/${rid}`).set("Authorization", `Bearer ${tok}`).send({ age: 42, password: mdp }).expect(200);
+    expect(partiel.body.age).toBe(42);
+    expect(partiel.body.history).toHaveLength(1);
+    expect(partiel.body.history[0]).toMatchObject({ by: "resp.m3", fields: ["age"], before: {}, after: { age: 42 } });
+    // La même valeur renvoyée ne fait pas une modification.
+    const idem = await base().patch(`/api/morgues/M3/records/${rid}`).set("Authorization", `Bearer ${tok}`).send({ age: 42, password: mdp }).expect(200);
+    expect(idem.body.history).toHaveLength(1);
+
     // Parcours complet : prélèvements → identifié → restitué.
-    await base().patch(`/api/morgues/M3/records/${rid}`).set("Authorization", `Bearer ${tok}`).send({ status: "in_progress", samples: ["dna"] }).expect(200);
-    await base().patch(`/api/morgues/M3/records/${rid}`).set("Authorization", `Bearer ${tok}`).send({ status: "identified", identifiedAs: "Mme K. Ait Bella" }).expect(200);
+    await base().patch(`/api/morgues/M3/records/${rid}`).set("Authorization", `Bearer ${tok}`).send({ status: "in_progress", samples: ["dna"], password: mdp }).expect(200);
+    const identifie = await base().patch(`/api/morgues/M3/records/${rid}`).set("Authorization", `Bearer ${tok}`).send({ status: "identified", identifiedAs: "Mme K. Ait Bella", password: mdp }).expect(200);
+    expect(identifie.body.history.at(-1)).toMatchObject({ fields: ["status", "identifiedAs"], before: { status: "in_progress" }, after: { status: "identified", identifiedAs: "Mme K. Ait Bella" } });
+    // Le mot de passe ne se retrouve jamais dans le dossier ni dans sa trace.
+    expect(JSON.stringify(identifie.body)).not.toContain(mdp);
     const released = await base()
       .patch(`/api/morgues/M3/records/${rid}`)
       .set("Authorization", `Bearer ${tok}`)
-      .send({ status: "released", releasedTo: "Famille Ait Bella (frère)" })
+      .send({ status: "released", releasedTo: "Famille Ait Bella (frère)", password: mdp })
       .expect(200);
     expect(released.body.status).toBe("released");
 
     // Dossier clos : plus aucune modification (409).
-    await base().patch(`/api/morgues/M3/records/${rid}`).set("Authorization", `Bearer ${tok}`).send({ ageRange: "30-40" }).expect(409);
+    await base().patch(`/api/morgues/M3/records/${rid}`).set("Authorization", `Bearer ${tok}`).send({ ageRange: "30-40", password: mdp }).expect(409);
 
     // HORS PÉRIMÈTRE : le site M2 lui est interdit.
     await base()

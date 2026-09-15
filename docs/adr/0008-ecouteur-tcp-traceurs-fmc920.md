@@ -2,6 +2,9 @@
 
 - **Statut :** accepté — lot N-2 livré (registre, écouteur, ingestion)
 - **Date :** 2026-09-01
+- **Révisé le 2026-09-15 :** deux sources de positions — le boîtier (inchangé)
+  et le **partage de position par l'application** ; l'incident d'engagement se
+  choisit par son nom ; le registre survit aux redémarrages.
 - **Portée :** nouveau module `apps/api/src/modules/tracking` ; second port en
   écoute à côté du serveur HTTP ; ligne `tracking` de la matrice de permissions
 
@@ -102,3 +105,50 @@ La chaîne complète est éprouvée par une vraie socket TCP dans
 `tracking.spec.ts` : IMEI inconnu refusé, position versée et accusée,
 enregistrement sans fix accusé mais non tracé, déversement de tampon remis dans
 l'ordre du temps, traceur archivé refusé, trame au CRC faux rejetée sans accusé.
+
+## Révision du 2026-09-15 — partage de position par l'application
+
+**Demande.** Tous les moyens n'ont pas de boîtier : un chef de détachement,
+un médecin, un agent en reconnaissance ont un téléphone avec IRIS. Le
+propriétaire du produit veut, à côté du boîtier, l'option « partage de
+position via l'application », et rattacher chaque traceur à l'incident sur
+lequel il est déployé — choisi dans la liste des incidents, pas tapé.
+
+**Ce que cette décision garde de la précédente.** L'ingestion des BOÎTIERS
+reste TCP, l'IMEI reste confronté au registre, et il n'existe toujours pas de
+route HTTP qui accepterait « la position de l'unité U3 » sur simple jeton.
+
+**Ce qui s'ouvre, et dans quelle limite.** Un traceur a une `source` :
+`device` (boîtier, IMEI) ou `app` (partage). Un partage est déclaré au
+registre comme un boîtier (`POST tracking/trackers`, `source: "app"`,
+`account` = le matricule, un seul partage par compte, clé `app:<matricule>`
+à la place de l'IMEI), rattaché à un moyen et à un incident comme lui. Les
+positions entrent par `POST tracking/trackers/:id/position`, ouverte à tout
+compte connecté (`@SelfService`) mais dont le service vérifie que **le
+partage est celui du compte appelant**, actif, et que la position est sur le
+globe. Un compte ne peut donc dire que SA propre position, jamais celle d'un
+moyen ; archiver le partage le ferme. `GET tracking/trackers/mine` rend le
+partage du compte, pour que l'application le retrouve sans droit de lecture
+sur le registre.
+
+**Côté application.** L'écran « Traceurs GPS » propose les deux sources à la
+déclaration (l'IMEI n'est demandé que pour un boîtier), le compte qui
+partage (le sien par défaut), le moyen équipé et l'**incident dans une liste
+par nom**. La carte « Ma position » démarre et arrête le partage de
+l'appareil : géolocalisation du navigateur, une position envoyée dès que
+l'appareil a bougé de 25 m ou toutes les 20 s ; l'état vit hors de l'écran,
+changer de page n'arrête pas l'envoi. Une précision inférieure à 50 m vaut
+« localisé » (`satellites: 1`), priorité `low`.
+
+**Persistance.** Le registre des traceurs vivait en mémoire : un redémarrage
+de l'API sur la station effaçait les boîtiers déclarés et les partages. Il
+passe par l'instantané JSON commun (`tracking.json`, `common/dev-store`),
+comme le domaine et les comptes.
+
+**Conséquences négatives, assumées.** Un téléphone n'est pas un boîtier : pas
+de satellites, une précision variable, un envoi qui dépend de l'application
+ouverte et de l'autorisation de géolocalisation du navigateur ; la position
+d'un compte reste déclarative — c'est lui qui la partage, IRIS ne peut pas
+la contredire. Les gardes `@SelfService` des deux routes sont inscrites dans
+la liste blanche de `authz-coverage.spec.ts`.
+

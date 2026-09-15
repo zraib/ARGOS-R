@@ -57,6 +57,10 @@ describe("couverture des gardes", () => {
       "iam/auth.controller.ts : POST select-role → selectRole",
       "iam/auth.controller.ts : POST change-password → changePassword",
       "domain/http/dashboard.controller.ts : GET reference → reference",
+      // Partage de position par l'application (ADR 0008, révision) : un compte ne
+      // lit et ne verse que SON partage — la propriété est vérifiée par le service.
+      "tracking/http/tracking.controller.ts : GET trackers/mine → mine",
+      "tracking/http/tracking.controller.ts : POST trackers/:id/position → share",
     ]);
     const vues: string[] = [];
     for (const f of fichiers) {

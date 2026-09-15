@@ -908,9 +908,17 @@ export class UpdateMortuaryRecordDto extends IdentityDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(160)
   foundAt?: string;
 
-
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(20)
   ageRange?: string;
+
+  /**
+   * Mot de passe du compte qui agit (step-up) : identifier ou modifier un
+   * dossier engage — la doctrine DVI veut une signature, pas un clic. Vérifié
+   * côté serveur, jamais journalisé, jamais écrit dans le dossier.
+   */
+  @ApiProperty({ description: "Mot de passe du compte qui agit — exigé pour toute modification d'un dossier (identification, correction, restitution)", maxLength: 200 })
+  @IsString() @MinLength(1) @MaxLength(200)
+  password!: string;
 }
 
 // --- Parc d'équipement ------------------------------------------------------

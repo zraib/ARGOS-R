@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { STALE_MS, contactAge, isStale, type Tracker } from "@/lib/tracking/tracker";
 
-const base: Tracker = { id: "trk-1", imei: "356307042441013", label: "Amb 04", target: null, incidentId: null, archived: false, createdBy: "x", createdAt: "", last: null, lastSeenAt: null, trail: [] };
+const base: Tracker = { id: "trk-1", imei: "356307042441013", source: "device", label: "Amb 04", target: null, incidentId: null, archived: false, createdBy: "x", createdAt: "", last: null, lastSeenAt: null, trail: [] };
 
 describe("traceurs — muet ou vivant", () => {
   it("jamais vu → muet ; archivé → jamais muet", () => {

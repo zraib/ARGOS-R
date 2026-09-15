@@ -423,6 +423,11 @@ export interface ModulesDict {
     a_type: string; a_map_hint: string; a_map_full: string; a_map_exit: string;
     identify: string; id_prelim: string; id_to_confirm: string; id_method: string; id_methods: Record<"dna" | "fingerprint" | "dental" | "body_mark", string>;
     id_death_at: string; id_at: string; id_by: string; id_confirm: string; id_done: string; id_none: string; id_err_required: string; id_sex_hint: string;
+    // identification progressive, signée, tracée ; onglets et recherche du service
+    tab_sites: string; tab_bodies: string; search_bodies_ph: string; sugg_none: string; sugg_hint: string; status_all: string;
+    edit: string; edit_title: string; id_partial_hint: string; id_status: string; id_keep: string; id_mark_progress: string; id_mark_identified: string; id_mark_identified_hint: string; id_no_change: string; id_saved: string;
+    pw_label: string; pw_hint: string; pw_required: string; pw_wrong: string;
+    history: string; history_none: string; h_field_status: string; h_field_identity: string; h_field_released: string; h_field_samples: string; h_field_found: string; h_field_age_range: string; h_empty: string;
   };
   victims: {
     title: string; hint: string; refine: string; counts_saved: string; save_counts: string; add: string; added: string; saved: string; none: string; remove_confirm: string;

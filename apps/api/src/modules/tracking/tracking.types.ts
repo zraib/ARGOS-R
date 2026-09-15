@@ -44,11 +44,33 @@ export interface TrackerFix {
   priority: AvlPriority;
 }
 
+/**
+ * D'où viennent les positions.
+ *  - `device` : un boîtier FMC920 sur le réseau, identifié par son IMEI à la
+ *    poignée de main TCP (ADR 0008) ;
+ *  - `app`    : le compte d'un personnel partage la position de son téléphone
+ *    depuis l'application ; seul CE compte peut verser ses positions, et un
+ *    compte n'a qu'un partage (ADR 0008, révision).
+ */
+export type TrackerSource = "device" | "app";
+
+export const TRACKER_SOURCES: TrackerSource[] = ["device", "app"];
+
+/** Clé de registre d'un partage par l'application : tient la place de l'IMEI. */
+export const appKey = (account: string): string => `app:${account.trim().toLowerCase()}`;
+
 /** Un traceur déclaré au registre. */
 export interface Tracker {
   id: string;
-  /** IMEI à 15 chiffres — la seule identité que le boîtier présente. */
+  /**
+   * IMEI à 15 chiffres — la seule identité que le boîtier présente. Pour un
+   * partage par l'application : la clé `app:<matricule>`, qu'aucun boîtier ne
+   * peut présenter.
+   */
   imei: string;
+  source: TrackerSource;
+  /** Partage par l'application : le compte (matricule) qui partage sa position. */
+  account?: string;
   /** Nom d'usage : « Ambulance 04 », « VLTT Cne Alami ». */
   label: string;
   target: TrackerTarget | null;
@@ -84,6 +106,17 @@ export const TRAIL_MAX = 240;
 
 /** Ce qu'un opérateur peut modifier sur un traceur déclaré. */
 export type TrackerPatch = Partial<Pick<Tracker, "label" | "target" | "incidentId" | "archived">>;
+
+/** Une position partagée depuis l'application (géolocalisation du navigateur). */
+export interface SharedPosition {
+  ll: [number, number];
+  /** Millisecondes UTC de la mesure ; à défaut, l'instant de réception. */
+  at?: number;
+  accuracyM?: number;
+  speedKmh?: number;
+  headingDeg?: number;
+  altitudeM?: number;
+}
 
 /** Compte rendu d'une session TCP, pour le journal et l'écran d'état. */
 export interface TrackerIngest {

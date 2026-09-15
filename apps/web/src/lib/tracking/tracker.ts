@@ -22,9 +22,16 @@ export interface TrackerFix {
   priority: "low" | "high" | "panic";
 }
 
+/** D'où viennent les positions : un boîtier FMC920 (`device`) ou le téléphone d'un compte via l'application (`app`). */
+export type TrackerSource = "device" | "app";
+
 export interface Tracker {
   id: string;
+  /** IMEI du boîtier ; pour un partage par l'application, la clé `app:<matricule>`. */
   imei: string;
+  source: TrackerSource;
+  /** Partage par l'application : le compte qui partage. */
+  account?: string;
   label: string;
   target: { kind: TrackerTargetKind; id: string } | null;
   incidentId: string | null;

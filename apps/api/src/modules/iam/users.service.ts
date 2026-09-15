@@ -693,6 +693,19 @@ export class UsersService implements ScopeResolver {
     return { user: u, mustChangePassword: !u.passwordChanged, mustChooseRole: u.roles.length > 1 };
   }
 
+  /**
+   * Vérifie un mot de passe SANS ouvrir de session ni rien noter (step-up :
+   * signer un geste sensible depuis une session déjà ouverte). Faux pour un
+   * compte inconnu, suspendu, ou dont le mot de passe n'est pas celui-là — et
+   * pour un compte géré ailleurs (Keycloak), dont ce registre n'a rien.
+   */
+  verifyPassword(matricule: string, password: string): boolean {
+    const u = this.byMatricule(matricule);
+    if (!u || u.disabled) return false;
+    const expected = u.passwordChanged ? u.password : u.tempPassword ?? undefined;
+    return expected !== undefined && password === expected;
+  }
+
   /** Profil du compte courant (identité + photo, pour la page profil). */
   ownProfile(matricule: string): { matricule: string; nom: string; grade?: string; roles: Role[]; photo?: string } {
     const u = this.byMatricule(matricule);

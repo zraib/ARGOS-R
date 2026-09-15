@@ -847,6 +847,15 @@ export interface CustodyEvent {
 }
 
 /** Un corps admis dans un site mortuaire, sous référence unique, avec son parcours d'identification et sa chaîne de garde. */
+/** Une modification d'un dossier mortuaire, champ par champ. */
+export interface RecordChange {
+  at: string;
+  by: string;
+  fields: string[];
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+}
+
 export interface MortuaryRecord {
   id: string;
   mid: string;
@@ -876,4 +885,6 @@ export interface MortuaryRecord {
   pendingReceipt?: boolean;
   admittedAt: string;
   updatedAt: string;
+  /** Les modifications du dossier, signées : qui, quand, quels champs, avant → après. */
+  history?: RecordChange[];
 }

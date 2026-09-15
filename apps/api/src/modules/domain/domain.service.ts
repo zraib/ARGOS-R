@@ -24,9 +24,9 @@ import { loadDevState, saveDevState } from "@/common/dev-store";
 
 // Les types du domaine vivent dans domain.types.ts ; ré-exportés ici pour les
 // importateurs existants (contrôleurs, autres modules).
-export type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviStatus, DviSample, MortuaryRecord, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind } from "@/modules/domain/domain.types";
+export type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviStatus, DviSample, MortuaryRecord, RecordChange, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind } from "@/modules/domain/domain.types";
 export { DVI_STATUSES, DVI_SAMPLES } from "@/modules/domain/domain.types";
-import type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviSample, MortuaryRecord, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind, PersonIdentity, MorgueType } from "@/modules/domain/domain.types";
+import type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviSample, MortuaryRecord, RecordChange, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind, PersonIdentity, MorgueType } from "@/modules/domain/domain.types";
 import { checkPost, type PostLookup } from "@/modules/domain/post.rules";
 import type { ResponsibilityKind } from "@/shared/responsibilities";
 
@@ -1313,12 +1313,25 @@ export class DomainService {
     if (nom && patch.identifiedAs === undefined && (patch.lastName !== undefined || patch.firstName !== undefined)) patch = { ...patch, identifiedAs: nom };
     const error = checkRecordUpdate(rec, patch);
     if (error) return { error };
+    // Traçabilité : ce qui change vraiment, avant → après, signé. Une clé
+    // fournie à l'identique ne fait pas une modification ; un patch qui ne
+    // change rien ne laisse aucune trace — et ne change pas `updatedAt`.
+    const cible = rec as unknown as Record<string, unknown>;
+    const change: RecordChange = { at: new Date().toISOString(), by, fields: [], before: {}, after: {} };
     for (const [k, v] of Object.entries(patch)) {
-      if (v !== undefined) (rec as unknown as Record<string, unknown>)[k] = v;
+      if (v === undefined) continue;
+      const avant = cible[k];
+      if (JSON.stringify(avant ?? null) === JSON.stringify(v ?? null)) continue;
+      change.fields.push(k);
+      if (avant !== undefined) change.before[k] = avant;
+      change.after[k] = v;
+      cible[k] = v;
     }
+    if (change.fields.length === 0) return { record: rec };
+    rec.history = [...(rec.history ?? []), change];
     // La restitution est la dernière étape de la chaîne de garde : datée, signée, à qui.
     if (patch.status === "released") rec.custody = [...(rec.custody ?? []), custodyEvent("released", by, { to: rec.releasedTo })];
-    rec.updatedAt = new Date().toISOString();
+    rec.updatedAt = change.at;
     this.persist();
     return { record: rec };
   }

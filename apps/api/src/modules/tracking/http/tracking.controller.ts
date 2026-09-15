@@ -4,7 +4,8 @@ import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
 import { TrackingService } from "@/modules/tracking/tracking.service";
-import { DeclareTrackerDto, UpdateTrackerDto } from "@/modules/tracking/http/tracking.dto";
+import { DeclareTrackerDto, SharePositionDto, UpdateTrackerDto } from "@/modules/tracking/http/tracking.dto";
+import { SelfService } from "@/common/decorators/self-service.decorator";
 
 // ============================================================================
 // ARGOS — adaptateur HTTP du suivi de traceurs FMC920 (lot N-2)
@@ -14,10 +15,13 @@ import { DeclareTrackerDto, UpdateTrackerDto } from "@/modules/tracking/http/tra
 // sécurité. La suppression définitive exige `tracking:delete`, que la matrice
 // n'accorde à personne — donc au seul superadmin (joker `*`).
 //
-// L'INGESTION N'A PAS D'ENTRÉE HTTP, et c'est délibéré : les positions
-// n'entrent que par l'écouteur TCP, où l'IMEI est confronté au registre. Une
-// route qui accepterait une position sur simple jeton permettrait à n'importe
-// quel compte de faire mentir la carte sur la position d'une unité.
+// L'INGESTION DES BOÎTIERS N'A PAS D'ENTRÉE HTTP, et c'est délibéré : leurs
+// positions n'entrent que par l'écouteur TCP, où l'IMEI est confronté au
+// registre. Une route qui accepterait une position sur simple jeton
+// permettrait à n'importe quel compte de faire mentir la carte sur la
+// position d'une unité. La seule entrée HTTP est le PARTAGE PAR L'APPLICATION
+// (ADR 0008, révision) : un compte ne verse que sur SON partage, déclaré au
+// registre — il ne peut dire que sa propre position.
 // ============================================================================
 
 @ApiTags("tracking")
@@ -41,6 +45,22 @@ export class TrackingController {
     return this.tracking.list(includeArchived === "true");
   }
 
+  @Get("trackers/mine")
+  @SelfService()
+  @ApiOperation({ summary: "Le partage de position de MON compte (null si aucun n'est déclaré)." })
+  async mine(@CurrentUser() user: AuthUser) {
+    return { tracker: await this.tracking.mine(user.username) };
+  }
+
+  @Post("trackers/:id/position")
+  @SelfService()
+  @ApiOperation({ summary: "Verser la position de mon téléphone sur MON partage (application) — seul le compte du partage peut verser, et seulement sur un partage actif : un compte ne dit que sa propre position." })
+  @ApiResponse({ status: 403, description: "Ce partage n'est pas celui du compte connecté." })
+  @ApiResponse({ status: 409, description: "Boîtier (positions par le réseau seulement) ou partage archivé." })
+  share(@Param("id") id: string, @Body() dto: SharePositionDto, @CurrentUser() user: AuthUser) {
+    return this.tracking.sharePosition(id, user.username, dto);
+  }
+
   @Get("trackers/:id")
   @RequirePermission("tracking:view")
   @ApiOperation({ summary: "Un traceur et sa trace récente." })
@@ -57,10 +77,12 @@ export class TrackingController {
       "Le registre EST la liste blanche de l'écouteur TCP. Déclarer un traceur n'est pas un " +
       "rangement : c'est l'acte qui autorise un boîtier à parler à ARGOS.",
   })
-  @ApiResponse({ status: 400, description: "IMEI mal formé ou déjà déclaré." })
+  @ApiResponse({ status: 400, description: "IMEI mal formé ou déjà déclaré ; compte partageant déjà sa position." })
   declare(@Body() dto: DeclareTrackerDto, @CurrentUser() user: AuthUser) {
     return this.tracking.declare({
+      source: dto.source,
       imei: dto.imei,
+      account: dto.account,
       label: dto.label,
       target: dto.target ?? null,
       incidentId: dto.incidentId ?? null,

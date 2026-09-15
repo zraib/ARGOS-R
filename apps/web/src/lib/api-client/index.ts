@@ -35,6 +35,8 @@ export type CommsAttachment = { id: string; name: string; mime: string; bytes: n
 // carte et l'écran de gestion lisent la même forme, qui vient du contrat.
 export type DeclareTrackerBody = Json<NonNullable<paths["/api/tracking/trackers"]["post"]["requestBody"]>>;
 export type UpdateTrackerBody = Json<NonNullable<paths["/api/tracking/trackers/{id}"]["patch"]["requestBody"]>>;
+/** Position partagée depuis l'application (ADR 0008, révision). */
+export type SharePositionBody = Json<NonNullable<paths["/api/tracking/trackers/{id}/position"]["post"]["requestBody"]>>;
 export type CreateHospitalBody = Json<NonNullable<paths["/api/hospitals"]["post"]["requestBody"]>>;
 export type UpdateHospitalBody = Json<NonNullable<paths["/api/hospitals/{id}"]["patch"]["requestBody"]>>;
 export type UpdateUnitBody = Json<NonNullable<paths["/api/units/{id}"]["patch"]["requestBody"]>>;
@@ -228,6 +230,11 @@ export function createArgosClient(opts: ArgosClientOptions) {
     updateTracker: (id: string, body: UpdateTrackerBody) =>
       client.PATCH("/api/tracking/trackers/{id}", { params: { path: { id } }, body }),
     deleteTracker: (id: string) => client.DELETE("/api/tracking/trackers/{id}", { params: { path: { id } } }),
+    /** Le partage de position de MON compte (null si aucun) — ouvert à tout compte connecté. */
+    getMyTracker: () => client.GET("/api/tracking/trackers/mine"),
+    /** Verser la position de mon téléphone sur MON partage ; refusé sur un boîtier ou le partage d'un autre compte. */
+    sharePosition: (id: string, body: SharePositionBody) =>
+      client.POST("/api/tracking/trackers/{id}/position", { params: { path: { id } }, body }),
     deployPost: (id: string, matricule: string) =>
       client.POST("/api/incidents/{id}/deployments", { params: { path: { id } }, body: { matricule } }),
     withdrawPost: (id: string, matricule: string) =>

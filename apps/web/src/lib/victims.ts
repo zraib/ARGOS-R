@@ -62,4 +62,25 @@ export function missingFields(rec: MortuaryRecord): ("name" | "cni" | "sex" | "a
 }
 
 export const SEXES: readonly Sex[] = ["unknown", "f", "m"];
+
+/** Les champs d'identité, les mêmes sur le terrain et à la morgue : nom, prénom, CNI, sexe, âge (brouillon de saisie). */
+export type IdentityDraft = { lastName: string; firstName: string; cni: string; sex: Sex; age: string };
+
+export const EMPTY_IDENTITY: IdentityDraft = { lastName: "", firstName: "", cni: "", sex: "unknown", age: "" };
+
+export function identityDraftOf(p: PersonIdentity): IdentityDraft {
+  return { lastName: p.lastName ?? "", firstName: p.firstName ?? "", cni: p.cni ?? "", sex: p.sex ?? "unknown", age: p.age === undefined ? "" : String(p.age) };
+}
+
+/** Ce qui part à l'API : les champs vides restent absents (« non identifié »), jamais des chaînes vides. */
+export function identityBody(d: IdentityDraft): PersonIdentity {
+  const age = d.age.trim() === "" ? undefined : Math.max(0, Math.min(130, parseInt(d.age, 10) || 0));
+  return {
+    lastName: d.lastName.trim() || undefined,
+    firstName: d.firstName.trim() || undefined,
+    cni: d.cni.trim() || undefined,
+    sex: d.sex,
+    age,
+  };
+}
 export const ID_METHOD_ORDER: readonly IdMethod[] = ["fingerprint", "dna", "dental", "body_mark"];

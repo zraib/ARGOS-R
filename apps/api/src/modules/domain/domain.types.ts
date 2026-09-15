@@ -347,9 +347,26 @@ export interface MortuaryRecord {
   custody?: CustodyEvent[];
   /** Transfert annoncé par l'expéditeur, réception à confirmer par le site : le corps n'est pas encore « chez lui ». */
   pendingReceipt?: boolean;
+  /**
+   * Les modifications du dossier, dans l'ordre : qui, quand, quels champs,
+   * avant → après. C'est la traçabilité que l'identification progressive
+   * exige — chaque détail ajouté ou corrigé se retrouve ici, signé.
+   */
+  history?: RecordChange[];
   /** Horodatages ISO 8601 : admission et dernière évolution. */
   admittedAt: string;
   updatedAt: string;
+}
+
+/** Une modification d'un dossier mortuaire : signée, datée, champ par champ. */
+export interface RecordChange {
+  at: string;
+  by: string;
+  /** Les champs touchés, dans l'ordre de la saisie. */
+  fields: string[];
+  /** Valeurs avant et après, pour ces seuls champs (absent = non renseigné). */
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
 }
 
 // --- bilan des victimes d'un incident --------------------------------------

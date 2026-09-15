@@ -9,6 +9,12 @@
   (victimes nommées, identification préliminaire d'un décédé, affectation à
   une morgue), la nature et le statut « plein » des sites, la fiche complète
   d'une morgue avec ses corps, l'identification complète à la morgue.
+- **Révisé le 2026-09-15 (ter) :** identification PROGRESSIVE — aucun champ
+  imposé, chaque enregistrement ne porte que ce qui change, est signé par le
+  mot de passe du compte (step-up vérifié par l'API) et tracé dans
+  l'historique du dossier ; la modification d'un dossier identifié suit la
+  même règle ; le service morgue sépare les sites des décédés (recherche avec
+  auto-complétion).
 - **Portée :** `apps/api` : `domain.types.ts` (sites, chaîne de garde),
   `morgue.rules.ts`, `domain.service.ts`, routes `morgues/registry`,
   `morgues/mobile`, `morgues/:id/recall`, `morgues/:id/records/:rid/{receive,transfer}`,
@@ -136,3 +142,55 @@ restitué qui ne bouge plus.
   départ) mais leurs dossiers n'ont pas de chaîne de garde rétroactive ; le
   déploiement d'une mobile pose sa position sur un incident ou une ville,
   pas encore par un clic sur la carte.
+
+## Révision du 2026-09-15 (ter) — identification progressive, signée, tracée
+
+**Demande.** « Lors de l'identification dans la morgue il ne faut imposer ni
+le sexe, ni le nom, ni le prénom ; on peut ajouter des détails au fur et à
+mesure ; il faut enregistrer n'importe quelle modification. Pour identifier
+un décédé il faut exiger un mot de passe ; ajouter la modification des
+décédés en gardant la traçabilité, avec mot de passe aussi. Séparer les
+décédés de l'affichage des tuiles de la morgue, avec recherche et
+auto-complétion. »
+
+**Décision.**
+
+1. **Rien n'est imposé à la saisie.** Le formulaire « Identifier / Modifier »
+   accepte un dossier avec n'importe quel sous-ensemble de champs (nom,
+   prénom, CNI, sexe, âge, heure du décès, mode, date, identifié par, note).
+   Il n'envoie que ce qui **change** (`recordPatch`, pur, testé) ; vide
+   redevient « non renseigné ». Le statut est un **choix explicite** —
+   inchangé, « en cours d'identification », ou « identifié » — jamais une
+   conséquence silencieuse de la saisie. La règle DVI qui exige une identité
+   pour « identifié » reste dans l'API : déclarer un corps identifié sans un
+   seul nom n'a pas de sens ; le bouton le dit et l'API le refuse (409).
+2. **Chaque geste est signé.** `PATCH morgues/:id/records/:rid` exige
+   `password` : le mot de passe du compte connecté, vérifié par l'API
+   (`UsersService.verifyPassword`, sans effet de bord, jamais journalisé,
+   retiré du patch avant écriture) — 403 sinon, rien n'est enregistré. Le
+   masquage côté navigateur n'est pas un contrôle ; le formulaire du
+   responsable de site (« Ma responsabilité ») et celui du service passent
+   par la même route, donc par la même signature.
+3. **Chaque modification est tracée.** Le dossier porte `history[]` : à
+   chaque enregistrement, qui, quand, quels champs, avant → après — calculé
+   par le service sur ce qui change vraiment (une valeur renvoyée à
+   l'identique n'est pas une modification et ne bouge pas `updatedAt`). La
+   fiche du dossier l'affiche sous la chaîne de garde. Le journal d'audit
+   chaîné garde de son côté la route, l'acteur et l'instant.
+4. **Modifier un dossier identifié** est le même geste que l'identifier
+   (mêmes champs, même signature, même trace) ; un dossier restitué reste
+   clos.
+5. **Le service morgue sépare les vues** : l'onglet « Sites » (tuiles par
+   région, filtres d'échelon) et l'onglet « Décédés » (recherche avec
+   auto-complétion sur la référence, l'identité, la CNI, l'incident, le site
+   ; filtres par statut, site, incident, réception en attente ; actions :
+   fiche, identifier / modifier, réceptionner, transférer). Une tuile de site
+   renvoie à ses corps d'un clic.
+
+**Conséquences.** Positives : la morgue enregistre ce qu'elle sait quand elle
+le sait, sans bloquer sur un champ ; toute écriture est imputable et
+relisible. Négatives : un mot de passe à chaque enregistrement (voulu — le
+geste engage) ; en mode Keycloak le registre local n'a pas le mot de passe et
+la signature échoue — la vérification devra alors passer par l'OIDC (re-auth
+avec `prompt=login`), non fait.
+

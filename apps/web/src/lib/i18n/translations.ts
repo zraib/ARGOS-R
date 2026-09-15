@@ -562,6 +562,11 @@ export interface Dict {
   trk_target: string; trk_target_kind: string; trk_target_id: string; trk_target_none: string;
   trk_kind_unit: string; trk_kind_vehicle: string; trk_kind_personnel: string; trk_kind_equipment: string;
   trk_incident: string; trk_archive: string; trk_archive_help: string;
+  // partage de position par l'application (ADR 0008, révision)
+  trk_source: string; trk_source_device: string; trk_source_device_help: string; trk_source_app: string; trk_source_app_help: string;
+  trk_account: string; trk_account_help: string; trk_incident_none: string; trk_app_badge: string; trk_account_taken: string;
+  trk_share_title: string; trk_share_hint: string; trk_share_start: string; trk_share_stop: string; trk_share_on: string; trk_share_off: string;
+  trk_share_none: string; trk_share_declare: string; trk_share_last: string; trk_share_err_geo: string; trk_share_err_send: string; trk_share_unsupported: string; trk_share_archived: string;
   trk_saving: string; trk_save_failed: string; trk_load_failed: string;
   trk_no_fix: string; trk_last_seen: string; trk_never_seen: string; trk_sats: string;
   // OPSnet — réseau opérationnel (lot OPSnet)

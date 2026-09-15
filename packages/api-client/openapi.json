@@ -2440,8 +2440,8 @@
           }
         },
         "responses": {
-          "200": {
-            "description": ""
+          "403": {
+            "description": "Mot de passe absent ou incorrect : le geste n'est pas signé."
           }
         },
         "security": [
@@ -2449,7 +2449,7 @@
             "bearer": []
           }
         ],
-        "summary": "Faire évoluer un dossier d'identification — dans SON site uniquement",
+        "summary": "Faire évoluer un dossier d'identification — dans SON site uniquement, mot de passe exigé (step-up)",
         "tags": [
           "domain"
         ]
@@ -4091,7 +4091,7 @@
         },
         "responses": {
           "400": {
-            "description": "IMEI mal formé ou déjà déclaré."
+            "description": "IMEI mal formé ou déjà déclaré ; compte partageant déjà sa position."
           }
         },
         "security": [
@@ -4100,6 +4100,68 @@
           }
         ],
         "summary": "Déclarer un traceur — sans quoi le boîtier n'est pas admis.",
+        "tags": [
+          "tracking"
+        ]
+      }
+    },
+    "/api/tracking/trackers/mine": {
+      "get": {
+        "operationId": "TrackingController_mine",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Le partage de position de MON compte (null si aucun n'est déclaré).",
+        "tags": [
+          "tracking"
+        ]
+      }
+    },
+    "/api/tracking/trackers/{id}/position": {
+      "post": {
+        "operationId": "TrackingController_share",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SharePositionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Ce partage n'est pas celui du compte connecté."
+          },
+          "409": {
+            "description": "Boîtier (positions par le réseau seulement) ou partage archivé."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Verser la position de mon téléphone sur MON partage (application) — seul le compte du partage peut verser, et seulement sur un partage actif : un compte ne dit que sa propre position.",
         "tags": [
           "tracking"
         ]
@@ -6378,8 +6440,16 @@
           },
           "ageRange": {
             "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "description": "Mot de passe du compte qui agit — exigé pour toute modification d'un dossier (identification, correction, restitution)",
+            "maxLength": 200
           }
-        }
+        },
+        "required": [
+          "password"
+        ]
       },
       "CreateMorgueDto": {
         "type": "object",
@@ -7013,6 +7083,42 @@
           }
         }
       },
+      "SharePositionDto": {
+        "type": "object",
+        "properties": {
+          "ll": {
+            "description": "[lng, lat] en degrés.",
+            "example": [
+              -7.6,
+              33.58
+            ],
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "at": {
+            "type": "number",
+            "description": "Millisecondes UTC de la mesure (défaut : réception)."
+          },
+          "accuracyM": {
+            "type": "number",
+            "description": "Précision horizontale en mètres."
+          },
+          "speedKmh": {
+            "type": "number"
+          },
+          "headingDeg": {
+            "type": "number"
+          },
+          "altitudeM": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "ll"
+        ]
+      },
       "TrackerTargetDto": {
         "type": "object",
         "properties": {
@@ -7040,10 +7146,23 @@
       "DeclareTrackerDto": {
         "type": "object",
         "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "device",
+              "app"
+            ],
+            "description": "device = boîtier FMC920 (IMEI) ; app = partage de position par l'application d'un compte. Absent : device."
+          },
           "imei": {
             "type": "string",
-            "description": "IMEI à 15 chiffres, imprimé sous le boîtier. C'est la SEULE identité que le protocole Teltonika présente : un IMEI non déclaré ici est refusé à la poignée de main.",
+            "description": "Boîtier seulement — IMEI à 15 chiffres, imprimé sous le boîtier. C'est la SEULE identité que le protocole Teltonika présente : un IMEI non déclaré ici est refusé à la poignée de main.",
             "example": "356307042441013"
+          },
+          "account": {
+            "type": "string",
+            "description": "Partage par l'application seulement — matricule du compte qui partagera sa position (défaut : le compte qui déclare).",
+            "example": "n.fassi"
           },
           "label": {
             "type": "string",
@@ -7065,7 +7184,6 @@
           }
         },
         "required": [
-          "imei",
           "label"
         ]
       },

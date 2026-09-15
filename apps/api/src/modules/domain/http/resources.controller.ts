@@ -7,8 +7,8 @@
 // et `authz-coverage.spec.ts` en font foi.
 // ============================================================================
 
-import { Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from "@nestjs/swagger";
+import { Body, ConflictException, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { AdmitBodyDto, CreateEquipDto, CreateMorgueDto, CreateUnitDto, DeployMobileMorgueDto, TransferBodyDto, UpdateEquipDto, UpdateMorgueDto, UpdateMortuaryRecordDto, CreateShelterDto, UpdateShelterDto, UpdateUnitDto } from "@/modules/domain/dto";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import { RequireScope } from "@/common/decorators/require-scope.decorator";
@@ -16,6 +16,7 @@ import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
 import { DomainService } from "@/modules/domain/domain.service";
 import { VisibilityService } from "@/modules/domain/visibility.service";
+import { UsersService } from "@/modules/iam/users.service";
 
 @ApiTags("domain")
 @ApiBearerAuth()
@@ -24,6 +25,7 @@ export class ResourcesController {
   constructor(
     private readonly domain: DomainService,
     private readonly visibility: VisibilityService,
+    private readonly users: UsersService,
   ) {}
 
   @Get("units")
@@ -171,9 +173,15 @@ export class ResourcesController {
   @Patch("morgues/:id/records/:rid")
   @RequirePermission("morgue:update")
   @RequireScope("morgue")
-  @ApiOperation({ summary: "Faire évoluer un dossier d'identification — dans SON site uniquement" })
+  @ApiOperation({ summary: "Faire évoluer un dossier d'identification — dans SON site uniquement, mot de passe exigé (step-up)" })
+  @ApiResponse({ status: 403, description: "Mot de passe absent ou incorrect : le geste n'est pas signé." })
   updateMortuaryRecord(@Param("id") id: string, @Param("rid") rid: string, @Body() dto: UpdateMortuaryRecordDto, @CurrentUser() user: AuthUser) {
-    const res = this.domain.updateMortuaryRecord(id, rid, dto, user.username);
+    // Identifier, corriger ou restituer engage la responsabilité de qui le
+    // fait : le geste est signé par le mot de passe du compte, ici, côté
+    // serveur — le masquage côté navigateur n'est pas un contrôle.
+    const { password, ...patch } = dto;
+    if (!this.users.verifyPassword(user.username, password)) throw new ForbiddenException("Mot de passe incorrect : la modification du dossier n'est pas signée.");
+    const res = this.domain.updateMortuaryRecord(id, rid, patch, user.username);
     if (res.missing) throw new NotFoundException(`Dossier introuvable dans ${id} : ${rid}`);
     // Violation d'un invariant du parcours DVI → 409 (règle métier, pas saisie).
     if (res.error) throw new ConflictException(res.error);
