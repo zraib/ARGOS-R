@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useArgos, useDict, useModules } from "@/lib/store";
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
@@ -17,6 +18,7 @@ import { HospinetIAPanel } from "@/components/health/HospinetIAPanel";
 import { HospinetAffecteurIA } from "@/components/health/HospinetAffecteurIA";
 import { HOSPITAL_KINDS, hospKind, kindDef } from "@/lib/hospitals";
 import { HospitalDeathModal } from "@/components/morgue/HospitalDeathModal";
+import { freePlaces, nearestSites, sitesOfHospital } from "@/lib/morgue";
 import { api } from "@/lib/api";
 import type { HospitalKind, MortuaryRecord } from "@/lib/types";
 
@@ -71,6 +73,9 @@ export default function HospinetPage() {
     };
   }, [hospId, nbSites, deathOpen]);
   const transfertsEnCours = hosp ? registry.filter((r) => r.origin?.kind === "hospital" && r.origin.id === hosp.id && r.pendingReceipt) : [];
+  // La morgue suit la logique de l'hôpital : celle(s) rattachée(s) à l'établissement, sinon la plus indiquée de sa région.
+  const morguesRattachees = hosp ? sitesOfHospital(hosp.id, morgues) : [];
+  const morgueIndiquee = hosp && morguesRattachees.length === 0 ? nearestSites(hosp.ll, morgues, registry, { region: hosp.region })[0]?.site : undefined;
 
   // Nombre d'établissements par catégorie (puces de filtre).
   const counts = useMemo(() => {
@@ -320,6 +325,26 @@ export default function HospinetPage() {
         <ResponsibleCard kind="hospital" entityId={hosp.id} hideIfNone />
         {/* Décès en établissement : le corps part vers un site mortuaire,
             réception à confirmer là-bas — la traçabilité commence ici. */}
+        {morgues.length > 0 && (
+          <div className="flex flex-col gap-2 border-t border-gray-100 pt-3 dark:border-rdia-700/60">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-gray-600 dark:text-rdia-200">
+              <span className="flex items-center gap-1 font-semibold text-rdia-600 dark:text-rdia-50">
+                <Icon path={NAV_ICONS.morgue} size={13} className="text-or-500" />
+                {m.morgue.hosp_block}
+              </span>
+              {morguesRattachees.length > 0
+                ? morguesRattachees.map((s) => (
+                    <span key={s.id}>
+                      {s.nom} · {s.level === "regional" ? m.morgue.level_regional : m.morgue.level_city} · {Math.max(0, freePlaces(s, registry))} / {s.capacity} {m.morgue.t_free}
+                    </span>
+                  ))
+                : morgueIndiquee
+                  ? <span>{m.morgue.hosp_none} — {m.morgue.hosp_nearest} {morgueIndiquee.nom} ({morgueIndiquee.ville})</span>
+                  : <span>{m.morgue.hosp_none}</span>}
+              <Link href="/morgue" className="text-[11px] font-semibold text-or-500 hover:underline">{m.morgue.open_service}</Link>
+            </div>
+          </div>
+        )}
         {morgues.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 dark:border-rdia-700/60">
             {canDeclare && (

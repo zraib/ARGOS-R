@@ -63,7 +63,7 @@ export function MorgueDashboard({ mid }: { mid: string }) {
 
   return (
     <section className="flex flex-col gap-4 animate-fade-in">
-      <RespHeader icon={KPI_ICONS.beds} title={site.nom} subtitle={site.ville} badge={m.resp.morgue_statut[site.statut]} />
+      <RespHeader icon={KPI_ICONS.beds} title={site.nom} subtitle={`${site.kind === "mobile" ? m.morgue.level_mobile : site.level === "regional" ? m.morgue.level_regional : m.morgue.level_city} · ${site.ville}${site.region ? ` · ${site.region}` : ""}`} badge={m.resp.morgue_statut[site.statut]} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile label={m.resp.g_places_free} value={site.capacity - open.length} sub={`/ ${site.capacity}`} icon={KPI_ICONS.beds} tint={pct >= 90 ? "danger" : "green"} />

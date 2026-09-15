@@ -2075,6 +2075,34 @@
         "tags": [
           "domain"
         ]
+      },
+      "post": {
+        "operationId": "ResourcesController_createMorgue",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMorgueDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Créer un site mortuaire fixe — de ville ou régional, rattaché à un établissement",
+        "tags": [
+          "domain"
+        ]
       }
     },
     "/api/morgues/{id}": {
@@ -5916,6 +5944,65 @@
             "type": "string"
           }
         }
+      },
+      "CreateMorgueDto": {
+        "type": "object",
+        "properties": {
+          "nom": {
+            "type": "string",
+            "example": "Chambre mortuaire — Hôpital Militaire Moulay Ismaïl"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "regional",
+              "city"
+            ],
+            "description": "regional = institut médico-légal de la région ; city = morgue de ville"
+          },
+          "region": {
+            "type": "string",
+            "example": "Fès-Meknès"
+          },
+          "province": {
+            "type": "string",
+            "example": "Meknès"
+          },
+          "ville": {
+            "type": "string",
+            "example": "Meknès"
+          },
+          "hospitalId": {
+            "type": "string",
+            "example": "H3",
+            "description": "Établissement de rattachement"
+          },
+          "capacity": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Emplacements réfrigérés"
+          },
+          "staff": {
+            "type": "number",
+            "minimum": 0
+          },
+          "ll": {
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "[longitude, latitude] ; absent, celle de l'établissement",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "nom",
+          "level",
+          "region",
+          "ville",
+          "capacity"
+        ]
       },
       "DeployMobileMorgueDto": {
         "type": "object",

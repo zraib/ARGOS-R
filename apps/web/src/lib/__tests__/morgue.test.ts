@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { distanceKm, freePlaces, lastCustody, nearestSites, sortRegistry } from "@/lib/morgue";
+import { distanceKm, freePlaces, lastCustody, levelOf, nearestSites, sitesOfHospital, sortRegistry, sortSites } from "@/lib/morgue";
 import type { MorgueSite, MortuaryRecord } from "@/lib/types";
 
 const site = (id: string, ll?: [number, number], statut: MorgueSite["statut"] = "op"): MorgueSite => ({ id, nom: id, ville: "", capacity: 10, staff: 1, statut, ll });
@@ -21,6 +21,22 @@ describe("service morgue — calculs d'écran", () => {
     expect(tries.map((x) => x.site.id)).toEqual(["M1", "M2", "M4"]);
     expect(tries[0].free).toBe(9);
     expect(tries[2].km).toBeNull();
+  });
+
+  it("préfère la morgue rattachée à l'établissement, puis la régionale de la région, puis la distance", () => {
+    const rattachee = { ...site("MC", [-8.01, 31.65]), level: "city" as const, region: "Marrakech-Safi", hospitalId: "H4" };
+    const regionale = { ...site("MR", [-8.0, 31.64]), level: "regional" as const, region: "Marrakech-Safi" };
+    const autreVille = { ...site("MV", [-8.02, 31.66]), level: "city" as const, region: "Marrakech-Safi" };
+    const loin = { ...site("ML", [-6.85, 33.97]), level: "regional" as const, region: "Rabat-Salé-Kénitra" };
+    const mobileRepliee = { ...site("MM", [-8.0, 31.6]), kind: "mobile" as const, deployment: null };
+    const depuisH4: [number, number] = [-8.0136, 31.6465];
+    const ordre = nearestSites(depuisH4, [loin, autreVille, regionale, mobileRepliee, rattachee], [], { hospitalId: "H4", region: "Marrakech-Safi" });
+    expect(ordre.map((x) => x.site.id)).toEqual(["MC", "MR", "MV", "ML"]);
+    expect(ordre[0].attached).toBe(true);
+    expect(levelOf(rattachee)).toBe("city");
+    expect(levelOf(mobileRepliee)).toBe("mobile");
+    expect(sortSites([autreVille, loin, regionale]).map((s) => s.id)).toEqual(["MR", "MV", "ML"]);
+    expect(sitesOfHospital("H4", [rattachee, regionale, autreVille]).map((s) => s.id)).toEqual(["MC"]);
   });
 
   it("montre d'abord les réceptions en attente, puis les non identifiés, les restitués en dernier", () => {

@@ -1027,7 +1027,8 @@ export interface paths {
         /** Sites mortuaires */
         get: operations["ResourcesController_morgues"];
         put?: never;
-        post?: never;
+        /** Créer un site mortuaire fixe — de ville ou régional, rattaché à un établissement */
+        post: operations["ResourcesController_createMorgue"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2726,6 +2727,31 @@ export interface components {
             /** @enum {string} */
             sex?: "m" | "f" | "unknown";
             ageRange?: string;
+        };
+        CreateMorgueDto: {
+            /** @example Chambre mortuaire — Hôpital Militaire Moulay Ismaïl */
+            nom: string;
+            /**
+             * @description regional = institut médico-légal de la région ; city = morgue de ville
+             * @enum {string}
+             */
+            level: "regional" | "city";
+            /** @example Fès-Meknès */
+            region: string;
+            /** @example Meknès */
+            province?: string;
+            /** @example Meknès */
+            ville: string;
+            /**
+             * @description Établissement de rattachement
+             * @example H3
+             */
+            hospitalId?: string;
+            /** @description Emplacements réfrigérés */
+            capacity: number;
+            staff?: number;
+            /** @description [longitude, latitude] ; absent, celle de l'établissement */
+            ll?: number[];
         };
         DeployMobileMorgueDto: {
             /**
@@ -4535,6 +4561,27 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_createMorgue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMorgueDto"];
+            };
+        };
+        responses: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -414,6 +414,9 @@ export interface ModulesDict {
     detail: string; custody_none: string; by: string; pending_badge: string; map: string; open_site: string;
     h_death: string; h_death_title: string; h_hint: string; h_to: string; h_identity: string; h_identity_ph: string; h_incident: string; h_note: string; h_declared: string; h_pending: string; h_none: string;
     err_denied: string; err_conflict: string;
+    level_regional: string; level_city: string; level_mobile: string; filter_level_all: string; filter_region_all: string; region_none: string; no_site: string;
+    attached: string; attached_short: string; not_attached: string; hosp_block: string; hosp_none: string; hosp_nearest: string; open_service: string;
+    add: string; add_btn: string; add_title: string; a_name: string; a_name_ph: string; a_level: string; a_level_hint: string; a_hospital: string; a_hospital_none: string; a_hospital_hint: string; added: string;
     custody: Record<"recovered" | "hospital" | "transferred" | "received" | "released", string>;
   };
   roles: Record<

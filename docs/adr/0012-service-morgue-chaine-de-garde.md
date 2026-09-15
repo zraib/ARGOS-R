@@ -2,6 +2,9 @@
 
 - **Statut :** accepté
 - **Date :** 2026-09-15
+- **Révisé le 2026-09-15 :** la morgue suit la logique des hôpitaux — un
+  échelon (régionale / de ville), une région, un établissement de
+  rattachement ; création d'un site comme d'un hôpital.
 - **Portée :** `apps/api` : `domain.types.ts` (sites, chaîne de garde),
   `morgue.rules.ts`, `domain.service.ts`, routes `morgues/registry`,
   `morgues/mobile`, `morgues/:id/recall`, `morgues/:id/records/:rid/{receive,transfer}`,
@@ -45,18 +48,34 @@ restitué qui ne bouge plus.
 3. **Un transfert entre sites** (`transfer`) est le même mécanisme dans
    l'autre sens : réception à confirmer par la destination, capacité et
    ouverture de la destination vérifiées, dossier restitué intransférable.
-4. **Les morgues mobiles sont des sites** (`kind: "mobile"`, `deployment`) :
+4. **La morgue suit la logique des hôpitaux.** Un site fixe porte un
+   **échelon** — *régionale* (l'institut médico-légal de la région, grand et
+   équipé) ou *de ville* (la chambre mortuaire d'un établissement) —, une
+   **région**, une province, et l'**établissement de rattachement**
+   (`hospitalId`) dont il prend la position et dont le responsable connaît
+   « sa » morgue. Un site se **crée comme un hôpital** (`POST morgues` :
+   cascade région → province → ville, échelon, établissement, capacité),
+   les sites de départ couvrent les grandes régions (Rabat, Casablanca,
+   Marrakech, Meknès, Agadir), et les instantanés antérieurs sont complétés
+   (échelon, région, rattachement, sites régionaux apparus). La région d'un
+   site — pour la visibilité et les alertes — se lit comme celle d'un
+   hôpital : la sienne, sinon sa ville, sinon sa position. Le service se lit
+   **par région**, filtré par échelon ; sur la fiche Hospinet d'un
+   établissement, sa morgue rattachée (places libres) ou, à défaut, le site
+   indiqué de sa région ; un décès en établissement est adressé **à sa
+   propre morgue d'abord, puis à la régionale, puis à la plus proche**.
+5. **Les morgues mobiles sont des sites** (`kind: "mobile"`, `deployment`) :
    déployées par le service (`POST morgues/mobile` — position d'un incident
    ou d'une ville, capacité réfrigérée, effectif), visibles sur la carte en
    ambre, repliées (`recall`) seulement vides. Une référence suit `code-année-numéro`
    (`RBT-2026-012`, `MM1-2026-003`), attribuée par le site si l'admission
    n'en apporte pas.
-5. **Le registre du service** (`GET morgues/registry`, par incident au
+6. **Le registre du service** (`GET morgues/registry`, par incident au
    besoin) est en lecture pour qui détient `morgue:view` — matrice élargie au
    stratégique, au wali, à la place d'armes et au responsable d'hôpital (il
    doit voir où adresser un décès) ; toute écriture reste cantonnée au site
    (`@RequireScope("morgue")`) ou à l'établissement (`hospital`).
-6. **Un seul écran de service** (`/morgue`) : sites fixes et mobiles avec
+7. **Un seul écran de service** (`/morgue`) : sites fixes et mobiles avec
    leurs places, réceptions en attente, non identifiés, registre filtrable
    (site, incident, réceptions à confirmer, recherche), fiche avec la chaîne
    de garde, actions « Réceptionner » et « Transférer », déploiement et repli

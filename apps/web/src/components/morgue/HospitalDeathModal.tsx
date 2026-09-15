@@ -24,7 +24,8 @@ export function HospitalDeathModal({
   const m = useModules();
   const showToast = useArgos((s) => s.showToast);
   const incidents = useArgos((s) => s.incidents);
-  const choix = nearestSites(hospital.ll, sites, records);
+  // La chambre mortuaire de l'établissement d'abord, puis la régionale, puis le plus proche.
+  const choix = nearestSites(hospital.ll, sites, records, { hospitalId: hospital.id, region: hospital.region });
   const [mid, setMid] = useState(choix.find((c) => c.free > 0)?.site.id ?? choix[0]?.site.id ?? "");
   const [identifiedAs, setIdentifiedAs] = useState("");
   const [sex, setSex] = useState<"m" | "f" | "unknown">("unknown");
@@ -68,9 +69,9 @@ export function HospitalDeathModal({
           <div className="sm:col-span-2">
             <label className={labelCls}>{m.morgue.h_to}</label>
             <select className="input-champ text-base md:text-sm" value={mid} onChange={(e) => setMid(e.target.value)}>
-              {choix.map(({ site, km, free }) => (
+              {choix.map(({ site, km, free, attached }) => (
                 <option key={site.id} value={site.id} disabled={free <= 0}>
-                  {site.nom} · {km !== null ? `${Math.round(km)} km · ` : ""}{free} {m.morgue.t_free}
+                  {attached ? `★ ${m.morgue.attached_short} · ` : ""}{site.nom} · {km !== null ? `${Math.round(km)} km · ` : ""}{free} {m.morgue.t_free}
                 </option>
               ))}
             </select>

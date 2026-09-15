@@ -9,7 +9,7 @@
 
 import { Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from "@nestjs/swagger";
-import { AdmitBodyDto, CreateEquipDto, CreateUnitDto, DeployMobileMorgueDto, TransferBodyDto, UpdateEquipDto, UpdateMorgueDto, UpdateMortuaryRecordDto, CreateShelterDto, UpdateShelterDto, UpdateUnitDto } from "@/modules/domain/dto";
+import { AdmitBodyDto, CreateEquipDto, CreateMorgueDto, CreateUnitDto, DeployMobileMorgueDto, TransferBodyDto, UpdateEquipDto, UpdateMorgueDto, UpdateMortuaryRecordDto, CreateShelterDto, UpdateShelterDto, UpdateUnitDto } from "@/modules/domain/dto";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import { RequireScope } from "@/common/decorators/require-scope.decorator";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
@@ -188,6 +188,15 @@ export class ResourcesController {
   @ApiQuery({ name: "incidentId", required: false })
   mortuaryRegistry(@Query("incidentId") incidentId?: string) {
     return this.domain.listMortuaryRegistry(incidentId || undefined);
+  }
+
+  @Post("morgues")
+  @RequirePermission("morgue:create")
+  @ApiOperation({ summary: "Créer un site mortuaire fixe — de ville ou régional, rattaché à un établissement" })
+  createMorgue(@Body() dto: CreateMorgueDto) {
+    const res = this.domain.createMorgue(dto);
+    if (res.error) throw new NotFoundException(res.error);
+    return res.site;
   }
 
   @Post("morgues/mobile")

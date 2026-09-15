@@ -60,7 +60,8 @@ export function applyMorgues(map: maplibregl.Map | null, morgues: readonly Morgu
           .map((m) => ({
             type: "Feature",
             geometry: { type: "Point", coordinates: m.ll },
-            properties: { id: m.id, label: m.nom, color: m.kind === "mobile" ? "#d97706" : "#475569" },
+            // Ambre : mobile ; ardoise foncée : régionale ; ardoise claire : de ville.
+            properties: { id: m.id, label: m.nom, color: m.kind === "mobile" ? "#d97706" : m.level === "regional" ? "#334155" : "#64748b" },
           }))
       : [],
   });

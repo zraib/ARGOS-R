@@ -20,7 +20,7 @@ export function TransferModal({
   const m = useModules();
   const showToast = useArgos((s) => s.showToast);
   const origine = sites.find((s) => s.id === record.mid);
-  const choix = nearestSites(origine?.ll, sites, records).filter((x) => x.site.id !== record.mid);
+  const choix = nearestSites(origine?.ll, sites, records, { region: origine?.region }).filter((x) => x.site.id !== record.mid);
   const [toMid, setToMid] = useState(choix[0]?.site.id ?? "");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);

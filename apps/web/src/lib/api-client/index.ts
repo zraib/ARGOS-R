@@ -43,6 +43,7 @@ export type UpdateMorgueBody = Json<NonNullable<paths["/api/morgues/{id}"]["patc
 export type AdmitBodyBody = Json<NonNullable<paths["/api/morgues/{id}/records"]["post"]["requestBody"]>>;
 export type UpdateRecordBody = Json<NonNullable<paths["/api/morgues/{id}/records/{rid}"]["patch"]["requestBody"]>>;
 export type DeployMobileMorgueBody = Json<NonNullable<paths["/api/morgues/mobile"]["post"]["requestBody"]>>;
+export type CreateMorgueBody = Json<NonNullable<paths["/api/morgues"]["post"]["requestBody"]>>;
 export type TransferBodyBody = Json<NonNullable<paths["/api/morgues/{id}/records/{rid}/transfer"]["post"]["requestBody"]>>;
 export type HospitalDeathBody = Json<NonNullable<paths["/api/hospitals/{id}/deceased"]["post"]["requestBody"]>>;
 export type CreateEquipBody = Json<NonNullable<paths["/api/equipment-parks/{id}/items"]["post"]["requestBody"]>>;
@@ -260,6 +261,7 @@ export function createArgosClient(opts: ArgosClientOptions) {
     // Service morgue : registre de tous les sites, morgues mobiles, chaîne de garde.
     getMortuaryRegistry: (incidentId?: string) =>
       client.GET("/api/morgues/registry", { params: { query: incidentId ? { incidentId } : {} } }),
+    createMorgue: (body: CreateMorgueBody) => client.POST("/api/morgues", { body }),
     deployMobileMorgue: (body: DeployMobileMorgueBody) => client.POST("/api/morgues/mobile", { body }),
     recallMorgue: (id: string) => client.POST("/api/morgues/{id}/recall", { params: { path: { id } } }),
     receiveBody: (id: string, rid: string) => client.POST("/api/morgues/{id}/records/{rid}/receive", { params: { path: { id, rid } } }),

@@ -223,6 +223,16 @@ export interface MorgueSite {
   statut: "op" | "partial" | "closed";
   /** Fixe (institut, chambre mortuaire) ou mobile (conteneur réfrigéré déployable) ; absent = fixe. */
   kind?: "fixed" | "mobile";
+  /**
+   * Échelon d'un site fixe — la morgue suit la logique des hôpitaux : une
+   * morgue **de ville** (chambre mortuaire d'un établissement) ou une morgue
+   * **régionale** (institut médico-légal, plus grande et mieux équipée).
+   */
+  level?: "regional" | "city";
+  region?: string;
+  province?: string;
+  /** L'établissement de santé auquel la morgue est rattachée. */
+  hospitalId?: string;
   /** Code court des références (« RBT-2026-012 »). */
   code?: string;
   ll?: [number, number];

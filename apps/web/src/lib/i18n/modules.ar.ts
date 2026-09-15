@@ -82,7 +82,7 @@ export const AR_MODULES: ModulesDict = {
   },
   morgue: {
     title: "مصلحة المشرحة", subtitle: "المواقع الجنائزية، المشارح المتنقلة وسجل الجثامين — تتبع من المستشفى إلى الموقع", refresh: "تحديث",
-    sites: "المواقع", sites_sub: "ثابتة + متنقلة", site_fixed: "موقع ثابت", site_mobile: "مشرحة متنقلة", places_free: "الأماكن الشاغرة", present: "الجثامين الحاضرة", pending: "استلامات معلقة", pending_short: "للاستلام", unidentified: "غير محددي الهوية",
+    sites: "المواقع", sites_sub: "جهوية + مدينة + متنقلة", site_fixed: "موقع ثابت", site_mobile: "مشرحة متنقلة", places_free: "الأماكن الشاغرة", present: "الجثامين الحاضرة", pending: "استلامات معلقة", pending_short: "للاستلام", unidentified: "غير محددي الهوية",
     deploy: "نشر مشرحة متنقلة", deploy_btn: "نشر", deploy_hint: "حاوية مبردة تُنصب في الميدان — عند موقع الحادث، حتى لا تنتظر الجثامين ويبقى كل تحرك موثقًا.", d_name: "تسمية الوحدة", d_name_ph: "مثال: مشرحة متنقلة رقم 2 — حاوية 40 قدمًا", d_capacity: "أماكن مبردة", d_staff: "الطاقم المخصص", d_site: "موقع النشر", d_site_ph: "مثال: الملعب البلدي أمزميز",
     d_incident: "الحادث المخدوم", d_incident_none: "— لا شيء —", d_city: "الموضع: أقرب مدينة", d_position_incident: "الموضع: مكان الحادث.", d_err: "أدخل التسمية والموقع وموضعًا.", deployed: "نُشرت المشرحة المتنقلة.",
     recall: "سحب", recalled: "سُحبت الوحدة.", recall_confirm: "سحب هذه المشرحة المتنقلة؟ يجب أن تكون خالية من أي جثمان.",
@@ -93,6 +93,9 @@ export const AR_MODULES: ModulesDict = {
     detail: "سلسلة الحيازة", custody_none: "ملف سابق لسجل الحيازة — أُدخل في", by: "بواسطة", pending_badge: "استلام يُؤكَّد", map: "عرض على الخريطة", open_site: "إدارة موقعي",
     h_death: "التصريح بوفاة", h_death_title: "وفاة في المؤسسة — نقل إلى موقع جنائزي", h_hint: "يُنقل الجثمان إلى الموقع المختار (الأقرب أولًا، مع أماكنه الشاغرة)؛ ويُؤكَّد استلامه هناك. كل خطوة مؤرخة وموقعة.", h_to: "موقع الوجهة", h_identity: "هوية المريض", h_identity_ph: "الاسم واللقب — إن عُرفا", h_incident: "الحادث المرتبط", h_note: "الظروف، القسم", h_declared: "صُرّح بالوفاة — أُعلن النقل إلى", h_pending: "في انتظار الاستلام من", h_none: "لا نقل معلقًا من هذه المؤسسة.",
     err_denied: "رُفض الإجراء: خارج نطاقك.", err_conflict: "رفضه السجل:",
+    level_regional: "مشرحة جهوية", level_city: "مشرحة المدينة", level_mobile: "مشرحة متنقلة", filter_level_all: "كل المستويات", filter_region_all: "كل الجهات", region_none: "بدون جهة", no_site: "لا موقع مطابقًا.",
+    attached: "تابعة لـ", attached_short: "تابعة", not_attached: "موقع ظرفي — بلا مؤسسة تابعة لها", hosp_block: "مشرحة المؤسسة", hosp_none: "لا مشرحة تابعة لهذه المؤسسة", hosp_nearest: "الموقع المقترح:", open_service: "فتح مصلحة المشرحة",
+    add: "إضافة موقع جنائزي", add_btn: "إنشاء الموقع", add_title: "موقع جنائزي جديد", a_name: "تسمية الموقع", a_name_ph: "مثال: غرفة الموتى — المستشفى العسكري مولاي إسماعيل", a_level: "المستوى", a_level_hint: "جهوية: معهد الطب الشرعي للجهة، كبير ومجهز. المدينة: غرفة موتى مؤسسة.", a_hospital: "المؤسسة التابعة لها", a_hospital_none: "— لا شيء (موقع ظرفي) —", a_hospital_hint: "تتبع المشرحة منطق مستشفاها: موضعه وجهته ومسؤوله.", added: "أُنشئ الموقع الجنائزي.",
     custody: { recovered: "انتُشل في الميدان", hospital: "وفاة في المؤسسة", transferred: "نقل", received: "تأكيد الاستلام", released: "تسليم" },
   },
   roles: { superadmin: "المدير الأعلى", admin: "المدير", strategic: "المستخدم الاستراتيجي", place_arme: "ساحة السلاح", wali: "الوالي / العامل", opcom: "أوبكوم OPCOM", tacom: "تاكوم TACOM", bluecell: "الخلية الزرقاء — العمليات", greencell: "الخلية الخضراء — اللوجستيك", orangecell: "الخلية البرتقالية — الأمن", resp_hospital: "مسؤول المستشفى", resp_shelter: "مسؤول الملجأ", resp_morgue: "مسؤول المشرحة", resp_unit: "مسؤول الوحدة", resp_equipment: "مسؤول المعدات" },

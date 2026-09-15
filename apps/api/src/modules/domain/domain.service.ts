@@ -102,11 +102,20 @@ function canonicalizeRegion(inc: Incident): Incident {
   return fixed ? { ...inc, region: fixed } : inc;
 }
 
-/** Les sites mortuaires de départ — permanents, avec leur code de référence et leur position. */
+/**
+ * Les sites mortuaires de départ — la morgue suit la logique des hôpitaux :
+ * une morgue RÉGIONALE (institut médico-légal, grande, équipée) par grande
+ * région, des morgues DE VILLE (chambres mortuaires d'établissement), chacune
+ * rattachée à l'hôpital qui l'abrite.
+ */
 const MORGUE_SEEDS: readonly MorgueSite[] = [
-  { id: "M1", nom: "Institut médico-légal — HMI Mohammed V", ville: "Rabat", capacity: 60, staff: 18, statut: "op", kind: "fixed", code: "RBT", ll: [-6.8498, 33.9716] },
-  { id: "M2", nom: "Chambre mortuaire — HM Avicenne", ville: "Marrakech", capacity: 45, staff: 14, statut: "op", kind: "fixed", code: "MRK", ll: [-8.0136, 31.6465] },
-  { id: "M3", nom: "Site mortuaire de circonstance — Amizmiz", ville: "Amizmiz", capacity: 80, staff: 11, statut: "partial", kind: "fixed", code: "AMZ", ll: [-8.2417, 31.2186] },
+  { id: "M1", nom: "Institut médico-légal — HMI Mohammed V", ville: "Rabat", region: "Rabat-Salé-Kénitra", province: "Rabat", level: "regional", hospitalId: "H1", capacity: 60, staff: 18, statut: "op", kind: "fixed", code: "RBT", ll: [-6.8498, 33.9716] },
+  { id: "M2", nom: "Chambre mortuaire — HM Avicenne", ville: "Marrakech", region: "Marrakech-Safi", province: "Marrakech", level: "city", hospitalId: "H4", capacity: 45, staff: 14, statut: "op", kind: "fixed", code: "MRK", ll: [-8.0136, 31.6465] },
+  { id: "M3", nom: "Site mortuaire de circonstance — Amizmiz", ville: "Amizmiz", region: "Marrakech-Safi", province: "Al Haouz", level: "city", capacity: 80, staff: 11, statut: "partial", kind: "fixed", code: "AMZ", ll: [-8.2417, 31.2186] },
+  { id: "M4", nom: "Morgue régionale — HM Moulay Youssef", ville: "Casablanca", region: "Casablanca-Settat", province: "Casablanca", level: "regional", hospitalId: "H2", capacity: 90, staff: 22, statut: "op", kind: "fixed", code: "CAS", ll: [-7.6114, 33.5822] },
+  { id: "M5", nom: "Morgue régionale — HM Avicenne", ville: "Marrakech", region: "Marrakech-Safi", province: "Marrakech", level: "regional", hospitalId: "H4", capacity: 70, staff: 16, statut: "op", kind: "fixed", code: "MRR", ll: [-8.0102, 31.6438] },
+  { id: "M6", nom: "Chambre mortuaire — HM Moulay Ismaïl", ville: "Meknès", region: "Fès-Meknès", province: "Meknès", level: "city", hospitalId: "H3", capacity: 30, staff: 8, statut: "op", kind: "fixed", code: "MKN", ll: [-5.5473, 33.8935] },
+  { id: "M7", nom: "Morgue régionale — HM Ben Sergao", ville: "Agadir", region: "Souss-Massa", province: "Agadir Ida-Ou-Tanane", level: "regional", hospitalId: "H5", capacity: 50, staff: 12, statut: "op", kind: "fixed", code: "AGA", ll: [-9.5495, 30.3811] },
 ];
 
 @Injectable()
@@ -248,13 +257,22 @@ export class DomainService {
     if (sameSeed && snap.morgues) {
       this.morgues.splice(0, this.morgues.length, ...snap.morgues);
       // Les instantanés antérieurs au service morgue ignorent la nature, le
-      // code et la position des sites : on les complète depuis les graines.
+      // code, la position, l'échelon et le rattachement des sites : on les
+      // complète depuis les graines — et les sites de départ apparus depuis
+      // (morgues régionales) rejoignent la liste.
       for (const m of this.morgues) {
         const graine = MORGUE_SEEDS.find((g) => g.id === m.id);
         if (!graine) continue;
         m.kind ??= graine.kind;
         m.code ??= graine.code;
         m.ll ??= graine.ll;
+        m.level ??= graine.level;
+        m.region ??= graine.region;
+        m.province ??= graine.province;
+        m.hospitalId ??= graine.hospitalId;
+      }
+      for (const graine of MORGUE_SEEDS) {
+        if (!this.morgues.some((m) => m.id === graine.id)) this.morgues.push(structuredClone(graine));
       }
     }
     if (sameSeed && snap.mortuaryRecords) this.mortuaryRecords.splice(0, this.mortuaryRecords.length, ...snap.mortuaryRecords);
@@ -307,7 +325,7 @@ export class DomainService {
       }
       case "morgue": {
         const m = this.morgues.find((x) => x.id === id);
-        return m && cityRegion(m.ville);
+        return m && (m.region ?? cityRegion(m.ville) ?? (m.ll ? pointRegion(m.ll) : undefined));
       }
     }
   }
@@ -1033,6 +1051,37 @@ export class DomainService {
     rec.updatedAt = new Date().toISOString();
     this.persist();
     return { record: rec };
+  }
+
+  /** Un site mortuaire fixe de plus — de ville ou régional, rattaché à un établissement, à sa position. */
+  createMorgue(input: { nom: string; level: "regional" | "city"; region: string; province?: string; ville: string; hospitalId?: string; capacity: number; staff?: number; ll?: [number, number] }): { site?: MorgueSite; error?: string } {
+    const hospital = input.hospitalId ? this.hospitals.find((h) => h.id === input.hospitalId) : undefined;
+    if (input.hospitalId && !hospital) return { error: `Établissement introuvable : ${input.hospitalId}.` };
+    let n = this.morgues.filter((m) => m.kind !== "mobile").length + 1;
+    while (this.morgues.some((m) => m.id === `M${n}`)) n++;
+    // Le code des références : trois lettres de la ville, sans accents, uniques.
+    const base = input.ville.normalize("NFD").replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 3).padEnd(3, "X");
+    let code = base;
+    let k = 2;
+    while (this.morgues.some((m) => m.code === code)) code = `${base}${k++}`;
+    const m: MorgueSite = {
+      id: `M${n}`,
+      nom: input.nom.trim(),
+      ville: input.ville.trim(),
+      region: input.region.trim(),
+      province: input.province?.trim() || undefined,
+      level: input.level,
+      hospitalId: hospital?.id,
+      capacity: input.capacity,
+      staff: input.staff ?? 0,
+      statut: "op",
+      kind: "fixed",
+      code,
+      ll: input.ll ?? hospital?.ll,
+    };
+    this.morgues.push(m);
+    this.persist();
+    return { site: m };
   }
 
   /** Une morgue mobile part sur le terrain : un site de plus, à sa position, pour un incident. */

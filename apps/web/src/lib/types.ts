@@ -766,6 +766,8 @@ export interface FloodPolygon {
 
 // --- service morgue (miroir de l'API : sites, registre DVI, chaîne de garde) ---
 
+export type MorgueLevel = "regional" | "city";
+
 /** Site mortuaire (permanent ou de circonstance), ou morgue MOBILE déployée sur le terrain. */
 export interface MorgueSite {
   id: string;
@@ -777,6 +779,12 @@ export interface MorgueSite {
   statut: "op" | "partial" | "closed";
   /** Fixe ou mobile ; absent = fixe. */
   kind?: "fixed" | "mobile";
+  /** Échelon d'un site fixe : régional (institut médico-légal) ou de ville (chambre mortuaire d'un établissement). */
+  level?: MorgueLevel;
+  region?: string;
+  province?: string;
+  /** L'établissement de santé auquel la morgue est rattachée. */
+  hospitalId?: string;
   code?: string;
   ll?: [number, number];
   /** Morgue mobile : où elle est déployée, pour quel incident — `null` une fois repliée. */

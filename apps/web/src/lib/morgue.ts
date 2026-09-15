@@ -29,12 +29,42 @@ export function distanceKm(a: [number, number], b: [number, number]): number {
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
-/** Les sites ouverts, du plus proche au plus loin d'un point (les sites sans position en dernier), avec leurs places libres. */
-export function nearestSites(from: [number, number] | undefined, sites: readonly MorgueSite[], records: readonly MortuaryRecord[]): { site: MorgueSite; km: number | null; free: number }[] {
+/** L'échelon d'un site tel qu'il se lit : régional, de ville, ou mobile. */
+export type SiteLevel = "regional" | "city" | "mobile";
+export function levelOf(site: MorgueSite): SiteLevel {
+  if (site.kind === "mobile") return "mobile";
+  return site.level === "regional" ? "regional" : "city";
+}
+
+/** Les sites dans l'ordre de lecture : régionaux, puis de ville, puis mobiles ; par région puis par nom. */
+export function sortSites(sites: readonly MorgueSite[]): MorgueSite[] {
+  const rang: Record<SiteLevel, number> = { regional: 0, city: 1, mobile: 2 };
+  return [...sites].sort((a, b) => (a.region ?? "").localeCompare(b.region ?? "", "fr") || rang[levelOf(a)] - rang[levelOf(b)] || a.nom.localeCompare(b.nom, "fr"));
+}
+
+/**
+ * Les sites ouverts vers lesquels adresser un corps, dans l'ordre où la
+ * doctrine les préfère : d'abord la morgue rattachée à l'établissement,
+ * puis celles de la même région (la régionale avant les autres), puis les
+ * autres — chaque groupe du plus proche au plus loin (les sites sans
+ * position en dernier), avec leurs places libres.
+ */
+export function nearestSites(
+  from: [number, number] | undefined,
+  sites: readonly MorgueSite[],
+  records: readonly MortuaryRecord[],
+  prefer: { hospitalId?: string; region?: string } = {},
+): { site: MorgueSite; km: number | null; free: number; attached: boolean }[] {
+  const groupe = (s: MorgueSite) => (prefer.hospitalId && s.hospitalId === prefer.hospitalId ? 0 : prefer.region && s.region === prefer.region ? (levelOf(s) === "regional" ? 1 : 2) : 3);
   return sites
-    .filter((s) => s.statut !== "closed")
-    .map((site) => ({ site, km: from && site.ll ? distanceKm(from, site.ll) : null, free: freePlaces(site, records) }))
-    .sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity));
+    .filter((s) => s.statut !== "closed" && !(s.kind === "mobile" && !s.deployment))
+    .map((site) => ({ site, km: from && site.ll ? distanceKm(from, site.ll) : null, free: freePlaces(site, records), attached: !!prefer.hospitalId && site.hospitalId === prefer.hospitalId }))
+    .sort((a, b) => groupe(a.site) - groupe(b.site) || (a.km ?? Infinity) - (b.km ?? Infinity));
+}
+
+/** Les morgues rattachées à un établissement (sa chambre mortuaire, l'institut qu'il abrite). */
+export function sitesOfHospital(hospitalId: string, sites: readonly MorgueSite[]): MorgueSite[] {
+  return sortSites(sites.filter((s) => s.hospitalId === hospitalId && !(s.kind === "mobile" && !s.deployment)));
 }
 
 /** La dernière étape de la chaîne de garde d'un dossier, ou `null` pour un dossier antérieur au registre de garde. */

@@ -79,6 +79,19 @@ describe("décès en établissement, réception, transfert, morgue mobile", () =
     expect(d.recallMorgue(institut.id).error).toMatch(/mobile/);
   });
 
+  it("les sites suivent la logique des hôpitaux : un échelon, une région, un établissement de rattachement", () => {
+    const sites = d.listMorgues();
+    expect(sites.filter((m) => m.level === "regional").length).toBeGreaterThanOrEqual(3);
+    expect(sites.find((m) => m.id === "M2")).toMatchObject({ level: "city", hospitalId: "H4", region: "Marrakech-Safi" });
+    expect(d.regionOfEntity("morgue", "M3")).toBe("Marrakech-Safi");
+    const cree = d.createMorgue({ nom: "Chambre mortuaire — Hôpital Militaire Hassan II", level: "city", region: "Laâyoune-Sakia El Hamra", province: "Laâyoune", ville: "Laâyoune", hospitalId: "H6", capacity: 20 });
+    expect(cree.site).toMatchObject({ kind: "fixed", level: "city", hospitalId: "H6", statut: "op", code: "LAA" });
+    expect(cree.site?.ll).toEqual(d.listHospitals().find((h) => h.id === "H6")?.ll);
+    expect(d.regionOfEntity("morgue", cree.site!.id)).toBe("Laâyoune-Sakia El Hamra");
+    expect(d.createMorgue({ nom: "X", level: "city", region: "R", ville: "V", hospitalId: "H-inconnu", capacity: 5 }).error).toMatch(/introuvable/);
+    expect(d.nextReference(cree.site!)).toBe(`LAA-${new Date().getUTCFullYear()}-001`);
+  });
+
   it("un site plein ou fermé ne reçoit pas ; l'admission directe attribue sa référence et sa première garde", () => {
     const petite = d.deployMobileMorgue({ nom: "Cellule 2 places", capacity: 1, ll: [-8, 31], site: "Douar" }, "m.zraib");
     expect(d.declareHospitalDeath(hospital.id, { mid: petite.id }, "h.alami").error).toBeUndefined();

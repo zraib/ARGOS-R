@@ -769,6 +769,39 @@ export class AdmitBodyDto {
   samples?: (typeof DVI_SAMPLE_VALUES)[number][];
 }
 
+export const MORGUE_LEVELS = ["regional", "city"] as const;
+
+/** Création d'un site mortuaire fixe — de ville ou régional, rattaché à un établissement. */
+export class CreateMorgueDto {
+  @ApiProperty({ example: "Chambre mortuaire — Hôpital Militaire Moulay Ismaïl" })
+  @IsString() @MinLength(2) @MaxLength(120)
+  nom!: string;
+  @ApiProperty({ enum: MORGUE_LEVELS, description: "regional = institut médico-légal de la région ; city = morgue de ville" })
+  @IsIn(MORGUE_LEVELS as unknown as string[])
+  level!: (typeof MORGUE_LEVELS)[number];
+  @ApiProperty({ example: "Fès-Meknès" })
+  @IsString() @MinLength(1)
+  region!: string;
+  @ApiPropertyOptional({ example: "Meknès" })
+  @IsOptional() @IsString()
+  province?: string;
+  @ApiProperty({ example: "Meknès" })
+  @IsString() @MinLength(1)
+  ville!: string;
+  @ApiPropertyOptional({ example: "H3", description: "Établissement de rattachement" })
+  @IsOptional() @IsString()
+  hospitalId?: string;
+  @ApiProperty({ minimum: 1, description: "Emplacements réfrigérés" })
+  @IsInt() @Min(1)
+  capacity!: number;
+  @ApiPropertyOptional({ minimum: 0 })
+  @IsOptional() @IsInt() @Min(0)
+  staff?: number;
+  @ApiPropertyOptional({ type: [Number], minItems: 2, maxItems: 2, description: "[longitude, latitude] ; absent, celle de l'établissement" })
+  @IsOptional() @IsArray() @ArrayMinSize(2) @ArrayMaxSize(2) @IsNumber({}, { each: true })
+  ll?: [number, number];
+}
+
 /** Déploiement d'une morgue mobile (conteneur réfrigéré) sur le terrain. */
 export class DeployMobileMorgueDto {
   @ApiProperty({ example: "Morgue mobile n° 2 — conteneur 40 pieds", description: "Désignation de l'unité" })
