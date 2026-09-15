@@ -36,6 +36,7 @@ export interface Dict {
   cp_ctx_global: string; cp_ctx_trends: string; cp_ctx_sitrep: string; cp_ctx_hospitals: string;
   cp_ctx_seismic: string; cp_ctx_orsec: string; cp_ctx_toll: string; cp_ctx_posture: string;
   cp_ctx_detail: string; cp_ctx_cross: string; cp_ctx_unit: string; cp_ctx_hosp: string;
+  cp_pdf_export: string; cp_pdf_download: string; cp_pdf_generating: string; cp_pdf_failed: string;
   // --- suivi aérien (feux de forêt) ---
   acft_panel: string; acft_code: string; acft_code_ph: string; acft_label: string; acft_label_ph: string;
   acft_role: string; acft_track: string; acft_untrack: string; acft_empty: string; acft_no_signal: string;

@@ -1,10 +1,10 @@
 "use client";
 
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useCallback, useMemo } from "react";
 import { Icon } from "@/components/ui/Icon";
-import { NAV_ICONS } from "@/lib/icons";
+import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
 import { Pill } from "@/components/ui/Pill";
-import { useDict, type AiMessage, useModules } from "@/lib/store";
+import { useDict, type AiMessage, useModules, useArgos } from "@/lib/store";
 import type { Incident } from "@/lib/types";
 import { StatsGrid } from "./blocks/StatsGrid";
 import { IncidentsBlock } from "./blocks/IncidentsBlock";
@@ -16,9 +16,24 @@ import { CrossBlock } from "./blocks/CrossBlock";
 import { MapAction } from "./blocks/MapAction";
 import { SuggestionChips } from "./blocks/SuggestionChips";
 import type { MapFocusAction } from "./mapFocus";
+import {
+  buildPdfReport,
+  isReportableMessage,
+  triggerDownloadPdf,
+} from "@/lib/ai/copilot/pdf";
 
 // Le rendu Markdown (marked + sanitisation) n'est chargé qu'avec le premier message.
 const CopilotMarkdown = lazy(() => import("@/components/shell/CopilotMarkdown"));
+
+function findPreviousUserMessage(currentId: string): AiMessage | undefined {
+  const log = useArgos.getState().aiLog;
+  let i = log.findIndex(m => m.id === currentId);
+  while (i > 0) {
+    i--;
+    if (log[i].role === "user") return log[i];
+  }
+  return undefined;
+}
 
 /** Un message du fil : bulle de l'opérateur, ou réponse avec ses blocs structurés. */
 export function CopilotMessage({
@@ -36,6 +51,43 @@ export function CopilotMessage({
 }) {
   const t = useDict();
   const m = useModules();
+  const showToast = useArgos(s => s.showToast);
+  const sessionUser = useArgos(s => s.sessionUser);
+  const canExport = useMemo(() => isReportableMessage(msg), [msg]);
+
+  const onExportPdf = useCallback(() => {
+    if (!canExport) return;
+    const userMsg = findPreviousUserMessage(msg.id);
+    try {
+      showToast(t.cp_pdf_generating);
+      // —— Debug anti « ?? » : loggue les premiers codepoints du markdown si
+      //    on voit des caractères de contrôle en début de texte.
+      if (process.env.NODE_ENV !== "production") {
+        const prefix = (msg.text ?? "").slice(0, 10);
+        const cps = [...prefix].map(c => {
+          const n = c.codePointAt(0) ?? 0;
+          return `U+${n.toString(16).toUpperCase().padStart(4, "0")}`;
+        });
+        console.debug("[PDF Export] premiers caractères msg.text :", cps, "→", JSON.stringify(prefix));
+        if (userMsg?.text) {
+          const cp2 = [...userMsg.text.slice(0, 10)].map(c => {
+            const n = c.codePointAt(0) ?? 0;
+            return `U+${n.toString(16).toUpperCase().padStart(4, "0")}`;
+          });
+          console.debug("[PDF Export] premiers caractères requête user :", cp2);
+        }
+      }
+      const report = buildPdfReport(msg, userMsg?.text, {
+        operatorName: sessionUser?.nom ?? "Poste de commandement",
+      });
+      triggerDownloadPdf(report);
+      showToast(t.cp_pdf_download);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : "erreur inattendue";
+      showToast(`${t.cp_pdf_failed} : ${detail}`);
+    }
+  }, [canExport, msg, t, showToast, sessionUser]);
+
   if (msg.role === "user") {
     return (
       <div className="flex justify-end">
@@ -58,6 +110,17 @@ export function CopilotMessage({
         )}
         {msg.deterministic && (
           <Pill tone="amber" label={t.cp_data_only} size="sm" />
+        )}
+        {canExport && (
+          <button
+            type="button"
+            onClick={onExportPdf}
+            title={t.cp_pdf_export}
+            className="ml-1 inline-flex h-6 items-center gap-1 rounded-md border border-gray-200 bg-white px-2 text-[10px] font-medium text-gray-600 shadow-sm transition hover:border-or-500/60 hover:bg-or-500/5 hover:text-or-600 dark:border-rdia-700/60 dark:bg-rdia-800/70 dark:text-rdia-300 dark:hover:border-or-500/60 dark:hover:bg-or-500/10 dark:hover:text-or-300"
+          >
+            <Icon path={UI_ICONS.download} size={11} />
+            {t.cp_pdf_export}
+          </button>
         )}
         <span className="ms-auto font-mono text-[10px] text-gray-300 dark:text-rdia-500">{msg.at}</span>
         {msg.refused && <Pill tone="red" label={t.cp_refused} size="sm" />}
