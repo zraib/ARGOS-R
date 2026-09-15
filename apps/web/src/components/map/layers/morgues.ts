@@ -2,9 +2,13 @@
 // components/map/layers/morgues.ts — les sites mortuaires sur la carte
 //
 // Un point par site : ardoise pour un site fixe, ambre pour une morgue mobile
-// déployée (un site repliée ne se montre pas), avec son nom dès que la carte
-// est assez proche. Un clic ouvre sa fiche dans le panneau de sélection.
-// Idempotent : `setupStyle` rejoue tout après un changement de fond.
+// déployée (un site repliée ne se montre pas), rouge sombre quand il est
+// plein ; son nom apparaît au survol. Un clic ouvre sa fiche dans le panneau
+// de sélection. Pas de couche « symbol » pour le nom : le style de la carte
+// n'a pas de serveur de glyphes (ni en fond externe, ni sans les polices du
+// mode souverain) et MapLibre rejetterait la couche — une infobulle DOM
+// suffit et marche partout. Idempotent : `setupStyle` rejoue tout après un
+// changement de fond.
 // ============================================================================
 
 import maplibregl from "maplibre-gl";
@@ -28,19 +32,18 @@ export function setupMorgueLayers(map: maplibregl.Map): void {
     source: "morgues",
     paint: { "circle-radius": 7, "circle-color": ["get", "color"], "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 },
   });
-  map.addLayer({
-    id: "morgues-label",
-    type: "symbol",
-    source: "morgues",
-    minzoom: 8,
-    layout: { "text-field": ["get", "label"], "text-size": 11, "text-offset": [0, 1.4], "text-anchor": "top", "text-font": ["Noto Sans Bold"] },
-    paint: { "text-color": "#ffffff", "text-halo-color": "#1f2937", "text-halo-width": 1.4 },
-  });
-  map.on("mouseenter", "morgues-circle", () => {
+  const bulle = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 12, className: "morgue-bulle" });
+  map.on("mouseenter", "morgues-circle", (e) => {
     map.getCanvas().style.cursor = "pointer";
+    const f = e.features?.[0];
+    const label = f?.properties?.label;
+    const geom = f?.geometry;
+    if (typeof label !== "string" || geom?.type !== "Point") return;
+    bulle.setLngLat(geom.coordinates as [number, number]).setText(label).addTo(map);
   });
   map.on("mouseleave", "morgues-circle", () => {
     map.getCanvas().style.cursor = "";
+    bulle.remove();
   });
   map.on("click", "morgues-circle", (e) => {
     const id = e.features?.[0]?.properties?.id;
