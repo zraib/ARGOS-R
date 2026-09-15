@@ -15,6 +15,15 @@ export class RateWindow {
     private readonly windowMs: number,
   ) {}
 
+  /**
+   * Dit si `key` a épuisé sa borne, SANS rien enregistrer. Sert quand seuls
+   * certains passages comptent (les échecs de connexion, pas les réussites) :
+   * on regarde avant, on enregistre après, selon l'issue.
+   */
+  exhausted(key: string, now = Date.now()): boolean {
+    return (this.passages.get(key) ?? []).filter((t) => now - t < this.windowMs).length >= this.limit;
+  }
+
   /** Enregistre un passage pour `key` et dit s'il reste dans la borne. */
   allow(key: string, now = Date.now()): boolean {
     const recents = (this.passages.get(key) ?? []).filter((t) => now - t < this.windowMs);

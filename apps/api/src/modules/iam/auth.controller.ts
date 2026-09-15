@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, HttpCode, Ip, Patch, Post, UnauthorizedException } from "@nestjs/common";
+import { Body, Controller, ForbiddenException, Get, HttpCode, HttpException, HttpStatus, Ip, Patch, Post, UnauthorizedException } from "@nestjs/common";
 import { SelfService } from "@/common/decorators/self-service.decorator";
 import { ConfigService } from "@nestjs/config";
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
@@ -25,6 +25,18 @@ export class AuthController {
    */
   private readonly resetByAccount = new RateWindow(1, 60_000);
   private readonly resetByAddress = new RateWindow(20, 10 * 60_000);
+  /**
+   * Échecs de connexion : dix par compte et par quart d'heure, trois cents par
+   * adresse. Seuls les ÉCHECS comptent — un opérateur qui se connecte dix fois
+   * dans la journée n'est pas concerné. La station peut être exposée le temps
+   * d'une démonstration (deploy/README.md § 10, ADR 0013) : la route de
+   * connexion est alors la seule porte publique, et un mot de passe ne se
+   * devine pas à la vitesse du réseau. Derrière le proxy de la station toutes
+   * les requêtes portent la même adresse : la borne par adresse est large et
+   * n'est qu'un frein global ; celle par compte fait le travail.
+   */
+  private readonly loginByAccount = new RateWindow(10, 15 * 60_000);
+  private readonly loginByAddress = new RateWindow(300, 15 * 60_000);
 
   constructor(
     private readonly config: ConfigService<AppConfig, true>,
@@ -67,9 +79,20 @@ export class AuthController {
   @Public()
   @Post("login")
   @ApiOperation({ summary: "Connexion d'un compte géré (matricule + code/mot de passe)" })
-  async login(@Body() dto: LoginDto) {
+  @ApiResponse({ status: 201, description: "Jeton de session, rôle actif, entités affectées et état du cycle de vie du compte." })
+  @ApiResponse({ status: 429, description: "Trop d'échecs récents pour ce compte ou cette adresse — réessayer plus tard." })
+  async login(@Body() dto: LoginDto, @Ip() ip: string) {
+    const key = dto.matricule.trim().toLowerCase();
+    const addr = ip ?? "?";
+    if (this.loginByAccount.exhausted(key) || this.loginByAddress.exhausted(addr)) {
+      throw new HttpException("Trop de tentatives — réessayez dans quelques minutes.", HttpStatus.TOO_MANY_REQUESTS);
+    }
     const res = this.users.authenticate(dto.matricule, dto.password);
-    if (!res) throw new UnauthorizedException("Matricule ou mot de passe incorrect.");
+    if (!res) {
+      this.loginByAccount.allow(key);
+      this.loginByAddress.allow(addr);
+      throw new UnauthorizedException("Matricule ou mot de passe incorrect.");
+    }
     const activeRole = res.user.roles[0];
     const token = await this.signDevToken(res.user.matricule, activeRole);
     return {

@@ -11,6 +11,11 @@
 #   docker compose up -d --build
 #   http://localhost            (ou http://<nom-ou-IP-de-la-station>)
 #
+# Images de l'application : `iris-web`, `iris-api`, `iris-tiles-tools`, étiquette
+# IRIS_TAG (défaut `latest`). Construites ici (`--build`) ou chargées depuis le
+# paquet d'installation (scripts/package.sh côté développeur, scripts/install.ps1
+# côté station) — dans ce cas la station n'a besoin ni d'Internet ni de compiler.
+#
 # Les données vivent dans des volumes nommés (db_data, api_data, valhalla_data,
 # argos_tiles) : `docker compose down` les conserve ; `down -v` les détruit.
 # Voir README.md pour la station Windows et scripts/ pour la sauvegarde.
@@ -56,7 +61,7 @@ services:
         NEXT_PUBLIC_ROUTING_ENGINE: valhalla
         NEXT_PUBLIC_ROUTING_URL: /routing
         NEXT_PUBLIC_LLM_URL: /llm
-    image: iris-web:latest
+    image: iris-web:${IRIS_TAG:-latest}
     expose: ["3004"]
     restart: unless-stopped
 
@@ -65,7 +70,7 @@ services:
     build:
       context: ../apps/api
       dockerfile: Dockerfile
-    image: iris-api:latest
+    image: iris-api:${IRIS_TAG:-latest}
     environment:
       NODE_ENV: production
       PORT: "3005"
@@ -190,7 +195,7 @@ services:
     build:
       context: ../infra/geo/tools
       dockerfile: Dockerfile
-    image: iris-tiles-tools:latest
+    image: iris-tiles-tools:${IRIS_TAG:-latest}
     # Imagerie et altitude : téléchargeur XYZ → MBTiles, piloté par
     # ../infra/geo/zones.json (voir README). Exemple :
     #   docker compose run --rm tiles-fetch dem

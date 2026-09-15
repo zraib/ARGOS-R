@@ -3343,7 +3343,15 @@ export interface operations {
             };
         };
         responses: {
+            /** @description Jeton de session, rôle actif, entités affectées et état du cycle de vie du compte. */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trop d'échecs récents pour ce compte ou cette adresse — réessayer plus tard. */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

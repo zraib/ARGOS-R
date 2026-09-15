@@ -106,7 +106,10 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "Jeton de session, rôle actif, entités affectées et état du cycle de vie du compte."
+          },
+          "429": {
+            "description": "Trop d'échecs récents pour ce compte ou cette adresse — réessayer plus tard."
           }
         },
         "summary": "Connexion d'un compte géré (matricule + code/mot de passe)",

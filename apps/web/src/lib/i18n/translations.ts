@@ -261,6 +261,8 @@ export interface Dict {
   lg_toast: string;
   lg_badpass: string; lg_fill: string;
   lg_api_down: string;
+  /** 429 sur la connexion : trop d'échecs récents sur ce compte. */
+  lg_too_many: string;
   lg_role_demo: string;
   logout: string;
   add_unit: string;

@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 # ARGOS / IRIS — restauration d'une sauvegarde (PowerShell, Docker Desktop)
 # Usage :  .\scripts\restore.ps1 -Stamp 20260914-103000 [-Source D:\sauvegardes\iris]
 # ARRÊTE l'API le temps de remettre le volume, puis redémarre la pile.

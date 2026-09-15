@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 # ARGOS / IRIS — sauvegarde de la station (PowerShell, Docker Desktop)
 #
 # Deux choses à garder, parce que deux persistances :

@@ -22,6 +22,16 @@ describe("RateWindow — fenêtre glissante", () => {
     expect(w.allow("a", 1_000)).toBe(true);
   });
 
+  it("`exhausted` lit la fenêtre sans y inscrire de passage", () => {
+    const w = new RateWindow(2, 1_000);
+    expect(w.exhausted("a", 0)).toBe(false);
+    expect(w.allow("a", 0)).toBe(true);
+    expect(w.allow("a", 10)).toBe(true);
+    expect(w.exhausted("a", 20)).toBe(true);
+    // Lire n'a rien consommé ni prolongé : la fenêtre se libère à l'heure prévue.
+    expect(w.exhausted("a", 1_000)).toBe(false);
+  });
+
   it("un passage refusé ne prolonge pas le blocage", () => {
     const w = new RateWindow(1, 1_000);
     expect(w.allow("a", 0)).toBe(true);

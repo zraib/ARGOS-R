@@ -54,7 +54,8 @@ export function LoginScreen() {
     try {
       const res = await api.login({ matricule: u, password: p });
       if (res.error || !res.data) {
-        setError(t.lg_badpass);
+        // 429 : la borne des échecs de l'API (dix par compte et par quart d'heure) — dire d'attendre, pas « incorrect ».
+        setError(res.response?.status === 429 ? t.lg_too_many : t.lg_badpass);
         return;
       }
       const d = res.data as LoginResult;

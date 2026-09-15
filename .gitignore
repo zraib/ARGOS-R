@@ -45,6 +45,12 @@ graphify-out/
 # Déploiement (deploy/) : secrets et sauvegardes locales, jamais versionnés
 deploy/.env
 deploy/backups/
+# Paquet d'installation (scripts/package.sh) et ce qu'il dépose sur la station :
+# images Docker exportées, client tunnel, estampille de version
+deploy/dist/
+deploy/images/
+deploy/tools/
+deploy/VERSION
 # Tuiles souveraines : gigaoctets, et licences propres à l'organisme
 infra/geo/tiles/
 infra/geo/fonts/

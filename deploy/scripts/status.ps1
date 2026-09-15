@@ -1,4 +1,4 @@
-# ARGOS / IRIS — état de la station : services, santé, tuiles, volumes
+﻿# ARGOS / IRIS — état de la station : services, santé, tuiles, volumes
 $compose = Join-Path $PSScriptRoot "..\docker-compose.yml"
 docker compose -f $compose ps
 Write-Host "`nSanté de l'API :"

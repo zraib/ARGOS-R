@@ -49,6 +49,14 @@ mot de passe) est livré dans `infra/keycloak/argos-realm.json`.
 connexion → changement de mot de passe obligatoire → actif. Le Super
 Administrateur peut forcer l'activation ou régénérer le code.
 
+**Borne des échecs de connexion** (`POST /auth/login`, `RateWindow`) : dix
+échecs par compte et par quart d'heure, trois cents par adresse ; seuls les
+échecs comptent, et au-delà la réponse est `429` (« trop de tentatives »),
+pas `401` — l'appelant apprend qu'il doit attendre, pas si le mot de passe
+est faux. Derrière le proxy de la station toutes les requêtes portent la même
+adresse : la borne par compte fait le travail, celle par adresse n'est qu'un
+frein global. Verrouillé par `modules/iam/login-rate.spec.ts`.
+
 ### Mot de passe oublié
 
 Pas de messagerie sur un réseau isolé, donc ni e-mail ni lien secret. Le
@@ -294,6 +302,12 @@ Exigences du `MASTER_PLAN.md` §4.3 :
   la chaîne de garde porte le matricule qui acte chaque étape.
 - Les flux externes (EMSC, Open-Meteo) sont **proxifiés par l'API**, avec cache
   et dégradation gracieuse. Le navigateur ne contacte jamais une source tierce.
+- **Exposition temporaire par tunnel** (ADR 0013, `deploy/scripts/tunnel.ps1`) :
+  déviation assumée pour les **démonstrations seulement** — un relais tiers
+  (tunnelto.dev) voit le trafic en clair et tout Internet atteint l'écran de
+  connexion. Données fictives, tunnel fermé dès la fin, client épinglé par son
+  empreinte. L'API borne les échecs de connexion (dix par compte et par quart
+  d'heure → `429`), tunnel ou pas.
 - **Aucun secret dans le dépôt.** `.env.example` sert de gabarit ; le secret de
   développement (`AUTH_DEV_SECRET`) doit être remplacé en production.
 - Aucune nouvelle dépendance runtime sans [ADR](adr/README.md).

@@ -90,6 +90,12 @@ Docker Desktop s'appuie sur un petit Linux intégré à Windows, appelé WSL 2.
 
 ## 3. Installer Git et récupérer le code
 
+> **Vous avez reçu un paquet d'installation** (`iris-station-<version>.zip`,
+> environ 2 Go) ? Sautez cette étape et la suivante : décompressez-le dans
+> `C:\iris` (clic droit → *Extraire tout…*), puis passez directement au
+> **§ 5 bis**. Ni Git, ni Internet, ni compilation ne sont nécessaires.
+
+
 1. Téléchargez **Git pour Windows** et installez-le avec les choix par défaut,
    **sauf** l'écran « Configuring the line ending conversions » : choisissez
    **« Checkout as-is, commit as-is »**. (Si vous l'avez manqué, tapez après
@@ -185,6 +191,37 @@ Depuis un autre poste du réseau, tapez l'adresse de la station
 dans PowerShell, ligne « Adresse IPv4 ». Si rien ne s'affiche, le pare-feu
 Windows bloque le port 80 : autorisez « Docker Desktop » pour les réseaux
 privés dans les réglages du pare-feu.
+
+---
+
+## 5 bis. Premier démarrage depuis le paquet d'installation
+
+Le paquet contient le code, toutes les images Docker déjà construites et les
+outils. Un seul script fait le travail des § 4 et § 5.
+
+1. Ouvrez PowerShell et allez dans le dossier de déploiement du paquet :
+
+   ```powershell
+   cd C:\iris\deploy
+   .\scripts\install.ps1
+   ```
+
+   Si PowerShell refuse (« l'exécution de scripts est désactivée »), tapez
+   une fois `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, répondez
+   `O`, puis relancez le script. Si le port 80 est déjà pris sur la machine,
+   lancez plutôt `.\scripts\install.ps1 -HttpPort 8080`.
+
+2. Le script affiche cinq étapes : Docker, chargement des images (quelques
+   minutes : l'archive fait plus d'un gigaoctet), réglages, démarrage, attente
+   de l'API. Il fabrique lui-même les deux secrets du § 4 dans `.env`.
+
+> **Vérifiez** — la dernière ligne indique « API en ligne » et l'adresse à
+> ouvrir (`http://localhost`, ou `http://localhost:8080`). Connectez-vous
+> comme au § 5, point 4, et changez le mot de passe du compte fondateur.
+
+Ce que le script ne fait pas : le fond de carte (§ 6), les comptes (§ 8). Pour
+une mise à jour, remplacez le dossier `deploy\images` par celui du nouveau
+paquet et relancez le script : votre `.env` et vos données sont conservés.
 
 ---
 
@@ -311,3 +348,37 @@ et de feu, eux, calculent sur le relief de la station.
 
 En dernier recours, `docker compose down` puis `docker compose up -d --build`
 remet tout d'aplomb sans toucher aux données.
+
+---
+
+## 12. Montrer la station à distance (démonstration uniquement)
+
+Pour une démonstration à des personnes qui ne sont pas sur le réseau de la
+station, un **tunnel** rend l'application joignable depuis Internet à une
+adresse `https://….tunnelto.dev`, sans rien ouvrir sur le pare-feu.
+
+> **Lisez d'abord** — le trafic passe par un service tiers (tunnelto.dev) qui
+> peut le lire. C'est acceptable pour une démonstration sur des données
+> fictives, jamais pour de vraies opérations. Pendant le tunnel, tout Internet
+> voit l'écran de connexion : utilisez des mots de passe forts, fermez le
+> tunnel dès la fin, changez ensuite les mots de passe utilisés.
+
+1. Créez un compte sur [tunnelto.dev](https://tunnelto.dev) et copiez la clé
+   API affichée dans son tableau de bord (une fois).
+2. La station tournant (§ 5), dans PowerShell :
+
+   ```powershell
+   cd C:\iris\deploy
+   .\scripts\tunnel.ps1 -Key <votre clé>
+   ```
+
+   La clé est mémorisée : les fois suivantes, `.\scripts\tunnel.ps1` suffit.
+   Le script vérifie que la station répond, affiche l'avertissement ci-dessus,
+   puis l'adresse publique (`https://xxxx.tunnelto.dev`) : donnez-la aux
+   participants. Avec un compte payant, `-Subdomain iris-demo` fixe le nom.
+
+3. À la fin, revenez dans la fenêtre PowerShell et appuyez sur **Ctrl+C** :
+   le tunnel se ferme, la station n'est plus joignable depuis Internet.
+
+> **Vérifiez** — depuis un téléphone en 4G, l'adresse publique affiche l'écran
+> de connexion IRIS ; après Ctrl+C, elle ne répond plus.

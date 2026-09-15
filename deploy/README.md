@@ -68,6 +68,16 @@ fichier `.env` n'est pas versionné.
 
 ## 3. Premier démarrage
 
+Deux voies, même résultat. **Depuis le paquet d'installation** (images
+préconstruites, aucun Internet ni compilation sur la station — voir § 9) :
+
+```powershell
+cd deploy
+.\scripts\install.ps1
+```
+
+**Depuis le code** (la station a Internet et construit elle-même les images) :
+
 ```powershell
 cd deploy
 docker compose up -d --build
@@ -136,6 +146,8 @@ calcule sur les tuiles d'altitude de la station et reste disponible.
 | Geste | Commande |
 | --- | --- |
 | Mettre à jour après un `git pull` | `docker compose up -d --build` |
+| Mettre à jour depuis un nouveau paquet | remplacer `images\` puis `.\scripts\install.ps1` (le `.env` est conservé) |
+| Montrer la station à distance, le temps d'une démonstration | `.\scripts\tunnel.ps1` (§ 10, ADR 0013) |
 | Journaux | `docker compose logs -f api` (ou `web`, `tiles`, `routing`, `proxy`) |
 | Sauvegarder (base + instantané + pièces jointes) | `.\scripts\backup.ps1 -Dest D:\sauvegardes\iris` |
 | Restaurer | `.\scripts\restore.ps1 -Stamp 20260914-103000 -Source D:\sauvegardes\iris` |
@@ -182,3 +194,79 @@ changer pour l'accueillir (la base est déjà là).
 - **Scripts qui échouent avec `\r`** — le dépôt impose LF (`.gitattributes`) ;
   si Git a été configuré en `core.autocrlf=true` avant le clone, refaire
   `git config core.autocrlf false` puis `git checkout -- .`.
+
+## 9. Paquet d'installation (images préconstruites)
+
+La station n'a ni à compiler ni à télécharger : le poste de développement
+fabrique un **paquet** qui contient l'arbre du dépôt, toutes les images Docker
+pour `linux/amd64` (les nôtres et celles de base : proxy, base de données,
+tuiles, routage) et le client tunnel du § 10.
+
+Sur le poste de développement (macOS ou Linux, Docker Desktop) :
+
+```bash
+deploy/scripts/package.sh                 # → deploy/dist/iris-station-<version>.zip
+deploy/scripts/package.sh --with-tiles-build   # + planetiler, pour bâtir le fond de carte sur la station
+deploy/scripts/package.sh --no-base       # images de l'application seules (station avec Internet)
+```
+
+La version est `AAAAMMJJ-<commit>` ; sur un Mac Apple Silicon les images sont
+construites en émulation `linux/amd64` (Rosetta), ce qui prend une à deux
+minutes de plus qu'une construction native. Le zip pèse environ 2 Go, images
+comprises ; `MANIFEST.txt` en donne les empreintes SHA-256 et les digests des
+images, `LISEZMOI.txt` les trois gestes de la station.
+
+Sur la station : décompresser (par exemple dans `C:\iris`), puis
+
+```powershell
+cd C:\iris\deploy
+.\scripts\install.ps1            # -HttpPort 8080 si le port 80 est pris ; -NoStart pour ne pas démarrer
+```
+
+Le script charge les images (`deploy\images`), les étiquette `latest` (celle
+que `docker-compose.yml` attend, variable `IRIS_TAG`), écrit `.env` depuis
+`.env.example` avec deux secrets générés s'il n'existe pas, démarre la pile et
+attend l'API. Relançable : un `.env` existant n'est jamais touché. Le fond de
+carte (§ 4) se prépare ensuite, comme après une construction locale.
+
+## 10. Exposer la station sur Internet le temps d'une démonstration
+
+Pour montrer IRIS à distance sans ouvrir de port ni toucher au pare-feu,
+`scripts\tunnel.ps1` ouvre un tunnel [tunnelto.dev](https://tunnelto.dev) vers
+le port HTTP de la station : l'application est alors joignable à
+`https://<sous-domaine>.tunnelto.dev` depuis n'importe quel navigateur, et tout
+fonctionne sans réglage — une seule origine, des chemins relatifs, une CSP en
+`'self'` qui suit l'origine de la page.
+
+```powershell
+cd C:\iris\deploy
+.\scripts\tunnel.ps1 -Key <clé du compte tunnelto.dev>   # la clé est mémorisée : ensuite .\scripts\tunnel.ps1 suffit
+.\scripts\tunnel.ps1 -Subdomain iris-demo                # sous-domaine fixe (compte payant), sinon un nom aléatoire
+```
+
+Le client est celui du paquet (`deploy\tools\tunnelto-windows.exe`, version
+0.1.18) ; absent, le script le télécharge depuis les versions publiées du
+projet et **vérifie son empreinte SHA-256** avant de l'exécuter. Un compte
+tunnelto.dev (clé API, gratuite pour un sous-domaine aléatoire) est requis.
+`Ctrl+C` ferme le tunnel ; il n'y a rien à défaire.
+
+**Ce que cela implique — et pourquoi c'est réservé aux démonstrations
+([ADR 0013](../docs/adr/0013-exposition-temporaire-tunnel.md)) :**
+
+- le trafic passe par un **relais tiers** qui termine le TLS public : il voit
+  les échanges en clair. Aucune donnée réelle, aucun compte réel pendant la
+  démonstration ; des données fictives, des comptes de démonstration ;
+- **tout Internet** atteint l'écran de connexion. La connexion reste la seule
+  porte (l'API refuse tout sans jeton), les mots de passe doivent être forts,
+  et l'API borne les échecs de connexion (dix par compte et par quart d'heure,
+  réponse 429 « trop de tentatives ») ; la documentation `/api/docs` est
+  lisible, elle ne contient aucune donnée ;
+- le tunnel se ferme **dès la fin** ; changer ensuite les mots de passe
+  utilisés pendant la démonstration ;
+- le client tunnelto contacte `api.github.com` au démarrage pour vérifier s'il
+  existe une version plus récente : c'est le seul appel sortant en plus du
+  relais.
+
+Ce n'est pas un mode d'exploitation : en service, la station vit sur le réseau
+de l'organisme, et un accès distant passe par le VPN de celui-ci.
+
