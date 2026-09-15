@@ -26,3 +26,6 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+# ressources tierces auto-hébergées, copiées par scripts/vendor.mjs
+/public/vendor/

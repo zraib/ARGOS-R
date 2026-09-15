@@ -104,14 +104,17 @@ Le fond de carte est **figé dans l'image web** à la construction
 
 | `MAP_TILES` | Ce que la carte montre | Ce qu'il faut |
 | --- | --- | --- |
-| `external` (défaut) | la carte du mode développement : imagerie **Esri/Maxar**, plan **OpenStreetMap**, toponymes Esri, relief AWS pour la 3D et les simulateurs | Internet sur chaque poste ; rien à préparer ; `COMPOSE_PROFILES=` vide (pas de serveur de tuiles) |
+| `external` (défaut) | imagerie **Esri/Maxar**, plan et toponymes **vectoriels OpenFreeMap** (données OpenStreetMap) stylés par l'application — **aucune frontière contestée n'est tracée : le Royaume est entier**, latin et arabe —, relief AWS pour la 3D et les simulateurs | Internet sur chaque poste ; rien à préparer ; `COMPOSE_PROFILES=` vide (pas de serveur de tuiles) |
 | `sovereign` | des tuiles servies par la station elle-même, sans aucun appel externe | remplir le volume `iris_argos_tiles` une fois (ci-dessous) ; `COMPOSE_PROFILES=sovereign` |
 
 Changer de mode : modifier les deux lignes dans `.env`, puis
 `docker compose up -d --build web` (la station a Internet) ou charger un
 paquet construit dans ce mode (`package.sh --map sovereign`). En mode externe,
-la politique de sécurité du poste web n'ouvre que ces trois hôtes ; tout le
-reste reste `'self'`.
+la politique de sécurité du poste web n'ouvre que trois hôtes
+(`server.arcgisonline.com`, `tiles.openfreemap.org`, `s3.amazonaws.com`) ;
+tout le reste reste `'self'`. Dans les deux modes, le plan ne trace aucune
+frontière contestée (ADR 0014) : la frontière du Maroc court sans rupture
+jusqu'à la Mauritanie et à l'Algérie.
 
 ### Tuiles hors ligne (mode `sovereign`)
 
@@ -139,7 +142,7 @@ alors le fond **plan** et les toponymes, pas la vue satellite.
 
 Vérification : ouvrir la carte, l'onglet Réseau du navigateur ne doit montrer
 que des requêtes vers la station (`/tiles/...`), aucune vers `arcgisonline`,
-`openstreetmap` ou `amazonaws`. (En mode `external`, c'est l'inverse : ces
+`openfreemap` ou `amazonaws`. (En mode `external`, c'est l'inverse : ces
 trois hôtes, et eux seuls.)
 
 ## 5. Sans Internet du tout

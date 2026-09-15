@@ -313,6 +313,16 @@ def _derive_styles(style_json: dict, styles_dir: Path) -> None:
     plan["layers"] = [l for l in style_json["layers"] if "icon-image" not in (l.get("layout") or {}) and l.get("source", "openmaptiles") == "openmaptiles"]
     for l in plan["layers"]:
         l["source"] = "openmaptiles"
+    # Intégrité territoriale (ADR 0014, même règle que lib/map/plan.ts côté
+    # web) : aucune frontière contestée n'est tracée — la couche qui les
+    # dessine en pointillé disparaît et toute couche de frontières exclut
+    # `disputed = 1`. La frontière du Royaume court ainsi sans rupture jusqu'à
+    # la Mauritanie et à l'Algérie.
+    plan["layers"] = [l for l in plan["layers"] if not (l.get("source-layer") == "boundary" and "disputed" in l.get("id", "").lower())]
+    for l in plan["layers"]:
+        if l.get("source-layer") == "boundary":
+            cond = ["!=", ["get", "disputed"], 1] if _is_expression_filter(l.get("filter")) else ["!=", "disputed", 1]
+            l["filter"] = ["all", l["filter"], cond] if l.get("filter") is not None else cond
     (styles_dir / "plan").mkdir(parents=True, exist_ok=True)
     (styles_dir / "plan" / "style.json").write_text(json.dumps(plan, ensure_ascii=False, indent=1), encoding="utf-8")
     # « lbl » : les seuls calques d'étiquettes, sur fond transparent — la
@@ -323,6 +333,26 @@ def _derive_styles(style_json: dict, styles_dir: Path) -> None:
     (styles_dir / "lbl").mkdir(parents=True, exist_ok=True)
     (styles_dir / "lbl" / "style.json").write_text(json.dumps(lbl, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"  styles  : plan ({len(plan['layers'])} calques) · lbl ({len(lbl['layers'])} calques d'étiquettes) → {styles_dir}")
+
+
+def _is_expression_filter(f) -> bool:
+    """Même règle que MapLibre : un filtre est une expression (`["==", ["get", "k"], v]`) ou de l'ancienne syntaxe (`["==", "k", v]`) ; on ne les mélange pas."""
+    if f is True or f is False:
+        return True
+    if not isinstance(f, list) or not f:
+        return False
+    op, rest = f[0], f[1:]
+    if op == "has":
+        return len(f) >= 2 and rest[0] not in ("$id", "$type")
+    if op == "in":
+        return len(f) >= 3 and (not isinstance(rest[0], str) or isinstance(rest[1], list))
+    if op in ("!in", "!has", "none"):
+        return False
+    if op in ("==", "!=", ">", ">=", "<", "<="):
+        return len(f) != 3 or isinstance(rest[0], list) or isinstance(rest[1], list)
+    if op in ("any", "all"):
+        return all(isinstance(x, bool) or _is_expression_filter(x) for x in rest)
+    return True
 
 
 def _fonts_needed(style_json: dict) -> list[str]:

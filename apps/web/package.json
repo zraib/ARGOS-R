@@ -4,7 +4,9 @@
   "private": true,
   "description": "ARGOS — Plateforme militaire de gestion des catastrophes (poste de commandement)",
   "scripts": {
+    "predev": "node scripts/vendor.mjs",
     "dev": "next dev -p 3004",
+    "prebuild": "node scripts/vendor.mjs",
     "build": "next build",
     "start": "next start -p 3004",
     "typecheck": "tsc --noEmit",
@@ -22,6 +24,7 @@
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@mapbox/mapbox-gl-rtl-text": "^0.4.0",
     "@types/node": "^22.10.7",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",

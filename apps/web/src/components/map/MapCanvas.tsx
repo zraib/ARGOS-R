@@ -8,6 +8,8 @@ import { POST_DRAG_MIME, parsePostPick } from "@/lib/posts";
 import { FLUX } from "@/lib/i18n/flux";
 import { canReportIncident } from "@/lib/roles";
 import { MAP_CENTER, MAP_STYLE, MAP_ZOOM } from "@/lib/map/style";
+import { TILES_MODE } from "@/lib/map/tiles";
+import { installPlanStyle, loadPlanStyle } from "@/lib/map/plan";
 import { routeThrough, type RouteResult } from "@/lib/map/routing";
 import { OVERLAY_STYLE } from "@/lib/map/overlay";
 import { Icon } from "@/components/ui/Icon";
@@ -355,6 +357,32 @@ export function MapCanvas() {
     else {
       map.on("styledata", trySetup);
       map.once("load", trySetup);
+    }
+
+    // Mode externe : le fond « plan » et les repères sont des tuiles
+    // vectorielles stylées par nos soins (frontières contestées non tracées —
+    // ADR 0014). Le style distant arrive quand il arrive : il s'insère sous
+    // les couches déjà posées, puis la bascule de fond est rejouée.
+    if (TILES_MODE === "external") {
+      // Les étiquettes vectorielles portent aussi l'arabe : sans le greffon de
+      // mise en forme (bidi, ligatures) MapLibre l'écrit à l'envers. Le greffon
+      // est AUTO-HÉBERGÉ (public/vendor, copié par scripts/vendor.mjs) et
+      // chargé à la demande dans le worker de la carte.
+      if (maplibregl.getRTLTextPluginStatus() === "unavailable") {
+        void maplibregl.setRTLTextPlugin("/vendor/mapbox-gl-rtl-text.js", true).catch((e: unknown) => {
+          console.warn("[carte] greffon RTL indisponible :", e instanceof Error ? e.message : e);
+        });
+      }
+      void loadPlanStyle().then((plan) => {
+        if (!plan || mapRef.current !== map) return;
+        const poser = () => {
+          if (!map.getStyle()) return false;
+          installPlanStyle(map, plan);
+          applyBase(map, useArgos.getState().mapSat);
+          return true;
+        };
+        if (!poser()) map.once("styledata", () => void poser());
+      });
     }
 
     // Le conteneur change de taille (plein écran, repli du rail) → resize du canvas.

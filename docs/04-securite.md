@@ -292,8 +292,9 @@ Exigences du `MASTER_PLAN.md` §4.3 :
   pas d'analytics. Les polices sont auto-hébergées dans `apps/web/public/fonts`.
 - **CSP stricte.** Une exception nommée (ADR 0014) : quand la station est
   construite avec `MAP_TILES=external`, `img-src` et `connect-src` admettent
-  les trois hôtes du fond de carte (Esri/Maxar, OpenStreetMap, relief AWS) —
-  et eux seuls. C'est le défaut de la pile de déploiement aujourd'hui ; le
+  les trois hôtes du fond de carte (imagerie Esri/Maxar, plan et toponymes
+  OpenFreeMap, relief AWS) — et eux seuls. Le greffon RTL des étiquettes est
+  auto-hébergé (`public/vendor`), jamais pris sur un CDN. C'est le défaut de la pile de déploiement aujourd'hui ; le
   mode `sovereign` (tuiles servies par la station) reste disponible pour un
   réseau isolé.
 - Les prévisions de crue (ADR 0010) suivent la même règle : appel côté

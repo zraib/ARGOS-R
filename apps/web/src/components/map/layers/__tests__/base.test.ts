@@ -7,11 +7,24 @@ import { apply3d, applyBase } from "@/components/map/layers/base";
 // tuiles ; une demande faite avant l'analyse du style est rejouée, jamais perdue.
 // ============================================================================
 
-/** Une carte factice : juste ce que les bascules touchent. */
+/**
+ * Une carte factice : juste ce que les bascules touchent. Ses couches : les
+ * raster `sat`/`plan`/`lbl` (mode souverain) et deux couches du fond
+ * vectoriel, une du groupe `plan`, une du groupe `labels` (mode externe).
+ */
+const COUCHES = [
+  { id: "sat", type: "raster" },
+  { id: "plan", type: "raster" },
+  { id: "lbl", type: "raster" },
+  { id: "landuse", type: "fill", metadata: { "argos:group": "plan" } },
+  { id: "boundary_2", type: "line", metadata: { "argos:group": "labels" } },
+  { id: "routes-line", type: "line" },
+];
 function fausseCarte(stylePret: boolean) {
   const handlers: Record<string, (() => void)[]> = {};
   const carte = {
-    getStyle: () => (stylePret ? { version: 8 } : undefined),
+    getStyle: () => (stylePret ? { version: 8, layers: COUCHES } : undefined),
+    getLayer: (id: string) => COUCHES.find((l) => l.id === id),
     once: (ev: string, cb: () => void) => {
       (handlers[ev] ??= []).push(cb);
     },
@@ -35,6 +48,26 @@ describe("bascules pendant le chargement", () => {
     applyBase(carte, false);
     expect(setLayoutProperty).toHaveBeenCalledWith("plan", "visibility", "visible");
     expect(setLayoutProperty).toHaveBeenCalledWith("sat", "visibility", "none");
+  });
+
+  it("fond vectoriel : le plan suit le mode, les repères restent dans les deux, le reste n'est pas touché", () => {
+    const { carte, setLayoutProperty } = fausseCarte(true);
+    applyBase(carte, true);
+    expect(setLayoutProperty).toHaveBeenCalledWith("landuse", "visibility", "none");
+    expect(setLayoutProperty).toHaveBeenCalledWith("boundary_2", "visibility", "visible");
+    expect(setLayoutProperty.mock.calls.some((c) => c[0] === "routes-line")).toBe(false);
+    setLayoutProperty.mockClear();
+    applyBase(carte, false);
+    expect(setLayoutProperty).toHaveBeenCalledWith("landuse", "visibility", "visible");
+    expect(setLayoutProperty).toHaveBeenCalledWith("boundary_2", "visibility", "visible");
+  });
+
+  it("une couche absente du style n'est pas touchée (mode externe sans raster plan/lbl)", () => {
+    const { carte, setLayoutProperty } = fausseCarte(true);
+    (carte as unknown as { getLayer: (id: string) => unknown }).getLayer = (id: string) => (id === "sat" ? { id } : undefined);
+    applyBase(carte, true);
+    expect(setLayoutProperty).toHaveBeenCalledWith("sat", "visibility", "visible");
+    expect(setLayoutProperty.mock.calls.some((c) => c[0] === "plan" || c[0] === "lbl")).toBe(false);
   });
 
   it("style pas encore analysé : rien n'est perdu, la bascule est rejouée à styledata", () => {

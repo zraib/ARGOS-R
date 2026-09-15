@@ -48,10 +48,13 @@ export const SOVEREIGN_TILES_URL = process.env.NEXT_PUBLIC_TILES_URL ?? "";
 /** Le fond de carte est-il réellement disponible dans le mode courant ? */
 export const TILES_AVAILABLE = TILES_MODE === "external" || SOVEREIGN_TILES_URL !== "";
 
-/** Hôtes externes contactés en mode `external` — sert aussi à bâtir la CSP. */
+/**
+ * Hôtes externes contactés en mode `external` — sert aussi à bâtir la CSP :
+ * imagerie Esri, fond plan / repères / polices / sprites OpenFreeMap, relief AWS.
+ */
 export const EXTERNAL_TILE_HOSTS = [
   "https://server.arcgisonline.com",
-  "https://tile.openstreetmap.org",
+  "https://tiles.openfreemap.org",
   "https://s3.amazonaws.com",
 ] as const;
 

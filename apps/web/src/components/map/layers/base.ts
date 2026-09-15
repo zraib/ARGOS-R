@@ -4,6 +4,7 @@
 // ============================================================================
 
 import maplibregl from "maplibre-gl";
+import { planGroupOf } from "@/lib/map/plan";
 
 /**
  * Une bascule ne dépend que du STYLE (ses couches), pas des tuiles : elle
@@ -61,7 +62,18 @@ export function applyBase(map: maplibregl.Map | null, sat: boolean) {
 }
 
 function applyBaseNow(map: maplibregl.Map, sat: boolean) {
-  map.setLayoutProperty("sat", "visibility", sat ? "visible" : "none");
-  map.setLayoutProperty("plan", "visibility", sat ? "none" : "visible");
-  map.setLayoutProperty("lbl", "visibility", sat ? "visible" : "none");
+  const set = (id: string, on: boolean) => {
+    if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+  };
+  set("sat", sat);
+  // Mode souverain : plan et repères sont des couches raster de la station.
+  set("plan", !sat);
+  set("lbl", sat);
+  // Mode externe : le fond vectoriel (`lib/map/plan.ts`) — tout le plan en
+  // mode Plan ; frontières et toponymes dans les deux modes.
+  for (const layer of map.getStyle()?.layers ?? []) {
+    const group = planGroupOf(layer);
+    if (group === "plan") set(layer.id, !sat);
+    else if (group === "labels") set(layer.id, true);
+  }
 }

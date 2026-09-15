@@ -3,16 +3,18 @@ import { SOVEREIGN_TILES_URL, TILES_MODE } from "@/lib/map/tiles";
 
 // Style de base « poste de commandement ».
 //
-// L'origine des tuiles est décidée par `lib/map/tiles.ts` (ADR 0006) et par
-// lui seul : en mode SOUVERAIN les sources viennent de martin auto-hébergé, en
-// mode EXTERNE des fournisseurs publics (développement uniquement — la
-// production impose le mode souverain).
+// L'origine des tuiles est décidée par `lib/map/tiles.ts` (ADR 0006, ADR 0014)
+// et par lui seul : en mode SOUVERAIN les sources viennent du serveur de tuiles
+// de la station, en mode EXTERNE des fournisseurs publics.
 //
 // Sources en mode externe (aucun jeton de fournisseur requis) :
-//  • sat  — Esri World Imagery
-//  • plan — OpenStreetMap
-//  • lbl  — surcouche frontières & lieux Esri (étiquettes sur le satellite)
-//  • dem  — tuiles d'altitude terrarium pour le relief 3D
+//  • sat  — Esri World Imagery (raster)
+//  • dem  — tuiles d'altitude terrarium (AWS) pour le relief 3D
+//  • le fond « plan » et les repères (frontières, lieux) sont des tuiles
+//    VECTORIELLES OpenFreeMap stylées par `lib/map/plan.ts`, insérées à
+//    l'ouverture de la carte : c'est ce qui permet de ne tracer aucune
+//    frontière contestée à l'intérieur du Royaume — une image raster
+//    (OpenStreetMap, repères Esri) ne se corrige pas.
 const EXTERNAL_SOURCES: StyleSpecification["sources"] = {
   // `maxzoom` = zoom natif maximal de la source. Sans lui, MapLibre n'a plus
   // de tuiles au-delà et affiche « données cartographiques non disponibles » ;
@@ -23,19 +25,6 @@ const EXTERNAL_SOURCES: StyleSpecification["sources"] = {
     tileSize: 256,
     maxzoom: 19,
     attribution: "Esri, Maxar",
-  },
-  plan: {
-    type: "raster",
-    tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-    tileSize: 256,
-    maxzoom: 19,
-    attribution: "© OpenStreetMap",
-  },
-  lbl: {
-    type: "raster",
-    tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"],
-    tileSize: 256,
-    maxzoom: 19,
   },
   dem: {
     type: "raster-dem",
@@ -80,7 +69,9 @@ export const MAP_STYLE: StyleSpecification = {
   version: 8,
   sources: SOURCES,
   // Une couche dont la source est absente fait échouer tout le style MapLibre :
-  // on ne déclare que celles réellement disponibles dans le mode courant.
+  // on ne déclare que celles réellement disponibles dans le mode courant. En
+  // mode externe, `plan` et `lbl` n'existent pas ici : le fond vectoriel les
+  // remplace (`lib/map/plan.ts`).
   layers: [
     ...(SOURCES.sat ? [{ id: "sat", type: "raster" as const, source: "sat" }] : []),
     ...(SOURCES.plan ? [{ id: "plan", type: "raster" as const, source: "plan", layout: { visibility: "none" as const } }] : []),

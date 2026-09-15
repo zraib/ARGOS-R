@@ -232,13 +232,16 @@ conservés.
 ## 6. Le fond de carte
 
 Par défaut (`MAP_TILES=external` dans `.env`), la carte est celle que vous
-connaissez du mode développement : imagerie satellite Esri/Maxar, plan
-OpenStreetMap, noms de lieux, relief pour la 3D. Elle vient d'Internet, donc
-**chaque poste qui ouvre IRIS doit avoir Internet** — et il n'y a **rien à
-préparer** : ouvrez la carte, elle s'affiche.
+connaissez du mode développement : imagerie satellite Esri/Maxar, plan et
+noms de lieux (en latin et en arabe), relief pour la 3D. Le plan respecte
+l'intégrité territoriale du Royaume : aucune ligne de séparation n'est
+tracée au sud, la frontière court jusqu'à la Mauritanie et à l'Algérie. Tout
+vient d'Internet, donc **chaque poste qui ouvre IRIS doit avoir Internet** —
+et il n'y a **rien à préparer** : ouvrez la carte, elle s'affiche.
 
 > **Vérifiez** — la carte montre le Maroc en satellite ; le bouton « Plan »
-> passe au fond OpenStreetMap ; le bouton 3D fait apparaître le relief.
+> passe au fond plan, sans ligne de séparation au sud de Tarfaya ; le bouton
+> 3D fait apparaître le relief.
 
 Le reste de cette étape ne concerne que le mode **hors ligne**
 (`MAP_TILES=sovereign` et `COMPOSE_PROFILES=sovereign` dans `.env`, puis

@@ -20,7 +20,7 @@ const TILES_MODE = demandeTuiles === "external" ? "external" : demandeTuiles ===
 /** Hôtes de tuiles externes — ouverts dans la CSP en mode `external` seulement. */
 const EXTERNAL_TILE_HOSTS = [
   "https://server.arcgisonline.com",
-  "https://tile.openstreetmap.org",
+  "https://tiles.openfreemap.org",
   "https://s3.amazonaws.com",
 ];
 
