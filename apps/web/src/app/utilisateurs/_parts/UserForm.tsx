@@ -21,6 +21,7 @@ import {
 } from "@/lib/roles";
 import { GRADES } from "@/lib/data/grades";
 import { AddHospitalModal, AddShelterModal, AddUnitModal } from "@/components/org/AddEntityModals";
+import { AddMorgueModal } from "@/components/morgue/AddMorgueModal";
 import { ApiUser } from "@/app/utilisateurs/_parts/shared";
 
 // ===========================================================================
@@ -41,7 +42,7 @@ function apiMessage(err: unknown, fallback: string): string {
 }
 
 /** Natures d'entité qu'on sait créer depuis le formulaire. */
-const CREATABLE: readonly ResponsibilityKind[] = ["hospital", "unit", "shelter"];
+const CREATABLE: readonly ResponsibilityKind[] = ["hospital", "unit", "shelter", "morgue"];
 
 /**
  * Affectations telles que le CONTRAT les attend : la région y est l'union des
@@ -86,12 +87,13 @@ export function UserForm({
   /** Nature d'entité dont la modale de création est ouverte. */
   const [creating, setCreating] = useState<ResponsibilityKind | null>(null);
 
-  // Référentiels servant de choix d'affectation. La morgue n'a pas encore de
-  // référentiel dédié : saisie libre en attendant. Le parc d'équipement est
-  // celui d'une unité — on choisit l'unité.
+  // Référentiels servant de choix d'affectation. Le parc d'équipement est
+  // celui d'une unité — on choisit l'unité. Les sites mortuaires viennent du
+  // service morgue (mobiles repliées exclues).
   const hospitals = useArgos((s) => s.hospitals);
   const units = useArgos((s) => s.units);
   const shelters = useArgos((s) => s.catalog.shelters);
+  const morgues = useArgos((s) => s.morgues);
   const provinces = useArgos((s) => s.provinces);
   const regions = useMemo(() => regionsOf(provinces), [provinces]);
   const milHospitals = hospitals.filter((h) => (h.kind ?? "mil") === "mil");
@@ -102,6 +104,7 @@ export function UserForm({
     if (kind === "hospital") return milHospitals.map((h) => ({ id: h.id, label: `${h.nom} — ${h.ville}` }));
     if (kind === "unit" || kind === "equipment") return units.map((u) => ({ id: u.id, label: `${u.nom} — ${u.ville}` }));
     if (kind === "shelter") return shelters.map((s) => ({ id: s.id, label: `${s.nom} — ${s.ville}` }));
+    if (kind === "morgue") return morgues.filter((x) => !(x.kind === "mobile" && !x.deployment)).map((x) => ({ id: x.id, label: `${x.nom} — ${x.ville}` }));
     return [];
   };
   const [error, setError] = useState<string | null>(null);
@@ -292,8 +295,8 @@ export function UserForm({
                         {opts.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
                       </select>
                     ) : (
-                      // Morgue : référentiel pas encore livré, saisie libre de
-                      // l'identifiant en attendant.
+                      // Aucune entité de cette nature connue : l'identifiant se saisit,
+                      // ou l'entité se crée à côté.
                       <input
                         className={`${fieldCls} min-w-0 flex-1 font-mono`}
                         placeholder={m.users.assignment_id_ph}
@@ -337,6 +340,7 @@ export function UserForm({
       <AddUnitModal open={creating === "unit"} onClose={() => setCreating(null)} onCreated={(id) => setAssignment("unit", id)} />
       <AddHospitalModal open={creating === "hospital"} onClose={() => setCreating(null)} onCreated={(id) => setAssignment("hospital", id)} />
       <AddShelterModal open={creating === "shelter"} onClose={() => setCreating(null)} onCreated={(id) => setAssignment("shelter", id)} />
+      {creating === "morgue" && <AddMorgueModal onClose={() => setCreating(null)} onDone={() => setCreating(null)} onCreated={(id) => setAssignment("morgue", id)} />}
     </div>
   );
 }

@@ -16,6 +16,7 @@ import { STATUS_TONES } from "@/components/responsibility/MorgueViews";
 import { IdentifyModal } from "@/components/morgue/IdentifyModal";
 import { RecordDetailModal } from "@/components/morgue/RecordDetailModal";
 import { TransferModal } from "@/components/morgue/TransferModal";
+import { ResponsibleCard } from "@/components/responsibility/ResponsibleCard";
 import type { MorgueSite, MorgueStatus, MortuaryRecord } from "@/lib/types";
 
 // ============================================================================
@@ -109,6 +110,8 @@ export function MorgueDetailModal({
           <ProgressBar value={pct} fill={loadBarClass(pct)} height="h-2" />
           {site.statut === "full" && <p className="mt-1 text-[11px] font-semibold text-danger-500">{m.morgue.full_hint}</p>}
         </div>
+        {/* Qui tient le site — son responsable, en ligne ou non, joignable. Sans responsable affecté, la carte le dit. */}
+        <ResponsibleCard kind="morgue" entityId={site.id} />
 
         {/* --- les corps : une fiche de présentation par dossier ------------------ */}
         <div className="flex items-center gap-2">

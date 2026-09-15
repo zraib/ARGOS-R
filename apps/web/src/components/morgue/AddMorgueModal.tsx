@@ -17,9 +17,10 @@ const LocationPreviewMap = dynamic(() => import("@/components/incidents/Location
  * l'établissement de rattachement, la capacité réfrigérée. La position est
  * celle de l'établissement, sinon celle de la ville.
  */
-export function AddMorgueModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+export function AddMorgueModal({ onClose, onDone, onCreated }: { onClose: () => void; onDone: () => void; onCreated?: (id: string) => void }) {
   const m = useModules();
   const showToast = useArgos((s) => s.showToast);
+  const reloadMorgues = useArgos((s) => s.reloadMorgues);
   const hospitals = useArgos((s) => s.hospitals);
   const provinces = useArgos((s) => s.provinces);
   const cities = useArgos((s) => s.cities);
@@ -66,6 +67,10 @@ export function AddMorgueModal({ onClose, onDone }: { onClose: () => void; onDon
         return;
       }
       showToast(m.morgue.added);
+      // Les listes qui proposent les sites (affectation d'un responsable, wizard) se rechargent.
+      await reloadMorgues();
+      const created = res.data as { id?: string } | undefined;
+      if (created?.id) onCreated?.(created.id);
       onDone();
     } finally {
       setBusy(false);

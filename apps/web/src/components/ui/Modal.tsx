@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 
@@ -23,13 +24,33 @@ interface ModalProps {
 }
 
 /**
+ * La pile des modales ouvertes, dans l'ordre d'ouverture. Seule celle du
+ * dessus répond à Échap et tient le piège à focus : sans cela, une modale
+ * ouverte depuis une autre (le bilan des victimes depuis la fiche d'incident,
+ * la création d'un hôpital depuis un compte) fermait les deux d'un coup, et
+ * la modale du dessous ramenait le focus chez elle à chaque tabulation.
+ */
+const PILE: symbol[] = [];
+
+/**
  * Recrée le <Modal> d'AminDesign : voile, panneau rounded-2xl, fermeture par Échap.
  * Adaptatif : feuille ancrée en bas et pleine largeur sous `sm`, boîte centrée
  * au-dessus. Hauteur bornée en `dvh` (la barre d'adresse mobile rétracte `vh`),
  * en-tête figé pour que la fermeture reste atteignable pendant le défilement.
+ *
+ * RENDUE DANS <body> (portail), jamais dans l'élément qui l'ouvre : une modale
+ * ouverte depuis une autre restait autrement enfermée dans la surface de la
+ * première — recadrée, tronquée, à faire défiler dans une boîte — parce qu'un
+ * ancêtre à `overflow` ou à `backdrop-filter` devient le bloc contenant d'un
+ * `position: fixed`. Chaque modale a désormais tout l'écran ; la dernière
+ * ouverte passe au-dessus.
  */
 export function Modal({ open, title, onClose, size = "lg", children }: ModalProps) {
   const panneau = useRef<HTMLDivElement>(null);
+  const id = useRef<symbol>(Symbol("modal"));
+  // Le portail n'a de cible qu'après le montage : au rendu serveur, rien.
+  const [monte, setMonte] = useState(false);
+  useEffect(() => setMonte(true), []);
   /**
    * `onClose` gardé dans une RÉFÉRENCE, et l'effet ne dépend que de `open`.
    *
@@ -48,6 +69,9 @@ export function Modal({ open, title, onClose, size = "lg", children }: ModalProp
 
   useEffect(() => {
     if (!open) return;
+    const moi = id.current;
+    PILE.push(moi);
+    const auDessus = () => PILE[PILE.length - 1] === moi;
 
     // Le focus est RENDU à l'élément qui a ouvert la modale : sans cela il
     // retombe sur <body> à la fermeture, et la navigation au clavier repart du
@@ -67,6 +91,8 @@ export function Modal({ open, title, onClose, size = "lg", children }: ModalProp
       ).filter((el) => el.offsetParent !== null);
 
     const onKey = (e: KeyboardEvent) => {
+      // Une modale en couvre une autre : seule celle du dessus répond.
+      if (!auDessus()) return;
       if (e.key === "Escape") {
         fermer.current();
         return;
@@ -98,6 +124,8 @@ export function Modal({ open, title, onClose, size = "lg", children }: ModalProp
     }, 0);
 
     return () => {
+      const k = PILE.indexOf(moi);
+      if (k >= 0) PILE.splice(k, 1);
       window.removeEventListener("keydown", onKey);
       window.clearTimeout(t);
       document.body.style.overflow = overflow;
@@ -107,9 +135,9 @@ export function Modal({ open, title, onClose, size = "lg", children }: ModalProp
     };
   }, [open]);
 
-  if (!open) return null;
+  if (!open || !monte) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in"
@@ -143,6 +171,7 @@ export function Modal({ open, title, onClose, size = "lg", children }: ModalProp
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
