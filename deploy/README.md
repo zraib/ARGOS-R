@@ -97,12 +97,29 @@ Valhalla (routage) construit ses tuiles de routage au premier démarrage : la
 mesure d'itinéraire par la route n'est disponible qu'après (quelques minutes ;
 en attendant la mesure retombe sur la distance à vol d'oiseau, et le dit).
 
-## 4. Tuiles de carte hors ligne
+## 4. Fond de carte : externe (défaut) ou hors ligne
 
-La carte n'appelle **aucun fournisseur externe** : tout ce qu'elle affiche
-vient du volume `iris_argos_tiles`. Le remplir est une opération à faire **une
-fois**, depuis une machine qui a Internet (la station, ou une autre — le volume
-se copie). Marche à suivre détaillée et licences : [`../infra/geo/README.md`](../infra/geo/README.md).
+Le fond de carte est **figé dans l'image web** à la construction
+(`MAP_TILES` dans `.env`, [ADR 0014](../docs/adr/0014-fond-de-carte-externe-station.md)) :
+
+| `MAP_TILES` | Ce que la carte montre | Ce qu'il faut |
+| --- | --- | --- |
+| `external` (défaut) | la carte du mode développement : imagerie **Esri/Maxar**, plan **OpenStreetMap**, toponymes Esri, relief AWS pour la 3D et les simulateurs | Internet sur chaque poste ; rien à préparer ; `COMPOSE_PROFILES=` vide (pas de serveur de tuiles) |
+| `sovereign` | des tuiles servies par la station elle-même, sans aucun appel externe | remplir le volume `iris_argos_tiles` une fois (ci-dessous) ; `COMPOSE_PROFILES=sovereign` |
+
+Changer de mode : modifier les deux lignes dans `.env`, puis
+`docker compose up -d --build web` (la station a Internet) ou charger un
+paquet construit dans ce mode (`package.sh --map sovereign`). En mode externe,
+la politique de sécurité du poste web n'ouvre que ces trois hôtes ; tout le
+reste reste `'self'`.
+
+### Tuiles hors ligne (mode `sovereign`)
+
+La carte n'appelle alors **aucun fournisseur externe** : tout ce qu'elle
+affiche vient du volume `iris_argos_tiles`. Le remplir est une opération à
+faire **une fois**, depuis une machine qui a Internet (la station, ou une
+autre — le volume se copie). Marche à suivre détaillée et licences :
+[`../infra/geo/README.md`](../infra/geo/README.md).
 
 ```powershell
 cd deploy
@@ -122,13 +139,16 @@ alors le fond **plan** et les toponymes, pas la vue satellite.
 
 Vérification : ouvrir la carte, l'onglet Réseau du navigateur ne doit montrer
 que des requêtes vers la station (`/tiles/...`), aucune vers `arcgisonline`,
-`openstreetmap` ou `amazonaws`.
+`openstreetmap` ou `amazonaws`. (En mode `external`, c'est l'inverse : ces
+trois hôtes, et eux seuls.)
 
 ## 5. Sans Internet du tout
 
-La pile fonctionne en réseau isolé une fois les tuiles provisionnées. Deux
-réglages dans `.env` :
+La pile fonctionne en réseau isolé en mode `sovereign`, une fois les tuiles
+provisionnées (§ 4). Réglages dans `.env` :
 
+- `MAP_TILES=sovereign` et `COMPOSE_PROFILES=sovereign` — le fond de carte
+  vient de la station ;
 - `VALHALLA_TILE_URLS=` (vide) — Valhalla lit l'extrait OSM déjà déposé par
   `tiles-fetch pbf` au lieu de le télécharger ;
 - `AVIATION_FEED=exercise` — le suivi aérien passe en noria simulée.

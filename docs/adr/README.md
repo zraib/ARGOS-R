@@ -19,6 +19,7 @@ dépendance runtime.
 | [0011](0011-feux-de-foret-simulateur.md) | Feux de forêt : simulateur de propagation local (temps minimal de parcours, vent, pente, combustible), socle commun des propagations | **accepté** | `lib/fire/`, `lib/sim/spread.ts`, `layers/{spread,fire}.ts`, panneau « Feux de forêt » de la carte |
 | [0012](0012-service-morgue-chaine-de-garde.md) | Service morgue : morgues mobiles, chaîne de garde, traçabilité hôpital → site (doctrine DVI / OMS-CICR) | **accepté** | `morgue.rules.ts`, routes `morgues/*`, `hospitals/:id/deceased`, page `/morgue`, `components/morgue/`, couche `layers/morgues.ts` |
 | [0013](0013-exposition-temporaire-tunnel.md) | Exposition temporaire de la station sur Internet par un tunnel tiers (tunnelto.dev) — démonstrations seulement ; client épinglé ; borne des échecs de connexion | **accepté** (démonstrations) | `deploy/scripts/tunnel.ps1`, `deploy/scripts/package.sh`, `auth.controller.ts` (`RateWindow` sur `login`) |
+| [0014](0014-fond-de-carte-externe-station.md) | Fond de carte de la station : fournisseurs externes (Esri/Maxar, OpenStreetMap, relief AWS) par défaut, mode hors ligne conservé — révise l'ADR 0006 sur ce point | **accepté** | `lib/map/tiles.ts`, `next.config.mjs` (CSP), `deploy/docker-compose.yml` (`MAP_TILES`, profil `sovereign`), `package.sh --map` |
 
 ## Écrire un ADR
 

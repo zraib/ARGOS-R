@@ -290,7 +290,12 @@ Exigences du `MASTER_PLAN.md` §4.3 :
 
 - **Aucune ressource externe au runtime** — pas de CDN, pas de police distante,
   pas d'analytics. Les polices sont auto-hébergées dans `apps/web/public/fonts`.
-- **CSP stricte.**
+- **CSP stricte.** Une exception nommée (ADR 0014) : quand la station est
+  construite avec `MAP_TILES=external`, `img-src` et `connect-src` admettent
+  les trois hôtes du fond de carte (Esri/Maxar, OpenStreetMap, relief AWS) —
+  et eux seuls. C'est le défaut de la pile de déploiement aujourd'hui ; le
+  mode `sovereign` (tuiles servies par la station) reste disponible pour un
+  réseau isolé.
 - Les prévisions de crue (ADR 0010) suivent la même règle : appel côté
   serveur — GloFAS via Open-Meteo sans clé, Google Flood Hub avec
   `FLOOD_API_KEY`, jamais depuis le navigateur ; le simulateur d'inondation,

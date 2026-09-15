@@ -11,24 +11,28 @@
 //
 // Règle : le mode SOUVERAIN échoue en fermé. Sans source locale configurée, la
 // carte reste sans fond — jamais de repli silencieux vers un fournisseur
-// étranger. Un fond de carte manquant se voit ; une fuite, non.
+// étranger. Un fond de carte manquant se voit ; une fuite, non. Le mode
+// EXTERNE, lui, est un choix explicite et figé à la construction (ADR 0014) :
+// la CSP de production n'ouvre ces trois hôtes que dans ce cas.
 // ============================================================================
 
 export type TilesMode = "sovereign" | "external";
 
 /**
- * Mode effectif. En production le mode SOUVERAIN est imposé : aucune variable
- * d'environnement ne peut ouvrir la sortie vers un fournisseur externe depuis
- * un déploiement. En développement, `external` reste le défaut pour que
- * l'équipe travaille sans la pile Docker — mais l'interface l'affiche.
+ * Mode effectif — décidé à la CONSTRUCTION (`NEXT_PUBLIC_MAP_TILES`, figé dans
+ * le bundle), jamais à l'exécution.
+ *
+ * Seule la valeur EXPLICITE `external` ouvre la sortie vers les fournisseurs
+ * (Esri/Maxar, OpenStreetMap, relief AWS) : en développement comme sur une
+ * station qui a Internet et où l'organisme l'a décidé (ADR 0014,
+ * `MAP_TILES=external` dans `deploy/.env`). Vide ou absente : `external` en
+ * développement (défaut de l'équipe), `sovereign` en production (défaut fermé
+ * d'un déploiement). Toute autre valeur — `sovereign`, une coquille, un
+ * réglage inconnu — ferme : on ne devine pas dans le sens de la fuite.
  */
-// Seule la valeur EXPLICITE `external` ouvre la sortie ; vide ou absente vaut
-// `external` en développement (défaut de l'équipe), toute autre valeur —
-// `sovereign`, une coquille, un réglage inconnu — ferme : on ne devine pas dans
-// le sens de la fuite.
 const demande = (process.env.NEXT_PUBLIC_MAP_TILES ?? "").trim();
 export const TILES_MODE: TilesMode =
-  process.env.NODE_ENV === "production" ? "sovereign" : demande === "" || demande === "external" ? "external" : "sovereign";
+  demande === "external" ? "external" : demande === "" && process.env.NODE_ENV !== "production" ? "external" : "sovereign";
 
 /**
  * Base des tuiles auto-hébergées (martin, `infra/compose`).

@@ -699,9 +699,9 @@ export default function MapPage() {
 
         {/* AUCUN fond de carte configuré : la carte est vide, et il faut le
             dire — sans ce message, un opérateur croit à une zone sans donnée.
-            L'origine du fond (externe en développement) n'est plus signalée à
-            l'écran ; elle reste lisible dans `NEXT_PUBLIC_MAP_TILES` et la
-            production impose de toute façon le mode souverain. */}
+            L'origine du fond (externe ou souverain) n'est pas signalée à
+            l'écran ; elle est figée à la construction (`NEXT_PUBLIC_MAP_TILES`,
+            ADR 0014). */}
         {!TILES_AVAILABLE && (
           <div
             className="pointer-events-none absolute bottom-3 z-30 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-or-300 shadow-lg"

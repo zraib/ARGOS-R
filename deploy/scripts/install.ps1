@@ -113,6 +113,11 @@ if (Test-Path $envFile) {
 }
 $port = Get-HttpPort
 $url = if ($port -eq 80) { "http://localhost" } else { "http://localhost:$port" }
+# Fond de carte : figé dans l'image web ; .env le rappelle (MAP_TILES).
+$mapMode = "external"
+$mapLine = Get-Content $envFile | Where-Object { $_ -match "^\s*MAP_TILES=(\w+)" } | Select-Object -Last 1
+if ($mapLine -and $mapLine -match "^\s*MAP_TILES=(\w+)") { $mapMode = $Matches[1] }
+$mapHint = if ($mapMode -eq "sovereign") { "souverain (hors ligne) — préparer les tuiles : GUIDE-DEBUTANT-WINDOWS.md, étape 6" } else { "externe (Esri/Maxar, OpenStreetMap, relief en ligne — Internet requis sur les postes)" }
 
 if ($NoStart) {
   Write-Host "`nImages et réglages prêts. Pour démarrer :  docker compose up -d   (puis $url)"
@@ -121,7 +126,9 @@ if ($NoStart) {
 
 # --- 4. Démarrage -------------------------------------------------------------
 Step 4 "Démarrage de la pile"
-if ($mustBuild) { & docker compose -f $compose up -d --build } else { & docker compose -f $compose up -d }
+# --remove-orphans : un conteneur d'une version précédente (ex. `tiles` d'un
+# fond de carte souverain) ne survit pas à une mise à jour.
+if ($mustBuild) { & docker compose -f $compose up -d --build --remove-orphans } else { & docker compose -f $compose up -d --remove-orphans }
 if ($LASTEXITCODE -ne 0) { throw "docker compose up a échoué — lisez les lignes ci-dessus ; le port $port est-il libre ?" }
 
 # --- 5. Santé -----------------------------------------------------------------
@@ -142,7 +149,7 @@ Write-Host @"
   Poste de commandement :  $url
   Compte fondateur      :  m.zraib  /  code temporaire ARGOS-2026  (à changer à la première connexion)
   État de la station    :  .\scripts\status.ps1
-  Fond de carte         :  GUIDE-DEBUTANT-WINDOWS.md, étape 6 (tuiles hors ligne)
+  Fond de carte         :  $mapHint
   Démonstration à distance (tunnel, ADR 0013) :  .\scripts\tunnel.ps1
 
 "@

@@ -7,12 +7,17 @@
 // le navigateur refuse la connexion et la violation apparaît en console.
 // ============================================================================
 
-/** Mode des tuiles — doit rester cohérent avec `src/lib/map/tiles.ts`. */
+/**
+ * Mode des tuiles — doit rester cohérent avec `src/lib/map/tiles.ts` : seule la
+ * valeur explicite `external` ouvre les fournisseurs (en production aussi,
+ * quand la station l'a choisi — ADR 0014) ; vide vaut externe en développement
+ * et souverain en production ; tout le reste ferme.
+ */
 const IS_PROD = process.env.NODE_ENV === "production";
 const demandeTuiles = (process.env.NEXT_PUBLIC_MAP_TILES ?? "").trim();
-const TILES_MODE = IS_PROD ? "sovereign" : demandeTuiles === "" || demandeTuiles === "external" ? "external" : "sovereign";
+const TILES_MODE = demandeTuiles === "external" ? "external" : demandeTuiles === "" && !IS_PROD ? "external" : "sovereign";
 
-/** Hôtes de tuiles externes — tolérés uniquement hors production. */
+/** Hôtes de tuiles externes — ouverts dans la CSP en mode `external` seulement. */
 const EXTERNAL_TILE_HOSTS = [
   "https://server.arcgisonline.com",
   "https://tile.openstreetmap.org",
@@ -71,8 +76,10 @@ const llmOrigin = (() => {
 // En dev on autorise donc les SCHÉMAS `http:` et `ws:` : la politique de
 // développement vérifie la FORME de la CSP, elle n'est pas la frontière de
 // sécurité. La frontière, c'est la politique de production, exacte et stricte.
+// MapLibre charge ses tuiles par `fetch` (pas par <img>) : les hôtes de tuiles
+// vont dans `connect-src` autant que dans `img-src`.
 const connectSrc = IS_PROD
-  ? ["'self'", apiOrigin, sovereignTileOrigin, llmOrigin].filter(Boolean)
+  ? ["'self'", apiOrigin, ...tileHosts, llmOrigin].filter(Boolean)
   : ["'self'", "http:", "https:", "ws:", "wss:"];
 
 /**

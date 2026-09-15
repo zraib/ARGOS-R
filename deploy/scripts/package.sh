@@ -24,6 +24,10 @@
 #                        tuiles et routage seront téléchargés par la station)
 #   --with-tiles-build   ajoute planetiler (profil tiles-build : fabrication du
 #                        fond de carte vectoriel sur la station)
+#   --map <mode>         fond de carte figé dans l'image web (ADR 0014) :
+#                        external (défaut : Esri/Maxar, OpenStreetMap, relief
+#                        AWS — Internet requis sur les postes) ou sovereign
+#                        (tuiles hors ligne de la station ; version suffixée -souv)
 #   --skip-build         réutilise les images iris-*:<version> déjà construites
 #   --no-zip             laisse le dossier tel quel, sans l'archiver
 #   --out <dossier>      destination (défaut : deploy/dist)
@@ -45,15 +49,17 @@ WITH_BASE=1
 WITH_TILES_BUILD=0
 SKIP_BUILD=0
 DO_ZIP=1
+MAP_MODE="external"
 DIST="$DEPLOY/dist"
 while [ $# -gt 0 ]; do
   case "$1" in
     --no-base) WITH_BASE=0 ;;
     --with-tiles-build) WITH_TILES_BUILD=1 ;;
+    --map) shift; MAP_MODE="$1"; [ "$MAP_MODE" = external ] || [ "$MAP_MODE" = sovereign ] || { echo "--map attend external ou sovereign" >&2; exit 1; } ;;
     --skip-build) SKIP_BUILD=1 ;;
     --no-zip) DO_ZIP=0 ;;
     --out) shift; DIST="$(mkdir -p "$1" && cd "$1" && pwd)" ;;
-    -h|--help) sed -n '2,32p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,36p' "$0"; exit 0 ;;
     *) echo "option inconnue : $1 (voir --help)" >&2; exit 1 ;;
   esac
   shift
@@ -77,6 +83,8 @@ git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "pas un d�
 
 COMMIT="$(git -C "$ROOT" rev-parse --short HEAD)"
 VERSION="$(date +%Y%m%d)-${COMMIT}"
+# Le mode du fond de carte est cuit dans l'image web : une version par mode.
+[ "$MAP_MODE" = sovereign ] && VERSION="${VERSION}-souv"
 if [ -n "$(git -C "$ROOT" status --porcelain --untracked-files=no)" ]; then
   VERSION="${VERSION}-dirty"
   warn "modifications non commises : le paquet embarque l'arbre du DERNIER COMMIT (${COMMIT}), pas votre copie de travail — version ${VERSION}"
@@ -89,11 +97,12 @@ OUT="$DIST/$NAME"
 export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-inutile-a-la-construction}"
 export AUTH_DEV_SECRET="${AUTH_DEV_SECRET:-inutile-a-la-construction}"
 export IRIS_TAG="$VERSION"
+export MAP_TILES="$MAP_MODE"
 export DOCKER_DEFAULT_PLATFORM="linux/amd64"
 compose() { docker compose --project-directory "$DEPLOY" -f "$COMPOSE" --profile tiles-build "$@"; }
 
 say "Paquet ${NAME} → ${OUT}"
-echo "    plateforme cible : linux/amd64 · images de base : $([ "$WITH_BASE" = 1 ] && echo oui || echo non) · planetiler : $([ "$WITH_TILES_BUILD" = 1 ] && echo oui || echo non)"
+echo "    plateforme cible : linux/amd64 · fond de carte : ${MAP_MODE} · images de base : $([ "$WITH_BASE" = 1 ] && echo oui || echo non) · planetiler : $([ "$WITH_TILES_BUILD" = 1 ] && echo oui || echo non)"
 
 # --- 1. images de l'application (linux/amd64) ---------------------------------
 APP_IMAGES=("iris-web:${VERSION}" "iris-api:${VERSION}" "iris-tiles-tools:${VERSION}")
@@ -134,7 +143,8 @@ printf '%s\n' "$VERSION" > "$OUT/deploy/VERSION"
 # --- 4. export des images -----------------------------------------------------
 IMAGES_TGZ="$OUT/deploy/images/iris-images-${VERSION}.tar.gz"
 say "Export des images → $(basename "$IMAGES_TGZ") (plusieurs Go, quelques minutes)"
-docker save --platform linux/amd64 "${APP_IMAGES[@]}" "${BASE_IMAGES[@]}" | gzip -1 > "$IMAGES_TGZ"
+# (`${TAB[@]+"${TAB[@]}"}` : un tableau vide sous `set -u` et bash 3.2 — --no-base)
+docker save --platform linux/amd64 "${APP_IMAGES[@]}" ${BASE_IMAGES[@]+"${BASE_IMAGES[@]}"} | gzip -1 > "$IMAGES_TGZ"
 ls -lh "$IMAGES_TGZ" | awk '{print "    " $5 "  " $9}'
 
 # --- 5. client tunnel (facultatif : la station peut aussi le télécharger) -----
@@ -163,9 +173,10 @@ say "Manifeste"
   echo "branche   : $(git -C "$ROOT" rev-parse --abbrev-ref HEAD)"
   echo "fabriqué  : $(date -u +%Y-%m-%dT%H:%M:%SZ) sur $(uname -s)/$(uname -m)"
   echo "plateforme: linux/amd64"
+  echo "fond de carte : ${MAP_MODE} (figé dans iris-web ; .env : MAP_TILES=${MAP_MODE}$([ "$MAP_MODE" = sovereign ] && echo ', COMPOSE_PROFILES=sovereign'))"
   echo
   echo "Images (identifiant · empreinte du registre) :"
-  for img in "${APP_IMAGES[@]}" "${BASE_IMAGES[@]}"; do
+  for img in "${APP_IMAGES[@]}" ${BASE_IMAGES[@]+"${BASE_IMAGES[@]}"}; do
     printf '  %-52s %s  %s\n' "$img" "$(docker image inspect --format '{{.Id}}' "$img" | cut -c8-19)" "$(docker image inspect --format '{{join .RepoDigests ","}}' "$img")"
   done
   echo
@@ -181,7 +192,8 @@ ARGOS / IRIS — station Windows, paquet ${VERSION}
    Le script charge les images (deploy\\images), écrit .env avec des secrets
    générés, démarre la pile et attend que l'API réponde. Aucun accès Internet requis.
 4. Ouvrir http://localhost — compte fondateur m.zraib, code ARGOS-2026 (à changer).
-5. Fond de carte, comptes, exploitation : deploy\\GUIDE-DEBUTANT-WINDOWS.md (étapes 6 à 11).
+5. Fond de carte : ${MAP_MODE} — $([ "$MAP_MODE" = external ] && echo "Esri/Maxar, OpenStreetMap et relief en ligne, rien à préparer (Internet requis sur les postes)." || echo "tuiles hors ligne à préparer une fois : deploy\\GUIDE-DEBUTANT-WINDOWS.md, étape 6.")
+   Comptes, exploitation : deploy\\GUIDE-DEBUTANT-WINDOWS.md (étapes 7 à 11).
    Démonstration à distance (tunnel) : deploy\\README.md § 10, .\\scripts\\tunnel.ps1.
 
 Contenu vérifiable : MANIFEST.txt (empreintes SHA-256 des images et outils).

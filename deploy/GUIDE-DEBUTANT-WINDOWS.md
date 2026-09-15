@@ -149,6 +149,7 @@ Quelques réglages utiles à connaître (à laisser tels quels au premier essai)
 | --- | --- | --- |
 | `HTTP_PORT` | `80` | si un autre logiciel occupe déjà le port 80 (voir dépannage) |
 | `PUBLIC_URL` | `http://localhost` | mettez l'adresse que les autres postes taperont, ex. `http://192.168.1.20` |
+| `MAP_TILES` | `external` | `sovereign` pour un fond de carte hors ligne servi par la station (§ 6) — avec `COMPOSE_PROFILES=sovereign` |
 | `AVIATION_FEED` | `exercise` | `opensky` si la station a Internet et que vous voulez le trafic aérien réel |
 | `FLOOD_API_KEY` | vide | une clé Google Flood Hub, si l'organisme en a une — sans clé, les crues viennent de GloFAS/Open-Meteo |
 | `SAT_TILE_URL` | vide | l'adresse d'une source d'imagerie sous licence (voir § 6) |
@@ -217,20 +218,34 @@ outils. Un seul script fait le travail des § 4 et § 5.
 
 > **Vérifiez** — la dernière ligne indique « API en ligne » et l'adresse à
 > ouvrir (`http://localhost`, ou `http://localhost:8080`). Connectez-vous
-> comme au § 5, point 4, et changez le mot de passe du compte fondateur.
+> comme au § 5, point 4, et changez le mot de passe du compte fondateur. La
+> carte s'affiche directement (fond externe, § 6).
 
-Ce que le script ne fait pas : le fond de carte (§ 6), les comptes (§ 8). Pour
-une mise à jour, remplacez le dossier `deploy\images` par celui du nouveau
-paquet et relancez le script : votre `.env` et vos données sont conservés.
+Ce que le script ne fait pas : les comptes (§ 8) et, en mode hors ligne
+seulement, les tuiles (§ 6). Pour une mise à jour, décompressez le nouveau
+paquet par-dessus l'ancien dossier (ou remplacez `deploy\images` et
+`deploy\VERSION`) et relancez le script : votre `.env` et vos données sont
+conservés.
 
 ---
 
-## 6. Remplir la carte (tuiles hors ligne)
+## 6. Le fond de carte
 
-La carte n'appelle **aucun serveur externe** : tout ce qu'elle montre doit
-être préparé une fois, depuis la station connectée à Internet. Toujours
-dans `C:\iris\deploy`, tapez les commandes **une par une**, en attendant la
-fin de chacune :
+Par défaut (`MAP_TILES=external` dans `.env`), la carte est celle que vous
+connaissez du mode développement : imagerie satellite Esri/Maxar, plan
+OpenStreetMap, noms de lieux, relief pour la 3D. Elle vient d'Internet, donc
+**chaque poste qui ouvre IRIS doit avoir Internet** — et il n'y a **rien à
+préparer** : ouvrez la carte, elle s'affiche.
+
+> **Vérifiez** — la carte montre le Maroc en satellite ; le bouton « Plan »
+> passe au fond OpenStreetMap ; le bouton 3D fait apparaître le relief.
+
+Le reste de cette étape ne concerne que le mode **hors ligne**
+(`MAP_TILES=sovereign` et `COMPOSE_PROFILES=sovereign` dans `.env`, puis
+`docker compose up -d --build web`) : la station sert alors elle-même ses
+tuiles, sans aucun appel externe, et il faut les préparer une fois, depuis la
+station connectée à Internet. Toujours dans `C:\iris\deploy`, tapez les
+commandes **une par une**, en attendant la fin de chacune :
 
 ```powershell
 docker compose run --rm tiles-fetch pbf
@@ -338,7 +353,7 @@ et de feu, eux, calculent sur le relief de la station.
 | Ce que vous voyez | Cause probable | Que faire |
 | --- | --- | --- |
 | « API injoignable » à la connexion | `api` n'est pas `healthy` — souvent un `.env` incomplet | `docker compose logs api` ; vérifiez les deux secrets du § 4, puis `docker compose up -d` |
-| La carte est vide, sans fond | tuiles non préparées, ou `tiles` refuse de démarrer | § 6 ; sans imagerie, `docker compose run --rm tiles-fetch placeholder` puis `docker compose restart tiles` |
+| La carte est vide, sans fond | en mode externe : le poste n'a pas Internet ; en mode hors ligne : tuiles non préparées, ou `tiles` refuse de démarrer | vérifier l'accès Internet du poste ; § 6 ; sans imagerie, `docker compose run --rm tiles-fetch placeholder` puis `docker compose restart tiles` |
 | `docker compose up` échoue sur « port 80 already in use » | un autre logiciel (IIS, Skype…) occupe le port | `HTTP_PORT=8080` dans `.env`, `PUBLIC_URL=http://localhost:8080`, puis `docker compose up -d` et ouvrez `http://localhost:8080` |
 | Un autre poste n'atteint pas la station | pare-feu Windows | autorisez Docker Desktop (réseaux privés) ou ouvrez le port 80 en entrée |
 | Le copilote ne répond pas | Ollama non joignable depuis Docker | § 7 : `OLLAMA_HOST=0.0.0.0`, redémarrer Ollama |

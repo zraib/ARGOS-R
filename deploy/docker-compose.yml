@@ -5,7 +5,8 @@
 # de commandement web à la racine, l'API sous /api, les tuiles sous /tiles, le
 # routage sous /routing et le moteur de langage local sous /llm. Le navigateur
 # n'a donc qu'un hôte à connaître — celui de la station — et les images ne
-# contiennent aucune adresse : la CSP de production (`'self'`) reste fermée.
+# contiennent aucune adresse : la CSP de production reste fermée (`'self'`,
+# plus les trois fournisseurs de fond de carte si MAP_TILES=external).
 #
 #   copy .env.example .env      # puis remplir les secrets
 #   docker compose up -d --build
@@ -56,7 +57,11 @@ services:
       args:
         # Tout relatif : voir l'en-tête. Ne pas y mettre d'adresse de station.
         NEXT_PUBLIC_API_URL: same-origin
-        NEXT_PUBLIC_MAP_TILES: sovereign
+        # Fond de carte, FIGÉ dans l'image (ADR 0014) : external = Esri/Maxar,
+        # OpenStreetMap et relief AWS appelés par le navigateur (Internet requis
+        # sur chaque poste) ; sovereign = tuiles hors ligne servies par la
+        # station (service `tiles`, profil `sovereign`, README § 4).
+        NEXT_PUBLIC_MAP_TILES: ${MAP_TILES:-sovereign}
         NEXT_PUBLIC_TILES_URL: /tiles
         NEXT_PUBLIC_ROUTING_ENGINE: valhalla
         NEXT_PUBLIC_ROUTING_URL: /routing
@@ -130,7 +135,10 @@ services:
       retries: 10
     restart: unless-stopped
 
-  # --- Tuiles : tileserver-gl -----------------------------------------------
+  # --- Tuiles : tileserver-gl (mode souverain seulement) ----------------------
+  # Ne tourne que sous le profil `sovereign` (COMPOSE_PROFILES dans .env) :
+  # en fond de carte externe il n'a rien à servir et refuserait de démarrer
+  # sur un volume vide.
   # Sert les MBTiles du volume argos_tiles (voir ../infra/geo) :
   #   sat, dem  → fichiers raster tels quels ;
   #   plan, lbl → RENDUS à la demande depuis les tuiles vectorielles OSM du
@@ -139,6 +147,7 @@ services:
   # Le chemin public /tiles/{source}/{z}/{x}/{y} est traduit par Traefik
   # (traefik/dynamic.yml) vers les chemins propres de tileserver-gl.
   tiles:
+    profiles: ["sovereign"]
     image: maptiler/tileserver-gl:v5.6.0
     command: ["--config", "/config/config.json", "--port", "8080", "--public_url", "${PUBLIC_URL:-http://localhost}/tiles/"]
     volumes:
