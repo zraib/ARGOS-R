@@ -99,7 +99,9 @@ export AUTH_DEV_SECRET="${AUTH_DEV_SECRET:-inutile-a-la-construction}"
 export IRIS_TAG="$VERSION"
 export MAP_TILES="$MAP_MODE"
 export DOCKER_DEFAULT_PLATFORM="linux/amd64"
-compose() { docker compose --project-directory "$DEPLOY" -f "$COMPOSE" --profile tiles-build "$@"; }
+# Tous les profils : le paquet embarque aussi le serveur de tuiles (profil
+# `sovereign`), pour qu'une station puisse passer au fond hors ligne sans Internet.
+compose() { docker compose --project-directory "$DEPLOY" -f "$COMPOSE" --profile tiles-build --profile sovereign "$@"; }
 
 say "Paquet ${NAME} → ${OUT}"
 echo "    plateforme cible : linux/amd64 · fond de carte : ${MAP_MODE} · images de base : $([ "$WITH_BASE" = 1 ] && echo oui || echo non) · planetiler : $([ "$WITH_TILES_BUILD" = 1 ] && echo oui || echo non)"
