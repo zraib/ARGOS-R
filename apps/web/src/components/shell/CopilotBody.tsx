@@ -248,6 +248,7 @@ export default function CopilotBody() {
           role: "assistant",
           text: cleanFinalText(answer.text),
           provider,
+          intent: answer.intent,
           suggestions: answer.suggestions,
           ...(raccourci === "social" ? {} : { deterministic: true, layer1: answer.layer1, ...structuredBlocks(answer, true) }),
         });
@@ -264,7 +265,7 @@ export default function CopilotBody() {
       // Le fil ne montre que « traitement en cours » : les blocs structurés
       // arrivent avec le texte final, jamais avant — l'utilisateur ne voit plus
       // une réponse Couche 1 remplacée sous ses yeux.
-      const msgId = pushAi({ role: "assistant", text: t.cp_processing, provider: `${cfg.label} · ${cfg.model}` });
+      const msgId = pushAi({ role: "assistant", text: t.cp_processing, provider: `${cfg.label} · ${cfg.model}`, intent: answer.intent });
       setBusy(true);
       // Priorité à l'opérateur : les recalculs IA de fond patientent le temps
       // de la réponse (mesuré : 26,9 s de premier jeton avec eux devant, 3,5 s sans).
@@ -276,6 +277,7 @@ export default function CopilotBody() {
           text: cleanFinalText(answer.text),
           provider: `Données IRIS · ${answer.intent === "unknown" ? t.cp_partial : t.cp_detailed}`,
           deterministic: true,
+          intent: answer.intent,
           llmError,
           layer1: answer.layer1,
           ...blocs,
@@ -327,6 +329,7 @@ export default function CopilotBody() {
         updateAi(msgId, {
           text: cleanFinalText(issue.text),
           provider: `🤖 ${cfg.label} · ${cfg.model} · ${first}durée ${issue.durationSec}s${measureLabel(issue.stats)}`,
+          intent: answer.intent,
           ...blocs,
           suggestions: answer.suggestions,
         });

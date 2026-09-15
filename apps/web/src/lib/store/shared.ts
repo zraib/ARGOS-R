@@ -195,6 +195,9 @@ export interface AiMessage {
   llmError?: string;
   /** requête Couche 1 réellement exécutée (transparence) */
   layer1?: string;
+  /** Intention détectée par la Couche 1 (si connue) — sert au déclenchement
+   *  d'actions comme « Télécharger PDF » sur les synthèses de situation. */
+  intent?: import("@/lib/ai/assistant/types").AiIntent;
   units?: AiUnitResult[];
   /** Données structurées renvoyées par la Couche 1 (tableaux sous le markdown */
   incidents?: AiIncidentRow[];
