@@ -8,14 +8,14 @@ describe("rôles — tables de vérité", () => {
   it("seul superadmin est super administrateur", () => {
     expect(tous.filter(isSuperAdmin)).toEqual(["superadmin"]);
   });
-  it("déclarer un incident : superadmin, tacom, bluecell", () => {
-    expect(tous.filter(canReportIncident).sort()).toEqual(["bluecell", "superadmin", "tacom"]);
+  it("déclarer un incident : superadmin, tacom et ses PC, bluecell", () => {
+    expect(tous.filter(canReportIncident).sort()).toEqual(["bluecell", "pco", "pct", "superadmin", "tacom"]);
   });
-  it("déployer un poste : superadmin, admin, opcom, tacom", () => {
-    expect(tous.filter(canDeployPosts).sort()).toEqual(["admin", "opcom", "superadmin", "tacom"]);
+  it("déployer un poste : superadmin, admin, opcom, tacom et ses PC", () => {
+    expect(tous.filter(canDeployPosts).sort()).toEqual(["admin", "opcom", "pco", "pct", "superadmin", "tacom"]);
   });
-  it("les quinze rôles sont uniques", () => {
+  it("les vingt rôles sont uniques (ADR 0016 : représentants de l'OPCOM, PC du TACOM)", () => {
     expect(new Set(tous).size).toBe(tous.length);
-    expect(tous.length).toBe(15);
+    expect(tous.length).toBe(20);
   });
 });

@@ -14,21 +14,21 @@
 //           ce que les opérateurs créent. Les simulateurs client (convois) et
 //           la noria aérienne d'exercice sont coupés à la source.
 //
-// Réglage : `DATA_PROFILE`. Absent, la production est VIDE et le
-// développement en DÉMO — le même réflexe que pour le fond de carte : on ne
-// devine jamais dans le sens de la simulation sur une station.
+// Depuis l'ADR 0016 le profil DÉCOULE du mode de la station (`app-mode.ts`) :
+// le mode « démonstration » sème, les modes « exercice » et « opérationnel »
+// laissent la station vide.
 // ============================================================================
+
+import { APP_MODE, type AppMode } from "@/common/app-mode";
 
 export type DataProfile = "demo" | "empty";
 
-export function resolveDataProfile(env: NodeJS.ProcessEnv = process.env): DataProfile {
-  const explicit = (env.DATA_PROFILE ?? "").trim().toLowerCase();
-  if (explicit === "demo" || explicit === "empty") return explicit;
-  return (env.NODE_ENV ?? "development") === "production" ? "empty" : "demo";
+export function profileOfMode(mode: AppMode): DataProfile {
+  return mode === "demo" ? "demo" : "empty";
 }
 
-/** Profil effectif du processus — lu une fois, comme les autres réglages d'environnement. */
-export const DATA_PROFILE: DataProfile = resolveDataProfile();
+/** Profil effectif du processus — celui du mode de la station. */
+export const DATA_PROFILE: DataProfile = profileOfMode(APP_MODE);
 
 /** Vrai quand le jeu de démonstration doit exister. */
 export const DEMO_DATA = DATA_PROFILE === "demo";

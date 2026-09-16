@@ -191,17 +191,40 @@ export interface SubIncidentCatalog {
 
 export type UnitReadiness = "ready" | "deployed" | "standby";
 
+/** Corps d'appartenance d'une unité (ADR 0016) — miroir de l'API. */
+export const UNIT_CORPS = ["far", "gendarmerie", "dgsn", "dgpc", "fa"] as const;
+export type UnitCorps = (typeof UNIT_CORPS)[number];
+/** Les corps civils : ceux que le wali et le ministère de l'Intérieur affectent. */
+export const CIVIL_CORPS: readonly UnitCorps[] = ["dgsn", "dgpc", "fa"];
+
+/** Destination d'une unité affectée : PC opérationnel ou PC tactique du TACOM. */
+export type Destination = "pco" | "pct";
+
+/** Affectation d'une unité à une opération (ADR 0016). */
+export interface UnitAssignment {
+  unitId: string;
+  destination: Destination;
+  by: string;
+  at: string;
+  deployedAt?: string;
+  deployedBy?: string;
+}
+
 export interface Unit {
   id: string;
   nom: string;
   ville: string;
   cmdt: string;
+  /** Corps d'appartenance ; absent sur les unités d'avant l'ADR 0016 (= FAR). */
+  corps?: UnitCorps;
   eff: number;
   dispo: UnitReadiness;
   readiness: number;
   x: number;
   y: number;
   ll: [number, number];
+  /** Opération à laquelle l'unité est affectée, et sa destination. */
+  assignment?: { incidentId: string; destination: Destination; deployed: boolean };
 }
 
 /**
@@ -406,6 +429,8 @@ export interface Responsible {
 interface NoticeBase {
   id: string;
   at: string;
+  /** Acquittée par le compte (ADR 0016) — servi par l'API, absent sur une alerte poussée en direct. */
+  acked?: boolean;
 }
 
 /** L'incident déclaré dans la région du compte — de quoi centrer la carte dessus. */
@@ -431,7 +456,8 @@ export interface PasswordResetNotice extends NoticeBase {
 export type Notice = IncidentNotice | PasswordResetNotice;
 
 /** Natures de poste posables sur la carte d'une opération (miroir de l'API). */
-export type PostKind = "opcom" | "tacom" | "bluecell" | "greencell" | "orangecell" | "shelter" | "equipment";
+/** `pco` et `pct` : les deux postes de commandement du TACOM (ADR 0016). */
+export type PostKind = "opcom" | "tacom" | "pco" | "pct" | "bluecell" | "greencell" | "orangecell" | "shelter" | "equipment";
 
 /**
  * Un poste posé sur la carte d'une opération : un PC, une cellule, un abri ou
@@ -678,10 +704,18 @@ export interface AircraftPosition {
   originCountry: string | null;
 }
 
+/** Un point de trajectoire (ADR 0016) : [lng, lat] et l'instant (ms UTC). */
+export interface TrailPoint {
+  ll: [number, number];
+  at: number;
+}
+
 export interface TrackedAircraftState {
   aircraft: TrackedAircraft;
   position: AircraftPosition | null;
   status: TrackingStatus;
+  /** Trajectoire récente tenue par l'API (ADR 0016) ; absente sur une API d'avant. */
+  trail?: TrailPoint[];
 }
 
 export interface MapSelection {

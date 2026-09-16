@@ -43,6 +43,8 @@ export interface Incident {
   declaredCasualties?: { dead: number; injured: number; missing: number };
   /** Premiers intervenants rattachés : unités, hôpitaux — et sites mortuaires dès qu'un décès est déclaré. */
   responders?: { units: string[]; hospitals: string[]; morgues?: string[] };
+  /** Affectations d'unités par l'OPCOM, avec leur destination et leur déploiement (ADR 0016). */
+  assignments?: UnitAssignment[];
   /** Sous-incidents (aléas secondaires rattachés après la déclaration). */
   subIncidents?: SubIncident[];
   /** Volet NRBC (famille, substance, ampleur) — incidents de type `nrbc`. */
@@ -76,6 +78,40 @@ export interface SubIncident {
   responders?: { units: string[]; hospitals: string[] };
 }
 
+/**
+ * Corps d'appartenance d'une unité (ADR 0016) : il décide QUI peut l'affecter
+ * à une opération et vers quel poste du TACOM elle va.
+ *   far         — Forces Armées Royales (militaire)
+ *   gendarmerie — Gendarmerie Royale (militaire ; rejoint le PCO)
+ *   dgsn        — Sûreté Nationale (civil)
+ *   dgpc        — Protection Civile (civil)
+ *   fa          — Forces Auxiliaires (civil)
+ */
+export const UNIT_CORPS = ["far", "gendarmerie", "dgsn", "dgpc", "fa"] as const;
+export type UnitCorps = (typeof UNIT_CORPS)[number];
+
+/** Les corps civils : ceux que le wali et le ministère de l'Intérieur affectent. */
+export const CIVIL_CORPS: readonly UnitCorps[] = ["dgsn", "dgpc", "fa"];
+
+/** Destination d'une unité affectée : le PC opérationnel ou le PC tactique du TACOM. */
+export const DESTINATIONS = ["pco", "pct"] as const;
+export type Destination = (typeof DESTINATIONS)[number];
+
+/**
+ * Affectation d'une unité à une opération par l'OPCOM (ADR 0016), puis son
+ * déploiement sur le terrain par le TACOM ou une cellule. Une unité n'est
+ * affectée qu'à une opération à la fois.
+ */
+export interface UnitAssignment {
+  unitId: string;
+  destination: Destination;
+  by: string;
+  at: string;
+  /** Déployée sur le terrain ; absent tant qu'elle attend au PC. */
+  deployedAt?: string;
+  deployedBy?: string;
+}
+
 export interface Unit {
   id: string;
   /** Ligne du jeu de démonstration — voir `Incident.seeded`. */
@@ -83,12 +119,16 @@ export interface Unit {
   nom: string;
   ville: string;
   cmdt: string;
+  /** Corps d'appartenance ; absent sur les unités d'avant l'ADR 0016 (= FAR). */
+  corps?: UnitCorps;
   eff: number;
   dispo: "ready" | "deployed" | "standby";
   readiness: number;
   x: number;
   y: number;
   ll: [number, number];
+  /** Opération à laquelle l'unité est affectée, et sa destination — dénormalisé pour la carte et les listes. */
+  assignment?: { incidentId: string; destination: Destination; deployed: boolean };
 }
 
 /**
@@ -437,7 +477,8 @@ export interface TransportMovement {
 // --- postes d'opération sur la carte (lot #12) ---------------------------------
 
 /** Natures de poste posables sur la carte d'une opération. */
-export const POST_KINDS = ["opcom", "tacom", "bluecell", "greencell", "orangecell", "shelter", "equipment"] as const;
+// `pco` et `pct` : les deux postes de commandement du TACOM (ADR 0016).
+export const POST_KINDS = ["opcom", "tacom", "pco", "pct", "bluecell", "greencell", "orangecell", "shelter", "equipment"] as const;
 export type PostKind = (typeof POST_KINDS)[number];
 
 /**

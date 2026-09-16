@@ -24,7 +24,7 @@ import { ACFT_POLL_MS, ACFT_FRAME_MS } from "@/lib/map/canvas/weather-render";
 const TRACKER_POLL_MS = 15_000;
 import { apply3d, applyBase } from "@/components/map/layers/base";
 import { MarkersRuntime, animateVehicles, setupRoutesLayer, syncMarkers } from "@/components/map/layers/markers";
-import { dropAircraft, renderAircraft, type AircraftRegistry } from "@/components/map/layers/aircraft";
+import { applyAircraftTrails, dropAircraft, renderAircraft, setupAircraftTrailLayer, type AircraftRegistry } from "@/components/map/layers/aircraft";
 import { pulseQuakes, quakePopup, setupQuakeLayers, syncQuakes } from "@/components/map/layers/quakes";
 import { applyMissions, setupMissionLayers } from "@/components/map/layers/missions";
 import { drawMeasure, setupMeasureLayer } from "@/components/map/layers/measure";
@@ -338,7 +338,9 @@ export function MapCanvas() {
       setupMorgueLayers(map);
       setupShelterLayers(map);
       setupTrackerLayers(map);
+      setupAircraftTrailLayer(map);
       const st = useArgos.getState();
+      applyAircraftTrails(map, st.aircraft, st.layers.aircraft);
       applyMorgues(map, st.morgues, st.layers.morgues);
       applyShelters(map, st.shelters, st.layers.shelters);
       applyTrackers(map, st.trackers, st.layers.trackers);
@@ -548,6 +550,12 @@ export function MapCanvas() {
     if (readyRef.current) applyMorgues(mapRef.current, morgues, layers.morgues);
   }, [morgues, layers.morgues]);
 
+  // --- trajectoires des aéronefs (ADR 0016) : redessinées à chaque relevé ---
+  const aircraftStates = useArgos((s) => s.aircraft);
+  useEffect(() => {
+    if (readyRef.current) applyAircraftTrails(mapRef.current, aircraftStates, layers.aircraft);
+  }, [aircraftStates, layers.aircraft]);
+
   // --- abris d'hébergement : même mécanique (ADR 0015) ---
   useEffect(() => {
     if (readyRef.current) applyShelters(mapRef.current, shelters, layers.shelters);
@@ -720,7 +728,9 @@ export function MapCanvas() {
                 <button
                   key={d.date}
                   type="button"
-                  onClick={() => { wxRt.current.anim.idx = d.idx; wxRt.current.anim.lastInt = -2; setWxTimeIdx(d.idx); }}
+                  // Choisir un jour PAUSE la lecture : à 1 h par seconde, l'animation
+                  // reprenait aussitôt le pas et le saut passait pour inopérant.
+                  onClick={() => { wxRt.current.anim.idx = d.idx; wxRt.current.anim.lastInt = -2; wxRt.current.anim.playing = false; setWxPlaying(false); setWxTimeIdx(d.idx); }}
                   className={`min-w-0 flex-1 truncate rounded-md px-1 py-0.5 text-[12px] font-semibold transition-colors ${
                     active ? "bg-or-500 text-rdia-600" : "text-white/70 hover:bg-white/10 hover:text-white"
                   }`}
@@ -752,6 +762,9 @@ export function MapCanvas() {
                   const v = Number(e.target.value);
                   wxRt.current.anim.idx = v;
                   wxRt.current.anim.lastInt = -2; // force la ré-application du pas
+                  // Scruter une heure met la lecture en pause, comme choisir un jour.
+                  wxRt.current.anim.playing = false;
+                  setWxPlaying(false);
                   setWxTimeIdx(v);
                 }}
                 className="wx-range w-full"

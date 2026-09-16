@@ -40,8 +40,13 @@ export class PermissionsGuard implements CanActivate {
     const module = moduleOfPermission(required);
     if (module && this.gate) {
       if (await this.gate.moduleDisabled(module)) throw new ForbiddenException(`Module désactivé : ${module}`);
-      if (user.permissions !== "*" && this.gate.roleModuleDisabled(user.role, module)) {
-        throw new ForbiddenException(`Module coupé pour le rôle ${user.role} : ${module}`);
+      if (user.permissions !== "*") {
+        // Le compte d'abord (ADR 0016) : sa bascule propre tranche avant le rôle.
+        const own = this.gate.userModuleOverride(user.username, module);
+        if (own === false) throw new ForbiddenException(`Module coupé pour le compte ${user.username} : ${module}`);
+        if (own === undefined && this.gate.roleModuleDisabled(user.role, module)) {
+          throw new ForbiddenException(`Module coupé pour le rôle ${user.role} : ${module}`);
+        }
       }
     }
     return true;

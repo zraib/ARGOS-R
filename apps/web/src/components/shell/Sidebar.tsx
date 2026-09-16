@@ -40,7 +40,8 @@ export function Sidebar() {
   // Un écran est visible si son module n'est coupé ni par un drapeau global ni
   // pour le rôle actif (matrice rôle → modules) — le reflet de ce que l'API
   // refuse déjà (ADR 0015).
-  const moduleVisible = (key: NavKey) => moduleOpen(key, flags, roleFeatures[role]);
+  const myModules = useArgos((s) => s.myModules);
+  const moduleVisible = (key: NavKey) => moduleOpen(key, flags, roleFeatures[role], myModules);
 
   const collapsed = !expanded;
   const activeInc = incidents.filter((i) => i.st !== "closed").length;

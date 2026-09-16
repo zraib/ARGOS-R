@@ -13,7 +13,7 @@ import type { ModuleFeature } from "@/lib/api-client";
 
 export type NavKey =
   | "dashboard" | "incidents" | "map" | "seismic" | "dispatch" | "triage"
-  | "equip" | "units" | "personnel" | "workorders"
+  | "equip" | "units" | "resources" | "workorders"
   | "hospitals" | "ics" | "damage" | "shelters"
   | "orsec" | "plans" | "comms" | "reports" | "analytics" | "assistant" | "simulation"
   | "users" | "settings"
@@ -57,7 +57,7 @@ export const HREF: Record<NavKey, string> = {
   triage: "/triage",
   equip: "/inventaire",
   units: "/equipes",
-  personnel: "/personnel",
+  resources: "/ressources",
   workorders: "/bons-de-travail",
   hospitals: "/hospinet",
   ics: "/ics",
@@ -118,7 +118,7 @@ export const NAV: NavEntry[] = [
     kind: "group",
     key: "res",
     icon: NAV_ICONS.res,
-    children: [item("equip", HREF.equip), item("units", HREF.units), item("personnel", HREF.personnel), item("workorders", HREF.workorders)],
+    children: [item("equip", HREF.equip), item("units", HREF.units), item("resources", HREF.resources), item("workorders", HREF.workorders)],
   },
   item("hospitals", HREF.hospitals),
   // OPSnet — pendant d'Hospinet pour les moyens d'action et d'accueil. Posé
@@ -169,7 +169,7 @@ export type ModuleKey = ModuleFeature;
 /** Tous les modules, dans l'ordre d'affichage des écrans d'administration. */
 export const MODULE_KEYS = [
   "incidents", "map", "seismic", "dispatch", "triage",
-  "equip", "units", "personnel", "workorders",
+  "equip", "units", "workorders", "resources",
   "hospitals", "ics", "damage", "shelters", "morgue",
   "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation",
   "trackers", "chemlib",
@@ -193,7 +193,7 @@ export const NAV_MODULE: Record<NavKey, ModuleKey | null> = {
   triage: "triage",
   equip: "equip",
   units: "units",
-  personnel: "personnel",
+  resources: "resources",
   workorders: "workorders",
   hospitals: "hospitals",
   ics: "ics",
@@ -220,11 +220,20 @@ export const NAV_MODULE: Record<NavKey, ModuleKey | null> = {
 
 /**
  * Un écran est ouvert si son module n'est coupé ni globalement (drapeaux) ni
- * pour le rôle (matrice rôle → modules). Le cœur est toujours ouvert.
+ * pour le rôle (matrice rôle → modules) ni pour le compte (bascule propre,
+ * ADR 0016). Quand l'API a servi les modules EFFECTIFS du compte
+ * (`myModules` : drapeaux ∧ rôle ∧ compte), ils font foi. Le cœur est toujours
+ * ouvert.
  */
-export function moduleOpen(key: NavKey, flags: Record<string, boolean>, roleFeatures: Record<string, boolean> | undefined): boolean {
+export function moduleOpen(
+  key: NavKey,
+  flags: Record<string, boolean>,
+  roleFeatures: Record<string, boolean> | undefined,
+  myModules?: Record<string, boolean> | null,
+): boolean {
   const m = NAV_MODULE[key];
   if (m === null) return true;
+  if (myModules) return myModules[m] !== false;
   return flags[m] !== false && roleFeatures?.[m] !== false;
 }
 
@@ -254,7 +263,7 @@ export function keyForPath(pathname: string): NavKey | null {
 
 const LABEL_KEYS: Record<NavKey | GroupKey, keyof Dict> = {
   dashboard: "nav_dash", incidents: "nav_inc", map: "nav_map", seismic: "nav_seismic", dispatch: "nav_dispatch", triage: "nav_triage",
-  equip: "nav_equip", units: "nav_units", personnel: "nav_pers", workorders: "nav_wo",
+  equip: "nav_equip", units: "nav_units", resources: "nav_resources", workorders: "nav_wo",
   hospitals: "nav_hosp", ics: "nav_ics", damage: "nav_damage", shelters: "nav_shelters",
   orsec: "nav_orsec", plans: "nav_plans", comms: "nav_comms", reports: "nav_reports", analytics: "nav_analytics", assistant: "nav_assistant", simulation: "nav_simulation", users: "nav_users", settings: "nav_settings", myresp: "nav_myresp", myrespManage: "nav_myresp_manage", supervision: "nav_supervision",
   res: "nav_res", dis: "nav_dis", cmd: "nav_cmd", chemlib: "nav_chemlib", trackers: "nav_trackers", opsnet: "nav_opsnet", morgue: "nav_morgue",

@@ -19,7 +19,7 @@ import { createArgosClient } from "@/lib/api-client";
  * chemins du client — qui portent déjà `/api` — sont relatifs : l'image web
  * ne connaît pas l'adresse de la station, et n'a pas à la connaître.
  */
-function apiBase(): string {
+export function apiBase(): string {
   const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
   if (configured === "same-origin") return "";
   if (configured) return configured;
@@ -73,8 +73,25 @@ export type RoleFeaturesMap = Record<string, Record<string, boolean>>;
  * matrice rôle→fonctionnalités. Dégrade proprement (les rôles sans les
  * permissions de lecture conservent les valeurs par défaut du bootstrap).
  */
-export async function loadSessionContext(): Promise<{ flags?: FlagsMap; roleFeatures?: RoleFeaturesMap }> {
-  const out: { flags?: FlagsMap; roleFeatures?: RoleFeaturesMap } = {};
+export interface SessionContext {
+  flags?: FlagsMap;
+  roleFeatures?: RoleFeaturesMap;
+  /** Modules effectifs de CE compte (drapeaux ∧ rôle ∧ compte), servis par `/iam/me` (ADR 0016). */
+  myModules?: Record<string, boolean>;
+  /** Mode de la station en service (ADR 0016). */
+  appMode?: "demo" | "exercise" | "operational";
+}
+
+export async function loadSessionContext(): Promise<SessionContext> {
+  const out: SessionContext = {};
+  try {
+    const me = await api.me();
+    const d = me.data as { modules?: Record<string, boolean>; appMode?: SessionContext["appMode"] } | undefined;
+    if (d?.modules) out.myModules = d.modules;
+    if (d?.appMode) out.appMode = d.appMode;
+  } catch {
+    /* sans réponse, le rôle et les drapeaux décident */
+  }
   try {
     const f = await api.getFlags();
     if (f.data) out.flags = f.data as FlagsMap;

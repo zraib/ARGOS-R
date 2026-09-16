@@ -96,5 +96,15 @@ describe("station vide — reprise entre deux démarrages", () => {
     // Puis la station reste vide, et l'unité reste — l'instantané est désormais « empty ».
     const again = boot({ DATA_PROFILE: "empty", DEV_PERSIST: "on", DEV_DATA_DIR: dir });
     expect(again.listUnits().map((x) => x.id)).toEqual([mine.id]);
+    await wait(250);
+
+    // Retour en démonstration (ADR 0016) : les graines reviennent, l'unité reste.
+    const back = boot({ DATA_PROFILE: "demo", DEV_PERSIST: "on", DEV_DATA_DIR: dir });
+    expect(back.listUnits().map((x) => x.id)).toContain(mine.id);
+    expect(back.listUnits().length).toBeGreaterThan(5);
+    expect(back.listIncidents().length).toBeGreaterThan(3);
+    expect(back.listShelters().length).toBeGreaterThan(0);
+    expect(back.listMorgues().length).toBeGreaterThan(0);
+    expect(back.listFieldHospitals().length).toBeGreaterThan(0);
   });
 });

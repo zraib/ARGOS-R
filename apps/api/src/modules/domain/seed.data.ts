@@ -85,7 +85,7 @@ export const SEED_UNITS: Unit[] = [
   { id: "U10", nom: "Compagnie de Réserve — Benslimane", ville: "Benslimane", cmdt: "Cne. Y. Filali", eff: 130, dispo: "ready", readiness: 69, x: 184, y: 170, ll: [-7.12, 33.61], seeded: true },
 
   // --- Détroit et Rif ------------------------------------------------------
-  { id: "U11", nom: "Bataillon de Sécurité Civile — Détroit", ville: "Tanger", cmdt: "Lt-Col. O. Mrani", eff: 320, dispo: "deployed", readiness: 83, x: 236, y: 62, ll: [-5.8, 35.77], seeded: true },
+  { id: "U11", nom: "Bataillon de Sécurité Civile — Détroit", corps: "dgpc", ville: "Tanger", cmdt: "Lt-Col. O. Mrani", eff: 320, dispo: "deployed", readiness: 83, x: 236, y: 62, ll: [-5.8, 35.77], seeded: true },
   { id: "U12", nom: "Compagnie de Montagne du Rif", ville: "Tétouan", cmdt: "Cne. Z. Lahlou", eff: 155, dispo: "deployed", readiness: 79, x: 252, y: 74, ll: [-5.37, 35.57], seeded: true },
 ];
 

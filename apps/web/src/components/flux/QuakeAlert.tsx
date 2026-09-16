@@ -53,7 +53,11 @@ export function QuakeAlert() {
   // Signature sonore au déclenchement (une fois par alerte), si le poste
   // n'a pas coupé les notifications sonores — lu à l'instant, pas surveillé.
   useEffect(() => {
-    if (!alert || !useArgos.getState().sounds.alerts) return;
+    if (!alert) return;
+    // La fenêtre se pose à côté du bouton des conversations : celles qui sont
+    // ouvertes se replient pour lui laisser la place (front montant seulement).
+    useArgos.getState().closeAllChats();
+    if (!useArgos.getState().sounds.alerts) return;
     if (pointInMorocco(alert.lon, alert.lat)) playNationalAlert();
     else playGlobalAlert();
   }, [alert]);
@@ -63,11 +67,12 @@ export function QuakeAlert() {
   const nContacts = seisConfig?.contacts.length ?? 0;
 
   return (
-    // EN HAUT, centrée, sous l'en-tête : le bas de l'écran appartient aux
-    // boutons flottants et aux conversations. Sous sm elle prend la largeur
-    // (moins les marges) : figée à 320 px, elle ne laissait plus la place aux
-    // deux boutons d'action à 375 px.
-    <div className="fixed left-1/2 top-[4.25rem] z-[60] w-[min(92vw,22rem)] -translate-x-1/2 animate-fade-in lg:top-[4.75rem]">
+    // EN BAS, à côté du bouton des conversations (et du Copilot quand il est
+    // là) : c'est le coin de l'écran que l'opérateur regarde déjà pour ce qui
+    // lui arrive, et les conversations ouvertes viennent d'être repliées pour
+    // lui laisser la place. Sous sm elle prend la largeur (moins les marges) :
+    // figée à 320 px, elle ne laissait plus la place aux deux boutons d'action.
+    <div className="fixed bottom-20 end-4 z-[60] w-[min(92vw,22rem)] animate-fade-in sm:bottom-24 sm:end-6">
       <div
         className={`rounded-2xl border bg-white shadow-2xl dark:bg-rdia-800 ${
           isMa ? "border-danger-500 ring-2 ring-danger-500/50 animate-pulse-ring" : "border-or-500/40"

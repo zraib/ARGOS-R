@@ -4,10 +4,15 @@
 
 import type { Notice } from "@/lib/types";
 
-/** Les alertes que l'opérateur n'a pas encore ouvertes. */
+/** Les alertes que l'opérateur n'a pas encore ouvertes ni acquittées (ADR 0016). */
 export function unseenNotices(notices: readonly Notice[], seen: readonly string[]): Notice[] {
   const vu = new Set(seen);
-  return notices.filter((n) => !vu.has(n.id));
+  return notices.filter((n) => !n.acked && !vu.has(n.id));
+}
+
+/** Marque une alerte acquittée (ou toutes) dans la liste, sans muter. */
+export function ackNotices(notices: readonly Notice[], id: string | "all"): Notice[] {
+  return notices.map((n) => (id === "all" || n.id === id ? { ...n, acked: true } : n));
 }
 
 /** Fusionne une alerte reçue : en tête, sans doublon d'identifiant. */

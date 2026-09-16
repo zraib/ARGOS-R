@@ -1,4 +1,6 @@
-import { POST_KINDS } from "@/modules/domain/domain.types";
+import { DESTINATIONS, POST_KINDS, UNIT_CORPS } from "@/modules/domain/domain.types";
+import { APP_MODES } from "@/common/app-mode";
+import { PERSON_CORPS, PERSON_STATUS, RESOURCE_OWNER_KINDS, SUPPLY_KINDS, VEHICLE_STATES } from "@/modules/domain/resources.types";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { SHELTER_BUILDINGS, SHELTER_KINDS } from "@/modules/domain/shelter.rules";
 import { REGIONS_MA } from "@/modules/domain/provinces.data";
@@ -366,6 +368,10 @@ export class CreateUnitDto {
   @IsOptional() @IsString() @MaxLength(80)
   cmdt?: string;
 
+  @ApiPropertyOptional({ enum: UNIT_CORPS, default: "far", description: "Corps d'appartenance (ADR 0016) : far, gendarmerie, dgsn, dgpc, fa — décide qui peut affecter l'unité et vers quel PC elle va." })
+  @IsOptional() @IsIn(UNIT_CORPS as unknown as string[])
+  corps?: (typeof UNIT_CORPS)[number];
+
   @ApiProperty({ minimum: 1 })
   @IsInt()
   @Min(1)
@@ -600,6 +606,22 @@ export class UpdateUnitDto {
   @ApiPropertyOptional({ description: "Commandant de l'unité" })
   @IsOptional() @IsString() @MinLength(1) @MaxLength(120)
   cmdt?: string;
+
+  @ApiPropertyOptional({ description: "Nom de l'unité (OPCOM / cellules en démonstration et exercice)", maxLength: 120 })
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(120)
+  nom?: string;
+
+  @ApiPropertyOptional({ description: "Ville d'implantation", maxLength: 80 })
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(80)
+  ville?: string;
+
+  @ApiPropertyOptional({ enum: UNIT_CORPS, description: "Corps d'appartenance (ADR 0016)" })
+  @IsOptional() @IsIn(UNIT_CORPS as unknown as string[])
+  corps?: (typeof UNIT_CORPS)[number];
+
+  @ApiPropertyOptional({ type: [Number], description: "Position [lng, lat]" })
+  @IsOptional() @IsArray() @ArrayMinSize(2) @ArrayMaxSize(2) @IsNumber({}, { each: true })
+  ll?: [number, number];
 
   @ApiPropertyOptional({ minimum: 0, description: "Effectif" })
   @IsOptional() @IsInt() @Min(0)
@@ -1044,4 +1066,214 @@ export class PurgeDomainDto {
   @ApiProperty({ description: "Mot de passe du compte qui agit — la remise à zéro est un geste signé, pas un clic", maxLength: 200 })
   @IsString() @MinLength(1) @MaxLength(200)
   password!: string;
+}
+
+// --- Chaîne de commandement (ADR 0016) ---------------------------------------
+
+/** Affecter une unité à une opération : l'OPCOM et ses représentants, chacun pour son corps. */
+export class AssignUnitDto {
+  @ApiProperty({ example: "U3", description: "Unité à affecter" })
+  @IsString() @MinLength(1) @MaxLength(40)
+  unitId!: string;
+
+  @ApiPropertyOptional({ enum: DESTINATIONS, description: "Destination au TACOM — décisive pour une unité des FAR seulement : gendarmerie et unités civiles rejoignent le PCO." })
+  @IsOptional() @IsIn(DESTINATIONS as unknown as string[])
+  destination?: (typeof DESTINATIONS)[number];
+}
+
+/** Changement du mode de la station (ADR 0016), signé par le mot de passe du Super Administrateur. */
+export class SetModeDto {
+  @ApiProperty({ enum: APP_MODES, description: "demo, exercise ou operational" })
+  @IsIn(APP_MODES as unknown as string[])
+  mode!: (typeof APP_MODES)[number];
+
+  @ApiProperty({ description: "Mot de passe du compte qui agit", maxLength: 200 })
+  @IsString() @MinLength(1) @MaxLength(200)
+  password!: string;
+}
+
+// --- Ressources (ADR 0016) ----------------------------------------------------
+
+/** Détenteur d'une ressource : une unité, un hôpital ou un abri. */
+export class ResourceOwnerDto {
+  @ApiProperty({ enum: RESOURCE_OWNER_KINDS })
+  @IsIn(RESOURCE_OWNER_KINDS as unknown as string[])
+  kind!: (typeof RESOURCE_OWNER_KINDS)[number];
+
+  @ApiProperty({ example: "U3" })
+  @IsString() @MinLength(1) @MaxLength(40)
+  id!: string;
+}
+
+export class CreatePersonDto {
+  @ApiProperty({ type: ResourceOwnerDto })
+  @ValidateNested() @Type(() => ResourceOwnerDto)
+  owner!: ResourceOwnerDto;
+
+  @ApiProperty({ enum: PERSON_CORPS, description: "far, gendarmerie, fa, dgsn (grade) ; dgpc, civil (fonction)" })
+  @IsIn(PERSON_CORPS as unknown as string[])
+  corps!: (typeof PERSON_CORPS)[number];
+
+  @ApiPropertyOptional({ maxLength: 60 }) @IsOptional() @IsString() @MaxLength(60)
+  grade?: string;
+
+  @ApiProperty({ maxLength: 80 }) @IsString() @MinLength(1) @MaxLength(80)
+  nom!: string;
+
+  @ApiProperty({ maxLength: 80 }) @IsString() @MinLength(1) @MaxLength(80)
+  prenom!: string;
+
+  @ApiProperty({ maxLength: 40 }) @IsString() @MinLength(1) @MaxLength(40)
+  matricule!: string;
+
+  @ApiProperty({ maxLength: 120 }) @IsString() @MinLength(1) @MaxLength(120)
+  fonction!: string;
+
+  @ApiPropertyOptional({ description: "Équipe d'appartenance" }) @IsOptional() @IsString() @MaxLength(40)
+  teamId?: string;
+
+  @ApiPropertyOptional({ enum: PERSON_STATUS, default: "present" }) @IsOptional() @IsIn(PERSON_STATUS as unknown as string[])
+  status?: (typeof PERSON_STATUS)[number];
+
+  @ApiPropertyOptional({ maxLength: 40 }) @IsOptional() @IsString() @MaxLength(40)
+  phone?: string;
+
+  @ApiPropertyOptional({ maxLength: 300 }) @IsOptional() @IsString() @MaxLength(300)
+  note?: string;
+}
+
+export class UpdatePersonDto {
+  @ApiPropertyOptional({ enum: PERSON_CORPS }) @IsOptional() @IsIn(PERSON_CORPS as unknown as string[])
+  corps?: (typeof PERSON_CORPS)[number];
+  @ApiPropertyOptional({ maxLength: 60 }) @IsOptional() @IsString() @MaxLength(60)
+  grade?: string;
+  @ApiPropertyOptional({ maxLength: 80 }) @IsOptional() @IsString() @MinLength(1) @MaxLength(80)
+  nom?: string;
+  @ApiPropertyOptional({ maxLength: 80 }) @IsOptional() @IsString() @MinLength(1) @MaxLength(80)
+  prenom?: string;
+  @ApiPropertyOptional({ maxLength: 40 }) @IsOptional() @IsString() @MinLength(1) @MaxLength(40)
+  matricule?: string;
+  @ApiPropertyOptional({ maxLength: 120 }) @IsOptional() @IsString() @MinLength(1) @MaxLength(120)
+  fonction?: string;
+  @ApiPropertyOptional({ description: "Équipe d'appartenance ; chaîne vide pour en sortir" }) @IsOptional() @IsString() @MaxLength(40)
+  teamId?: string;
+  @ApiPropertyOptional({ enum: PERSON_STATUS }) @IsOptional() @IsIn(PERSON_STATUS as unknown as string[])
+  status?: (typeof PERSON_STATUS)[number];
+  @ApiPropertyOptional({ maxLength: 40 }) @IsOptional() @IsString() @MaxLength(40)
+  phone?: string;
+  @ApiPropertyOptional({ maxLength: 300 }) @IsOptional() @IsString() @MaxLength(300)
+  note?: string;
+}
+
+export class CreateTeamDto {
+  @ApiProperty({ type: ResourceOwnerDto })
+  @ValidateNested() @Type(() => ResourceOwnerDto)
+  owner!: ResourceOwnerDto;
+  @ApiProperty({ maxLength: 80 }) @IsString() @MinLength(1) @MaxLength(80)
+  nom!: string;
+  @ApiPropertyOptional({ maxLength: 200 }) @IsOptional() @IsString() @MaxLength(200)
+  mission?: string;
+  @ApiPropertyOptional({ description: "Chef d'équipe (identifiant de personne)" }) @IsOptional() @IsString() @MaxLength(40)
+  leaderId?: string;
+  @ApiPropertyOptional({ type: [String], description: "Membres (identifiants de personnes de la même entité)" })
+  @IsOptional() @IsArray() @IsString({ each: true })
+  memberIds?: string[];
+}
+
+export class UpdateTeamDto {
+  @ApiPropertyOptional({ maxLength: 80 }) @IsOptional() @IsString() @MinLength(1) @MaxLength(80)
+  nom?: string;
+  @ApiPropertyOptional({ maxLength: 200 }) @IsOptional() @IsString() @MaxLength(200)
+  mission?: string;
+  @ApiPropertyOptional({ description: "Chef d'équipe ; chaîne vide pour retirer" }) @IsOptional() @IsString() @MaxLength(40)
+  leaderId?: string;
+  @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @IsString({ each: true })
+  memberIds?: string[];
+}
+
+export class CreateVehicleDto {
+  @ApiProperty({ type: ResourceOwnerDto })
+  @ValidateNested() @Type(() => ResourceOwnerDto)
+  owner!: ResourceOwnerDto;
+  @ApiProperty({ example: "Ambulance médicalisée", maxLength: 80 }) @IsString() @MinLength(1) @MaxLength(80)
+  type!: string;
+  @ApiPropertyOptional({ example: "FAR-2140", description: "Immatriculation ou numéro de parc", maxLength: 40 }) @IsOptional() @IsString() @MaxLength(40)
+  plate?: string;
+  @ApiPropertyOptional({ minimum: 1, default: 1, description: "Nombre de véhicules identiques" }) @IsOptional() @IsInt() @Min(1)
+  qty?: number;
+  @ApiPropertyOptional({ enum: VEHICLE_STATES, default: "ok" }) @IsOptional() @IsIn(VEHICLE_STATES as unknown as string[])
+  state?: (typeof VEHICLE_STATES)[number];
+  @ApiPropertyOptional({ maxLength: 120 }) @IsOptional() @IsString() @MaxLength(120)
+  assignment?: string;
+  @ApiPropertyOptional({ maxLength: 300 }) @IsOptional() @IsString() @MaxLength(300)
+  note?: string;
+}
+
+export class UpdateVehicleDto {
+  @ApiPropertyOptional({ maxLength: 80 }) @IsOptional() @IsString() @MinLength(1) @MaxLength(80)
+  type?: string;
+  @ApiPropertyOptional({ maxLength: 40 }) @IsOptional() @IsString() @MaxLength(40)
+  plate?: string;
+  @ApiPropertyOptional({ minimum: 1 }) @IsOptional() @IsInt() @Min(1)
+  qty?: number;
+  @ApiPropertyOptional({ enum: VEHICLE_STATES }) @IsOptional() @IsIn(VEHICLE_STATES as unknown as string[])
+  state?: (typeof VEHICLE_STATES)[number];
+  @ApiPropertyOptional({ maxLength: 120 }) @IsOptional() @IsString() @MaxLength(120)
+  assignment?: string;
+  @ApiPropertyOptional({ maxLength: 300 }) @IsOptional() @IsString() @MaxLength(300)
+  note?: string;
+}
+
+export class CreateSupplyDto {
+  @ApiProperty({ type: ResourceOwnerDto })
+  @ValidateNested() @Type(() => ResourceOwnerDto)
+  owner!: ResourceOwnerDto;
+  @ApiProperty({ enum: SUPPLY_KINDS, description: "fuel = carburant, food = vivres, bedding = couchage, camp = campement" })
+  @IsIn(SUPPLY_KINDS as unknown as string[])
+  kind!: (typeof SUPPLY_KINDS)[number];
+  @ApiProperty({ example: "Gazole", maxLength: 80 }) @IsString() @MinLength(1) @MaxLength(80)
+  label!: string;
+  @ApiProperty({ minimum: 0 }) @IsNumber() @Min(0)
+  qty!: number;
+  @ApiProperty({ example: "L", description: "Unité de compte : L, rations, places, tentes…", maxLength: 20 }) @IsString() @MinLength(1) @MaxLength(20)
+  unit!: string;
+  @ApiPropertyOptional({ minimum: 0 }) @IsOptional() @IsNumber() @Min(0)
+  threshold?: number;
+  @ApiPropertyOptional({ maxLength: 300 }) @IsOptional() @IsString() @MaxLength(300)
+  note?: string;
+}
+
+export class UpdateSupplyDto {
+  @ApiPropertyOptional({ enum: SUPPLY_KINDS }) @IsOptional() @IsIn(SUPPLY_KINDS as unknown as string[])
+  kind?: (typeof SUPPLY_KINDS)[number];
+  @ApiPropertyOptional({ maxLength: 80 }) @IsOptional() @IsString() @MinLength(1) @MaxLength(80)
+  label?: string;
+  @ApiPropertyOptional({ minimum: 0 }) @IsOptional() @IsNumber() @Min(0)
+  qty?: number;
+  @ApiPropertyOptional({ maxLength: 20 }) @IsOptional() @IsString() @MinLength(1) @MaxLength(20)
+  unit?: string;
+  @ApiPropertyOptional({ minimum: 0 }) @IsOptional() @IsNumber() @Min(0)
+  threshold?: number;
+  @ApiPropertyOptional({ maxLength: 300 }) @IsOptional() @IsString() @MaxLength(300)
+  note?: string;
+}
+
+/** Article au parc d'un détenteur quel qu'il soit (unité, hôpital, abri). */
+export class CreateOwnedEquipDto extends CreateEquipDto {
+  @ApiProperty({ type: ResourceOwnerDto })
+  @ValidateNested() @Type(() => ResourceOwnerDto)
+  owner!: ResourceOwnerDto;
+
+  @ApiPropertyOptional({ maxLength: 80, description: "Type d'équipement" }) @IsOptional() @IsString() @MaxLength(80)
+  type?: string;
+
+  @ApiPropertyOptional({ maxLength: 60, description: "Numéro d'inventaire / série" }) @IsOptional() @IsString() @MaxLength(60)
+  serial?: string;
+}
+
+export class UpdateOwnedEquipDto extends UpdateEquipDto {
+  @ApiPropertyOptional({ maxLength: 80 }) @IsOptional() @IsString() @MaxLength(80)
+  type?: string;
+  @ApiPropertyOptional({ maxLength: 60 }) @IsOptional() @IsString() @MaxLength(60)
+  serial?: string;
 }

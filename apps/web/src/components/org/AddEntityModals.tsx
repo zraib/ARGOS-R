@@ -9,7 +9,8 @@ import { HOSPITAL_KINDS, kindDef } from "@/lib/hospitals";
 import { HealthGlyph } from "@/components/health/HealthGlyph";
 import { WardsEditor, autosumServices, type WardsEditorValue } from "@/components/health/WardsEditor";
 import { ARGOS_WARD_REFERENCE } from "@/lib/types";
-import type { HospitalKind, UnitReadiness } from "@/lib/types";
+import { UNIT_CORPS, type HospitalKind, type UnitCorps, type UnitReadiness } from "@/lib/types";
+import { corpsLabel } from "@/lib/corps";
 import type { ShelterBuilding, ShelterKind } from "@/lib/data/modules";
 import dynamic from "next/dynamic";
 import { EMPTY_LOCATION, LocationCascade, locationLL, locationProvince, type LocationValue } from "@/components/org/LocationCascade";
@@ -51,6 +52,7 @@ export function AddUnitModal({ open, onClose, onCreated }: { open: boolean; onCl
   const [nom, setNom] = useState("");
   const [ville, setVille] = useState("");
   const [eff, setEff] = useState(200);
+  const [corps, setCorps] = useState<UnitCorps>("far");
   const [dispo, setDispo] = useState<UnitReadiness>("ready");
   const [readiness, setReadiness] = useState(85);
   const [loc, setLoc] = useState<LocationValue>(EMPTY_LOCATION);
@@ -73,6 +75,7 @@ export function AddUnitModal({ open, onClose, onCreated }: { open: boolean; onCl
       const res = await api.createUnit({
         nom: nom.trim(),
         ville: ville.trim(),
+        corps,
         eff,
         dispo,
         readiness,
@@ -100,6 +103,15 @@ export function AddUnitModal({ open, onClose, onCreated }: { open: boolean; onCl
         <div>
           <label className={labelCls}>{t.h_name}</label>
           <input className={inputCls} value={nom} onChange={(e) => setNom(e.target.value)} placeholder="6e Bataillon Médical" />
+        </div>
+        {/* Le corps décide qui affecte l'unité et vers quel PC elle va (ADR 0016). */}
+        <div>
+          <label className={labelCls}>{t.f_corps}</label>
+          <select className={inputCls} value={corps} onChange={(e) => setCorps(e.target.value as UnitCorps)}>
+            {UNIT_CORPS.map((c) => (
+              <option key={c} value={c}>{corpsLabel(c, t)}</option>
+            ))}
+          </select>
         </div>
         <LocationCascade value={loc} onChange={onLoc} />
         <div>

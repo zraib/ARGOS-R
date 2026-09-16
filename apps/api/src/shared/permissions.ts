@@ -46,6 +46,15 @@ export const MATRIX_FEATURES = [
   "assistant",      // Assistant IA
   "users",          // Gestion des utilisateurs
   "settings",       // Paramètres
+  // Chaîne de commandement pendant un incident (ADR 0016) — lignes ajoutées à
+  // la matrice : l'OPCOM AFFECTE des unités à l'opération, le TACOM et les
+  // cellules les DÉPLOIENT ; les RESSOURCES (personnes, équipes, véhicules,
+  // logistique) sont tenues par les chefs d'entité et les cellules ; la MÉTÉO
+  // se lit partout où la carte se lit.
+  "assign",         // Affectation des unités à l'incident (OPCOM)
+  "deploy",         // Déploiement terrain des unités affectées (TACOM, cellules)
+  "resources",      // Ressources : personnes, équipes, véhicules, logistique
+  "weather",        // Météo (grilles, prévisions)
 ] as const;
 
 /**
@@ -102,6 +111,10 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   assistant: "Assistant IA",
   users: "Gestion des utilisateurs",
   settings: "Paramètres",
+  assign: "Affectation des unités",
+  deploy: "Déploiement terrain",
+  resources: "Ressources (personnes, équipes, véhicules, logistique)",
+  weather: "Météo",
   dispatch: "Répartiteur",
   triage: "Triage de masse",
   ics: "Formulaires ICS",
@@ -138,7 +151,14 @@ export const ROLES = [
   "place_arme",
   "wali",
   "opcom",
+  // Membres de l'OPCOM (ADR 0016) : chacun affecte les unités de SON corps.
+  "gendarmerie",
+  "etat_major",
+  "interieur",
   "tacom",
+  // Postes de commandement du TACOM (ADR 0016).
+  "pco",
+  "pct",
   "bluecell",
   "greencell",
   "orangecell",
@@ -167,8 +187,13 @@ export const ROLE_LABELS: Record<Role, string> = {
   strategic: "Utilisateur Stratégique",
   place_arme: "Place d'Armes",
   wali: "Wali / Gouverneur",
-  opcom: "OPCOM",
-  tacom: "TACOM",
+  opcom: "OPCOM — PC état-major incident",
+  gendarmerie: "Représentant Gendarmerie Royale (OPCOM)",
+  etat_major: "Représentant État-Major des FAR (OPCOM)",
+  interieur: "Représentant Ministère de l'Intérieur (OPCOM)",
+  tacom: "TACOM — PC tactique",
+  pco: "Chef du PC Opérationnel (PCO)",
+  pct: "Chef du PC Tactique (PCT)",
   bluecell: "Cellule Bleue — Opérations",
   greencell: "Cellule Verte — Logistique",
   orangecell: "Cellule Orange — Sécurité",
@@ -271,8 +296,10 @@ const MATRIX: Record<(typeof MATRIX_FEATURES)[number], Partial<Record<Role, Cell
     admin: ALL, strategic: V, wali: V, place_arme: V, opcom: V, tacom: V, bluecell: V, greencell: V, orangecell: V,
     resp_morgue: AMV, resp_hospital: V,
   },
+  // ADR 0016 : l'OPCOM et les cellules créent et modifient des unités en
+  // démonstration et en exercice ; le MODE opérationnel resserre (mode.rules.ts).
   units: {
-    admin: ALL, opcom: V, tacom: V, bluecell: V, greencell: V, orangecell: V,
+    admin: ALL, opcom: AMV, tacom: V, bluecell: AMV, greencell: AMV, orangecell: AMV,
     resp_unit: AMV,
     // V-1 : « niveau de disponibilité et déploiement des unités » pour le
     // stratégique ; pour le wali et la place d'armes, l'état des moyens
@@ -287,7 +314,7 @@ const MATRIX: Record<(typeof MATRIX_FEATURES)[number], Partial<Record<Role, Cell
     place_arme: V,
   },
   teams: {
-    admin: ALL, opcom: V, tacom: V, bluecell: V, greencell: V, orangecell: V,
+    admin: ALL, opcom: AMV, tacom: V, bluecell: AMV, greencell: AMV, orangecell: AMV,
     resp_unit: V,
     // V-1 : c'est CETTE ligne qui garde `GET /units` (et non `units:`, qui
     // gouverne la page de gestion). Sans elle, le filtrage de zone de la place
@@ -316,7 +343,74 @@ const MATRIX: Record<(typeof MATRIX_FEATURES)[number], Partial<Record<Role, Cell
   },
   users: { admin: ALL },
   settings: { admin: ALL },
+  // --- chaîne de commandement (ADR 0016) ------------------------------------
+  // L'OPCOM affecte : le chef de l'OPCOM peut tout affecter ; chaque
+  // représentant n'affecte que les unités de son corps (règle du domaine,
+  // `assignment.rules.ts`) : wali et Intérieur → unités civiles (DGSN, DGPC,
+  // FA) ; gendarmerie → gendarmerie ; état-major et place d'armes → FAR.
+  // Le TACOM et ses postes lisent ce qui leur est affecté.
+  assign: {
+    admin: ALL, strategic: V, opcom: AMV, wali: AMV, place_arme: AMV,
+    gendarmerie: AMV, etat_major: AMV, interieur: AMV,
+    tacom: V, pco: V, pct: V, bluecell: V, greencell: V, orangecell: V, resp_unit: V,
+  },
+  // Le TACOM reçoit les unités affectées selon leur destination (PCO / PCT) et
+  // les déploie ; les cellules les déploient sur le terrain ou les retirent.
+  deploy: {
+    admin: ALL, strategic: V, opcom: V, wali: V, place_arme: V,
+    gendarmerie: V, etat_major: V, interieur: V,
+    tacom: AMV, pco: AMV, pct: AMV, bluecell: AMV, greencell: AMV, orangecell: AMV, resp_unit: V,
+  },
+  // Les ressources d'une entité (personnes, équipes, véhicules, logistique,
+  // équipements) : tenues par le chef de l'entité et par les cellules — ce
+  // que chaque cellule peut tenir, sur quelle entité et dans quel MODE de la
+  // station reste tranché par le domaine (`resources.rules.ts`). `R` = retirer
+  // du registre (archive), jamais `delete`.
+  resources: {
+    admin: ALL, strategic: V, opcom: V, wali: V, place_arme: V,
+    gendarmerie: V, etat_major: V, interieur: V, tacom: V, pco: V, pct: V,
+    bluecell: ALL, greencell: ALL, orangecell: ALL,
+    resp_unit: ALL, resp_hospital: ALL, resp_shelter: ALL, resp_equipment: ALL, resp_morgue: V,
+  },
+  // La météo se lit partout où la carte se lit : elle était gardée par
+  // `seismic:view`, que la plupart des rôles n'ont pas — sur une station en
+  // service, seuls quelques comptes voyaient les couches météo.
+  weather: {
+    admin: ALL, strategic: V, place_arme: V, wali: V, opcom: V, tacom: V,
+    gendarmerie: V, etat_major: V, interieur: V, pco: V, pct: V,
+    bluecell: V, greencell: V, orangecell: V,
+    resp_hospital: V, resp_shelter: V, resp_unit: V, resp_morgue: V, resp_equipment: V,
+  },
 };
+
+/**
+ * Rôles DÉRIVÉS (ADR 0016) : chacun hérite, ligne par ligne, de la dotation
+ * d'un rôle de référence là où la matrice ne le cite pas explicitement.
+ *   - les représentants de l'OPCOM (gendarmerie, état-major, Intérieur)
+ *     lisent comme l'OPCOM mais ne conduisent pas l'incident : ils ne le
+ *     créent, ne le modifient ni ne l'archivent — ils affectent leurs unités ;
+ *   - les chefs de PC du TACOM (PCO, PCT) ont la dotation du TACOM.
+ * Une cellule `null` retire la ligne au rôle dérivé.
+ */
+const DERIVED_ROLES: Partial<Record<Role, { like: Role; except: Partial<Record<Feature, Cell | null>> }>> = {
+  gendarmerie: { like: "opcom", except: { incidents: V, subincidents: V, victims: V, reports: V, dispatch: V, orsec: V, plans: V, aviation: V, nrbc: V, tracking: V, missions: V } },
+  etat_major: { like: "opcom", except: { incidents: V, subincidents: V, victims: V, reports: V, dispatch: V, orsec: V, plans: V, aviation: V, nrbc: V, tracking: V, missions: V } },
+  interieur: { like: "opcom", except: { incidents: V, subincidents: V, victims: V, reports: V, dispatch: V, orsec: V, plans: V, aviation: V, nrbc: V, tracking: V, missions: V } },
+  pco: { like: "tacom", except: {} },
+  pct: { like: "tacom", except: {} },
+};
+
+/** Complète chaque ligne des deux tables avec les cellules des rôles dérivés. */
+function applyDerivedRoles(table: Record<string, Partial<Record<Role, Cell>>>): void {
+  for (const [role, spec] of Object.entries(DERIVED_ROLES) as [Role, { like: Role; except: Partial<Record<Feature, Cell | null>> }][]) {
+    for (const [feature, byRole] of Object.entries(table)) {
+      if (byRole[role] !== undefined) continue; // la matrice l'a dit explicitement
+      const override = spec.except[feature as Feature];
+      const cell = override === undefined ? byRole[spec.like] : override;
+      if (cell) byRole[role] = cell;
+    }
+  }
+}
 
 /**
  * Dotations des modules HORS matrice — reprises de l'état antérieur, en
@@ -420,6 +514,8 @@ function buildRolePermissions(): Record<Role, Permission[] | "*"> {
       }
     }
   };
+  applyDerivedRoles(MATRIX);
+  applyDerivedRoles(LEGACY);
   apply(MATRIX);
   apply(LEGACY);
   return out;
@@ -486,7 +582,8 @@ export function canAssignMultipleRoles(creator: Role): boolean {
 
 export const MODULE_KEYS = [
   "incidents", "map", "seismic", "dispatch", "triage",
-  "equip", "units", "personnel", "workorders",
+  // `personnel` (ancien roster fictif) est absorbé par `resources` (ADR 0016).
+  "equip", "units", "workorders", "resources",
   "hospitals", "ics", "damage", "shelters", "morgue",
   "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation",
   "trackers", "chemlib",
@@ -528,7 +625,7 @@ export const FEATURE_MODULE: Record<Feature, ModuleKey | null> = {
   damage: "damage",
   orsec: "orsec",
   plans: "plans",
-  personnel: "personnel",
+  personnel: "resources",
   workorders: "workorders",
   seismic: "seismic",
   audit: null,
@@ -538,6 +635,13 @@ export const FEATURE_MODULE: Record<Feature, ModuleKey | null> = {
   tracking: "trackers",
   comms_admin: "comms",
   map_edit: "map",
+  // Chaîne de commandement (ADR 0016) : l'affectation et le déploiement se
+  // jouent dans l'incident ; les ressources ont leur module ; la météo suit la
+  // carte (elle n'a pas d'écran à elle).
+  assign: "incidents",
+  deploy: "incidents",
+  resources: "resources",
+  weather: "map",
 };
 
 /** Module d'une permission `fonctionnalité:action` ; `null` pour le cœur. */

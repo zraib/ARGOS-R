@@ -186,6 +186,15 @@ export class CommsController {
     return this.notices.listFor(user.username);
   }
 
+  /** Acquitter une alerte : elle cesse d'être signalée (visuel, son) sur tous les postes du compte. */
+  @Post("comms/notices/:id/ack")
+  @RequirePermission("comms:view")
+  @SkipAudit()
+  @ApiOperation({ summary: "Acquitter une alerte adressée (`all` : toutes) — l'acquittement survit au rechargement et au redémarrage (ADR 0016)" })
+  ackNotice(@Param("id") id: string, @CurrentUser() user: AuthUser) {
+    return { acked: this.notices.ack(user.username, id === "all" ? "all" : id) };
+  }
+
   @Get("comms")
   @RequirePermission("comms:view")
   @ApiOperation({ summary: "Centre de communication : canaux, messages, présence" })

@@ -11,7 +11,7 @@ import type { PostKind } from "@/modules/domain/domain.types";
 // ============================================================================
 
 /** Les natures tenues par un compte déployable. */
-export const ROLE_POST_KINDS: readonly PostKind[] = ["opcom", "tacom", "bluecell", "greencell", "orangecell"];
+export const ROLE_POST_KINDS: readonly PostKind[] = ["opcom", "tacom", "pco", "pct", "bluecell", "greencell", "orangecell"];
 
 /** Les natures qui représentent une entité existante, et l'entité qu'elles exigent. */
 export const ENTITY_POST_KINDS: Partial<Record<PostKind, "shelter" | "unit">> = {
@@ -44,6 +44,8 @@ export type PostCheck =
 const KIND_LABEL: Record<PostKind, string> = {
   opcom: "OPCOM",
   tacom: "TACOM",
+  pco: "PCO",
+  pct: "PCT",
   bluecell: "cellule bleue",
   greencell: "cellule verte",
   orangecell: "cellule orange",

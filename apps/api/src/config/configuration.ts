@@ -1,5 +1,6 @@
 // Configuration typée chargée depuis l'environnement (12-factor).
-import { resolveDataProfile, type DataProfile } from "@/common/data-profile";
+import { DATA_PROFILE, type DataProfile } from "@/common/data-profile";
+import { APP_MODE, type AppMode } from "@/common/app-mode";
 
 export type AuthMode = "keycloak" | "dev";
 export type DbDriver = "memory" | "postgres";
@@ -17,6 +18,8 @@ export interface AppConfig {
   floodApiKey: string;
   /** Profil de données : `demo` (jeu de démonstration) ou `empty` (référentiels seuls) — ADR 0015. */
   dataProfile: DataProfile;
+  /** Mode de la station (ADR 0016) : demo, exercise, operational. */
+  appMode: AppMode;
 }
 
 export default function configuration(): AppConfig {
@@ -43,6 +46,7 @@ export default function configuration(): AppConfig {
     // Crues : la clé n'est jamais servie au navigateur — l'appel part de l'API.
     floodApiKey: process.env.FLOOD_API_KEY ?? "",
     // Absent : vide en production, démo en développement (common/data-profile).
-    dataProfile: resolveDataProfile(process.env),
+    dataProfile: DATA_PROFILE,
+    appMode: APP_MODE,
   };
 }

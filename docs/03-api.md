@@ -43,7 +43,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 
 | Méthode | Route | Accès | Rôle |
 | --- | --- | --- | --- |
-| `GET` | `/api/iam/me` | authentifié (soi-même) | Profil de l'utilisateur courant + permissions résolues |
+| `GET` | `/api/iam/me` | authentifié (soi-même) | Profil de l'utilisateur courant + permissions résolues + modules effectifs (drapeaux ∧ rôle ∧ compte, ADR 0016) + mode de la station |
 | `GET` | `/api/iam/permissions` | `users:view` | Catalogue des permissions |
 | `GET` | `/api/iam/role-features` | authentifié (soi-même) | Matrice rôle → modules. |
 | `PATCH` | `/api/iam/role-features/{role}` | `users:update` | Ouvrir/couper un module pour un rôle (Super Admin) — effectif côté API dès la requête suivante |
@@ -55,6 +55,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `DELETE` | `/api/iam/users/{id}` | `users:delete` | Supprimer un utilisateur |
 | `PATCH` | `/api/iam/users/{id}` | `users:update` | Modifier un utilisateur (nom, grade, rôles) |
 | `POST` | `/api/iam/users/{id}/active` | `users:update` | Activer/suspendre un compte (Super Admin) — activation forcée possible |
+| `PATCH` | `/api/iam/users/{id}/modules` | `users:update` | Ouvrir ou couper un module pour UN compte (ADR 0016) — effectif côté API dès la requête suivante. |
 | `POST` | `/api/iam/users/{id}/reset-code` | `users:update` | Régénérer le code temporaire d'un compte |
 | `GET` | `/api/iam/users/{id}/temp-code` | `users:view` | Consulter le code temporaire (Admin/Super Admin) |
 
@@ -92,12 +93,14 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `GET` | `/api/comms/directory` | `comms:view` | Annuaire des comptes joignables — pour composer un canal |
 | `POST` | `/api/comms/messages` | `comms:view` | Envoyer un message dans un canal (audité) |
 | `GET` | `/api/comms/notices` | `comms:view` | Alertes adressées au compte connecté (incident déclaré dans sa région…) |
+| `POST` | `/api/comms/notices/{id}/ack` | `comms:view` | Acquitter une alerte adressée (`all` : toutes) — l'acquittement survit au rechargement et au redémarrage (ADR 0016) |
 | `GET` | `/api/comms/responsables` | `comms:view` | Qui tient quoi — titulaire de chaque entité affectée et de chaque poste déployé |
 | `GET` | `/api/dashboard/risk` | `dashboard:view` | Prédictions de risques (moteur déterministe, calculé côté serveur) |
 | `GET` | `/api/dashboard/stats` | `dashboard:view` | Statistiques de commandement : évolution 30 j, gravité, bilan humain, saturation hospitalière, posture des unités |
 | `GET` | `/api/deployable-posts` | `incidents:update` | Comptes déployables, avec leur affectation courante. |
 | `GET` | `/api/dispatch/movements` | `dispatch:view` | Mouvements de transport en cours |
 | `GET` | `/api/dispatch/queue` | `dispatch:view` | File de dispatching (besoins entrants) |
+| `PATCH` | `/api/domain/mode` | `settings:update` | Changer le mode de la station — SUPERADMIN, mot de passe exigé (ADR 0016). |
 | `GET` | `/api/domain/profile` | `settings:view` | Profil de données de la station et volume du domaine opérationnel. |
 | `POST` | `/api/domain/purge` | `settings:delete` | Remettre le domaine à zéro — SUPERADMIN uniquement, mot de passe exigé (step-up). |
 | `GET` | `/api/equipment-parks/{id}/items` | `equipment:view` | Parc d'équipement d'une unité |
@@ -125,6 +128,11 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `POST` | `/api/incidents` | `incidents:create` | Déclarer un incident (audité) — type validé contre le catalogue |
 | `DELETE` | `/api/incidents/{id}` | `incidents:delete` | Supprimer définitivement un incident — SUPERADMIN uniquement. |
 | `PATCH` | `/api/incidents/{id}` | `incidents:update` | Modifier ou archiver un incident (audité) |
+| `GET` | `/api/incidents/{id}/assignments` | `assign:view` | Unités affectées à l'opération, avec leur destination (PCO / PCT) et leur déploiement. |
+| `POST` | `/api/incidents/{id}/assignments` | `assign:create` | Affecter une unité à l'opération (OPCOM). |
+| `DELETE` | `/api/incidents/{id}/assignments/{unitId}` | `assign:update` | Retirer une unité de l'opération (OPCOM) — retirée du terrain si elle y était |
+| `POST` | `/api/incidents/{id}/assignments/{unitId}/deploy` | `deploy:update` | Déployer sur le terrain une unité affectée (TACOM, PCO, PCT, cellules) |
+| `POST` | `/api/incidents/{id}/assignments/{unitId}/withdraw` | `deploy:update` | Retirer du terrain une unité déployée — elle reste affectée au PC |
 | `GET` | `/api/incidents/{id}/deployments` | `incidents:view` | Postes déployés sur cette opération. |
 | `POST` | `/api/incidents/{id}/deployments` | `incidents:update` | Déployer un poste sur l'opération. |
 | `DELETE` | `/api/incidents/{id}/deployments/{matricule}` | `incidents:update` | Retirer un poste de l'opération. |
@@ -165,13 +173,13 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `GET` | `/api/sitreps/missing` | `missions:view` | Entités EN RETARD de compte rendu. |
 | `GET` | `/api/sub-incident-types` | `subincidents:view` | Catalogue des sous-types + mapping par type d'incident principal |
 | `GET` | `/api/units` | `teams:view` | Liste des unités visibles. |
-| `POST` | `/api/units` | `teams:create` | Créer une unité (audité) |
-| `DELETE` | `/api/units/{id}` | `teams:delete` | Supprimer définitivement une unité — SUPERADMIN uniquement. |
-| `PATCH` | `/api/units/{id}` | `units:update` | Mettre à jour une unité — un responsable ne peut agir que sur la sienne |
-| `GET` | `/api/weather/cities` | `seismic:view` | Villes disponibles pour la météo |
-| `GET` | `/api/weather/forecast` | `seismic:view` | Prévisions météo (Open-Meteo, proxy souverain) pour lat/lon |
-| `GET` | `/api/weather/grid` | `seismic:view` | Grille de conditions actuelles (carte météo, proxy souverain) |
-| `GET` | `/api/weather/grid-world` | `seismic:view` | Grille météo mondiale grossière (pas 10°, couverture planétaire de la carte) |
+| `POST` | `/api/units` | `teams:create` | Créer une unité (audité). |
+| `DELETE` | `/api/units/{id}` | `teams:update` | Supprimer définitivement une unité — Super Administrateur ; OPCOM et cellules hors mode opérationnel (ADR 0016). |
+| `PATCH` | `/api/units/{id}` | `units:update` | Mettre à jour une unité — un responsable ne peut agir que sur la sienne ; l'OPCOM et les cellules en démonstration et en exercice |
+| `GET` | `/api/weather/cities` | `weather:view` | Villes disponibles pour la météo |
+| `GET` | `/api/weather/forecast` | `weather:view` | Prévisions météo (Open-Meteo, proxy souverain) pour lat/lon |
+| `GET` | `/api/weather/grid` | `weather:view` | Grille de conditions actuelles (carte météo, proxy souverain) |
+| `GET` | `/api/weather/grid-world` | `weather:view` | Grille météo mondiale grossière (pas 10°, couverture planétaire de la carte) |
 
 ## Tableau de bord d'incident — `/api/incidents/{id}/dashboard`
 
@@ -249,6 +257,27 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `GET` | `/api/comms/presence` | `comms:view` | Comptes actuellement connectés. |
 | `GET` | `/api/comms/stream` | `comms:view` | Flux temps réel des communications (Server-Sent Events). |
 
+## resources
+
+| Méthode | Route | Accès | Rôle |
+| --- | --- | --- | --- |
+| `GET` | `/api/resources` | `resources:view` | Les ressources d'une entité (personnes, équipes, véhicules, logistique, équipements), ou le registre entier. |
+| `POST` | `/api/resources/equipment` | `resources:create` | Ajouter un article au parc d'une entité (unité, hôpital, abri) |
+| `DELETE` | `/api/resources/equipment/{id}` | `resources:archive` | Sortir un article du parc |
+| `PATCH` | `/api/resources/equipment/{id}` | `resources:update` | Mettre à jour un article du parc |
+| `POST` | `/api/resources/persons` | `resources:create` | Inscrire une personne au registre d'une entité |
+| `DELETE` | `/api/resources/persons/{id}` | `resources:archive` | Retirer une personne du registre |
+| `PATCH` | `/api/resources/persons/{id}` | `resources:update` | Mettre à jour une personne |
+| `POST` | `/api/resources/supplies` | `resources:create` | Inscrire une ressource logistique (carburant, vivres, couchage, campement) |
+| `DELETE` | `/api/resources/supplies/{id}` | `resources:archive` | Retirer une ressource logistique du registre |
+| `PATCH` | `/api/resources/supplies/{id}` | `resources:update` | Mettre à jour une ressource logistique |
+| `POST` | `/api/resources/teams` | `resources:create` | Constituer une équipe de personnes d'une entité |
+| `DELETE` | `/api/resources/teams/{id}` | `resources:archive` | Dissoudre une équipe — ses membres restent au registre |
+| `PATCH` | `/api/resources/teams/{id}` | `resources:update` | Mettre à jour une équipe (nom, mission, chef, membres) |
+| `POST` | `/api/resources/vehicles` | `resources:create` | Inscrire un véhicule (ou une flotte comptée) au registre d'une entité |
+| `DELETE` | `/api/resources/vehicles/{id}` | `resources:archive` | Retirer un véhicule du registre |
+| `PATCH` | `/api/resources/vehicles/{id}` | `resources:update` | Mettre à jour un véhicule |
+
 ## Exemple de bout en bout
 
 ```bash
@@ -262,7 +291,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 ## Chiffres
 
-128 chemins · 163 opérations · 13 groupes.
+146 chemins · 187 opérations · 14 groupes.
 
 ## Modifier le contrat
 

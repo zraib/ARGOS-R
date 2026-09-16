@@ -407,6 +407,7 @@ export default function MapPage() {
     [<circle key="s" r={5} fill="#15803d" stroke="#fff" strokeWidth={1.5} />, t.lg_shelters],
     [<circle key="m" r={5} fill="#64748b" stroke="#fff" strokeWidth={1.5} />, t.lg_morgues],
     [<circle key="k" r={5} fill="#C9A84C" stroke="#fff" strokeWidth={1.5} />, t.lg_trackers],
+    [<path key="a" d="M-8,4 L-3,-2 L2,3 L8,-4" fill="none" stroke="#C9A84C" strokeWidth={2} strokeDasharray="3 2" />, t.lg_acft_trails],
   ];
 
   // ---- corps des panneaux ----

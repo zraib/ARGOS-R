@@ -90,23 +90,28 @@ function featuresFrom(allowed: ModuleKey[]): Record<string, boolean> {
   return Object.fromEntries(MODULE_KEYS.map((k) => [k, allowed.includes(k)]));
 }
 
-/** Modules ouverts par défaut pour chaque rôle — miroir de `DEFAULT_ROLE_FEATURES` de l'API. */
+/** Modules ouverts par défaut pour chaque rôle — miroir de `DEFAULT_ROLE_FEATURES` de l'API (ADR 0016). */
 export const DEFAULT_ROLE_FEATURES: Record<Role, Record<string, boolean>> = {
   superadmin: ALL_ON(),
   admin: ALL_ON(),
-  strategic: featuresFrom(["incidents", "map", "seismic", "units", "hospitals", "shelters", "morgue", "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
-  place_arme: featuresFrom(["incidents", "map", "seismic", "equip", "units", "hospitals", "shelters", "morgue", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
-  wali: featuresFrom(["incidents", "map", "seismic", "units", "hospitals", "shelters", "morgue", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
-  opcom: featuresFrom(["incidents", "map", "seismic", "dispatch", "equip", "units", "hospitals", "shelters", "morgue", "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
-  tacom: featuresFrom(["incidents", "map", "seismic", "dispatch", "triage", "equip", "units", "hospitals", "ics", "damage", "shelters", "morgue", "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
-  bluecell: featuresFrom(["incidents", "map", "seismic", "dispatch", "triage", "equip", "units", "hospitals", "ics", "damage", "shelters", "morgue", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
-  greencell: featuresFrom(["incidents", "map", "equip", "units", "personnel", "workorders", "hospitals", "shelters", "morgue", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
-  orangecell: featuresFrom(["incidents", "map", "equip", "units", "hospitals", "shelters", "morgue", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
-  resp_hospital: featuresFrom(["incidents", "map", "hospitals", "morgue", "comms", "assistant", "simulation", "trackers"]),
-  resp_shelter: featuresFrom(["incidents", "map", "shelters", "comms", "assistant", "simulation", "trackers"]),
-  resp_morgue: featuresFrom(["incidents", "map", "triage", "morgue", "comms", "assistant", "simulation", "trackers"]),
-  resp_unit: featuresFrom(["incidents", "map", "equip", "units", "personnel", "comms", "analytics", "assistant", "simulation", "trackers"]),
-  resp_equipment: featuresFrom(["map", "equip", "workorders", "comms", "simulation", "trackers"]),
+  strategic: featuresFrom(["incidents", "map", "seismic", "units", "resources", "hospitals", "shelters", "morgue", "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  place_arme: featuresFrom(["incidents", "map", "seismic", "equip", "units", "resources", "hospitals", "shelters", "morgue", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  wali: featuresFrom(["incidents", "map", "seismic", "units", "resources", "hospitals", "shelters", "morgue", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  opcom: featuresFrom(["incidents", "map", "seismic", "dispatch", "equip", "units", "resources", "hospitals", "shelters", "morgue", "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  gendarmerie: featuresFrom(["incidents", "map", "seismic", "dispatch", "equip", "units", "resources", "hospitals", "shelters", "morgue", "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  etat_major: featuresFrom(["incidents", "map", "seismic", "dispatch", "equip", "units", "resources", "hospitals", "shelters", "morgue", "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  interieur: featuresFrom(["incidents", "map", "seismic", "dispatch", "equip", "units", "resources", "hospitals", "shelters", "morgue", "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  tacom: featuresFrom(["incidents", "map", "seismic", "dispatch", "triage", "equip", "units", "resources", "hospitals", "ics", "damage", "shelters", "morgue", "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  pco: featuresFrom(["incidents", "map", "seismic", "dispatch", "triage", "equip", "units", "resources", "hospitals", "ics", "damage", "shelters", "morgue", "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  pct: featuresFrom(["incidents", "map", "seismic", "dispatch", "triage", "equip", "units", "resources", "hospitals", "ics", "damage", "shelters", "morgue", "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  bluecell: featuresFrom(["incidents", "map", "seismic", "dispatch", "triage", "equip", "units", "resources", "hospitals", "ics", "damage", "shelters", "morgue", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  greencell: featuresFrom(["incidents", "map", "equip", "units", "workorders", "resources", "hospitals", "shelters", "morgue", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  orangecell: featuresFrom(["incidents", "map", "equip", "units", "resources", "hospitals", "shelters", "morgue", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  resp_hospital: featuresFrom(["incidents", "map", "resources", "hospitals", "morgue", "comms", "assistant", "simulation", "trackers"]),
+  resp_shelter: featuresFrom(["incidents", "map", "resources", "shelters", "comms", "assistant", "simulation", "trackers"]),
+  resp_morgue: featuresFrom(["incidents", "map", "triage", "resources", "morgue", "comms", "assistant", "simulation", "trackers"]),
+  resp_unit: featuresFrom(["incidents", "map", "equip", "units", "resources", "comms", "analytics", "assistant", "simulation", "trackers"]),
+  resp_equipment: featuresFrom(["map", "equip", "workorders", "resources", "comms", "simulation", "trackers"]),
 };
 
 /** Copie profonde des défauts (état initial modifiable dans le store). */

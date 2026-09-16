@@ -183,6 +183,10 @@ export function Header() {
   const t = useDict();
   // Niveau d'alerte servi par l'API (lot P3-a) — plus une constante figée.
   const alertLevel = useArgos((s) => s.alertLevel);
+  // Le mode de la station (ADR 0016) se lit à tout instant : une démonstration
+  // ou un exercice ne doit jamais passer pour la situation réelle.
+  const appMode = useArgos((s) => s.appMode);
+  const modeBadge = appMode === "demo" ? t.mode_demo : appMode === "exercise" ? t.mode_exercise : null;
   const pathname = usePathname();
   const dark = useArgos((s) => s.dark);
   const toggleTheme = useArgos((s) => s.toggleTheme);
@@ -231,6 +235,11 @@ export function Header() {
             {ticker ? `${ticker.time} — ${ticker.txt}` : ""}
           </span>
         </div>
+        {modeBadge && (
+          <span className="whitespace-nowrap rounded-md border border-or-500/60 bg-or-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-or-500" title={t.md_title}>
+            {modeBadge}
+          </span>
+        )}
         <span className={`whitespace-nowrap rounded-md px-2.5 py-1 text-[10px] font-bold ${ALERT_STYLES[alertLevel]}`}>
           {alertLabel(t, alertLevel)}
         </span>

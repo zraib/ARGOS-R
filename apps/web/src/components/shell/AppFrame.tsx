@@ -52,8 +52,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
   const roleFeatures = useArgos((s) => s.roleFeatures);
   const hydratePrefs = useArgos((s) => s.hydratePrefs);
   const setSession = useArgos((s) => s.setSession);
-  const setFlags = useArgos((s) => s.setFlags);
-  const setRoleFeatures = useArgos((s) => s.setRoleFeatures);
+  const applySessionContext = useArgos((s) => s.applySessionContext);
   const loadDomain = useArgos((s) => s.loadDomain);
   const rtConnect = useArgos((s) => s.rtConnect);
   const rtDisconnect = useArgos((s) => s.rtDisconnect);
@@ -61,15 +60,16 @@ export function AppFrame({ children }: { children: ReactNode }) {
   const toggleCopilot = useArgos((s) => s.toggleCopilot);
   const navOpen = useArgos((s) => s.navOpen);
   const closeNav = useArgos((s) => s.closeNav);
-  const aiVisible = moduleOpen("assistant", flags, roleFeatures[role]);
+  const myModules = useArgos((s) => s.myModules);
+  const aiVisible = moduleOpen("assistant", flags, roleFeatures[role], myModules);
   // Le dock des conversations suit le module de communication : coupé
-  // globalement ou pour le rôle, il disparaît avec lui.
-  const commsVisible = moduleOpen("comms", flags, roleFeatures[role]);
+  // globalement, pour le rôle ou pour le compte, il disparaît avec lui.
+  const commsVisible = moduleOpen("comms", flags, roleFeatures[role], myModules);
   const ready = authed && !mustChangePassword && !mustChooseRole;
   const pathname = usePathname();
   const moduleKey = keyForPath(pathname);
   // Module verrouillé si coupé globalement (flag) ou non autorisé pour le rôle actif.
-  const moduleDisabled = moduleKey !== null && !moduleOpen(moduleKey, flags, roleFeatures[role]);
+  const moduleDisabled = moduleKey !== null && !moduleOpen(moduleKey, flags, roleFeatures[role], myModules);
 
   useEffect(() => {
     hydratePrefs();
@@ -85,11 +85,10 @@ export function AppFrame({ children }: { children: ReactNode }) {
       .catch(() => {});
     loadSessionContext()
       .then((ctx) => {
-        if (ctx.flags) setFlags(ctx.flags);
-        if (ctx.roleFeatures) setRoleFeatures(ctx.roleFeatures as Record<Role, Record<string, boolean>>);
+        applySessionContext(ctx);
       })
       .catch(() => {});
-  }, [hydratePrefs, setSession, setFlags, setRoleFeatures]);
+  }, [hydratePrefs, setSession, applySessionContext]);
 
   // Charge le domaine (incidents, unités, hôpitaux, fil) dès que la session est
   // prête — après le login comme après une restauration de session.

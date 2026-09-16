@@ -438,6 +438,7 @@ export interface ModulesDict {
   roles: Record<
     | "superadmin" | "admin" | "strategic" | "tacom" | "bluecell" | "greencell" | "orangecell"
     | "place_arme" | "wali" | "opcom"
+    | "gendarmerie" | "etat_major" | "interieur" | "pco" | "pct"
     | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment",
     string
   >;

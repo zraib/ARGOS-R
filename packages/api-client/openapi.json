@@ -265,7 +265,7 @@
             "bearer": []
           }
         ],
-        "summary": "Profil de l'utilisateur courant + permissions résolues",
+        "summary": "Profil de l'utilisateur courant + permissions résolues + modules effectifs (drapeaux ∧ rôle ∧ compte, ADR 0016) + mode de la station",
         "tags": [
           "iam"
         ]
@@ -597,6 +597,46 @@
           }
         ],
         "summary": "Ouvrir/couper un module pour un rôle (Super Admin) — effectif côté API dès la requête suivante",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/iam/users/{id}/modules": {
+      "patch": {
+        "description": "`enabled: null` rend la décision au rôle. Les comptes superadmin/admin ne se coupent pas.",
+        "operationId": "UsersController_setUserModule",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToggleUserModuleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ouvrir ou couper un module pour UN compte (ADR 0016) — effectif côté API dès la requête suivante.",
         "tags": [
           "iam"
         ]
@@ -1427,6 +1467,188 @@
         ]
       }
     },
+    "/api/incidents/{id}/assignments": {
+      "get": {
+        "description": "Visible par qui voit déjà l'incident. Le TACOM y lit ce que l'OPCOM lui a affecté.",
+        "operationId": "IncidentsController_listAssignments",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Unités affectées à l'opération, avec leur destination (PCO / PCT) et leur déploiement.",
+        "tags": [
+          "domain"
+        ]
+      },
+      "post": {
+        "description": "Chaque membre de l'OPCOM affecte les unités de SON corps : wali et Intérieur → DGSN, DGPC, FA ; gendarmerie → Gendarmerie Royale (vers le PCO) ; état-major et place d'armes → FAR (vers le PCO ou le PCT) ; le chef de l'OPCOM, tout. Une unité n'est affectée qu'à une opération à la fois.",
+        "operationId": "IncidentsController_assignUnit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignUnitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Le rôle n'affecte pas les unités de ce corps."
+          },
+          "409": {
+            "description": "L'unité est déjà affectée à une autre opération, ou déployée."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Affecter une unité à l'opération (OPCOM).",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/incidents/{id}/assignments/{unitId}": {
+      "delete": {
+        "operationId": "IncidentsController_unassignUnit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "unitId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Retirer une unité de l'opération (OPCOM) — retirée du terrain si elle y était",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/incidents/{id}/assignments/{unitId}/deploy": {
+      "post": {
+        "operationId": "IncidentsController_deployUnit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "unitId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Déployer sur le terrain une unité affectée (TACOM, PCO, PCT, cellules)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/incidents/{id}/assignments/{unitId}/withdraw": {
+      "post": {
+        "operationId": "IncidentsController_withdrawUnit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "unitId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Retirer du terrain une unité déployée — elle reste affectée au PC",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/incidents/{id}/deployments": {
       "get": {
         "description": "Visible par qui voit déjà l'incident — la section « Postes déployés » de la fiche.",
@@ -1820,6 +2042,35 @@
         ]
       }
     },
+    "/api/comms/notices/{id}/ack": {
+      "post": {
+        "operationId": "CommsController_ackNotice",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Acquitter une alerte adressée (`all` : toutes) — l'acquittement survit au rechargement et au redémarrage (ADR 0016)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/comms": {
       "get": {
         "operationId": "CommsController_commsAll",
@@ -2003,6 +2254,7 @@
         ]
       },
       "post": {
+        "description": "Le MODE de la station resserre la matrice (ADR 0016) : en démonstration et en exercice, l'OPCOM et les cellules créent des unités pour le scénario ; en opérationnel, le Super Administrateur seul.",
         "operationId": "ResourcesController_createUnit",
         "parameters": [],
         "requestBody": {
@@ -2016,8 +2268,8 @@
           }
         },
         "responses": {
-          "201": {
-            "description": ""
+          "403": {
+            "description": "Le mode de la station ne le permet pas à ce rôle."
           }
         },
         "security": [
@@ -2025,7 +2277,7 @@
             "bearer": []
           }
         ],
-        "summary": "Créer une unité (audité)",
+        "summary": "Créer une unité (audité).",
         "tags": [
           "domain"
         ]
@@ -2064,7 +2316,7 @@
             "bearer": []
           }
         ],
-        "summary": "Mettre à jour une unité — un responsable ne peut agir que sur la sienne",
+        "summary": "Mettre à jour une unité — un responsable ne peut agir que sur la sienne ; l'OPCOM et les cellules en démonstration et en exercice",
         "tags": [
           "domain"
         ]
@@ -2105,7 +2357,7 @@
             "bearer": []
           }
         ],
-        "summary": "Supprimer définitivement une unité — SUPERADMIN uniquement.",
+        "summary": "Supprimer définitivement une unité — Super Administrateur ; OPCOM et cellules hors mode opérationnel (ADR 0016).",
         "tags": [
           "domain"
         ]
@@ -3599,6 +3851,37 @@
         ]
       }
     },
+    "/api/domain/mode": {
+      "patch": {
+        "description": "demo : jeu de démonstration ; exercise : station vide, l'OPCOM et les cellules créent unités et ressources ; operational : station en service. Le réglage est persisté ; sur la station l'API redémarre d'elle-même pour l'appliquer (`restarting: true`), en développement il faut la relancer.",
+        "operationId": "AdminController_setMode",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetModeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Réservé au Super Administrateur, ou mot de passe incorrect."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Changer le mode de la station — SUPERADMIN, mot de passe exigé (ADR 0016).",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/domain/purge": {
       "post": {
         "description": "Retire incidents, unités, abris, morgues, dossiers, victimes, parcs, postes et fil d'événements. Conserve le réseau hospitalier et ses services, les comptes et la base. Les cascades d'incident (missions, déploiements) courent pour chaque incident retiré. Les graines de démonstration ne reviennent pas au redémarrage.",
@@ -3627,6 +3910,527 @@
         "summary": "Remettre le domaine à zéro — SUPERADMIN uniquement, mot de passe exigé (step-up).",
         "tags": [
           "domain"
+        ]
+      }
+    },
+    "/api/resources": {
+      "get": {
+        "description": "Avec `ownerKind` et `ownerId` : tout ce que l'entité tient ; sans : le registre entier, pour la conduite. La réponse dit aussi ce que l'appelant peut y tenir.",
+        "operationId": "ResourcesRegistryController_list",
+        "parameters": [
+          {
+            "name": "ownerId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "ownerKind",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "unit",
+                "hospital",
+                "shelter"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Les ressources d'une entité (personnes, équipes, véhicules, logistique, équipements), ou le registre entier.",
+        "tags": [
+          "resources"
+        ]
+      }
+    },
+    "/api/resources/persons": {
+      "post": {
+        "operationId": "ResourcesRegistryController_addPerson",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePersonDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Le rôle ne tient pas cette ressource sur cette entité dans ce mode."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Inscrire une personne au registre d'une entité",
+        "tags": [
+          "resources"
+        ]
+      }
+    },
+    "/api/resources/persons/{id}": {
+      "patch": {
+        "operationId": "ResourcesRegistryController_updatePerson",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePersonDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mettre à jour une personne",
+        "tags": [
+          "resources"
+        ]
+      },
+      "delete": {
+        "operationId": "ResourcesRegistryController_removePerson",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Retirer une personne du registre",
+        "tags": [
+          "resources"
+        ]
+      }
+    },
+    "/api/resources/teams": {
+      "post": {
+        "operationId": "ResourcesRegistryController_addTeam",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTeamDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Constituer une équipe de personnes d'une entité",
+        "tags": [
+          "resources"
+        ]
+      }
+    },
+    "/api/resources/teams/{id}": {
+      "patch": {
+        "operationId": "ResourcesRegistryController_updateTeam",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTeamDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mettre à jour une équipe (nom, mission, chef, membres)",
+        "tags": [
+          "resources"
+        ]
+      },
+      "delete": {
+        "operationId": "ResourcesRegistryController_removeTeam",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Dissoudre une équipe — ses membres restent au registre",
+        "tags": [
+          "resources"
+        ]
+      }
+    },
+    "/api/resources/vehicles": {
+      "post": {
+        "operationId": "ResourcesRegistryController_addVehicle",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVehicleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Inscrire un véhicule (ou une flotte comptée) au registre d'une entité",
+        "tags": [
+          "resources"
+        ]
+      }
+    },
+    "/api/resources/vehicles/{id}": {
+      "patch": {
+        "operationId": "ResourcesRegistryController_updateVehicle",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateVehicleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mettre à jour un véhicule",
+        "tags": [
+          "resources"
+        ]
+      },
+      "delete": {
+        "operationId": "ResourcesRegistryController_removeVehicle",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Retirer un véhicule du registre",
+        "tags": [
+          "resources"
+        ]
+      }
+    },
+    "/api/resources/supplies": {
+      "post": {
+        "operationId": "ResourcesRegistryController_addSupply",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSupplyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Inscrire une ressource logistique (carburant, vivres, couchage, campement)",
+        "tags": [
+          "resources"
+        ]
+      }
+    },
+    "/api/resources/supplies/{id}": {
+      "patch": {
+        "operationId": "ResourcesRegistryController_updateSupply",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSupplyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mettre à jour une ressource logistique",
+        "tags": [
+          "resources"
+        ]
+      },
+      "delete": {
+        "operationId": "ResourcesRegistryController_removeSupply",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Retirer une ressource logistique du registre",
+        "tags": [
+          "resources"
+        ]
+      }
+    },
+    "/api/resources/equipment": {
+      "post": {
+        "operationId": "ResourcesRegistryController_addEquipment",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOwnedEquipDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ajouter un article au parc d'une entité (unité, hôpital, abri)",
+        "tags": [
+          "resources"
+        ]
+      }
+    },
+    "/api/resources/equipment/{id}": {
+      "patch": {
+        "operationId": "ResourcesRegistryController_updateEquipment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOwnedEquipDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mettre à jour un article du parc",
+        "tags": [
+          "resources"
+        ]
+      },
+      "delete": {
+        "operationId": "ResourcesRegistryController_removeEquipment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Sortir un article du parc",
+        "tags": [
+          "resources"
         ]
       }
     },
@@ -5049,7 +5853,12 @@
               "place_arme",
               "wali",
               "opcom",
+              "gendarmerie",
+              "etat_major",
+              "interieur",
               "tacom",
+              "pco",
+              "pct",
               "bluecell",
               "greencell",
               "orangecell",
@@ -5123,7 +5932,12 @@
               "place_arme",
               "wali",
               "opcom",
+              "gendarmerie",
+              "etat_major",
+              "interieur",
               "tacom",
+              "pco",
+              "pct",
               "bluecell",
               "greencell",
               "orangecell",
@@ -5246,7 +6060,12 @@
                 "place_arme",
                 "wali",
                 "opcom",
+                "gendarmerie",
+                "etat_major",
+                "interieur",
                 "tacom",
+                "pco",
+                "pct",
                 "bluecell",
                 "greencell",
                 "orangecell",
@@ -5308,7 +6127,12 @@
                 "place_arme",
                 "wali",
                 "opcom",
+                "gendarmerie",
+                "etat_major",
+                "interieur",
                 "tacom",
+                "pco",
+                "pct",
                 "bluecell",
                 "greencell",
                 "orangecell",
@@ -5354,8 +6178,8 @@
               "triage",
               "equip",
               "units",
-              "personnel",
               "workorders",
+              "resources",
               "hospitals",
               "ics",
               "damage",
@@ -5382,6 +6206,49 @@
           "enabled"
         ]
       },
+      "ToggleUserModuleDto": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "enum": [
+              "incidents",
+              "map",
+              "seismic",
+              "dispatch",
+              "triage",
+              "equip",
+              "units",
+              "workorders",
+              "resources",
+              "hospitals",
+              "ics",
+              "damage",
+              "shelters",
+              "morgue",
+              "orsec",
+              "plans",
+              "comms",
+              "reports",
+              "analytics",
+              "assistant",
+              "simulation",
+              "trackers",
+              "chemlib"
+            ],
+            "description": "Module à ouvrir ou couper pour le compte"
+          },
+          "enabled": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "true : ouvert malgré le rôle ; false : coupé ; null : le rôle décide"
+          }
+        },
+        "required": [
+          "module",
+          "enabled"
+        ]
+      },
       "ToggleFlagDto": {
         "type": "object",
         "properties": {
@@ -5402,6 +6269,8 @@
             "enum": [
               "opcom",
               "tacom",
+              "pco",
+              "pct",
               "bluecell",
               "greencell",
               "orangecell",
@@ -6008,6 +6877,27 @@
           "sev"
         ]
       },
+      "AssignUnitDto": {
+        "type": "object",
+        "properties": {
+          "unitId": {
+            "type": "string",
+            "example": "U3",
+            "description": "Unité à affecter"
+          },
+          "destination": {
+            "type": "string",
+            "enum": [
+              "pco",
+              "pct"
+            ],
+            "description": "Destination au TACOM — décisive pour une unité des FAR seulement : gendarmerie et unités civiles rejoignent le PCO."
+          }
+        },
+        "required": [
+          "unitId"
+        ]
+      },
       "DeployPostDto": {
         "type": "object",
         "properties": {
@@ -6178,6 +7068,18 @@
             "example": "Col. A. Senhaji",
             "description": "Facultatif : le commandant est le compte « responsable d'unité » affecté à l'unité, pas un texte saisi ici."
           },
+          "corps": {
+            "type": "string",
+            "enum": [
+              "far",
+              "gendarmerie",
+              "dgsn",
+              "dgpc",
+              "fa"
+            ],
+            "default": "far",
+            "description": "Corps d'appartenance (ADR 0016) : far, gendarmerie, dgsn, dgpc, fa — décide qui peut affecter l'unité et vers quel PC elle va."
+          },
           "eff": {
             "type": "number",
             "minimum": 1
@@ -6226,6 +7128,34 @@
           "cmdt": {
             "type": "string",
             "description": "Commandant de l'unité"
+          },
+          "nom": {
+            "type": "string",
+            "description": "Nom de l'unité (OPCOM / cellules en démonstration et exercice)",
+            "maxLength": 120
+          },
+          "ville": {
+            "type": "string",
+            "description": "Ville d'implantation",
+            "maxLength": 80
+          },
+          "corps": {
+            "type": "string",
+            "enum": [
+              "far",
+              "gendarmerie",
+              "dgsn",
+              "dgpc",
+              "fa"
+            ],
+            "description": "Corps d'appartenance (ADR 0016)"
+          },
+          "ll": {
+            "description": "Position [lng, lat]",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
           },
           "eff": {
             "type": "number",
@@ -7155,6 +8085,29 @@
           "contacts"
         ]
       },
+      "SetModeDto": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "demo",
+              "exercise",
+              "operational"
+            ],
+            "description": "demo, exercise ou operational"
+          },
+          "password": {
+            "type": "string",
+            "description": "Mot de passe du compte qui agit",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "mode",
+          "password"
+        ]
+      },
       "PurgeDomainDto": {
         "type": "object",
         "properties": {
@@ -7167,6 +8120,462 @@
         "required": [
           "password"
         ]
+      },
+      "ResourceOwnerDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "unit",
+              "hospital",
+              "shelter"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "example": "U3"
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ]
+      },
+      "CreatePersonDto": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "$ref": "#/components/schemas/ResourceOwnerDto"
+          },
+          "corps": {
+            "type": "string",
+            "enum": [
+              "far",
+              "gendarmerie",
+              "fa",
+              "dgsn",
+              "dgpc",
+              "civil"
+            ],
+            "description": "far, gendarmerie, fa, dgsn (grade) ; dgpc, civil (fonction)"
+          },
+          "grade": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "nom": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "prenom": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "matricule": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "fonction": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "teamId": {
+            "type": "string",
+            "description": "Équipe d'appartenance"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "present",
+              "deployed",
+              "rest",
+              "absent"
+            ],
+            "default": "present"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "owner",
+          "corps",
+          "nom",
+          "prenom",
+          "matricule",
+          "fonction"
+        ]
+      },
+      "UpdatePersonDto": {
+        "type": "object",
+        "properties": {
+          "corps": {
+            "type": "string",
+            "enum": [
+              "far",
+              "gendarmerie",
+              "fa",
+              "dgsn",
+              "dgpc",
+              "civil"
+            ]
+          },
+          "grade": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "nom": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "prenom": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "matricule": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "fonction": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "teamId": {
+            "type": "string",
+            "description": "Équipe d'appartenance ; chaîne vide pour en sortir"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "present",
+              "deployed",
+              "rest",
+              "absent"
+            ]
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      },
+      "CreateTeamDto": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "$ref": "#/components/schemas/ResourceOwnerDto"
+          },
+          "nom": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "mission": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "leaderId": {
+            "type": "string",
+            "description": "Chef d'équipe (identifiant de personne)"
+          },
+          "memberIds": {
+            "description": "Membres (identifiants de personnes de la même entité)",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "owner",
+          "nom"
+        ]
+      },
+      "UpdateTeamDto": {
+        "type": "object",
+        "properties": {
+          "nom": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "mission": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "leaderId": {
+            "type": "string",
+            "description": "Chef d'équipe ; chaîne vide pour retirer"
+          },
+          "memberIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CreateVehicleDto": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "$ref": "#/components/schemas/ResourceOwnerDto"
+          },
+          "type": {
+            "type": "string",
+            "example": "Ambulance médicalisée",
+            "maxLength": 80
+          },
+          "plate": {
+            "type": "string",
+            "example": "FAR-2140",
+            "description": "Immatriculation ou numéro de parc",
+            "maxLength": 40
+          },
+          "qty": {
+            "type": "number",
+            "minimum": 1,
+            "default": 1,
+            "description": "Nombre de véhicules identiques"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "repair",
+              "oos"
+            ],
+            "default": "ok"
+          },
+          "assignment": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "owner",
+          "type"
+        ]
+      },
+      "UpdateVehicleDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "plate": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "qty": {
+            "type": "number",
+            "minimum": 1
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "repair",
+              "oos"
+            ]
+          },
+          "assignment": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      },
+      "CreateSupplyDto": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "$ref": "#/components/schemas/ResourceOwnerDto"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "fuel",
+              "food",
+              "bedding",
+              "camp",
+              "other"
+            ],
+            "description": "fuel = carburant, food = vivres, bedding = couchage, camp = campement"
+          },
+          "label": {
+            "type": "string",
+            "example": "Gazole",
+            "maxLength": 80
+          },
+          "qty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "unit": {
+            "type": "string",
+            "example": "L",
+            "description": "Unité de compte : L, rations, places, tentes…",
+            "maxLength": 20
+          },
+          "threshold": {
+            "type": "number",
+            "minimum": 0
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "owner",
+          "kind",
+          "label",
+          "qty",
+          "unit"
+        ]
+      },
+      "UpdateSupplyDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "fuel",
+              "food",
+              "bedding",
+              "camp",
+              "other"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "qty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "unit": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "threshold": {
+            "type": "number",
+            "minimum": 0
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      },
+      "CreateOwnedEquipDto": {
+        "type": "object",
+        "properties": {
+          "desig": {
+            "type": "string",
+            "example": "Groupe électrogène 20 kVA"
+          },
+          "cat": {
+            "type": "string",
+            "example": "Énergie",
+            "description": "Catégorie"
+          },
+          "stock": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Quantité en parc"
+          },
+          "threshold": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Seuil d'alerte"
+          },
+          "cond": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "repair",
+              "oos"
+            ],
+            "example": "ok"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/ResourceOwnerDto"
+          },
+          "type": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "Type d'équipement"
+          },
+          "serial": {
+            "type": "string",
+            "maxLength": 60,
+            "description": "Numéro d'inventaire / série"
+          }
+        },
+        "required": [
+          "desig",
+          "cat",
+          "stock",
+          "threshold",
+          "cond",
+          "owner"
+        ]
+      },
+      "UpdateOwnedEquipDto": {
+        "type": "object",
+        "properties": {
+          "desig": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "cat": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "stock": {
+            "type": "number",
+            "minimum": 0
+          },
+          "threshold": {
+            "type": "number",
+            "minimum": 0
+          },
+          "cond": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "repair",
+              "oos"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "serial": {
+            "type": "string",
+            "maxLength": 60
+          }
+        }
       },
       "CreateOrderDto": {
         "type": "object",

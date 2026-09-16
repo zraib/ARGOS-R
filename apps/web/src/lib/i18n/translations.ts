@@ -170,7 +170,7 @@ export interface Dict {
   map_edit_armed: string;
   post_kind_shelter: string;
   post_kind_equipment: string;
-  post_code_opcom: string;
+  post_code_opcom: string; post_code_pco: string; post_code_pct: string;
   post_code_tacom: string;
   post_code_bluecell: string;
   post_code_greencell: string;
@@ -693,6 +693,28 @@ export interface Dict {
   trk_map_device: string; trk_map_app: string; trk_map_stale: string; trk_map_live: string; trk_map_panic: string; trk_speed: string; trk_heading: string;
   del_unit: string; del_shelter: string; del_morgue: string; del_hospital: string;
   del_confirm_title: string; del_confirm_body: string; del_confirm_force: string; del_blocked: string; del_entity_done: string; del_forbidden: string; del_code_help_entity: string; del_code_bad_entity: string;
+  // Chaîne de commandement, modes, ressources (ADR 0016)
+  nav_resources: string;
+  mode_demo: string; mode_exercise: string; mode_operational: string;
+  md_title: string; md_hint: string; md_hint_demo: string; md_hint_exercise: string; md_hint_operational: string; md_current: string; md_pending: string;
+  md_switch: string; md_password: string; md_confirm: string; md_restarting: string; md_manual: string; md_failed: string;
+  corps_far: string; corps_gendarmerie: string; corps_dgsn: string; corps_dgpc: string; corps_fa: string; corps_civil: string; f_corps: string;
+  as_title: string; as_hint: string; as_add: string; as_unit: string; as_destination: string; as_pco: string; as_pct: string;
+  as_deploy: string; as_withdraw: string; as_remove: string; as_deployed: string; as_waiting: string; as_none: string; as_by: string;
+  as_assigned_toast: string; as_deployed_toast: string; as_withdrawn_toast: string; as_removed_toast: string; as_no_unit: string; as_search: string; as_corps_hint: string; as_failed: string;
+  rs_title: string; rs_hint: string; rs_owner: string; rs_owner_unit: string; rs_owner_hospital: string; rs_owner_shelter: string; rs_pick_owner: string;
+  rs_tab_persons: string; rs_tab_teams: string; rs_tab_vehicles: string; rs_tab_supplies: string; rs_tab_equipment: string;
+  rs_add_person: string; rs_add_team: string; rs_add_vehicle: string; rs_add_supply: string; rs_add_equip: string; rs_empty: string; rs_readonly: string;
+  rs_grade: string; rs_nom: string; rs_prenom: string; rs_matricule: string; rs_fonction: string; rs_team: string; rs_status: string;
+  rs_status_present: string; rs_status_deployed: string; rs_status_rest: string; rs_status_absent: string; rs_phone: string; rs_note: string;
+  rs_team_name: string; rs_mission: string; rs_leader: string; rs_members: string; rs_no_team: string;
+  rs_vehicle_type: string; rs_plate: string; rs_qty: string; rs_state: string; rs_state_ok: string; rs_state_repair: string; rs_state_oos: string; rs_assignment: string;
+  rs_supply_kind: string; rs_supply_fuel: string; rs_supply_food: string; rs_supply_bedding: string; rs_supply_camp: string; rs_supply_other: string;
+  rs_label: string; rs_unit_of: string; rs_threshold: string; rs_equip_type: string; rs_equip_serial: string;
+  rs_save: string; rs_saved: string; rs_removed: string; rs_remove_confirm: string; rs_counts: string; rs_edit: string;
+  um_title: string; um_hint: string; um_inherit: string; um_on: string; um_off: string;
+  nb_ack: string; nb_ack_all: string; nb_pending: string; nb_reminder_hint: string;
+  lg_acft_trails: string; wx_paused_hint: string;
   dp_title: string; dp_hint: string; dp_profile_demo: string; dp_profile_empty: string; dp_seeded_left: string; dp_counts: string;
   dp_purge: string; dp_purge_hint: string; dp_purge_confirm: string; dp_purge_password: string; dp_purge_done: string; dp_purge_failed: string;
 }

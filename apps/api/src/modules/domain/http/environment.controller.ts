@@ -58,28 +58,28 @@ export class EnvironmentController {
   }
 
   @Get("weather/cities")
-  @RequirePermission("seismic:view")
+  @RequirePermission("weather:view")
   @ApiOperation({ summary: "Villes disponibles pour la météo" })
   weatherCities() {
     return this.weather.cities();
   }
 
   @Get("weather/grid")
-  @RequirePermission("seismic:view")
+  @RequirePermission("weather:view")
   @ApiOperation({ summary: "Grille de conditions actuelles (carte météo, proxy souverain)" })
   weatherGrid() {
     return this.weather.grid();
   }
 
   @Get("weather/grid-world")
-  @RequirePermission("seismic:view")
+  @RequirePermission("weather:view")
   @ApiOperation({ summary: "Grille météo mondiale grossière (pas 10°, couverture planétaire de la carte)" })
   weatherGridWorld() {
     return this.weather.gridWorld();
   }
 
   @Get("weather/forecast")
-  @RequirePermission("seismic:view")
+  @RequirePermission("weather:view")
   @ApiOperation({ summary: "Prévisions météo (Open-Meteo, proxy souverain) pour lat/lon" })
   weatherForecast(@Query("lat") lat: string, @Query("lon") lon: string) {
     const la = Number(lat);

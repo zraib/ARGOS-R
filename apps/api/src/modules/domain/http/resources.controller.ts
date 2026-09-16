@@ -9,6 +9,8 @@
 
 import { Body, ConflictException, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
 import { entityDeleteConflict, isForced } from "@/modules/domain/http/entity-delete";
+import { canCreateUnit, canDeleteUnit, canEditUnit } from "@/modules/domain/mode.rules";
+import { ModeService } from "@/modules/mode/mode.service";
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { AdmitBodyDto, CreateEquipDto, CreateMorgueDto, CreateUnitDto, DeployMobileMorgueDto, TransferBodyDto, UpdateEquipDto, UpdateMorgueDto, UpdateMortuaryRecordDto, CreateShelterDto, UpdateShelterDto, UpdateUnitDto } from "@/modules/domain/dto";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
@@ -27,6 +29,7 @@ export class ResourcesController {
     private readonly domain: DomainService,
     private readonly visibility: VisibilityService,
     private readonly users: UsersService,
+    private readonly mode: ModeService,
   ) {}
 
   @Get("units")
@@ -41,35 +44,48 @@ export class ResourcesController {
 
   @Post("units")
   @RequirePermission("teams:create")
-  @ApiOperation({ summary: "Créer une unité (audité)" })
-  createUnit(@Body() dto: CreateUnitDto) {
+  @ApiOperation({
+    summary: "Créer une unité (audité).",
+    description:
+      "Le MODE de la station resserre la matrice (ADR 0016) : en démonstration et en exercice, l'OPCOM et les cellules " +
+      "créent des unités pour le scénario ; en opérationnel, le Super Administrateur seul.",
+  })
+  @ApiResponse({ status: 403, description: "Le mode de la station ne le permet pas à ce rôle." })
+  createUnit(@Body() dto: CreateUnitDto, @CurrentUser() user: AuthUser) {
+    if (!canCreateUnit(user.role, this.mode.current())) throw new ForbiddenException(`Mode ${this.mode.current()} : la création d'unités n'est pas ouverte au rôle ${user.role}.`);
     return this.domain.createUnit(dto);
   }
 
   @Patch("units/:id")
   @RequirePermission("units:update")
   @RequireScope("unit")
-  @ApiOperation({ summary: "Mettre à jour une unité — un responsable ne peut agir que sur la sienne" })
-  updateUnit(@Param("id") id: string, @Body() dto: UpdateUnitDto) {
+  @ApiOperation({ summary: "Mettre à jour une unité — un responsable ne peut agir que sur la sienne ; l'OPCOM et les cellules en démonstration et en exercice" })
+  updateUnit(@Param("id") id: string, @Body() dto: UpdateUnitDto, @CurrentUser() user: AuthUser) {
+    if (!canEditUnit(user.role, this.mode.current(), user.scope?.unit === id)) throw new ForbiddenException(`Mode ${this.mode.current()} : la modification d'unités n'est pas ouverte au rôle ${user.role}.`);
     const u = this.domain.updateUnit(id, dto);
     if (!u) throw new NotFoundException(`Unité introuvable : ${id}`);
     return u;
   }
 
   @ApiOperation({
-    summary: "Supprimer définitivement une unité — SUPERADMIN uniquement.",
+    summary: "Supprimer définitivement une unité — Super Administrateur ; OPCOM et cellules hors mode opérationnel (ADR 0016).",
     description:
       "La matrice n'accorde `teams:delete` à personne : seul le joker du Super Administrateur la détient. " +
       "Refusé (409) tant que l'unité est engagée sur une opération active ou qu'un compte en a la responsabilité ; " +
       "`?force=true` passe outre. Son parc et ses postes partent avec elle ; une graine supprimée ne revient pas au redémarrage.",
   })
   @Delete("units/:id")
-  @RequirePermission("teams:delete")
+  @RequirePermission("teams:update")
   @ApiQuery({ name: "force", required: false, description: "Passer outre les garde-fous (engagements, responsables)." })
   @ApiResponse({ status: 403, description: "Réservé au Super Administrateur." })
   @ApiResponse({ status: 404, description: "Unité inconnue." })
   @ApiResponse({ status: 409, description: "L'unité est encore engagée ou tenue par un compte." })
   deleteUnit(@Param("id") id: string, @Query("force") force: string | undefined, @CurrentUser() user: AuthUser) {
+    // Doctrine : `delete` au Super Administrateur seul — sauf, en démonstration
+    // et en exercice, pour l'OPCOM et les cellules qui retirent les unités du
+    // scénario (ADR 0016). La permission de route est `teams:update` ; la
+    // règle de mode fait le tri.
+    if (!canDeleteUnit(user.role, this.mode.current())) throw new ForbiddenException("Réservé au Super Administrateur (et, hors mode opérationnel, à l'OPCOM et aux cellules).");
     return this.deleteEntity("unit", id, force, user);
   }
 

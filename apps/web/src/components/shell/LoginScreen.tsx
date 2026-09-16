@@ -19,8 +19,7 @@ export function LoginScreen() {
   const dark = useArgos((s) => s.dark);
   const toggleTheme = useArgos((s) => s.toggleTheme);
   const beginSession = useArgos((s) => s.beginSession);
-  const setFlags = useArgos((s) => s.setFlags);
-  const setRoleFeatures = useArgos((s) => s.setRoleFeatures);
+  const applySessionContext = useArgos((s) => s.applySessionContext);
   const showToast = useArgos((s) => s.showToast);
   const [user, setUser] = useState("m.zraib");
   const [pass, setPass] = useState("");
@@ -68,8 +67,7 @@ export function LoginScreen() {
         mustChooseRole: d.mustChooseRole,
       });
       const ctx = await loadSessionContext();
-      if (ctx.flags) setFlags(ctx.flags);
-      if (ctx.roleFeatures) setRoleFeatures(ctx.roleFeatures as Record<Role, Record<string, boolean>>);
+      applySessionContext(ctx);
       showToast(t.lg_toast);
     } catch (e) {
       // Trace développeur : sans elle, toute exception (réseau, code, URL) se

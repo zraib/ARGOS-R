@@ -1,7 +1,7 @@
 import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { UsersService } from "@/modules/iam/users.service";
-import { CreateUserDto, SetActiveDto, ToggleRoleFeatureDto, UpdateUserDto } from "@/modules/iam/dto";
+import { CreateUserDto, SetActiveDto, ToggleRoleFeatureDto, ToggleUserModuleDto, UpdateUserDto } from "@/modules/iam/dto";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import { SelfService } from "@/common/decorators/self-service.decorator";
@@ -96,6 +96,16 @@ export class UsersController {
   setRoleFeature(@Param("role") role: string, @Body() dto: ToggleRoleFeatureDto) {
     if (!isRole(role)) throw new BadRequestException(`Rôle inconnu : ${role}`);
     return this.users.setRoleFeature(role as Role, dto.feature, dto.enabled);
+  }
+
+  @Patch("users/:id/modules")
+  @RequirePermission("users:update")
+  @ApiOperation({
+    summary: "Ouvrir ou couper un module pour UN compte (ADR 0016) — effectif côté API dès la requête suivante.",
+    description: "`enabled: null` rend la décision au rôle. Les comptes superadmin/admin ne se coupent pas.",
+  })
+  setUserModule(@CurrentUser() actor: AuthUser, @Param("id") id: string, @Body() dto: ToggleUserModuleDto) {
+    return this.users.setUserModule(actor.role, id, dto.module, dto.enabled);
   }
 
   @Post("role-features/:role/reset")

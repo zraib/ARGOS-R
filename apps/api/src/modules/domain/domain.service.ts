@@ -14,8 +14,11 @@ import {
 import { checkRecordUpdate } from "@/modules/domain/dvi.rules";
 import { checkCapacity, checkReceive, checkTransfer, custodyEvent, defaultMorgueType, displayName, nextReference, siteStatus } from "@/modules/domain/morgue.rules";
 import { pruneDemo, type DomainCollections } from "@/modules/domain/profile.rules";
+import { CORPS_LABELS, canAssignCorps, destinationFor } from "@/modules/domain/assignment.rules";
+import type { Role } from "@/shared/permissions";
 import { loadDevState, saveDevState } from "@/common/dev-store";
 import { DATA_PROFILE, DEMO_DATA } from "@/common/data-profile";
+import { APP_MODE } from "@/common/app-mode";
 
 // ============================================================================
 // ARGOS — données de domaine (Phase 2, in-memory)
@@ -28,7 +31,7 @@ import { DATA_PROFILE, DEMO_DATA } from "@/common/data-profile";
 // importateurs existants (contrôleurs, autres modules).
 export type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviStatus, DviSample, MortuaryRecord, RecordChange, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind } from "@/modules/domain/domain.types";
 export { DVI_STATUSES, DVI_SAMPLES } from "@/modules/domain/domain.types";
-import type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviSample, MortuaryRecord, RecordChange, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind, PersonIdentity, MorgueType } from "@/modules/domain/domain.types";
+import type { Incident, SubIncident, Unit, UnitAssignment, UnitCorps, Destination, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviSample, MortuaryRecord, RecordChange, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind, PersonIdentity, MorgueType } from "@/modules/domain/domain.types";
 import { checkPost, type PostLookup } from "@/modules/domain/post.rules";
 import type { ResponsibilityKind } from "@/shared/responsibilities";
 
@@ -126,6 +129,26 @@ const MORGUE_SEEDS: readonly MorgueSite[] = [
  * Le profil « empty » (ADR 0015) les retire à la reprise ; les hôpitaux — le
  * référentiel — ne sont jamais dans cette liste.
  */
+/** Hôpitaux de campagne du jeu de démonstration. */
+const FIELD_HOSPITAL_SEEDS: FieldHospital[] = [
+    { hid: "H4", nom: "HMC Amizmiz", cap: 60, occ: 48, statut: "op", depuis: "J+2", kind: "mil_field" },
+    { hid: "H4", nom: "HMC Talat N'Yaaqoub", cap: 40, occ: 37, statut: "op", depuis: "J+1", kind: "mil_field" },
+    { hid: "H5", nom: "HMC Taroudant", cap: 40, occ: 22, statut: "partial", depuis: "J+1", kind: "mil_field" },
+    // Structures de campagne civiles déployées par le ministère de la Santé
+    // en appui du CHU Mohammed VI (Marrakech) et du CHP d'Al Haouz.
+    { hid: "HC072", nom: "HCC Asni", cap: 50, occ: 41, statut: "op", depuis: "J+2", kind: "civ_field" },
+    { hid: "HC076", nom: "HCC Ouirgane", cap: 30, occ: 14, statut: "partial", depuis: "J+1", kind: "civ_field" },
+];
+
+/** Dossiers d'identification du jeu de démonstration. */
+const DVI_SEEDS: MortuaryRecord[] = [
+    { id: "DVI-1", mid: "M3", reference: "AH-2026-001", incidentId: "INC-2607", foundAt: "Douar Tinzert", sex: "m", ageRange: "40-55", status: "identified", samples: ["dental", "fingerprint"], identifiedAs: "M. Brahim Ait Oussaid", admittedAt: "2026-08-08T07:20:00Z", updatedAt: "2026-08-09T09:10:00Z" },
+    { id: "DVI-2", mid: "M3", reference: "AH-2026-002", incidentId: "INC-2607", foundAt: "Douar Tinzert", sex: "f", ageRange: "20-35", status: "in_progress", samples: ["dna"], admittedAt: "2026-08-08T07:35:00Z", updatedAt: "2026-08-08T18:00:00Z" },
+    { id: "DVI-3", mid: "M3", reference: "AH-2026-003", incidentId: "INC-2607", foundAt: "Piste RP2010", sex: "unknown", status: "unidentified", samples: [], admittedAt: "2026-08-08T11:05:00Z", updatedAt: "2026-08-08T11:05:00Z" },
+    { id: "DVI-4", mid: "M2", reference: "MK-2026-014", incidentId: "INC-2606", foundAt: "Oued Ourika", sex: "m", ageRange: "10-18", status: "released", samples: ["dna", "dental"], identifiedAs: "Youssef El Alaoui", releasedTo: "Famille El Alaoui (père)", admittedAt: "2026-08-07T16:40:00Z", updatedAt: "2026-08-09T08:00:00Z" },
+    { id: "DVI-5", mid: "M2", reference: "MK-2026-015", incidentId: "INC-2606", foundAt: "Oued Ourika", sex: "f", ageRange: "55-70", status: "identified", samples: ["fingerprint"], identifiedAs: "Mme Fatima Benhima", admittedAt: "2026-08-07T17:10:00Z", updatedAt: "2026-08-09T07:30:00Z" },
+];
+
 const DEMO_SEED_IDS: ReadonlySet<string> = new Set([
   ...SEED_INCIDENTS.map((i) => i.id),
   ...LEGACY_SEED_INCIDENT_IDS,
@@ -149,15 +172,7 @@ export class DomainService implements OnApplicationBootstrap {
   // silhouette du tableau de bord.
   private readonly hospitals: Hospital[] = HOSPITALS_MA.map((h) => ({ ...h }));
 
-  private readonly fieldHospitals: FieldHospital[] = [
-    { hid: "H4", nom: "HMC Amizmiz", cap: 60, occ: 48, statut: "op", depuis: "J+2", kind: "mil_field" },
-    { hid: "H4", nom: "HMC Talat N'Yaaqoub", cap: 40, occ: 37, statut: "op", depuis: "J+1", kind: "mil_field" },
-    { hid: "H5", nom: "HMC Taroudant", cap: 40, occ: 22, statut: "partial", depuis: "J+1", kind: "mil_field" },
-    // Structures de campagne civiles déployées par le ministère de la Santé
-    // en appui du CHU Mohammed VI (Marrakech) et du CHP d'Al Haouz.
-    { hid: "HC072", nom: "HCC Asni", cap: 50, occ: 41, statut: "op", depuis: "J+2", kind: "civ_field" },
-    { hid: "HC076", nom: "HCC Ouirgane", cap: 30, occ: 14, statut: "partial", depuis: "J+1", kind: "civ_field" },
-  ];
+  private readonly fieldHospitals: FieldHospital[] = structuredClone(FIELD_HOSPITAL_SEEDS);
 
   // Services de soins du réseau militaire — pilotés par le responsable de
   // chaque établissement depuis « Ma responsabilité › Gestion ».
@@ -193,13 +208,7 @@ export class DomainService implements OnApplicationBootstrap {
   /** Le bilan nommé des incidents : décédés (identification préliminaire), blessés, disparus. */
   private readonly victims: IncidentVictim[] = [];
 
-  private readonly mortuaryRecords: MortuaryRecord[] = [
-    { id: "DVI-1", mid: "M3", reference: "AH-2026-001", incidentId: "INC-2607", foundAt: "Douar Tinzert", sex: "m", ageRange: "40-55", status: "identified", samples: ["dental", "fingerprint"], identifiedAs: "M. Brahim Ait Oussaid", admittedAt: "2026-08-08T07:20:00Z", updatedAt: "2026-08-09T09:10:00Z" },
-    { id: "DVI-2", mid: "M3", reference: "AH-2026-002", incidentId: "INC-2607", foundAt: "Douar Tinzert", sex: "f", ageRange: "20-35", status: "in_progress", samples: ["dna"], admittedAt: "2026-08-08T07:35:00Z", updatedAt: "2026-08-08T18:00:00Z" },
-    { id: "DVI-3", mid: "M3", reference: "AH-2026-003", incidentId: "INC-2607", foundAt: "Piste RP2010", sex: "unknown", status: "unidentified", samples: [], admittedAt: "2026-08-08T11:05:00Z", updatedAt: "2026-08-08T11:05:00Z" },
-    { id: "DVI-4", mid: "M2", reference: "MK-2026-014", incidentId: "INC-2606", foundAt: "Oued Ourika", sex: "m", ageRange: "10-18", status: "released", samples: ["dna", "dental"], identifiedAs: "Youssef El Alaoui", releasedTo: "Famille El Alaoui (père)", admittedAt: "2026-08-07T16:40:00Z", updatedAt: "2026-08-09T08:00:00Z" },
-    { id: "DVI-5", mid: "M2", reference: "MK-2026-015", incidentId: "INC-2606", foundAt: "Oued Ourika", sex: "f", ageRange: "55-70", status: "identified", samples: ["fingerprint"], identifiedAs: "Mme Fatima Benhima", admittedAt: "2026-08-07T17:10:00Z", updatedAt: "2026-08-09T07:30:00Z" },
-  ];
+  private readonly mortuaryRecords: MortuaryRecord[] = structuredClone(DVI_SEEDS);
 
   // Parc d'équipement — seedé depuis le catalogue puis piloté par le
   // responsable de CHAQUE unité détentrice (cantonnement sur `unitId`).
@@ -256,10 +265,14 @@ export class DomainService implements OnApplicationBootstrap {
     // CONSERVE ce qu'un utilisateur a créé pendant la séance — écraser les deux
     // ferait perdre du travail, n'écraser ni l'un ni l'autre rendrait tout
     // nouveau jeu de données sans effet là où il en faut un.
+    // Retour en démonstration depuis un instantané écrit vide (ADR 0016) : le
+    // jeu est reconstruit comme sur une montée de version — ce que les
+    // opérateurs ont créé reste, les graines reviennent.
+    const rebuild = !sameSeed || (DEMO_DATA && snap.dataProfile === "empty");
     if (snap.incidents) {
       const restored = snap.incidents.map(canonicalizeRegion);
       const seedIds = new Set(SEED_INCIDENTS.map((i) => i.id));
-      const kept = sameSeed
+      const kept = !rebuild
         ? restored
         : [
             // Ce qu'un utilisateur a créé est conservé — sauf si son identifiant
@@ -276,7 +289,7 @@ export class DomainService implements OnApplicationBootstrap {
     }
     if (snap.units) {
       const seedUnitIds = new Set(SEED_UNITS.map((u) => u.id));
-      const kept = sameSeed
+      const kept = !rebuild
         ? snap.units
         : [
             ...snap.units.filter(
@@ -321,6 +334,15 @@ export class DomainService implements OnApplicationBootstrap {
     if (snap.posts) this.posts = snap.posts;
     if (snap.victims) this.victims.splice(0, this.victims.length, ...snap.victims);
     if (sameSeed && snap.equipment) this.equipment.splice(0, this.equipment.length, ...snap.equipment);
+    // Retour en démonstration (ADR 0016) : les graines des collections reprises
+    // telles quelles (abris, parc, dossiers) reviennent, sans doublon.
+    if (rebuild && DEMO_DATA && snap.dataProfile === "empty") {
+      for (const g of SHELTERS as Shelter[]) if (!this.shelters.some((x) => x.id === g.id)) this.shelters.push(structuredClone(g));
+      for (const g of EQUIPMENT as EquipItem[]) if (!this.equipment.some((x) => x.id === g.id)) this.equipment.push(structuredClone(g));
+      for (const g of DVI_SEEDS) if (!this.mortuaryRecords.some((x) => x.id === g.id)) this.mortuaryRecords.push(structuredClone(g));
+      for (const g of MORGUE_SEEDS) if (!this.morgues.some((x) => x.id === g.id)) this.morgues.push(structuredClone(g as MorgueSite));
+      for (const g of FIELD_HOSPITAL_SEEDS) if (!this.fieldHospitals.some((x) => x.nom === g.nom)) this.fieldHospitals.push(structuredClone(g));
+    }
     if (snap.feed) this.feed.splice(0, this.feed.length, ...snap.feed);
 
     // Profil de données (ADR 0015). « empty » — premier démarrage vide, ou
@@ -660,6 +682,12 @@ export class DomainService implements OnApplicationBootstrap {
    */
   private readonly cascades: ((incidentId: string) => Promise<void>)[] = [];
 
+  /** Ce qui suit une entité retirée (ADR 0016) : ses ressources partent avec elle. */
+  private readonly entityCascades: ((kind: "unit" | "shelter" | "morgue" | "hospital", id: string) => void)[] = [];
+  registerEntityCascade(fn: (kind: "unit" | "shelter" | "morgue" | "hospital", id: string) => void): void {
+    this.entityCascades.push(fn);
+  }
+
   /** Inscrit une cascade de suppression (appelé par les modules dépendants). */
   registerIncidentCascade(fn: (incidentId: string) => Promise<void>): void {
     this.cascades.push(fn);
@@ -870,7 +898,9 @@ export class DomainService implements OnApplicationBootstrap {
     // Le commandant n'est plus saisi à la création : c'est le compte
     // « responsable d'unité » affecté à l'unité qui le désigne. Un tiret tant
     // qu'aucun n'est affecté — jamais un nom inventé.
-    const unit: Unit = { ...input, cmdt: input.cmdt?.trim() || "—", id: `U${n}` };
+    // Le corps par défaut est celui des FAR : le champ est apparu avec l'ADR
+    // 0016 et les unités d'avant sont des unités militaires.
+    const unit: Unit = { ...input, corps: input.corps ?? "far", cmdt: input.cmdt?.trim() || "—", id: `U${n}` };
     this.units.push(unit);
     const d = new Date();
     const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -1490,8 +1520,52 @@ export class DomainService implements OnApplicationBootstrap {
   // puisse cantonner sans connaître la ressource — même schéma que les services
   // de soins d'un hôpital.
 
+  /** Le détenteur d'une ressource (ADR 0016) : existe-t-il, comment s'appelle-t-il, de quel corps ? */
+  resourceOwner(owner: { kind: "unit" | "hospital" | "shelter"; id: string }): { label: string; corps?: UnitCorps } | undefined {
+    if (owner.kind === "unit") {
+      const u = this.units.find((x) => x.id === owner.id);
+      return u ? { label: u.nom, corps: u.corps ?? "far" } : undefined;
+    }
+    if (owner.kind === "hospital") {
+      const h = this.hospitals.find((x) => x.id === owner.id);
+      return h ? { label: h.nom } : undefined;
+    }
+    const s = this.shelters.find((x) => x.id === owner.id);
+    return s ? { label: s.nom } : undefined;
+  }
+
+  /** Le parc d'un détenteur quel qu'il soit (unité par défaut). */
+  listEquipmentOf(owner: { kind: "unit" | "hospital" | "shelter"; id: string }): EquipItem[] {
+    return this.equipment.filter((e) => e.unitId === owner.id && (e.ownerKind ?? "unit") === owner.kind);
+  }
+
   listEquipment(unitId?: string): EquipItem[] {
-    return unitId ? this.equipment.filter((e) => e.unitId === unitId) : this.equipment;
+    return unitId ? this.equipment.filter((e) => e.unitId === unitId && (e.ownerKind ?? "unit") === "unit") : this.equipment;
+  }
+
+  /** Article au parc d'un hôpital ou d'un abri (ADR 0016) — les unités passent par `addEquipment`. */
+  addEquipmentFor(owner: { kind: "unit" | "hospital" | "shelter"; id: string }, label: string, input: Omit<EquipItem, "id" | "unit" | "unitId" | "ownerKind">): EquipItem {
+    const n = Math.max(0, ...this.equipment.map((e) => parseInt(e.id.replace(/\D/g, ""), 10) || 0)) + 1;
+    const item: EquipItem = { ...input, id: `EQ-${n}`, unit: label, unitId: owner.id, ownerKind: owner.kind };
+    this.equipment.push(item);
+    this.persist();
+    return item;
+  }
+
+  updateEquipmentOf(owner: { kind: "unit" | "hospital" | "shelter"; id: string }, eid: string, patch: Partial<Omit<EquipItem, "id" | "unit" | "unitId" | "ownerKind">>): EquipItem | undefined {
+    const e = this.equipment.find((x) => x.id === eid && x.unitId === owner.id && (x.ownerKind ?? "unit") === owner.kind);
+    if (!e) return undefined;
+    for (const [k, v] of Object.entries(patch)) if (v !== undefined) (e as unknown as Record<string, unknown>)[k] = v;
+    this.persist();
+    return e;
+  }
+
+  removeEquipmentOf(owner: { kind: "unit" | "hospital" | "shelter"; id: string }, eid: string): boolean {
+    const i = this.equipment.findIndex((x) => x.id === eid && x.unitId === owner.id && (x.ownerKind ?? "unit") === owner.kind);
+    if (i < 0) return false;
+    this.equipment.splice(i, 1);
+    this.persist();
+    return true;
   }
 
   /** Ajoute un article au parc d'une unité (id séquentiel EQ-<n>). */
@@ -1604,6 +1678,7 @@ export class DomainService implements OnApplicationBootstrap {
       removed = r.total;
       for (const i of this.incidents) {
         if (kind === "unit" && i.responders?.units) i.responders.units = i.responders.units.filter((u) => u !== id);
+        if (kind === "unit" && i.assignments) i.assignments = i.assignments.filter((a) => a.unitId !== id);
         if (kind === "morgue" && i.responders?.morgues) i.responders.morgues = i.responders.morgues.filter((m) => m !== id);
       }
     }
@@ -1611,6 +1686,7 @@ export class DomainService implements OnApplicationBootstrap {
     // (En station vide rien n'est réinjecté ; la pierre tombale y serait un
     // contresens — U1 peut y être une unité bien réelle.)
     if (DEMO_DATA && DEMO_SEED_IDS.has(id)) this.tombstones.add(id);
+    for (const fn of this.entityCascades) fn(kind, id);
     const label = { unit: "Unité", shelter: "Abri", morgue: "Morgue", hospital: "Hôpital" }[kind];
     this.pushFeed(`${label} ${id} — SUPPRIMÉ par ${actor}`, "bg-danger-500");
     this.persist();
@@ -1648,6 +1724,95 @@ export class DomainService implements OnApplicationBootstrap {
   // File de répartition et mouvements de transport : un jeu de démonstration
   // figé, servi en profil « demo » seulement — les vraies demandes passent
   // par les boucles opérationnelles (module missions).
+  // --- chaîne de commandement : affectation et déploiement (ADR 0016) ---------
+
+  /** Les affectations d'une opération (vide si elle n'en a pas). */
+  listAssignments(incidentId: string): UnitAssignment[] {
+    return this.incidents.find((i) => i.id === incidentId)?.assignments ?? [];
+  }
+
+  /**
+   * L'OPCOM affecte une unité à l'opération, vers le PCO ou le PCT. Une unité
+   * n'est affectée qu'à une opération à la fois ; la retirer d'abord.
+   */
+  assignUnit(
+    incidentId: string,
+    unitId: string,
+    actor: string,
+    role: Role,
+    requested?: Destination,
+  ): { ok?: true; assignment?: UnitAssignment; missing?: "incident" | "unit"; error?: string; conflict?: boolean } {
+    const inc = this.incidents.find((i) => i.id === incidentId);
+    if (!inc) return { missing: "incident" };
+    if (inc.archived || inc.st === "closed") return { error: "Opération close : aucune affectation possible." };
+    const unit = this.units.find((u) => u.id === unitId);
+    if (!unit) return { missing: "unit" };
+    const corps = unit.corps ?? "far";
+    if (!canAssignCorps(role, corps)) {
+      return { error: `Le rôle ${role} n'affecte pas les unités du corps « ${CORPS_LABELS[corps]} ».` };
+    }
+    if (unit.assignment && unit.assignment.incidentId !== incidentId) {
+      return { error: `${unit.nom} est déjà affectée à ${unit.assignment.incidentId} — la retirer d'abord.`, conflict: true };
+    }
+    const destination = destinationFor(corps, requested);
+    inc.assignments ??= [];
+    let a = inc.assignments.find((x) => x.unitId === unitId);
+    const now = new Date().toISOString();
+    if (a) {
+      // Réaffecter vers l'autre PC : seulement tant qu'elle n'est pas déployée.
+      if (a.deployedAt && a.destination !== destination) return { error: `${unit.nom} est déployée : la retirer avant de changer sa destination.`, conflict: true };
+      a.destination = destination;
+    } else {
+      a = { unitId, destination, by: actor, at: now };
+      inc.assignments.push(a);
+    }
+    inc.responders ??= { units: [], hospitals: [] };
+    if (!inc.responders.units.includes(unitId)) inc.responders.units.push(unitId);
+    unit.assignment = { incidentId, destination, deployed: !!a.deployedAt };
+    this.pushFeed(`${unit.nom} affectée à ${incidentId} → ${destination.toUpperCase()} par ${actor}`, "bg-blue-500", incidentId);
+    this.persist();
+    return { ok: true, assignment: a };
+  }
+
+  /** L'OPCOM retire une affectation ; une unité déployée est d'abord retirée du terrain. */
+  unassignUnit(incidentId: string, unitId: string, actor: string): { ok?: true; missing?: boolean } {
+    const inc = this.incidents.find((i) => i.id === incidentId);
+    const a = inc?.assignments?.find((x) => x.unitId === unitId);
+    if (!inc || !a) return { missing: true };
+    inc.assignments = inc.assignments!.filter((x) => x.unitId !== unitId);
+    if (inc.responders) inc.responders.units = inc.responders.units.filter((u) => u !== unitId);
+    const unit = this.units.find((u) => u.id === unitId);
+    if (unit) {
+      delete unit.assignment;
+      if (a.deployedAt && unit.dispo === "deployed") unit.dispo = "ready";
+      this.pushFeed(`${unit.nom} retirée de ${incidentId} par ${actor}`, "bg-gray-500", incidentId);
+    }
+    this.persist();
+    return { ok: true };
+  }
+
+  /** Le TACOM, ses PC ou une cellule déploient sur le terrain (ou retirent) une unité affectée. */
+  setDeployed(incidentId: string, unitId: string, deployed: boolean, actor: string): { ok?: true; missing?: boolean; assignment?: UnitAssignment } {
+    const inc = this.incidents.find((i) => i.id === incidentId);
+    const a = inc?.assignments?.find((x) => x.unitId === unitId);
+    const unit = this.units.find((u) => u.id === unitId);
+    if (!inc || !a || !unit) return { missing: true };
+    if (deployed) {
+      a.deployedAt = new Date().toISOString();
+      a.deployedBy = actor;
+      unit.dispo = "deployed";
+      this.pushFeed(`${unit.nom} déployée sur ${incidentId} (${a.destination.toUpperCase()}) par ${actor}`, "bg-or-500", incidentId);
+    } else {
+      delete a.deployedAt;
+      delete a.deployedBy;
+      unit.dispo = "ready";
+      this.pushFeed(`${unit.nom} retirée du terrain de ${incidentId} par ${actor}`, "bg-gray-500", incidentId);
+    }
+    unit.assignment = { incidentId, destination: a.destination, deployed };
+    this.persist();
+    return { ok: true, assignment: a };
+  }
+
   private readonly queue: QueueItem[] = DEMO_DATA ? [
     { id: "REQ-5012", kind: "evac", label: "Évacuation 14 blessés graves — Douar Tnirt", incidentId: "INC-2607", target: [-8.36, 31.05], type: "earthquake", urgency: "urgent" },
     { id: "REQ-5011", kind: "logistics", label: "Groupes électrogènes + éclairage — PC Amizmiz", incidentId: "INC-2607", target: [-8.25, 31.22], type: "earthquake", urgency: "high" },
@@ -1687,7 +1852,7 @@ export class DomainService implements OnApplicationBootstrap {
 
   /** Référentiel + profil de données : le navigateur y lit s'il doit couper ses propres simulateurs. */
   reference() {
-    return { provinces: this.provinces, cities: CITIES_MA, vehRoutes: this.vehRoutes, dataProfile: DATA_PROFILE };
+    return { provinces: this.provinces, cities: CITIES_MA, vehRoutes: this.vehRoutes, dataProfile: DATA_PROFILE, appMode: APP_MODE };
   }
 
   // --- statistiques de commandement (tableau de bord national) -------------

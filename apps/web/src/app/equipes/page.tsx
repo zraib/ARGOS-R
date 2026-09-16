@@ -1,6 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { api } from "@/lib/api";
+import { personName, personStatusLabel, vehicleStateLabel, type OwnerResources } from "@/lib/resources";
+import { corpsShort } from "@/lib/corps";
 import { useArgos, useDict, useModules } from "@/lib/store";
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
@@ -27,6 +31,18 @@ export default function EquipesPage() {
   const park = useArgos((s) => s.catalog.equipment);
   const [tab, setTab] = useState<"pers" | "equip" | "veh">("pers");
   const [adding, setAdding] = useState(false);
+  // Les ressources RÉELLES de l'unité (ADR 0016) : personnes et véhicules
+  // inscrits au registre ; en démonstration, le roster d'exemple les remplace
+  // tant que rien n'est inscrit.
+  const [resources, setResources] = useState<OwnerResources | null>(null);
+  useEffect(() => {
+    if (!selUnit) { setResources(null); return; }
+    let live = true;
+    api.getResources({ kind: "unit", id: selUnit }).then((res) => {
+      if (live) setResources((res.data as unknown as OwnerResources | undefined) ?? null);
+    }).catch(() => { if (live) setResources(null); });
+    return () => { live = false; };
+  }, [selUnit]);
 
   const canManage = role === "superadmin" || role === "admin";
   const unit = selUnit ? units.find((u) => u.id === selUnit) : null;
@@ -82,11 +98,28 @@ export default function EquipesPage() {
 
   // ---- vue détail ----
   const b = dispoBadge(unit.dispo, t);
-  const { pers, equip, vehs } = unitDetail(unit, {
+  const fake = unitDetail(unit, {
     demo: dataProfile === "demo",
     park,
     condLabels: { ok: m.equip.cond_ok, repair: m.equip.cond_repair, oos: m.equip.cond_oos },
   });
+  const realPers = (resources?.persons ?? []).map((p) => ({
+    grade: p.grade ?? corpsShort(p.corps === "civil" ? undefined : p.corps),
+    nom: personName({ nom: p.nom, prenom: p.prenom }),
+    fonction: p.fonction,
+    stType: p.status === "present" ? ("active" as const) : p.status === "deployed" ? ("medium" as const) : ("on_hold" as const),
+    stLabel: personStatusLabel(p.status, t),
+  }));
+  const realVehs = (resources?.vehicles ?? []).map((v) => ({
+    type: v.qty > 1 ? `${v.type} × ${v.qty}` : v.type,
+    plate: v.plate || "—",
+    assign: v.assignment ?? unit.ville,
+    etat: vehicleStateLabel(v.state, t),
+    maint: v.state !== "ok",
+  }));
+  const pers = realPers.length > 0 ? realPers : fake.pers;
+  const vehs = realVehs.length > 0 ? realVehs : fake.vehs;
+  const equip = fake.equip;
   const tabs: [typeof tab, string][] = [["pers", t.personnel], ["equip", t.equipment], ["veh", t.vehicles]];
   const tabCls = (k: string) =>
     `min-h-[44px] shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors lg:min-h-0 ${
@@ -105,6 +138,7 @@ export default function EquipesPage() {
             <div className="break-words text-xs text-gray-500 dark:text-rdia-300">{unit.ville} · {unit.cmdt}</div>
           </div>
           <span className="shrink-0"><Badge type={b.type} label={b.label} /></span>
+          <Link href={`/ressources?owner=unit:${unit.id}&tab=persons`} className="btn-secondaire cible-tactile text-xs">{t.rs_title}</Link>
           <DeleteEntityButton kind="unit" id={unit.id} name={unit.nom} compact onDeleted={() => setSelUnit(null)} />
         </div>
         <div className="flex flex-wrap items-center gap-4 sm:gap-6">

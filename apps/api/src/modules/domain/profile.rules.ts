@@ -72,10 +72,13 @@ export function pruneDemo(c: DomainCollections, opt: PruneOptions): PruneResult 
   const all = opt.all === true;
   const gone = (id: string, seeded?: boolean): boolean => all || opt.ids.has(id) || (opt.seeded === true && seeded === true);
 
-  const incidents = c.incidents.filter((i) => !gone(i.id, i.seeded));
   const goneIncidents = new Set(c.incidents.filter((i) => gone(i.id, i.seeded)).map((i) => i.id));
   const units = c.units.filter((u) => !gone(u.id, u.seeded));
   const unitIds = new Set(units.map((u) => u.id));
+  // Les affectations d'une unité partie (ADR 0016) partent avec elle.
+  const incidents = c.incidents
+    .filter((i) => !gone(i.id, i.seeded))
+    .map((i) => (i.assignments?.some((a) => !unitIds.has(a.unitId)) ? { ...i, assignments: i.assignments.filter((a) => unitIds.has(a.unitId)) } : i));
   const shelters = c.shelters.filter((s) => !gone(s.id));
   const shelterIds = new Set(shelters.map((s) => s.id));
   const morgues = c.morgues.filter((m) => !gone(m.id));
@@ -87,7 +90,12 @@ export function pruneDemo(c: DomainCollections, opt: PruneOptions): PruneResult 
     (r) => !gone(r.id) && morgueIds.has(r.mid) && !(r.incidentId && goneIncidents.has(r.incidentId)),
   );
   const victims = all ? [] : c.victims.filter((v) => !goneIncidents.has(v.incidentId));
-  const equipment = c.equipment.filter((e) => !gone(e.id) && (!e.unitId || unitIds.has(e.unitId)));
+  const equipment = c.equipment.filter((e) => {
+    if (gone(e.id)) return false;
+    if (e.ownerKind === "hospital") return true; // le réseau hospitalier reste
+    if (e.ownerKind === "shelter") return shelterIds.has(e.unitId);
+    return !e.unitId || unitIds.has(e.unitId);
+  });
   const feed = all
     ? []
     : c.feed.filter((f) => (f.incidentId ? !goneIncidents.has(f.incidentId) : opt.orphanFeed !== true));

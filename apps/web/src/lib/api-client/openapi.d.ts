@@ -165,7 +165,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Profil de l'utilisateur courant + permissions résolues */
+        /** Profil de l'utilisateur courant + permissions résolues + modules effectifs (drapeaux ∧ rôle ∧ compte, ADR 0016) + mode de la station */
         get: operations["IamController_me"];
         put?: never;
         post?: never;
@@ -348,6 +348,26 @@ export interface paths {
         head?: never;
         /** Ouvrir/couper un module pour un rôle (Super Admin) — effectif côté API dès la requête suivante */
         patch: operations["UsersController_setRoleFeature"];
+        trace?: never;
+    };
+    "/api/iam/users/{id}/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Ouvrir ou couper un module pour UN compte (ADR 0016) — effectif côté API dès la requête suivante.
+         * @description `enabled: null` rend la décision au rôle. Les comptes superadmin/admin ne se coupent pas.
+         */
+        patch: operations["UsersController_setUserModule"];
         trace?: never;
     };
     "/api/iam/role-features/{role}/reset": {
@@ -691,6 +711,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/incidents/{id}/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Unités affectées à l'opération, avec leur destination (PCO / PCT) et leur déploiement.
+         * @description Visible par qui voit déjà l'incident. Le TACOM y lit ce que l'OPCOM lui a affecté.
+         */
+        get: operations["IncidentsController_listAssignments"];
+        put?: never;
+        /**
+         * Affecter une unité à l'opération (OPCOM).
+         * @description Chaque membre de l'OPCOM affecte les unités de SON corps : wali et Intérieur → DGSN, DGPC, FA ; gendarmerie → Gendarmerie Royale (vers le PCO) ; état-major et place d'armes → FAR (vers le PCO ou le PCT) ; le chef de l'OPCOM, tout. Une unité n'est affectée qu'à une opération à la fois.
+         */
+        post: operations["IncidentsController_assignUnit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/incidents/{id}/assignments/{unitId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Retirer une unité de l'opération (OPCOM) — retirée du terrain si elle y était */
+        delete: operations["IncidentsController_unassignUnit"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/incidents/{id}/assignments/{unitId}/deploy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Déployer sur le terrain une unité affectée (TACOM, PCO, PCT, cellules) */
+        post: operations["IncidentsController_deployUnit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/incidents/{id}/assignments/{unitId}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retirer du terrain une unité déployée — elle reste affectée au PC */
+        post: operations["IncidentsController_withdrawUnit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/incidents/{id}/deployments": {
         parameters: {
             query?: never;
@@ -887,6 +982,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/comms/notices/{id}/ack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Acquitter une alerte adressée (`all` : toutes) — l'acquittement survit au rechargement et au redémarrage (ADR 0016) */
+        post: operations["CommsController_ackNotice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/comms": {
         parameters: {
             query?: never;
@@ -1011,7 +1123,10 @@ export interface paths {
          */
         get: operations["ResourcesController_units"];
         put?: never;
-        /** Créer une unité (audité) */
+        /**
+         * Créer une unité (audité).
+         * @description Le MODE de la station resserre la matrice (ADR 0016) : en démonstration et en exercice, l'OPCOM et les cellules créent des unités pour le scénario ; en opérationnel, le Super Administrateur seul.
+         */
         post: operations["ResourcesController_createUnit"];
         delete?: never;
         options?: never;
@@ -1030,13 +1145,13 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Supprimer définitivement une unité — SUPERADMIN uniquement.
+         * Supprimer définitivement une unité — Super Administrateur ; OPCOM et cellules hors mode opérationnel (ADR 0016).
          * @description La matrice n'accorde `teams:delete` à personne : seul le joker du Super Administrateur la détient. Refusé (409) tant que l'unité est engagée sur une opération active ou qu'un compte en a la responsabilité ; `?force=true` passe outre. Son parc et ses postes partent avec elle ; une graine supprimée ne revient pas au redémarrage.
          */
         delete: operations["ResourcesController_deleteUnit"];
         options?: never;
         head?: never;
-        /** Mettre à jour une unité — un responsable ne peut agir que sur la sienne */
+        /** Mettre à jour une unité — un responsable ne peut agir que sur la sienne ; l'OPCOM et les cellules en démonstration et en exercice */
         patch: operations["ResourcesController_updateUnit"];
         trace?: never;
     };
@@ -1719,6 +1834,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/domain/mode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Changer le mode de la station — SUPERADMIN, mot de passe exigé (ADR 0016).
+         * @description demo : jeu de démonstration ; exercise : station vide, l'OPCOM et les cellules créent unités et ressources ; operational : station en service. Le réglage est persisté ; sur la station l'API redémarre d'elle-même pour l'appliquer (`restarting: true`), en développement il faut la relancer.
+         */
+        patch: operations["AdminController_setMode"];
+        trace?: never;
+    };
     "/api/domain/purge": {
         parameters: {
             query?: never;
@@ -1737,6 +1872,201 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Les ressources d'une entité (personnes, équipes, véhicules, logistique, équipements), ou le registre entier.
+         * @description Avec `ownerKind` et `ownerId` : tout ce que l'entité tient ; sans : le registre entier, pour la conduite. La réponse dit aussi ce que l'appelant peut y tenir.
+         */
+        get: operations["ResourcesRegistryController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resources/persons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Inscrire une personne au registre d'une entité */
+        post: operations["ResourcesRegistryController_addPerson"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resources/persons/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Retirer une personne du registre */
+        delete: operations["ResourcesRegistryController_removePerson"];
+        options?: never;
+        head?: never;
+        /** Mettre à jour une personne */
+        patch: operations["ResourcesRegistryController_updatePerson"];
+        trace?: never;
+    };
+    "/api/resources/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Constituer une équipe de personnes d'une entité */
+        post: operations["ResourcesRegistryController_addTeam"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resources/teams/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Dissoudre une équipe — ses membres restent au registre */
+        delete: operations["ResourcesRegistryController_removeTeam"];
+        options?: never;
+        head?: never;
+        /** Mettre à jour une équipe (nom, mission, chef, membres) */
+        patch: operations["ResourcesRegistryController_updateTeam"];
+        trace?: never;
+    };
+    "/api/resources/vehicles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Inscrire un véhicule (ou une flotte comptée) au registre d'une entité */
+        post: operations["ResourcesRegistryController_addVehicle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resources/vehicles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Retirer un véhicule du registre */
+        delete: operations["ResourcesRegistryController_removeVehicle"];
+        options?: never;
+        head?: never;
+        /** Mettre à jour un véhicule */
+        patch: operations["ResourcesRegistryController_updateVehicle"];
+        trace?: never;
+    };
+    "/api/resources/supplies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Inscrire une ressource logistique (carburant, vivres, couchage, campement) */
+        post: operations["ResourcesRegistryController_addSupply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resources/supplies/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Retirer une ressource logistique du registre */
+        delete: operations["ResourcesRegistryController_removeSupply"];
+        options?: never;
+        head?: never;
+        /** Mettre à jour une ressource logistique */
+        patch: operations["ResourcesRegistryController_updateSupply"];
+        trace?: never;
+    };
+    "/api/resources/equipment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ajouter un article au parc d'une entité (unité, hôpital, abri) */
+        post: operations["ResourcesRegistryController_addEquipment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resources/equipment/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Sortir un article du parc */
+        delete: operations["ResourcesRegistryController_removeEquipment"];
+        options?: never;
+        head?: never;
+        /** Mettre à jour un article du parc */
+        patch: operations["ResourcesRegistryController_updateEquipment"];
         trace?: never;
     };
     "/api/orders": {
@@ -2364,7 +2694,7 @@ export interface components {
              * @example superadmin
              * @enum {string}
              */
-            role: "superadmin" | "admin" | "strategic" | "place_arme" | "wali" | "opcom" | "tacom" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment";
+            role: "superadmin" | "admin" | "strategic" | "place_arme" | "wali" | "opcom" | "gendarmerie" | "etat_major" | "interieur" | "tacom" | "pco" | "pct" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment";
         };
         LoginDto: {
             /** @example n.fassi */
@@ -2387,7 +2717,7 @@ export interface components {
         };
         SelectRoleDto: {
             /** @enum {string} */
-            role: "superadmin" | "admin" | "strategic" | "place_arme" | "wali" | "opcom" | "tacom" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment";
+            role: "superadmin" | "admin" | "strategic" | "place_arme" | "wali" | "opcom" | "gendarmerie" | "etat_major" | "interieur" | "tacom" | "pco" | "pct" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment";
         };
         ChangePasswordDto: {
             newPassword: string;
@@ -2456,7 +2786,7 @@ export interface components {
              *       "bluecell"
              *     ]
              */
-            roles: ("superadmin" | "admin" | "strategic" | "place_arme" | "wali" | "opcom" | "tacom" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment")[];
+            roles: ("superadmin" | "admin" | "strategic" | "place_arme" | "wali" | "opcom" | "gendarmerie" | "etat_major" | "interieur" | "tacom" | "pco" | "pct" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment")[];
             /** @description Entité affectée par nature de responsabilité (portée ABAC). Obligatoire pour tout rôle « resp_* ». */
             assignments?: components["schemas"]["AssignmentsDto"];
         };
@@ -2474,7 +2804,7 @@ export interface components {
             phone?: string;
             /** @example Capitaine */
             grade?: string;
-            roles?: ("superadmin" | "admin" | "strategic" | "place_arme" | "wali" | "opcom" | "tacom" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment")[];
+            roles?: ("superadmin" | "admin" | "strategic" | "place_arme" | "wali" | "opcom" | "gendarmerie" | "etat_major" | "interieur" | "tacom" | "pco" | "pct" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment")[];
             /** @description Entité affectée par nature de responsabilité (portée ABAC). */
             assignments?: components["schemas"]["AssignmentsDto"];
         };
@@ -2486,8 +2816,17 @@ export interface components {
              * @description Module à ouvrir ou couper pour le rôle
              * @enum {string}
              */
-            feature: "incidents" | "map" | "seismic" | "dispatch" | "triage" | "equip" | "units" | "personnel" | "workorders" | "hospitals" | "ics" | "damage" | "shelters" | "morgue" | "orsec" | "plans" | "comms" | "reports" | "analytics" | "assistant" | "simulation" | "trackers" | "chemlib";
+            feature: "incidents" | "map" | "seismic" | "dispatch" | "triage" | "equip" | "units" | "workorders" | "resources" | "hospitals" | "ics" | "damage" | "shelters" | "morgue" | "orsec" | "plans" | "comms" | "reports" | "analytics" | "assistant" | "simulation" | "trackers" | "chemlib";
             enabled: boolean;
+        };
+        ToggleUserModuleDto: {
+            /**
+             * @description Module à ouvrir ou couper pour le compte
+             * @enum {string}
+             */
+            module: "incidents" | "map" | "seismic" | "dispatch" | "triage" | "equip" | "units" | "workorders" | "resources" | "hospitals" | "ics" | "damage" | "shelters" | "morgue" | "orsec" | "plans" | "comms" | "reports" | "analytics" | "assistant" | "simulation" | "trackers" | "chemlib";
+            /** @description true : ouvert malgré le rôle ; false : coupé ; null : le rôle décide */
+            enabled: boolean | null;
         };
         ToggleFlagDto: {
             /** @description Nouvel état du flag */
@@ -2498,7 +2837,7 @@ export interface components {
              * @description Nature du poste : PC (opcom, tacom), cellule, abri ou parc d'équipement.
              * @enum {string}
              */
-            kind: "opcom" | "tacom" | "bluecell" | "greencell" | "orangecell" | "shelter" | "equipment";
+            kind: "opcom" | "tacom" | "pco" | "pct" | "bluecell" | "greencell" | "orangecell" | "shelter" | "equipment";
             /**
              * @description Point du poste [lng, lat].
              * @example [
@@ -2718,6 +3057,18 @@ export interface components {
             /** @description Intervenants (IDs d'unités et d'hôpitaux) */
             responders?: components["schemas"]["RespondersDto"];
         };
+        AssignUnitDto: {
+            /**
+             * @description Unité à affecter
+             * @example U3
+             */
+            unitId: string;
+            /**
+             * @description Destination au TACOM — décisive pour une unité des FAR seulement : gendarmerie et unités civiles rejoignent le PCO.
+             * @enum {string}
+             */
+            destination?: "pco" | "pct";
+        };
         DeployPostDto: {
             /**
              * @description Matricule du compte à déployer. Il doit occuper un poste déployable (OPCOM, TACOM, cellules, responsable abri ou équipement). Le déploiement REMPLACE l'opération qu'il servait.
@@ -2790,6 +3141,12 @@ export interface components {
              * @example Col. A. Senhaji
              */
             cmdt?: string;
+            /**
+             * @description Corps d'appartenance (ADR 0016) : far, gendarmerie, dgsn, dgpc, fa — décide qui peut affecter l'unité et vers quel PC elle va.
+             * @default far
+             * @enum {string}
+             */
+            corps: "far" | "gendarmerie" | "dgsn" | "dgpc" | "fa";
             eff: number;
             /** @enum {string} */
             dispo: "ready" | "deployed" | "standby";
@@ -2802,6 +3159,17 @@ export interface components {
         UpdateUnitDto: {
             /** @description Commandant de l'unité */
             cmdt?: string;
+            /** @description Nom de l'unité (OPCOM / cellules en démonstration et exercice) */
+            nom?: string;
+            /** @description Ville d'implantation */
+            ville?: string;
+            /**
+             * @description Corps d'appartenance (ADR 0016)
+             * @enum {string}
+             */
+            corps?: "far" | "gendarmerie" | "dgsn" | "dgpc" | "fa";
+            /** @description Position [lng, lat] */
+            ll?: number[];
             /** @description Effectif */
             eff?: number;
             /**
@@ -3185,9 +3553,168 @@ export interface components {
             globalMinMag: number;
             contacts: components["schemas"]["AuthorityContactDto"][];
         };
+        SetModeDto: {
+            /**
+             * @description demo, exercise ou operational
+             * @enum {string}
+             */
+            mode: "demo" | "exercise" | "operational";
+            /** @description Mot de passe du compte qui agit */
+            password: string;
+        };
         PurgeDomainDto: {
             /** @description Mot de passe du compte qui agit — la remise à zéro est un geste signé, pas un clic */
             password: string;
+        };
+        ResourceOwnerDto: {
+            /** @enum {string} */
+            kind: "unit" | "hospital" | "shelter";
+            /** @example U3 */
+            id: string;
+        };
+        CreatePersonDto: {
+            owner: components["schemas"]["ResourceOwnerDto"];
+            /**
+             * @description far, gendarmerie, fa, dgsn (grade) ; dgpc, civil (fonction)
+             * @enum {string}
+             */
+            corps: "far" | "gendarmerie" | "fa" | "dgsn" | "dgpc" | "civil";
+            grade?: string;
+            nom: string;
+            prenom: string;
+            matricule: string;
+            fonction: string;
+            /** @description Équipe d'appartenance */
+            teamId?: string;
+            /**
+             * @default present
+             * @enum {string}
+             */
+            status: "present" | "deployed" | "rest" | "absent";
+            phone?: string;
+            note?: string;
+        };
+        UpdatePersonDto: {
+            /** @enum {string} */
+            corps?: "far" | "gendarmerie" | "fa" | "dgsn" | "dgpc" | "civil";
+            grade?: string;
+            nom?: string;
+            prenom?: string;
+            matricule?: string;
+            fonction?: string;
+            /** @description Équipe d'appartenance ; chaîne vide pour en sortir */
+            teamId?: string;
+            /** @enum {string} */
+            status?: "present" | "deployed" | "rest" | "absent";
+            phone?: string;
+            note?: string;
+        };
+        CreateTeamDto: {
+            owner: components["schemas"]["ResourceOwnerDto"];
+            nom: string;
+            mission?: string;
+            /** @description Chef d'équipe (identifiant de personne) */
+            leaderId?: string;
+            /** @description Membres (identifiants de personnes de la même entité) */
+            memberIds?: string[];
+        };
+        UpdateTeamDto: {
+            nom?: string;
+            mission?: string;
+            /** @description Chef d'équipe ; chaîne vide pour retirer */
+            leaderId?: string;
+            memberIds?: string[];
+        };
+        CreateVehicleDto: {
+            owner: components["schemas"]["ResourceOwnerDto"];
+            /** @example Ambulance médicalisée */
+            type: string;
+            /**
+             * @description Immatriculation ou numéro de parc
+             * @example FAR-2140
+             */
+            plate?: string;
+            /**
+             * @description Nombre de véhicules identiques
+             * @default 1
+             */
+            qty: number;
+            /**
+             * @default ok
+             * @enum {string}
+             */
+            state: "ok" | "repair" | "oos";
+            assignment?: string;
+            note?: string;
+        };
+        UpdateVehicleDto: {
+            type?: string;
+            plate?: string;
+            qty?: number;
+            /** @enum {string} */
+            state?: "ok" | "repair" | "oos";
+            assignment?: string;
+            note?: string;
+        };
+        CreateSupplyDto: {
+            owner: components["schemas"]["ResourceOwnerDto"];
+            /**
+             * @description fuel = carburant, food = vivres, bedding = couchage, camp = campement
+             * @enum {string}
+             */
+            kind: "fuel" | "food" | "bedding" | "camp" | "other";
+            /** @example Gazole */
+            label: string;
+            qty: number;
+            /**
+             * @description Unité de compte : L, rations, places, tentes…
+             * @example L
+             */
+            unit: string;
+            threshold?: number;
+            note?: string;
+        };
+        UpdateSupplyDto: {
+            /** @enum {string} */
+            kind?: "fuel" | "food" | "bedding" | "camp" | "other";
+            label?: string;
+            qty?: number;
+            unit?: string;
+            threshold?: number;
+            note?: string;
+        };
+        CreateOwnedEquipDto: {
+            /** @example Groupe électrogène 20 kVA */
+            desig: string;
+            /**
+             * @description Catégorie
+             * @example Énergie
+             */
+            cat: string;
+            /** @description Quantité en parc */
+            stock: number;
+            /** @description Seuil d'alerte */
+            threshold: number;
+            /**
+             * @example ok
+             * @enum {string}
+             */
+            cond: "ok" | "repair" | "oos";
+            owner: components["schemas"]["ResourceOwnerDto"];
+            /** @description Type d'équipement */
+            type?: string;
+            /** @description Numéro d'inventaire / série */
+            serial?: string;
+        };
+        UpdateOwnedEquipDto: {
+            desig?: string;
+            cat?: string;
+            stock?: number;
+            threshold?: number;
+            /** @enum {string} */
+            cond?: "ok" | "repair" | "oos";
+            type?: string;
+            serial?: string;
         };
         CreateOrderDto: {
             /** @example Rétablir l'accès RP2010 (déblaiement) */
@@ -3876,6 +4403,29 @@ export interface operations {
             };
         };
     };
+    UsersController_setUserModule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToggleUserModuleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     UsersController_resetRoleFeatures: {
         parameters: {
             query?: never;
@@ -4427,6 +4977,116 @@ export interface operations {
             };
         };
     };
+    IncidentsController_listAssignments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IncidentsController_assignUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignUnitDto"];
+            };
+        };
+        responses: {
+            /** @description Le rôle n'affecte pas les unités de ce corps. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description L'unité est déjà affectée à une autre opération, ou déployée. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IncidentsController_unassignUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                unitId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IncidentsController_deployUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                unitId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IncidentsController_withdrawUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                unitId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     IncidentsController_listDeployments: {
         parameters: {
             query?: never;
@@ -4700,6 +5360,25 @@ export interface operations {
             };
         };
     };
+    CommsController_ackNotice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     CommsController_commsAll: {
         parameters: {
             query?: never;
@@ -4847,7 +5526,8 @@ export interface operations {
             };
         };
         responses: {
-            201: {
+            /** @description Le mode de la station ne le permet pas à ce rôle. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5945,6 +6625,28 @@ export interface operations {
             };
         };
     };
+    AdminController_setMode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetModeDto"];
+            };
+        };
+        responses: {
+            /** @description Réservé au Super Administrateur, ou mot de passe incorrect. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     AdminController_purge: {
         parameters: {
             query?: never;
@@ -5960,6 +6662,342 @@ export interface operations {
         responses: {
             /** @description Réservé au Super Administrateur, ou mot de passe incorrect. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_list: {
+        parameters: {
+            query?: {
+                ownerId?: unknown;
+                ownerKind?: "unit" | "hospital" | "shelter";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_addPerson: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePersonDto"];
+            };
+        };
+        responses: {
+            /** @description Le rôle ne tient pas cette ressource sur cette entité dans ce mode. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_removePerson: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_updatePerson: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePersonDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_addTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTeamDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_removeTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_updateTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTeamDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_addVehicle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateVehicleDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_removeVehicle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_updateVehicle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateVehicleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_addSupply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSupplyDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_removeSupply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_updateSupply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSupplyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_addEquipment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOwnedEquipDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_removeEquipment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_updateEquipment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOwnedEquipDto"];
+            };
+        };
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

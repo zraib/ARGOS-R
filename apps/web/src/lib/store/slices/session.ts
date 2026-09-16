@@ -10,7 +10,7 @@ import type { ArgosState } from "@/lib/store";
 import type {
   Lang,
   } from "@/lib/types";
-import { api, loadSessionContext } from "@/lib/api";
+import { api, loadSessionContext, type SessionContext } from "@/lib/api";
 import { AI_DEFAULT_SETTINGS } from "@/lib/ai/config";
 import { DEFAULT_FLAGS } from "@/lib/nav";
 import type { Role } from "@/lib/roles";
@@ -58,6 +58,12 @@ export interface SessionSlice {
   setSession: (token: string, role: Role) => void;
   setFlags: (flags: Record<string, boolean>) => void;
   setRoleFeatures: (rf: Record<Role, Record<string, boolean>>) => void;
+  /** Modules effectifs du compte connecté (drapeaux ∧ rôle ∧ compte, ADR 0016) ; `null` tant que l'API n'a pas répondu. */
+  myModules: Record<string, boolean> | null;
+  /** Mode de la station (ADR 0016) : décide de ce qui est simulé et de qui crée quoi. */
+  appMode: "demo" | "exercise" | "operational" | null;
+  /** Applique d'un coup le contexte de session (drapeaux, matrice, modules du compte, mode). */
+  applySessionContext: (ctx: SessionContext) => void;
   /** Met à jour l'identité de session après édition du profil (nom, photo). */
   setProfile: (patch: { nom?: string; photo?: string | null }) => void;
   logout: () => void;
@@ -127,6 +133,15 @@ export const createSessionSlice: StateCreator<ArgosState, [], [], SessionSlice> 
   },
   setFlags: (flags) => set({ flags }),
   setRoleFeatures: (rf) => set({ roleFeatures: rf }),
+  myModules: null,
+  appMode: null,
+  applySessionContext: (ctx) =>
+    set((s) => ({
+      flags: ctx.flags ?? s.flags,
+      roleFeatures: (ctx.roleFeatures as Record<Role, Record<string, boolean>> | undefined) ?? s.roleFeatures,
+      myModules: ctx.myModules ?? s.myModules,
+      appMode: ctx.appMode ?? s.appMode,
+    })),
   setProfile: (patch) =>
     set((s) => {
       if (!s.sessionUser) return {};
@@ -151,6 +166,7 @@ export const createSessionSlice: StateCreator<ArgosState, [], [], SessionSlice> 
     set({
       authed: false,
       apiConnected: false,
+      myModules: null,
       token: null,
       sessionUser: null,
       mustChangePassword: false,
@@ -179,8 +195,7 @@ export const createSessionSlice: StateCreator<ArgosState, [], [], SessionSlice> 
       if (!token) return false;
       get().chooseRole(token, role);
       const ctx = await loadSessionContext();
-      if (ctx.flags) get().setFlags(ctx.flags);
-      if (ctx.roleFeatures) get().setRoleFeatures(ctx.roleFeatures as Record<Role, Record<string, boolean>>);
+      get().applySessionContext(ctx);
       return true;
     } catch {
       return false;

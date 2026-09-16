@@ -26,6 +26,20 @@ export type CreateSubIncidentBody = Json<NonNullable<paths["/api/incidents/{id}/
 export type RegisterIncidentTypeBody = Json<NonNullable<paths["/api/incident-types"]["post"]["requestBody"]>>;
 export type CreateUnitBody = Json<NonNullable<paths["/api/units"]["post"]["requestBody"]>>;
 export type CreateShelterBody = Json<NonNullable<paths["/api/shelters"]["post"]["requestBody"]>>;
+/** Chaîne de commandement et ressources (ADR 0016). */
+export type AssignUnitBody = Json<NonNullable<paths["/api/incidents/{id}/assignments"]["post"]["requestBody"]>>;
+export type CreatePersonBody = Json<NonNullable<paths["/api/resources/persons"]["post"]["requestBody"]>>;
+export type UpdatePersonBody = Json<NonNullable<paths["/api/resources/persons/{id}"]["patch"]["requestBody"]>>;
+export type CreateTeamBody = Json<NonNullable<paths["/api/resources/teams"]["post"]["requestBody"]>>;
+export type UpdateTeamBody = Json<NonNullable<paths["/api/resources/teams/{id}"]["patch"]["requestBody"]>>;
+export type CreateVehicleBody = Json<NonNullable<paths["/api/resources/vehicles"]["post"]["requestBody"]>>;
+export type UpdateVehicleBody = Json<NonNullable<paths["/api/resources/vehicles/{id}"]["patch"]["requestBody"]>>;
+export type CreateSupplyBody = Json<NonNullable<paths["/api/resources/supplies"]["post"]["requestBody"]>>;
+export type UpdateSupplyBody = Json<NonNullable<paths["/api/resources/supplies/{id}"]["patch"]["requestBody"]>>;
+export type CreateOwnedEquipBody = Json<NonNullable<paths["/api/resources/equipment"]["post"]["requestBody"]>>;
+export type UpdateOwnedEquipBody = Json<NonNullable<paths["/api/resources/equipment/{id}"]["patch"]["requestBody"]>>;
+export type ResourceOwner = CreatePersonBody["owner"];
+export type AppMode = Json<NonNullable<paths["/api/domain/mode"]["patch"]["requestBody"]>>["mode"];
 /** Postes d'opération sur la carte (lot #12). */
 export type CreatePostBody = Json<NonNullable<paths["/api/incidents/{id}/posts"]["post"]["requestBody"]>>;
 export type UpdatePostBody = Json<NonNullable<paths["/api/incidents/{id}/posts/{postId}"]["patch"]["requestBody"]>>;
@@ -121,6 +135,9 @@ export function createArgosClient(opts: ArgosClientOptions) {
     setRoleFeature: (role: ArgosRole, feature: ModuleFeature, enabled: boolean) =>
       client.PATCH("/api/iam/role-features/{role}", { params: { path: { role } }, body: { feature, enabled } }),
     resetRoleFeatures: (role: ArgosRole) => client.POST("/api/iam/role-features/{role}/reset", { params: { path: { role } } }),
+    /** Bascule d'un module pour UN compte (ADR 0016) ; `enabled: null` rend la main au rôle. */
+    setUserModule: (id: string, module: ModuleFeature, enabled: boolean | null) =>
+      client.PATCH("/api/iam/users/{id}/modules", { params: { path: { id } }, body: { module, enabled } }),
     // --- domaine opérationnel (Phase 2) ---
     getIncidents: () => client.GET("/api/incidents"),
     getIncidentTypes: () => client.GET("/api/incident-types"),
@@ -259,8 +276,39 @@ export function createArgosClient(opts: ArgosClientOptions) {
       client.DELETE("/api/morgues/{id}", { params: { path: { id }, query: force ? { force: "true" } : {} } }),
     deleteHospital: (id: string, force = false) =>
       client.DELETE("/api/hospitals/{id}", { params: { path: { id }, query: force ? { force: "true" } : {} } }),
-    /** Profil de données de la station et volume du domaine (écran Paramètres). */
+    /** Profil de données de la station, mode en service et volume du domaine (écran Paramètres). */
     getDataProfile: () => client.GET("/api/domain/profile"),
+    /** Changer le mode de la station (ADR 0016) — signé ; l'API redémarre d'elle-même en production. */
+    setMode: (mode: AppMode, password: string) => client.PATCH("/api/domain/mode", { body: { mode, password } }),
+    // --- chaîne de commandement (ADR 0016) : affectation et déploiement des unités ---
+    getAssignments: (id: string) => client.GET("/api/incidents/{id}/assignments", { params: { path: { id } } }),
+    assignUnit: (id: string, body: AssignUnitBody) => client.POST("/api/incidents/{id}/assignments", { params: { path: { id } }, body }),
+    unassignUnit: (id: string, unitId: string) =>
+      client.DELETE("/api/incidents/{id}/assignments/{unitId}", { params: { path: { id, unitId } } }),
+    deployUnit: (id: string, unitId: string) =>
+      client.POST("/api/incidents/{id}/assignments/{unitId}/deploy", { params: { path: { id, unitId } } }),
+    withdrawUnit: (id: string, unitId: string) =>
+      client.POST("/api/incidents/{id}/assignments/{unitId}/withdraw", { params: { path: { id, unitId } } }),
+    // --- ressources d'une entité (ADR 0016) ---
+    getResources: (owner?: ResourceOwner) =>
+      client.GET("/api/resources", { params: { query: owner ? { ownerKind: owner.kind, ownerId: owner.id } : {} } }),
+    addPerson: (body: CreatePersonBody) => client.POST("/api/resources/persons", { body }),
+    updatePerson: (id: string, body: UpdatePersonBody) => client.PATCH("/api/resources/persons/{id}", { params: { path: { id } }, body }),
+    removePerson: (id: string) => client.DELETE("/api/resources/persons/{id}", { params: { path: { id } } }),
+    addTeam: (body: CreateTeamBody) => client.POST("/api/resources/teams", { body }),
+    updateTeam: (id: string, body: UpdateTeamBody) => client.PATCH("/api/resources/teams/{id}", { params: { path: { id } }, body }),
+    removeTeam: (id: string) => client.DELETE("/api/resources/teams/{id}", { params: { path: { id } } }),
+    addVehicle: (body: CreateVehicleBody) => client.POST("/api/resources/vehicles", { body }),
+    updateVehicle: (id: string, body: UpdateVehicleBody) => client.PATCH("/api/resources/vehicles/{id}", { params: { path: { id } }, body }),
+    removeVehicle: (id: string) => client.DELETE("/api/resources/vehicles/{id}", { params: { path: { id } } }),
+    addSupply: (body: CreateSupplyBody) => client.POST("/api/resources/supplies", { body }),
+    updateSupply: (id: string, body: UpdateSupplyBody) => client.PATCH("/api/resources/supplies/{id}", { params: { path: { id } }, body }),
+    removeSupply: (id: string) => client.DELETE("/api/resources/supplies/{id}", { params: { path: { id } } }),
+    addOwnedEquip: (body: CreateOwnedEquipBody) => client.POST("/api/resources/equipment", { body }),
+    updateOwnedEquip: (id: string, body: UpdateOwnedEquipBody) => client.PATCH("/api/resources/equipment/{id}", { params: { path: { id } }, body }),
+    removeOwnedEquip: (id: string) => client.DELETE("/api/resources/equipment/{id}", { params: { path: { id } } }),
+    /** Acquitter une alerte adressée (`all` : toutes) — l'acquittement survit au rechargement (ADR 0016). */
+    ackNotice: (id: string | "all") => client.POST("/api/comms/notices/{id}/ack", { params: { path: { id } } }),
     /** Remise à zéro du domaine, signée par le mot de passe du Super Administrateur ; le réseau hospitalier reste. */
     purgeDomain: (password: string) => client.POST("/api/domain/purge", { body: { password } }),
     getHospitals: () => client.GET("/api/hospitals"),

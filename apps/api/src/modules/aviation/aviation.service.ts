@@ -5,7 +5,7 @@ import type {
   TrackedAircraft,
   TrackedAircraftState,
 } from "@/modules/aviation/aircraft.types";
-import { detectCodeKind, normalizeCode } from "@/modules/aviation/aircraft.types";
+import { AIRCRAFT_TRAIL_MAX, detectCodeKind, normalizeCode, type AircraftPosition, type TrailPoint } from "@/modules/aviation/aircraft.types";
 import { resolvePositions, statusOf } from "@/modules/aviation/aircraft.matching";
 import {
   AIRCRAFT_WATCHLIST,
@@ -129,6 +129,7 @@ export class AviationService {
 
   /** Suppression définitive — le RBAC la réserve au superadmin. */
   async remove(id: string): Promise<void> {
+    this.forgetTrail(id);
     await this.require(id);
     await this.watchlist.remove(id);
   }
@@ -149,8 +150,28 @@ export class AviationService {
 
     return fleet.map((aircraft) => {
       const position = positions.get(aircraft.id) ?? null;
-      return { aircraft, position, status: statusOf(position) };
+      if (position) this.record(aircraft.id, position);
+      return { aircraft, position, status: statusOf(position), trail: this.trails.get(aircraft.id) ?? [] };
     });
+  }
+
+  /** Trajectoires récentes par appareil (ADR 0016) — mémoire du processus, bornées. */
+  private readonly trails = new Map<string, TrailPoint[]>();
+
+  /** Ajoute la position à la trace si elle diffère de la dernière ; borne la trace. */
+  private record(id: string, position: AircraftPosition): void {
+    const trail = this.trails.get(id) ?? [];
+    const last = trail[trail.length - 1];
+    const [lng, lat] = position.ll;
+    if (last && Math.abs(last.ll[0] - lng) < 1e-5 && Math.abs(last.ll[1] - lat) < 1e-5) return;
+    trail.push({ ll: [lng, lat], at: Date.now() });
+    if (trail.length > AIRCRAFT_TRAIL_MAX) trail.splice(0, trail.length - AIRCRAFT_TRAIL_MAX);
+    this.trails.set(id, trail);
+  }
+
+  /** Oublie la trace d'un appareil retiré du suivi. */
+  forgetTrail(id: string): void {
+    this.trails.delete(id);
   }
 
   private async require(id: string): Promise<TrackedAircraft> {

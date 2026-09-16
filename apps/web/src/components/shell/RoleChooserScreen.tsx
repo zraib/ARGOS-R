@@ -16,8 +16,7 @@ export function RoleChooserScreen() {
   const dark = useArgos((s) => s.dark);
   const sessionUser = useArgos((s) => s.sessionUser);
   const chooseRole = useArgos((s) => s.chooseRole);
-  const setFlags = useArgos((s) => s.setFlags);
-  const setRoleFeatures = useArgos((s) => s.setRoleFeatures);
+  const applySessionContext = useArgos((s) => s.applySessionContext);
 
   const roles = sessionUser?.roles ?? [];
   const [picked, setPicked] = useState<Role | null>(roles[0] ?? null);
@@ -33,8 +32,7 @@ export function RoleChooserScreen() {
       chooseRole(token, role);
       // Recharge le contexte avec le rôle actif (flags + fonctionnalités).
       const ctx = await loadSessionContext();
-      if (ctx.flags) setFlags(ctx.flags);
-      if (ctx.roleFeatures) setRoleFeatures(ctx.roleFeatures as Record<Role, Record<string, boolean>>);
+      applySessionContext(ctx);
     } finally {
       setBusy(false);
     }

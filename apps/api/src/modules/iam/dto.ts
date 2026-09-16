@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { REGIONS_MA } from "@/modules/domain/provinces.data";
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsBoolean, IsIn, IsOptional, IsString, MaxLength, MinLength, ValidateNested } from "class-validator";
+import { ArrayMinSize, IsArray, IsBoolean, IsIn, IsOptional, IsString, MaxLength, MinLength, ValidateIf, ValidateNested } from "class-validator";
 import { MODULE_FEATURES, ROLES, type Role } from "@/shared/permissions";
 
 /**
@@ -215,4 +215,16 @@ export class ToggleRoleFeatureDto {
   @ApiProperty()
   @IsBoolean()
   enabled!: boolean;
+}
+
+/** Bascule d'un module pour UN compte (ADR 0016) ; `enabled` à `null` rend la main au rôle. */
+export class ToggleUserModuleDto {
+  @ApiProperty({ enum: MODULE_FEATURES, description: "Module à ouvrir ou couper pour le compte" })
+  @IsIn(MODULE_FEATURES as unknown as string[])
+  module!: string;
+
+  @ApiProperty({ type: Boolean, nullable: true, description: "true : ouvert malgré le rôle ; false : coupé ; null : le rôle décide" })
+  @ValidateIf((_, v) => v !== null)
+  @IsBoolean()
+  enabled!: boolean | null;
 }

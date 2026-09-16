@@ -16,6 +16,15 @@ export interface EquipItem {
    * le cantonnement ABAC du parc ; `unit` reste un libellé d'affichage.
    */
   unitId: string;
+  /**
+   * Nature du détenteur (ADR 0016) : une unité par défaut ; un hôpital ou un
+   * abri tiennent aussi leur matériel. `unitId` porte alors l'identifiant de
+   * l'établissement ou de l'abri.
+   */
+  ownerKind?: "unit" | "hospital" | "shelter";
+  /** Type / numéro d'inventaire (ADR 0016), facultatif. */
+  type?: string;
+  serial?: string;
   stock: number;
   threshold: number;
   cond: EquipCondition;

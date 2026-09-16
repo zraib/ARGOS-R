@@ -107,16 +107,25 @@ Format **`fonctionnalité:action`**, défini dans `apps/api/src/shared/permissio
 > registre sans son site ou un compte sans son entité, et dit ce qui retient ;
 > `?force=true` passe outre en connaissance de cause.
 
-**21 fonctionnalités de la matrice** — `dashboard`, `dash_incident`,
+**25 fonctionnalités de la matrice** — `dashboard`, `dash_incident`,
 `dash_hospital`, `dash_shelter`, `dash_morgue`, `dash_unit`, `map`, `incidents`,
 `subincidents`, `hospinet`, `shelters`, `morgue`, `units`, `equipment`, `teams`,
-`comms`, `reports`, `analytics`, `assistant`, `users`, `settings`.
+`comms`, `reports`, `analytics`, `assistant`, `users`, `settings`, et depuis
+l'ADR 0016 `assign` (affectation des unités à l'incident), `deploy` (déploiement
+terrain), `resources` (personnes, équipes, véhicules, logistique), `weather`.
+
+> **Le MODE de la station resserre la matrice** (ADR 0016). La matrice dit le
+> maximum ; `mode.rules.ts` et `resources.rules.ts` disent ce qui reste ouvert
+> en démonstration, en exercice et en opérationnel — création d'unités par
+> l'OPCOM et les cellules hors opérationnel, ressources tenues par les chefs
+> d'entité en opérationnel, etc. Ces règles sont pures et testées
+> (`command-chain.rules.spec.ts`).
 
 **10 modules hors matrice** (`LEGACY`, dotations d'avant conservées, à
 arbitrer) — `dispatch`, `triage`, `ics`, `damage`, `orsec`, `plans`,
 `personnel`, `workorders`, `seismic`, `audit`.
 
-## 4. Les 15 rôles
+## 4. Les 20 rôles
 
 Les attributions sont la **transcription littérale** de
 `docs/MATRICE ROLES.xlsx` : la table `MATRIX` du code
@@ -140,6 +149,11 @@ Faire évoluer les droits = modifier cette table, jamais des listes à la main.
 | `resp_morgue` | Responsable Morgue | A-M-V Morgue |
 | `resp_unit` | Responsable Unité | A-M-V Unité |
 | `resp_equipment` | Responsable Équipement | A-M-V Gestion Équipement |
+| `gendarmerie` | Représentant Gendarmerie Royale (OPCOM) | dérivé d'`opcom` sans conduite de l'incident ; affecte les unités de gendarmerie (→ PCO) — ADR 0016 |
+| `etat_major` | Représentant État-Major des FAR (OPCOM) | dérivé d'`opcom` ; affecte les unités des FAR (→ PCO ou PCT) — ADR 0016 |
+| `interieur` | Représentant Ministère de l'Intérieur (OPCOM) | dérivé d'`opcom` ; affecte les unités civiles (DGSN, DGPC, FA → PCO) — ADR 0016 |
+| `pco` | Chef du PC Opérationnel | dérivé de `tacom` ; déploie et retire sur le terrain — ADR 0016 |
+| `pct` | Chef du PC Tactique | dérivé de `tacom` ; déploie et retire sur le terrain — ADR 0016 |
 
 Une **cellule vide du tableur = aucun droit** sur la fonctionnalité
 (default-deny). Un rôle absent d'une ligne n'y a donc rien.
@@ -266,7 +280,11 @@ quels modules sont ouverts pour tout le monde. Deux bascules, un vocabulaire
 Depuis l'ADR 0015 ce n'est plus un simple masquage : `FEATURE_MODULE` relie
 chaque fonctionnalité RBAC à son module, et la garde des permissions refuse
 (403) toute route d'un module coupé — pour le rôle (matrice) ou pour tous
-(drapeau, joker compris : c'est un interrupteur, pas un droit). Le cœur —
+(drapeau, joker compris : c'est un interrupteur, pas un droit). Depuis l'ADR
+0016 s'y ajoute la **bascule par compte** (`PATCH /iam/users/:id/modules`) :
+consultée avant le rôle, elle coupe ou rouvre un module pour ce compte seul ;
+`/iam/me` sert les modules effectifs (drapeaux ∧ rôle ∧ compte) que le
+navigateur applique tels quels. Le cœur —
 tableau de bord, comptes, paramètres, audit, boucles opérationnelles — n'a pas
 de module et ne se coupe pas : c'est par lui qu'on rallume le reste. Tout
 compte authentifié lit les deux bascules (`GET /flags`, `GET

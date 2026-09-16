@@ -14,6 +14,7 @@ import type { Incident, WeatherForecast } from "@/lib/types";
 import { predictIncidentEvolution, type IncidentEvolution } from "@/lib/ai/risk/incidentEvolution";
 import { IncidentEvolutionCard } from "@/components/incidents/IncidentEvolutionCard";
 import { DeployedPosts } from "@/components/incidents/DeployedPosts";
+import { UnitAssignments } from "@/components/incidents/UnitAssignments";
 import { HazardIcon } from "@/components/ui/HazardIcon";
 import { FAMILY_PICTOGRAM } from "@/lib/hazard/pictograms";
 import {
@@ -261,6 +262,9 @@ export function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddS
 
         {/* Qui conduit cette opération — et le geste pour l'armer (lot V-2). */}
         <DeployedPosts incidentId={incident.id} />
+
+        {/* Les unités que l'OPCOM affecte et que le TACOM déploie (ADR 0016). */}
+        <UnitAssignments incidentId={incident.id} closed={incident.st === "closed" || !!incident.archived} />
 
         <SubIncidentSection incident={incident} onAdd={() => onAddSub(incident)} />
       </div>

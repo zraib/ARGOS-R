@@ -23,6 +23,8 @@ import { GRADES } from "@/lib/data/grades";
 import { AddHospitalModal, AddShelterModal, AddUnitModal } from "@/components/org/AddEntityModals";
 import { AddMorgueModal } from "@/components/morgue/AddMorgueModal";
 import { ApiUser } from "@/app/utilisateurs/_parts/shared";
+import { MODULE_KEYS, navLabel, type ModuleKey } from "@/lib/nav";
+import { useDict } from "@/lib/store";
 
 // ===========================================================================
 // Formulaire création / édition d'un compte (via l'API)
@@ -65,9 +67,20 @@ export function UserForm({
   onCreated: (user: ApiUser, code: string) => void;
 }) {
   const m = useModules();
+  const t = useDict();
   const showToast = useArgos((s) => s.showToast);
 
   const editing = !!user;
+  // Bascules de modules PROPRES au compte (ADR 0016) : en édition seulement,
+  // écrites une par une (effet immédiat côté serveur, pas au « Enregistrer »).
+  const [userModules, setUserModules] = useState<Partial<Record<ModuleKey, boolean>>>((user as { modules?: Partial<Record<ModuleKey, boolean>> } | undefined)?.modules ?? {});
+  const lockedModules = !!user && user.roles.some((r) => r === "superadmin" || r === "admin");
+  const setModule = async (module: ModuleKey, enabled: boolean | null) => {
+    if (!user) return;
+    const res = await api.setUserModule(user.id, module, enabled);
+    if (res.error) { showToast(m.resp.err_denied); return; }
+    setUserModules((s) => { const next = { ...s }; if (enabled === null) delete next[module]; else next[module] = enabled; return next; });
+  };
   const superAdmin = isSuperAdmin(creatorRole);
   const options = assignableRoles(creatorRole);
   const multiple = canAssignMultipleRoles(creatorRole);
@@ -320,6 +333,30 @@ export function UserForm({
                     )}
                   </div>
                   {creatable && <p className="mt-1 text-[10px] text-gray-400 dark:text-rdia-400">{m.users.entity_missing}</p>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {editing && !lockedModules && (
+        <div>
+          <label className="mb-1 block text-[11px] font-semibold text-gray-600 dark:text-rdia-200">{t.um_title}</label>
+          <p className="mb-2 text-[11px] leading-snug text-gray-400 dark:text-rdia-400">{t.um_hint}</p>
+          <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2">
+            {MODULE_KEYS.map((k) => {
+              const v = userModules[k];
+              const state: "inherit" | "on" | "off" = v === undefined ? "inherit" : v ? "on" : "off";
+              const cls = (s: typeof state) => `cible-tactile rounded-md px-2 py-0.5 text-[10.5px] font-semibold transition-colors lg:min-h-0 ${state === s ? (s === "off" ? "bg-danger-500 text-white" : s === "on" ? "bg-or-500 text-rdia-600" : "bg-gray-300 text-gray-800 dark:bg-rdia-500 dark:text-rdia-50") : "text-gray-400 hover:text-gray-700 dark:text-rdia-400 dark:hover:text-rdia-100"}`;
+              return (
+                <div key={k} className="flex min-h-[40px] items-center justify-between gap-2 border-b border-gray-100 py-1 text-sm dark:border-rdia-700/50">
+                  <span className={`min-w-0 truncate ${state === "off" ? "text-gray-400 line-through dark:text-rdia-400" : "text-gray-700 dark:text-rdia-100"}`}>{navLabel(k, t)}</span>
+                  <span className="flex shrink-0 gap-0.5 rounded-lg bg-gray-100 p-0.5 dark:bg-rdia-700/60">
+                    <button type="button" className={cls("inherit")} onClick={() => void setModule(k, null)}>{t.um_inherit}</button>
+                    <button type="button" className={cls("on")} onClick={() => void setModule(k, true)}>{t.um_on}</button>
+                    <button type="button" className={cls("off")} onClick={() => void setModule(k, false)}>{t.um_off}</button>
+                  </span>
                 </div>
               );
             })}

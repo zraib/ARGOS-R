@@ -7,10 +7,10 @@ import type { Dict } from "@/lib/i18n/translations";
 import type { Shelter } from "@/lib/data/modules";
 import type { DeployableAccount, Incident, IncidentPost, PostKind, Responsible, Unit } from "@/lib/types";
 
-export const POST_KINDS: readonly PostKind[] = ["opcom", "tacom", "bluecell", "greencell", "orangecell", "shelter", "equipment"];
+export const POST_KINDS: readonly PostKind[] = ["opcom", "tacom", "pco", "pct", "bluecell", "greencell", "orangecell", "shelter", "equipment"];
 
 /** Les natures tenues par un compte déployable ; les deux autres représentent une entité. */
-export const ROLE_POST_KINDS: readonly PostKind[] = ["opcom", "tacom", "bluecell", "greencell", "orangecell"];
+export const ROLE_POST_KINDS: readonly PostKind[] = ["opcom", "tacom", "pco", "pct", "bluecell", "greencell", "orangecell"];
 
 /** Type MIME du glisser-déposer d'un chip de la boîte à outils vers la carte. */
 export const POST_DRAG_MIME = "application/x-argos-post";
@@ -100,6 +100,8 @@ export function pickGroups(
 export const POST_FILL: Record<PostKind, string> = {
   opcom: "#C9A84C",
   tacom: "#8B6B2A",
+  pco: "#A16207",
+  pct: "#78350F",
   bluecell: "#3B82F6",
   greencell: "#22C55E",
   orangecell: "#F97316",
@@ -112,6 +114,8 @@ export function postCode(kind: PostKind, d: Dict): string {
   return {
     opcom: d.post_code_opcom,
     tacom: d.post_code_tacom,
+    pco: d.post_code_pco,
+    pct: d.post_code_pct,
     bluecell: d.post_code_bluecell,
     greencell: d.post_code_greencell,
     orangecell: d.post_code_orangecell,

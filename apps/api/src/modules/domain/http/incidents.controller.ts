@@ -9,7 +9,9 @@
 
 import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
-import { AlertLevelDto, AssignMorgueDto, CreateVictimDto, PublishSitrepDto, CreateIncidentDto, CreateSubIncidentDto, RegisterIncidentTypeDto, UpdateIncidentDto, UpdateVictimDto, DeployPostDto } from "@/modules/domain/dto";
+import { AlertLevelDto, AssignMorgueDto, AssignUnitDto, CreateVictimDto, PublishSitrepDto, CreateIncidentDto, CreateSubIncidentDto, RegisterIncidentTypeDto, UpdateIncidentDto, UpdateVictimDto, DeployPostDto } from "@/modules/domain/dto";
+import { ForbiddenException } from "@nestjs/common";
+import { assignableCorps, canDeploy } from "@/modules/domain/assignment.rules";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
@@ -293,6 +295,72 @@ export class IncidentsController {
   // opération pourrait armer celle d'un autre en devinant son identifiant. Avec
   // lui, un OPCOM non déployé ne voit aucune opération et ne peut donc s'auto-
   // déployer nulle part : le geste vient toujours d'en haut.
+
+  // --- chaîne de commandement : affectation et déploiement des unités (ADR 0016) ---
+
+  @Get("incidents/:id/assignments")
+  @RequirePermission("assign:view")
+  @ApiOperation({
+    summary: "Unités affectées à l'opération, avec leur destination (PCO / PCT) et leur déploiement.",
+    description: "Visible par qui voit déjà l'incident. Le TACOM y lit ce que l'OPCOM lui a affecté.",
+  })
+  listAssignments(@Param("id") id: string, @CurrentUser() user: AuthUser) {
+    this.assertCanSee(id, user);
+    return { assignments: this.domain.listAssignments(id), assignableCorps: assignableCorps(user.role), canDeploy: canDeploy(user.role) };
+  }
+
+  @Post("incidents/:id/assignments")
+  @RequirePermission("assign:create")
+  @ApiOperation({
+    summary: "Affecter une unité à l'opération (OPCOM).",
+    description:
+      "Chaque membre de l'OPCOM affecte les unités de SON corps : wali et Intérieur → DGSN, DGPC, FA ; gendarmerie → " +
+      "Gendarmerie Royale (vers le PCO) ; état-major et place d'armes → FAR (vers le PCO ou le PCT) ; le chef de l'OPCOM, tout. " +
+      "Une unité n'est affectée qu'à une opération à la fois.",
+  })
+  @ApiResponse({ status: 403, description: "Le rôle n'affecte pas les unités de ce corps." })
+  @ApiResponse({ status: 409, description: "L'unité est déjà affectée à une autre opération, ou déployée." })
+  assignUnit(@Param("id") id: string, @Body() dto: AssignUnitDto, @CurrentUser() user: AuthUser) {
+    this.assertCanSee(id, user);
+    const res = this.domain.assignUnit(id, dto.unitId, user.username, user.role, dto.destination);
+    if (res.missing === "incident") throw new NotFoundException(`Incident inconnu : ${id}`);
+    if (res.missing === "unit") throw new NotFoundException(`Unité inconnue : ${dto.unitId}`);
+    if (res.conflict) throw new ConflictException(res.error);
+    if (res.error) throw new ForbiddenException(res.error);
+    return res.assignment;
+  }
+
+  @Delete("incidents/:id/assignments/:unitId")
+  @RequirePermission("assign:update")
+  @ApiOperation({ summary: "Retirer une unité de l'opération (OPCOM) — retirée du terrain si elle y était" })
+  unassignUnit(@Param("id") id: string, @Param("unitId") unitId: string, @CurrentUser() user: AuthUser) {
+    this.assertCanSee(id, user);
+    const res = this.domain.unassignUnit(id, unitId, user.username);
+    if (res.missing) throw new NotFoundException(`Affectation inconnue : ${unitId} sur ${id}`);
+    return { removed: unitId };
+  }
+
+  @Post("incidents/:id/assignments/:unitId/deploy")
+  @RequirePermission("deploy:update")
+  @ApiOperation({ summary: "Déployer sur le terrain une unité affectée (TACOM, PCO, PCT, cellules)" })
+  deployUnit(@Param("id") id: string, @Param("unitId") unitId: string, @CurrentUser() user: AuthUser) {
+    this.assertCanSee(id, user);
+    if (!canDeploy(user.role)) throw new ForbiddenException("Le déploiement revient au TACOM, à ses PC et aux cellules.");
+    const res = this.domain.setDeployed(id, unitId, true, user.username);
+    if (res.missing) throw new NotFoundException(`Affectation inconnue : ${unitId} sur ${id}`);
+    return res.assignment;
+  }
+
+  @Post("incidents/:id/assignments/:unitId/withdraw")
+  @RequirePermission("deploy:update")
+  @ApiOperation({ summary: "Retirer du terrain une unité déployée — elle reste affectée au PC" })
+  withdrawUnit(@Param("id") id: string, @Param("unitId") unitId: string, @CurrentUser() user: AuthUser) {
+    this.assertCanSee(id, user);
+    if (!canDeploy(user.role)) throw new ForbiddenException("Le retrait du terrain revient au TACOM, à ses PC et aux cellules.");
+    const res = this.domain.setDeployed(id, unitId, false, user.username);
+    if (res.missing) throw new NotFoundException(`Affectation inconnue : ${unitId} sur ${id}`);
+    return res.assignment;
+  }
 
   @Get("incidents/:id/deployments")
   @RequirePermission("incidents:view")

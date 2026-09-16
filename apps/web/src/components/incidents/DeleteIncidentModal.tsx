@@ -75,12 +75,12 @@ export function DeleteIncidentModal({ incident, onCancel, onConfirm }: DeleteInc
         <div className="flex gap-3 rounded-lg border border-danger-500/30 bg-danger-500/10 p-3">
           <Icon path={UI_ICONS.alert} size={18} className="mt-0.5 shrink-0 text-danger-400" />
           <div className="min-w-0 space-y-2">
-            <p className="text-[13px] font-semibold leading-snug text-white">{t.del_warning}</p>
+            <p className="text-[13px] font-semibold leading-snug text-gray-800 dark:text-rdia-50">{t.del_warning}</p>
             <p className="font-mono text-[13px] font-bold text-danger-400">
-              {incident.id} — <span className="font-sans font-semibold text-white/85">{incident.titre}</span>
+              {incident.id} — <span className="font-sans font-semibold text-gray-700 dark:text-rdia-100">{incident.titre}</span>
             </p>
             {/* Les cascades RÉELLES, telles que le serveur les exécute. */}
-            <ul className="space-y-0.5 text-[12px] leading-snug text-white/65">
+            <ul className="space-y-0.5 text-[12px] leading-snug text-gray-600 dark:text-rdia-200">
               <li>· {t.del_casc_sub}</li>
               <li>· {t.del_casc_loops}</li>
               <li>· {t.del_casc_posts}</li>
@@ -91,12 +91,12 @@ export function DeleteIncidentModal({ incident, onCancel, onConfirm }: DeleteInc
 
         {/* --- le code ------------------------------------------------------ */}
         <div>
-          <label htmlFor={champId} className="mb-1.5 block text-[12px] font-semibold text-white/80">
+          <label htmlFor={champId} className="mb-1.5 block text-[12px] font-semibold text-gray-700 dark:text-rdia-100">
             {t.del_code_label}
           </label>
-          <p id={aideId} className="mb-2 text-[12px] leading-snug text-white/55">
+          <p id={aideId} className="mb-2 text-[12px] leading-snug text-gray-500 dark:text-rdia-300">
             {t.del_code_help}{" "}
-            <code className="select-all rounded bg-white/10 px-1.5 py-0.5 font-mono text-[12px] font-bold text-or-300">
+            <code className="select-all rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[12px] font-bold text-or-600 dark:bg-white/10 dark:text-or-300">
               {incident.id}
             </code>
           </p>

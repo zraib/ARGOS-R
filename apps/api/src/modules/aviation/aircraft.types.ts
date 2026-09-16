@@ -106,11 +106,26 @@ export type TrackingStatus =
   /** Inscrit mais aucun écho dans l'emprise surveillée. */
   | "no_signal";
 
+/** Un point de trajectoire : [lng, lat] et l'instant (ms UTC). */
+export interface TrailPoint {
+  ll: [number, number];
+  at: number;
+}
+
+/** Longueur maximale d'une trajectoire conservée par appareil (ADR 0016). */
+export const AIRCRAFT_TRAIL_MAX = 240;
+
 /** Un appareil inscrit, enrichi de sa position si le flux l'a vu. */
 export interface TrackedAircraftState {
   aircraft: TrackedAircraft;
   position: AircraftPosition | null;
   status: TrackingStatus;
+  /**
+   * Trajectoire récente (ADR 0016) : les positions distinctes reçues depuis
+   * que l'appareil est suivi, dans l'ordre, bornée à `AIRCRAFT_TRAIL_MAX`.
+   * Tenue côté serveur pour que chaque poste voie la même trace.
+   */
+  trail: TrailPoint[];
 }
 
 /** Emprise géographique interrogée sur le flux. */

@@ -9,6 +9,7 @@ import { ScopeGuard } from "@/common/guards/scope.guard";
 import { AuditInterceptor } from "@/common/interceptors/audit.interceptor";
 import { DatabaseModule } from "@/db/database.module";
 import { AuditModule } from "@/modules/audit/audit.module";
+import { ModeModule } from "@/modules/mode/mode.module";
 import { HealthModule } from "@/modules/health/health.module";
 import { IamModule } from "@/modules/iam/iam.module";
 import { FlagsModule } from "@/modules/flags/flags.module";
@@ -31,6 +32,7 @@ import { IncidentDashboardModule } from "@/modules/incident-dashboard/incident-d
       },
     }),
     DatabaseModule,
+    ModeModule,
     AuditModule,
     HealthModule,
     IamModule,

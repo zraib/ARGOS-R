@@ -14,6 +14,11 @@ export interface FeatureGate {
   moduleDisabled(module: ModuleKey): Promise<boolean>;
   /** Le module est coupé pour ce rôle (matrice rôle → modules à `false`). */
   roleModuleDisabled(role: Role, module: ModuleKey): boolean;
+  /**
+   * Le module est tranché pour CE compte (ADR 0016) : `false` coupé, `true`
+   * rouvert malgré le rôle, `undefined` quand le compte n'a rien de propre.
+   */
+  userModuleOverride(username: string, module: ModuleKey): boolean | undefined;
 }
 
 export const FEATURE_GATE = Symbol("FEATURE_GATE");

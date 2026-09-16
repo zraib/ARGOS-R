@@ -328,12 +328,14 @@ redémarrage ou une mise à jour.
 5. Faites le tour : *Carte opérationnelle* (couches, crues, feux de forêt),
    *Hospinet*, *OPSnet*, *Service morgue*, *Centre de communication*.
 
-> **Pour une formation** : `DATA_PROFILE=demo` dans `.env`, puis
-> `docker compose up -d api` — la station se remplit d'un jeu d'exemple.
-> Remettez `empty` pour revenir en service : les exemples partent, ce que
-> vous avez créé reste. Le Super Administrateur peut aussi tout remettre à
-> zéro depuis *Paramètres › Profil de données* (le réseau hospitalier et les
-> comptes restent).
+> **Pour une formation ou un exercice** : *Paramètres › Profil de données ›
+> Mode de la station* — choisissez *Démonstration* (jeu d'exemple) ou
+> *Exercice* (station vide où l'OPCOM et les cellules créent unités et
+> ressources), signez avec votre mot de passe : l'API redémarre seule, la page
+> se recharge. Revenez à *Opérationnel* pour la mise en service : les exemples
+> partent, ce que vous avez créé reste. Le Super Administrateur peut aussi tout
+> remettre à zéro depuis la même page (le réseau hospitalier et les comptes
+> restent).
 
 > **Vérifiez** — un second compte, connecté depuis un autre poste, voit les
 > incidents de sa région et peut envoyer un message au premier.

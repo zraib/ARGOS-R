@@ -11,6 +11,8 @@ import {
   DEFAULT_ROLE_FEATURES,
   defaultRoleFeatures,
   isModuleKey,
+  MODULE_KEYS,
+  type ModuleKey,
   isRole,
   LEGACY_ROLE_MAP,
   ROLES,
@@ -58,6 +60,12 @@ export interface ManagedUser {
    * rôle `resp_*` — un responsable sans entité ne peut rien piloter.
    */
   assignments?: Assignments;
+  /**
+   * Bascules de modules PROPRES au compte (ADR 0016) : `false` coupe le module
+   * pour ce compte quoi qu'en dise son rôle, `true` le rouvre ; absent = le rôle
+   * décide. Effectif côté API (garde) comme côté écran.
+   */
+  modules?: Partial<Record<ModuleKey, boolean>>;
   passwordChanged: boolean;
   /** Mot de passe défini par l'utilisateur (démo ; à hacher en production). */
   password?: string;
@@ -92,6 +100,8 @@ export interface ManagedUserPublic {
   roles: Role[];
   /** Entités affectées (portée ABAC) — visible dans l'écran d'administration. */
   assignments?: Assignments;
+  /** Bascules de modules propres au compte (ADR 0016). */
+  modules?: Partial<Record<ModuleKey, boolean>>;
   status: "active" | "inactive";
   activatedByAdmin: boolean;
   hasTempCode: boolean;
@@ -133,6 +143,7 @@ function toPublic(u: ManagedUser): ManagedUserPublic {
     grade: u.grade,
     roles: u.roles,
     assignments: u.assignments,
+    modules: u.modules,
     status: userActive(u) ? "active" : "inactive",
     activatedByAdmin: u.activatedByAdmin,
     hasTempCode: !u.passwordChanged && !!u.tempPassword,
@@ -591,6 +602,47 @@ export class UsersService implements ScopeResolver {
     this.roleFeatures[role] = { ...this.roleFeatures[role], [feature]: enabled };
     this.persist();
     return this.roleFeatures[role];
+  }
+
+  /**
+   * Bascule d'un module pour UN compte (ADR 0016) : `enabled` à `null` rend la
+   * décision au rôle. Les comptes superadmin/admin ne se coupent pas.
+   */
+  setUserModule(actorRole: Role, id: string, module: string, enabled: boolean | null): ManagedUserPublic {
+    if (!isModuleKey(module)) throw new BadRequestException(`Module inconnu : ${module}`);
+    const u = this.findVisible(actorRole, id);
+    this.assertManageable(actorRole, u);
+    if (u.roles.some((r) => r === "superadmin" || r === "admin")) {
+      throw new ForbiddenException("Les comptes superadmin/admin ont un accès total verrouillé.");
+    }
+    const next: Partial<Record<ModuleKey, boolean>> = { ...(u.modules ?? {}) };
+    if (enabled === null) delete next[module];
+    else next[module] = enabled;
+    u.modules = Object.keys(next).length ? next : undefined;
+    this.persist();
+    return toPublic(u);
+  }
+
+  /** Les bascules propres à un compte, par nom d'utilisateur (garde RBAC, profil). */
+  userModules(matricule: string): Partial<Record<ModuleKey, boolean>> {
+    return this.byMatricule(matricule)?.modules ?? {};
+  }
+
+  /**
+   * Modules effectifs d'un compte pour un rôle actif : drapeaux globaux ∧ rôle
+   * ∧ compte. Le joker du Super Administrateur n'est coupé que par les drapeaux.
+   */
+  effectiveModules(matricule: string, role: Role, flags: Record<string, boolean>): Record<ModuleKey, boolean> {
+    const own = this.userModules(matricule);
+    const byRole = this.roleFeatures[role] ?? {};
+    return Object.fromEntries(
+      MODULE_KEYS.map((m) => {
+        if (flags[m] === false) return [m, false];
+        if (role === "superadmin") return [m, true];
+        if (own[m] !== undefined) return [m, own[m] === true];
+        return [m, byRole[m] !== false];
+      }),
+    ) as Record<ModuleKey, boolean>;
   }
 
   /** Remet un rôle à ses modules par défaut. */

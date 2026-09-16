@@ -12,6 +12,11 @@ export interface EquipItem {
   cat: string;
   /** Identifiant de l'unité détentrice (servi par l'API) ; `unit` en est le nom. */
   unitId?: string;
+  /** Nature du détenteur (ADR 0016) : unité par défaut, hôpital ou abri. */
+  ownerKind?: "unit" | "hospital" | "shelter";
+  /** Type et numéro d'inventaire (ADR 0016), facultatifs. */
+  type?: string;
+  serial?: string;
   unit: string;
   stock: number;
   threshold: number;

@@ -94,11 +94,11 @@ export function DeleteEntityModal({ kind, id, name, onCancel, onDeleted }: Delet
         <div className="flex gap-3 rounded-lg border border-danger-500/30 bg-danger-500/10 p-3">
           <Icon path={UI_ICONS.alert} size={18} className="mt-0.5 shrink-0 text-danger-400" />
           <div className="min-w-0 space-y-2">
-            <p className="text-[13px] font-semibold leading-snug text-white">{t.del_confirm_title}</p>
+            <p className="text-[13px] font-semibold leading-snug text-gray-800 dark:text-rdia-50">{t.del_confirm_title}</p>
             <p className="font-mono text-[13px] font-bold text-danger-400">
-              {id} — <span className="font-sans font-semibold text-white/85">{name}</span>
+              {id} — <span className="font-sans font-semibold text-gray-700 dark:text-rdia-100">{name}</span>
             </p>
-            <p className="text-[12px] leading-snug text-white/65">{t.del_confirm_body.replace("{name}", name)}</p>
+            <p className="text-[12px] leading-snug text-gray-600 dark:text-rdia-200">{t.del_confirm_body.replace("{name}", name)}</p>
           </div>
         </div>
 
@@ -106,12 +106,12 @@ export function DeleteEntityModal({ kind, id, name, onCancel, onDeleted }: Delet
         {blockers && (
           <div className="space-y-2 rounded-lg border border-or-500/40 bg-or-500/10 p-3">
             <p className="text-[12px] font-semibold text-or-300">{t.del_blocked}</p>
-            <ul className="space-y-0.5 text-[12px] leading-snug text-white/75">
+            <ul className="space-y-0.5 text-[12px] leading-snug text-gray-600 dark:text-rdia-200">
               {blockers.map((b) => (
                 <li key={b}>· {b}</li>
               ))}
             </ul>
-            <label className="flex cursor-pointer items-start gap-2 pt-1 text-[12px] leading-snug text-white/85">
+            <label className="flex cursor-pointer items-start gap-2 pt-1 text-[12px] leading-snug text-gray-700 dark:text-rdia-100">
               <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} disabled={busy} className="mt-0.5" />
               <span>{t.del_confirm_force.replace("{blockers}", blockers.join(" ; "))}</span>
             </label>
@@ -119,12 +119,12 @@ export function DeleteEntityModal({ kind, id, name, onCancel, onDeleted }: Delet
         )}
 
         <div>
-          <label htmlFor={champId} className="mb-1.5 block text-[12px] font-semibold text-white/80">
+          <label htmlFor={champId} className="mb-1.5 block text-[12px] font-semibold text-gray-700 dark:text-rdia-100">
             {t.del_code_label}
           </label>
-          <p id={aideId} className="mb-2 text-[12px] leading-snug text-white/55">
+          <p id={aideId} className="mb-2 text-[12px] leading-snug text-gray-500 dark:text-rdia-300">
             {t.del_code_help_entity}{" "}
-            <code className="select-all rounded bg-white/10 px-1.5 py-0.5 font-mono text-[12px] font-bold text-or-300">{id}</code>
+            <code className="select-all rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[12px] font-bold text-or-600 dark:bg-white/10 dark:text-or-300">{id}</code>
           </p>
           <input
             ref={inputRef}

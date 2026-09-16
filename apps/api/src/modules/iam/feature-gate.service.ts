@@ -24,4 +24,8 @@ export class FeatureGateService implements FeatureGate {
   roleModuleDisabled(role: Role, module: ModuleKey): boolean {
     return this.users.getRoleFeatures()[role]?.[module] === false;
   }
+
+  userModuleOverride(username: string, module: ModuleKey): boolean | undefined {
+    return this.users.userModules(username)[module];
+  }
 }

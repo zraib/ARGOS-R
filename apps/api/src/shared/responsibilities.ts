@@ -121,7 +121,14 @@ export const ROLE_SCOPE_KEY: Partial<Record<Role, ScopeKey>> = {
   wali: "region",
   place_arme: "region",
   opcom: "incident",
+  // Membres de l'OPCOM et postes du TACOM (ADR 0016) : déployés sur UNE
+  // opération, comme la conduite qu'ils composent.
+  gendarmerie: "incident",
+  etat_major: "incident",
+  interieur: "incident",
   tacom: "incident",
+  pco: "incident",
+  pct: "incident",
   bluecell: "incident",
   greencell: "incident",
   orangecell: "incident",

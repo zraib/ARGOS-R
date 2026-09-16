@@ -6,6 +6,10 @@ import { useArgos, useDict } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import { noticeTime, unseenNotices } from "@/lib/notices";
+import { playNotificationTone } from "@/lib/sound";
+
+/** Cadence du rappel sonore tant qu'une alerte ou un message reste à acquitter (ADR 0016). */
+const REMINDER_MS = 45_000;
 import type { Notice } from "@/lib/types";
 
 // ============================================================================
@@ -38,6 +42,8 @@ export function NotificationBell() {
   const notices = useArgos((s) => s.rtNotices);
   const seen = useArgos((s) => s.rtNoticesSeen);
   const markSeen = useArgos((s) => s.rtMarkNoticeSeen);
+  const ackNotice = useArgos((s) => s.rtAckNotice);
+  const sounds = useArgos((s) => s.sounds);
   const incidents = useArgos((s) => s.incidents);
   const focusIncident = useArgos((s) => s.focusIncident);
   const setMapCenter = useArgos((s) => s.setMapCenter);
@@ -48,6 +54,20 @@ export function NotificationBell() {
   const totalMessages = useMemo(() => Object.values(unread).reduce((a, b) => a + b, 0), [unread]);
   const fraiches = useMemo(() => unseenNotices(notices, seen), [notices, seen]);
   const total = totalMessages + fraiches.length;
+
+  // PERSISTANT JUSQU'À L'ACQUITTEMENT (ADR 0016) : tant qu'une alerte n'est pas
+  // acquittée ou qu'un message n'est pas lu, la cloche bat et un rappel sonore
+  // discret revient à cadence fixe — une notification qu'on peut manquer une
+  // fois ne doit pas se taire d'elle-même. Les préférences sonores du poste
+  // restent maîtresses.
+  const pending = fraiches.length > 0 || totalMessages > 0;
+  useEffect(() => {
+    if (!pending) return;
+    const wantsSound = (fraiches.length > 0 && sounds.alerts) || (totalMessages > 0 && sounds.messages);
+    if (!wantsSound) return;
+    const id = window.setInterval(() => playNotificationTone(), REMINDER_MS);
+    return () => window.clearInterval(id);
+  }, [pending, fraiches.length, totalMessages, sounds.alerts, sounds.messages]);
 
   /** Nom lisible d'un canal — l'identifiant ne dit rien à personne. */
   const nomCanal = (id: string): string => {
@@ -91,6 +111,7 @@ export function NotificationBell() {
   /** Ouvre une alerte : la carte se centre sur l'incident, ou la gestion des comptes s'ouvre. */
   const ouvrirAlerte = (n: Notice) => {
     markSeen(n.id);
+    void ackNotice(n.id);
     setOuvert(false);
     if (n.kind === "password_reset_requested") {
       router.push("/utilisateurs");
@@ -118,7 +139,9 @@ export function NotificationBell() {
         title={libelle}
         aria-label={libelle}
         aria-expanded={ouvert}
-        className="cible-tactile relative flex shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 lg:p-1.5 dark:text-rdia-200 dark:hover:bg-rdia-700/60 dark:hover:text-or-400"
+        className={`cible-tactile relative flex shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-gray-100 hover:text-or-500 lg:p-1.5 dark:hover:bg-rdia-700/60 dark:hover:text-or-400 ${
+          pending ? "animate-pulse text-danger-500 ring-2 ring-danger-500/40 motion-reduce:animate-none" : "text-gray-400 dark:text-rdia-200"
+        }`}
       >
         <Icon path={UI_ICONS.bell} size={18} />
         {total > 0 && (
@@ -148,8 +171,13 @@ export function NotificationBell() {
           className="absolute end-0 top-full z-50 mt-1.5 w-[280px] overflow-hidden rounded-xl border border-gray-100 bg-white shadow-2xl dark:border-rdia-600 dark:bg-rdia-700"
         >
           <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2 dark:border-rdia-600">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-rdia-300">
+            <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-rdia-300">
               {t.notif_title}
+              {fraiches.length > 0 && (
+                <button type="button" onClick={() => { for (const n of fraiches) markSeen(n.id); void ackNotice("all"); }} className="cible-tactile rounded-md bg-or-500/15 px-1.5 py-0.5 text-[10px] font-bold normal-case tracking-normal text-or-500 hover:bg-or-500/25">
+                  {t.nb_ack_all}
+                </button>
+              )}
             </span>
             {/* L'état est ÉCRIT, jamais seulement coloré. */}
             <span

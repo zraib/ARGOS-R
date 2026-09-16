@@ -16,7 +16,12 @@ export type Role =
   | "place_arme"
   | "wali"
   | "opcom"
+  | "gendarmerie"
+  | "etat_major"
+  | "interieur"
   | "tacom"
+  | "pco"
+  | "pct"
   | "bluecell"
   | "greencell"
   | "orangecell"
@@ -34,7 +39,14 @@ export const ROLES: Role[] = [
   "place_arme",
   "wali",
   "opcom",
+  // Membres de l'OPCOM (ADR 0016) : chacun affecte les unités de son corps.
+  "gendarmerie",
+  "etat_major",
+  "interieur",
   "tacom",
+  // Postes de commandement du TACOM (ADR 0016).
+  "pco",
+  "pct",
   "bluecell",
   "greencell",
   "orangecell",
@@ -53,7 +65,12 @@ export const ROLE_ICONS: Record<Role, string> = {
   superadmin: UI_ICONS.shield,
   admin: NAV_ICONS.settings,
   strategic: NAV_ICONS.cmd,
+  gendarmerie: UI_ICONS.shield,
+  etat_major: NAV_ICONS.cmd,
+  interieur: UI_ICONS.users,
   tacom: NAV_ICONS.dispatch,
+  pco: NAV_ICONS.dispatch,
+  pct: NAV_ICONS.dispatch,
   bluecell: FLUX_ICONS.activity,
   greencell: NAV_ICONS.res,
   orangecell: UI_ICONS.key,
@@ -99,7 +116,7 @@ export function isSuperAdmin(role: Role): boolean {
  * `incidents:create` (l'API reste l'autorité ; ceci ne fait que masquer l'UI).
  */
 export function canReportIncident(role: Role): boolean {
-  return role === "superadmin" || role === "tacom" || role === "bluecell";
+  return role === "superadmin" || role === "tacom" || role === "pco" || role === "pct" || role === "bluecell";
 }
 
 /**
@@ -109,7 +126,7 @@ export function canReportIncident(role: Role): boolean {
  * masquer un geste qui serait de toute façon refusé.
  */
 export function canDeployPosts(role: Role): boolean {
-  return role === "superadmin" || role === "admin" || role === "opcom" || role === "tacom";
+  return role === "superadmin" || role === "admin" || role === "opcom" || role === "tacom" || role === "pco" || role === "pct";
 }
 
 /**
@@ -160,7 +177,12 @@ export const ROLE_SCOPE_KEY: Partial<Record<Role, ScopeKey>> = {
   wali: "region",
   place_arme: "region",
   opcom: "incident",
+  gendarmerie: "incident",
+  etat_major: "incident",
+  interieur: "incident",
   tacom: "incident",
+  pco: "incident",
+  pct: "incident",
   bluecell: "incident",
   greencell: "incident",
   orangecell: "incident",

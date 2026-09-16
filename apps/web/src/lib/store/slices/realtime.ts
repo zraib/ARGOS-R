@@ -13,7 +13,7 @@ import type {
   Notice,
   PresenceUser,
   } from "@/lib/types";
-import { mergeNotice } from "@/lib/notices";
+import { ackNotices, mergeNotice } from "@/lib/notices";
 import { directChannels } from "@/lib/chat";
 import { applyReceipt, lastForeignId } from "@/lib/comms/receipts";
 import { playMessageTone, playNotificationTone } from "@/lib/sound";
@@ -60,6 +60,8 @@ export interface RealtimeSlice {
   /** Solde les non-lus d'un canal sans en faire le canal affiché (fenêtre flottante ouverte). */
   rtClearUnread: (id: string) => void;
   rtMarkNoticeSeen: (id: string) => void;
+  /** Acquitte une alerte (ou toutes) : côté serveur, pour tous les postes du compte (ADR 0016). */
+  rtAckNotice: (id: string | "all") => Promise<void>;
   /** Note (ou éteint, `null`) le signal de frappe d'un canal. */
   rtNoteTyping: (channelId: string, who: { matricule: string; nom: string } | null) => void;
   /** Accuse lecture des messages du correspondant — la conversation directe est sous les yeux. */
@@ -211,6 +213,14 @@ export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice
     void api.sendTyping(channelId);
   },
   rtMarkNoticeSeen: (id) => set((s) => (s.rtNoticesSeen.includes(id) ? {} : { rtNoticesSeen: [...s.rtNoticesSeen, id] })),
+  rtAckNotice: async (id) => {
+    set((s) => ({ rtNotices: ackNotices(s.rtNotices, id) }));
+    try {
+      await api.ackNotice(id);
+    } catch {
+      /* hors ligne : l'acquittement local tient jusqu'au rechargement */
+    }
+  },
   rtClearUnread: (id) =>
     set((s) => {
       if (!(id in s.rtUnread)) return {};

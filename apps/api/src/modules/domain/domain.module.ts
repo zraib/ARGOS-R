@@ -23,6 +23,8 @@ import { DashboardController } from "@/modules/domain/http/dashboard.controller"
 import { EnvironmentController } from "@/modules/domain/http/environment.controller";
 import { PostsController } from "@/modules/domain/http/posts.controller";
 import { AdminController } from "@/modules/domain/http/admin.controller";
+import { ResourcesRegistryController } from "@/modules/domain/http/resources-registry.controller";
+import { ResourcesService } from "@/modules/domain/resources.service";
 
 @Module({
   // Le déploiement écrit dans le REGISTRE DES COMPTES : le domaine a donc besoin
@@ -30,7 +32,7 @@ import { AdminController } from "@/modules/domain/http/admin.controller";
   // domaine), donc pas de cycle et pas de `forwardRef`.
   imports: [IamModule],
   controllers: [
-    PostsController, IncidentsController, CommsController, ResourcesController, HospitalsController, DashboardController, EnvironmentController, AdminController],
+    PostsController, IncidentsController, CommsController, ResourcesController, HospitalsController, DashboardController, EnvironmentController, AdminController, ResourcesRegistryController],
   providers: [
     // Les alertes adressées (`NoticesService`) viennent du module temps réel,
     // global : l'IAM les émet aussi, et il ne peut pas dépendre du domaine.
@@ -44,7 +46,7 @@ import { AdminController } from "@/modules/domain/http/admin.controller";
         return smtp ? new SmtpNotificationGateway(smtp) : new LogNotificationGateway();
       },
     },
-    DomainService, VisibilityService, DeploymentService, RiskService, CatalogService, CommsService, IncidentTypesService, SubIncidentTypesService, SeismicService, SeismicAlertsService, WeatherService, FloodService],
-  exports: [NOTIFICATION_GATEWAY, DomainService, VisibilityService, DeploymentService, RiskService, CatalogService, CommsService, IncidentTypesService, SubIncidentTypesService, SeismicService, SeismicAlertsService, WeatherService, FloodService],
+    DomainService, ResourcesService, VisibilityService, DeploymentService, RiskService, CatalogService, CommsService, IncidentTypesService, SubIncidentTypesService, SeismicService, SeismicAlertsService, WeatherService, FloodService],
+  exports: [NOTIFICATION_GATEWAY, DomainService, ResourcesService, VisibilityService, DeploymentService, RiskService, CatalogService, CommsService, IncidentTypesService, SubIncidentTypesService, SeismicService, SeismicAlertsService, WeatherService, FloodService],
 })
 export class DomainModule {}

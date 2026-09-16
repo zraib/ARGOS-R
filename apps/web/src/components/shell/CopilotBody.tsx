@@ -32,7 +32,6 @@ import {
 import type { RiskPrediction } from "@/lib/ai/risk/types";
 import { CopilotFab } from "@/components/shell/copilot/CopilotFab";
 import { CopilotHeader, type ProviderStatus } from "@/components/shell/copilot/CopilotHeader";
-import { CopilotSettings } from "@/components/shell/copilot/CopilotSettings";
 import { CopilotEmptyState } from "@/components/shell/copilot/CopilotEmptyState";
 import { CopilotMessage } from "@/components/shell/copilot/CopilotMessage";
 import { CopilotComposer } from "@/components/shell/copilot/CopilotComposer";
@@ -87,7 +86,6 @@ export default function CopilotBody() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<ProviderStatus>("checking");
-  const [showSettings, setShowSettings] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -377,14 +375,11 @@ export default function CopilotBody() {
         <CopilotHeader
           status={status}
           busy={busy}
-          showSettings={showSettings}
           canClear={aiLog.length > 0}
-          onToggleSettings={() => setShowSettings((v) => !v)}
           onClear={clearAi}
           onClose={closeCopilot}
         />
 
-        {showSettings && <CopilotSettings busy={busy} />}
 
         <div ref={scrollRef} className="carte m-0 flex-1 overflow-y-auto rounded-none border-0 bg-gray-50/50 p-3.5 dark:bg-rdia-900/40 sm:p-4">
           {aiLog.length === 0 ? (

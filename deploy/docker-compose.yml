@@ -107,12 +107,18 @@ services:
       STATE_SNAPSHOT: "on"
       DEV_DATA_DIR: /data
       ARGOS_ATTACHMENTS_DIR: /data/attachments
-      # Profil de données (ADR 0015) : empty = station en service, rien de
-      # simulé (seuls restent le réseau hospitalier, la géographie et ce que
-      # les opérateurs créent) ; demo = jeu de démonstration reconstruit au
-      # démarrage. Passer de demo à empty élague les graines et GARDE ce que
-      # les opérateurs ont créé, les comptes et la base.
-      DATA_PROFILE: ${DATA_PROFILE:-empty}
+      # Mode de la station (ADR 0016) : operational = en service (rien de
+      # simulé ; unités par le Super Administrateur, ressources par les chefs
+      # d'entité) ; exercise = station vide où l'OPCOM et les cellules créent
+      # unités et ressources ; demo = jeu de démonstration reconstruit au
+      # démarrage. Le Super Administrateur le change aussi depuis Paramètres :
+      # le réglage persisté dans /data prime alors sur cette variable, et
+      # l'API redémarre d'elle-même pour l'appliquer. Quitter la démonstration
+      # élague les graines et GARDE ce que les opérateurs ont créé, les comptes
+      # et la base.
+      APP_MODE: ${APP_MODE:-operational}
+      # Ancien réglage (ADR 0015), encore honoré si APP_MODE est absent.
+      DATA_PROFILE: ${DATA_PROFILE:-}
       # Flux externes (réseau sortant requis) : exercise = noria simulée sans
       # réseau — honorée en profil demo seulement, une station vide ne fait
       # voler aucun appareil fictif.
