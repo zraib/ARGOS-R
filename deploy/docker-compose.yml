@@ -12,6 +12,11 @@
 #   docker compose up -d --build
 #   http://localhost            (ou http://<nom-ou-IP-de-la-station>)
 #
+# HTTPS (exposer la station au réseau ou à Internet sans relais tiers) :
+#   COMPOSE_FILE=docker-compose.yml:compose.https.yml         certificat auto-signé
+#   COMPOSE_FILE=docker-compose.yml:compose.letsencrypt.yml   certificat public (DOMAIN)
+# dans .env — voir README.md § 11.
+#
 # Images de l'application : `iris-web`, `iris-api`, `iris-tiles-tools`, étiquette
 # IRIS_TAG (défaut `latest`). Construites ici (`--build`) ou chargées depuis le
 # paquet d'installation (scripts/package.sh côté développeur, scripts/install.ps1
@@ -31,6 +36,9 @@ services:
       - "--providers.file.filename=/etc/traefik/dynamic.yml"
       - "--providers.file.watch=true"
       - "--entrypoints.web.address=:80"
+      # L'entrée HTTPS existe toujours (les routeurs la citent) ; elle n'est
+      # publiée et chiffrée que par compose.https.yml / compose.letsencrypt.yml.
+      - "--entrypoints.websecure.address=:443"
       - "--api.dashboard=false"
       - "--log.level=INFO"
       - "--accesslog=false"

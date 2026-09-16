@@ -1,0 +1,40 @@
+# ============================================================================
+# ARGOS / IRIS — HTTPS avec un certificat PUBLIC (Let's Encrypt)
+#
+# À empiler sur docker-compose.yml (dans .env :
+#   COMPOSE_FILE=docker-compose.yml:compose.letsencrypt.yml ). Conditions :
+#   - DOMAIN : un nom de domaine dont l'enregistrement DNS pointe vers
+#     l'adresse publique de la passerelle Internet de l'organisme ;
+#   - la passerelle redirige les ports 443 (et 80) vers la station ;
+#   - ACME_EMAIL : l'adresse de contact du certificat (renouvellement).
+# Traefik obtient et renouvelle le certificat lui-même (défi TLS sur le 443) ;
+# il est conservé dans le volume `letsencrypt`. Aucun relais tiers : le trafic
+# arrive directement sur la station. Le HTTP est renvoyé vers le HTTPS.
+# ============================================================================
+services:
+  proxy:
+    command:
+      - "--providers.file.filename=/etc/traefik/dynamic.yml"
+      - "--providers.file.watch=true"
+      - "--entrypoints.web.address=:80"
+      # Vers le port PUBLIÉ (HTTPS_PORT), pas vers « :443 » en dur : si la station
+      # publie 8443, le navigateur doit être renvoyé sur 8443.
+      - "--entrypoints.web.http.redirections.entrypoint.to=:${HTTPS_PORT:-443}"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.websecure.http.tls=true"
+      - "--entrypoints.websecure.http.tls.certResolver=le"
+      - "--entrypoints.websecure.http.tls.domains[0].main=${DOMAIN:?DOMAIN requis (nom de domaine public de la station)}"
+      - "--certificatesresolvers.le.acme.email=${ACME_EMAIL:?ACME_EMAIL requis (contact du certificat)}"
+      - "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.le.acme.tlschallenge=true"
+      - "--api.dashboard=false"
+      - "--log.level=INFO"
+      - "--accesslog=false"
+    ports:
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - letsencrypt:/letsencrypt
+
+volumes:
+  letsencrypt:

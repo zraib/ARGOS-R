@@ -9,7 +9,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$compose = Join-Path $PSScriptRoot "..\docker-compose.yml"
+# Sans `-f` : docker compose lit COMPOSE_FILE dans .env (HTTPS activé ou non — README § 11).
+$deploy = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $dump = Join-Path $Source "db-$Stamp.sql.gz"
 $tar  = Join-Path $Source "api-data-$Stamp.tar.gz"
 if (-not (Test-Path $dump) -or -not (Test-Path $tar)) { throw "Sauvegarde $Stamp introuvable dans $Source" }
@@ -19,10 +20,10 @@ $dbUser = (($env | Where-Object { $_ -like "POSTGRES_USER=*" }) -split "=", 2)[1
 $dbName = (($env | Where-Object { $_ -like "POSTGRES_DB=*" }) -split "=", 2)[1];   if (-not $dbName) { $dbName = "argos" }
 
 Write-Host "Arrêt de l'API et du proxy"
-docker compose -f $compose stop proxy api
+docker compose --project-directory $deploy stop proxy api
 
 Write-Host "1/2  Base PostgreSQL ← $dump"
-Get-Content $dump -AsByteStream -Raw | docker run --rm -i alpine:3.20 gunzip -c | docker compose -f $compose exec -T db psql -U $dbUser -d $dbName -q
+Get-Content $dump -AsByteStream -Raw | docker run --rm -i alpine:3.20 gunzip -c | docker compose --project-directory $deploy exec -T db psql -U $dbUser -d $dbName -q
 if ($LASTEXITCODE -ne 0) { throw "restauration PostgreSQL échouée" }
 
 Write-Host "2/2  Volume de l'API ← $tar"
@@ -30,5 +31,5 @@ docker run --rm -v iris_api_data:/data -v "${Source}:/in:ro" alpine:3.20 sh -c "
 if ($LASTEXITCODE -ne 0) { throw "restauration du volume api_data échouée" }
 
 Write-Host "Redémarrage"
-docker compose -f $compose up -d
+docker compose --project-directory $deploy up -d
 Write-Host "Restauration $Stamp terminée."

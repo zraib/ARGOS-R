@@ -2,7 +2,10 @@
 # ARGOS / IRIS — routage HTTP de la station (Traefik, fournisseur fichier)
 #
 # Une origine, cinq chemins. Aucune socket Docker : ce fichier suffit, il se
-# relit à chaud. La priorité va du chemin le plus précis au plus large.
+# relit à chaud. La priorité va du chemin le plus précis au plus large. Chaque
+# routeur écoute les deux entrées, `web` (HTTP) et `websecure` (HTTPS) : la
+# seconde n'est publiée et chiffrée que si la station active compose.https.yml
+# ou compose.letsencrypt.yml (README § 11).
 #
 # Tuiles : le navigateur demande /tiles/{source}/{z}/{x}/{y} (le motif câblé
 # dans apps/web/src/lib/map/style.ts) ; chaque source a son routeur, parce que
@@ -14,55 +17,55 @@ http:
   routers:
     api:
       rule: "PathPrefix(`/api`)"
-      entryPoints: [web]
+      entryPoints: [web, websecure]
       service: api
       priority: 50
     tiles-sat:
       rule: "PathRegexp(`^/tiles/sat/[0-9]+/[0-9]+/[0-9]+$`)"
-      entryPoints: [web]
+      entryPoints: [web, websecure]
       service: tiles
       middlewares: [tiles-sat]
       priority: 60
     tiles-dem:
       rule: "PathRegexp(`^/tiles/dem/[0-9]+/[0-9]+/[0-9]+$`)"
-      entryPoints: [web]
+      entryPoints: [web, websecure]
       service: tiles
       middlewares: [tiles-dem]
       priority: 60
     tiles-plan:
       rule: "PathRegexp(`^/tiles/plan/[0-9]+/[0-9]+/[0-9]+$`)"
-      entryPoints: [web]
+      entryPoints: [web, websecure]
       service: tiles
       middlewares: [tiles-plan]
       priority: 60
     tiles-lbl:
       rule: "PathRegexp(`^/tiles/lbl/[0-9]+/[0-9]+/[0-9]+$`)"
-      entryPoints: [web]
+      entryPoints: [web, websecure]
       service: tiles
       middlewares: [tiles-lbl]
       priority: 60
     # Le reste de tileserver-gl (catalogue, TileJSON, aperçu) — utile pour vérifier.
     tiles-admin:
       rule: "PathPrefix(`/tiles`)"
-      entryPoints: [web]
+      entryPoints: [web, websecure]
       service: tiles
       middlewares: [strip-tiles]
       priority: 50
     routing:
       rule: "PathPrefix(`/routing`)"
-      entryPoints: [web]
+      entryPoints: [web, websecure]
       service: routing
       middlewares: [strip-routing]
       priority: 50
     llm:
       rule: "PathPrefix(`/llm`)"
-      entryPoints: [web]
+      entryPoints: [web, websecure]
       service: llm
       middlewares: [strip-llm, llm-origin]
       priority: 50
     web:
       rule: "PathPrefix(`/`)"
-      entryPoints: [web]
+      entryPoints: [web, websecure]
       service: web
       priority: 10
 

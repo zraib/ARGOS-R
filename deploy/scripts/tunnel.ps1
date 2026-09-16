@@ -50,7 +50,12 @@ if ($hash -ne $TunnelSha256) {
   throw "Empreinte inattendue pour tunnelto-windows.exe ($hash) : fichier supprimé. Refaites le paquet (scripts/package.sh) ou vérifiez la source."
 }
 
-# --- 2. La station doit répondre sur son port.
+# --- 2. La station doit répondre sur son port, en HTTP : le tunnel parle au
+#        port HTTP et l'empilement HTTPS (README § 11) le renverrait vers https://localhost.
+if (Test-Path $envFile) {
+  $cf = (Get-Content $envFile | Where-Object { $_ -match "^\s*COMPOSE_FILE=(.*)$" } | Select-Object -Last 1)
+  if ($cf -and $cf -match "https|letsencrypt") { throw "HTTPS est activé dans .env (COMPOSE_FILE) : le tunnel ne s'y prête pas — la station est faite pour être jointe directement (README § 11)." }
+}
 if ($Port -le 0) {
   $Port = 80
   if (Test-Path $envFile) {

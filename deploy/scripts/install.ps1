@@ -11,20 +11,30 @@
 #   4. démarre la pile, sans rien compiler ni télécharger ;
 #   5. attend que l'API réponde et affiche l'adresse à ouvrir.
 #
-# Usage :  .\scripts\install.ps1 [-NoStart] [-HttpPort 8080]
+# Usage :  .\scripts\install.ps1 [-NoStart] [-HttpPort 8080] [-Https] [-Domain iris.exemple.ma -AcmeEmail admin@exemple.ma]
 #   -NoStart    charge les images et écrit .env, sans démarrer.
 #   -HttpPort   port HTTP de la station si le 80 est pris (inscrit dans .env).
+#   -Https      HTTPS avec le certificat auto-signé de la station (réseau local,
+#               téléphones qui partagent leur position) — README § 11.
+#   -Domain     HTTPS avec un certificat public Let's Encrypt : nom de domaine
+#               qui pointe vers la passerelle de l'organisme, ports 443 et 80
+#               redirigés vers la station ; -AcmeEmail obligatoire avec lui.
+# Ces trois options ne s'appliquent qu'à un .env créé par ce script ; un .env
+# existant se modifie à la main (COMPOSE_FILE, DOMAIN, ACME_EMAIL, PUBLIC_URL).
 # Relançable sans risque : ce qui est déjà fait est sauté (.env conservé).
 # Si PowerShell refuse le script : Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 # ============================================================================
 param(
   [switch]$NoStart,
-  [int]$HttpPort = 0
+  [int]$HttpPort = 0,
+  [switch]$Https,
+  [string]$Domain = "",
+  [string]$AcmeEmail = ""
 )
+if ($Domain -and -not $AcmeEmail) { throw "-Domain demande -AcmeEmail (adresse de contact du certificat Let's Encrypt)." }
 
 $ErrorActionPreference = "Stop"
 $deploy = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$compose = Join-Path $deploy "docker-compose.yml"
 $envFile = Join-Path $deploy ".env"
 $imagesDir = Join-Path $deploy "images"
 $versionFile = Join-Path $deploy "VERSION"
@@ -48,14 +58,24 @@ function New-Secret {
   return $out.ToString()
 }
 
-# Port HTTP inscrit dans .env (défaut 80).
-function Get-HttpPort {
-  $port = 80
-  if (Test-Path $envFile) {
-    $line = Get-Content $envFile | Where-Object { $_ -match "^\s*HTTP_PORT=(\d+)" } | Select-Object -Last 1
-    if ($line -and $line -match "^\s*HTTP_PORT=(\d+)") { $port = [int]$Matches[1] }
+# Adresse locale de la station : https si .env active un des empilements HTTPS
+# (compose.https.yml / compose.letsencrypt.yml — README § 11), sinon http. Le
+# certificat auto-signé est accepté pour les sondes de ce script seulement.
+function Get-EnvValue([string]$file, [string]$key, [string]$default) {
+  if (-not (Test-Path $file)) { return $default }
+  $line = Get-Content $file | Where-Object { $_ -match "^\s*$key=(.*)$" } | Select-Object -Last 1
+  if ($line -and $line -match "^\s*$key=(.*)$") { return $Matches[1].Trim() }
+  return $default
+}
+function Get-StationUrl([string]$file) {
+  [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+  if ((Get-EnvValue $file "COMPOSE_FILE" "") -match "https|letsencrypt") {
+    [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+    $p = [int](Get-EnvValue $file "HTTPS_PORT" "443")
+    if ($p -eq 443) { return "https://localhost" } else { return "https://localhost:$p" }
   }
-  return $port
+  $p = [int](Get-EnvValue $file "HTTP_PORT" "80")
+  if ($p -eq 80) { return "http://localhost" } else { return "http://localhost:$p" }
 }
 
 # --- 1. Docker Desktop --------------------------------------------------------
@@ -107,12 +127,22 @@ if (Test-Path $envFile) {
     $content = $content -replace "(?m)^HTTP_PORT=.*$", "HTTP_PORT=$HttpPort"
     $content = $content -replace "(?m)^PUBLIC_URL=.*$", "PUBLIC_URL=http://localhost:$HttpPort"
   }
+  # HTTPS : on décommente l'empilement voulu ; l'adresse publique suit.
+  if ($Domain) {
+    $content = $content -replace "(?m)^#COMPOSE_FILE=docker-compose.yml:compose.letsencrypt.yml$", "COMPOSE_FILE=docker-compose.yml:compose.letsencrypt.yml"
+    $content = $content -replace "(?m)^DOMAIN=.*$", "DOMAIN=$Domain"
+    $content = $content -replace "(?m)^ACME_EMAIL=.*$", "ACME_EMAIL=$AcmeEmail"
+    $content = $content -replace "(?m)^PUBLIC_URL=.*$", "PUBLIC_URL=https://$Domain"
+  } elseif ($Https) {
+    $content = $content -replace "(?m)^#COMPOSE_FILE=docker-compose.yml:compose.https.yml$", "COMPOSE_FILE=docker-compose.yml:compose.https.yml"
+    $content = $content -replace "(?m)^PUBLIC_URL=.*$", "PUBLIC_URL=https://localhost"
+  }
   # UTF-8 sans BOM : docker compose lit le fichier tel quel.
   [System.IO.File]::WriteAllText($envFile, $content, (New-Object System.Text.UTF8Encoding($false)))
   Ok ".env écrit, secrets générés (ce fichier ne se partage pas)"
 }
-$port = Get-HttpPort
-$url = if ($port -eq 80) { "http://localhost" } else { "http://localhost:$port" }
+$url = Get-StationUrl $envFile
+$port = if ($url -like "https:*") { [int](Get-EnvValue $envFile "HTTPS_PORT" "443") } else { [int](Get-EnvValue $envFile "HTTP_PORT" "80") }
 # Fond de carte : figé dans l'image web ; .env le rappelle (MAP_TILES).
 $mapMode = "external"
 $mapLine = Get-Content $envFile | Where-Object { $_ -match "^\s*MAP_TILES=(\w+)" } | Select-Object -Last 1
@@ -128,7 +158,7 @@ if ($NoStart) {
 Step 4 "Démarrage de la pile"
 # --remove-orphans : un conteneur d'une version précédente (ex. `tiles` d'un
 # fond de carte souverain) ne survit pas à une mise à jour.
-if ($mustBuild) { & docker compose -f $compose up -d --build --remove-orphans } else { & docker compose -f $compose up -d --remove-orphans }
+if ($mustBuild) { & docker compose --project-directory $deploy up -d --build --remove-orphans } else { & docker compose --project-directory $deploy up -d --remove-orphans }
 if ($LASTEXITCODE -ne 0) { throw "docker compose up a échoué — lisez les lignes ci-dessus ; le port $port est-il libre ?" }
 
 # --- 5. Santé -----------------------------------------------------------------
@@ -146,7 +176,8 @@ if ($up) { Ok "API en ligne" } else { Warn "l'API ne répond pas encore — dock
 
 Write-Host @"
 
-  Poste de commandement :  $url
+  Poste de commandement :  $url$(if ($Domain) { "   (public : https://$Domain)" })
+  Depuis un autre poste :  la même adresse avec l'IP de la station (ipconfig) — pare-feu : autoriser le port $port en entrée (README § 11)
   Compte fondateur      :  m.zraib  /  code temporaire ARGOS-2026  (à changer à la première connexion)
   État de la station    :  .\scripts\status.ps1
   Fond de carte         :  $mapHint

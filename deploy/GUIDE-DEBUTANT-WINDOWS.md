@@ -400,3 +400,52 @@ adresse `https://….tunnelto.dev`, sans rien ouvrir sur le pare-feu.
 
 > **Vérifiez** — depuis un téléphone en 4G, l'adresse publique affiche l'écran
 > de connexion IRIS ; après Ctrl+C, elle ne répond plus.
+
+---
+
+## 13. Ouvrir la station aux autres postes, et en HTTPS
+
+**Depuis les autres postes du réseau.** Notez l'adresse de la station
+(`ipconfig`, « Adresse IPv4 »), autorisez le port dans le pare-feu (PowerShell
+**en administrateur**, une fois) :
+
+```powershell
+New-NetFirewallRule -DisplayName "IRIS HTTP"  -Direction Inbound -Protocol TCP -LocalPort 80  -Action Allow
+New-NetFirewallRule -DisplayName "IRIS HTTPS" -Direction Inbound -Protocol TCP -LocalPort 443 -Action Allow
+```
+
+puis, dans `.env`, `PUBLIC_URL=http://192.168.1.20` (votre adresse) et
+`docker compose up -d`. Les autres postes tapent `http://192.168.1.20`.
+
+**En HTTPS** — nécessaire pour que les téléphones puissent partager leur
+position (§ « Traceurs GPS ») : dans `.env`, retirez le `#` devant
+
+```
+COMPOSE_FILE=docker-compose.yml:compose.https.yml
+```
+
+mettez `PUBLIC_URL=https://192.168.1.20`, puis `docker compose up -d`. La
+station répond alors en `https://…` et renvoie automatiquement le `http://`
+vers le `https://`. Le certificat est celui de la station : le navigateur
+avertit une fois (« connexion non privée ») ; cliquez « Paramètres avancés »
+puis « Continuer » — sur chaque poste et téléphone.
+
+> **Vérifiez** — `.\scripts\status.ps1` affiche la santé de l'API sur
+> `https://localhost` ; depuis un téléphone, `https://192.168.1.20` ouvre
+> l'écran de connexion après l'avertissement.
+
+**Depuis Internet, sans intermédiaire.** C'est l'administrateur du réseau qui
+ouvre la porte, sur la passerelle de l'organisme : une redirection du port 443
+(et 80) vers la station, et un nom de domaine qui pointe vers l'adresse
+publique. Avec ce nom, un certificat reconnu s'obtient tout seul :
+
+```
+COMPOSE_FILE=docker-compose.yml:compose.letsencrypt.yml
+DOMAIN=iris.exemple.ma
+ACME_EMAIL=admin@exemple.ma
+PUBLIC_URL=https://iris.exemple.ma
+```
+
+puis `docker compose up -d`. Plus d'avertissement. Tout Internet voit alors
+l'écran de connexion : mots de passe forts pour tous les comptes.
+

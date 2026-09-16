@@ -10,7 +10,8 @@
 param([string]$Dest = (Join-Path $PSScriptRoot "..\backups"))
 
 $ErrorActionPreference = "Stop"
-$compose = Join-Path $PSScriptRoot "..\docker-compose.yml"
+# Sans `-f` : docker compose lit COMPOSE_FILE dans .env (HTTPS activé ou non — README § 11).
+$deploy = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 New-Item -ItemType Directory -Force -Path $Dest | Out-Null
 
@@ -19,7 +20,7 @@ $dbUser = (($env | Where-Object { $_ -like "POSTGRES_USER=*" }) -split "=", 2)[1
 $dbName = (($env | Where-Object { $_ -like "POSTGRES_DB=*" }) -split "=", 2)[1];   if (-not $dbName) { $dbName = "argos" }
 
 Write-Host "1/2  PostgreSQL → $Dest\db-$stamp.sql.gz"
-docker compose -f $compose exec -T db pg_dump -U $dbUser -d $dbName --no-owner | & docker run --rm -i alpine:3.20 gzip -9 > "$Dest\db-$stamp.sql.gz"
+docker compose --project-directory $deploy exec -T db pg_dump -U $dbUser -d $dbName --no-owner | & docker run --rm -i alpine:3.20 gzip -9 > "$Dest\db-$stamp.sql.gz"
 if ($LASTEXITCODE -ne 0) { throw "pg_dump a échoué" }
 
 Write-Host "2/2  Volume de l'API (instantané JSON + pièces jointes) → $Dest\api-data-$stamp.tar.gz"

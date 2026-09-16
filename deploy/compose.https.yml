@@ -1,0 +1,30 @@
+# ============================================================================
+# ARGOS / IRIS — HTTPS avec le certificat AUTO-SIGNÉ de la station
+#
+# À empiler sur docker-compose.yml (dans .env :
+#   COMPOSE_FILE=docker-compose.yml:compose.https.yml ). Publie le port HTTPS
+# (HTTPS_PORT, défaut 443), chiffre l'entrée `websecure` avec le certificat par
+# défaut de Traefik (auto-signé, engendré au démarrage) et renvoie le HTTP vers
+# le HTTPS. Les navigateurs avertissent une fois (émetteur inconnu) : accepter
+# l'exception sur chaque poste et téléphone ; la géolocalisation des téléphones
+# (partage de position) exige ce HTTPS, un simple http://<adresse> ne suffit pas.
+# Pour un certificat reconnu sans avertissement : compose.letsencrypt.yml
+# (nom de domaine public requis).
+# ============================================================================
+services:
+  proxy:
+    command:
+      - "--providers.file.filename=/etc/traefik/dynamic.yml"
+      - "--providers.file.watch=true"
+      - "--entrypoints.web.address=:80"
+      # Vers le port PUBLIÉ (HTTPS_PORT), pas vers « :443 » en dur : si la station
+      # publie 8443, le navigateur doit être renvoyé sur 8443.
+      - "--entrypoints.web.http.redirections.entrypoint.to=:${HTTPS_PORT:-443}"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.websecure.http.tls=true"
+      - "--api.dashboard=false"
+      - "--log.level=INFO"
+      - "--accesslog=false"
+    ports:
+      - "${HTTPS_PORT:-443}:443"

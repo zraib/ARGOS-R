@@ -171,6 +171,7 @@ calcule sur les tuiles d'altitude de la station et reste disponible.
 | Mettre à jour après un `git pull` | `docker compose up -d --build` |
 | Mettre à jour depuis un nouveau paquet | remplacer `images\` puis `.\scripts\install.ps1` (le `.env` est conservé) |
 | Montrer la station à distance, le temps d'une démonstration | `.\scripts\tunnel.ps1` (§ 10, ADR 0013) |
+| Joindre la station depuis le réseau ou Internet, en HTTPS | `.env` : `COMPOSE_FILE=…compose.https.yml` ou `…compose.letsencrypt.yml`, puis `docker compose up -d` (§ 11) |
 | Journaux | `docker compose logs -f api` (ou `web`, `tiles`, `routing`, `proxy`) |
 | Sauvegarder (base + instantané + pièces jointes) | `.\scripts\backup.ps1 -Dest D:\sauvegardes\iris` |
 | Restaurer | `.\scripts\restore.ps1 -Stamp 20260914-103000 -Source D:\sauvegardes\iris` |
@@ -292,4 +293,64 @@ tunnelto.dev (clé API, gratuite pour un sous-domaine aléatoire) est requis.
 
 Ce n'est pas un mode d'exploitation : en service, la station vit sur le réseau
 de l'organisme, et un accès distant passe par le VPN de celui-ci.
+
+## 11. Exposer la station sans relais tiers : réseau local, Internet, HTTPS
+
+La station est faite pour être jointe **directement** : par les postes du
+réseau, et si l'organisme le décide, depuis Internet par sa propre passerelle
+— sans le tunnel du § 10. Trois étapes, la troisième seulement pour Internet.
+
+### 11.1 Le réseau local
+
+La pile écoute déjà sur toutes les interfaces de la station. Il faut :
+
+1. l'adresse de la station (`ipconfig`, ligne « Adresse IPv4 », par exemple
+   `192.168.1.20` — demander une adresse fixe ou une réservation DHCP) ;
+2. ouvrir le port dans le pare-feu Windows (une fois, PowerShell administrateur) :
+
+   ```powershell
+   New-NetFirewallRule -DisplayName "IRIS HTTP"  -Direction Inbound -Protocol TCP -LocalPort 80  -Action Allow
+   New-NetFirewallRule -DisplayName "IRIS HTTPS" -Direction Inbound -Protocol TCP -LocalPort 443 -Action Allow
+   ```
+
+3. `PUBLIC_URL` dans `.env` = l'adresse que les postes taperont, puis
+   `docker compose up -d`.
+
+Les postes ouvrent alors `http://192.168.1.20` (ou `https://…`, § 11.2).
+
+### 11.2 HTTPS
+
+Deux empilements de compose, activés par **une ligne dans `.env`** — les
+scripts (`install.ps1`, `status.ps1`, `backup.ps1`, `restore.ps1`) la lisent :
+
+| Ligne dans `.env` | Certificat | Quand |
+| --- | --- | --- |
+| `COMPOSE_FILE=docker-compose.yml:compose.https.yml` | auto-signé, engendré par le proxy | réseau local ; **indispensable au partage de position des téléphones** (les navigateurs mobiles n'accordent la géolocalisation qu'en HTTPS). Chaque poste et téléphone accepte l'avertissement une fois. |
+| `COMPOSE_FILE=docker-compose.yml:compose.letsencrypt.yml` | public (Let's Encrypt), renouvelé seul | Internet avec un **nom de domaine** (`DOMAIN`) qui pointe vers la passerelle de l'organisme et les ports 443 et 80 redirigés vers la station ; `ACME_EMAIL` requis. Aucun avertissement. |
+
+Puis `docker compose up -d` : le port `HTTPS_PORT` (443) est publié, le HTTP
+est renvoyé vers le HTTPS, `PUBLIC_URL` passe en `https://…`. Un `.env` neuf
+peut être écrit directement dans ce mode : `.\scripts\install.ps1 -Https`, ou
+`.\scripts\install.ps1 -Domain iris.exemple.ma -AcmeEmail admin@exemple.ma`.
+
+Rien ne change dans les images : une origine, des chemins relatifs, la CSP
+suit l'origine de la page. Le tunnel du § 10 ne s'emploie pas avec ces
+empilements (il parle au port HTTP, qui renvoie vers le HTTPS).
+
+### 11.3 Internet, par la passerelle de l'organisme
+
+Sur le routeur / pare-feu d'entrée du réseau (par l'administrateur réseau) :
+
+1. une **redirection de port** (NAT) de l'extérieur vers la station :
+   externe 443 → `192.168.1.20:443` (et 80 → 80 pour le renvoi HTTP → HTTPS) ;
+2. un **nom de domaine** dont l'enregistrement A pointe vers l'adresse
+   publique de la passerelle (ou un service de DNS dynamique si elle change) ;
+3. l'empilement `compose.letsencrypt.yml` (§ 11.2) avec ce nom.
+
+L'écran de connexion est alors ouvert à tout Internet : mots de passe forts,
+borne des échecs de connexion côté API (10 par compte / 15 min), journal
+d'audit. Sans nom de domaine, `compose.https.yml` fonctionne aussi depuis
+Internet (par l'adresse publique), avec l'avertissement de certificat.
+Un VPN de l'organisme reste la voie la plus sobre pour l'exploitation :
+la station n'est alors jointe que par des postes déjà authentifiés au réseau.
 
