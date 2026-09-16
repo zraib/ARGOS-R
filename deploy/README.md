@@ -169,7 +169,7 @@ calcule sur les tuiles d'altitude de la station et reste disponible.
 | Geste | Commande |
 | --- | --- |
 | Mettre à jour après un `git pull` | `docker compose up -d --build` |
-| Mettre à jour depuis un nouveau paquet | remplacer `images\` puis `.\scripts\install.ps1` (le `.env` est conservé) |
+| Mettre à jour depuis un nouveau paquet **en gardant les comptes** | [MISE-A-JOUR-STATION.md](MISE-A-JOUR-STATION.md) (sauvegarde, `.env` repris, volumes intacts, retour en arrière) |
 | Changer le mode de la station (opérationnel, exercice, démonstration) | *Paramètres › Profil de données* (l'API redémarre seule) ou `.env` : `APP_MODE=…` puis `docker compose up -d api` (§ 6 bis, ADR 0016) |
 | Montrer la station à distance, le temps d'une démonstration | `.\scripts\tunnel.ps1` (§ 10, ADR 0013) |
 | Joindre la station depuis le réseau ou Internet, en HTTPS | `.env` : `COMPOSE_FILE=…compose.https.yml` ou `…compose.letsencrypt.yml`, puis `docker compose up -d` (§ 11) |
