@@ -50,7 +50,8 @@ export class AdminController {
   @RequirePermission("settings:update")
   @ApiResponse({ status: 403, description: "Réservé au Super Administrateur, ou mot de passe incorrect." })
   setMode(@Body() dto: SetModeDto, @CurrentUser() user: AuthUser) {
-    if (user.permissions !== "*") throw new ForbiddenException("Le mode de la station se change au niveau Super Administrateur.");
+    // Le joker est développé en liste par la garde JWT : c'est le RÔLE qui dit le Super Administrateur.
+    if (user.role !== "superadmin") throw new ForbiddenException("Le mode de la station se change au niveau Super Administrateur.");
     if (!isAppMode(dto.mode)) throw new BadRequestException(`Mode inconnu : ${dto.mode}`);
     if (!this.users.verifyPassword(user.username, dto.password)) throw new ForbiddenException("Mot de passe incorrect : le changement de mode n'est pas signé.");
     return this.mode.set(dto.mode, user.username);

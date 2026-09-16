@@ -156,6 +156,21 @@ describe("Chaîne de commandement — affectation, déploiement, ressources, bas
     await base().get("/api/hospitals").set(auth(resp)).expect(200);
   });
 
+  it("le mode de la station se change au niveau Super Administrateur, signé — et se lit partout", async () => {
+    const admin = await devToken("h.alami", "admin");
+    await base().patch("/api/domain/mode").set(auth(admin)).send({ mode: "exercise", password: "argos" }).expect(403);
+    await base().patch("/api/domain/mode").set(auth(root)).send({ mode: "exercise", password: "mauvais" }).expect(403);
+    await base().patch("/api/domain/mode").set(auth(root)).send({ mode: "nope", password: "ARGOS-2026" }).expect(400);
+    // Sous test (hors production), le réglage est persisté sans redémarrer le processus.
+    const res = await base().patch("/api/domain/mode").set(auth(root)).send({ mode: "exercise", password: "ARGOS-2026" }).expect(200);
+    expect(res.body).toMatchObject({ mode: "exercise", restarting: false, dataProfile: "empty" });
+    const profile = await base().get("/api/domain/profile").set(auth(root)).expect(200);
+    expect(profile.body.mode).toBe("demo"); // le processus reste dans son mode jusqu'au redémarrage
+    expect(profile.body.pending).toBe("exercise");
+    const health = await base().get("/api/health").expect(200);
+    expect(health.body.appMode).toBe("demo");
+  });
+
   it("une alerte s'acquitte, pour le compte, et l'acquittement se relit", async () => {
     // La déclaration d'un incident à Casablanca-Settat alerte le wali de la région.
     await base().post("/api/incidents").set(auth(root))
