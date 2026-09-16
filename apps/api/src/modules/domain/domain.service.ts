@@ -13,7 +13,9 @@ import {
 } from "@/modules/domain/seed.data";
 import { checkRecordUpdate } from "@/modules/domain/dvi.rules";
 import { checkCapacity, checkReceive, checkTransfer, custodyEvent, defaultMorgueType, displayName, nextReference, siteStatus } from "@/modules/domain/morgue.rules";
+import { pruneDemo, type DomainCollections } from "@/modules/domain/profile.rules";
 import { loadDevState, saveDevState } from "@/common/dev-store";
+import { DATA_PROFILE, DEMO_DATA } from "@/common/data-profile";
 
 // ============================================================================
 // ARGOS — données de domaine (Phase 2, in-memory)
@@ -118,6 +120,23 @@ const MORGUE_SEEDS: readonly MorgueSite[] = [
   { id: "M7", nom: "Morgue régionale — HM Ben Sergao", ville: "Agadir", region: "Souss-Massa", province: "Agadir Ida-Ou-Tanane", level: "regional", type: "hospital", hospitalId: "H5", capacity: 50, staff: 12, statut: "op", kind: "fixed", code: "AGA", ll: [-9.5495, 30.3811] },
 ];
 
+/**
+ * Tout ce que le jeu de démonstration crée hors incidents et unités (qui
+ * portent le marqueur `seeded`) : abris, sites mortuaires, dossiers DVI, parc.
+ * Le profil « empty » (ADR 0015) les retire à la reprise ; les hôpitaux — le
+ * référentiel — ne sont jamais dans cette liste.
+ */
+const DEMO_SEED_IDS: ReadonlySet<string> = new Set([
+  ...SEED_INCIDENTS.map((i) => i.id),
+  ...LEGACY_SEED_INCIDENT_IDS,
+  ...SEED_UNITS.map((u) => u.id),
+  ...LEGACY_SEED_UNIT_IDS,
+  ...SHELTERS.map((s) => s.id),
+  ...MORGUE_SEEDS.map((m) => m.id),
+  ...EQUIPMENT.map((e) => e.id),
+  "DVI-1", "DVI-2", "DVI-3", "DVI-4", "DVI-5",
+]);
+
 @Injectable()
 export class DomainService {
   private incidents: Incident[] = structuredClone(SEED_INCIDENTS);
@@ -212,8 +231,24 @@ export class DomainService {
       equipment?: EquipItem[];
       feed?: FeedItem[];
       posts?: IncidentPost[];
+      tombstones?: string[];
+      dataProfile?: string;
     }>("domain", {});
     const sameSeed = snap.seedVersion === DOMAIN_SEED_VERSION;
+    // Les graines explicitement supprimées ne renaissent pas au redémarrage.
+    this.tombstones = new Set(snap.tombstones ?? []);
+
+    // Station vide dont l'instantané a DÉJÀ été écrit vide (ADR 0015) : tout
+    // ce qu'il contient est l'œuvre des opérateurs — y compris des entités qui
+    // portent les mêmes identifiants que d'anciennes graines (U1, AB-01, M1 :
+    // la numérotation repart de zéro sur une station vide). On reprend donc
+    // tout tel quel, sans jamais élaguer par identifiant, et sans reconstruire
+    // le jeu de démonstration.
+    if (!DEMO_DATA && snap.dataProfile === "empty") {
+      this.restoreEmpty(snap, sameSeed);
+      if (!sameSeed) this.persist();
+      return;
+    }
 
     // Incidents et unités : reprise INTÉGRALE tant que le seed n'a pas changé.
     // Sur une montée de version, on reconstruit le jeu de démonstration et on
@@ -286,7 +321,96 @@ export class DomainService {
     if (snap.victims) this.victims.splice(0, this.victims.length, ...snap.victims);
     if (sameSeed && snap.equipment) this.equipment.splice(0, this.equipment.length, ...snap.equipment);
     if (snap.feed) this.feed.splice(0, this.feed.length, ...snap.feed);
-    if (!sameSeed) this.persist();
+
+    // Profil de données (ADR 0015). « empty » — premier démarrage vide, ou
+    // conversion d'un instantané de démonstration : aucune graine ne survit,
+    // celles que la reprise vient de reconstruire comprises, et les hôpitaux
+    // de campagne, qui n'ont pas de chemin de création, partent avec. Ce qu'un
+    // opérateur avait créé pendant la démonstration reste. L'instantané est
+    // ensuite écrit « empty » : les redémarrages suivants passent par
+    // `restoreEmpty` et n'élaguent plus rien.
+    // « demo » : seules les graines dont on a posé la pierre tombale restent
+    // absentes ; la reconstruction ci-dessus les avait réinjectées.
+    if (!DEMO_DATA) {
+      this.applyPrune(pruneDemo(this.collections(), { ids: DEMO_SEED_IDS, seeded: true, fieldHospitals: true, orphanFeed: true }));
+    } else if (this.tombstones.size > 0) {
+      this.applyPrune(pruneDemo(this.collections(), { ids: this.tombstones }));
+    }
+    if (!sameSeed || snap.dataProfile !== DATA_PROFILE) this.persist();
+  }
+
+  /** Identifiants des graines qu'un opérateur a supprimées — pour ne pas les réinjecter à la reprise. */
+  private tombstones = new Set<string>();
+
+  /**
+   * Reprise d'un instantané écrit par une station vide : les collections
+   * opérationnelles sont reprises telles quelles (elles ne contiennent que ce
+   * que les opérateurs ont créé). Le réseau hospitalier et ses services suivent
+   * la règle habituelle — le code fait autorité sur une montée de version du
+   * référentiel — mais ce qu'un opérateur y a AJOUTÉ est conservé.
+   */
+  private restoreEmpty(
+    snap: {
+      incidents?: Incident[]; units?: Unit[]; hospitals?: Hospital[]; fieldHospitals?: FieldHospital[]; wards?: HospitalWard[];
+      shelters?: Shelter[]; morgues?: MorgueSite[]; mortuaryRecords?: MortuaryRecord[]; victims?: IncidentVictim[];
+      equipment?: EquipItem[]; feed?: FeedItem[]; posts?: IncidentPost[];
+    },
+    sameSeed: boolean,
+  ): void {
+    const replace = <T,>(target: T[], next: readonly T[]): void => { target.splice(0, target.length, ...next); };
+    if (sameSeed && snap.hospitals) replace(this.hospitals, snap.hospitals);
+    else if (snap.hospitals) {
+      const seedIds = new Set(this.hospitals.map((h) => h.id));
+      this.hospitals.push(...snap.hospitals.filter((h) => !seedIds.has(h.id)));
+    }
+    if (sameSeed && snap.wards) replace(this.wards, snap.wards);
+    else if (snap.wards) {
+      const seedIds = new Set(this.wards.map((w) => w.id));
+      this.wards.push(...snap.wards.filter((w) => !seedIds.has(w.id)));
+    }
+    this.incidents = (snap.incidents ?? []).map(canonicalizeRegion);
+    replace(this.units, snap.units ?? []);
+    replace(this.fieldHospitals, snap.fieldHospitals ?? []);
+    replace(this.shelters, snap.shelters ?? []);
+    replace(this.morgues, snap.morgues ?? []);
+    for (const m of this.morgues) m.type ??= defaultMorgueType(m);
+    replace(this.mortuaryRecords, snap.mortuaryRecords ?? []);
+    replace(this.victims, snap.victims ?? []);
+    replace(this.equipment, snap.equipment ?? []);
+    replace(this.feed, snap.feed ?? []);
+    this.posts = snap.posts ?? [];
+  }
+
+  /** Vue mutable des collections, pour l'élagage. */
+  private collections(): DomainCollections {
+    return {
+      incidents: this.incidents,
+      units: this.units,
+      hospitals: this.hospitals,
+      fieldHospitals: this.fieldHospitals,
+      wards: this.wards,
+      shelters: this.shelters,
+      morgues: this.morgues,
+      mortuaryRecords: this.mortuaryRecords,
+      victims: this.victims,
+      equipment: this.equipment,
+      feed: this.feed,
+      posts: this.posts,
+    };
+  }
+
+  /** Remplace le contenu des collections par le résultat d'un élagage (les tableaux `readonly` sont vidés en place). */
+  private applyPrune(r: ReturnType<typeof pruneDemo>): void {
+    this.incidents = r.next.incidents;
+    this.units.splice(0, this.units.length, ...r.next.units);
+    this.fieldHospitals.splice(0, this.fieldHospitals.length, ...r.next.fieldHospitals);
+    this.shelters.splice(0, this.shelters.length, ...r.next.shelters);
+    this.morgues.splice(0, this.morgues.length, ...r.next.morgues);
+    this.mortuaryRecords.splice(0, this.mortuaryRecords.length, ...r.next.mortuaryRecords);
+    this.victims.splice(0, this.victims.length, ...r.next.victims);
+    this.equipment.splice(0, this.equipment.length, ...r.next.equipment);
+    this.feed.splice(0, this.feed.length, ...r.next.feed);
+    this.posts = r.next.posts;
   }
 
   /** Écrit l'instantané des collections mutables (débounce ; no-op hors dev). */
@@ -305,6 +429,8 @@ export class DomainService {
       equipment: this.equipment,
       feed: this.feed,
       posts: this.posts,
+      tombstones: [...this.tombstones],
+      dataProfile: DATA_PROFILE,
     });
   }
 
@@ -1379,20 +1505,141 @@ export class DomainService {
     return this.feed.slice(0, 8);
   }
 
-  private readonly queue: QueueItem[] = [
+  // --- suppression d'entités (ADR 0015) ---------------------------------------
+  //
+  // Supprimer une unité, un abri, une morgue ou un hôpital est un geste
+  // définitif, réservé par le RBAC au Super Administrateur (`*:delete`). Le
+  // domaine refuse ce qui laisserait une opération sans ses moyens ou un
+  // registre sans son site : les garde-fous ci-dessous disent chacun ce qui
+  // retient l'entité, pour que l'opérateur sache quoi défaire d'abord.
+
+  /** Ce qui retient encore l'entité ; vide si elle peut partir. */
+  entityBlockers(kind: "unit" | "shelter" | "morgue" | "hospital", id: string): string[] {
+    const out: string[] = [];
+    const active = this.incidents.filter((i) => !i.archived && i.st !== "closed");
+    if (kind === "unit") {
+      const engaged = active.filter((i) => i.responders?.units?.includes(id)).map((i) => i.id);
+      if (engaged.length) out.push(`engagée sur ${engaged.join(", ")}`);
+    }
+    if (kind === "hospital") {
+      const engaged = active.filter((i) => i.responders?.hospitals?.includes(id)).map((i) => i.id);
+      if (engaged.length) out.push(`engagé sur ${engaged.join(", ")}`);
+      const attached = this.morgues.filter((m) => m.hospitalId === id).map((m) => m.id);
+      if (attached.length) out.push(`morgue(s) rattachée(s) : ${attached.join(", ")}`);
+      const field = this.fieldHospitals.filter((f) => f.hid === id).length;
+      if (field) out.push(`${field} hôpital(aux) de campagne`);
+    }
+    if (kind === "morgue") {
+      const bodies = this.mortuaryRecords.filter((r) => r.mid === id && r.status !== "released").length;
+      if (bodies) out.push(`${bodies} corps au registre`);
+      const engaged = active.filter((i) => i.responders?.morgues?.includes(id)).map((i) => i.id);
+      if (engaged.length) out.push(`affectée à ${engaged.join(", ")}`);
+    }
+    if (kind === "shelter") {
+      const s = this.shelters.find((x) => x.id === id);
+      if (s && s.occupants > 0) out.push(`${s.occupants} occupant(s)`);
+    }
+    return out;
+  }
+
+  /**
+   * Retire définitivement une entité. `force` passe outre les garde-fous
+   * (l'opérateur l'a demandé en connaissance de cause) ; rien ne passe outre
+   * l'existence : une entité inconnue rend `missing`.
+   */
+  deleteEntity(
+    kind: "unit" | "shelter" | "morgue" | "hospital",
+    id: string,
+    actor: string,
+    force = false,
+    /** Comptes qui ont la responsabilité de l'entité (IAM) — un garde-fou de plus, fourni par l'appelant. */
+    responsibles: readonly string[] = [],
+  ): { ok?: true; missing?: boolean; blockers?: string[]; removed?: number } {
+    const exists =
+      kind === "unit" ? this.units.some((u) => u.id === id)
+      : kind === "shelter" ? this.shelters.some((s) => s.id === id)
+      : kind === "morgue" ? this.morgues.some((m) => m.id === id)
+      : this.hospitals.some((h) => h.id === id);
+    if (!exists) return { missing: true };
+    const blockers = this.entityBlockers(kind, id);
+    if (responsibles.length) blockers.push(`responsable(s) affecté(s) : ${responsibles.join(", ")}`);
+    if (blockers.length && !force) return { blockers };
+
+    let removed = 1;
+    if (kind === "hospital") {
+      // Le référentiel hospitalier n'est pas élagué par les règles de profil :
+      // on retire l'établissement, ses services, ses hôpitaux de campagne, et
+      // on détache ce qui s'y référait (morgues rattachées, moyens engagés).
+      this.hospitals.splice(0, this.hospitals.length, ...this.hospitals.filter((h) => h.id !== id));
+      removed += this.wards.filter((w) => w.hid === id).length + this.fieldHospitals.filter((f) => f.hid === id).length;
+      this.wards.splice(0, this.wards.length, ...this.wards.filter((w) => w.hid !== id));
+      this.fieldHospitals.splice(0, this.fieldHospitals.length, ...this.fieldHospitals.filter((f) => f.hid !== id));
+      for (const m of this.morgues) if (m.hospitalId === id) delete m.hospitalId;
+      for (const i of this.incidents) if (i.responders?.hospitals) i.responders.hospitals = i.responders.hospitals.filter((h) => h !== id);
+    } else {
+      const r = pruneDemo(this.collections(), { ids: new Set([id]) });
+      this.applyPrune(r);
+      removed = r.total;
+      for (const i of this.incidents) {
+        if (kind === "unit" && i.responders?.units) i.responders.units = i.responders.units.filter((u) => u !== id);
+        if (kind === "morgue" && i.responders?.morgues) i.responders.morgues = i.responders.morgues.filter((m) => m !== id);
+      }
+    }
+    // Une graine supprimée reste supprimée : la reprise ne la réinjecte pas.
+    // (En station vide rien n'est réinjecté ; la pierre tombale y serait un
+    // contresens — U1 peut y être une unité bien réelle.)
+    if (DEMO_DATA && DEMO_SEED_IDS.has(id)) this.tombstones.add(id);
+    const label = { unit: "Unité", shelter: "Abri", morgue: "Morgue", hospital: "Hôpital" }[kind];
+    this.pushFeed(`${label} ${id} — SUPPRIMÉ par ${actor}`, "bg-danger-500");
+    this.persist();
+    return { ok: true, removed };
+  }
+
+  /** Le volume du domaine, pour l'écran d'administration : ce que la purge emporterait, ce qu'elle garderait. */
+  volume(): { counts: Record<string, number>; seededLeft: number } {
+    const c = this.collections();
+    const counts = Object.fromEntries((Object.keys(c) as (keyof DomainCollections)[]).map((k) => [k, c[k].length]));
+    // En station vide, un identifiant de graine peut désigner une entité réelle : le compte n'a de sens qu'en démonstration.
+    const seededLeft = DEMO_DATA
+      ? [...this.incidents, ...this.units, ...this.shelters, ...this.morgues].filter((e) => DEMO_SEED_IDS.has(e.id) && !this.tombstones.has(e.id)).length
+      : 0;
+    return { counts, seededLeft };
+  }
+
+  /**
+   * Purge : tout le domaine sauf le réseau hospitalier et ses services. Les
+   * cascades d'incident (missions, déploiements) courent pour chaque incident
+   * retiré. Réservée au Super Administrateur, signée par son mot de passe
+   * (contrôleur). C'est le geste qui fait d'une station de démonstration une
+   * station vide sans toucher aux comptes ni à la base.
+   */
+  async purgeDemo(actor: string): Promise<{ removed: number; incidents: number }> {
+    const r = pruneDemo(this.collections(), { ids: new Set(), all: true });
+    for (const id of r.removedIncidentIds) for (const fn of this.cascades) await fn(id);
+    this.applyPrune(r);
+    if (DEMO_DATA) for (const id of DEMO_SEED_IDS) this.tombstones.add(id);
+    this.pushFeed(`Domaine remis à zéro par ${actor} — réseau hospitalier conservé`, "bg-danger-500");
+    this.persist();
+    return { removed: r.total, incidents: r.removedIncidentIds.length };
+  }
+
+  // File de répartition et mouvements de transport : un jeu de démonstration
+  // figé, servi en profil « demo » seulement — les vraies demandes passent
+  // par les boucles opérationnelles (module missions).
+  private readonly queue: QueueItem[] = DEMO_DATA ? [
     { id: "REQ-5012", kind: "evac", label: "Évacuation 14 blessés graves — Douar Tnirt", incidentId: "INC-2607", target: [-8.36, 31.05], type: "earthquake", urgency: "urgent" },
     { id: "REQ-5011", kind: "logistics", label: "Groupes électrogènes + éclairage — PC Amizmiz", incidentId: "INC-2607", target: [-8.25, 31.22], type: "earthquake", urgency: "high" },
     { id: "REQ-5009", kind: "shelter", label: "Renfort tentes & vivres — abris Talat N'Yaaqoub", incidentId: "INC-2607", target: [-8.26, 30.98], type: "earthquake", urgency: "high" },
     { id: "REQ-5007", kind: "logistics", label: "Pompage & potabilisation — crues Ourika", incidentId: "INC-2606", target: [-7.79, 31.32], type: "flood", urgency: "medium" },
     { id: "REQ-5004", kind: "evac", label: "Rotation EVASAN — point de tri Tizi N'Test", incidentId: "INC-2607", target: [-8.2, 30.9], type: "earthquake", urgency: "urgent" },
-  ];
+  ] : [];
 
-  private readonly movements: TransportMovement[] = [
+  private readonly movements: TransportMovement[] = DEMO_DATA ? [
     { id: "MVT-3301", mission: "Convoi logistique", vehicles: "LOG-1 · 6 véh.", origin: "Rabat", destination: "Marrakech (A7)", cargo: "40 t fret humanitaire", progress: 62, etaMin: 74, delayMin: 0 },
     { id: "MVT-3302", mission: "Recherche & sauvetage", vehicles: "SAR-2 · 4 véh.", origin: "Agadir", destination: "Amizmiz", cargo: "Équipe cynophile + déblaiement", progress: 78, etaMin: 33, delayMin: 12 },
     { id: "MVT-3303", mission: "Évacuation sanitaire", vehicles: "EVASAN-1 · hélico", origin: "Marrakech", destination: "Zone sinistrée", cargo: "6 blessés graves", progress: 41, etaMin: 18, delayMin: 0 },
     { id: "MVT-3304", mission: "Ravitaillement abris", vehicles: "LOG-3 · 3 véh.", origin: "Fès", destination: "Talat N'Yaaqoub", cargo: "12 tentes + vivres", progress: 25, etaMin: 96, delayMin: 24 },
-  ];
+  ] : [];
 
   listQueue(): QueueItem[] {
     return this.queue;
@@ -1408,14 +1655,17 @@ export class DomainService {
   // coordonnées géographiques (transformation partagée avec le frontend).
   private readonly provinces = PROVINCES_MA.map((p) => ({ ...p, ...llToSvg(p.ll) }));
 
-  private readonly vehRoutes = [
+  // Convois animés côté navigateur : une SIMULATION, servie en profil « demo »
+  // seulement. Une station vide n'a rien qui bouge sans qu'on l'ait déclaré.
+  private readonly vehRoutes = DEMO_DATA ? [
     { id: "LOG-1", label: "Convoi LOG-1", kind: "Convoi logistique · Rabat → Marrakech (A7)", speed: 0.01, route: [[-6.84, 34.02], [-7.1, 33.87], [-7.38, 33.69], [-7.59, 33.57], [-7.62, 33.42], [-7.63, 33.23], [-7.8, 32.88], [-7.94, 32.6], [-7.95, 32.23], [-8.0, 31.92], [-8.01, 31.63], [-8.13, 31.45], [-8.25, 31.22]] },
     { id: "SAR-2", label: "Convoi SAR-2", kind: "Recherche & sauvetage · Agadir → Amizmiz", speed: 0.012, route: [[-9.6, 30.42], [-9.35, 30.44], [-9.1, 30.46], [-8.88, 30.47], [-8.6, 30.62], [-8.44, 30.83], [-8.38, 31.0], [-8.3, 31.12], [-8.25, 31.22]] },
     { id: "EVASAN-1", label: "EVASAN-1", kind: "Hélicoptère médicalisé · rotation Marrakech ↔ zone sinistrée", speed: 0.03, route: [[-8.01, 31.63], [-8.15, 31.45], [-8.25, 31.22], [-8.26, 30.98], [-8.25, 31.22], [-8.15, 31.45], [-8.01, 31.63]] },
-  ];
+  ] : [];
 
+  /** Référentiel + profil de données : le navigateur y lit s'il doit couper ses propres simulateurs. */
   reference() {
-    return { provinces: this.provinces, cities: CITIES_MA, vehRoutes: this.vehRoutes };
+    return { provinces: this.provinces, cities: CITIES_MA, vehRoutes: this.vehRoutes, dataProfile: DATA_PROFILE };
   }
 
   // --- statistiques de commandement (tableau de bord national) -------------

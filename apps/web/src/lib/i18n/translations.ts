@@ -683,5 +683,12 @@ export interface Dict {
   cl_isolation_advice: string;
   cl_idlh: string;
   cl_flash: string;
+  // Station vide (ADR 0015) — carte : abris et traceurs ; suppressions ; profil de données
+  fam_shelter: string; lg_shelters: string; lg_trackers: string;
+  trk_map_device: string; trk_map_app: string; trk_map_stale: string; trk_map_live: string; trk_map_panic: string; trk_speed: string; trk_heading: string;
+  del_unit: string; del_shelter: string; del_morgue: string; del_hospital: string;
+  del_confirm_title: string; del_confirm_body: string; del_confirm_force: string; del_blocked: string; del_entity_done: string; del_forbidden: string; del_code_help_entity: string; del_code_bad_entity: string;
+  dp_title: string; dp_hint: string; dp_profile_demo: string; dp_profile_empty: string; dp_seeded_left: string; dp_counts: string;
+  dp_purge: string; dp_purge_hint: string; dp_purge_confirm: string; dp_purge_password: string; dp_purge_done: string; dp_purge_failed: string;
 }
 

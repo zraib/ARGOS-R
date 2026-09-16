@@ -101,6 +101,13 @@ export interface DomainSlice {
   provinces: Province[];
   cities: City[];
   vehRoutes: VehRoute[];
+  /**
+   * Profil de données annoncé par l'API (ADR 0015) : « demo » entretient le jeu
+   * de démonstration et ses simulateurs ; « empty » (station en service) n'a
+   * rien de simulé — le fil fictif et les convois animés sont coupés ici aussi.
+   * `null` tant que l'API n'a pas répondu : on ne simule pas dans le doute.
+   */
+  dataProfile: "demo" | "empty" | null;
   movements: TransportMovement[];
   queue: QueueItem[];
   /** Charge les entités de domaine depuis l'API (incidents, unités, hôpitaux, fil). */
@@ -189,6 +196,7 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
   provinces: [],
   cities: [],
   vehRoutes: [],
+  dataProfile: null,
   movements: [],
   queue: [],
   // Charge le domaine depuis l'API. Chaque entité dégrade proprement si le rôle
@@ -219,7 +227,7 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
         ? ((results[i] as PromiseFulfilledResult<{ data?: unknown }>).value.data as T | undefined)
         : undefined;
     const comms = data<{ categories: CommCategory[]; messages: Record<string, CommMessage[]>; members: CommMembers }>(8);
-    const reference = data<{ provinces: Province[]; cities: City[]; vehRoutes: VehRoute[] }>(9);
+    const reference = data<{ provinces: Province[]; cities: City[]; vehRoutes: VehRoute[]; dataProfile?: "demo" | "empty" }>(9);
     set((s) => ({
       incidents: data<Incident[]>(0) ?? s.incidents,
       units: data<Unit[]>(1) ?? s.units,
@@ -243,6 +251,7 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
       provinces: reference?.provinces ?? s.provinces,
       cities: reference?.cities ?? s.cities,
       vehRoutes: reference?.vehRoutes ?? s.vehRoutes,
+      dataProfile: reference?.dataProfile ?? s.dataProfile,
       domainLoaded: true,
     }));
     // Re-calcul IA prédictions risques (100% données ARGOS réel chargées · IA Ollama
@@ -495,8 +504,11 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
   },
   relieveUnit: (unitId) => set((s) => ({ engagements: s.engagements.filter((e) => e.unitId !== unitId) })),
   resolveQueueItem: (id) => set((s) => ({ queue: s.queue.filter((q) => q.id !== id) })),
+  // Le tick de simulation n'a de sens qu'en profil « demo » : sur une station
+  // en service, rien ne bouge que l'on n'ait déclaré.
   simTick: () =>
     set((s) => {
+      if (s.dataProfile !== "demo") return {};
       let feed = s.feed;
       if (s.tick > 0 && s.tick % 6 === 0) {
         const item = FEED_POOL[Math.floor(s.tick / 6) % FEED_POOL.length];

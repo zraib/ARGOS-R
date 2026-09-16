@@ -10,6 +10,8 @@ export interface EquipItem {
   id: string;
   desig: string;
   cat: string;
+  /** Identifiant de l'unité détentrice (servi par l'API) ; `unit` en est le nom. */
+  unitId?: string;
   unit: string;
   stock: number;
   threshold: number;

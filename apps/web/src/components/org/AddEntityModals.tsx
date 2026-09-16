@@ -11,7 +11,11 @@ import { WardsEditor, autosumServices, type WardsEditorValue } from "@/component
 import { ARGOS_WARD_REFERENCE } from "@/lib/types";
 import type { HospitalKind, UnitReadiness } from "@/lib/types";
 import type { ShelterBuilding, ShelterKind } from "@/lib/data/modules";
+import dynamic from "next/dynamic";
 import { EMPTY_LOCATION, LocationCascade, locationLL, locationProvince, type LocationValue } from "@/components/org/LocationCascade";
+
+// La carte d'aperçu est chargée à la demande (MapLibre n'a pas de rendu serveur).
+const LocationPreviewMap = dynamic(() => import("@/components/incidents/LocationPreviewMap").then((x) => x.LocationPreviewMap), { ssr: false });
 
 // ============================================================================
 // ARGOS — modales de création d'entités organisationnelles (unité, hôpital, abri)
@@ -301,9 +305,13 @@ export function AddShelterModal({ open, onClose, onCreated }: { open: boolean; o
   const [nom, setNom] = useState("");
   const [ville, setVille] = useState("");
   const [loc, setLoc] = useState<LocationValue>(EMPTY_LOCATION);
+  // Un point posé sur la carte prime sur la cascade : un abri doit apparaître
+  // LÀ où il est ouvert (ADR 0015), pas au chef-lieu de sa province.
+  const [pin, setPin] = useState<[number, number] | null>(null);
   const provinces = useArgos((s) => s.provinces);
   const onLoc = (next: LocationValue) => {
     setLoc(next);
+    setPin(null);
     if (next.city) setVille(next.city);
   };
   // Typologie : un camp de tentes DÉDUIT sa capacité (tentes × personnes par
@@ -325,12 +333,16 @@ export function AddShelterModal({ open, onClose, onCreated }: { open: boolean; o
     [cities, ville],
   );
   const canSubmit = !!(nom.trim() && ville.trim() && (kind === "tentes" ? tents > 0 && perTent > 0 : capacity > 0));
+  // La position : le point posé, sinon la ville de la cascade ou de la saisie
+  // libre si le référentiel la connaît, sinon le chef-lieu de la province.
+  const villeConnue = cities.find((c) => c.v.trim().toLocaleLowerCase("fr") === ville.trim().toLocaleLowerCase("fr"));
+  const apercu = pin ?? locationLL(loc, provinces, cities) ?? villeConnue?.ll ?? null;
 
   const submit = async () => {
     if (!canSubmit || busy) return;
     setBusy(true);
     try {
-      const ll = locationLL(loc, provinces, cities);
+      const ll = apercu ?? undefined;
       const res = await api.createShelter({
         nom: nom.trim(),
         ville: ville.trim(),
@@ -348,6 +360,7 @@ export function AddShelterModal({ open, onClose, onCreated }: { open: boolean; o
       await loadDomain();
       showToast(t.ops_shelter_created);
       setLoc(EMPTY_LOCATION);
+      setPin(null);
       if (created?.id) onCreated?.(created.id);
       onClose();
     } finally {
@@ -383,6 +396,11 @@ export function AddShelterModal({ open, onClose, onCreated }: { open: boolean; o
             {ville.trim() === "" ? t.ops_city_help : connue ? t.ops_city_known : t.ops_city_unknown}
           </p>
         </div>
+        {/* La position exacte, comme pour un site mortuaire : un point sur la carte. */}
+        <div className="h-48 overflow-hidden rounded-lg border border-gray-200 dark:border-rdia-600">
+          <LocationPreviewMap value={apercu} onPick={setPin} labels={{ hint: m.morgue.a_map_hint, full: m.morgue.a_map_full, exit: m.morgue.a_map_exit }} />
+        </div>
+        {pin && <p className="-mt-2 font-mono text-[11px] text-gray-500 dark:text-rdia-300">{pin[1].toFixed(4)}, {pin[0].toFixed(4)}</p>}
         <div>
           <label className={labelCls}>{m.shelters.kind}</label>
           <div className="flex gap-2">

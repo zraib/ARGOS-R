@@ -9,6 +9,7 @@ import type { Dict } from "@/lib/i18n/translations";
 import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
 import { AI_ENABLED } from "@/lib/ai/config";
 import type { Role } from "@/lib/roles";
+import type { ModuleFeature } from "@/lib/api-client";
 
 export type NavKey =
   | "dashboard" | "incidents" | "map" | "seismic" | "dispatch" | "triage"
@@ -99,17 +100,13 @@ export const NAV: NavEntry[] = [
   // Restreinte aux rôles détenant `nrbc:view` côté API — les cinq responsables
   // d'entité ne l'ont pas, et l'écran leur renverrait 403 puis une liste vide.
   // L'API reste l'autorité ; ceci ne fait que masquer un cul-de-sac.
-  // Traceurs GPS. Restreint aux rôles détenant `tracking:view` côté API — les
-  // cinq responsables d'entité ne l'ont pas, et l'écran leur renverrait 403.
+  // Traceurs GPS et positions partagées. Ouvert à TOUS les rôles depuis
+  // l'ADR 0015 : chacun détient `tracking:view` côté API (une position
+  // partagée doit apparaître sur la carte de quiconque la voit) ; déclarer un
+  // boîtier reste réservé à la conduite, et l'API le refuse aux autres.
   // Posé juste avant les substances : deux référentiels que l'on consulte en
   // intervention, dans le même bloc de l'œil.
-  {
-    kind: "item",
-    key: "trackers",
-    href: HREF.trackers,
-    icon: NAV_ICONS.trackers,
-    roles: ["superadmin", "admin", "strategic", "place_arme", "wali", "opcom", "tacom", "bluecell", "greencell", "orangecell"],
-  },
+  item("trackers", HREF.trackers),
   {
     kind: "item",
     key: "chemlib",
@@ -156,19 +153,86 @@ export const NAV: NavEntry[] = [
 /** Écrans encore rendus en « module en préparation » (aucun restant). */
 export const STUB_KEYS: NavKey[] = [];
 
-/**
- * Modules pilotables par feature flag (§6.15). Le tableau de bord et les
- * Paramètres restent toujours actifs. `assistant` suit le flag de build AI_ENABLED.
- */
-export const FLAGGABLE_KEYS: NavKey[] = [
+// ---------------------------------------------------------------------------
+// Modules : ce que l'administrateur BASCULE (ADR 0015).
+//
+// Le vocabulaire est celui de l'API (`MODULE_KEYS`, porté par le contrat sous
+// le nom `ModuleFeature`) : un drapeau global (Paramètres) ou la matrice
+// rôle → modules (Utilisateurs › Rôles) coupent un MODULE, et l'API refuse
+// alors toutes ses routes. Ici, on ne fait que MASQUER ce qu'elle refuse.
+// Chaque clé de module est aussi une clé de navigation : le même mot désigne
+// la même chose des deux côtés.
+// ---------------------------------------------------------------------------
+
+export type ModuleKey = ModuleFeature;
+
+/** Tous les modules, dans l'ordre d'affichage des écrans d'administration. */
+export const MODULE_KEYS = [
   "incidents", "map", "seismic", "dispatch", "triage",
   "equip", "units", "personnel", "workorders",
-  "hospitals", "ics", "damage", "shelters",
+  "hospitals", "ics", "damage", "shelters", "morgue",
   "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation",
-];
+  "trackers", "chemlib",
+] as const satisfies readonly ModuleKey[];
+
+// Garde de complétude : si l'API ajoute un module au contrat, cette ligne
+// refuse de compiler tant que la liste ci-dessus ne le porte pas.
+const MODULE_KEYS_COMPLETE: Exclude<ModuleKey, (typeof MODULE_KEYS)[number]> extends never ? true : never = true;
+void MODULE_KEYS_COMPLETE;
+
+/**
+ * Module qui gouverne chaque écran ; `null` pour le cœur, qui ne se coupe
+ * jamais (tableau de bord, comptes, paramètres, « ma responsabilité »).
+ */
+export const NAV_MODULE: Record<NavKey, ModuleKey | null> = {
+  dashboard: null,
+  incidents: "incidents",
+  map: "map",
+  seismic: "seismic",
+  dispatch: "dispatch",
+  triage: "triage",
+  equip: "equip",
+  units: "units",
+  personnel: "personnel",
+  workorders: "workorders",
+  hospitals: "hospitals",
+  ics: "ics",
+  damage: "damage",
+  shelters: "shelters",
+  orsec: "orsec",
+  plans: "plans",
+  comms: "comms",
+  reports: "reports",
+  analytics: "analytics",
+  assistant: "assistant",
+  simulation: "simulation",
+  users: null,
+  settings: null,
+  myresp: null,
+  myrespManage: null,
+  supervision: null,
+  chemlib: "chemlib",
+  trackers: "trackers",
+  // Le réseau opérationnel (unités + abris) suit le module des unités.
+  opsnet: "units",
+  morgue: "morgue",
+};
+
+/**
+ * Un écran est ouvert si son module n'est coupé ni globalement (drapeaux) ni
+ * pour le rôle (matrice rôle → modules). Le cœur est toujours ouvert.
+ */
+export function moduleOpen(key: NavKey, flags: Record<string, boolean>, roleFeatures: Record<string, boolean> | undefined): boolean {
+  const m = NAV_MODULE[key];
+  if (m === null) return true;
+  return flags[m] !== false && roleFeatures?.[m] !== false;
+}
+
+/** Modules pilotables par drapeau global (§6.15) — tous. `assistant` et `simulation` suivent le flag de build AI_ENABLED. */
+export const FLAGGABLE_KEYS: readonly ModuleKey[] = MODULE_KEYS;
 
 export const DEFAULT_FLAGS: Record<string, boolean> = Object.fromEntries(
-  FLAGGABLE_KEYS.map((k) => [k, (k === "assistant" || k === "simulation") ? AI_ENABLED : true]),
+  MODULE_KEYS.map((k) => [k, (k === "assistant" || k === "simulation") ? AI_ENABLED : true]),
 );
 
 /** Résout un chemin vers la clé de module courante (pour la garde de route). */

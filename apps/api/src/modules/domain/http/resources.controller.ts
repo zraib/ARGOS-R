@@ -8,6 +8,7 @@
 // ============================================================================
 
 import { Body, ConflictException, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
+import { entityDeleteConflict, isForced } from "@/modules/domain/http/entity-delete";
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { AdmitBodyDto, CreateEquipDto, CreateMorgueDto, CreateUnitDto, DeployMobileMorgueDto, TransferBodyDto, UpdateEquipDto, UpdateMorgueDto, UpdateMortuaryRecordDto, CreateShelterDto, UpdateShelterDto, UpdateUnitDto } from "@/modules/domain/dto";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
@@ -55,6 +56,23 @@ export class ResourcesController {
     return u;
   }
 
+  @ApiOperation({
+    summary: "Supprimer définitivement une unité — SUPERADMIN uniquement.",
+    description:
+      "La matrice n'accorde `teams:delete` à personne : seul le joker du Super Administrateur la détient. " +
+      "Refusé (409) tant que l'unité est engagée sur une opération active ou qu'un compte en a la responsabilité ; " +
+      "`?force=true` passe outre. Son parc et ses postes partent avec elle ; une graine supprimée ne revient pas au redémarrage.",
+  })
+  @Delete("units/:id")
+  @RequirePermission("teams:delete")
+  @ApiQuery({ name: "force", required: false, description: "Passer outre les garde-fous (engagements, responsables)." })
+  @ApiResponse({ status: 403, description: "Réservé au Super Administrateur." })
+  @ApiResponse({ status: 404, description: "Unité inconnue." })
+  @ApiResponse({ status: 409, description: "L'unité est encore engagée ou tenue par un compte." })
+  deleteUnit(@Param("id") id: string, @Query("force") force: string | undefined, @CurrentUser() user: AuthUser) {
+    return this.deleteEntity("unit", id, force, user);
+  }
+
   // --- abris ----------------------------------------------------------------
 
   @Get("shelters")
@@ -85,6 +103,22 @@ export class ResourcesController {
     const sh = this.domain.updateShelter(id, dto);
     if (!sh) throw new NotFoundException(`Abri introuvable : ${id}`);
     return sh;
+  }
+
+  @ApiOperation({
+    summary: "Fermer définitivement un abri — SUPERADMIN uniquement.",
+    description:
+      "Refusé (409) tant que l'abri héberge des occupants ou qu'un compte en a la responsabilité ; `?force=true` passe outre. " +
+      "Ses postes sur la carte partent avec lui.",
+  })
+  @Delete("shelters/:id")
+  @RequirePermission("shelters:delete")
+  @ApiQuery({ name: "force", required: false, description: "Passer outre les garde-fous (occupants, responsables)." })
+  @ApiResponse({ status: 403, description: "Réservé au Super Administrateur." })
+  @ApiResponse({ status: 404, description: "Abri inconnu." })
+  @ApiResponse({ status: 409, description: "L'abri héberge encore ou est tenu par un compte." })
+  deleteShelter(@Param("id") id: string, @Query("force") force: string | undefined, @CurrentUser() user: AuthUser) {
+    return this.deleteEntity("shelter", id, force, user);
   }
 
   // --- parc d'équipement -----------------------------------------------------
@@ -225,6 +259,22 @@ export class ResourcesController {
     return res.site;
   }
 
+  @ApiOperation({
+    summary: "Supprimer définitivement un site mortuaire — SUPERADMIN uniquement.",
+    description:
+      "Refusé (409) tant que des corps figurent au registre du site, qu'il est affecté à une opération active ou qu'un compte " +
+      "en a la responsabilité ; `?force=true` passe outre — les dossiers du site partent alors avec lui.",
+  })
+  @Delete("morgues/:id")
+  @RequirePermission("morgue:delete")
+  @ApiQuery({ name: "force", required: false, description: "Passer outre les garde-fous (registre, affectations, responsables)." })
+  @ApiResponse({ status: 403, description: "Réservé au Super Administrateur." })
+  @ApiResponse({ status: 404, description: "Site inconnu." })
+  @ApiResponse({ status: 409, description: "Le site a encore un registre, une affectation ou un responsable." })
+  deleteMorgue(@Param("id") id: string, @Query("force") force: string | undefined, @CurrentUser() user: AuthUser) {
+    return this.deleteEntity("morgue", id, force, user);
+  }
+
   @Post("morgues/:id/records/:rid/receive")
   @RequirePermission("morgue:update")
   @RequireScope("morgue")
@@ -255,5 +305,13 @@ export class ResourcesController {
    */
   private scopeFor(user: AuthUser) {
     return this.visibility.scopeOfUser(user.role, user.scope);
+  }
+  /** Suppression commune aux trois entités : garde-fous du domaine + responsables IAM, puis retrait. */
+  private deleteEntity(kind: "unit" | "shelter" | "morgue", id: string, force: string | undefined, user: AuthUser) {
+    const responsibles = this.users.listResponsibles().filter((r) => r.kind === kind && r.entityId === id).map((r) => r.matricule);
+    const res = this.domain.deleteEntity(kind, id, user.username, isForced(force), responsibles);
+    if (res.missing) throw new NotFoundException(`Entité introuvable : ${id}`);
+    if (res.blockers) throw entityDeleteConflict(res.blockers);
+    return { deleted: id, removed: res.removed };
   }
 }

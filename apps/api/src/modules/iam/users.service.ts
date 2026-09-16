@@ -8,10 +8,11 @@ import {
 import {
   assignableRoles,
   canAssignMultipleRoles,
+  DEFAULT_ROLE_FEATURES,
   defaultRoleFeatures,
+  isModuleKey,
   isRole,
   LEGACY_ROLE_MAP,
-  MODULE_FEATURES,
   ROLES,
   ROLE_LABELS,
   type Role,
@@ -213,10 +214,15 @@ export class UsersService implements ScopeResolver {
         founder.phone = "+212663002950";
       }
     }
-    // La matrice persistée peut porter d'anciens rôles : on repart des défauts
-    // de la nouvelle organisation si elle ne couvre pas les rôles actuels.
+    // La matrice persistée peut porter d'anciens rôles ou l'ancien vocabulaire
+    // (fonctionnalités RBAC au lieu de modules, avant l'ADR 0015) : on ne reprend
+    // que les clés connues, les défauts complètent le reste.
     if (snap.roleFeatures && ROLES.every((r) => r in snap.roleFeatures!)) {
-      this.roleFeatures = snap.roleFeatures;
+      for (const role of ROLES) {
+        for (const [k, v] of Object.entries(snap.roleFeatures[role])) {
+          if (isModuleKey(k) && typeof v === "boolean") this.roleFeatures[role][k] = v;
+        }
+      }
     }
   }
 
@@ -570,14 +576,29 @@ export class UsersService implements ScopeResolver {
     return this.roleFeatures;
   }
 
+  /** Les défauts (dérivés de la matrice RBAC) : ce que « réinitialiser » restaure, ce que le point « modifié » compare. */
+  getDefaultRoleFeatures(): Record<Role, Record<string, boolean>> {
+    return DEFAULT_ROLE_FEATURES;
+  }
+
   setRoleFeature(role: Role, feature: string, enabled: boolean): Record<string, boolean> {
-    if (!(MODULE_FEATURES as readonly string[]).includes(feature)) {
-      throw new BadRequestException(`Fonctionnalité inconnue : ${feature}`);
+    if (!isModuleKey(feature)) {
+      throw new BadRequestException(`Module inconnu : ${feature}`);
     }
     if (role === "superadmin" || role === "admin") {
       throw new ForbiddenException("Les rôles superadmin/admin ont un accès total verrouillé.");
     }
     this.roleFeatures[role] = { ...this.roleFeatures[role], [feature]: enabled };
+    this.persist();
+    return this.roleFeatures[role];
+  }
+
+  /** Remet un rôle à ses modules par défaut. */
+  resetRoleFeatures(role: Role): Record<string, boolean> {
+    if (role === "superadmin" || role === "admin") {
+      throw new ForbiddenException("Les rôles superadmin/admin ont un accès total verrouillé.");
+    }
+    this.roleFeatures[role] = { ...DEFAULT_ROLE_FEATURES[role] };
     this.persist();
     return this.roleFeatures[role];
   }

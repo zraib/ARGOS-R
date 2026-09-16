@@ -32,6 +32,8 @@ import { Panel } from "@/app/map/_parts/Panel";
 import { FloodPanel } from "@/app/map/_parts/FloodPanel";
 import { FirePanel } from "@/app/map/_parts/FirePanel";
 import { FamilyNode } from "@/app/map/_parts/FamilyNode";
+import { trackerLabel } from "@/components/map/layers/trackers";
+import { contactAge, isStale } from "@/lib/tracking/tracker";
 
 export default function MapPage() {
   const t = useDict();
@@ -44,6 +46,7 @@ export default function MapPage() {
   const role = useArgos((s) => s.role);
   const posts = useArgos((s) => s.posts);
   const shelters = useArgos((s) => s.shelters);
+  const trackers = useArgos((s) => s.trackers);
   const responsables = useArgos((s) => s.responsables);
   const mapEdit = useArgos((s) => s.mapEdit);
   const deletePost = useArgos((s) => s.deletePost);
@@ -164,7 +167,18 @@ export default function MapPage() {
       label: t.fam_forces,
       layers: [
         { key: "units", label: t.lg_units, leaves: units.map((u) => ({ id: u.id, label: u.nom, kind: "unit" })) },
-        { key: "vehicles", label: t.lg_veh, leaves: vehRoutes.map((v) => ({ id: v.id, label: `${v.label} · ${v.kind}`, kind: "veh" })) },
+        // Convois animés : une simulation, servie en profil « demo » seulement —
+        // la couche n'apparaît que s'il y a quelque chose à animer.
+        ...(vehRoutes.length > 0
+          ? [{ key: "vehicles" as const, label: t.lg_veh, leaves: vehRoutes.map((v) => ({ id: v.id, label: `${v.label} · ${v.kind}`, kind: "veh" as const })) }]
+          : []),
+        // Boîtiers GPS et positions partagées par l'application (ADR 0015) :
+        // ce qui émet, où — seuls les traceurs qui ont un fix sont listés.
+        {
+          key: "trackers",
+          label: t.lg_trackers,
+          leaves: trackers.filter((x) => !x.archived && x.last).map((x) => ({ id: x.id, label: trackerLabel(x), kind: "trk" as const })),
+        },
         {
           // Ce qui SE JOUE, à côté de ce qui EST : les boucles engagent des
           // unités, leur place est donc dans « Forces », pas ailleurs.
@@ -195,6 +209,17 @@ export default function MapPage() {
           key: "morgues",
           label: t.lg_morgues,
           leaves: morgues.filter((s) => !(s.kind === "mobile" && !s.deployment)).map((s) => ({ id: s.id, label: `${s.nom} · ${s.ville}`, kind: "morgue" as const })),
+        },
+      ],
+    },
+    {
+      // Les abris d'hébergement qui portent une position (ADR 0015).
+      label: t.fam_shelter,
+      layers: [
+        {
+          key: "shelters",
+          label: t.lg_shelters,
+          leaves: shelters.filter((s) => Array.isArray(s.ll)).map((s) => ({ id: s.id, label: `${s.nom} · ${s.ville}`, kind: "shelter" as const })),
         },
       ],
     },
@@ -325,6 +350,39 @@ export default function MapPage() {
               : undefined,
         };
       }
+    } else if (kind === "shelter") {
+      const s = shelters.find((x) => x.id === id);
+      if (s) {
+        const taux = s.capacity > 0 ? Math.round((s.occupants / s.capacity) * 100) : 0;
+        selInfo = {
+          titre: s.nom, sub: s.ville, badgeType: taux >= 100 ? "high" : taux >= 80 ? "medium" : "active", badgeLabel: `${taux} %`,
+          lines: [
+            { k: t.capacity, v: String(s.capacity) },
+            { k: t.occupancy, v: `${s.occupants} / ${s.capacity}` },
+            { k: t.staff, v: String(s.staff) },
+          ],
+          responsible: { kind: "shelter", entityId: s.id, incidentId: posts.find((p) => p.kind === "shelter" && p.entityId === s.id)?.incidentId },
+          action: () => { clearSelection(); router.push("/opsnet"); },
+        };
+      }
+    } else if (kind === "trk") {
+      const x = trackers.find((y) => y.id === id);
+      if (x && x.last) {
+        const muet = isStale(x);
+        selInfo = {
+          titre: x.label, sub: x.source === "app" ? `${t.trk_map_app} · ${x.account ?? ""}` : `${t.trk_map_device} · ${x.imei}`,
+          badgeType: x.last.priority === "panic" ? "high" : muet ? "on_hold" : "active",
+          badgeLabel: x.last.priority === "panic" ? t.trk_map_panic : muet ? t.trk_map_stale : t.trk_map_live,
+          lines: [
+            { k: t.trk_last_seen, v: contactAge(x) },
+            { k: t.trk_speed, v: `${Math.round(x.last.speedKmh)} km/h` },
+            { k: t.trk_heading, v: `${Math.round(x.last.headingDeg)}°` },
+            { k: t.post_coords, v: `${x.last.ll[1].toFixed(4)}, ${x.last.ll[0].toFixed(4)}` },
+            ...(x.incidentId ? [{ k: t.post_incident, v: x.incidentId }] : []),
+          ],
+          action: () => { clearSelection(); router.push("/traceurs"); },
+        };
+      }
     } else if (kind === "veh") {
       const v = vehRoutes.find((x) => x.id === id);
       if (v) selInfo = { titre: v.label, sub: v.kind, badgeType: "active", badgeLabel: t.u_deployed, lines: [{ k: t.col_status, v: "—" }] };
@@ -344,8 +402,11 @@ export default function MapPage() {
   const legend: [ReactNode, string][] = [
     [<rect key="u" x={-4} y={-4} width={8} height={8} fill="#C9A84C" />, t.lg_units],
     [<path key="i" d="M0,-6 L6,5 L-6,5 Z" fill="#EF4444" />, t.nav_inc],
-    [<path key="v" d="M0,-5 L5,0 L0,5 L-5,0 Z" fill="#3B82F6" />, t.lg_veh],
+    ...(vehRoutes.length > 0 ? [[<path key="v" d="M0,-5 L5,0 L0,5 L-5,0 Z" fill="#3B82F6" />, t.lg_veh] as [ReactNode, string]] : []),
     [<rect key="p" x={-7} y={-4} width={14} height={8} rx={2} fill={POST_FILL.opcom} stroke="#0f1f14" />, t.lg_posts],
+    [<circle key="s" r={5} fill="#15803d" stroke="#fff" strokeWidth={1.5} />, t.lg_shelters],
+    [<circle key="m" r={5} fill="#64748b" stroke="#fff" strokeWidth={1.5} />, t.lg_morgues],
+    [<circle key="k" r={5} fill="#C9A84C" stroke="#fff" strokeWidth={1.5} />, t.lg_trackers],
   ];
 
   // ---- corps des panneaux ----

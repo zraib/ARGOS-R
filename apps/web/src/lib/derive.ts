@@ -7,6 +7,7 @@
 // ============================================================================
 
 import type { Dict } from "@/lib/i18n/translations";
+import type { EquipItem } from "@/lib/data/modules";
 import type { BadgeType } from "@/components/ui/Badge";
 import type { DashStats, FieldHospital, Hospital, HospitalKind, HospitalServiceKey, Incident, IncidentType, Unit } from "@/lib/types";
 import { MED_GRADES, MED_GRADES_CIV, MED_SPECS, POOLS } from "@/lib/data/seed";
@@ -255,7 +256,23 @@ export interface VehRow {
   maint: boolean;
 }
 
-export function unitDetail(unit: Unit) {
+/**
+ * Détail d'une unité pour l'écran des équipes.
+ *
+ * En profil « demo », personnel, parc et véhicules sont des rosters
+ * DÉRIVÉS de l'identifiant (jeu d'exemple, stable d'un rendu à l'autre). Sur
+ * une station en service (`demo: false`, ADR 0015) rien n'est inventé : le
+ * parc vient du registre d'équipement de l'API (`park`), personnel et
+ * véhicules restent vides tant qu'aucun module ne les tient.
+ */
+export function unitDetail(unit: Unit, opt: { demo?: boolean; park?: readonly EquipItem[]; condLabels?: Record<EquipItem["cond"], string> } = {}) {
+  if (opt.demo === false) {
+    const labels = opt.condLabels ?? { ok: "OK", repair: "—", oos: "—" };
+    const equip: EquipRow[] = (opt.park ?? [])
+      .filter((e) => e.unitId === unit.id)
+      .map((e) => ({ desig: e.desig, cat: e.cat, qty: String(e.stock), etat: labels[e.cond], maint: e.cond !== "ok" }));
+    return { pers: [] as PersonRow[], equip, vehs: [] as VehRow[] };
+  }
   const idx = idIndex(unit.id);
 
   const pers: PersonRow[] = Array.from({ length: 6 }, (_, j) => {
@@ -324,13 +341,19 @@ export interface FieldCard {
   badgeLabel: string;
 }
 
-export function hospitalDetail(h: Hospital, fieldHosps: FieldHospital[], t: Dict) {
+/**
+ * Détail d'un établissement. Les services et capacités sont RÉELS (saisis ou
+ * dérivés des capacités de l'établissement) ; le tableau du personnel est un
+ * roster d'exemple, servi en profil « demo » seulement (`demo: false` le vide,
+ * ADR 0015).
+ */
+export function hospitalDetail(h: Hospital, fieldHosps: FieldHospital[], t: Dict, opt: { demo?: boolean } = {}) {
   const idx = idIndex(h.id);
 
   // Le vocabulaire des grades suit le réseau : grades militaires pour le
   // service de santé militaire, qualifications hospitalières pour le civil.
   const grades = hospKind(h) === "mil" ? MED_GRADES : MED_GRADES_CIV;
-  const staffRows: StaffRow[] = Array.from({ length: 6 }, (_, j) => {
+  const staffRows: StaffRow[] = opt.demo === false ? [] : Array.from({ length: 6 }, (_, j) => {
     const st: [string, BadgeType][] = [["Garde", "medium"], ["Disponible", "active"], ["Repos", "on_hold"]];
     const s = st[(idx + j) % 3];
     return { grade: grades[(idx + j) % 6], nom: POOLS.names[(idx * 5 + j * 2) % 12], spec: MED_SPECS[(idx * 2 + j) % 6], stType: s[1], stLabel: s[0] };
@@ -350,11 +373,18 @@ export function hospitalDetail(h: Hospital, fieldHosps: FieldHospital[], t: Dict
     };
   });
 
-  const vehRows: HospVehRow[] = [
-    { type: "Ambulance médicalisée", qty: String(h.amb), assign: h.ville, etat: "Opérationnel", maint: false },
-    { type: "VAB sanitaire", qty: String(Math.max(2, Math.round(h.amb / 3))), assign: idx === 1 ? "Zone Al Haouz" : h.ville, etat: "Opérationnel", maint: false },
-    { type: "Hélicoptère médicalisé", qty: String(h.heli), assign: idx === 1 ? "Rotations EVASAN" : h.ville, etat: idx === 3 ? "Maintenance" : "Opérationnel", maint: idx === 3 },
-  ];
+  // Hors démo, seuls les moyens DÉCLARÉS de l'établissement figurent : ambulances
+  // et hélicoptères, sans affectation inventée.
+  const vehRows: HospVehRow[] = opt.demo === false
+    ? [
+        ...(h.amb > 0 ? [{ type: "Ambulance médicalisée", qty: String(h.amb), assign: h.ville, etat: "Opérationnel", maint: false }] : []),
+        ...(h.heli > 0 ? [{ type: "Hélicoptère médicalisé", qty: String(h.heli), assign: h.ville, etat: "Opérationnel", maint: false }] : []),
+      ]
+    : [
+        { type: "Ambulance médicalisée", qty: String(h.amb), assign: h.ville, etat: "Opérationnel", maint: false },
+        { type: "VAB sanitaire", qty: String(Math.max(2, Math.round(h.amb / 3))), assign: idx === 1 ? "Zone Al Haouz" : h.ville, etat: "Opérationnel", maint: false },
+        { type: "Hélicoptère médicalisé", qty: String(h.heli), assign: idx === 1 ? "Rotations EVASAN" : h.ville, etat: idx === 3 ? "Maintenance" : "Opérationnel", maint: idx === 3 },
+      ];
 
   const fields: FieldCard[] = fieldHosps
     .filter((f) => f.hid === h.id)

@@ -11,6 +11,7 @@ import { AI_PROVIDERS, AI_DEFAULT_SETTINGS, resolveProvider, type LlmProviderId 
 import { probeProvider, listModels } from "@/lib/ai/provider";
 import { api } from "@/lib/api";
 import type { AuthorityContact, SeismicAlertConfig, SeismicNotification } from "@/lib/types";
+import { DataProfileCard } from "@/app/parametres/_parts/DataProfileCard";
 
 interface AuditRow {
   seq: number;
@@ -41,7 +42,7 @@ export default function ParametresPage() {
   const [chain, setChain] = useState<{ valid: boolean; count: number } | null>(null);
   // Navigation par section (rail à gauche + panneau à droite) plutôt qu'un mur
   // de cartes : on ne voit que la rubrique sélectionnée.
-  const [tab, setTab] = useState<"ai" | "types" | "flags" | "seis" | "audit">("ai");
+  const [tab, setTab] = useState<"ai" | "types" | "flags" | "data" | "seis" | "audit">("ai");
 
   // Synchronise les flags et le journal d'audit avec l'API (si session API).
   const loadAudit = useCallback(async () => {
@@ -139,10 +140,12 @@ export default function ParametresPage() {
     { id: "ai", label: m.settings.ai_title, icon: NAV_ICONS.assistant },
     { id: "types", label: m.settings.types_title, icon: NAV_ICONS.incidents },
     { id: "flags", label: m.settings.flags_title, icon: NAV_ICONS.dashboard },
+    // Profil de données et remise à zéro (ADR 0015) — l'API en est l'autorité.
+    { id: "data", label: t.dp_title, icon: UI_ICONS.sliders, hidden: !apiConnected },
     { id: "seis", label: m.settings.seis_title, icon: NAV_ICONS.seismic, hidden: !apiConnected },
     { id: "audit", label: m.settings.audit_title, icon: NAV_ICONS.reports, hidden: !apiConnected },
   ];
-  const activeTab = (tab === "audit" || tab === "seis") && !apiConnected ? "ai" : tab;
+  const activeTab = (tab === "audit" || tab === "seis" || tab === "data") && !apiConnected ? "ai" : tab;
 
   return (
     <section className="flex flex-col gap-4 animate-fade-in">
@@ -337,6 +340,9 @@ export default function ParametresPage() {
         </div>
       </div>
       )}
+
+      {/* Section : profil de données et remise à zéro (ADR 0015) */}
+      {activeTab === "data" && apiConnected && <DataProfileCard />}
 
       {/* Section : journal d'audit (depuis l'API, chaîné par hash) */}
       {activeTab === "audit" && apiConnected && (

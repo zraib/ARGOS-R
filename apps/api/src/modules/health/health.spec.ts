@@ -27,6 +27,8 @@ describe("Santé — rapport de persistance", () => {
     expect(res.body.persistence.driver).toBe("memory");
     expect(res.body.persistence.modules.audit).toBe("memory");
     expect(res.body.persistence.modules.domain).toBe("memory");
+    // Sous test (NODE_ENV=test), le profil est celui du développement : la démo.
+    expect(res.body.dataProfile).toBe("demo");
   });
 
   it("avec PostgreSQL, trois modules persistent en base et les autres restent en mémoire — et c'est DIT", () => {

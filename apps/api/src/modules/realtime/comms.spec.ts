@@ -44,11 +44,17 @@ describe("COMMS — gardes, présence, pièces jointes", () => {
   // --- les gardes -----------------------------------------------------------
 
   describe("les routes sont GARDÉES", () => {
-    it("un rôle sans `comms:view` ne lit pas le centre", async () => {
-      // `resp_equipment` n'a pas la ligne `comms` : sans garde sur la route,
-      // il lisait toutes les conversations du poste de commandement.
+    it("un rôle à qui le module `comms` est coupé ne lit pas le centre", async () => {
+      // Depuis l'ADR 0015 TOUS les rôles communiquent — plus aucun n'est privé de
+      // la ligne `comms`. La garde se prouve donc par la bascule : le module
+      // coupé pour `resp_equipment`, la route le refuse ; rouvert, elle le sert.
+      // Une route sans garde ignorerait la bascule.
       const t = await jeton("k.idrissi", "resp_equipment");
+      await base().get("/api/comms").set(bearer(t)).expect(200);
+      await base().patch("/api/iam/role-features/resp_equipment").set(bearer(admin)).send({ feature: "comms", enabled: false }).expect(200);
       await base().get("/api/comms").set(bearer(t)).expect(403);
+      await base().post("/api/iam/role-features/resp_equipment/reset").set(bearer(admin)).expect(201);
+      await base().get("/api/comms").set(bearer(t)).expect(200);
     });
 
     it("PARTICIPER : un rôle opérationnel peut prendre la parole", async () => {

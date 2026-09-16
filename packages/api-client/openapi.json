@@ -524,6 +524,7 @@
     },
     "/api/iam/role-features": {
       "get": {
+        "description": "Lisible par tout compte authentifié : le navigateur en a besoin pour masquer ce que l'API refuse déjà. Rien de sensible — quels modules chaque rôle voit. (Avant l'ADR 0015 elle exigeait `users:view`, si bien qu'aucun rôle non administrateur ne la recevait.)",
         "operationId": "UsersController_roleFeatures",
         "parameters": [],
         "responses": {
@@ -536,7 +537,27 @@
             "bearer": []
           }
         ],
-        "summary": "Matrice rôle → fonctionnalités",
+        "summary": "Matrice rôle → modules.",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/iam/role-features/defaults": {
+      "get": {
+        "operationId": "UsersController_defaultRoleFeatures",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Matrice rôle → modules PAR DÉFAUT (dérivée de la matrice RBAC) — ce que « réinitialiser » restaure",
         "tags": [
           "iam"
         ]
@@ -575,7 +596,36 @@
             "bearer": []
           }
         ],
-        "summary": "Activer/désactiver une fonctionnalité pour un rôle (Super Admin)",
+        "summary": "Ouvrir/couper un module pour un rôle (Super Admin) — effectif côté API dès la requête suivante",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/iam/role-features/{role}/reset": {
+      "post": {
+        "operationId": "UsersController_resetRoleFeatures",
+        "parameters": [
+          {
+            "name": "role",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remettre un rôle à ses modules par défaut (Super Admin)",
         "tags": [
           "iam"
         ]
@@ -583,6 +633,7 @@
     },
     "/api/flags": {
       "get": {
+        "description": "Lisible par tout compte authentifié : le navigateur masque les modules coupés, l'API les refuse (ADR 0015). Avant, la route exigeait `settings:view` — un rôle non administrateur ne recevait jamais les drapeaux.",
         "operationId": "FlagsController_all",
         "parameters": [],
         "responses": {
@@ -595,7 +646,7 @@
             "bearer": []
           }
         ],
-        "summary": "Lire la matrice des feature flags",
+        "summary": "Lire la matrice des feature flags.",
         "tags": [
           "flags"
         ]
@@ -634,7 +685,7 @@
             "bearer": []
           }
         ],
-        "summary": "Activer/désactiver un module (Super Admin) — audité",
+        "summary": "Activer/désactiver un module (Super Admin) — audité, effectif côté API dès la requête suivante",
         "tags": [
           "flags"
         ]
@@ -2017,6 +2068,47 @@
         "tags": [
           "domain"
         ]
+      },
+      "delete": {
+        "description": "La matrice n'accorde `teams:delete` à personne : seul le joker du Super Administrateur la détient. Refusé (409) tant que l'unité est engagée sur une opération active ou qu'un compte en a la responsabilité ; `?force=true` passe outre. Son parc et ses postes partent avec elle ; une graine supprimée ne revient pas au redémarrage.",
+        "operationId": "ResourcesController_deleteUnit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "force",
+            "required": false,
+            "in": "query",
+            "description": "Passer outre les garde-fous (engagements, responsables).",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Réservé au Super Administrateur."
+          },
+          "404": {
+            "description": "Unité inconnue."
+          },
+          "409": {
+            "description": "L'unité est encore engagée ou tenue par un compte."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Supprimer définitivement une unité — SUPERADMIN uniquement.",
+        "tags": [
+          "domain"
+        ]
       }
     },
     "/api/shelters": {
@@ -2102,6 +2194,47 @@
           }
         ],
         "summary": "Mettre à jour un abri — un responsable ne peut agir que sur le sien",
+        "tags": [
+          "domain"
+        ]
+      },
+      "delete": {
+        "description": "Refusé (409) tant que l'abri héberge des occupants ou qu'un compte en a la responsabilité ; `?force=true` passe outre. Ses postes sur la carte partent avec lui.",
+        "operationId": "ResourcesController_deleteShelter",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "force",
+            "required": false,
+            "in": "query",
+            "description": "Passer outre les garde-fous (occupants, responsables).",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Réservé au Super Administrateur."
+          },
+          "404": {
+            "description": "Abri inconnu."
+          },
+          "409": {
+            "description": "L'abri héberge encore ou est tenu par un compte."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Fermer définitivement un abri — SUPERADMIN uniquement.",
         "tags": [
           "domain"
         ]
@@ -2337,6 +2470,47 @@
           }
         ],
         "summary": "Mettre à jour un site mortuaire — le sien uniquement",
+        "tags": [
+          "domain"
+        ]
+      },
+      "delete": {
+        "description": "Refusé (409) tant que des corps figurent au registre du site, qu'il est affecté à une opération active ou qu'un compte en a la responsabilité ; `?force=true` passe outre — les dossiers du site partent alors avec lui.",
+        "operationId": "ResourcesController_deleteMorgue",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "force",
+            "required": false,
+            "in": "query",
+            "description": "Passer outre les garde-fous (registre, affectations, responsables).",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Réservé au Super Administrateur."
+          },
+          "404": {
+            "description": "Site inconnu."
+          },
+          "409": {
+            "description": "Le site a encore un registre, une affectation ou un responsable."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Supprimer définitivement un site mortuaire — SUPERADMIN uniquement.",
         "tags": [
           "domain"
         ]
@@ -2709,6 +2883,47 @@
           }
         ],
         "summary": "Mettre à jour un établissement — un responsable ne peut agir que sur le sien",
+        "tags": [
+          "domain"
+        ]
+      },
+      "delete": {
+        "description": "La matrice n'accorde `hospinet:delete` à personne : seul le joker du Super Administrateur la détient. Refusé (409) tant que l'établissement est engagé sur une opération active, porte des morgues rattachées ou des hôpitaux de campagne, ou qu'un compte en a la responsabilité ; `?force=true` passe outre — ses services et ses hôpitaux de campagne partent alors avec lui, les morgues rattachées sont détachées.",
+        "operationId": "HospitalsController_deleteHospital",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "force",
+            "required": false,
+            "in": "query",
+            "description": "Passer outre les garde-fous (engagements, rattachements, responsables).",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Réservé au Super Administrateur."
+          },
+          "404": {
+            "description": "Établissement inconnu."
+          },
+          "409": {
+            "description": "L'établissement est encore engagé, rattaché ou tenu par un compte."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Retirer définitivement un établissement du réseau — SUPERADMIN uniquement.",
         "tags": [
           "domain"
         ]
@@ -3358,6 +3573,58 @@
           }
         ],
         "summary": "Polygone d'inondation de Flood Hub (KML converti en GeoJSON)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/domain/profile": {
+      "get": {
+        "description": "« demo » : le jeu de démonstration est reconstruit au démarrage ; « empty » : seuls restent les référentiels et ce que les opérateurs créent.",
+        "operationId": "AdminController_profile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Profil de données de la station et volume du domaine opérationnel.",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/domain/purge": {
+      "post": {
+        "description": "Retire incidents, unités, abris, morgues, dossiers, victimes, parcs, postes et fil d'événements. Conserve le réseau hospitalier et ses services, les comptes et la base. Les cascades d'incident (missions, déploiements) courent pour chaque incident retiré. Les graines de démonstration ne reviennent pas au redémarrage.",
+        "operationId": "AdminController_purge",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurgeDomainDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Réservé au Super Administrateur, ou mot de passe incorrect."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remettre le domaine à zéro — SUPERADMIN uniquement, mot de passe exigé (step-up).",
         "tags": [
           "domain"
         ]
@@ -5080,45 +5347,31 @@
           "feature": {
             "type": "string",
             "enum": [
-              "dashboard",
-              "dash_incident",
-              "dash_hospital",
-              "dash_shelter",
-              "dash_morgue",
-              "dash_unit",
-              "map",
               "incidents",
-              "subincidents",
-              "victims",
-              "hospinet",
+              "map",
+              "seismic",
+              "dispatch",
+              "triage",
+              "equip",
+              "units",
+              "personnel",
+              "workorders",
+              "hospitals",
+              "ics",
+              "damage",
               "shelters",
               "morgue",
-              "units",
-              "equipment",
-              "teams",
+              "orsec",
+              "plans",
               "comms",
               "reports",
               "analytics",
               "assistant",
-              "users",
-              "settings",
-              "dispatch",
-              "triage",
-              "ics",
-              "damage",
-              "orsec",
-              "plans",
-              "personnel",
-              "workorders",
-              "seismic",
-              "audit",
-              "aviation",
-              "nrbc",
-              "missions",
-              "tracking",
-              "comms_admin",
-              "map_edit"
-            ]
+              "simulation",
+              "trackers",
+              "chemlib"
+            ],
+            "description": "Module à ouvrir ou couper pour le rôle"
           },
           "enabled": {
             "type": "boolean"
@@ -6900,6 +7153,19 @@
           "maMinMag",
           "globalMinMag",
           "contacts"
+        ]
+      },
+      "PurgeDomainDto": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string",
+            "description": "Mot de passe du compte qui agit — la remise à zéro est un geste signé, pas un clic",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "password"
         ]
       },
       "CreateOrderDto": {

@@ -351,5 +351,15 @@ export const EN_DICT: Dict = {
     cl_sheet_failed: "Sheet unreadable — check the link to the IRIS server, then reopen.",
     cl_none_hint: "Try the UN number read on the orange plate (for example 1017), a CAS number, or a common name rather than the regulatory one.",
     cl_capped: "narrow the search or pick a letter",
+    // Empty station (ADR 0015)
+    fam_shelter: "Sheltering", lg_shelters: "Shelters", lg_trackers: "Trackers and shared positions",
+    trk_map_device: "GPS device", trk_map_app: "Shared position", trk_map_stale: "Silent", trk_map_live: "Transmitting", trk_map_panic: "ALERT", trk_speed: "Speed", trk_heading: "Heading",
+    del_unit: "Delete the unit", del_shelter: "Delete the shelter", del_morgue: "Delete the site", del_hospital: "Remove the facility",
+    del_confirm_title: "Permanent deletion", del_confirm_body: "This cannot be undone: {name} will disappear with everything that depends on it (equipment, posts, records). Confirm?",
+    del_confirm_force: "The entity is held back: {blockers}. Override and delete anyway?", del_blocked: "Deletion refused", del_entity_done: "{name} deleted", del_forbidden: "Super Administrator only.", del_code_help_entity: "To confirm, retype the identifier:", del_code_bad_entity: "The code does not match the identifier.",
+    dp_title: "Data profile", dp_hint: "“Demonstration” rebuilds the sample set at startup; “Empty station” keeps only reference data (hospital network, geography) and what operators create.",
+    dp_profile_demo: "Demonstration", dp_profile_empty: "Empty station", dp_seeded_left: "Demonstration entities still present", dp_counts: "Domain volume",
+    dp_purge: "Reset the domain", dp_purge_hint: "Removes incidents, units, shelters, morgues, records, victims, equipment, posts and feed. Keeps the hospital network, the accounts and the database. Irreversible.",
+    dp_purge_confirm: "Reset now", dp_purge_password: "Your password (signature)", dp_purge_done: "Domain reset — {removed} items removed", dp_purge_failed: "Reset refused",
     cl_first_aid: "First aid", cl_fire_fight: "Firefighting", cl_non_fire: "Non-fire response", cl_special: "Special hazards", cl_isolation_advice: "Isolation and evacuation", cl_idlh: "IDLH", cl_flash: "Flash point",
   };

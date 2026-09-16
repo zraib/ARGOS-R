@@ -170,6 +170,7 @@ calcule sur les tuiles d'altitude de la station et reste disponible.
 | --- | --- |
 | Mettre à jour après un `git pull` | `docker compose up -d --build` |
 | Mettre à jour depuis un nouveau paquet | remplacer `images\` puis `.\scripts\install.ps1` (le `.env` est conservé) |
+| Passer la station en démonstration / la remettre vide | `.env` : `DATA_PROFILE=demo` ou `empty`, puis `docker compose up -d api` (§ 6 bis, ADR 0015) |
 | Montrer la station à distance, le temps d'une démonstration | `.\scripts\tunnel.ps1` (§ 10, ADR 0013) |
 | Joindre la station depuis le réseau ou Internet, en HTTPS | `.env` : `COMPOSE_FILE=…compose.https.yml` ou `…compose.letsencrypt.yml`, puis `docker compose up -d` (§ 11) |
 | Journaux | `docker compose logs -f api` (ou `web`, `tiles`, `routing`, `proxy`) |
@@ -177,6 +178,33 @@ calcule sur les tuiles d'altitude de la station et reste disponible.
 | Restaurer | `.\scripts\restore.ps1 -Stamp 20260914-103000 -Source D:\sauvegardes\iris` |
 | Arrêter / redémarrer (les données restent) | `docker compose down` / `docker compose up -d` |
 | **Tout effacer**, données comprises | `docker compose down -v` |
+
+## 6 bis. Profil de données : station vide ou démonstration
+
+La station démarre **vide** (`DATA_PROFILE=empty`, défaut du `.env.example`) :
+aucun incident, aucune unité, aucun abri, aucune morgue ni dossier, aucun
+convoi animé ni aéronef fictif, un seul canal « général ». Seuls restent les
+référentiels — le réseau hospitalier (113 établissements, à compléter ou à
+élaguer depuis Hospinet), la géographie, les types d'incident, les substances
+— et **ce que les opérateurs créent** : une unité, un abri ou une morgue
+déployés apparaissent sur la carte à la position saisie ; un boîtier GPS qui
+émet ou un compte qui partage sa position depuis l'application y apparaissent
+aussi (couche « Traceurs et positions partagées »).
+
+- `DATA_PROFILE=demo` reconstruit le jeu de démonstration au démarrage (poste
+  de formation). Repasser en `empty` élague les graines et **garde** ce que
+  les opérateurs ont créé, les comptes et la base.
+- *Paramètres › Profil de données* montre le profil servi, le volume du domaine,
+  et offre au Super Administrateur la **remise à zéro** signée par son mot de
+  passe : tout le domaine opérationnel part, le réseau hospitalier, les comptes
+  et la base restent.
+- Les suppressions d'unité, d'abri, de morgue et d'hôpital sont réservées au
+  Super Administrateur (bouton sur la fiche) ; l'API refuse tant que l'entité
+  est engagée, occupée, tenue par un compte ou porte des corps au registre, et
+  dit pourquoi — l'opérateur passe outre en connaissance de cause.
+- Les bascules d'administration sont **effectives côté API** : un module coupé
+  dans *Paramètres › Modules* l'est pour tous ; un module coupé pour un rôle
+  dans *Utilisateurs › Rôles* lui est refusé, pas seulement masqué (ADR 0015).
 
 ## 7. Ce qui est persisté, et où
 

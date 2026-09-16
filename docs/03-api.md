@@ -45,8 +45,10 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | --- | --- | --- | --- |
 | `GET` | `/api/iam/me` | authentifié (soi-même) | Profil de l'utilisateur courant + permissions résolues |
 | `GET` | `/api/iam/permissions` | `users:view` | Catalogue des permissions |
-| `GET` | `/api/iam/role-features` | `users:view` | Matrice rôle → fonctionnalités |
-| `PATCH` | `/api/iam/role-features/{role}` | `users:update` | Activer/désactiver une fonctionnalité pour un rôle (Super Admin) |
+| `GET` | `/api/iam/role-features` | authentifié (soi-même) | Matrice rôle → modules. |
+| `PATCH` | `/api/iam/role-features/{role}` | `users:update` | Ouvrir/couper un module pour un rôle (Super Admin) — effectif côté API dès la requête suivante |
+| `POST` | `/api/iam/role-features/{role}/reset` | `users:update` | Remettre un rôle à ses modules par défaut (Super Admin) |
+| `GET` | `/api/iam/role-features/defaults` | authentifié (soi-même) | Matrice rôle → modules PAR DÉFAUT (dérivée de la matrice RBAC) — ce que « réinitialiser » restaure |
 | `GET` | `/api/iam/roles` | `users:view` | Catalogue des rôles et de leurs permissions |
 | `GET` | `/api/iam/users` | `users:view` | Lister les utilisateurs (Admin/Super Admin) |
 | `POST` | `/api/iam/users` | `users:create` | Créer un utilisateur (règles d'attribution appliquées côté serveur) |
@@ -60,8 +62,8 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 
 | Méthode | Route | Accès | Rôle |
 | --- | --- | --- | --- |
-| `GET` | `/api/flags` | `settings:view` | Lire la matrice des feature flags |
-| `PATCH` | `/api/flags/{key}` | `settings:update` | Activer/désactiver un module (Super Admin) — audité |
+| `GET` | `/api/flags` | authentifié (soi-même) | Lire la matrice des feature flags. |
+| `PATCH` | `/api/flags/{key}` | `settings:update` | Activer/désactiver un module (Super Admin) — audité, effectif côté API dès la requête suivante |
 
 ## Audit — `/api/audit`
 
@@ -96,6 +98,8 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `GET` | `/api/deployable-posts` | `incidents:update` | Comptes déployables, avec leur affectation courante. |
 | `GET` | `/api/dispatch/movements` | `dispatch:view` | Mouvements de transport en cours |
 | `GET` | `/api/dispatch/queue` | `dispatch:view` | File de dispatching (besoins entrants) |
+| `GET` | `/api/domain/profile` | `settings:view` | Profil de données de la station et volume du domaine opérationnel. |
+| `POST` | `/api/domain/purge` | `settings:delete` | Remettre le domaine à zéro — SUPERADMIN uniquement, mot de passe exigé (step-up). |
 | `GET` | `/api/equipment-parks/{id}/items` | `equipment:view` | Parc d'équipement d'une unité |
 | `POST` | `/api/equipment-parks/{id}/items` | `equipment:create` | Ajouter un article — dans SON parc uniquement |
 | `DELETE` | `/api/equipment-parks/{id}/items/{eid}` | `equipment:archive` | Sortir un article du parc — dans SON parc uniquement |
@@ -108,6 +112,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `GET` | `/api/floods/status` | `seismic:view` | État du flux des crues (clé configurée, dernière relecture, dégradation, attribution) |
 | `GET` | `/api/hospitals` | `hospinet:view` | Liste des hôpitaux |
 | `POST` | `/api/hospitals` | `hospinet:create` | Créer un hôpital (audité) |
+| `DELETE` | `/api/hospitals/{id}` | `hospinet:delete` | Retirer définitivement un établissement du réseau — SUPERADMIN uniquement. |
 | `PATCH` | `/api/hospitals/{id}` | `hospinet:update` | Mettre à jour un établissement — un responsable ne peut agir que sur le sien |
 | `POST` | `/api/hospitals/{id}/deceased` | `hospinet:update` | Décès en établissement : annoncer le transfert du corps vers un site mortuaire — depuis SON établissement uniquement |
 | `GET` | `/api/hospitals/{id}/wards` | `hospinet:view` | Services de soins d'un établissement |
@@ -135,6 +140,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `POST` | `/api/incidents/{id}/victims/{vid}/morgue` | `victims:update` | Affecter un décédé à une morgue : le dossier s'ouvre là-bas, réception à confirmer — dans son périmètre |
 | `GET` | `/api/morgues` | `morgue:view` | Sites mortuaires |
 | `POST` | `/api/morgues` | `morgue:create` | Créer un site mortuaire fixe — de ville ou régional, rattaché à un établissement |
+| `DELETE` | `/api/morgues/{id}` | `morgue:delete` | Supprimer définitivement un site mortuaire — SUPERADMIN uniquement. |
 | `PATCH` | `/api/morgues/{id}` | `morgue:update` | Mettre à jour un site mortuaire — le sien uniquement |
 | `POST` | `/api/morgues/{id}/recall` | `morgue:update` | Replier une morgue mobile — vide de tout corps |
 | `GET` | `/api/morgues/{id}/records` | `morgue:view` | Registre d'identification d'un site mortuaire |
@@ -152,6 +158,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `GET` | `/api/seismic/notifications` | `seismic:view` | Historique des notifications SMS/e-mail envoyées aux autorités |
 | `GET` | `/api/shelters` | `shelters:view` | Liste des abris d'hébergement |
 | `POST` | `/api/shelters` | `shelters:create` | Ouvrir un abri (audité). |
+| `DELETE` | `/api/shelters/{id}` | `shelters:delete` | Fermer définitivement un abri — SUPERADMIN uniquement. |
 | `PATCH` | `/api/shelters/{id}` | `shelters:update` | Mettre à jour un abri — un responsable ne peut agir que sur le sien |
 | `GET` | `/api/sitreps` | `missions:view` | Comptes rendus de situation, du plus récent au plus ancien. |
 | `POST` | `/api/sitreps` | `missions:create` | Publier un compte rendu — IMMUABLE et numéroté une fois publié. |
@@ -159,6 +166,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `GET` | `/api/sub-incident-types` | `subincidents:view` | Catalogue des sous-types + mapping par type d'incident principal |
 | `GET` | `/api/units` | `teams:view` | Liste des unités visibles. |
 | `POST` | `/api/units` | `teams:create` | Créer une unité (audité) |
+| `DELETE` | `/api/units/{id}` | `teams:delete` | Supprimer définitivement une unité — SUPERADMIN uniquement. |
 | `PATCH` | `/api/units/{id}` | `units:update` | Mettre à jour une unité — un responsable ne peut agir que sur la sienne |
 | `GET` | `/api/weather/cities` | `seismic:view` | Villes disponibles pour la météo |
 | `GET` | `/api/weather/forecast` | `seismic:view` | Prévisions météo (Open-Meteo, proxy souverain) pour lat/lon |
@@ -254,7 +262,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 ## Chiffres
 
-124 chemins · 155 opérations · 13 groupes.
+128 chemins · 163 opérations · 13 groupes.
 
 ## Modifier le contrat
 

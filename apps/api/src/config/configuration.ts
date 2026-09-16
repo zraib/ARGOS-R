@@ -1,4 +1,6 @@
 // Configuration typée chargée depuis l'environnement (12-factor).
+import { resolveDataProfile, type DataProfile } from "@/common/data-profile";
+
 export type AuthMode = "keycloak" | "dev";
 export type DbDriver = "memory" | "postgres";
 
@@ -13,6 +15,8 @@ export interface AppConfig {
   databaseUrl: string;
   /** Clé de la Google Flood Forecasting API (Flood Hub) ; vide = flux des crues indisponible (ADR 0010). */
   floodApiKey: string;
+  /** Profil de données : `demo` (jeu de démonstration) ou `empty` (référentiels seuls) — ADR 0015. */
+  dataProfile: DataProfile;
 }
 
 export default function configuration(): AppConfig {
@@ -38,5 +42,7 @@ export default function configuration(): AppConfig {
     databaseUrl: process.env.DATABASE_URL ?? "postgres://argos:change-me-strong@localhost:5432/argos",
     // Crues : la clé n'est jamais servie au navigateur — l'appel part de l'API.
     floodApiKey: process.env.FLOOD_API_KEY ?? "",
+    // Absent : vide en production, démo en développement (common/data-profile).
+    dataProfile: resolveDataProfile(process.env),
   };
 }

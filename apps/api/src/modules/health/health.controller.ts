@@ -35,6 +35,8 @@ export class HealthController {
       ts: new Date().toISOString(),
       uptime: Math.round(process.uptime()),
       persistence: persistenceReport(this.config.get("dbDriver", { infer: true })),
+      // Profil de données (ADR 0015) : une station en service répond `empty`.
+      dataProfile: this.config.get("dataProfile", { infer: true }),
     };
   }
 }

@@ -1036,3 +1036,12 @@ export class UpdateVictimDto extends IdentityDto {
 export class AssignMorgueDto {
   @ApiProperty({ example: "M1" }) @IsString() @MinLength(1) mid!: string;
 }
+
+// --- Administration du domaine (ADR 0015) ------------------------------------
+
+/** Purge du domaine : signée par le mot de passe du Super Administrateur. */
+export class PurgeDomainDto {
+  @ApiProperty({ description: "Mot de passe du compte qui agit — la remise à zéro est un geste signé, pas un clic", maxLength: 200 })
+  @IsString() @MinLength(1) @MaxLength(200)
+  password!: string;
+}

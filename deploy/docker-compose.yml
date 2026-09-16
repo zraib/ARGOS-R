@@ -107,7 +107,15 @@ services:
       STATE_SNAPSHOT: "on"
       DEV_DATA_DIR: /data
       ARGOS_ATTACHMENTS_DIR: /data/attachments
-      # Flux externes (réseau sortant requis) : exercise = noria simulée sans réseau.
+      # Profil de données (ADR 0015) : empty = station en service, rien de
+      # simulé (seuls restent le réseau hospitalier, la géographie et ce que
+      # les opérateurs créent) ; demo = jeu de démonstration reconstruit au
+      # démarrage. Passer de demo à empty élague les graines et GARDE ce que
+      # les opérateurs ont créé, les comptes et la base.
+      DATA_PROFILE: ${DATA_PROFILE:-empty}
+      # Flux externes (réseau sortant requis) : exercise = noria simulée sans
+      # réseau — honorée en profil demo seulement, une station vide ne fait
+      # voler aucun appareil fictif.
       AVIATION_FEED: ${AVIATION_FEED:-exercise}
       # Crues : clé Google Flood Hub, jamais servie au navigateur (vide = flux indisponible).
       FLOOD_API_KEY: ${FLOOD_API_KEY:-}

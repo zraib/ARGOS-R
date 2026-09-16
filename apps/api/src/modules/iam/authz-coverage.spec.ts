@@ -57,6 +57,12 @@ describe("couverture des gardes", () => {
       "iam/auth.controller.ts : POST select-role → selectRole",
       "iam/auth.controller.ts : POST change-password → changePassword",
       "domain/http/dashboard.controller.ts : GET reference → reference",
+      // Bascules d'administration (ADR 0015) : tout compte lit les drapeaux et la
+      // matrice rôle → modules pour MASQUER ce que l'API refuse déjà. Rien de
+      // sensible : quels modules sont ouverts, à qui.
+      "flags/flags.controller.ts : GET  → all",
+      "iam/users.controller.ts : GET role-features → roleFeatures",
+      "iam/users.controller.ts : GET role-features/defaults → defaultRoleFeatures",
       // Partage de position par l'application (ADR 0008, révision) : un compte ne
       // lit et ne verse que SON partage — la propriété est vérifiée par le service.
       "tracking/http/tracking.controller.ts : GET trackers/mine → mine",

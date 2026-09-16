@@ -148,6 +148,9 @@ $mapMode = "external"
 $mapLine = Get-Content $envFile | Where-Object { $_ -match "^\s*MAP_TILES=(\w+)" } | Select-Object -Last 1
 if ($mapLine -and $mapLine -match "^\s*MAP_TILES=(\w+)") { $mapMode = $Matches[1] }
 $mapHint = if ($mapMode -eq "sovereign") { "souverain (hors ligne) — préparer les tuiles : GUIDE-DEBUTANT-WINDOWS.md, étape 6" } else { "externe (Esri/Maxar, OpenStreetMap, relief en ligne — Internet requis sur les postes)" }
+# Profil de données (ADR 0015) : vide en service, démonstration pour former.
+$dataProfile = Get-EnvValue $envFile "DATA_PROFILE" "empty"
+$profileHint = if ($dataProfile -eq "demo") { "démonstration (jeu d'exemple reconstruit au démarrage) — DATA_PROFILE=empty pour la mise en service" } else { "station vide (rien de simulé ; réseau hospitalier et géographie seulement)" }
 
 if ($NoStart) {
   Write-Host "`nImages et réglages prêts. Pour démarrer :  docker compose up -d   (puis $url)"
@@ -181,6 +184,7 @@ Write-Host @"
   Compte fondateur      :  m.zraib  /  code temporaire ARGOS-2026  (à changer à la première connexion)
   État de la station    :  .\scripts\status.ps1
   Fond de carte         :  $mapHint
+  Profil de données     :  $profileHint   (README § 6 bis)
   Démonstration à distance (tunnel, ADR 0013) :  .\scripts\tunnel.ps1
 
 "@

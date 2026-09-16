@@ -303,8 +303,28 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Matrice rôle → fonctionnalités */
+        /**
+         * Matrice rôle → modules.
+         * @description Lisible par tout compte authentifié : le navigateur en a besoin pour masquer ce que l'API refuse déjà. Rien de sensible — quels modules chaque rôle voit. (Avant l'ADR 0015 elle exigeait `users:view`, si bien qu'aucun rôle non administrateur ne la recevait.)
+         */
         get: operations["UsersController_roleFeatures"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/iam/role-features/defaults": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Matrice rôle → modules PAR DÉFAUT (dérivée de la matrice RBAC) — ce que « réinitialiser » restaure */
+        get: operations["UsersController_defaultRoleFeatures"];
         put?: never;
         post?: never;
         delete?: never;
@@ -326,8 +346,25 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Activer/désactiver une fonctionnalité pour un rôle (Super Admin) */
+        /** Ouvrir/couper un module pour un rôle (Super Admin) — effectif côté API dès la requête suivante */
         patch: operations["UsersController_setRoleFeature"];
+        trace?: never;
+    };
+    "/api/iam/role-features/{role}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remettre un rôle à ses modules par défaut (Super Admin) */
+        post: operations["UsersController_resetRoleFeatures"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/flags": {
@@ -337,7 +374,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Lire la matrice des feature flags */
+        /**
+         * Lire la matrice des feature flags.
+         * @description Lisible par tout compte authentifié : le navigateur masque les modules coupés, l'API les refuse (ADR 0015). Avant, la route exigeait `settings:view` — un rôle non administrateur ne recevait jamais les drapeaux.
+         */
         get: operations["FlagsController_all"];
         put?: never;
         post?: never;
@@ -360,7 +400,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Activer/désactiver un module (Super Admin) — audité */
+        /** Activer/désactiver un module (Super Admin) — audité, effectif côté API dès la requête suivante */
         patch: operations["FlagsController_toggle"];
         trace?: never;
     };
@@ -989,7 +1029,11 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Supprimer définitivement une unité — SUPERADMIN uniquement.
+         * @description La matrice n'accorde `teams:delete` à personne : seul le joker du Super Administrateur la détient. Refusé (409) tant que l'unité est engagée sur une opération active ou qu'un compte en a la responsabilité ; `?force=true` passe outre. Son parc et ses postes partent avec elle ; une graine supprimée ne revient pas au redémarrage.
+         */
+        delete: operations["ResourcesController_deleteUnit"];
         options?: never;
         head?: never;
         /** Mettre à jour une unité — un responsable ne peut agir que sur la sienne */
@@ -1027,7 +1071,11 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Fermer définitivement un abri — SUPERADMIN uniquement.
+         * @description Refusé (409) tant que l'abri héberge des occupants ou qu'un compte en a la responsabilité ; `?force=true` passe outre. Ses postes sur la carte partent avec lui.
+         */
+        delete: operations["ResourcesController_deleteShelter"];
         options?: never;
         head?: never;
         /** Mettre à jour un abri — un responsable ne peut agir que sur le sien */
@@ -1098,7 +1146,11 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Supprimer définitivement un site mortuaire — SUPERADMIN uniquement.
+         * @description Refusé (409) tant que des corps figurent au registre du site, qu'il est affecté à une opération active ou qu'un compte en a la responsabilité ; `?force=true` passe outre — les dossiers du site partent alors avec lui.
+         */
+        delete: operations["ResourcesController_deleteMorgue"];
         options?: never;
         head?: never;
         /** Mettre à jour un site mortuaire — le sien uniquement */
@@ -1253,7 +1305,11 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Retirer définitivement un établissement du réseau — SUPERADMIN uniquement.
+         * @description La matrice n'accorde `hospinet:delete` à personne : seul le joker du Super Administrateur la détient. Refusé (409) tant que l'établissement est engagé sur une opération active, porte des morgues rattachées ou des hôpitaux de campagne, ou qu'un compte en a la responsabilité ; `?force=true` passe outre — ses services et ses hôpitaux de campagne partent alors avec lui, les morgues rattachées sont détachées.
+         */
+        delete: operations["HospitalsController_deleteHospital"];
         options?: never;
         head?: never;
         /** Mettre à jour un établissement — un responsable ne peut agir que sur le sien */
@@ -1637,6 +1693,46 @@ export interface paths {
         get: operations["EnvironmentController_floodPolygon"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domain/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Profil de données de la station et volume du domaine opérationnel.
+         * @description « demo » : le jeu de démonstration est reconstruit au démarrage ; « empty » : seuls restent les référentiels et ce que les opérateurs créent.
+         */
+        get: operations["AdminController_profile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domain/purge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remettre le domaine à zéro — SUPERADMIN uniquement, mot de passe exigé (step-up).
+         * @description Retire incidents, unités, abris, morgues, dossiers, victimes, parcs, postes et fil d'événements. Conserve le réseau hospitalier et ses services, les comptes et la base. Les cascades d'incident (missions, déploiements) courent pour chaque incident retiré. Les graines de démonstration ne reviennent pas au redémarrage.
+         */
+        post: operations["AdminController_purge"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2386,8 +2482,11 @@ export interface components {
             active: boolean;
         };
         ToggleRoleFeatureDto: {
-            /** @enum {string} */
-            feature: "dashboard" | "dash_incident" | "dash_hospital" | "dash_shelter" | "dash_morgue" | "dash_unit" | "map" | "incidents" | "subincidents" | "victims" | "hospinet" | "shelters" | "morgue" | "units" | "equipment" | "teams" | "comms" | "reports" | "analytics" | "assistant" | "users" | "settings" | "dispatch" | "triage" | "ics" | "damage" | "orsec" | "plans" | "personnel" | "workorders" | "seismic" | "audit" | "aviation" | "nrbc" | "missions" | "tracking" | "comms_admin" | "map_edit";
+            /**
+             * @description Module à ouvrir ou couper pour le rôle
+             * @enum {string}
+             */
+            feature: "incidents" | "map" | "seismic" | "dispatch" | "triage" | "equip" | "units" | "personnel" | "workorders" | "hospitals" | "ics" | "damage" | "shelters" | "morgue" | "orsec" | "plans" | "comms" | "reports" | "analytics" | "assistant" | "simulation" | "trackers" | "chemlib";
             enabled: boolean;
         };
         ToggleFlagDto: {
@@ -3086,6 +3185,10 @@ export interface components {
             globalMinMag: number;
             contacts: components["schemas"]["AuthorityContactDto"][];
         };
+        PurgeDomainDto: {
+            /** @description Mot de passe du compte qui agit — la remise à zéro est un geste signé, pas un clic */
+            password: string;
+        };
         CreateOrderDto: {
             /** @example Rétablir l'accès RP2010 (déblaiement) */
             subject: string;
@@ -3733,6 +3836,23 @@ export interface operations {
             };
         };
     };
+    UsersController_defaultRoleFeatures: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     UsersController_setRoleFeature: {
         parameters: {
             query?: never;
@@ -3749,6 +3869,25 @@ export interface operations {
         };
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UsersController_resetRoleFeatures: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4716,6 +4855,43 @@ export interface operations {
             };
         };
     };
+    ResourcesController_deleteUnit: {
+        parameters: {
+            query?: {
+                /** @description Passer outre les garde-fous (engagements, responsables). */
+                force?: unknown;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Réservé au Super Administrateur. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unité inconnue. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description L'unité est encore engagée ou tenue par un compte. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     ResourcesController_updateUnit: {
         parameters: {
             query?: never;
@@ -4770,6 +4946,43 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_deleteShelter: {
+        parameters: {
+            query?: {
+                /** @description Passer outre les garde-fous (occupants, responsables). */
+                force?: unknown;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Réservé au Super Administrateur. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Abri inconnu. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description L'abri héberge encore ou est tenu par un compte. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4917,6 +5130,43 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesController_deleteMorgue: {
+        parameters: {
+            query?: {
+                /** @description Passer outre les garde-fous (registre, affectations, responsables). */
+                force?: unknown;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Réservé au Super Administrateur. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Site inconnu. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Le site a encore un registre, une affectation ou un responsable. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5148,6 +5398,43 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HospitalsController_deleteHospital: {
+        parameters: {
+            query?: {
+                /** @description Passer outre les garde-fous (engagements, rattachements, responsables). */
+                force?: unknown;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Réservé au Super Administrateur. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Établissement inconnu. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description L'établissement est encore engagé, rattaché ou tenu par un compte. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5634,6 +5921,45 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminController_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminController_purge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurgeDomainDto"];
+            };
+        };
+        responses: {
+            /** @description Réservé au Super Administrateur, ou mot de passe incorrect. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

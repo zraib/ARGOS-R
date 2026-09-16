@@ -162,6 +162,10 @@ export interface LayerState {
   missions: boolean;
   /** Sites mortuaires fixes et morgues mobiles déployées. */
   morgues: boolean;
+  /** Abris d'hébergement qui portent une position. */
+  shelters: boolean;
+  /** Traceurs GPS (boîtiers) et positions partagées par l'application. */
+  trackers: boolean;
 }
 
 export interface NavGroups {

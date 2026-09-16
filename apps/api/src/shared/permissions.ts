@@ -222,10 +222,13 @@ const MATRIX: Record<(typeof MATRIX_FEATURES)[number], Partial<Record<Role, Cell
     admin: ALL, strategic: V, place_arme: V, wali: V, opcom: V, tacom: V,
     bluecell: V, greencell: V, orangecell: V, resp_unit: V,
   },
+  // Lecture étendue à `resp_morgue` et `resp_equipment` (ADR 0015) : sur une
+  // station en service, ce qu'un responsable déploie doit lui apparaître sur la
+  // carte — un site mortuaire ou un parc sans carte n'est pas exploitable.
   map: {
     admin: ALL, strategic: V, place_arme: V, wali: V, opcom: V, tacom: V,
     bluecell: V, greencell: V, orangecell: V,
-    resp_hospital: V, resp_shelter: V, resp_unit: V,
+    resp_hospital: V, resp_shelter: V, resp_unit: V, resp_morgue: V, resp_equipment: V,
   },
   // Lecture élargie au lot V-1 : `strategic`, `wali` et `place_arme` étaient
   // ABSENTS de cette ligne — ils recevaient donc 403 sur la liste des incidents,
@@ -291,10 +294,12 @@ const MATRIX: Record<(typeof MATRIX_FEATURES)[number], Partial<Record<Role, Cell
     // d'armes n'aurait jamais été atteint — la requête échouait avant.
     strategic: V, wali: V, place_arme: V,
   },
+  // TOUS les rôles communiquent (ADR 0015) : `resp_equipment` manquait à la
+  // ligne — un responsable de parc ne pouvait ni lire ni écrire dans un canal.
   comms: {
     admin: ALL, strategic: VM, place_arme: VM, wali: VM, opcom: VM, tacom: VM,
     bluecell: VM, greencell: VM, orangecell: VM,
-    resp_hospital: VM, resp_shelter: VM, resp_morgue: VM, resp_unit: VM,
+    resp_hospital: VM, resp_shelter: VM, resp_morgue: VM, resp_unit: VM, resp_equipment: VM,
   },
   reports: {
     admin: ALL, strategic: V, place_arme: V, wali: V, opcom: ALL, tacom: VM,
@@ -345,9 +350,12 @@ const LEGACY: Record<(typeof LEGACY_FEATURES)[number], Partial<Record<Role, Cell
   // Super Administrateur la détient, l'archivage restant le geste par défaut
   // puisqu'il conserve la trace passée du moyen.
   // Dotation provisoire, à confirmer lors de l'arbitrage de la matrice.
+  // Lecture ouverte aux responsables (ADR 0015) : une position partagée par
+  // l'application doit apparaître sur la carte de quiconque la voit.
   tracking: {
     admin: ALL, opcom: AMV, tacom: AMV,
     strategic: V, place_arme: V, wali: V, bluecell: V, greencell: V, orangecell: V,
+    resp_hospital: V, resp_shelter: V, resp_morgue: V, resp_unit: V, resp_equipment: V,
   },
   // Administration des canaux — ligne SÉPARÉE de `comms`, et c'est le point.
   // `comms` accorde `VM` à tous les rôles : chacun doit pouvoir lire, écrire et
@@ -463,23 +471,108 @@ export function canAssignMultipleRoles(creator: Role): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Matrice rôle → fonctionnalités (modules visibles dans la navigation).
-// Dérivée du droit de VISUALISER : un rôle voit un module s'il peut le lire.
-// Reste pilotable par le Super Administrateur depuis l'écran Utilisateurs.
+// Modules : ce que l'administrateur BASCULE (ADR 0015).
+//
+// Deux vocabulaires cohabitent, à dessein :
+//   - la FONCTIONNALITÉ (`Feature`) est le grain du RBAC — `hospinet:update`,
+//     `victims:view`… — c'est ce que la garde vérifie sur chaque route ;
+//   - le MODULE (`ModuleKey`) est le grain de l'administration — « Hospinet »,
+//     « Incidents »… — c'est ce que coupe un drapeau global (Paramètres) ou la
+//     matrice rôle → modules (Utilisateurs › Rôles). Ses clés sont celles de la
+//     navigation du web, pour qu'un même mot désigne la même chose des deux côtés.
+// `FEATURE_MODULE` relie les deux : couper un module coupe TOUTES ses
+// fonctionnalités, côté serveur — le masquage du web n'est qu'un reflet.
 // ---------------------------------------------------------------------------
 
-export const MODULE_FEATURES = FEATURES;
-export type ModuleFeature = Feature;
+export const MODULE_KEYS = [
+  "incidents", "map", "seismic", "dispatch", "triage",
+  "equip", "units", "personnel", "workorders",
+  "hospitals", "ics", "damage", "shelters", "morgue",
+  "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation",
+  "trackers", "chemlib",
+] as const;
+export type ModuleKey = (typeof MODULE_KEYS)[number];
 
-/** Fonctionnalités visibles par défaut pour chaque rôle (droit `view`). */
-export const DEFAULT_ROLE_FEATURES: Record<Role, Record<string, boolean>> = Object.fromEntries(
+/**
+ * Module qui porte chaque fonctionnalité. `null` : cœur toujours actif — le
+ * tableau de bord, les comptes, les paramètres, l'audit et les boucles
+ * opérationnelles ne se coupent ni globalement ni par rôle (sinon plus personne
+ * ne pourrait rallumer quoi que ce soit).
+ */
+export const FEATURE_MODULE: Record<Feature, ModuleKey | null> = {
+  dashboard: null,
+  dash_incident: "incidents",
+  dash_hospital: "hospitals",
+  dash_shelter: "shelters",
+  dash_morgue: "morgue",
+  dash_unit: "units",
+  map: "map",
+  incidents: "incidents",
+  subincidents: "incidents",
+  victims: "incidents",
+  hospinet: "hospitals",
+  shelters: "shelters",
+  morgue: "morgue",
+  units: "units",
+  equipment: "equip",
+  teams: "units",
+  comms: "comms",
+  reports: "reports",
+  analytics: "analytics",
+  assistant: "assistant",
+  users: null,
+  settings: null,
+  dispatch: "dispatch",
+  triage: "triage",
+  ics: "ics",
+  damage: "damage",
+  orsec: "orsec",
+  plans: "plans",
+  personnel: "personnel",
+  workorders: "workorders",
+  seismic: "seismic",
+  audit: null,
+  aviation: "map",
+  nrbc: "chemlib",
+  missions: null,
+  tracking: "trackers",
+  comms_admin: "comms",
+  map_edit: "map",
+};
+
+/** Module d'une permission `fonctionnalité:action` ; `null` pour le cœur. */
+export function moduleOfPermission(perm: Permission): ModuleKey | null {
+  return FEATURE_MODULE[perm.split(":")[0] as Feature];
+}
+
+export function isModuleKey(v: unknown): v is ModuleKey {
+  return typeof v === "string" && (MODULE_KEYS as readonly string[]).includes(v);
+}
+
+/** Ce que la matrice rôle → modules bascule : les modules. (Nom historique conservé.) */
+export const MODULE_FEATURES = MODULE_KEYS;
+export type ModuleFeature = ModuleKey;
+
+/**
+ * Modules ouverts par défaut à chaque rôle : un module est ouvert dès que le
+ * rôle peut VISUALISER l'une de ses fonctionnalités. Un module sans
+ * fonctionnalité RBAC (la simulation, écran d'exercice) est ouvert à tous —
+ * la matrice ne dit rien contre. Reste pilotable par le Super Administrateur
+ * depuis l'écran Utilisateurs.
+ */
+export const DEFAULT_ROLE_FEATURES: Record<Role, Record<ModuleKey, boolean>> = Object.fromEntries(
   ROLES.map((role) => [
     role,
-    Object.fromEntries(FEATURES.map((f) => [f, roleHasPermission(role, `${f}:view`)])),
+    Object.fromEntries(
+      MODULE_KEYS.map((m) => {
+        const feats = FEATURES.filter((f) => FEATURE_MODULE[f] === m);
+        return [m, feats.length === 0 || feats.some((f) => roleHasPermission(role, `${f}:view`))];
+      }),
+    ),
   ]),
-) as Record<Role, Record<string, boolean>>;
+) as Record<Role, Record<ModuleKey, boolean>>;
 
 /** Copie profonde des défauts (état initial modifiable). */
-export function defaultRoleFeatures(): Record<Role, Record<string, boolean>> {
+export function defaultRoleFeatures(): Record<Role, Record<ModuleKey, boolean>> {
   return structuredClone(DEFAULT_ROLE_FEATURES);
 }

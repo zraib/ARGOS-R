@@ -2,71 +2,34 @@
 // components/map/layers/morgues.ts — les sites mortuaires sur la carte
 //
 // Un point par site : ardoise pour un site fixe, ambre pour une morgue mobile
-// déployée (un site repliée ne se montre pas), rouge sombre quand il est
-// plein ; son nom apparaît au survol. Un clic ouvre sa fiche dans le panneau
-// de sélection. Pas de couche « symbol » pour le nom : le style de la carte
-// n'a pas de serveur de glyphes (ni en fond externe, ni sans les polices du
-// mode souverain) et MapLibre rejetterait la couche — une infobulle DOM
-// suffit et marche partout. Idempotent : `setupStyle` rejoue tout après un
-// changement de fond.
+// déployée (un site replié ne se montre pas), rouge sombre quand il est
+// plein ; son nom au survol, sa fiche au clic. Habillage de la couche de
+// points générique (`points.ts`).
 // ============================================================================
 
-import maplibregl from "maplibre-gl";
-import { useArgos } from "@/lib/store";
+import type maplibregl from "maplibre-gl";
 import type { MorgueSite } from "@/lib/types";
-
-const VIDE: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+import { applyPoints, hasLL, setupPointLayers } from "./points";
 
 export function setupMorgueLayers(map: maplibregl.Map): void {
-  if (map.getSource("morgues")) return;
-  map.addSource("morgues", { type: "geojson", data: VIDE });
-  map.addLayer({
-    id: "morgues-halo",
-    type: "circle",
-    source: "morgues",
-    paint: { "circle-radius": 13, "circle-color": ["get", "color"], "circle-opacity": 0.22 },
-  });
-  map.addLayer({
-    id: "morgues-circle",
-    type: "circle",
-    source: "morgues",
-    paint: { "circle-radius": 7, "circle-color": ["get", "color"], "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 },
-  });
-  const bulle = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 12, className: "morgue-bulle" });
-  map.on("mouseenter", "morgues-circle", (e) => {
-    map.getCanvas().style.cursor = "pointer";
-    const f = e.features?.[0];
-    const label = f?.properties?.label;
-    const geom = f?.geometry;
-    if (typeof label !== "string" || geom?.type !== "Point") return;
-    bulle.setLngLat(geom.coordinates as [number, number]).setText(label).addTo(map);
-  });
-  map.on("mouseleave", "morgues-circle", () => {
-    map.getCanvas().style.cursor = "";
-    bulle.remove();
-  });
-  map.on("click", "morgues-circle", (e) => {
-    const id = e.features?.[0]?.properties?.id;
-    if (typeof id === "string") useArgos.getState().select("morgue", id);
-  });
+  setupPointLayers(map, "morgues", "morgue");
 }
 
 /** Les sites à montrer : ceux de la couche, mobiles repliées exclues. */
 export function applyMorgues(map: maplibregl.Map | null, morgues: readonly MorgueSite[], on: boolean): void {
-  const src = map?.getSource("morgues") as maplibregl.GeoJSONSource | undefined;
-  if (!map || !src) return;
-  src.setData({
-    type: "FeatureCollection",
-    features: on
-      ? morgues
-          .filter((m): m is MorgueSite & { ll: [number, number] } => Array.isArray(m.ll) && !(m.kind === "mobile" && !m.deployment))
-          .map((m) => ({
-            type: "Feature",
-            geometry: { type: "Point", coordinates: m.ll },
-            // Ambre : mobile ; ardoise foncée : régionale ; ardoise claire : de ville.
-            // Ambre : mobile ; ardoise foncée : régionale ; ardoise claire : de ville ; rouge sombre : plein.
-            properties: { id: m.id, label: m.nom, color: m.statut === "full" ? "#991b1b" : m.kind === "mobile" ? "#d97706" : m.level === "regional" ? "#334155" : "#64748b" },
-          }))
-      : [],
-  });
+  applyPoints(
+    map,
+    "morgues",
+    morgues
+      .filter(hasLL)
+      .filter((m) => !(m.kind === "mobile" && !m.deployment))
+      .map((m) => ({
+        id: m.id,
+        label: m.nom,
+        ll: m.ll,
+        // Ambre : mobile ; ardoise foncée : régionale ; ardoise claire : de ville ; rouge sombre : plein.
+        color: m.statut === "full" ? "#991b1b" : m.kind === "mobile" ? "#d97706" : m.level === "regional" ? "#334155" : "#64748b",
+      })),
+    on,
+  );
 }

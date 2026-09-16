@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HREF, NAV, keyForPath, screenTitle, type NavEntry } from "@/lib/nav";
+import { HREF, MODULE_KEYS, NAV, NAV_MODULE, keyForPath, moduleOpen, screenTitle, type NavEntry, type NavKey } from "@/lib/nav";
 import { ROLES } from "@/lib/roles";
 import { FR_DICT } from "@/lib/i18n/translations.fr";
 
@@ -35,15 +35,31 @@ describe("navigation", () => {
     for (const it of items(NAV)) for (const r of it.roles ?? []) expect(ROLES).toContain(r);
   });
 
-  it("les écrans gardés par `nrbc:view` / `tracking:view` sont masqués aux responsables d'entité", () => {
-    // Ces cinq rôles n'ont pas la permission côté API : leur montrer l'entrée
-    // serait un cul-de-sac (403 puis liste vide).
+  it("l'écran gardé par `nrbc:view` est masqué aux responsables d'entité ; les traceurs sont ouverts à tous", () => {
+    // Les cinq responsables n'ont pas `nrbc:view` côté API : leur montrer
+    // l'entrée serait un cul-de-sac (403 puis liste vide). Ils ont en revanche
+    // `tracking:view` depuis l'ADR 0015 — l'entrée n'est plus restreinte.
     const responsables = ["resp_hospital", "resp_unit", "resp_shelter", "resp_morgue", "resp_equipment"];
-    for (const key of ["chemlib", "trackers"] as const) {
-      const it = items(NAV).find((e) => e.key === key)!;
-      expect(it.roles, key).toBeDefined();
-      for (const r of responsables) expect(it.roles).not.toContain(r);
-    }
+    const chem = items(NAV).find((e) => e.key === "chemlib")!;
+    expect(chem.roles).toBeDefined();
+    for (const r of responsables) expect(chem.roles).not.toContain(r);
+    expect(items(NAV).find((e) => e.key === "trackers")!.roles).toBeUndefined();
+  });
+
+  it("chaque écran connaît son module, et chaque module est un écran", () => {
+    for (const key of Object.keys(HREF) as NavKey[]) expect(key in NAV_MODULE, key).toBe(true);
+    for (const m of MODULE_KEYS) expect(HREF[m], m).toBeDefined();
+  });
+
+  it("moduleOpen : le cœur reste ouvert, un module coupé (drapeau ou rôle) ferme son écran", () => {
+    expect(moduleOpen("dashboard", { incidents: false }, { incidents: false })).toBe(true);
+    expect(moduleOpen("settings", {}, undefined)).toBe(true);
+    expect(moduleOpen("hospitals", {}, undefined)).toBe(true);
+    expect(moduleOpen("hospitals", { hospitals: false }, undefined)).toBe(false);
+    expect(moduleOpen("hospitals", {}, { hospitals: false })).toBe(false);
+    // Le réseau opérationnel suit le module des unités.
+    expect(moduleOpen("opsnet", { units: false }, undefined)).toBe(false);
+    expect(moduleOpen("morgue", {}, { morgue: false })).toBe(false);
   });
 
   it("les substances et les traceurs sont des entrées de PREMIER niveau", () => {

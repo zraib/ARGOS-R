@@ -116,8 +116,11 @@ export function createArgosClient(opts: ArgosClientOptions) {
     listRoles: () => client.GET("/api/iam/roles"),
     listPermissions: () => client.GET("/api/iam/permissions"),
     getRoleFeatures: () => client.GET("/api/iam/role-features"),
+    /** Les modules par défaut de chaque rôle (dérivés de la matrice RBAC) — ce que « réinitialiser » restaure. */
+    getDefaultRoleFeatures: () => client.GET("/api/iam/role-features/defaults"),
     setRoleFeature: (role: ArgosRole, feature: ModuleFeature, enabled: boolean) =>
       client.PATCH("/api/iam/role-features/{role}", { params: { path: { role } }, body: { feature, enabled } }),
+    resetRoleFeatures: (role: ArgosRole) => client.POST("/api/iam/role-features/{role}/reset", { params: { path: { role } } }),
     // --- domaine opérationnel (Phase 2) ---
     getIncidents: () => client.GET("/api/incidents"),
     getIncidentTypes: () => client.GET("/api/incident-types"),
@@ -243,6 +246,23 @@ export function createArgosClient(opts: ArgosClientOptions) {
     updateIncident: (id: string, body: UpdateIncidentBody) => client.PATCH("/api/incidents/{id}", { params: { path: { id } }, body }),
     getUnits: () => client.GET("/api/units"),
     createUnit: (body: CreateUnitBody) => client.POST("/api/units", { body }),
+    /**
+     * Suppressions définitives (ADR 0015) — Super Administrateur seulement.
+     * L'API répond 409 avec la liste de ce qui retient l'entité ; `force`
+     * passe outre en connaissance de cause.
+     */
+    deleteUnit: (id: string, force = false) =>
+      client.DELETE("/api/units/{id}", { params: { path: { id }, query: force ? { force: "true" } : {} } }),
+    deleteShelter: (id: string, force = false) =>
+      client.DELETE("/api/shelters/{id}", { params: { path: { id }, query: force ? { force: "true" } : {} } }),
+    deleteMorgue: (id: string, force = false) =>
+      client.DELETE("/api/morgues/{id}", { params: { path: { id }, query: force ? { force: "true" } : {} } }),
+    deleteHospital: (id: string, force = false) =>
+      client.DELETE("/api/hospitals/{id}", { params: { path: { id }, query: force ? { force: "true" } : {} } }),
+    /** Profil de données de la station et volume du domaine (écran Paramètres). */
+    getDataProfile: () => client.GET("/api/domain/profile"),
+    /** Remise à zéro du domaine, signée par le mot de passe du Super Administrateur ; le réseau hospitalier reste. */
+    purgeDomain: (password: string) => client.POST("/api/domain/purge", { body: { password } }),
     getHospitals: () => client.GET("/api/hospitals"),
     createHospital: (body: CreateHospitalBody) => client.POST("/api/hospitals", { body }),
     updateHospital: (id: string, body: UpdateHospitalBody) =>

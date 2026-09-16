@@ -635,7 +635,8 @@ export interface SeismicNotification {
 
 // --- Sélection sur la carte opérationnelle -------------------------------
 
-export type MarkerKind = "unit" | "hosp" | "inc" | "veh" | "field" | "acft" | "post" | "morgue";
+/** `shelter` : abri d'hébergement ; `trk` : traceur GPS ou position partagée. */
+export type MarkerKind = "unit" | "hosp" | "inc" | "veh" | "field" | "acft" | "post" | "morgue" | "shelter" | "trk";
 
 // --- suivi aérien (feux de forêt) ---
 // Miroir des types du module `aviation` de l'API. Le poste de commandement ne

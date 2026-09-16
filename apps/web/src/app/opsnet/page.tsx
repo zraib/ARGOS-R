@@ -22,6 +22,7 @@ import { OpsnetAffecteurIA } from "@/components/opsnet/OpsnetAffecteurIA";
 import { shelterPosition } from "@/lib/ai/opsnetAffecteur";
 import type { Shelter } from "@/lib/data/modules";
 import type { Unit } from "@/lib/types";
+import { DeleteEntityButton } from "@/components/org/DeleteEntityModal";
 
 // ============================================================================
 // OPSnet — réseau opérationnel (unités + abris)
@@ -238,9 +239,12 @@ export default function OpsnetPage() {
                   <span className="shrink-0 text-gray-500 dark:text-rdia-300">{t.ops_commander}</span>
                   <span className="min-w-0 truncate font-semibold text-gray-800 dark:text-rdia-50">{u.cmdt}</span>
                 </div>
-                <button className="btn-secondaire min-h-[44px] w-full text-xs lg:min-h-0" onClick={() => setDetailU(u)}>
-                  {t.act_view}
-                </button>
+                <div className="flex gap-2">
+                  <button className="btn-secondaire min-h-[44px] flex-1 text-xs lg:min-h-0" onClick={() => setDetailU(u)}>
+                    {t.act_view}
+                  </button>
+                  <DeleteEntityButton kind="unit" id={u.id} name={u.nom} compact />
+                </div>
               </div>
             ))}
           </div>
@@ -287,9 +291,12 @@ export default function OpsnetPage() {
                     <span className="text-gray-500 dark:text-rdia-300">{t.ops_staff}</span>
                     <span className="font-semibold tabular-nums text-gray-800 dark:text-rdia-50">{a.staff}</span>
                   </div>
-                  <button className="btn-secondaire min-h-[44px] w-full text-xs lg:min-h-0" onClick={() => setDetailA(a)}>
-                    {t.act_view}
-                  </button>
+                  <div className="flex gap-2">
+                    <button className="btn-secondaire min-h-[44px] flex-1 text-xs lg:min-h-0" onClick={() => setDetailA(a)}>
+                      {t.act_view}
+                    </button>
+                    <DeleteEntityButton kind="shelter" id={a.id} name={a.nom} compact />
+                  </div>
                 </div>
               );
             })}

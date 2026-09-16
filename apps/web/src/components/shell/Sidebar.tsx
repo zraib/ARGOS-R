@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useArgos, useDict } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
-import { NAV, navLabel, type GroupKey, type NavGroup, type NavItem } from "@/lib/nav";
+import { NAV, moduleOpen, navLabel, type GroupKey, type NavGroup, type NavItem, type NavKey } from "@/lib/nav";
 
 export function Sidebar() {
   const t = useDict();
@@ -37,9 +37,10 @@ export function Sidebar() {
   const flags = useArgos((s) => s.flags);
   const roleFeatures = useArgos((s) => s.roleFeatures);
 
-  // Un module est visible s'il n'est pas coupé par un feature flag global et
-  // s'il est autorisé pour le rôle actif (matrice rôle→fonctionnalités).
-  const moduleVisible = (key: string) => flags[key] !== false && roleFeatures[role]?.[key] !== false;
+  // Un écran est visible si son module n'est coupé ni par un drapeau global ni
+  // pour le rôle actif (matrice rôle → modules) — le reflet de ce que l'API
+  // refuse déjà (ADR 0015).
+  const moduleVisible = (key: NavKey) => moduleOpen(key, flags, roleFeatures[role]);
 
   const collapsed = !expanded;
   const activeInc = incidents.filter((i) => i.st !== "closed").length;

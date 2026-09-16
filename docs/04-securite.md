@@ -91,6 +91,14 @@ Format **`fonctionnalité:action`**, défini dans `apps/api/src/shared/permissio
 > **`delete` n'est jamais accordé par la matrice.** La fonction qui développe une
 > cellule V/A/M/Ar ne l'émet pas : seul le Super Administrateur l'obtient, via
 > son joker `*`. Personne d'autre ne supprime — au mieux on archive.
+>
+> Depuis l'ADR 0015 les entités se suppriment aussi — `DELETE units/:id`,
+> `shelters/:id`, `morgues/:id`, `hospitals/:id` (`teams:delete`,
+> `shelters:delete`, `morgue:delete`, `hospinet:delete`) — et la remise à zéro
+> du domaine (`POST domain/purge`, `settings:delete`, signée par le mot de passe).
+> Le domaine refuse (409) ce qui laisserait une opération sans ses moyens, un
+> registre sans son site ou un compte sans son entité, et dit ce qui retient ;
+> `?force=true` passe outre en connaissance de cause.
 
 **21 fonctionnalités de la matrice** — `dashboard`, `dash_incident`,
 `dash_hospital`, `dash_shelter`, `dash_morgue`, `dash_unit`, `map`, `incidents`,
@@ -234,17 +242,28 @@ réseau : le cantonnement porte sur l'écriture.
 Implémentation : `shared/responsibilities.ts`, `common/guards/scope.guard.ts`,
 `common/ports/scope-resolver.port.ts`. Tests : `modules/iam/scope.spec.ts`.
 
-## 6. Matrice rôle → fonctionnalités
+## 6. Matrice rôle → modules, drapeaux globaux
 
-Second niveau, distinct du RBAC : quels **modules** (écrans) un rôle voit.
-Pilotable par le Super Administrateur, il filtre la navigation du frontend.
+Second niveau, distinct du RBAC : quels **modules** (écrans) un rôle voit, et
+quels modules sont ouverts pour tout le monde. Deux bascules, un vocabulaire
+(`MODULE_KEYS`, 23 modules : `incidents`, `map`, `seismic`, `dispatch`,
+`triage`, `equip`, `units`, `personnel`, `workorders`, `hospitals`, `ics`,
+`damage`, `shelters`, `morgue`, `orsec`, `plans`, `comms`, `reports`,
+`analytics`, `assistant`, `simulation`, `trackers`, `chemlib`) :
 
-22 fonctionnalités : `dashboard`, `incidents`, `map`, `dispatch`, `triage`,
-`equip`, `units`, `personnel`, `workorders`, `hospitals`, `ics`, `damage`,
-`shelters`, `orsec`, `plans`, `comms`, `reports`, `analytics`, `assistant`.
+- la **matrice rôle → modules** (`PATCH /iam/role-features/:role`, Super
+  Administrateur ; défauts dérivés de la matrice RBAC : un module est ouvert
+  dès que le rôle peut visualiser l'une de ses fonctionnalités) ;
+- les **drapeaux globaux** (`PATCH /flags/:key`, Super Administrateur).
 
-C'est un **confort d'ergonomie, pas une barrière** : masquer un écran ne
-protège rien. La protection reste l'`@RequirePermission` côté API.
+Depuis l'ADR 0015 ce n'est plus un simple masquage : `FEATURE_MODULE` relie
+chaque fonctionnalité RBAC à son module, et la garde des permissions refuse
+(403) toute route d'un module coupé — pour le rôle (matrice) ou pour tous
+(drapeau, joker compris : c'est un interrupteur, pas un droit). Le cœur —
+tableau de bord, comptes, paramètres, audit, boucles opérationnelles — n'a pas
+de module et ne se coupe pas : c'est par lui qu'on rallume le reste. Tout
+compte authentifié lit les deux bascules (`GET /flags`, `GET
+/iam/role-features`) pour masquer ce que l'API refuse déjà.
 
 ## 7. Journal d'audit chaîné
 

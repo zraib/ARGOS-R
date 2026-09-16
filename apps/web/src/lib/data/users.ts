@@ -7,7 +7,7 @@
 
 import type { Role } from "@/lib/roles";
 import { ROLES } from "@/lib/roles";
-import type { NavKey } from "@/lib/nav";
+import { MODULE_KEYS, type ModuleKey } from "@/lib/nav";
 
 /**
  * Compte utilisateur géré.
@@ -74,42 +74,39 @@ export function generateTempPassword(): string {
 // --- Matrice rôle → fonctionnalités ----------------------------------------
 
 /**
- * Fonctionnalités (modules) dont l'accès est pilotable par rôle. Le Super
- * Administrateur peut activer/désactiver ces cases par rôle ; chaque rôle a un
- * jeu autorisé par défaut (ci-dessous). superadmin/admin ont tout (verrouillé).
+ * Modules que la matrice rôle → modules bascule (vocabulaire de l'API, ADR
+ * 0015). superadmin/admin ont tout (verrouillé) ; pour les autres rôles, les
+ * DÉFAUTS font foi côté API (`GET /api/iam/role-features/defaults`) — la table
+ * ci-dessous n'est que l'état initial du store, avant que l'API n'ait répondu
+ * ou hors connexion. Elle reflète la matrice RBAC : un module est ouvert dès
+ * que le rôle peut VISUALISER l'une de ses fonctionnalités.
  */
-export const MODULE_FEATURES: NavKey[] = [
-  "dashboard", "incidents", "map", "dispatch", "triage",
-  "equip", "units", "personnel", "workorders",
-  "hospitals", "ics", "damage", "shelters",
-  "orsec", "plans", "comms", "reports", "analytics", "assistant",
-];
+export const MODULE_FEATURES: readonly ModuleKey[] = MODULE_KEYS;
 
-const ALL_ON = (): Record<string, boolean> => Object.fromEntries(MODULE_FEATURES.map((k) => [k, true]));
+const ALL_ON = (): Record<string, boolean> => Object.fromEntries(MODULE_KEYS.map((k) => [k, true]));
 
-/** Construit un jeu de fonctionnalités à partir de la liste des modules autorisés. */
-function featuresFrom(allowed: NavKey[]): Record<string, boolean> {
-  return Object.fromEntries(MODULE_FEATURES.map((k) => [k, allowed.includes(k)]));
+/** Construit un jeu de modules à partir de la liste des modules ouverts. */
+function featuresFrom(allowed: ModuleKey[]): Record<string, boolean> {
+  return Object.fromEntries(MODULE_KEYS.map((k) => [k, allowed.includes(k)]));
 }
 
-/** Fonctionnalités autorisées par défaut pour chaque rôle. */
+/** Modules ouverts par défaut pour chaque rôle — miroir de `DEFAULT_ROLE_FEATURES` de l'API. */
 export const DEFAULT_ROLE_FEATURES: Record<Role, Record<string, boolean>> = {
   superadmin: ALL_ON(),
   admin: ALL_ON(),
-  strategic: featuresFrom(["dashboard", "incidents", "map", "orsec", "plans", "reports", "analytics"]),
-  // Rôles issus de la matrice : lecture large de la situation nationale.
-  place_arme: featuresFrom(["dashboard", "incidents", "map", "comms", "reports", "analytics"]),
-  wali: featuresFrom(["dashboard", "incidents", "map", "comms", "reports", "analytics"]),
-  opcom: featuresFrom(["dashboard", "incidents", "map", "dispatch", "hospitals", "shelters", "orsec", "plans", "comms", "reports", "analytics"]),
-  tacom: featuresFrom(["dashboard", "incidents", "map", "dispatch", "hospitals", "orsec", "plans", "comms", "reports"]),
-  bluecell: featuresFrom(["dashboard", "incidents", "map", "dispatch", "triage", "ics", "comms"]),
-  greencell: featuresFrom(["dashboard", "incidents", "map", "equip", "units", "personnel", "workorders", "comms"]),
-  orangecell: featuresFrom(["dashboard", "incidents", "map", "comms", "reports"]),
-  resp_hospital: featuresFrom(["dashboard", "incidents", "map", "hospitals", "comms"]),
-  resp_shelter: featuresFrom(["dashboard", "incidents", "map", "shelters", "comms"]),
-  resp_morgue: featuresFrom(["dashboard", "incidents", "map", "triage", "comms"]),
-  resp_unit: featuresFrom(["dashboard", "incidents", "map", "units", "personnel", "comms"]),
-  resp_equipment: featuresFrom(["dashboard", "incidents", "map", "equip", "workorders", "comms"]),
+  strategic: featuresFrom(["incidents", "map", "seismic", "units", "hospitals", "shelters", "morgue", "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  place_arme: featuresFrom(["incidents", "map", "seismic", "equip", "units", "hospitals", "shelters", "morgue", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  wali: featuresFrom(["incidents", "map", "seismic", "units", "hospitals", "shelters", "morgue", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  opcom: featuresFrom(["incidents", "map", "seismic", "dispatch", "equip", "units", "hospitals", "shelters", "morgue", "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  tacom: featuresFrom(["incidents", "map", "seismic", "dispatch", "triage", "equip", "units", "hospitals", "ics", "damage", "shelters", "morgue", "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  bluecell: featuresFrom(["incidents", "map", "seismic", "dispatch", "triage", "equip", "units", "hospitals", "ics", "damage", "shelters", "morgue", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  greencell: featuresFrom(["incidents", "map", "equip", "units", "personnel", "workorders", "hospitals", "shelters", "morgue", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  orangecell: featuresFrom(["incidents", "map", "equip", "units", "hospitals", "shelters", "morgue", "comms", "reports", "analytics", "assistant", "simulation", "trackers", "chemlib"]),
+  resp_hospital: featuresFrom(["incidents", "map", "hospitals", "morgue", "comms", "assistant", "simulation", "trackers"]),
+  resp_shelter: featuresFrom(["incidents", "map", "shelters", "comms", "assistant", "simulation", "trackers"]),
+  resp_morgue: featuresFrom(["incidents", "map", "triage", "morgue", "comms", "assistant", "simulation", "trackers"]),
+  resp_unit: featuresFrom(["incidents", "map", "equip", "units", "personnel", "comms", "analytics", "assistant", "simulation", "trackers"]),
+  resp_equipment: featuresFrom(["map", "equip", "workorders", "comms", "simulation", "trackers"]),
 };
 
 /** Copie profonde des défauts (état initial modifiable dans le store). */

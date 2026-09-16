@@ -19,6 +19,9 @@ import { nearestCity } from "@/lib/map/cities";
 import { demElevation } from "@/lib/map/canvas/dem";
 import { WX_GRADIENT, WX_T_MAX, WX_T_MIN, wxDays, wxFmtTime } from "@/lib/map/canvas/weather-raster";
 import { ACFT_POLL_MS, ACFT_FRAME_MS } from "@/lib/map/canvas/weather-render";
+
+/** Cadence de relecture des traceurs : un boîtier émet toutes les 30 s en mouvement, un partage toutes les 20 s. */
+const TRACKER_POLL_MS = 15_000;
 import { apply3d, applyBase } from "@/components/map/layers/base";
 import { MarkersRuntime, animateVehicles, setupRoutesLayer, syncMarkers } from "@/components/map/layers/markers";
 import { dropAircraft, renderAircraft, type AircraftRegistry } from "@/components/map/layers/aircraft";
@@ -39,6 +42,8 @@ import {
 } from "@/components/map/layers/floods";
 import { FireRuntime, applyFireSeed, applyFireSim, fitFireExtent, focusFireStart, playFire, setupFireLayers } from "@/components/map/layers/fire";
 import { applyMorgues, setupMorgueLayers } from "@/components/map/layers/morgues";
+import { applyShelters, setupShelterLayers } from "@/components/map/layers/shelters";
+import { applyTrackers, setupTrackerLayers } from "@/components/map/layers/trackers";
 import {
   WeatherRuntime,
   applyWeatherVisibility,
@@ -152,6 +157,8 @@ export function MapCanvas() {
   const firePlaying = useArgos((s) => s.firePlaying);
   const fireArming = useArgos((s) => s.fireArming);
   const morgues = useArgos((s) => s.morgues);
+  const shelters = useArgos((s) => s.shelters);
+  const trackers = useArgos((s) => s.trackers);
   const wxGrid = useArgos((s) => s.wxGrid);
   const wxWorld = useArgos((s) => s.wxWorld);
   const wxLayers = useArgos((s) => s.wxLayers);
@@ -329,8 +336,12 @@ export function MapCanvas() {
       setupFloodLayers(map);
       setupFireLayers(map);
       setupMorgueLayers(map);
+      setupShelterLayers(map);
+      setupTrackerLayers(map);
       const st = useArgos.getState();
       applyMorgues(map, st.morgues, st.layers.morgues);
+      applyShelters(map, st.shelters, st.layers.shelters);
+      applyTrackers(map, st.trackers, st.layers.trackers);
       applyFireSeed(map, st.fireSeed);
       applyFireSim(fireRt.current, map, st.fireSim, st.fireProgress, st.firePlaying);
       applyFloodGauges(map, st.floodGauges, st.floodGaugesOn, st.floodSel);
@@ -462,6 +473,8 @@ export function MapCanvas() {
       : selMarker.kind === "unit" ? st.units.find((u) => u.id === selMarker.id)?.ll
       : selMarker.kind === "hosp" ? st.hospitals.find((h) => h.id === selMarker.id)?.ll
       : selMarker.kind === "morgue" ? st.morgues.find((x) => x.id === selMarker.id)?.ll
+      : selMarker.kind === "shelter" ? st.shelters.find((x) => x.id === selMarker.id)?.ll
+      : selMarker.kind === "trk" ? st.trackers.find((x) => x.id === selMarker.id)?.last?.ll
       : undefined;
     if (ll) map.flyTo({ center: ll, zoom: Math.max(map.getZoom(), 10.5), duration: 1200 });
   }, [selMarker]);
@@ -534,6 +547,23 @@ export function MapCanvas() {
   useEffect(() => {
     if (readyRef.current) applyMorgues(mapRef.current, morgues, layers.morgues);
   }, [morgues, layers.morgues]);
+
+  // --- abris d'hébergement : même mécanique (ADR 0015) ---
+  useEffect(() => {
+    if (readyRef.current) applyShelters(mapRef.current, shelters, layers.shelters);
+  }, [shelters, layers.shelters]);
+
+  // --- traceurs et positions partagées : relus tant que la couche est visible ---
+  useEffect(() => {
+    if (!layers.trackers) return;
+    const load = () => void useArgos.getState().loadTrackers();
+    load();
+    const timer = window.setInterval(load, TRACKER_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [layers.trackers]);
+  useEffect(() => {
+    if (readyRef.current) applyTrackers(mapRef.current, trackers, layers.trackers);
+  }, [trackers, layers.trackers]);
 
   // --- feux de forêt : même mécanique que l'eau, sur sa propre couche ---
   useEffect(() => {

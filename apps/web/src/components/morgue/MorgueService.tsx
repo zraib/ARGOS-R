@@ -22,6 +22,7 @@ import { IdentifyModal } from "@/components/morgue/IdentifyModal";
 import { SearchBox, type Suggestion } from "@/components/ui/SearchBox";
 import { personName } from "@/lib/victims";
 import { DVI_STATUSES, type DviStatus, type MorgueSite, type MortuaryRecord } from "@/lib/types";
+import { DeleteEntityButton } from "@/components/org/DeleteEntityModal";
 
 // ============================================================================
 // Service morgue — la vue d'ensemble de l'état-major sur la gestion des corps
@@ -349,6 +350,7 @@ export function MorgueService() {
                               {m.morgue.open_site}
                             </Link>
                           )}
+                          <DeleteEntityButton kind="morgue" id={site.id} name={site.nom} compact className="!py-0.5" onDeleted={refresh} />
                         </span>
                       </div>
                     </div>

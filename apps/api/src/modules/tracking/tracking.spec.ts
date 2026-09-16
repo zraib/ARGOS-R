@@ -126,9 +126,15 @@ describe("N-2 — traceurs FMC920", () => {
         .expect(400);
     });
 
-    it("DEFAULT-DENY : un rôle sans `tracking:view` est refusé", async () => {
+    it("DEFAULT-DENY : un rôle à qui le module `trackers` est coupé est refusé", async () => {
+      // Les responsables lisent les positions depuis l'ADR 0015 (elles doivent
+      // apparaître sur leur carte) : la garde se prouve par la bascule du module.
       const t = await jeton("resp.h4", "resp_hospital");
+      await base().get("/api/tracking/trackers").set({ Authorization: `Bearer ${t}` }).expect(200);
+      await base().patch("/api/iam/role-features/resp_hospital").set({ Authorization: `Bearer ${tok}` }).send({ feature: "trackers", enabled: false }).expect(200);
       await base().get("/api/tracking/trackers").set({ Authorization: `Bearer ${t}` }).expect(403);
+      await base().post("/api/iam/role-features/resp_hospital/reset").set({ Authorization: `Bearer ${tok}` }).expect(201);
+      await base().get("/api/tracking/trackers").set({ Authorization: `Bearer ${t}` }).expect(200);
     });
 
     it("la suppression définitive est réservée au Super Administrateur", async () => {

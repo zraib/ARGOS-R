@@ -353,4 +353,14 @@ export const FR_DICT: Dict = {
     cl_none_hint: "Essayez le numéro ONU lu sur l'étiquette orange (par exemple 1017), un numéro CAS, ou un nom usuel plutôt que réglementaire.",
     cl_capped: "affinez la recherche ou choisissez une lettre",
     cl_first_aid: "Premiers secours", cl_fire_fight: "Lutte contre l'incendie", cl_non_fire: "Intervention hors incendie", cl_special: "Dangers particuliers", cl_isolation_advice: "Isolement et évacuation", cl_idlh: "IDLH", cl_flash: "Point d'éclair",
+    // Station vide (ADR 0015)
+    fam_shelter: "Hébergement", lg_shelters: "Abris d'hébergement", lg_trackers: "Traceurs et positions partagées",
+    trk_map_device: "Boîtier GPS", trk_map_app: "Position partagée", trk_map_stale: "Muet", trk_map_live: "En émission", trk_map_panic: "ALERTE", trk_speed: "Vitesse", trk_heading: "Cap",
+    del_unit: "Supprimer l'unité", del_shelter: "Supprimer l'abri", del_morgue: "Supprimer le site", del_hospital: "Retirer l'établissement",
+    del_confirm_title: "Suppression définitive", del_confirm_body: "Cette suppression est irréversible : {name} disparaîtra avec ce qui en dépend (parc, postes, dossiers). Confirmer ?",
+    del_confirm_force: "L'entité est retenue : {blockers}. Passer outre et supprimer quand même ?", del_blocked: "Suppression refusée", del_entity_done: "{name} supprimé", del_forbidden: "Réservé au Super Administrateur.", del_code_help_entity: "Pour confirmer, recopiez l'identifiant :", del_code_bad_entity: "Le code ne correspond pas à l'identifiant.",
+    dp_title: "Profil de données", dp_hint: "« Démonstration » reconstruit le jeu d'exemple au démarrage ; « Station vide » ne garde que les référentiels (réseau hospitalier, géographie) et ce que les opérateurs créent.",
+    dp_profile_demo: "Démonstration", dp_profile_empty: "Station vide", dp_seeded_left: "Entités de démonstration encore présentes", dp_counts: "Volume du domaine",
+    dp_purge: "Remettre le domaine à zéro", dp_purge_hint: "Retire incidents, unités, abris, morgues, dossiers, victimes, parcs, postes et fil. Conserve le réseau hospitalier, les comptes et la base. Irréversible.",
+    dp_purge_confirm: "Remettre à zéro maintenant", dp_purge_password: "Votre mot de passe (signature)", dp_purge_done: "Domaine remis à zéro — {removed} éléments retirés", dp_purge_failed: "Remise à zéro refusée",
   };

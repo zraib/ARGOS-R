@@ -6,7 +6,7 @@ import { AI_ENABLED, resolveProvider, aiSystemPrompt } from "@/lib/ai/config";
 import { usePathname } from "next/navigation";
 import { useArgos, useModules, type Role } from "@/lib/store";
 import { LIVE_SIM, SIM_INTERVAL } from "@/lib/config";
-import { keyForPath } from "@/lib/nav";
+import { keyForPath, moduleOpen } from "@/lib/nav";
 import { api, getStoredToken, loadSessionContext } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
@@ -61,16 +61,15 @@ export function AppFrame({ children }: { children: ReactNode }) {
   const toggleCopilot = useArgos((s) => s.toggleCopilot);
   const navOpen = useArgos((s) => s.navOpen);
   const closeNav = useArgos((s) => s.closeNav);
-  const aiVisible = flags["assistant"] !== false;
+  const aiVisible = moduleOpen("assistant", flags, roleFeatures[role]);
   // Le dock des conversations suit le module de communication : coupé
   // globalement ou pour le rôle, il disparaît avec lui.
-  const commsVisible = flags["comms"] !== false && roleFeatures[role]?.["comms"] !== false;
+  const commsVisible = moduleOpen("comms", flags, roleFeatures[role]);
   const ready = authed && !mustChangePassword && !mustChooseRole;
   const pathname = usePathname();
   const moduleKey = keyForPath(pathname);
   // Module verrouillé si coupé globalement (flag) ou non autorisé pour le rôle actif.
-  const moduleDisabled =
-    moduleKey !== null && (flags[moduleKey] === false || roleFeatures[role]?.[moduleKey] === false);
+  const moduleDisabled = moduleKey !== null && !moduleOpen(moduleKey, flags, roleFeatures[role]);
 
   useEffect(() => {
     hydratePrefs();
@@ -144,11 +143,14 @@ export function AppFrame({ children }: { children: ReactNode }) {
     return () => clearInterval(missionsId);
   }, [ready]);
 
+  // Simulation d'activité (fil fictif, mouvements) : seulement si le build
+  // l'autorise ET que l'API sert le profil « demo » (ADR 0015).
+  const dataProfile = useArgos((s) => s.dataProfile);
   useEffect(() => {
-    if (!LIVE_SIM) return;
+    if (!LIVE_SIM || dataProfile !== "demo") return;
     const id = setInterval(simTick, SIM_INTERVAL);
     return () => clearInterval(id);
-  }, [simTick]);
+  }, [simTick, dataProfile]);
 
   // Raccourci global ⌘K / Ctrl+K → ouvre/ferme le Copilot si le module est visible.
   useEffect(() => {

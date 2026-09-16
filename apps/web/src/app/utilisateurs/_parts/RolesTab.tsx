@@ -3,15 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useArgos, useDict, useModules } from "@/lib/store";
 import { api } from "@/lib/api";
-import type { ModuleFeature } from "@/lib/api-client";
 import { Icon } from "@/components/ui/Icon";
-import { navLabel } from "@/lib/nav";
+import { MODULE_KEYS, navLabel, type ModuleKey } from "@/lib/nav";
 import {
   ROLES,
   ROLE_ICONS,
   type Role,
 } from "@/lib/roles";
-import { MODULE_FEATURES, DEFAULT_ROLE_FEATURES } from "@/lib/data/users";
+import { DEFAULT_ROLE_FEATURES } from "@/lib/data/users";
 
 
 // ===========================================================================
@@ -25,28 +24,32 @@ function RolesTab() {
   const setRoleFeatures = useArgos((s) => s.setRoleFeatures);
 
   const [selected, setSelected] = useState<Role>("strategic");
+  // Les défauts font foi côté API (dérivés de la matrice RBAC) ; la table
+  // locale n'est que le repli hors connexion.
+  const [defaults, setDefaults] = useState<Record<Role, Record<string, boolean>>>(DEFAULT_ROLE_FEATURES);
 
   const refresh = useCallback(async () => {
     const res = await api.getRoleFeatures();
     if (res.data) setRoleFeatures(res.data as Record<Role, Record<string, boolean>>);
   }, [setRoleFeatures]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    void refresh();
+    api.getDefaultRoleFeatures().then((r) => { if (r.data) setDefaults(r.data as Record<Role, Record<string, boolean>>); }).catch(() => {});
+  }, [refresh]);
 
   const locked = selected === "superadmin" || selected === "admin";
   const feats = roleFeatures[selected] ?? {};
-  const allowedCount = MODULE_FEATURES.filter((k) => feats[k]).length;
+  const def = defaults[selected] ?? {};
+  const allowedCount = MODULE_KEYS.filter((k) => feats[k]).length;
 
-  const toggle = async (feature: ModuleFeature, enabled: boolean) => {
+  const toggle = async (feature: ModuleKey, enabled: boolean) => {
     await api.setRoleFeature(selected, feature, enabled);
     await refresh();
   };
 
   const reset = async () => {
-    const def = DEFAULT_ROLE_FEATURES[selected];
-    await Promise.all(
-      MODULE_FEATURES.filter((k) => (feats[k] ?? false) !== def[k]).map((k) => api.setRoleFeature(selected, k as ModuleFeature, def[k])),
-    );
+    await api.resetRoleFeatures(selected);
     await refresh();
   };
 
@@ -59,7 +62,7 @@ function RolesTab() {
         <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 lg:mx-0 lg:flex-col lg:gap-1 lg:overflow-x-visible lg:px-0 lg:pb-0">
           {ROLES.map((r) => {
             const on = r === selected;
-            const count = MODULE_FEATURES.filter((k) => (roleFeatures[r] ?? {})[k]).length;
+            const count = MODULE_KEYS.filter((k) => (roleFeatures[r] ?? {})[k]).length;
             return (
               <button key={r} onClick={() => setSelected(r)} className={`flex min-h-[44px] shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors lg:min-h-0 lg:w-full ${on ? "bg-or-500/15 text-or-600 dark:text-or-400" : "text-gray-600 hover:bg-gray-100 dark:text-rdia-200 dark:hover:bg-rdia-700/50"}`}>
                 <Icon path={ROLE_ICONS[r]} size={16} className="shrink-0" />
@@ -88,11 +91,11 @@ function RolesTab() {
         <p className="text-[11px] text-gray-400 dark:text-rdia-400">{m.users.role_features_hint}</p>
 
         <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2 lg:gap-x-8">
-          {MODULE_FEATURES.map((k) => {
+          {MODULE_KEYS.map((k) => {
             const on = locked ? true : feats[k] === true;
-            const isDefault = DEFAULT_ROLE_FEATURES[selected][k];
+            const isDefault = def[k] ?? false;
             return (
-              <button key={k} disabled={locked} onClick={() => void toggle(k as ModuleFeature, !on)} className="flex min-h-[44px] items-center justify-between gap-2 border-b border-gray-100 py-2 text-sm transition-colors last:border-0 disabled:cursor-not-allowed lg:min-h-0 dark:border-rdia-700/50">
+              <button key={k} disabled={locked} onClick={() => void toggle(k, !on)} className="flex min-h-[44px] items-center justify-between gap-2 border-b border-gray-100 py-2 text-sm transition-colors last:border-0 disabled:cursor-not-allowed lg:min-h-0 dark:border-rdia-700/50">
                 <span className="flex min-w-0 items-center gap-1.5 text-start">
                   <span className={on ? "text-gray-700 dark:text-rdia-100" : "text-gray-400 line-through dark:text-rdia-400"}>{navLabel(k, t)}</span>
                   {!locked && on !== isDefault && (

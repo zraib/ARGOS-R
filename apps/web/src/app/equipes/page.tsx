@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useArgos, useDict } from "@/lib/store";
+import { useArgos, useDict, useModules } from "@/lib/store";
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -9,6 +9,7 @@ import { UI_ICONS } from "@/lib/icons";
 import { dispoBadge } from "@/lib/helpers";
 import { unitDetail } from "@/lib/derive";
 import { AddUnitModal } from "@/components/org/AddEntityModals";
+import { DeleteEntityButton } from "@/components/org/DeleteEntityModal";
 
 const TH = "px-4 py-3 text-start text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400";
 const TD = "px-4 py-2.5";
@@ -17,10 +18,13 @@ const etatBadge = (maint: boolean) =>
 
 export default function EquipesPage() {
   const t = useDict();
+  const m = useModules();
   const units = useArgos((s) => s.units);
   const role = useArgos((s) => s.role);
   const selUnit = useArgos((s) => s.selUnit);
   const setSelUnit = useArgos((s) => s.setSelUnit);
+  const dataProfile = useArgos((s) => s.dataProfile);
+  const park = useArgos((s) => s.catalog.equipment);
   const [tab, setTab] = useState<"pers" | "equip" | "veh">("pers");
   const [adding, setAdding] = useState(false);
 
@@ -78,7 +82,11 @@ export default function EquipesPage() {
 
   // ---- vue détail ----
   const b = dispoBadge(unit.dispo, t);
-  const { pers, equip, vehs } = unitDetail(unit);
+  const { pers, equip, vehs } = unitDetail(unit, {
+    demo: dataProfile === "demo",
+    park,
+    condLabels: { ok: m.equip.cond_ok, repair: m.equip.cond_repair, oos: m.equip.cond_oos },
+  });
   const tabs: [typeof tab, string][] = [["pers", t.personnel], ["equip", t.equipment], ["veh", t.vehicles]];
   const tabCls = (k: string) =>
     `min-h-[44px] shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors lg:min-h-0 ${
@@ -97,6 +105,7 @@ export default function EquipesPage() {
             <div className="break-words text-xs text-gray-500 dark:text-rdia-300">{unit.ville} · {unit.cmdt}</div>
           </div>
           <span className="shrink-0"><Badge type={b.type} label={b.label} /></span>
+          <DeleteEntityButton kind="unit" id={unit.id} name={unit.nom} compact onDeleted={() => setSelUnit(null)} />
         </div>
         <div className="flex flex-wrap items-center gap-4 sm:gap-6">
           <div>

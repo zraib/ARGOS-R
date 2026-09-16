@@ -4,6 +4,7 @@ import { UsersService } from "@/modules/iam/users.service";
 import { CreateUserDto, SetActiveDto, ToggleRoleFeatureDto, UpdateUserDto } from "@/modules/iam/dto";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
+import { SelfService } from "@/common/decorators/self-service.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
 import { isRole, type Role } from "@/shared/permissions";
 
@@ -70,18 +71,38 @@ export class UsersController {
     return this.users.revealCode(actor.role, id);
   }
 
+  @ApiOperation({
+    summary: "Matrice rôle → modules.",
+    description:
+      "Lisible par tout compte authentifié : le navigateur en a besoin pour masquer ce que l'API refuse déjà. " +
+      "Rien de sensible — quels modules chaque rôle voit. (Avant l'ADR 0015 elle exigeait `users:view`, si bien qu'aucun rôle non administrateur ne la recevait.)",
+  })
   @Get("role-features")
-  @RequirePermission("users:view")
-  @ApiOperation({ summary: "Matrice rôle → fonctionnalités" })
+  @SelfService()
   roleFeatures() {
     return this.users.getRoleFeatures();
   }
 
+  @Get("role-features/defaults")
+  @SelfService()
+  @ApiOperation({ summary: "Matrice rôle → modules PAR DÉFAUT (dérivée de la matrice RBAC) — ce que « réinitialiser » restaure" })
+  defaultRoleFeatures() {
+    return this.users.getDefaultRoleFeatures();
+  }
+
   @Patch("role-features/:role")
   @RequirePermission("users:update")
-  @ApiOperation({ summary: "Activer/désactiver une fonctionnalité pour un rôle (Super Admin)" })
+  @ApiOperation({ summary: "Ouvrir/couper un module pour un rôle (Super Admin) — effectif côté API dès la requête suivante" })
   setRoleFeature(@Param("role") role: string, @Body() dto: ToggleRoleFeatureDto) {
     if (!isRole(role)) throw new BadRequestException(`Rôle inconnu : ${role}`);
     return this.users.setRoleFeature(role as Role, dto.feature, dto.enabled);
+  }
+
+  @Post("role-features/:role/reset")
+  @RequirePermission("users:update")
+  @ApiOperation({ summary: "Remettre un rôle à ses modules par défaut (Super Admin)" })
+  resetRoleFeatures(@Param("role") role: string) {
+    if (!isRole(role)) throw new BadRequestException(`Rôle inconnu : ${role}`);
+    return this.users.resetRoleFeatures(role as Role);
   }
 }

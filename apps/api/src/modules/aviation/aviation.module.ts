@@ -6,6 +6,7 @@ import { FLIGHT_FEED } from "@/modules/aviation/ports/flight-feed.port";
 import { ExerciseFeed } from "@/modules/aviation/infrastructure/exercise.feed";
 import { InMemoryWatchlistRepository } from "@/modules/aviation/infrastructure/in-memory-watchlist.repository";
 import { OpenSkyFeed } from "@/modules/aviation/infrastructure/opensky.feed";
+import { DEMO_DATA } from "@/common/data-profile";
 
 // ============================================================================
 // ARGOS — module de suivi aérien : le SEUL endroit qui câble les adaptateurs
@@ -20,10 +21,12 @@ import { OpenSkyFeed } from "@/modules/aviation/infrastructure/opensky.feed";
  *
  * - `opensky` (défaut) — flux ADS-B réel, mondial, filtré sur l'emprise nationale.
  * - `exercise` — noria simulée pour l'instruction et la démonstration, sans réseau.
+ *   Elle n'est honorée qu'en profil de données « demo » (ADR 0015) : une station
+ *   vide ne fait voler aucun appareil fictif, quoi que dise cette variable.
  */
 const feedProvider = {
   provide: FLIGHT_FEED,
-  useClass: process.env.AVIATION_FEED === "exercise" ? ExerciseFeed : OpenSkyFeed,
+  useClass: process.env.AVIATION_FEED === "exercise" && DEMO_DATA ? ExerciseFeed : OpenSkyFeed,
 };
 
 @Module({

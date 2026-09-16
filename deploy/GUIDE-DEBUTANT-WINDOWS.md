@@ -306,11 +306,34 @@ et le brouillon automatique restent muets.
 
 ## 8. Créer les comptes et vérifier les modules
 
+La station démarre **vide** : pas d'incident, pas d'unité, pas d'abri ni de
+morgue, rien qui bouge sur la carte — seuls le réseau hospitalier et la
+géographie sont là. Tout ce que vous y mettez est réel et reste après un
+redémarrage ou une mise à jour.
+
 1. *Gestion des utilisateurs* : créez les comptes de l'équipe (un rôle, une
    région ou une entité selon le cas). Chaque compte reçoit un code
    temporaire à changer à la première connexion.
-2. Faites le tour : *Carte opérationnelle* (couches, crues, feux de forêt),
+2. *OPSnet* : ouvrez une unité et un abri (posez leur position sur la petite
+   carte) ; *Service morgue* : créez un site. Chacun apparaît aussitôt sur la
+   *Carte opérationnelle*, dans les couches « Forces », « Hébergement » et
+   « Santé ».
+3. *Traceurs GPS* : partagez la position de votre téléphone depuis
+   l'application (ou déclarez un boîtier) — elle apparaît sur la carte de tous
+   ceux qui la regardent, couche « Traceurs et positions partagées ».
+4. *Utilisateurs › Rôles* : cochez ou décochez les modules d'un rôle ;
+   *Paramètres › Modules* : coupez un module pour tout le monde. Dans les deux
+   cas c'est **effectif** : l'écran disparaît du menu et le serveur refuse ses
+   données, jusqu'à ce que vous rouvriez.
+5. Faites le tour : *Carte opérationnelle* (couches, crues, feux de forêt),
    *Hospinet*, *OPSnet*, *Service morgue*, *Centre de communication*.
+
+> **Pour une formation** : `DATA_PROFILE=demo` dans `.env`, puis
+> `docker compose up -d api` — la station se remplit d'un jeu d'exemple.
+> Remettez `empty` pour revenir en service : les exemples partent, ce que
+> vous avez créé reste. Le Super Administrateur peut aussi tout remettre à
+> zéro depuis *Paramètres › Profil de données* (le réseau hospitalier et les
+> comptes restent).
 
 > **Vérifiez** — un second compte, connecté depuis un autre poste, voit les
 > incidents de sa région et peut envoyer un message au premier.

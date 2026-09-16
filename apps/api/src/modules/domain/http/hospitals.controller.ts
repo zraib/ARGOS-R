@@ -7,8 +7,10 @@
 // et `authz-coverage.spec.ts` en font foi.
 // ============================================================================
 
-import { Body, ConflictException, Delete, Get, NotFoundException, Param, Patch, Post, Controller } from "@nestjs/common";
-import { ApiOperation, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
+import { Body, ConflictException, Delete, Get, NotFoundException, Param, Patch, Post, Query, Controller } from "@nestjs/common";
+import { entityDeleteConflict, isForced } from "@/modules/domain/http/entity-delete";
+import { UsersService } from "@/modules/iam/users.service";
+import { ApiOperation, ApiQuery, ApiResponse, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { CreateHospitalDto, CreateWardDto, HospitalDeathDto, UpdateHospitalDto, UpdateWardDto } from "@/modules/domain/dto";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import { RequireScope } from "@/common/decorators/require-scope.decorator";
@@ -24,6 +26,7 @@ export class HospitalsController {
   constructor(
     private readonly domain: DomainService,
     private readonly visibility: VisibilityService,
+    private readonly users: UsersService,
   ) {}
 
   @Get("hospitals")
@@ -48,6 +51,28 @@ export class HospitalsController {
     const h = this.domain.updateHospital(id, dto);
     if (!h) throw new NotFoundException(`Établissement introuvable : ${id}`);
     return h;
+  }
+
+  @ApiOperation({
+    summary: "Retirer définitivement un établissement du réseau — SUPERADMIN uniquement.",
+    description:
+      "La matrice n'accorde `hospinet:delete` à personne : seul le joker du Super Administrateur la détient. " +
+      "Refusé (409) tant que l'établissement est engagé sur une opération active, porte des morgues rattachées ou des " +
+      "hôpitaux de campagne, ou qu'un compte en a la responsabilité ; `?force=true` passe outre — ses services et ses " +
+      "hôpitaux de campagne partent alors avec lui, les morgues rattachées sont détachées.",
+  })
+  @Delete("hospitals/:id")
+  @RequirePermission("hospinet:delete")
+  @ApiQuery({ name: "force", required: false, description: "Passer outre les garde-fous (engagements, rattachements, responsables)." })
+  @ApiResponse({ status: 403, description: "Réservé au Super Administrateur." })
+  @ApiResponse({ status: 404, description: "Établissement inconnu." })
+  @ApiResponse({ status: 409, description: "L'établissement est encore engagé, rattaché ou tenu par un compte." })
+  deleteHospital(@Param("id") id: string, @Query("force") force: string | undefined, @CurrentUser() user: AuthUser) {
+    const responsibles = this.users.listResponsibles().filter((r) => r.kind === "hospital" && r.entityId === id).map((r) => r.matricule);
+    const res = this.domain.deleteEntity("hospital", id, user.username, isForced(force), responsibles);
+    if (res.missing) throw new NotFoundException(`Établissement introuvable : ${id}`);
+    if (res.blockers) throw entityDeleteConflict(res.blockers);
+    return { deleted: id, removed: res.removed };
   }
 
   // --- services de soins d'un établissement --------------------------------

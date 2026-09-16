@@ -8,6 +8,7 @@
 
 import { Injectable } from "@nestjs/common";
 import { loadDevState, saveDevState } from "@/common/dev-store";
+import { DEMO_DATA } from "@/common/data-profile";
 import { WORK_ORDERS } from "@/modules/domain/catalog.data";
 import type { OrderSnapshot } from "@/modules/orders/domain/order";
 import type { OrderQuery, OrderRepository } from "@/modules/orders/ports/order-repository.port";
@@ -46,10 +47,12 @@ export class InMemoryOrderRepository implements OrderRepository {
 
   constructor() {
     const snap = loadDevState<OrdersSnapshotFile>("orders", {});
+    // Les bons de travail de démonstration ne sont semés qu'en profil « demo »
+    // (ADR 0015) : une station vide part sans aucun bon.
     const source =
       snap.seedVersion === ORDERS_SEED_VERSION && snap.orders
         ? snap.orders
-        : WORK_ORDERS.map((w) => fromCatalog(w, new Date(0).toISOString()));
+        : DEMO_DATA ? WORK_ORDERS.map((w) => fromCatalog(w, new Date(0).toISOString())) : [];
     for (const o of source) this.items.set(o.id, o);
     if (snap.seedVersion !== ORDERS_SEED_VERSION) this.persist();
   }

@@ -206,9 +206,9 @@ export class SetActiveDto {
   active!: boolean;
 }
 
-/** Bascule d'une fonctionnalité pour un rôle. */
+/** Bascule d'un module pour un rôle (vocabulaire `MODULE_KEYS`, ADR 0015). */
 export class ToggleRoleFeatureDto {
-  @ApiProperty({ enum: MODULE_FEATURES })
+  @ApiProperty({ enum: MODULE_FEATURES, description: "Module à ouvrir ou couper pour le rôle" })
   @IsIn(MODULE_FEATURES as unknown as string[])
   feature!: string;
 

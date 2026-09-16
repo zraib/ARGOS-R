@@ -10,6 +10,7 @@ import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
 import { StatTile } from "@/components/ui/StatTile";
 import { occBarClass } from "@/lib/helpers";
 import { hospitalDetail } from "@/lib/derive";
+import { DeleteEntityButton } from "@/components/org/DeleteEntityModal";
 import { AddHospitalModal } from "@/components/org/AddEntityModals";
 import { ResponsibleCard } from "@/components/responsibility/ResponsibleCard";
 import { Modal } from "@/components/ui/Modal";
@@ -33,6 +34,7 @@ export default function HospinetPage() {
   const role = useArgos((s) => s.role);
   const selHosp = useArgos((s) => s.selHosp);
   const setSelHosp = useArgos((s) => s.setSelHosp);
+  const dataProfile = useArgos((s) => s.dataProfile);
   const fieldHosps = useArgos((s) => s.fieldHosps);
   const deployField = useArgos((s) => s.deployFieldHospital);
   const showToast = useArgos((s) => s.showToast);
@@ -277,7 +279,7 @@ export default function HospinetPage() {
   }
 
   // ---- vue détail ----
-  const { staffRows, beds, vehRows, fields } = hospitalDetail(hosp, fieldHosps, t);
+  const { staffRows, beds, vehRows, fields } = hospitalDetail(hosp, fieldHosps, t, { demo: dataProfile === "demo" });
   const tabs: [typeof tab, string][] = [["staff", t.med_staff], ["beds", t.beds], ["veh", t.vehicles], ["field", t.field]];
 
   const tabCls = (k: string) =>
@@ -308,6 +310,7 @@ export default function HospinetPage() {
               {hosp.region ? ` · ${hosp.region}` : ""}
             </div>
           </div>
+          <DeleteEntityButton kind="hospital" id={hosp.id} name={hosp.nom} compact onDeleted={() => setSelHosp(null)} />
           <div className="-mx-4 flex w-[calc(100%_+_2rem)] gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:w-auto sm:flex-wrap sm:overflow-x-visible sm:px-0 sm:pb-0">
             {tabs.map(([k, label]) => (
               <button key={k} className={tabCls(k)} onClick={() => setTab(k)}>{label}</button>

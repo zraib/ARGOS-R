@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { DEMO_DATA } from "@/common/data-profile";
 
 // ============================================================================
 // ARGOS — centre de communication (Phase 2, in-memory)
@@ -114,7 +115,9 @@ function slugify(source: string): string {
 
 @Injectable()
 export class CommsService {
-  private readonly categories: CommCategory[] = [
+  // Le profil « empty » (ADR 0015) ne connaît ni salons ni messages fictifs :
+  // un seul canal d'accueil, que les opérations réelles viendront rejoindre.
+  private readonly categories: CommCategory[] = DEMO_DATA ? [
     { id: "g1", name: "OPÉRATIONS", chans: [
       { id: "c1", name: "état-major", kind: "text", topic: "Coordination générale — Op. SALAMA" },
       { id: "c2", name: "op-salama", kind: "text", topic: "Secours séisme Al Haouz" },
@@ -128,9 +131,9 @@ export class CommsService {
       { id: "v1", name: "PC Opérations", kind: "voice" },
       { id: "v2", name: "Coordination EVASAN", kind: "voice" },
     ] },
-  ];
+  ] : [{ id: "g1", name: "OPÉRATIONS", chans: [{ id: "c1", name: "général", kind: "text", topic: "Coordination générale" }] }];
 
-  private readonly messages: Record<string, CommMessage[]> = {
+  private readonly messages: Record<string, CommMessage[]> = DEMO_DATA ? {
     c1: [
       { id: 1, who: "Gén. R. Alaoui", initials: "RA", av: "bg-rdia-600 text-white", time: "06:50", txt: "Point de situation à 07h00. Toutes les cellules en ligne." },
       { id: 2, who: "Col. M. El Fassi", initials: "MF", av: "bg-blue-500 text-white", time: "06:58", txt: "7e RA prêt. 120 personnels en attente d'héliportage à Agadir." },
@@ -143,27 +146,27 @@ export class CommsService {
     c3: [{ id: 1, who: "Lt-Col. S. Amrani", initials: "SA", av: "bg-or-500 text-rdia-600", time: "06:40", txt: "Convoi LOG-1 parti de Rabat, 40 t de fret. ETA Marrakech 11h30." }],
     c4: [{ id: 1, who: "Cellule Météo", initials: "CM", av: "bg-blue-500 text-white", time: "06:30", txt: "Vigilance orange pluies fortes sur le Haut Atlas à partir de 18h00." }],
     c5: [{ id: 1, who: "Sgt. N. Chraibi", initials: "NC", av: "bg-gray-500 text-white", time: "07:15", txt: "Village Tizi N'Test : 12 habitations effondrées, besoin équipe cynophile." }],
-  };
+  } : { c1: [] };
 
-  private readonly voice = [
+  private readonly voice = DEMO_DATA ? [
     { n: "Gén. R. Alaoui", initials: "RA", av: "bg-rdia-600 text-white", speaking: true },
     { n: "Col. M. El Fassi", initials: "MF", av: "bg-blue-500 text-white", speaking: false },
     { n: "Cdt. H. Berrada", initials: "HB", av: "bg-green-500 text-white", speaking: true },
     { n: "Lt-Col. S. Amrani", initials: "SA", av: "bg-or-500 text-rdia-600", speaking: false },
-  ];
+  ] : [];
 
-  private readonly online: Member[] = [
+  private readonly online: Member[] = DEMO_DATA ? [
     { n: "Gén. R. Alaoui", g: "EMG", av: "bg-rdia-600 text-white", initials: "RA" },
     { n: "Col. K. Benjelloun", g: "RDIA", av: "bg-or-500 text-rdia-600", initials: "KB" },
     { n: "Col. M. El Fassi", g: "7e RA", av: "bg-blue-500 text-white", initials: "MF" },
     { n: "Lt-Col. A. Tazi", g: "3e BG", av: "bg-purple-500 text-white", initials: "AT" },
     { n: "Cdt. H. Berrada", g: "5e BS", av: "bg-green-500 text-white", initials: "HB" },
-  ];
+  ] : [];
 
-  private readonly offline: Member[] = [
+  private readonly offline: Member[] = DEMO_DATA ? [
     { n: "Lt-Col. S. Amrani", g: "2e GL", av: "bg-gray-400 text-white", initials: "SA" },
     { n: "Cdt. N. Chraibi", g: "4e NRBC", av: "bg-gray-400 text-white", initials: "NC" },
-  ];
+  ] : [];
 
   /**
    * Le centre tel que `viewer` (un matricule) a le droit de le voir.
