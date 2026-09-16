@@ -78,6 +78,15 @@ describe("station vide — reprise entre deux démarrages", () => {
     await wait(250);
 
     const empty = boot({ DATA_PROFILE: "empty", DEV_PERSIST: "on", DEV_DATA_DIR: dir });
+    // Les cascades des incidents de démonstration retirés courent au démarrage
+    // de l'application, une fois les modules construits — pas dans le constructeur.
+    const cascaded: string[] = [];
+    empty.registerIncidentCascade(async (id) => { cascaded.push(id); });
+    await empty.onApplicationBootstrap();
+    expect(cascaded.length).toBeGreaterThan(3);
+    expect(cascaded).toContain("INC-2612");
+    await empty.onApplicationBootstrap();
+    expect(cascaded.length).toBeGreaterThan(3); // une seule fois
     expect(empty.listUnits().map((x) => x.id)).toEqual([mine.id]);
     expect(empty.listIncidents()).toEqual([]);
     expect(empty.listShelters()).toEqual([]);

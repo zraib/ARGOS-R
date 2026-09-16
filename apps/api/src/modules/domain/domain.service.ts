@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, type OnApplicationBootstrap } from "@nestjs/common";
 import { resolveShelterTypology, type ShelterTypologyInput } from "@/modules/domain/shelter.rules";
 import { computeAnalyticsOf, computeStats, type DomainSnapshot } from "@/modules/domain/domain.analytics";
 import { PROVINCES_MA, llToSvg } from "@/modules/domain/provinces.data";
@@ -138,7 +138,8 @@ const DEMO_SEED_IDS: ReadonlySet<string> = new Set([
 ]);
 
 @Injectable()
-export class DomainService {
+export class DomainService implements OnApplicationBootstrap {
+  private readonly logger = new Logger("DataProfile");
   private incidents: Incident[] = structuredClone(SEED_INCIDENTS);
 
   private readonly units: Unit[] = structuredClone(SEED_UNITS);
@@ -332,11 +333,32 @@ export class DomainService {
     // « demo » : seules les graines dont on a posé la pierre tombale restent
     // absentes ; la reconstruction ci-dessus les avait réinjectées.
     if (!DEMO_DATA) {
-      this.applyPrune(pruneDemo(this.collections(), { ids: DEMO_SEED_IDS, seeded: true, fieldHospitals: true, orphanFeed: true }));
+      const r = pruneDemo(this.collections(), { ids: DEMO_SEED_IDS, seeded: true, fieldHospitals: true, orphanFeed: true });
+      this.applyPrune(r);
+      // Les cascades des incidents retirés (boucles, déploiements) ne peuvent
+      // pas courir ici : les modules qui les portent ne sont pas encore
+      // construits. Elles courent au démarrage de l'application.
+      this.pendingCascades = r.removedIncidentIds;
+      if (r.total > 0) this.logger.log(`Profil « empty » : ${r.total} élément(s) de démonstration retiré(s), dont ${r.removedIncidentIds.length} incident(s).`);
     } else if (this.tombstones.size > 0) {
       this.applyPrune(pruneDemo(this.collections(), { ids: this.tombstones }));
     }
     if (!sameSeed || snap.dataProfile !== DATA_PROFILE) this.persist();
+  }
+
+  /** Incidents retirés à la reprise, dont les cascades restent à courir une fois les modules construits. */
+  private pendingCascades: string[] = [];
+
+  /**
+   * Une fois tous les modules construits (donc toutes les cascades
+   * enregistrées) : ce que la conversion démo → vide a retiré emporte ses
+   * boucles et ses déploiements — sinon des comptes resteraient affectés à
+   * des incidents fantômes.
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    const ids = this.pendingCascades;
+    this.pendingCascades = [];
+    for (const id of ids) for (const fn of this.cascades) await fn(id);
   }
 
   /** Identifiants des graines qu'un opérateur a supprimées — pour ne pas les réinjecter à la reprise. */
