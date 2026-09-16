@@ -49,6 +49,13 @@ export class AuthController {
     if (this.config.get("authMode", { infer: true }) !== "dev") {
       throw new ForbiddenException("Émission de jeton dev désactivée hors mode développement");
     }
+    // La station tourne en `AUTH_MODE=dev` (comptes gérés dans l'application),
+    // mais elle est en PRODUCTION : sans cette barrière, quiconque joint son
+    // adresse obtiendrait un jeton de n'importe quel rôle sans mot de passe.
+    // Le mode dev de l'authentification n'est pas le mode dev du processus.
+    if ((process.env.NODE_ENV ?? "development") === "production") {
+      throw new ForbiddenException("Émission de jeton dev désactivée en production");
+    }
     const secret = new TextEncoder().encode(this.config.get("devSecret", { infer: true }));
     return new SignJWT({ preferred_username: username, role })
       .setProtectedHeader({ alg: "HS256" })

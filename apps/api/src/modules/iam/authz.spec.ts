@@ -39,6 +39,19 @@ describe("Authz — default-deny (gate de sécurité Phase 0)", () => {
     await base().get("/api/iam/me").expect(401);
   });
 
+  it("en production, aucun jeton de développement n'est émis — même en AUTH_MODE=dev (403)", async () => {
+    // La station tourne en `AUTH_MODE=dev` ET en production : la route ne doit
+    // pas y offrir un jeton de n'importe quel rôle sans mot de passe.
+    const previous = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      await base().post("/api/auth/dev-token").send({ username: "x", role: "superadmin" }).expect(403);
+    } finally {
+      process.env.NODE_ENV = previous;
+    }
+    await base().post("/api/auth/dev-token").send({ username: "x", role: "superadmin" }).expect(201);
+  });
+
   it("résout les permissions depuis le rôle (resp_unit)", async () => {
     const tok = await devToken("agent", "resp_unit");
     const res = await base().get("/api/iam/me").set("Authorization", `Bearer ${tok}`).expect(200);

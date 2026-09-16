@@ -45,6 +45,13 @@ Source : `apps/api/src/common/guards/`, `apps/api/src/shared/permissions.ts`.
 Le realm Keycloak (MFA/TOTP par défaut, protection brute-force, politique de
 mot de passe) est livré dans `infra/keycloak/argos-realm.json`.
 
+> **La station tourne en `AUTH_MODE=dev` et en production.** Le mode « dev »
+> de l'authentification désigne les comptes gérés dans l'application (matricule
+> + mot de passe, jetons HS256 signés par `AUTH_DEV_SECRET`), pas un mode de
+> test : `POST /auth/dev-token` — un jeton de n'importe quel rôle sans mot de
+> passe — est **refusé (403) dès que `NODE_ENV=production`**, quel que soit
+> `AUTH_MODE`. Verrouillé par `modules/iam/authz.spec.ts`.
+
 **Cycle de vie d'un compte** : créé inactif avec un code temporaire → première
 connexion → changement de mot de passe obligatoire → actif. Le Super
 Administrateur peut forcer l'activation ou régénérer le code.
