@@ -13,12 +13,120 @@
 //        · fallback textuel déterministe si Ollama injoignable
 // ============================================================================
 
-import type { FieldHospital, Hospital, HospitalServiceKey } from "@/lib/types";
+import type { FieldHospital, Hospital, HospitalServiceKey, Lang } from "@/lib/types";
 import { ARGOS_WARD_REFERENCE } from "@/lib/types";
 import { resolveHospitalServices } from "@/lib/derive";
 import { haversineKm, etaMinutes } from "@/lib/reco";
 import { AI_DEFAULT_SETTINGS, AI_ENABLED, resolveProvider } from "@/lib/ai/config";
 import { chatComplete } from "@/lib/ai/provider";
+import type { ModulesDict } from "@/lib/i18n/modules";
+import { tpl } from "@/lib/i18n/format";
+
+export type HospinetIALabels = ModulesDict["hospinet"];
+
+export const DEFAULT_HOSPINET_IA_LABELS: Pick<
+  HospinetIALabels,
+  | "svc_rea" | "svc_chirurgie" | "svc_medecine" | "svc_urgences" | "svc_pediatrie"
+  | "tint_sat" | "tint_tension" | "tint_bonne"
+  | "syn_intro_tpl" | "syn_etat_global_tpl" | "syn_reseaux_tpl" | "syn_fieldhosp_tpl" | "syn_busysvcs_tpl" | "syn_flotte_tpl"
+  | "aff_fallback_empty_tpl" | "aff_fallback_rank_head" | "aff_fallback_row_tpl" | "aff_fallback_remark_tpl"
+  | "axis_voy" | "axis_cap" | "axis_svc" | "bonus_flotte_tpl"
+  | "mkpi_eta" | "mkpi_occ" | "mkpi_libres" | "mkpi_svc"
+  | "tbl_rank_num" | "tbl_hop"
+  | "svc_requis_tpl" | "rangs_4_x_tpl" | "label_score"
+  | "kpi_tendus_conf_tpl" | "kpi_confortables" | "kpi_en_tension"
+  | "row_lits_tot" | "row_lits_libres_tpl" | "row_rea_tot" | "row_rea_libres"
+  | "donnees_aggregees_iris" | "staff_pers_tpl"
+> = {
+  svc_rea: "Réanimation", svc_chirurgie: "Chirurgie", svc_medecine: "Médecine interne", svc_urgences: "Urgences", svc_pediatrie: "Pédiatrie",
+  tint_sat: "saturation élevée", tint_tension: "tension notable", tint_bonne: "bonne tenue",
+  syn_intro_tpl: "Le réseau Hospinet compte {totalHospitals} établissements permanents et {totalFieldHospitals} hôpitaux de campagne, pour un total de {lits} lits ({free} disponibles, soit {freePct} %), avec {reaFree} lits de réanimation libres sur {rea}.",
+  syn_etat_global_tpl: "État global : {tint} ({pct} % d'occupation). {saturated} établissements sont saturés (≥ 92 %), {tense} en tension (75–91 %), {relaxed} en situation confortable (< 75 %).",
+  syn_reseaux_tpl: "Réseau militaire : {mil_hospitals} hôpitaux, {mil_lits} lits, {mil_freePct} % de disponibilité. Réseau civil : {civ_hospitals} hôpitaux, {civ_lits} lits, {civ_freePct} % de disponibilité.",
+  syn_fieldhosp_tpl: "{count} hôpitaux de campagne sont déployés, offrant {free} lits libres sur {cap} ({freePct} %).",
+  syn_busysvcs_tpl: "Services les plus chargés : {list}.",
+  syn_flotte_tpl: "Flotte sanitaire : {amb} ambulances, {heli} hélicoptères médicalisés. Effectif médical total : {staff} personnes.",
+  aff_fallback_empty_tpl: "Aucun établissement classé à l'intérieur du périmètre{radius_suffix}. Étendez le rayon, activez les hôpitaux de campagne, ou réduisez les services requis.",
+  aff_fallback_rank_head: "Classement déterministe — {name_head}",
+  aff_fallback_row_tpl: "· {name} — score {score} · ETA {etaMin} min · {km} km · occ {pctOcc}% · services {svcMatch} · lits libres estimés {estimatedFreeBeds}.",
+  aff_fallback_remark_tpl: "Remarque : occupation moyenne des établissements classés = {avgOcc}%{saturated_suffix}.",
+  axis_voy: "Voy", axis_cap: "Cap", axis_svc: "Svc", bonus_flotte_tpl: "+{x} bonus flotte",
+  mkpi_eta: "ETA", mkpi_occ: "OCC", mkpi_libres: "LIBRES", mkpi_svc: "SVC",
+  tbl_rank_num: "#", tbl_hop: "Établissement",
+  svc_requis_tpl: "{n} service(s) requis · {list}",
+  rangs_4_x_tpl: "Rangs 4 à {last} · {total} au total",
+  label_score: "SCORE",
+  kpi_tendus_conf_tpl: "{tense} tendus · {relaxed} conf.",
+  kpi_confortables: "Confortables", kpi_en_tension: "En tension",
+  row_lits_tot: "Lits totaux", row_lits_libres_tpl: "Lits libres ({pct})", row_rea_tot: "Lits REA totaux", row_rea_libres: "REA libres",
+  donnees_aggregees_iris: "Données agrégées IRIS",
+  staff_pers_tpl: "{n} pers.",
+};
+
+export function mergeHospinetIALabels(partial?: Partial<HospinetIALabels>): HospinetIALabels {
+  return { ...(DEFAULT_HOSPINET_IA_LABELS as unknown as HospinetIALabels), ...(partial ?? {}) };
+}
+
+/* ---------------- Prompt système multi-langue ---------------- */
+
+function buildSystemAffecteur(lang: Lang): string {
+  if (lang === "en") {
+    return [
+      "You are the justification assistant of IRIS's Hospinet Assignor, the military disaster management platform.",
+      "Your only role: restate CONCISELY, NEUTRALLY AND STRICTLY factually, IN ENGLISH, the hospital ranking computed by the deterministic Layer-1 engine.",
+      "",
+      "MANDATORY RULES (NO EXCEPTION):",
+      "[I1] NO INVENTION. Every figure, hospital name, distance, ETA, score, occupancy rate, services, bed count, medical fleet comes EXCLUSIVELY from the Layer-1 dataset provided. You add NO information, NO estimate, NO extrapolation.",
+      "[I2] NO OPERATIONAL ORDER. You do NOT say: “send”, “evacuate to”, “direct victims”, “activate the plan”, “deploy”, or any instruction, procedure, action recommendation. You ALWAYS express as a NEUTRAL FINDING (e.g. “Hospital X appears at the top of the ranking, with score Y and ETA Z minutes.”).",
+      "[I3] NO DIAGNOSIS, NO MEDICAL OPINION. You do not assess severity, you do not propose triage, you do not call a service “suitable” if the figure is low. You stick to Layer-1 wording: score, distance, ETA, occupancy, services present.",
+      "[I4] NO VAGUE TERMS. Forbidden: “probably”, “seems”, “maybe”, “surely”, “ideally”, “to be preferred”, “recommended”, “best choice”. Instead: “score X out of 100”, “occupancy rate Y %”, “ETA Z min”.",
+      "[I5] MANDATORY STRUCTURE (nothing else, no preamble):",
+      "     1. One synthesis sentence on the overall ranking (name of #1, score, ETA, km).",
+      "     2. Top 3: each hospital = 2 short lines, with the KEY FIGURES of Layer 1.",
+      "     3. A single final remark: residual network capacity, saturation, or uncovered radius if needed. EXACTLY ONE REMARK, no closing conclusion.",
+      "[I6] Every cited figure is IDENTICAL to the one transmitted. If a figure is absent → you do not mention it.",
+      "[I7] STEP OUT OF JSON. Do NOT produce any ```json block, NO Markdown table, NO bullet list with dashes (allowed: line breaks between the 3 sections).",
+      "",
+      "Write ENTIRELY in English.",
+    ].join("\n");
+  }
+  if (lang === "ar") {
+    return [
+      "أنت مساعد التبرير لمصنّف Hospinet التابع لمنصة IRIS العسكرية لإدارة الكوارث.",
+      "دورك الوحيد : أن تعيد صياغة تصنيف المستشفيات المحسوب بواسطة المحرك الحتمي للطبقة الأولى، باختصار وبحيادية وحيادية وبشكل وقائعي صارم، باللغة العربية.",
+      "",
+      "قواعد إلزامية (بدون استثناء):",
+      "[I1] لا اختراع. كل الأرقام، وأسماء المستشفيات، والمسافات، وزمن الوصول، والنقاط، ونسبة الإشغال، والخدمات، وعدد الأسرة، والأسطول الصحي تأتي حصريًا من مجموعة بيانات الطبقة الأولى المقدمة. لا تضيف أي معلومة ولا تقدير ولا استقراء.",
+      "[I2] لا أمر عملياتي. لا تقول : « أرسل »، « أزل إلى »، « وجه الضحايا »، « فعّل الخطة »، « انشر »، ولا أي تعليمة أو إجراء أو توصية بعمل. تعبر دائمًا على شكل ملاحظة محايدة (مثل : « يظهر المستشفى X في صدارة التصنيف، بنقاط Y وزمن وصول Z دقيقة. »).",
+      "[I3] لا تشخيص ولا رأي طبي. لا تقيّم الخطورة، ولا تقترح فرزًا، ولا تصف خدمة بـ « مناسبة » إذا كان الرقم منخفضًا. تلتزم بمصطلحات الطبقة الأولى : نقاط، مسافة، زمن وصول، إشغال، خدمات موجودة.",
+      "[I4] لا مصطلحات غامضة. ممنوع : « ربما »، « يبدو »، « على الأرجح »، « مثاليًا »، « يُفضّل »، « موصى به »، « أفضل خيار ». بدلًا من ذلك : « نقاط X من 100 »، « نسبة إشغال Y % »، « زمن الوصول Z د ».",
+      "[I5] هيكل إلزامي (لا شيء غيره، لا مقدمة):",
+      "     1. جملة تلخيصية حول التصنيف العام (اسم الأول، والنقاط، وزمن الوصول، وكم).",
+      "     2. أفضل 3 : كل مستشفى = سطران قصيران، مع الأرقام الرئيسية للطبقة الأولى.",
+      "     3. ملاحظة أخيرة واحدة فقط : القدرة الاستيعابية المتبقية للشبكة، أو الإشباع، أو نصف القطر غير المشمول إذا لزم الأمر. ملاحظة واحدة فقط لا خاتمة.",
+      "[I6] كل رقم مذكور مطابق تمامًا لما أُرسل. إذا كان الرقم غائبًا → لا تذكره.",
+      "[I7] أخرج من JSON. لا تنتج أي كتلة ```json، ولا جدول Markdown، ولا قائمة نقطية بشرطات (يسمح بفواصل الأسطر بين الأقسام الثلاثة).",
+      "",
+      "اكتب باللغة العربية بالكامل.",
+    ].join("\n");
+  }
+  return [
+    "Tu es l'assistant de justification de l'Affecteur Hospinet d'IRIS, plateforme militaire de gestion des catastrophes.",
+    "Ton unique rôle : reformuler EN FRANÇAIS CONCIS, NEUTRE ET STRICTEMENT factuel, le classement des hôpitaux calculé par le moteur déterministe de la Couche 1.",
+    "",
+    "RÈGLES IMPÉRATIVES (SANS EXCEPTION) :",
+    "[I1] AUCUNE INVENTION. Tous les chiffres, noms d'hôpitaux, distances, ETA, scores, taux d'occupation, services, nombres de lits, flotte sanitaire viennent EXCLUSIVEMENT du jeu de données Couche 1 fourni. Tu n'ajoutes AUCUNE information, AUCUNE estimation, AUCUNE extrapolation.",
+    "[I2] AUCUN ORDRE OPÉRATIONNEL. Tu ne dis PAS : « envoyer », « évacuer vers », « diriger les victimes », « activer le plan », « déployer », ni aucune consigne, procédure, recommandation d'action. Tu exprime TOUJOURS sous forme de CONSTAT NEUTRE (ex : « L'hôpital X apparaît en tête du classement, avec score Y et ETA Z minutes. »).",
+    "[I3] PAS DE DIAGNOSTIC, PAS D'AVIS MÉDICAL. Tu ne juges pas la gravité, tu ne proposes pas de triage, tu ne dis pas qu'un service est « adapté » si le chiffre est faible. Tu restes sur les mots de Couche 1 : score, distance, ETA, occupation, services présents.",
+    "[I4] PAS DE TERMES IMPRÉCIS. Interdits : « probablement », « semble », « peut-être », « sûrement », « idéalement », « à privilégier », « recommandé », « meilleur choix ». Au lieu de ça : « score X sur 100 », « taux d'occupation Y % », « ETA Z min ».",
+    "[I5] STRUCTURE OBLIGATOIRE (rien d'autre, pas de préambule) :",
+    "     1. Une phrase de synthèse sur le classement global (nom du top 1, score, ETA, km).",
+    "     2. Top 3 : chaque hôpital = 2 lignes courtes, avec les CHIFFRES CLÉS de Couche 1.",
+    "     3. Une remarque finale unique : capacité résiduelle réseau, saturation, ou rayon non couvert si besoin. SOIT UNE SEULE REMARQUE, PAS DE CONCLUSION.",
+    "[I6] Chaque chiffre cité est IDENTIQUE à celui transmis. Si un chiffre est absent → tu ne le mentionnes pas.",
+    "[I7] SORS DU JSON. Ne produit AUCUN bloc ```json, AUCUN tableau Markdown, AUCUNE liste à puces avec tirets (autorisé : sauts de ligne entre les 3 sections).",
+  ].join("\n");
+}
 
 /* ---------------- Types publics ---------------- */
 
@@ -222,77 +330,124 @@ export function rankHospitals(
 
 /* ---------------- COUCHE 2 — LLM Justification ---------------- */
 
-const SYSTEM_AFFECTEUR = [
-  "Tu es l'assistant de justification de l'Affecteur Hospinet d'IRIS, plateforme militaire de gestion des catastrophes.",
-  "Ton unique rôle : reformuler EN FRANÇAIS CONCIS, NEUTRE ET STRICTEMENT factuel, le classement des hôpitaux calculé par le moteur déterministe de la Couche 1.",
-  "",
-  "RÈGLES IMPÉRATIVES (SANS EXCEPTION) :",
-  "[I1] AUCUNE INVENTION. Tous les chiffres, noms d'hôpitaux, distances, ETA, scores, taux d'occupation, services, nombres de lits, flotte sanitaire viennent EXCLUSIVEMENT du jeu de données Couche 1 fourni. Tu n'ajoutes AUCUNE information, AUCUNE estimation, AUCUNE extrapolation.",
-  "[I2] AUCUN ORDRE OPÉRATIONNEL. Tu ne dis PAS : « envoyer », « évacuer vers », « diriger les victimes », « activer le plan », « déployer », ni aucune consigne, procédure, recommandation d'action. Tu exprime TOUJOURS sous forme de CONSTAT NEUTRE (ex : « L'hôpital X apparaît en tête du classement, avec score Y et ETA Z minutes. »).",
-  "[I3] PAS DE DIAGNOSTIC, PAS D'AVIS MÉDICAL. Tu ne juges pas la gravité, tu ne proposes pas de triage, tu ne dis pas qu'un service est « adapté » si le chiffre est faible. Tu restes sur les mots de Couche 1 : score, distance, ETA, occupation, services présents.",
-  "[I4] PAS DE TERMES IMPRÉCIS. Interdits : « probablement », « semble », « peut-être », « sûrement », « idéalement », « à privilégier », « recommandé », « meilleur choix ». Au lieu de ça : « score X sur 100 », « taux d'occupation Y % », « ETA Z min ».",
-  "[I5] STRUCTURE OBLIGATOIRE (rien d'autre, pas de préambule) :",
-  "     1. Une phrase de synthèse sur le classement global (nom du top 1, score, ETA, km).",
-  "     2. Top 3 : chaque hôpital = 2 lignes courtes, avec les CHIFFRES CLÉS de Couche 1.",
-  "     3. Une remarque finale unique : capacité résiduelle réseau, saturation, ou rayon non couvert si besoin. SOIT UNE SEULE REMARQUE, PAS DE CONCLUSION.",
-  "[I6] Chaque chiffre cité est IDENTIQUE à celui transmis. Si un chiffre est absent → tu ne le mentionnes pas.",
-  "[I7] SORS DU JSON. Ne produit AUCUN bloc ```json, AUCUN tableau Markdown, AUCUNE liste à puces avec tirets (autorisé : sauts de ligne entre les 3 sections).",
-].join("\n");
-
 /** Construit le prompt utilisateur à partir des FAITS DÉTERMINISTES SEULEMENT. */
-function buildUserPrompt(need: AffecteurNeed, res: AffecteurResult): string {
+function buildUserPrompt(
+  need: AffecteurNeed,
+  res: AffecteurResult,
+  lang: Lang = "fr",
+  L: HospinetIALabels = mergeHospinetIALabels(),
+): string {
+  const ctxHeader = lang === "en" ? "# OPERATIONAL CONTEXT" : lang === "ar" ? "# السياق العملياتي" : "# CONTEXTE OPÉRATIONNEL";
+  const ctxEvac = lang === "en" ? "Evacuation point" : lang === "ar" ? "نقطة الإخلاء" : "Point d'évacuation";
+  const ctxUnnamed = lang === "en" ? "unnamed" : lang === "ar" ? "بدون اسم" : "non nommé";
+  const ctxVictims = lang === "en" ? "Estimated victims" : lang === "ar" ? "الضحايا المقدرون" : "Victimes estimées";
+  const ctxServices = lang === "en" ? "Required services" : lang === "ar" ? "الخدمات المطلوبة" : "Services requis";
+  const ctxServicesDefault = lang === "en" ? "intensive care · emergency (default)" : lang === "ar" ? "الإنعاش · الطوارئ (افتراضي)" : "réanimation · urgences (par défaut)";
+  const ctxField = lang === "en" ? "Includes field hospitals" : lang === "ar" ? "يشمل المستشفيات الميدانية" : "Inclut hôpitaux de campagne";
+  const ctxYes = lang === "en" ? "yes" : lang === "ar" ? "نعم" : "oui";
+  const ctxNo = lang === "en" ? "no" : lang === "ar" ? "لا" : "non";
+  const ctxRadius = lang === "en" ? "Radius" : lang === "ar" ? "نصف القطر" : "Rayon";
+  const classHeader = lang === "en" ? "# LAYER-1 CLASSIFICATION (deterministic, ground truth)" : lang === "ar" ? "# تصنيف الطبقة الأولى (حتمي، مصدر الحقيقة)" : "# CLASSIFICATION COUCHE 1 (déterministe, source de vérité)";
+  const classWeights = lang === "en" ? "Weights" : lang === "ar" ? "الأوزان" : "Poids";
+  const classTravel = lang === "en" ? "travel" : lang === "ar" ? "الوصول" : "voyage";
+  const classCapacity = lang === "en" ? "capacity" : lang === "ar" ? "السعة" : "capacité";
+  const classServices = lang === "en" ? "services" : lang === "ar" ? "الخدمات" : "services";
+  const classCount = lang === "en" ? "Ranked hospitals" : lang === "ar" ? "المستشفيات المصنّفة" : "Nombre d'hôpitaux classés";
+  const hopRankHeader = lang === "en" ? "HOSPITAL" : lang === "ar" ? "المستشفى" : "HOPITAL";
+  const hScore = lang === "en" ? "Score" : lang === "ar" ? "النقاط" : "Score";
+  const hBreakdown = lang === "en" ? "breakdown" : lang === "ar" ? "التفصيل" : "décomposition";
+  const hBonusFleet = lang === "en" ? "fleet bonus" : lang === "ar" ? "مكافأة الأسطول" : "bonus flotte";
+  const hDist = lang === "en" ? "Distance" : lang === "ar" ? "المسافة" : "Distance";
+  const hEta = lang === "en" ? "estimated ETA" : lang === "ar" ? "زمن الوصول المقدر" : "ETA estimé";
+  const hOcc = lang === "en" ? "Overall occupancy" : lang === "ar" ? "الإشغال العام" : "Taux d'occupation global";
+  const hFreeEst = lang === "en" ? "Estimated free beds" : lang === "ar" ? "الأسرّة المتاحة تقديريًا" : "Lits libres estimés";
+  const hSvcCov = lang === "en" ? "Required services coverage" : lang === "ar" ? "تغطية الخدمات المطلوبة" : "Couverture services requis";
+  const hSvcDetail = lang === "en" ? "detail" : lang === "ar" ? "التفصيل" : "détail";
+  const hSvcFree = lang === "en" ? "free" : lang === "ar" ? "متاح" : "libres";
+  const hSvcAbsent = lang === "en" ? "absent" : lang === "ar" ? "غائب" : "absent";
+  const hFleet = lang === "en" ? "Medical fleet" : lang === "ar" ? "الأسطول الصحي" : "Flotte sanitaire";
+  const hStaff = lang === "en" ? "staff" : lang === "ar" ? "الشخص" : "personnel";
+  const instrHeader = lang === "en" ? "# RESPONSE INSTRUCTION" : lang === "ar" ? "# تعليمات الرد" : "# INSTRUCTION DE RÉPONSE";
+  const instr1 = lang === "en"
+    ? "Formulate your justification STRICTLY within structure [I5]: 1 synthesis sentence, then Top 3 (each 2 short lines with KEY FIGURES), then 1 single final remark."
+    : lang === "ar"
+      ? "صيغ تبريرك بدقة ضمن الهيكل [I5] : جملة تلخيصية واحدة، ثم أفضل 3 (كل منهما بسطرين قصيرين مع الأرقام الرئيسية)، ثم ملاحظة أخيرة واحدة فقط."
+      : "Formule ta justification STRICTEMENT dans la structure [I5] : 1 phrase synthèse, puis Top 3 (chacun 2 lignes courtes avec CHIFFRES CLÉS), puis 1 remarque finale unique.";
+  const instr2 = lang === "en"
+    ? "REMINDER [I2]: NO recommendation/operation/order, ONLY NEUTRAL FINDINGS based on this dataset."
+    : lang === "ar"
+      ? "تذكير [I2] : لا توصية ولا عملية ولا أمر، فقط ملاحظات محايدة تستند على مجموعة البيانات هذه."
+      : "RAPPEL [I2] : AUCUNE recommandation/opération/ordre, SEULEMENT des CONSTATS NEUTRES basés sur ce jeu de données.";
+
   const head: string[] = [];
-  head.push("# CONTEXTE OPÉRATIONNEL");
-  head.push(`- Point d'évacuation : ${need.label ?? "non nommé"} (coord ${(need.ll ?? [0, 0]).map((v) => round(v, 4)).join(", ")})`);
-  head.push(`- Victimes estimées : ${need.victims}`);
-  head.push(`- Services requis : ${need.services?.length ? need.services.map(serviceName).join(" · ") : "réanimation · urgences (par défaut)"}`);
-  head.push(`- Inclut hôpitaux de campagne : ${need.includeFieldHosps ? "oui" : "non"}`);
-  if (need.radiusKm && need.radiusKm > 0) head.push(`- Rayon : ${need.radiusKm} km`);
+  head.push(ctxHeader);
+  head.push(`- ${ctxEvac} : ${need.label ?? ctxUnnamed} (coord ${(need.ll ?? [0, 0]).map((v) => round(v, 4)).join(", ")})`);
+  head.push(`- ${ctxVictims} : ${need.victims}`);
+  head.push(`- ${ctxServices} : ${need.services?.length ? need.services.map(serviceName).join(" · ") : ctxServicesDefault}`);
+  head.push(`- ${ctxField} : ${need.includeFieldHosps ? ctxYes : ctxNo}`);
+  if (need.radiusKm && need.radiusKm > 0) head.push(`- ${ctxRadius} : ${need.radiusKm} km`);
   head.push("");
-  head.push("# CLASSIFICATION COUCHE 1 (déterministe, source de vérité)");
-  head.push(`- Poids : voyage ${round(DEFAULT_WEIGHTS.travel * 100)}%, capacité ${round(DEFAULT_WEIGHTS.capacity * 100)}%, services ${round(DEFAULT_WEIGHTS.service * 100)}%`);
-  head.push(`- Nombre d'hôpitaux classés : ${res.rows.length}`);
+  head.push(classHeader);
+  head.push(`- ${classWeights} : ${classTravel} ${round(DEFAULT_WEIGHTS.travel * 100)}%, ${classCapacity} ${round(DEFAULT_WEIGHTS.capacity * 100)}%, ${classServices} ${round(DEFAULT_WEIGHTS.service * 100)}%`);
+  head.push(`- ${classCount} : ${res.rows.length}`);
   head.push("");
   const top = res.rows.slice(0, Math.min(5, res.rows.length));
   top.forEach((r) => {
     const hName = r.hospital.nom;
     const ville = "ville" in r.hospital ? r.hospital.ville : "";
-    const kind = r.field ? "hôpital de campagne" : ("type" in r.hospital && r.hospital.type ? r.hospital.type : "hôpital");
-    head.push(`## HOPITAL ${r.rank} : ${hName}${ville ? " (" + ville + ")" : ""} — ${kind}`);
-    head.push(`- Score : ${r.score}/100 ; décomposition : voyage ${r.breakdown.travel}, capacité ${r.breakdown.capacity}, service ${r.breakdown.service}, bonus flotte ${r.breakdown.bonus}`);
-    head.push(`- Distance : ${r.km} km · ETA estimé : ${r.etaMin} min`);
-    head.push(`- Taux d'occupation global : ${r.pctOcc}% · Lits libres estimés : ${r.estimatedFreeBeds}`);
-    head.push(`- Couverture services requis : ${r.svcMatch[0]}/${r.svcMatch[1]}` +
-      (r.svcDetail.length ? " ; détail : " + r.svcDetail.map((s) => `${s.name}${s.present ? ` (${s.free} libres)` : " (absent)"}`).join(" · ") : ""));
+    const kind = r.field ? L.field_hospital : ("type" in r.hospital && r.hospital.type ? r.hospital.type : L.hospital);
+    head.push(`## ${hopRankHeader} ${r.rank} : ${hName}${ville ? " (" + ville + ")" : ""} — ${kind}`);
+    head.push(`- ${hScore} : ${r.score}/100 ; ${hBreakdown} : ${classTravel} ${r.breakdown.travel}, ${classCapacity} ${r.breakdown.capacity}, ${classServices} ${r.breakdown.service}, ${hBonusFleet} ${r.breakdown.bonus}`);
+    head.push(`- ${hDist} : ${r.km} km · ${hEta} : ${r.etaMin} min`);
+    head.push(`- ${hOcc} : ${r.pctOcc}% · ${hFreeEst} : ${r.estimatedFreeBeds}`);
+    head.push(`- ${hSvcCov} : ${r.svcMatch[0]}/${r.svcMatch[1]}` +
+      (r.svcDetail.length ? ` ; ${hSvcDetail} : ` + r.svcDetail.map((s) => `${s.name}${s.present ? ` (${s.free} ${hSvcFree})` : ` (${hSvcAbsent})`}`).join(" · ") : ""));
     if (!r.field && "amb" in r.hospital) {
-      head.push(`- Flotte sanitaire : amb ${r.hospital.amb ?? 0} · hélico ${r.hospital.heli ?? 0} · personnel ${r.hospital.staff ?? 0}`);
+      head.push(`- ${hFleet} : amb ${r.hospital.amb ?? 0} · heli ${r.hospital.heli ?? 0} · ${hStaff} ${r.hospital.staff ?? 0}`);
     }
     head.push("");
   });
-  head.push("# INSTRUCTION DE RÉPONSE");
-  head.push("Formule ta justification STRICTEMENT dans la structure [I5] : 1 phrase synthèse, puis Top 3 (chacun 2 lignes courtes avec CHIFFRES CLÉS), puis 1 remarque finale unique.");
-  head.push("RAPPEL [I2] : AUCUNE recommandation/opération/ordre, SEULEMENT des CONSTATS NEUTRES basés sur ce jeu de données.");
+  head.push(instrHeader);
+  head.push(instr1);
+  head.push(instr2);
   return head.join("\n");
 }
 
 /* ---- Fallback textuel déterministe (si LLM down) ---- */
 
-export function fallbackJustification(need: AffecteurNeed, res: AffecteurResult): string {
+export function fallbackJustification(
+  need: AffecteurNeed,
+  res: AffecteurResult,
+  labels?: Partial<HospinetIALabels>,
+): string {
+  const L = mergeHospinetIALabels(labels);
   if (res.empty) {
-    return `Aucun établissement classé à l'intérieur du périmètre${need.radiusKm ? ` de ${need.radiusKm} km` : ""}. ` +
-      `Étendez le rayon, activez les hôpitaux de campagne, ou réduisez les services requis.`;
+    const radiusSuffix = need.radiusKm ? (typeof need.radiusKm === "string" ? need.radiusKm : ` ${need.radiusKm} km`) : "";
+    return tpl(L.aff_fallback_empty_tpl, { radius_suffix: radiusSuffix ? ` ${radiusSuffix}` : "" });
   }
   const top = res.rows.slice(0, Math.min(3, res.rows.length));
   const name = (r: AffecteurRow) => `${r.hospital.nom}${"ville" in r.hospital && r.hospital.ville ? ` (${r.hospital.ville})` : ""}`;
   const parts: string[] = [];
-  parts.push(`Classement déterministe — ${top[0] ? name(top[0]) + " en tête (score " + top[0].score + "/100, ETA " + top[0].etaMin + " min, " + top[0].km + " km)." : ""}`);
+  const head = top[0] ? `${name(top[0])} en tête (score ${top[0].score}/100, ETA ${top[0].etaMin} min, ${top[0].km} km).` : "";
+  parts.push(tpl(L.aff_fallback_rank_head, { name_head: head }));
   top.forEach((r) => {
-    parts.push(`· ${name(r)} — score ${r.score} · ETA ${r.etaMin} min · ${r.km} km · occ ${r.pctOcc}% · services ${r.svcMatch[0]}/${r.svcMatch[1]} · lits libres estimés ${r.estimatedFreeBeds}.`);
+    parts.push(tpl(L.aff_fallback_row_tpl, {
+      name: name(r),
+      score: r.score,
+      etaMin: r.etaMin,
+      km: r.km,
+      pctOcc: r.pctOcc,
+      svcMatch: `${r.svcMatch[0]}/${r.svcMatch[1]}`,
+      estimatedFreeBeds: r.estimatedFreeBeds,
+    }));
   });
   const occs = res.rows.map((r) => r.pctOcc);
   const avgOcc = Math.round(occs.reduce((a, b) => a + b, 0) / Math.max(1, occs.length));
   const saturated = res.rows.filter((r) => r.pctOcc >= 90).length;
-  parts.push(`Remarque : occupation moyenne des établissements classés = ${avgOcc}%${saturated ? ` — ${saturated} établissement(s) tendus (≥ 90%)` : ""}.`);
+  parts.push(tpl(L.aff_fallback_remark_tpl, {
+    avgOcc,
+    saturated_suffix: saturated ? ` — ${saturated} établissement(s) tendus (≥ 90%)` : "",
+  }));
   return parts.join("\n");
 }
 
@@ -309,40 +464,44 @@ const AFF_FORBIDDEN: [RegExp, string][] = [
 
 const AFF_REQUIRED_NUMBERS_MIN = 3;
 
-function sanitizeJustification(text: string, res: AffecteurResult): string {
+function sanitizeJustification(text: string, res: AffecteurResult, labels?: Partial<HospinetIALabels>): string {
   let t = text ?? "";
   for (const [re, sub] of AFF_FORBIDDEN) t = t.replace(re, sub);
-  // Nettoyage lignes vides excessives
   t = t.replace(/\n{3,}/g, "\n\n").replace(/^\s+|\s+$/g, "");
 
-  // Vérification : minimum de chiffres présents dans le texte (garantie anti-creux)
   const nums = t.match(/\d+/g) ?? [];
   if (nums.length < AFF_REQUIRED_NUMBERS_MIN) {
-    return fallbackJustification({ victims: 0, services: [], ll: null }, res);
+    return fallbackJustification({ victims: 0, services: [], ll: null }, res, labels);
   }
   return t;
 }
 
 /* ---- API publique : justification LLM avec fallback synchrone ---- */
 
-export async function justifyTop3(need: AffecteurNeed, res: AffecteurResult): Promise<{ text: string; fallback: boolean; llmError?: string }> {
+export async function justifyTop3(
+  need: AffecteurNeed,
+  res: AffecteurResult,
+  lang: Lang = "fr",
+  labels?: Partial<HospinetIALabels>,
+): Promise<{ text: string; fallback: boolean; llmError?: string }> {
   if (!AI_ENABLED) {
-    return { text: fallbackJustification(need, res), fallback: true };
+    return { text: fallbackJustification(need, res, labels), fallback: true };
   }
   const cfg = resolveProvider(AI_DEFAULT_SETTINGS);
   try {
-    const user = buildUserPrompt(need, res);
+    const L = mergeHospinetIALabels(labels);
+    const user = buildUserPrompt(need, res, lang, L);
     const result = await chatComplete(cfg, [
-      { role: "system", content: SYSTEM_AFFECTEUR },
+      { role: "system", content: buildSystemAffecteur(lang) },
       { role: "user", content: user },
     ]);
     if (!result.ok) {
-      return { text: fallbackJustification(need, res), fallback: true, llmError: result.error };
+      return { text: fallbackJustification(need, res, labels), fallback: true, llmError: result.error };
     }
-    const clean = sanitizeJustification(result.text, res);
+    const clean = sanitizeJustification(result.text, res, labels);
     return { text: clean, fallback: false };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { text: fallbackJustification(need, res), fallback: true, llmError: msg };
+    return { text: fallbackJustification(need, res, labels), fallback: true, llmError: msg };
   }
 }

@@ -21,7 +21,7 @@ import {
   type WhatIfPreset,
   type WhatIfSubMetric,
 } from "@/lib/ai/whatif/types";
-import { WHAT_IF_PRESETS } from "@/lib/ai/whatif/presets";
+import { buildWhatIfPresets } from "@/lib/ai/whatif/presets";
 import {
   cn,
   sevLabel,
@@ -164,15 +164,17 @@ export function WhatIfPageShell() {
     };
   }, [incident, hospitals, units, quakes]);
 
-  const baseline = useMemo(() => (ctx ? buildBaseline(ctx) : null), [ctx]);
+  const baseline = useMemo(() => (ctx ? buildBaseline(ctx, md.whatif) : null), [ctx, md]);
   const impact: WhatIfImpact | null = useMemo(() => {
     if (!ctx || !baseline) return null;
-    return simulateWhatIf(ctx, deltas);
-  }, [ctx, baseline, deltas]);
+    return simulateWhatIf(ctx, deltas, md.whatif);
+  }, [ctx, baseline, deltas, md]);
 
   const reset = () => setDeltas(DEFAULT_DELTAS);
   const applyPreset = (p: WhatIfPreset) =>
     setDeltas({ ...DEFAULT_DELTAS, ...p.deltas });
+
+  const presets = useMemo(() => buildWhatIfPresets(md.whatif), [md]);
 
   // Incidents list pour le picker
   const filtered = useMemo(() => {
@@ -359,17 +361,18 @@ export function WhatIfPageShell() {
                       const typTxt = typeLabel(incident.type, incidentTypes, lang as any);
                       detail = tpl(md.whatif.type_sev, { type: typTxt, sev: sevTxt });
                     } else if (m.key === "deployedCap" && ctx) {
-                      detail = `${ctx.deployedUnits} unité(s) déployée(s) · Besoin ${
-                        incident?.sev === "high" ? "8" : incident?.sev === "medium" ? "4" : "2"
-                      } (sev)`;
+                      detail = tpl(md.whatif.det_units_tpl, {
+                        n: ctx.deployedUnits,
+                        b: incident?.sev === "high" ? "8" : incident?.sev === "medium" ? "4" : "2",
+                      });
                     } else if (m.key === "hospitalSat" && ctx) {
                       detail = tpl(md.whatif.hosp_sat_line, { p: Math.round(ctx.hospitalSatPct), n: ctx.nearbyHospitals });
                     } else if (m.key === "weatherImpact" && ctx) {
-                      detail = `Vent ${Math.round(ctx.windKmh)}km/h · Pluie 24h ${Math.round(ctx.rain24Mm)}mm`;
+                      detail = tpl(md.whatif.det_weather_tpl, { w: Math.round(ctx.windKmh), r: Math.round(ctx.rain24Mm) });
                     } else if (m.key === "seismicImpact" && ctx) {
                       detail =
                         ctx.seismicEffectiveMag > 0
-                          ? `Magnitude effective M${ctx.seismicEffectiveMag.toFixed(1)} (EMS/72h <200km)`
+                          ? tpl(md.whatif.det_quake_tpl, { m: ctx.seismicEffectiveMag.toFixed(1) })
                           : md.whatif.no_quake;
                     } else if (m.key === "duration" && ctx) {
                       const m2 = ctx.durationMin;
@@ -456,8 +459,9 @@ export function WhatIfPageShell() {
                         {a.label}
                       </div>
                       <div className="text-[10.5px] text-gray-400 dark:text-rdia-400">
-                        Impact estimé : {a.estimatedImpact > 0 ? "+" : ""}
-                        {a.estimatedImpact} pts sur score risque
+                        {tpl(md.whatif.impact_est_tpl, {
+                          val: (a.estimatedImpact > 0 ? "+" : "") + a.estimatedImpact,
+                        })}
                       </div>
                     </div>
                   </li>
@@ -593,7 +597,7 @@ export function WhatIfPageShell() {
                         {md.whatif.presets}
                       </h2>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-                        {WHAT_IF_PRESETS.map((p) => {
+                        {presets.map((p) => {
                           const active = Object.entries(p.deltas).every(
                             ([k, v]) => (deltas as any)[k] === v,
                           );
@@ -663,7 +667,7 @@ export function WhatIfPageShell() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0 text-[11px] leading-tight text-gray-500 dark:text-rdia-300">
                       <span className="font-semibold text-gray-700 dark:text-rdia-100">
-                        Δ en cours :{" "}
+                        {md.whatif.delta_in_progress}
                       </span>
                       <span
                         className={cn(

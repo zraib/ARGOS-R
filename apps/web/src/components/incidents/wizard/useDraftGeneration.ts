@@ -2,11 +2,12 @@
 
 import { useCallback, useState } from "react";
 import { useDraftProposal } from "@/components/incidents/IncidentDraftAssist";
-import type { DescriptionProposalInput } from "@/lib/ai/draft";
+import type { DescriptionProposalInput, DraftLabels } from "@/lib/ai/draft";
 import { generateIncidentDraft, paraphraseIncidentDraft, type IncidentDraftResult } from "@/lib/ai/llmIncidentDraft";
 import { resolveProvider } from "@/lib/ai/config";
 import { useArgos } from "@/lib/store";
 import type { WizardForm } from "@/lib/incidents/wizard";
+import type { Lang } from "@/lib/types";
 
 // ============================================================================
 // Génération du titre et de la description par l'IA (dernière étape : 4).
@@ -48,6 +49,10 @@ export function useDraftGeneration(
   // Le modèle est celui des Paramètres — le même que le copilote.
   const aiSettings = useArgos((s) => s.aiSettings);
   const provider = resolveProvider(aiSettings);
+  const lang = useArgos((s) => s.lang);
+  const mod = useArgos((s) => s.modulesDict);
+  const draftLabelsPartial = (mod?.draft ?? {}) as unknown as Partial<DraftLabels>;
+  const langConst: Lang = (lang as Lang) ?? "fr";
   // L'OPÉRATEUR PASSE DEVANT. Le runtime sert une requête à la fois, et les
   // analyses de fond (prédictions de risque, conscience situationnelle)
   // repartent à chaque chargement du domaine : mesuré ici, un brouillon de
@@ -72,7 +77,7 @@ export function useDraftGeneration(
     try {
       const nextSalt = aiSalt + 1;
       setAiSalt(nextSalt);
-      applyDraft(await generateIncidentDraft(form.keywords, input, { salt: nextSalt, provider }));
+      applyDraft(await generateIncidentDraft(form.keywords, input, { salt: nextSalt, provider, lang: langConst, labels: draftLabelsPartial }));
       setAiGenerated(true);
     } finally {
       setOperatorBusy(false);
@@ -88,7 +93,7 @@ export function useDraftGeneration(
       const nextSalt = aiSalt + 1;
       setAiSalt(nextSalt);
       applyDraft(
-        await paraphraseIncidentDraft({ keywords: form.keywords, input, currentTitle: form.title, currentDesc: form.desc, field, salt: nextSalt, provider }),
+        await paraphraseIncidentDraft({ keywords: form.keywords, input, currentTitle: form.title, currentDesc: form.desc, field, salt: nextSalt, provider, lang: langConst, labels: draftLabelsPartial }),
       );
     } finally {
       setOperatorBusy(false);

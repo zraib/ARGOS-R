@@ -11,6 +11,7 @@ import { warmModel } from "@/lib/ai/provider";
 import { AI_DEFAULT_SETTINGS, type AiSettings, aiSystemPrompt, resolveProvider, type LlmProviderConfig } from "@/lib/ai/config";
 import type { RiskPrediction } from "@/lib/ai/risk/types";
 import type { SituationalAwareness } from "@/lib/ai/situational/types";
+import type { SituationalLabels } from "@/lib/ai/situational/engine";
 import {
   AI_SETTINGS_KEY,
   saveAiLogFor,
@@ -258,7 +259,9 @@ export const createAiSlice: StateCreator<ArgosState, [], [], AiSlice> = (set, ge
   },
   recomputeSituationalAwarenessAI: async () => {
     const s = get();
-    const signature = signatureEntreesIA(s);
+    const signatureBase = signatureEntreesIA(s);
+    const lang = (s as unknown as { lang?: "fr" | "en" | "ar" }).lang ?? "fr";
+    const signature = `${signatureBase}|lang:${lang}`;
     if (aiGarde.situationEnCours || (signature === aiGarde.situationSignature && s.situationalAwareness)) {
       return s.situationalAwareness as SituationalAwareness;
     }
@@ -268,6 +271,36 @@ export const createAiSlice: StateCreator<ArgosState, [], [], AiSlice> = (set, ge
     const ctrl = new AbortController();
     aiGarde.fondCtrl = ctrl;
     set({ situationalLoadingAI: true });
+
+    const ms = (s as unknown as { modulesDict?: { situational?: Record<string, string> } }).modulesDict?.situational;
+    const labels: Partial<SituationalLabels> | undefined = ms
+      ? {
+          fc_hospital_saturation_full: ms.fc_hospital_saturation_full,
+          fc_hospital_saturation_critical: ms.fc_hospital_saturation_critical,
+          fc_hospital_tension: ms.fc_hospital_tension,
+          fc_simultaneous_high_incidents: ms.fc_simultaneous_high_incidents,
+          fc_one_high_incident: ms.fc_one_high_incident,
+          fc_unit_readiness_low: ms.fc_unit_readiness_low,
+          fc_rapid_deterioration: ms.fc_rapid_deterioration,
+          fc_notable_improvement: ms.fc_notable_improvement,
+          fc_situation_controlled: ms.fc_situation_controlled,
+          rt_hospital_saturation: ms.rt_hospital_saturation,
+          rt_seismic_aftershocks: ms.rt_seismic_aftershocks,
+          rt_critical_zone_degradation: ms.rt_critical_zone_degradation,
+          rt_situation_stable: ms.rt_situation_stable,
+          zone_national: ms.zone_national,
+          zone_hospital_network: ms.zone_hospital_network,
+          zone_epicentral: ms.zone_epicentral,
+          flow_trend_up: ms.flow_trend_up,
+          flow_trend_stable: ms.flow_trend_stable,
+          flow_trend_down: ms.flow_trend_down,
+          syn_alerte_rouge: ms.syn_alerte_rouge,
+          syn_vigilance: ms.syn_vigilance,
+          syn_surveillance: ms.syn_surveillance,
+          syn_calme: ms.syn_calme,
+        }
+      : undefined;
+
     try {
       const cfg: LlmProviderConfig = resolveProvider(s.aiSettings);
       const { computeSituationalAwarenessAI } = await import("@/lib/ai/situational/engine");
@@ -281,6 +314,8 @@ export const createAiSlice: StateCreator<ArgosState, [], [], AiSlice> = (set, ge
         },
         cfg,
         ctrl.signal,
+        labels,
+        lang as "fr" | "en" | "ar",
       );
       if (aborted) {
         aiGarde.situationSignature = "";
@@ -295,13 +330,16 @@ export const createAiSlice: StateCreator<ArgosState, [], [], AiSlice> = (set, ge
       return data;
     } catch (e) {
       const { computeSituationalAwarenessFallback } = await import("@/lib/ai/situational/engine");
-      const fallback = computeSituationalAwarenessFallback({
-        incidents: s.incidents,
-        hospitals: s.hospitals,
-        units: s.units,
-        dashStats: s.dashStats,
-        equipment: s.catalog.equipment,
-      });
+      const fallback = computeSituationalAwarenessFallback(
+        {
+          incidents: s.incidents,
+          hospitals: s.hospitals,
+          units: s.units,
+          dashStats: s.dashStats,
+          equipment: s.catalog.equipment,
+        },
+        labels,
+      );
       set({
         situationalAwareness: fallback,
         situationalModel: undefined,

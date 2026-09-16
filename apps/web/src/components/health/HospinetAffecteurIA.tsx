@@ -17,6 +17,7 @@
 
 
 import { tpl } from "@/lib/i18n/format";
+import type { ModulesDict } from "@/lib/i18n/modules";
 import { useEffect, useMemo, useState } from "react";
 import { hospId } from "@/lib/hospitals";
 import { useArgos, useDict, useModules } from "@/lib/store";
@@ -142,11 +143,11 @@ function CoordInput(props: {
   );
 }
 
-function ScoreBars({ row }: { row: AffecteurRow }) {
+function ScoreBars({ row, L }: { row: AffecteurRow; L: ModulesDict["hospinet"] }) {
   const bars: [string, number, string][] = [
-    ["Voy", row.breakdown.travel, "bg-sky-500"],
-    ["Cap", row.breakdown.capacity, "bg-green-500"],
-    ["Svc", row.breakdown.service, "bg-violet-500"],
+    [L.axis_voy, row.breakdown.travel, "bg-sky-500"],
+    [L.axis_cap, row.breakdown.capacity, "bg-green-500"],
+    [L.axis_svc, row.breakdown.service, "bg-violet-500"],
   ];
   return (
     <div className="flex flex-col gap-1">
@@ -161,7 +162,7 @@ function ScoreBars({ row }: { row: AffecteurRow }) {
       ))}
       {row.breakdown.bonus > 0 && (
         <div className="pl-7 text-[9.5px] font-semibold text-or-600 dark:text-or-400">
-          +{row.breakdown.bonus} bonus flotte
+          {tpl(L.bonus_flotte_tpl, { x: row.breakdown.bonus })}
         </div>
       )}
     </div>
@@ -173,9 +174,11 @@ function ScoreBars({ row }: { row: AffecteurRow }) {
 export function HospinetAffecteurIA() {
   const t = useDict();
   const m = useModules();
+  const lang = useArgos((s) => s.lang);
   const hospitals = useArgos((s) => s.hospitals);
   const fieldHosps = useArgos((s) => s.fieldHosps);
   const setSelHosp = useArgos((s) => s.setSelHosp);
+  const L = m.hospinet;
 
   // ----- État : entrées (valeurs par défaut ultra-simples) -----
   const [originLabel, setOriginLabel] = useState("");
@@ -268,7 +271,7 @@ export function HospinetAffecteurIA() {
     };
     setJustifying(true);
     try {
-      const res = await justifyTop3(need, result);
+      const res = await justifyTop3(need, result, lang, L);
       setJustification(res.text);
       setJustFallback(res.fallback);
       setJustError(res.llmError);
@@ -436,7 +439,7 @@ export function HospinetAffecteurIA() {
           <p className={helpCls + " mt-2"}>
             {services.length === 0
               ? m.hospinet.no_ward_selected
-              : `${services.length} service(s) requis · ${services.map(k => (ARGOS_WARD_REFERENCE.find(r => r.key===k)?.label ?? String(k))).join(" · ")}`}
+              : tpl(L.svc_requis_tpl, { n: services.length, list: services.map(k => (ARGOS_WARD_REFERENCE.find(r => r.key===k)?.label ?? String(k))).join(" · ") })}
           </p>
         </div>
       </div>
@@ -482,7 +485,7 @@ export function HospinetAffecteurIA() {
             ) : (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 {top3.map((r) => (
-                  <TopRankCard key={hospId(r.hospital)} row={r} onOpen={() => !r.field && setSelHosp(hospId(r.hospital))} />
+                  <TopRankCard key={hospId(r.hospital)} row={r} L={L} onOpen={() => !r.field && setSelHosp(hospId(r.hospital))} />
                 ))}
               </div>
             )}
@@ -500,7 +503,7 @@ export function HospinetAffecteurIA() {
                 </div>
               </div>
               <pre className="whitespace-pre-wrap break-words font-sans text-[12px] leading-relaxed text-gray-700 dark:text-rdia-100">
-                {justification ?? fallbackJustification({ ll: originLL, label: originLabel, victims, services, radiusKm: radius, includeFieldHosps: includeField }, result)}
+                {justification ?? fallbackJustification({ ll: originLL, label: originLabel, victims, services, radiusKm: radius, includeFieldHosps: includeField }, result, L)}
               </pre>
             </div>
           )}
@@ -510,14 +513,14 @@ export function HospinetAffecteurIA() {
             <div className={cardCls}>
               <div className="mb-2 pr-6">
                 <div className={sectionTitleCls}>{t.af_rank_all}</div>
-                <div className={sectionSubtitleCls}>Rangs 4 à {3 + rest.length} · {result.empty ? 0 : result.rows.length} au total</div>
+                <div className={sectionSubtitleCls}>{tpl(L.rangs_4_x_tpl, { last: 3 + rest.length, total: result.empty ? 0 : result.rows.length })}</div>
               </div>
               <div className="max-h-[280px] overflow-auto rounded-lg border border-gray-100 dark:border-rdia-600">
                 <table className="w-full text-left text-[11.5px] text-gray-700 dark:text-rdia-200">
                   <thead className="sticky top-0 z-10 bg-gray-50/90 backdrop-blur text-[10px] uppercase tracking-wider text-gray-500 dark:bg-rdia-700/90 dark:text-rdia-400">
                     <tr>
-                      <th className="px-3 py-2 font-bold">#</th>
-                      <th className="px-3 py-2 font-bold">Établissement</th>
+                      <th className="px-3 py-2 font-bold">{L.tbl_rank_num}</th>
+                      <th className="px-3 py-2 font-bold">{L.tbl_hop}</th>
                       <th className="px-2 py-2 text-right font-bold">{t.af_score}</th>
                       <th className="px-2 py-2 text-right font-bold">{t.af_eta}</th>
                       <th className="px-2 py-2 text-right font-bold">{t.af_km}</th>
@@ -584,7 +587,7 @@ export function HospinetAffecteurIA() {
 
 /* ---------------- Carte Top 3 dédiée ---------------- */
 
-function TopRankCard({ row, onOpen }: { row: AffecteurRow; onOpen: () => void }) {
+function TopRankCard({ row, L, onOpen }: { row: AffecteurRow; L: ModulesDict["hospinet"]; onOpen: () => void }) {
   const m = useModules();
   const h = row.hospital;
   const rankClr =
@@ -613,21 +616,21 @@ function TopRankCard({ row, onOpen }: { row: AffecteurRow; onOpen: () => void })
           </div>
         </div>
         <div className="text-right">
-          <div className="text-[10.5px] font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400">SCORE</div>
+          <div className="text-[10.5px] font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{L.label_score}</div>
           <div className="text-[20px] font-black leading-none tabular-nums text-or-500 dark:text-or-400">{row.score}</div>
         </div>
       </div>
 
       {/* Mini KPIs */}
       <div className="grid grid-cols-4 gap-1.5 rounded-lg bg-gray-50 p-2 dark:bg-rdia-800/60">
-        <MiniKpi label="ETA" value={`${row.etaMin} min`} sub={row.km.toFixed(1) + " km"} />
-        <MiniKpi label="OCC" value={`${row.pctOcc}%`} sub="" tint={occTint(row.pctOcc)} />
-        <MiniKpi label="LIBRES" value={String(row.estimatedFreeBeds)} sub="estim." tint="text-green-700 dark:text-green-400" />
-        <MiniKpi label="SVC" value={`${row.svcMatch[0]}/${row.svcMatch[1]}`} sub="" tint="text-violet-700 dark:text-violet-300" />
+        <MiniKpi label={L.mkpi_eta} value={`${row.etaMin} min`} sub={row.km.toFixed(1) + " km"} />
+        <MiniKpi label={L.mkpi_occ} value={`${row.pctOcc}%`} sub="" tint={occTint(row.pctOcc)} />
+        <MiniKpi label={L.mkpi_libres} value={String(row.estimatedFreeBeds)} sub="estim." tint="text-green-700 dark:text-green-400" />
+        <MiniKpi label={L.mkpi_svc} value={`${row.svcMatch[0]}/${row.svcMatch[1]}`} sub="" tint="text-violet-700 dark:text-violet-300" />
       </div>
 
       {/* Décomposition score barres */}
-      <ScoreBars row={row} />
+      <ScoreBars row={row} L={L} />
 
       {/* Services requis présents / absents */}
       {row.svcDetail.length > 0 && (

@@ -13,6 +13,11 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
  */
 export function FactorBars({ data }: { data: CriticalFactor[] }) {
   const m = useModules();
+  const IMPACT_LABEL: Record<CriticalFactor["impact"], string> = {
+    haut: m.situational.impact_haut,
+    moyen: m.situational.impact_moyen,
+    faible: m.situational.impact_faible,
+  };
   const sorted = useMemo(
     () =>
       [...data].sort((a, b) => {
@@ -39,7 +44,9 @@ export function FactorBars({ data }: { data: CriticalFactor[] }) {
               <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md font-mono text-[10px] font-bold tabular-nums ${c.chip}`}>
                 {i + 1}
               </span>
-              <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${c.badge}`}>{f.impact}</span>
+              <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${c.badge}`}>
+                {IMPACT_LABEL[f.impact]}
+              </span>
               <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-gray-800 dark:text-rdia-50">
                 {f.label}
               </span>

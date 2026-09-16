@@ -12,8 +12,153 @@ import {
   clamp01, clamp100, safeNum,
   classifyDelta,
 } from "@/lib/ai/shared";
+import type { ModulesDict } from "@/lib/i18n/modules";
+import { tpl } from "@/lib/i18n/format";
 
-// clampRange reste local (spécifique What If sanitize)
+export type WhatIfLabels = ModulesDict["whatif"];
+
+export const DEFAULT_WHATIF_LABELS: WhatIfLabels = {
+  region_immediate: "Région immédiate",
+  delta_hint: "positif = empiré · négatif = amélioré",
+  casualties_line: "Décès {d} · Blessés {b} · Disparus {m}",
+  affected_suffix: " · Affectés {a}",
+  type_sev: "{type} · Sévérité {sev}",
+  hosp_sat_line: "Sat. {p}% · {n} hôpital(s) <60km",
+  no_quake: "Aucun séisme significatif",
+  dur_recent: "récent (score risque faible)",
+  dur_deploying: "en cours de déploiement",
+  dur_prolonged: "prolongé (risque moyen)",
+  dur_critical: "prolongé critique",
+  elapsed_line: "{d} écoulées · {q}",
+  none_f: "Aucune",
+  slider_severity: "Sévérité : atténuation (à droite) / aggravation (à gauche)",
+  slider_units: "Unités mobiles supplémentaires",
+  slider_beds: "Lits hôpital supplémentaires",
+  slider_wind: "Multiplicateur de vent",
+  slider_rain: "Pluie additionnelle (24h)",
+  slider_mag: "Magnitude sismique additionnelle",
+  slider_casualties: "Victimes additionnelles (blessés + disparus)",
+  slider_affected: "Personnes affectées / évacuées en plus",
+  unit_pts: " pts",
+  unit_units: " unité(s)",
+  unit_beds: " lits",
+  unit_times: " ×",
+  unit_mm: " mm",
+  unit_mw: " Mw",
+  unit_people: " pers.",
+  disabled: "Module Simulation What-If désactivé — contacter l'administrateur.",
+  title: "Simulation What-If · IA",
+  subtitle: "Scénarios de crise · Impact sur situation globale",
+  choose_incident: "Choisir un incident",
+  whatif: "What If",
+  submetrics: "Sous-métriques",
+  horizons: "Horizons temporels",
+  impact_zones: "Zones impact",
+  recommended_actions: "Actions recommandées",
+  config_title: "Configuration What-If",
+  config_subtitle: "Scénarios prédéfinis · 8 leviers · résultat en temps réel",
+  baseline: "Situation base",
+  reset: "Reset",
+  presets: "Scénarios prédéfinis",
+  levers: "Leviers What-If",
+  apply_view: "Appliquer & voir",
+  select_hint: "Sélectionnez un incident dans le bouton en haut pour démarrer la simulation What-If.",
+  risk_evolution: "Évolution du risque",
+  horizon_h6: "Horizon H6",
+  horizon_h12: "Horizon H12",
+  horizon_h24: "Horizon H24",
+  h6_long: "H6 · 6 heures",
+  h12_long: "H12 · 12 heures",
+  h24_long: "H24 · 24 heures",
+  close_config: "Fermer la configuration What-If",
+  close: "Fermer",
+  m_risk: "Risque",
+  m_duration: "Durée",
+  m_units: "Unités",
+  m_hosp60: "Hôp <60km",
+  m_hosp_sat: "Sat hôp",
+  m_wind: "Vent",
+  m_rain24: "Pluie 24h",
+  m_quake: "Séisme",
+  m_victims: "Victimes",
+  m_affected: "Affectés",
+  picker_title: "Choisir un incident pour la simulation",
+  all_types: "Tous types",
+  no_match: "Aucun incident ne correspond à votre recherche.",
+  search_ph: "Rechercher par titre / région / ID",
+  metric_severity: "Sévérité initiale",
+  metric_casualties: "Bilan humain",
+  metric_deployed_cap: "Sous-effectif unités",
+  metric_hospital_sat: "Saturation hôpitaux proches",
+  metric_weather_impact: "Impact météo",
+  metric_seismic_impact: "Impact sismique EMSC",
+  metric_duration: "Durée incident",
+  hp_aggravation: "Prob. aggravation {p}%",
+  hp_residual: "Risque résiduel {p}%",
+  hp_future: "Risque futur {p}%",
+  default_r2: "Zone périphérique",
+  default_r3: "Bassin d'influence",
+  default_r4: "Zones limitrophes",
+  intr_fort_amelioration: "Très nette amélioration du scénario — stratégie recommandée.",
+  intr_amelioration: "Nette amélioration globale de la situation.",
+  intr_neutre: "Impact global neutre : la simulation ne change pas significativement le niveau de risque.",
+  intr_degradation: "Légère dégradation : vigilance accrue recommandée.",
+  intr_forte_degradation: "Forte dégradation du scénario — risque critique probable à H12.",
+  params_modified_tpl: " Paramètres modifiés : {list}.",
+  men_add_units_tpl: "ajout de {n} unité(s)",
+  men_add_beds_tpl: "+{n} lits hospitaliers",
+  men_wind_up_tpl: "vent ×{x}",
+  men_wind_down_tpl: "vent réduit ×{x}",
+  men_rain_tpl: "+{n}mm de pluie",
+  men_quake_tpl: "séisme +{x}Mw",
+  men_casualties_tpl: "+{n} victimes",
+  men_affected_tpl: "+{n} personnes affectées",
+  men_sev_down: "réduction de sévérité",
+  men_sev_up: "augmentation de sévérité",
+  hint_fire_wind: " Le vent aggrave la propagation du feu : renforcer les moyens aériens prioritaires.",
+  hint_flood_rain: " Les cumuls de pluie augmentent le risque de crue rapide : évacuation préventive conseillée.",
+  hint_quake_mag: " Une magnitude supérieure augmente drastiquement le risque d'effondrement et de victimes.",
+  hint_road_cond: " Conditions de circulation dégradées : renforcer les barrières et déviations.",
+  hint_massive_units: " Le déploiement massif d'unités renforce la réponse opérationnelle.",
+  hint_hosp_beds: " La capacité hospitalière étendue diminue fortement le risque de saturation.",
+  act_add_units_tpl: "Déployer {n} unités mobiles supplémentaires sur zone",
+  act_add_beds_tpl: "Ouvrir {n} lits additionnels dans les hôpitaux proches",
+  act_fire_aerial: "Renforcer les moyens aériens (Canadairs / hélicos bombardiers)",
+  act_flood_evac: "Lancer l'évacuation préventive des bassins versants exposés",
+  act_quake_orsec: "Déclencher le plan ORSEC Séisme · Évacuation bâtiments sensibles",
+  act_road_barriers: "Mettre en place barrières et déviations · Neutraliser zone accident",
+  act_epidemic_plan: "Activer le plan sanitaire · Créer un foyer de tri et confinement",
+  act_industrial_perim: "Mettre en place périmètre de sécurité · Évacuer zone 500m",
+  act_landslide_evac: "Évacuer zones en aval · Fermer routes exposées aux éboulements",
+  act_storm_power: "Couper réseau électrique zones sensibles · Prépositionner équipes réparation",
+  gact_sitrep: "Préparer un point situation toutes les 30 minutes",
+  gact_sa: "Renforcer la conscience situationnelle des unités sur le terrain",
+  gact_crisis_cell: "Mettre en alerte les cellules de crise interministérielles",
+  gact_logistics: "Prévoir des points de ravitaillement logistique",
+  gact_pop_comm: "Communiquer consignes de sécurité à la population via canaux officiels",
+  det_units_tpl: "{n} unité(s) déployée(s) · Besoin {b} (sev)",
+  det_weather_tpl: "Vent {w}km/h · Pluie 24h {r}mm",
+  det_quake_tpl: "Magnitude effective M{m} (EMS/72h <200km)",
+  impact_est_tpl: "Impact estimé : {val} pts sur score risque",
+  delta_in_progress: "Δ en cours : ",
+  p_weather_storm_dbl_n: "Tempête double",
+  p_weather_storm_dbl_d: "Vent ×1.80 + pluie +80mm",
+  p_earthquake_plus_flood_n: "Séisme + crue",
+  p_earthquake_plus_flood_d: "Magnitude +0.6Mw · Pluie +120mm",
+  p_deploy_massive_n: "Déploiement massif",
+  p_deploy_massive_d: "+8 unités · +120 lits hôpital",
+  p_hospital_surcharge_n: "Surcharge hôpitaux simulée",
+  p_hospital_surcharge_d: "+120 victimes · +400 affectés",
+  p_violent_wildfire_n: "Feu de forêt hors contrôle",
+  p_violent_wildfire_d: "Vent ×2.0 + aggravation -35% · +80 affectés",
+  p_rapid_containment_n: "Endiguement rapide",
+  p_rapid_containment_d: "+5 unités · +80 lits · aggravation +30%",
+};
+
+export function mergeWhatIfLabels(partial?: Partial<WhatIfLabels>): WhatIfLabels {
+  return { ...DEFAULT_WHATIF_LABELS, ...(partial ?? {}) };
+}
+
 const clampRange = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, safeNum(n, lo)));
 
 const SEV_WEIGHT: Record<WhatIfContext["severity"], number> = {
@@ -32,21 +177,11 @@ const WEIGHTS = {
   duration: 0.1,
 };
 
-// Labels des SOUS-MÉTRIQUES — TOUTES sont des SCORES DE RISQUE (0=bon, 100=empiré)
-const METRIC_LABELS: Record<WhatIfSubMetric["key"], string> = {
-  severity: "Sévérité initiale",
-  casualties: "Bilan humain",
-  deployedCap: "Sous-effectif unités", // IMPORTANT : 0 = bon (assez d'unités) / 100 = saturé
-  hospitalSat: "Saturation hôpitaux proches",
-  weatherImpact: "Impact météo",
-  seismicImpact: "Impact sismique EMSC",
-  duration: "Durée incident",
-};
-
 // ============================================================================
 // Calcule la baseline (référence : pas de delta)
 // ============================================================================
-export function buildBaseline(ctx: WhatIfContext): WhatIfBaseline {
+export function buildBaseline(ctx: WhatIfContext, labels?: Partial<WhatIfLabels>): WhatIfBaseline {
+  const L = mergeWhatIfLabels(labels);
   const sev = clamp01(SEV_WEIGHT[ctx.severity] ?? 0.58) * 100;
 
   const casualties = casualtiesScore(ctx.casualties);
@@ -68,42 +203,42 @@ export function buildBaseline(ctx: WhatIfContext): WhatIfBaseline {
   );
 
   const subMetrics: WhatIfSubMetric[] = [
-    { key: "severity", label: METRIC_LABELS.severity, value: sev, delta: 0 },
-    { key: "casualties", label: METRIC_LABELS.casualties, value: casualties, delta: 0 },
+    { key: "severity", label: L.metric_severity, value: sev, delta: 0 },
+    { key: "casualties", label: L.metric_casualties, value: casualties, delta: 0 },
     {
       key: "deployedCap",
-      label: METRIC_LABELS.deployedCap,
+      label: L.metric_deployed_cap,
       value: deployedCap,
       delta: 0,
     },
     {
       key: "hospitalSat",
-      label: METRIC_LABELS.hospitalSat,
+      label: L.metric_hospital_sat,
       value: hospitalSat,
       delta: 0,
     },
     {
       key: "weatherImpact",
-      label: METRIC_LABELS.weatherImpact,
+      label: L.metric_weather_impact,
       value: weatherImpact,
       delta: 0,
     },
     {
       key: "seismicImpact",
-      label: METRIC_LABELS.seismicImpact,
+      label: L.metric_seismic_impact,
       value: seismicImpact,
       delta: 0,
     },
     {
       key: "duration",
-      label: METRIC_LABELS.duration,
+      label: L.metric_duration,
       value: durationPct,
       delta: 0,
     },
   ];
 
-  const horizons = buildHorizons(score, 0);
-  const regions = buildRegions(ctx, score, 0);
+  const horizons = buildHorizons(score, 0, L);
+  const regions = buildRegions(ctx, score, 0, L);
 
   return {
     score: clamp100(score),
@@ -118,30 +253,16 @@ export function buildBaseline(ctx: WhatIfContext): WhatIfBaseline {
 // ============================================================================
 // Calcule la simulation (avec deltas)
 // ============================================================================
-export function simulateWhatIf(ctx: WhatIfContext, rawDeltas: WhatIfDeltas): WhatIfImpact {
-  const baseline = buildBaseline(ctx);
+export function simulateWhatIf(ctx: WhatIfContext, rawDeltas: WhatIfDeltas, labels?: Partial<WhatIfLabels>): WhatIfImpact {
+  const L = mergeWhatIfLabels(labels);
+  const baseline = buildBaseline(ctx, labels);
 
   const deltas = sanitizeDeltas(rawDeltas);
 
-  // === Sous-métriques ajustées ===
-  // =========================================================================
-  // CONVENTION WhatIfDeltas.aggravationPct :
-  //   NÉGATIF (-50..-1) = empirer la sévérité  → augmente le score risque
-  //   POSITIF (+1..+50) = améliorer / atténuer  → diminue le score risque
-  // ZÉRO = pas d'action
-  //
-  // ATTENUATION (minimaliste) : les sliders sont volontairement amortis par des ratios
-  // pour que les deltas finaux restent dans des variations raisonnables
-  // (cas extrêmes : ±12..15 pts sur score global max).
-  // =========================================================================
   const sevRaw = clamp01(SEV_WEIGHT[ctx.severity] ?? 0.58) * 100;
-  // Sévérité est la métrique la plus lourde → atténuation 0.48
   const sevDelta = clampRange(deltas.aggravationPct, -50, 50) * 0.48;
   const severityVal = clamp100(sevRaw - sevDelta);
 
-  // Victimes : amortisseur 0.35 sur effet direct atténuation
-  // RÈGLE : on ne peut pas AMÉLIORER un bilan humain qui est déjà au plancher (casualties=0)
-  //         → pas de crédit fantôme quand casualties déjà zéro.
   const casualtiesRawVal = casualtiesScore(ctx.casualties + deltas.addCasualties * 0.55);
   const casualtiesBaselineFloor = METRIC_FLOOR.casualties ?? 0;
   const canImproveCasualties = casualtiesRawVal > casualtiesBaselineFloor;
@@ -150,16 +271,12 @@ export function simulateWhatIf(ctx: WhatIfContext, rawDeltas: WhatIfDeltas): Wha
     : 0;
   const casualtiesVal = clamp100(casualtiesRawVal - casualtiesAttenuation);
 
-  // Capacité unités : +1 unité → impact direct sur saturation, atténué 0.38
   const deployedCapSat = deployedCapScore(ctx.deployedUnits + deltas.addUnits, ctx.severity);
   const deployedCapVal = clamp100(
     deployedCapSat -
-      // aggravationPositif (améliore) → réduit le score de saturation
       Math.max(0, deltas.aggravationPct) * 0.16,
   );
 
-  // Saturation hôpitaux : amortissement addCasualties × 0.10 (au lieu de 0.18),
-  // + lits → 32 pts / 200 lits (sous-estimation intentionnelle pour l'équilibre)
   const hospitalSatRaw = clamp100(
     ctx.hospitalSatPct +
       deltas.addCasualties * 0.10 +
@@ -171,7 +288,6 @@ export function simulateWhatIf(ctx: WhatIfContext, rawDeltas: WhatIfDeltas): Wha
       Math.max(0, deltas.aggravationPct) * 0.16,
   );
 
-  // Météo : impact atténué : windMult (0.85 au lieu de 1, rainAddMm 0.72
   const weatherImpactVal = clamp100(
     weatherScore(
       ctx.incidentType,
@@ -185,7 +301,6 @@ export function simulateWhatIf(ctx: WhatIfContext, rawDeltas: WhatIfDeltas): Wha
     seismicScore(ctx.seismicEffectiveMag + deltas.seismicAddMag, ctx.incidentType),
   );
 
-  // Score global (pondéré)
   const simScore = clamp100(
     severityVal * WEIGHTS.severity +
       casualtiesVal * WEIGHTS.casualties +
@@ -196,9 +311,6 @@ export function simulateWhatIf(ctx: WhatIfContext, rawDeltas: WhatIfDeltas): Wha
       durationScore(ctx.durationMin) * WEIGHTS.duration,
   );
 
-  // Sous-métriques finales avec deltas (vs baseline)
-  // GARDE ANTI-HALLUCINATION : pas d'amélioration Δ<0 si baseline plancher,
-  //                            pas d'empirement Δ>0 si baseline plafond (100).
   const durationVal = durationScore(ctx.durationMin);
   const _rawEntries: [WhatIfSubMetric["key"], number, number][] = [
     ["severity", severityVal, baseline.subMetrics[0].value],
@@ -209,6 +321,15 @@ export function simulateWhatIf(ctx: WhatIfContext, rawDeltas: WhatIfDeltas): Wha
     ["seismicImpact", seismicImpactVal, baseline.subMetrics[5].value],
     ["duration", durationVal, baseline.subMetrics[6].value],
   ];
+  const metricKeyToLabel: Record<WhatIfSubMetric["key"], keyof WhatIfLabels> = {
+    severity: "metric_severity",
+    casualties: "metric_casualties",
+    deployedCap: "metric_deployed_cap",
+    hospitalSat: "metric_hospital_sat",
+    weatherImpact: "metric_weather_impact",
+    seismicImpact: "metric_seismic_impact",
+    duration: "metric_duration",
+  };
   const simSubMetrics: WhatIfSubMetric[] = _rawEntries.map(([key, simValue, baseValue]) => {
     const floor = METRIC_FLOOR[key] ?? -Infinity;
     const ceil = METRIC_CEIL[key] ?? 100;
@@ -218,26 +339,20 @@ export function simulateWhatIf(ctx: WhatIfContext, rawDeltas: WhatIfDeltas): Wha
     if (baseValue >= ceil - 0.01 && rawDelta > 0) rawDelta = 0;
     return {
       key,
-      label: METRIC_LABELS[key],
+      label: L[metricKeyToLabel[key]],
       value: sim,
       delta: Math.round(rawDelta),
     };
   });
 
-  // =========================================================================
-  // SCORE RISQUE : PLUS HAUT = PLUS DE RISQUE (toujours).
-  // Δ = simScore - baselineScore :
-  //   Δ > 0 : empiré (score monte)  → ROUGE
-  //   Δ < 0 : amélioration (score diminue) → VERT
-  // =========================================================================
   const deltaScore = Math.round(simScore - baseline.score);
 
-  const horizons = buildHorizons(simScore, baseline.score);
-  const regions = buildRegions(ctx, simScore, baseline.score);
+  const horizons = buildHorizons(simScore, baseline.score, L);
+  const regions = buildRegions(ctx, simScore, baseline.score, L);
 
   const impactClass = classify(deltaScore);
-  const interpret = buildInterpret(impactClass, deltaScore, ctx.incidentType, deltas);
-  const topActions = buildTopActions(ctx, deltas, deltaScore, simScore);
+  const interpret = buildInterpret(impactClass, deltaScore, ctx.incidentType, deltas, L);
+  const topActions = buildTopActions(ctx, deltas, deltaScore, simScore, L);
 
   return {
     baseline,
@@ -370,18 +485,18 @@ function durationScore(min: number): number {
   return 82;
 }
 
-function buildHorizons(score: number, baseline: number): { h6: WhatIfHorizon; h12: WhatIfHorizon; h24: WhatIfHorizon } {
+function buildHorizons(score: number, baseline: number, L: WhatIfLabels): { h6: WhatIfHorizon; h12: WhatIfHorizon; h24: WhatIfHorizon } {
   const mk = (hrs: number): WhatIfHorizon => {
     const drift = hrs === 6 ? 0.92 : hrs === 12 ? 0.84 : 0.76;
     const prob = clamp100(probabilityFromScore(score * drift));
     const sc = clamp100(score * drift);
     const baseSc = clamp100(baseline * drift);
     const deltaScore = baseline ? Math.round(sc - baseSc) : 0;
-    // Label dynamique : si Δ>0 empiré → aggravation ; Δ<0 amélioré → risque résiduel ; 0 → futur
+    const p = Math.round(prob);
     let probabilityLabel: string;
-    if (deltaScore > 0) probabilityLabel = `Prob. aggravation ${Math.round(prob)}%`;
-    else if (deltaScore < 0) probabilityLabel = `Risque résiduel ${Math.round(prob)}%`;
-    else probabilityLabel = `Risque futur ${Math.round(prob)}%`;
+    if (deltaScore > 0) probabilityLabel = tpl(L.hp_aggravation, { p });
+    else if (deltaScore < 0) probabilityLabel = tpl(L.hp_residual, { p });
+    else probabilityLabel = tpl(L.hp_future, { p });
     return {
       score: Math.round(sc),
       probability: Math.round(prob),
@@ -394,20 +509,13 @@ function buildHorizons(score: number, baseline: number): { h6: WhatIfHorizon; h1
 
 function probabilityFromScore(score: number): number {
   const x = clamp100(score);
-  // sigmoïde centrée en 45
   const p = 1 / (1 + Math.exp(-0.055 * (x - 45)));
   return Math.round(p * 100);
 }
 
-const DEFAULT_REGIONS = [
-  "Région immédiate",
-  "Zone périphérique",
-  "Bassin d'influence",
-  "Zones limitrophes",
-];
-
-function buildRegions(ctx: WhatIfContext, score: number, baseline: number): WhatIfRegionImpact[] {
-  const list = (ctx.nearbyRegions && ctx.nearbyRegions.length > 0 ? ctx.nearbyRegions : DEFAULT_REGIONS).slice(0, 4);
+function buildRegions(ctx: WhatIfContext, score: number, baseline: number, L: WhatIfLabels): WhatIfRegionImpact[] {
+  const defaults = [L.region_immediate, L.default_r2, L.default_r3, L.default_r4];
+  const list = (ctx.nearbyRegions && ctx.nearbyRegions.length > 0 ? ctx.nearbyRegions : defaults).slice(0, 4);
   return list.map((region, i) => {
     const decay = [0.92, 0.8, 0.66, 0.54][i] ?? 0.5;
     const sc = clamp100(score * decay);
@@ -415,7 +523,6 @@ function buildRegions(ctx: WhatIfContext, score: number, baseline: number): What
     return {
       region,
       score: Math.round(sc),
-      // Δ = sim - base : > 0 empiré
       delta: baseline ? Math.round(sc - blScore) : 0,
     };
   });
@@ -440,51 +547,52 @@ function buildInterpret(
   _delta: number,
   type: string,
   d: WhatIfDeltas,
+  L: WhatIfLabels,
 ): string {
   const t = (type || "").toLowerCase();
   const mentions: string[] = [];
-  if (d.addUnits > 0) mentions.push(`ajout de ${d.addUnits} unité(s)`);
-  if (d.addHospitalBeds > 0) mentions.push(`+${d.addHospitalBeds} lits hospitaliers`);
-  if (d.windMult > 1) mentions.push(`vent ×${d.windMult.toFixed(2)}`);
-  if (d.windMult < 1) mentions.push(`vent réduit ×${d.windMult.toFixed(2)}`);
-  if (d.rainAddMm > 0) mentions.push(`+${d.rainAddMm}mm de pluie`);
-  if (d.seismicAddMag > 0) mentions.push(`séisme +${d.seismicAddMag.toFixed(1)}Mw`);
-  if (d.addCasualties > 0) mentions.push(`+${d.addCasualties} victimes`);
-  if (d.addAffected > 0) mentions.push(`+${d.addAffected} personnes affectées`);
-  if (d.aggravationPct > 0) mentions.push(`réduction de sévérité`);
-  if (d.aggravationPct < 0) mentions.push(`augmentation de sévérité`);
+  if (d.addUnits > 0) mentions.push(tpl(L.men_add_units_tpl, { n: d.addUnits }));
+  if (d.addHospitalBeds > 0) mentions.push(tpl(L.men_add_beds_tpl, { n: d.addHospitalBeds }));
+  if (d.windMult > 1) mentions.push(tpl(L.men_wind_up_tpl, { x: d.windMult.toFixed(2) }));
+  if (d.windMult < 1) mentions.push(tpl(L.men_wind_down_tpl, { x: d.windMult.toFixed(2) }));
+  if (d.rainAddMm > 0) mentions.push(tpl(L.men_rain_tpl, { n: d.rainAddMm }));
+  if (d.seismicAddMag > 0) mentions.push(tpl(L.men_quake_tpl, { x: d.seismicAddMag.toFixed(1) }));
+  if (d.addCasualties > 0) mentions.push(tpl(L.men_casualties_tpl, { n: d.addCasualties }));
+  if (d.addAffected > 0) mentions.push(tpl(L.men_affected_tpl, { n: d.addAffected }));
+  if (d.aggravationPct > 0) mentions.push(L.men_sev_down);
+  if (d.aggravationPct < 0) mentions.push(L.men_sev_up);
 
   const intro =
     cls === "fort_amelioration"
-      ? "Très nette amélioration du scénario — stratégie recommandée."
+      ? L.intr_fort_amelioration
       : cls === "amelioration"
-      ? "Nette amélioration globale de la situation."
+      ? L.intr_amelioration
       : cls === "neutre"
-      ? "Impact global neutre : la simulation ne change pas significativement le niveau de risque."
+      ? L.intr_neutre
       : cls === "degradation"
-      ? "Légère dégradation : vigilance accrue recommandée."
-      : "Forte dégradation du scénario — risque critique probable à H12.";
+      ? L.intr_degradation
+      : L.intr_forte_degradation;
 
-  const suffix = mentions.length ? ` Paramètres modifiés : ${mentions.join(", ")}.` : "";
-  const typed = addTypedHint(t, d);
+  const suffix = mentions.length ? tpl(L.params_modified_tpl, { list: mentions.join(", ") }) : "";
+  const typed = addTypedHint(t, d, L);
   return `${intro}${typed}${suffix}`;
 }
 
-function addTypedHint(t: string, d: WhatIfDeltas): string {
+function addTypedHint(t: string, d: WhatIfDeltas, L: WhatIfLabels): string {
   if ((t.includes("fire") || t.includes("feu") || t.includes("incendie")) && d.windMult > 1.15) {
-    return " Le vent aggrave la propagation du feu : renforcer les moyens aériens prioritaires.";
+    return L.hint_fire_wind;
   }
   if ((t.includes("flood") || t.includes("inond") || t.includes("crue")) && d.rainAddMm > 40) {
-    return " Les cumuls de pluie augmentent le risque de crue rapide : évacuation préventive conseillée.";
+    return L.hint_flood_rain;
   }
   if ((t.includes("earthquake") || t.includes("seisme") || t.includes("sismo")) && d.seismicAddMag > 0.3) {
-    return " Une magnitude supérieure augmente drastiquement le risque d'effondrement et de victimes.";
+    return L.hint_quake_mag;
   }
   if ((t.includes("road") || t.includes("routier") || t.includes("accident")) && (d.rainAddMm > 30 || d.windMult > 1.15)) {
-    return " Conditions de circulation dégradées : renforcer les barrières et déviations.";
+    return L.hint_road_cond;
   }
-  if (d.addUnits >= 3) return " Le déploiement massif d'unités renforce la réponse opérationnelle.";
-  if (d.addHospitalBeds >= 60) return " La capacité hospitalière étendue diminue fortement le risque de saturation.";
+  if (d.addUnits >= 3) return L.hint_massive_units;
+  if (d.addHospitalBeds >= 60) return L.hint_hosp_beds;
   return "";
 }
 
@@ -493,53 +601,52 @@ function buildTopActions(
   d: WhatIfDeltas,
   _delta: number,
   simScore: number,
+  L: WhatIfLabels,
 ): WhatIfImpact["topActions"] {
   const pool: { label: string; priority: 1 | 2 | 3; impact: number }[] = [];
   const t = (ctx.incidentType || "").toLowerCase();
 
   if (d.addUnits < 3 && simScore > 45) {
-    pool.push({ label: "Déployer 2 unités mobiles supplémentaires sur zone", priority: 1, impact: 10 });
+    pool.push({ label: tpl(L.act_add_units_tpl, { n: 2 }), priority: 1, impact: 10 });
   }
   if (d.addHospitalBeds < 40 && simScore > 45) {
-    pool.push({ label: "Ouvrir 40 lits additionnels dans les hôpitaux proches", priority: 2, impact: 7 });
+    pool.push({ label: tpl(L.act_add_beds_tpl, { n: 40 }), priority: 2, impact: 7 });
   }
   if (d.windMult > 1.15 && (t.includes("fire") || t.includes("feu"))) {
-    pool.push({ label: "Renforcer les moyens aériens (Canadairs / hélicos bombardiers)", priority: 1, impact: 12 });
+    pool.push({ label: L.act_fire_aerial, priority: 1, impact: 12 });
   }
   if (d.rainAddMm > 40 && (t.includes("flood") || t.includes("inond") || t.includes("crue"))) {
-    pool.push({ label: "Lancer l'évacuation préventive des bassins versants exposés", priority: 1, impact: 13 });
+    pool.push({ label: L.act_flood_evac, priority: 1, impact: 13 });
   }
   if (d.seismicAddMag > 0.3 && (t.includes("earthquake") || t.includes("seisme"))) {
-    pool.push({ label: "Déclencher le plan ORSEC Séisme · Évacuation bâtiments sensibles", priority: 1, impact: 14 });
+    pool.push({ label: L.act_quake_orsec, priority: 1, impact: 14 });
   }
   if (t.includes("road") || t.includes("routier") || t.includes("accident")) {
-    pool.push({ label: "Mettre en place barrières et déviations · Neutraliser zone accident", priority: 2, impact: 8 });
+    pool.push({ label: L.act_road_barriers, priority: 2, impact: 8 });
   }
   if (t.includes("epidemic") || t.includes("sanitaire") || t.includes("cluster")) {
-    pool.push({ label: "Activer le plan sanitaire · Créer un foyer de tri et confinement", priority: 1, impact: 11 });
+    pool.push({ label: L.act_epidemic_plan, priority: 1, impact: 11 });
   }
   if (t.includes("industrial") || t.includes("industriel") || t.includes("explosion")) {
-    pool.push({ label: "Mettre en place périmètre de sécurité · Évacuer zone 500m", priority: 1, impact: 10 });
+    pool.push({ label: L.act_industrial_perim, priority: 1, impact: 10 });
   }
   if (t.includes("landslide") || t.includes("glissement")) {
-    pool.push({ label: "Évacuer zones en aval · Fermer routes exposées aux éboulements", priority: 2, impact: 9 });
+    pool.push({ label: L.act_landslide_evac, priority: 2, impact: 9 });
   }
   if (t.includes("storm") || t.includes("orage") || t.includes("tempete")) {
-    pool.push({ label: "Couper réseau électrique zones sensibles · Prépositionner équipes réparation", priority: 2, impact: 8 });
+    pool.push({ label: L.act_storm_power, priority: 2, impact: 8 });
   }
 
-  // Toujours 3 actions : compléter par des actions génériques
   const generic: { label: string; priority: 2 | 3; impact: number }[] = [
-    { label: "Préparer un point situation toutes les 30 minutes", priority: 3, impact: 5 },
-    { label: "Renforcer la conscience situationnelle des unités sur le terrain", priority: 3, impact: 3 },
-    { label: "Mettre en alerte les cellules de crise interministérielles", priority: 3, impact: 3 },
-    { label: "Prévoir des points de ravitaillement logistique", priority: 3, impact: 4 },
-    { label: "Communiquer consignes de sécurité à la population via canaux officiels", priority: 2, impact: 5 },
+    { label: L.gact_sitrep, priority: 3, impact: 5 },
+    { label: L.gact_sa, priority: 3, impact: 3 },
+    { label: L.gact_crisis_cell, priority: 3, impact: 3 },
+    { label: L.gact_logistics, priority: 3, impact: 4 },
+    { label: L.gact_pop_comm, priority: 2, impact: 5 },
   ];
 
   for (const g of generic) if (pool.length < 3) pool.push(g);
 
-  // Tri par priorité puis impact décroissant
   pool.sort((a, b) => a.priority - b.priority || b.impact - a.impact);
 
   return pool.slice(0, 3).map((p) => ({

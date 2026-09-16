@@ -990,31 +990,97 @@ function formatPdfDate(d: Date): string {
 // 7. Pipeline public : AiMessage → Bloc PDF → Bytes.
 // ---------------------------------------------------------------------------
 
-export interface PdfMessageReportOptions {
-  operatorName?: string;
+export interface PdfLabels {
+  kv: { edited_by: string; date: string; utc_time: string; query: string };
+  footer: { generated: string };
+  fallback: { operator: string; intent: string };
+  intent: Partial<Record<NonNullable<AiMessage["intent"]>, string>>;
+  kpi: {
+    title: string;
+    incidents_open: string; incidents_prog: string; incidents_closed: string;
+    gravity: string; gravity_high: string; gravity_medium: string; gravity_low: string;
+    dead: string; injured: string; missing: string; rescued: string;
+    units_ready: string; units_deployed: string; avg_readiness: string;
+    hospitals: string; avg_occ: string;
+  };
+  tables: {
+    incidents: { title: string; ref: string; title_col: string; region: string; type: string; grav: string; state: string; declared: string };
+    units: { title: string; name: string; city: string; avail: string; eta: string; caps: string };
+    hospitals: { title: string; name: string; city: string; occ: string; icu: string; beds: string; icu_beds: string; dist: string };
+    equipment: { title: string; desig: string; cat: string; stock: string; threshold: string; cond: string; unit: string };
+    quakes: { title: string; region: string; mag: string; depth: string; datetime_utc: string };
+  };
+  locale: "fr-FR" | "en-GB" | "en-US" | "ar-MA" | (string & {});
 }
 
-const INTENT_LABELS: Partial<Record<NonNullable<AiMessage["intent"]>, string>> = {
-  global_overview: "Vue globale opérationnelle",
-  sitrep: "SITREP — Rapport de situation",
-  orsec_summary: "Synthèse du dispositif ORSEC",
-  casualties_summary: "Bilan humain consolidé",
-  trends: "Tendances incidents",
-  trend_incidents: "Tendances incidents",
-  today_incidents: "Incidents du jour",
-  last24h_summary: "Résumé des dernières 24 heures",
-  today_vs_yesterday: "Aujourd'hui vs hier",
-  activity_peaks: "Pics d'activité",
-  unusual_evolution: "Évolutions inhabituelles",
-  touched_zones: "Zones les plus touchées",
-  critical_concentration: "Concentrations critiques",
-  riskiest_zone: "Zones à plus haut risque",
-  risks_prediction: "Prédictions IA de risques",
-  risks_zone: "Risques par zone",
-  incidents_list: "Liste des incidents",
-  hospitals_status: "État du réseau de santé",
-  units_status: "Posture des unités FAR",
+const DEFAULT_PDF_LABELS: PdfLabels = {
+  kv: { edited_by: "Édité par", date: "Date", utc_time: "Heure (UTC)", query: "Requête" },
+  footer: { generated: "Ce document est généré automatiquement par le Copilot IRIS à partir de l'état opérationnel de la plateforme." },
+  fallback: { operator: "Poste de commandement", intent: "Rapport de situation" },
+  intent: {
+    global_overview: "Vue globale opérationnelle",
+    sitrep: "SITREP — Rapport de situation",
+    orsec_summary: "Synthèse du dispositif ORSEC",
+    casualties_summary: "Bilan humain consolidé",
+    trends: "Tendances incidents",
+    trend_incidents: "Tendances incidents",
+    today_incidents: "Incidents du jour",
+    last24h_summary: "Résumé des dernières 24 heures",
+    today_vs_yesterday: "Aujourd'hui vs hier",
+    activity_peaks: "Pics d'activité",
+    unusual_evolution: "Évolutions inhabituelles",
+    touched_zones: "Zones les plus touchées",
+    critical_concentration: "Concentrations critiques",
+    riskiest_zone: "Zones à plus haut risque",
+    risks_prediction: "Prédictions IA de risques",
+    risks_zone: "Risques par zone",
+    incidents_list: "Liste des incidents",
+    hospitals_status: "État du réseau de santé",
+    units_status: "Posture des unités FAR",
+  },
+  kpi: {
+    title: "KPI opérationnels",
+    incidents_open: "Incidents — ouverts", incidents_prog: "Incidents — en cours", incidents_closed: "Incidents — clôturés",
+    gravity: "Gravité", gravity_high: "HAUTE", gravity_medium: "MODÉRÉE", gravity_low: "FAIBLE",
+    dead: "Décès (ORSEC)", injured: "Blessés", missing: "Disparus", rescued: "Secourus",
+    units_ready: "Unités prêtes", units_deployed: "Unités déployées", avg_readiness: "Readiness moyenne",
+    hospitals: "Établissements", avg_occ: "Occ. moyenne",
+  },
+  tables: {
+    incidents: { title: "Incidents ({n})", ref: "Réf.", title_col: "Titre", region: "Région", type: "Type", grav: "Grav.", state: "État", declared: "Déclaré" },
+    units: { title: "Unités concernées ({n})", name: "Unité", city: "Ville", avail: "Dispo.", eta: "ETA (min)", caps: "Capacités" },
+    hospitals: { title: "Réseau de santé ({n})", name: "Établissement", city: "Ville", occ: "Occ.%", icu: "REA%", beds: "Lits", icu_beds: "REA", dist: "Distance" },
+    equipment: { title: "Inventaire & stocks ({n})", desig: "Désignation", cat: "Catégorie", stock: "Stock", threshold: "Seuil", cond: "État", unit: "Unité" },
+    quakes: { title: "Activité sismique ({n})", region: "Région", mag: "Magn.", depth: "Profondeur (km)", datetime_utc: "Date / heure (UTC)" },
+  },
+  locale: "fr-FR",
 };
+
+function mergeLabels(partial?: Partial<PdfLabels>): PdfLabels {
+  if (!partial) return DEFAULT_PDF_LABELS;
+  return {
+    kv: { ...DEFAULT_PDF_LABELS.kv, ...(partial.kv ?? {}) },
+    footer: { ...DEFAULT_PDF_LABELS.footer, ...(partial.footer ?? {}) },
+    fallback: { ...DEFAULT_PDF_LABELS.fallback, ...(partial.fallback ?? {}) },
+    intent: { ...DEFAULT_PDF_LABELS.intent, ...(partial.intent ?? {}) },
+    kpi: { ...DEFAULT_PDF_LABELS.kpi, ...(partial.kpi ?? {}) },
+    tables: {
+      incidents: { ...DEFAULT_PDF_LABELS.tables.incidents, ...(partial.tables?.incidents ?? {}) },
+      units: { ...DEFAULT_PDF_LABELS.tables.units, ...(partial.tables?.units ?? {}) },
+      hospitals: { ...DEFAULT_PDF_LABELS.tables.hospitals, ...(partial.tables?.hospitals ?? {}) },
+      equipment: { ...DEFAULT_PDF_LABELS.tables.equipment, ...(partial.tables?.equipment ?? {}) },
+      quakes: { ...DEFAULT_PDF_LABELS.tables.quakes, ...(partial.tables?.quakes ?? {}) },
+    },
+    locale: partial.locale ?? DEFAULT_PDF_LABELS.locale,
+  };
+}
+
+export interface PdfMessageReportOptions {
+  operatorName?: string;
+  labels?: Partial<PdfLabels>;
+}
+
+const INTENT_LABELS: Partial<Record<NonNullable<AiMessage["intent"]>, string>> = DEFAULT_PDF_LABELS.intent;
 
 const DETECTION_REGEXES: RegExp[] = [
   /situation (actuelle|globale|g[eé]n[eé]rale|op[eé]rationnelle)/i,
@@ -1054,7 +1120,7 @@ export function isReportableMessage(msg: AiMessage): boolean {
  * markdown du texte + les blocs structurés (stats → KV, incidents/units/
  * hospitals/quakes/equipment → tableaux).
  */
-export function buildBlocksFromMessage(msg: AiMessage): Block[] {
+export function buildBlocksFromMessage(msg: AiMessage, labels: PdfLabels = DEFAULT_PDF_LABELS): Block[] {
   const out: Block[] = [];
 
   // Pré-nettoyage anti-caractères invisibles / de contrôle qui deviendraient
@@ -1145,36 +1211,43 @@ export function buildBlocksFromMessage(msg: AiMessage): Block[] {
   if (want.stats && msg.stats?.items && msg.stats.items.length) {
     const pairs: { label: string; value: string | number }[] = [];
     const s = msg.stats;
-    if (s.open !== undefined) pairs.push({ label: "Incidents — ouverts", value: s.open });
-    if (s.prog !== undefined) pairs.push({ label: "Incidents — en cours", value: s.prog });
-    if (s.closed !== undefined) pairs.push({ label: "Incidents — clôturés", value: s.closed });
+    if (s.open !== undefined) pairs.push({ label: labels.kpi.incidents_open, value: s.open });
+    if (s.prog !== undefined) pairs.push({ label: labels.kpi.incidents_prog, value: s.prog });
+    if (s.closed !== undefined) pairs.push({ label: labels.kpi.incidents_closed, value: s.closed });
     if (s.high !== undefined || s.medium !== undefined || s.low !== undefined) {
-      const gravs = [`HAUTE ${s.high ?? 0}`, `MODÉRÉE ${s.medium ?? 0}`, `FAIBLE ${s.low ?? 0}`].join(" · ");
-      pairs.push({ label: "Gravité", value: gravs });
+      const gravs = [
+        `${labels.kpi.gravity_high} ${s.high ?? 0}`,
+        `${labels.kpi.gravity_medium} ${s.medium ?? 0}`,
+        `${labels.kpi.gravity_low} ${s.low ?? 0}`,
+      ].join(" · ");
+      pairs.push({ label: labels.kpi.gravity, value: gravs });
     }
-    if (s.dead !== undefined) pairs.push({ label: "Décès (ORSEC)", value: s.dead });
-    if (s.injured !== undefined) pairs.push({ label: "Blessés", value: s.injured });
-    if (s.missing !== undefined) pairs.push({ label: "Disparus", value: s.missing });
-    if (s.rescued !== undefined) pairs.push({ label: "Secourus", value: s.rescued });
-    if (s.unitsReady !== undefined) pairs.push({ label: "Unités prêtes", value: s.unitsReady });
-    if (s.unitsDeployed !== undefined) pairs.push({ label: "Unités déployées", value: s.unitsDeployed });
-    if (s.avgReadiness !== undefined) pairs.push({ label: "Readiness moyenne", value: `${s.avgReadiness} %` });
-    if (s.totalHospitals !== undefined) pairs.push({ label: "Établissements", value: s.totalHospitals });
-    if (s.occMoyennePct !== undefined) pairs.push({ label: "Occ. moyenne", value: `${s.occMoyennePct} %` });
+    if (s.dead !== undefined) pairs.push({ label: labels.kpi.dead, value: s.dead });
+    if (s.injured !== undefined) pairs.push({ label: labels.kpi.injured, value: s.injured });
+    if (s.missing !== undefined) pairs.push({ label: labels.kpi.missing, value: s.missing });
+    if (s.rescued !== undefined) pairs.push({ label: labels.kpi.rescued, value: s.rescued });
+    if (s.unitsReady !== undefined) pairs.push({ label: labels.kpi.units_ready, value: s.unitsReady });
+    if (s.unitsDeployed !== undefined) pairs.push({ label: labels.kpi.units_deployed, value: s.unitsDeployed });
+    if (s.avgReadiness !== undefined) pairs.push({ label: labels.kpi.avg_readiness, value: `${s.avgReadiness} %` });
+    if (s.totalHospitals !== undefined) pairs.push({ label: labels.kpi.hospitals, value: s.totalHospitals });
+    if (s.occMoyennePct !== undefined) pairs.push({ label: labels.kpi.avg_occ, value: `${s.occMoyennePct} %` });
     pairs.push(...msg.stats.items.map(it => ({ label: it.label, value: it.value })));
-    if (pairs.length) out.push({ kind: "kv", title: "KPI opérationnels", pairs });
+    if (pairs.length) out.push({ kind: "kv", title: labels.kpi.title, pairs });
   }
+
+  const tblTitle = (tpl: string, n: number): string => tpl.replace("{n}", String(n));
 
   // 3. Incidents
   if (want.incidents && msg.incidents && msg.incidents.length) {
+    const tc = labels.tables.incidents;
     const cols = [
-      { label: "Réf.", wRatio: 0.9 },
-      { label: "Titre", wRatio: 2.3 },
-      { label: "Région", wRatio: 1.2 },
-      { label: "Type", wRatio: 1.0 },
-      { label: "Grav.", wRatio: 0.6 },
-      { label: "État", wRatio: 0.7 },
-      { label: "Déclaré", wRatio: 1.1 },
+      { label: tc.ref, wRatio: 0.9 },
+      { label: tc.title_col, wRatio: 2.3 },
+      { label: tc.region, wRatio: 1.2 },
+      { label: tc.type, wRatio: 1.0 },
+      { label: tc.grav, wRatio: 0.6 },
+      { label: tc.state, wRatio: 0.7 },
+      { label: tc.declared, wRatio: 1.1 },
     ];
     const rows = msg.incidents.map(i => [
       i.id ?? "",
@@ -1185,17 +1258,18 @@ export function buildBlocksFromMessage(msg: AiMessage): Block[] {
       i.st ?? "",
       i.declared ?? i.time ?? "",
     ]);
-    out.push({ kind: "table", title: `Incidents (${rows.length})`, cols, rows });
+    out.push({ kind: "table", title: tblTitle(tc.title, rows.length), cols, rows });
   }
 
   // 4. Unités
   if (want.units && msg.units && msg.units.length) {
+    const tu = labels.tables.units;
     const cols = [
-      { label: "Unité", wRatio: 2.0 },
-      { label: "Ville", wRatio: 1.1 },
-      { label: "Dispo.", wRatio: 0.9 },
-      { label: "ETA (min)", wRatio: 0.9 },
-      { label: "Capacités", wRatio: 2.2 },
+      { label: tu.name, wRatio: 2.0 },
+      { label: tu.city, wRatio: 1.1 },
+      { label: tu.avail, wRatio: 0.9 },
+      { label: tu.eta, wRatio: 0.9 },
+      { label: tu.caps, wRatio: 2.2 },
     ];
     const rows = msg.units.map(u => [
       u.nom ?? "",
@@ -1204,19 +1278,20 @@ export function buildBlocksFromMessage(msg: AiMessage): Block[] {
       u.etaMin ?? "—",
       (u.caps ?? []).join(" · "),
     ]);
-    out.push({ kind: "table", title: `Unités concernées (${rows.length})`, cols, rows });
+    out.push({ kind: "table", title: tblTitle(tu.title, rows.length), cols, rows });
   }
 
   // 5. Hôpitaux
   if (want.hospitals && msg.hospitals && msg.hospitals.length) {
+    const th = labels.tables.hospitals;
     const cols = [
-      { label: "Établissement", wRatio: 2.2 },
-      { label: "Ville", wRatio: 1.2 },
-      { label: "Occ.%", wRatio: 0.8 },
-      { label: "REA%", wRatio: 0.8 },
-      { label: "Lits", wRatio: 0.7 },
-      { label: "REA", wRatio: 0.7 },
-      { label: "Distance", wRatio: 1.0 },
+      { label: th.name, wRatio: 2.2 },
+      { label: th.city, wRatio: 1.2 },
+      { label: th.occ, wRatio: 0.8 },
+      { label: th.icu, wRatio: 0.8 },
+      { label: th.beds, wRatio: 0.7 },
+      { label: th.icu_beds, wRatio: 0.7 },
+      { label: th.dist, wRatio: 1.0 },
     ];
     const rows = msg.hospitals.map(h => {
       const dist = h.distanceKm ?? h.distKm ?? null;
@@ -1230,18 +1305,19 @@ export function buildBlocksFromMessage(msg: AiMessage): Block[] {
         dist != null ? `${dist} km` : "—",
       ];
     });
-    out.push({ kind: "table", title: `Réseau de santé (${rows.length})`, cols, rows });
+    out.push({ kind: "table", title: tblTitle(th.title, rows.length), cols, rows });
   }
 
   // 6. Équipements critiques
   if (want.equipment && msg.equipment && msg.equipment.length) {
+    const te = labels.tables.equipment;
     const cols = [
-      { label: "Désignation", wRatio: 2.4 },
-      { label: "Catégorie", wRatio: 1.0 },
-      { label: "Stock", wRatio: 0.7 },
-      { label: "Seuil", wRatio: 0.7 },
-      { label: "État", wRatio: 1.0 },
-      { label: "Unité", wRatio: 1.3 },
+      { label: te.desig, wRatio: 2.4 },
+      { label: te.cat, wRatio: 1.0 },
+      { label: te.stock, wRatio: 0.7 },
+      { label: te.threshold, wRatio: 0.7 },
+      { label: te.cond, wRatio: 1.0 },
+      { label: te.unit, wRatio: 1.3 },
     ];
     const rows = msg.equipment.map(e => [
       e.desig ?? "",
@@ -1251,16 +1327,17 @@ export function buildBlocksFromMessage(msg: AiMessage): Block[] {
       e.cond ?? "",
       e.unit ?? "",
     ]);
-    out.push({ kind: "table", title: `Inventaire & stocks (${rows.length})`, cols, rows });
+    out.push({ kind: "table", title: tblTitle(te.title, rows.length), cols, rows });
   }
 
   // 7. Séismes
   if (want.quakes && msg.quakes && msg.quakes.length) {
+    const tq = labels.tables.quakes;
     const cols = [
-      { label: "Région", wRatio: 2.0 },
-      { label: "Magn.", wRatio: 0.8 },
-      { label: "Profondeur (km)", wRatio: 1.4 },
-      { label: "Date / heure (UTC)", wRatio: 2.2 },
+      { label: tq.region, wRatio: 2.0 },
+      { label: tq.mag, wRatio: 0.8 },
+      { label: tq.depth, wRatio: 1.4 },
+      { label: tq.datetime_utc, wRatio: 2.2 },
     ];
     const rows = msg.quakes.map(q => [
       q.region ?? "",
@@ -1268,7 +1345,7 @@ export function buildBlocksFromMessage(msg: AiMessage): Block[] {
       q.depth ?? "—",
       q.time ?? "",
     ]);
-    out.push({ kind: "table", title: `Activité sismique (${rows.length})`, cols, rows });
+    out.push({ kind: "table", title: tblTitle(tq.title, rows.length), cols, rows });
   }
 
   return out;
@@ -1284,12 +1361,13 @@ export function buildPdfReport(
   userMessage?: string,
   opts: PdfMessageReportOptions = {},
 ): PdfReportResult {
-  const operatorName = opts.operatorName ?? "Poste de commandement";
+  const labels = mergeLabels(opts.labels);
+  const operatorName = opts.operatorName ?? labels.fallback.operator;
 
-  const intentLabel = (msg.intent && INTENT_LABELS[msg.intent]) ?? "Rapport de situation";
+  const intentLabel = (msg.intent && labels.intent[msg.intent]) ?? labels.fallback.intent;
   const createdAt = new Date();
-  const dateStr = createdAt.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
-  const timeStr = createdAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" });
+  const dateStr = createdAt.toLocaleDateString(labels.locale, { day: "2-digit", month: "long", year: "numeric" });
+  const timeStr = createdAt.toLocaleTimeString(labels.locale, { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" });
 
   // Page de titre + en-tête (via blocks niveau document).
   const docBlocks: Block[] = [];
@@ -1303,19 +1381,19 @@ export function buildPdfReport(
 
   docBlocks.push({
     kind: "kv", pairs: [
-      { label: "Édité par", value: operatorName },
-      { label: "Date", value: dateStr },
-      { label: "Heure (UTC)", value: timeStr },
-      userMessage ? { label: "Requête", value: userMessage } : null,
+      { label: labels.kv.edited_by, value: operatorName },
+      { label: labels.kv.date, value: dateStr },
+      { label: labels.kv.utc_time, value: timeStr },
+      userMessage ? { label: labels.kv.query, value: userMessage } : null,
     ].filter(Boolean) as { label: string; value: string | number }[],
   });
   docBlocks.push({ kind: "rule", weight: 0.3 });
-  docBlocks.push(...buildBlocksFromMessage(msg));
+  docBlocks.push(...buildBlocksFromMessage(msg, labels));
   docBlocks.push({ kind: "rule", weight: 0.3 });
   docBlocks.push({
     kind: "text",
     lines: [
-      { spans: parseInlineMd("Ce document est généré automatiquement par le Copilot IRIS à partir de l'état opérationnel de la plateforme."), size: 9 },
+      { spans: parseInlineMd(labels.footer.generated), size: 9 },
     ],
   });
 

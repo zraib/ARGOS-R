@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useArgos, useDict, useModules } from "@/lib/store";
+import { tpl } from "@/lib/i18n/format";
 import { api } from "@/lib/api";
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
@@ -75,19 +76,62 @@ export function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddS
   const evolution = useMemo<IncidentEvolution | null>(() => {
     if (!incident) return null;
     try {
-      return predictIncidentEvolution({
-        incident,
-        allIncidents,
-        hospitals,
-        units,
-        dashStats,
-        quakes,
-        weather: weather ?? null,
-      });
+      const evoLabels = m.evolution;
+      return predictIncidentEvolution(
+        {
+          incident,
+          allIncidents,
+          hospitals,
+          units,
+          dashStats,
+          quakes,
+          weather: weather ?? null,
+        },
+        {
+          factor_severity: evoLabels.factor_severity,
+          factor_casualties: evoLabels.factor_casualties,
+          factor_hospitals: evoLabels.factor_hospitals,
+          factor_units: evoLabels.factor_units,
+          factor_duration: evoLabels.factor_duration,
+          factor_subincidents: evoLabels.factor_subincidents,
+          factor_seismic: evoLabels.factor_seismic,
+          factor_weather: evoLabels.factor_weather,
+          scenario_critique: evoLabels.scenario_critique,
+          scenario_eleve: evoLabels.scenario_eleve,
+          scenario_modere: evoLabels.scenario_modere,
+          scenario_faible: evoLabels.scenario_faible,
+          drivers_prefix: evoLabels.drivers_prefix,
+          act_sev_high: evoLabels.act_sev_high,
+          act_sev_low: evoLabels.act_sev_low,
+          act_cas_high: evoLabels.act_cas_high,
+          act_cas_low: evoLabels.act_cas_low,
+          act_hosp_high: evoLabels.act_hosp_high,
+          act_hosp_med: evoLabels.act_hosp_med,
+          act_hosp_low: evoLabels.act_hosp_low,
+          act_unit_none: evoLabels.act_unit_none,
+          act_unit_high: evoLabels.act_unit_high,
+          act_unit_low: evoLabels.act_unit_low,
+          act_dur_high: evoLabels.act_dur_high,
+          act_dur_low: evoLabels.act_dur_low,
+          act_sub_high: evoLabels.act_sub_high,
+          act_sub_low: evoLabels.act_sub_low,
+          act_seis_high: evoLabels.act_seis_high,
+          act_seis_low: evoLabels.act_seis_low,
+          act_wx_fire: evoLabels.act_wx_fire,
+          act_wx_flood: evoLabels.act_wx_flood,
+          act_wx_wind: evoLabels.act_wx_wind,
+          act_wx_default: evoLabels.act_wx_default,
+          act_fallback_1: evoLabels.act_fallback_1,
+          act_fallback_2: evoLabels.act_fallback_2,
+          act_fallback_3: evoLabels.act_fallback_3,
+          act_critique_override: evoLabels.act_critique_override,
+          act_eleve_override: evoLabels.act_eleve_override,
+        },
+      );
     } catch {
       return null;
     }
-  }, [incident, allIncidents, hospitals, units, dashStats, quakes, weather]);
+  }, [incident, allIncidents, hospitals, units, dashStats, quakes, weather, m.evolution]);
 
   return (
     <Modal open title={`${incident.id} — ${incident.titre}`} onClose={onClose} size="xl">
@@ -192,19 +236,25 @@ export function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddS
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-wider text-gray-500 dark:text-rdia-300/80">
               <Icon path={UI_ICONS.sparkles} size={13} className="text-or-500" />
-              Prédictions IA · Évolution incident
-              {wxLoading && <span className="text-[10.5px] font-normal text-gray-400 dark:text-rdia-400">(chargement météo en cours…)</span>}
+              {m.evolution.title}
+              {wxLoading && <span className="text-[10.5px] font-normal text-gray-400 dark:text-rdia-400">({m.evolution.loading_wx})</span>}
             </div>
             <div className="flex items-center gap-1 text-[10.5px] text-gray-400 dark:text-rdia-400">
-              {weather ? <span className="inline-flex items-center gap-1"><Icon path={UI_ICONS.refresh} size={11} /> météo chargée ({weather.current.code})</span> : wxLoading ? null : <span>prédiction sans météo</span>}
-              <span>· sismicité {quakes.length} évént. 72h</span>
+              {weather ? (
+                <span className="inline-flex items-center gap-1">
+                  <Icon path={UI_ICONS.refresh} size={11} /> {tpl(m.evolution.wx_loaded, { code: weather.current.code })}
+                </span>
+              ) : wxLoading ? null : (
+                <span>{m.evolution.wx_none}</span>
+              )}
+              <span>· {tpl(m.evolution.quakes_72h, { n: quakes.length })}</span>
             </div>
           </div>
           {evolution ? (
             <IncidentEvolutionCard ev={evolution} />
           ) : (
             <div className="rounded-xl border border-gray-200 bg-white/60 p-3 text-xs text-gray-500 dark:border-rdia-700/50 dark:bg-rdia-800/30 dark:text-rdia-300">
-              Calcul de l'évolution IA indisponible sur cet incident.
+              {m.evolution.unavailable}
             </div>
           )}
         </div>
