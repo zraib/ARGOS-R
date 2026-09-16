@@ -46,6 +46,9 @@ describe("Authz — default-deny (gate de sécurité Phase 0)", () => {
     process.env.NODE_ENV = "production";
     try {
       await base().post("/api/auth/dev-token").send({ username: "x", role: "superadmin" }).expect(403);
+      // La CONNEXION, elle, signe toujours ses jetons : c'est elle qui fait vivre la station.
+      const login = await base().post("/api/auth/login").send({ matricule: "h.alami", password: "argos" }).expect(201);
+      expect(typeof login.body.access_token).toBe("string");
     } finally {
       process.env.NODE_ENV = previous;
     }
