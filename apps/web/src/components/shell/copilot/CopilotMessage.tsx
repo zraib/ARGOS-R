@@ -5,7 +5,7 @@ import { Icon } from "@/components/ui/Icon";
 import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
 import { Pill } from "@/components/ui/Pill";
 import { useDict, type AiMessage, useModules, useArgos } from "@/lib/store";
-import type { Incident } from "@/lib/types";
+import type { Incident, Lang } from "@/lib/types";
 import { StatsGrid } from "./blocks/StatsGrid";
 import { IncidentsBlock } from "./blocks/IncidentsBlock";
 import { UnitsBlock } from "./blocks/UnitsBlock";
@@ -20,6 +20,7 @@ import {
   buildPdfReport,
   isReportableMessage,
   triggerDownloadPdf,
+  type PdfLabels,
 } from "@/lib/ai/copilot/pdf";
 
 // Le rendu Markdown (marked + sanitisation) n'est chargé qu'avec le premier message.
@@ -34,6 +35,12 @@ function findPreviousUserMessage(currentId: string): AiMessage | undefined {
   }
   return undefined;
 }
+
+const LOCALE_BY_LANG: Record<Lang, string> = {
+  fr: "fr-FR",
+  en: "en-GB",
+  ar: "ar-MA",
+};
 
 /** Un message du fil : bulle de l'opérateur, ou réponse avec ses blocs structurés. */
 export function CopilotMessage({
@@ -53,6 +60,7 @@ export function CopilotMessage({
   const m = useModules();
   const showToast = useArgos(s => s.showToast);
   const sessionUser = useArgos(s => s.sessionUser);
+  const lang = useArgos(s => s.lang);
   const canExport = useMemo(() => isReportableMessage(msg), [msg]);
 
   const onExportPdf = useCallback(() => {
@@ -77,8 +85,18 @@ export function CopilotMessage({
           console.debug("[PDF Export] premiers caractères requête user :", cp2);
         }
       }
+      const labels: PdfLabels = {
+        kv: m.pdf.kv,
+        footer: m.pdf.footer,
+        fallback: m.pdf.fallback,
+        intent: m.pdf.intent,
+        kpi: m.pdf.kpi,
+        tables: m.pdf.tables,
+        locale: LOCALE_BY_LANG[lang],
+      };
       const report = buildPdfReport(msg, userMsg?.text, {
-        operatorName: sessionUser?.nom ?? "Poste de commandement",
+        operatorName: sessionUser?.nom ?? labels.fallback.operator,
+        labels,
       });
       triggerDownloadPdf(report);
       showToast(t.cp_pdf_download);
@@ -86,7 +104,7 @@ export function CopilotMessage({
       const detail = err instanceof Error ? err.message : "erreur inattendue";
       showToast(`${t.cp_pdf_failed} : ${detail}`);
     }
-  }, [canExport, msg, t, showToast, sessionUser]);
+  }, [canExport, msg, t, m, lang, showToast, sessionUser]);
 
   if (msg.role === "user") {
     return (
@@ -127,7 +145,7 @@ export function CopilotMessage({
       </div>
       {msg.llmError && (
         <div className="rounded-md border border-amber-500/20 bg-amber-500/5 px-2.5 py-1 text-[10px] font-medium text-amber-600 dark:text-amber-400/90">
-          ℹ️ {m.copilot.llm_unavailable} {msg.llmError}
+          ℹ️ {t.cp_error_friendly}
         </div>
       )}
       <div className="rounded-2xl rounded-tl-sm bg-white px-3.5 py-2.5 shadow-sm ring-1 ring-gray-100 dark:bg-rdia-800/70 dark:ring-rdia-700/60">

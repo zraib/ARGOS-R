@@ -17,6 +17,94 @@ export { clamp01, clamp100 } from "@/lib/ai/shared";
 
 export type EvolutionTrend = "aggravation" | "stable" | "amelioration";
 
+/** Libellés localisés pour le moteur (facteurs, scénario, actions) — strict rétrocompat FR par défaut. */
+export interface EvolutionLabels {
+  factor_severity: string;
+  factor_casualties: string;
+  factor_hospitals: string;
+  factor_units: string;
+  factor_duration: string;
+  factor_subincidents: string;
+  factor_seismic: string;
+  factor_weather: string;
+  scenario_critique: string;
+  scenario_eleve: string;
+  scenario_modere: string;
+  scenario_faible: string;
+  drivers_prefix: string;
+  act_sev_high: string;
+  act_sev_low: string;
+  act_cas_high: string;
+  act_cas_low: string;
+  act_hosp_high: string;
+  act_hosp_med: string;
+  act_hosp_low: string;
+  act_unit_none: string;
+  act_unit_high: string;
+  act_unit_low: string;
+  act_dur_high: string;
+  act_dur_low: string;
+  act_sub_high: string;
+  act_sub_low: string;
+  act_seis_high: string;
+  act_seis_low: string;
+  act_wx_fire: string;
+  act_wx_flood: string;
+  act_wx_wind: string;
+  act_wx_default: string;
+  act_fallback_1: string;
+  act_fallback_2: string;
+  act_fallback_3: string;
+  act_critique_override: string;
+  act_eleve_override: string;
+}
+
+const DEFAULT_EVOLUTION_LABELS: EvolutionLabels = {
+  factor_severity: "Sévérité initiale",
+  factor_casualties: "Bilan humain",
+  factor_hospitals: "Saturation hôpitaux proches",
+  factor_units: "Déploiement unités",
+  factor_duration: "Durée écoulée",
+  factor_subincidents: "Sous-incidents",
+  factor_seismic: "Sismicité EMSC (72h)",
+  factor_weather: "Météo pondérée type",
+  scenario_critique: "Risque critique d'aggravation rapide",
+  scenario_eleve: "Risque élevé, situation fragile",
+  scenario_modere: "Risque modéré, surveillance renforcée",
+  scenario_faible: "Risque faible, stabilisation probable",
+  drivers_prefix: " · pilotes : ",
+  act_sev_high: "Réévaluer la gravité par un responsable terrain et confirmer le niveau de crise.",
+  act_sev_low: "Confirmer la qualification de gravité auprès du correspondant local.",
+  act_cas_high: "Consolider en temps réel le bilan humain (décès, blessés, disparus) et qualifier les priorités médicales.",
+  act_cas_low: "Mettre en place une cellule d'écoute et de recensement des personnes affectées.",
+  act_hosp_high: "Déclencher le plan Hôpital Blanc et ouvrir les lits de reconversion pour éviter la saturation.",
+  act_hosp_med: "Contrôler en temps réel la saturation des structures sanitaires et des services de réanimation proches.",
+  act_hosp_low: "Vérifier la disponibilité des hôpitaux de référence et préparer les circuits d'évacuation.",
+  act_unit_none: "Déclencher immédiatement un premier déploiement d'une unité de secours pour évaluer et sécuriser la zone.",
+  act_unit_high: "Renforcer le dispositif par une unité supplémentaire pour couvrir le sous-effectif identifié.",
+  act_unit_low: "Réaliser un point d'avancement avec les commandants d'unité et ajuster le dispositif.",
+  act_dur_high: "Préparer les rotations des équipes et prévoir la relève des moyens engagés au-delà de 24 heures.",
+  act_dur_low: "Maintenir une cadence de point situation adaptée à la durée de gestion.",
+  act_sub_high: "Cartographier précisément l'ensemble des sous-incidents pour éviter la dispersion des moyens de secours.",
+  act_sub_low: "Rechercher des sous-incidents éventuels non encore déclarés autour de la zone principale.",
+  act_seis_high: "Intégrer l'activité sismique régionale dans l'évaluation du risque et renforcer la vigilance des équipes sur zone.",
+  act_seis_low: "Consulter la sismicité régionale sur 72 heures avant d'engager des opérations lourdes en zone instable.",
+  act_wx_fire: "Anticiper les évolutions de vent et de température pour sécuriser les équipes de lutte contre l'incendie.",
+  act_wx_flood: "Surveiller en continu les précipitations et les niveaux des cours d'eau pour déclencher les évacuations préventives.",
+  act_wx_wind: "Prendre en compte les rafales et le vent pour sécuriser les zones d'intervention.",
+  act_wx_default: "Prendre en compte les conditions météorologiques pour planifier les rotations des équipes.",
+  act_fallback_1: "Consolider la fiche incident (bilan humain, position exacte, moyens déployés) pour garantir la cohérence du commandement.",
+  act_fallback_2: "Maintenir une surveillance régulière et un reporting cadencé sur l'évolution de la situation.",
+  act_fallback_3: "Préparer un point situation à transmettre à la cellule de crise.",
+  act_critique_override: "Déclencher immédiatement un renfort des moyens humains et matériels sur la zone d'intervention.",
+  act_eleve_override: "Anticiper un pré-positionnement de renforts opérationnels à proximité immédiate de l'incident.",
+};
+
+const mergeEvolutionLabels = (partial?: Partial<EvolutionLabels>): EvolutionLabels => ({
+  ...DEFAULT_EVOLUTION_LABELS,
+  ...(partial ?? {}),
+});
+
 /** Facteur d'évolution calculé (toujours 0..1). */
 export interface EvolutionFactor extends RiskFactor {
   /** Score brut 0..1 du facteur. */
@@ -450,7 +538,8 @@ function toEvolutionTrend(score: number, durationMin: number, st: Incident["st"]
 // ========================================================================
 // POINT D'ENTRÉE PRINCIPAL
 // ========================================================================
-export function predictIncidentEvolution(ctx: IncidentEvolutionCtx): IncidentEvolution {
+export function predictIncidentEvolution(ctx: IncidentEvolutionCtx, labels?: Partial<EvolutionLabels>): IncidentEvolution {
+  const L = mergeEvolutionLabels(labels);
   const nowMs = safeNum(ctx.now, Date.now());
   const inc = ctx.incident;
 
@@ -463,7 +552,20 @@ export function predictIncidentEvolution(ctx: IncidentEvolutionCtx): IncidentEvo
   const f7 = F7_SEISMIC(inc, ctx.quakes, nowMs);
   const f8 = F8_METEO(inc, ctx.weather);
 
-  const factors: EvolutionFactor[] = [f1, f2, f3, f4, f5, f6, f7, f8];
+  const F_LABEL: Record<string, string> = {
+    [DEFAULT_EVOLUTION_LABELS.factor_severity]: L.factor_severity,
+    [DEFAULT_EVOLUTION_LABELS.factor_casualties]: L.factor_casualties,
+    [DEFAULT_EVOLUTION_LABELS.factor_hospitals]: L.factor_hospitals,
+    [DEFAULT_EVOLUTION_LABELS.factor_units]: L.factor_units,
+    [DEFAULT_EVOLUTION_LABELS.factor_duration]: L.factor_duration,
+    [DEFAULT_EVOLUTION_LABELS.factor_subincidents]: L.factor_subincidents,
+    [DEFAULT_EVOLUTION_LABELS.factor_seismic]: L.factor_seismic,
+    [DEFAULT_EVOLUTION_LABELS.factor_weather]: L.factor_weather,
+  };
+  const localizeFactorLabel = (fr: string): string => F_LABEL[fr] ?? fr;
+
+  const factorsRaw: EvolutionFactor[] = [f1, f2, f3, f4, f5, f6, f7, f8];
+  const factors: EvolutionFactor[] = factorsRaw.map((f) => ({ ...f, label: localizeFactorLabel(f.label) }));
   const score = clamp100(factors.reduce((s, f) => s + f.weightedScore, 0));
   const level = levelOf(score);
   const start = parseISO(inc.time);
@@ -483,55 +585,63 @@ export function predictIncidentEvolution(ctx: IncidentEvolutionCtx): IncidentEvo
   // --- Scénario court (1 phrase, type + drivers dominants) ---
   const sorted = [...factors].sort((a, b) => b.weightedScore - a.weightedScore);
   const topDrivers = sorted.slice(0, 3).map((f) => f.label);
-  let scenario: string;
-  if (level === "critique") scenario = `Risque critique d'aggravation rapide · pilotes : ${topDrivers.join(" · ")}`;
-  else if (level === "eleve") scenario = `Risque élevé, situation fragile · pilotes : ${topDrivers.join(" · ")}`;
-  else if (level === "modere") scenario = `Risque modéré, surveillance renforcée · pilotes : ${topDrivers.join(" · ")}`;
-  else scenario = `Risque faible, stabilisation probable · pilotes : ${topDrivers.join(" · ")}`;
+  const baseScenario =
+    level === "critique"
+      ? L.scenario_critique
+      : level === "eleve"
+        ? L.scenario_eleve
+        : level === "modere"
+          ? L.scenario_modere
+          : L.scenario_faible;
+  const scenario = `${baseScenario}${L.drivers_prefix}${topDrivers.join(" · ")}`;
 
   // --- 3 actions recommandées ADAPTÉES aux 3 pilotes (triées par impact estimé). ---
   // Règle : CHAQUE pilote → une action DISTINCTE, jamais le même catalogue pour tous.
   // Chaque action porte un « impact » = gain théorique max sur le score si l'action est menée (0..100).
   type ActionCandidate = { impact: number; text: string };
+  // Pour matcher les facteurs localisés → clé FR (inverse F_LABEL).
+  const FR_BY_LOCAL: Record<string, string> = {};
+  for (const [fr, local] of Object.entries(F_LABEL)) FR_BY_LOCAL[local] = fr;
   const actionFor = (driverLabel: string, weightedScore: number, sev: Severity, incType: string): ActionCandidate | null => {
     const hasDeployedUnits = deployedUnits > 0;
-    switch (driverLabel) {
-      case "Sévérité initiale": {
-        if (sev === "high" || weightedScore >= 15) return { impact: 14, text: "Réévaluer la gravité par un responsable terrain et confirmer le niveau de crise." };
-        return { impact: 6, text: "Confirmer la qualification de gravité auprès du correspondant local." };
+    const frKey = FR_BY_LOCAL[driverLabel] ?? driverLabel;
+    switch (frKey) {
+      case DEFAULT_EVOLUTION_LABELS.factor_severity: {
+        if (sev === "high" || weightedScore >= 15) return { impact: 14, text: L.act_sev_high };
+        return { impact: 6, text: L.act_sev_low };
       }
-      case "Bilan humain": {
-        if (weightedScore >= 10) return { impact: 22, text: "Consolider en temps réel le bilan humain (décès, blessés, disparus) et qualifier les priorités médicales." };
-        return { impact: 8, text: "Mettre en place une cellule d'écoute et de recensement des personnes affectées." };
+      case DEFAULT_EVOLUTION_LABELS.factor_casualties: {
+        if (weightedScore >= 10) return { impact: 22, text: L.act_cas_high };
+        return { impact: 8, text: L.act_cas_low };
       }
-      case "Saturation hôpitaux proches": {
-        if (weightedScore >= 14) return { impact: 20, text: "Déclencher le plan Hôpital Blanc et ouvrir les lits de reconversion pour éviter la saturation." };
-        if (weightedScore >= 7) return { impact: 12, text: "Contrôler en temps réel la saturation des structures sanitaires et des services de réanimation proches." };
-        return { impact: 5, text: "Vérifier la disponibilité des hôpitaux de référence et préparer les circuits d'évacuation." };
+      case DEFAULT_EVOLUTION_LABELS.factor_hospitals: {
+        if (weightedScore >= 14) return { impact: 20, text: L.act_hosp_high };
+        if (weightedScore >= 7) return { impact: 12, text: L.act_hosp_med };
+        return { impact: 5, text: L.act_hosp_low };
       }
-      case "Déploiement unités": {
-        if (!hasDeployedUnits) return { impact: 25, text: "Déclencher immédiatement un premier déploiement d'une unité de secours pour évaluer et sécuriser la zone." };
-        if (weightedScore >= 12) return { impact: 18, text: "Renforcer le dispositif par une unité supplémentaire pour couvrir le sous-effectif identifié." };
-        return { impact: 7, text: "Réaliser un point d'avancement avec les commandants d'unité et ajuster le dispositif." };
+      case DEFAULT_EVOLUTION_LABELS.factor_units: {
+        if (!hasDeployedUnits) return { impact: 25, text: L.act_unit_none };
+        if (weightedScore >= 12) return { impact: 18, text: L.act_unit_high };
+        return { impact: 7, text: L.act_unit_low };
       }
-      case "Durée écoulée": {
-        if (weightedScore >= 8) return { impact: 9, text: "Préparer les rotations des équipes et prévoir la relève des moyens engagés au-delà de 24 heures." };
-        return { impact: 4, text: "Maintenir une cadence de point situation adaptée à la durée de gestion." };
+      case DEFAULT_EVOLUTION_LABELS.factor_duration: {
+        if (weightedScore >= 8) return { impact: 9, text: L.act_dur_high };
+        return { impact: 4, text: L.act_dur_low };
       }
-      case "Sous-incidents": {
-        if (weightedScore >= 5) return { impact: 16, text: "Cartographier précisément l'ensemble des sous-incidents pour éviter la dispersion des moyens de secours." };
-        return { impact: 4, text: "Rechercher des sous-incidents éventuels non encore déclarés autour de la zone principale." };
+      case DEFAULT_EVOLUTION_LABELS.factor_subincidents: {
+        if (weightedScore >= 5) return { impact: 16, text: L.act_sub_high };
+        return { impact: 4, text: L.act_sub_low };
       }
-      case "Sismicité EMSC (72h)": {
-        if (weightedScore >= 5) return { impact: 11, text: "Intégrer l'activité sismique régionale dans l'évaluation du risque et renforcer la vigilance des équipes sur zone." };
-        return { impact: 3, text: "Consulter la sismicité régionale sur 72 heures avant d'engager des opérations lourdes en zone instable." };
+      case DEFAULT_EVOLUTION_LABELS.factor_seismic: {
+        if (weightedScore >= 5) return { impact: 11, text: L.act_seis_high };
+        return { impact: 3, text: L.act_seis_low };
       }
-      case "Météo pondérée type": {
+      case DEFAULT_EVOLUTION_LABELS.factor_weather: {
         const t = incType.toLowerCase();
-        if (/feu|incendie|wildfire|flammes/.test(t)) return { impact: weightedScore >= 5 ? 15 : 6, text: "Anticiper les évolutions de vent et de température pour sécuriser les équipes de lutte contre l'incendie." };
-        if (/inond|cru|flood|eau|hydro/.test(t)) return { impact: weightedScore >= 5 ? 17 : 7, text: "Surveiller en continu les précipitations et les niveaux des cours d'eau pour déclencher les évacuations préventives." };
-        if (/temp[eê]t|orage|vent|cyclon|ouragan|storm/.test(t)) return { impact: weightedScore >= 5 ? 14 : 6, text: "Prendre en compte les rafales et le vent pour sécuriser les zones d'intervention." };
-        return { impact: 5, text: "Prendre en compte les conditions météorologiques pour planifier les rotations des équipes." };
+        if (/feu|incendie|wildfire|flammes/.test(t)) return { impact: weightedScore >= 5 ? 15 : 6, text: L.act_wx_fire };
+        if (/inond|cru|flood|eau|hydro/.test(t)) return { impact: weightedScore >= 5 ? 17 : 7, text: L.act_wx_flood };
+        if (/temp[eê]t|orage|vent|cyclon|ouragan|storm/.test(t)) return { impact: weightedScore >= 5 ? 14 : 6, text: L.act_wx_wind };
+        return { impact: 5, text: L.act_wx_default };
       }
       default:
         return null;
@@ -549,14 +659,14 @@ export function predictIncidentEvolution(ctx: IncidentEvolutionCtx): IncidentEvo
     }
   }
   const genericFallback: ActionCandidate[] = [
-    { impact: 3, text: "Consolider la fiche incident (bilan humain, position exacte, moyens déployés) pour garantir la cohérence du commandement." },
-    { impact: 2, text: "Maintenir une surveillance régulière et un reporting cadencé sur l'évolution de la situation." },
-    { impact: 1, text: "Préparer un point situation à transmettre à la cellule de crise." },
+    { impact: 3, text: L.act_fallback_1 },
+    { impact: 2, text: L.act_fallback_2 },
+    { impact: 1, text: L.act_fallback_3 },
   ];
   for (const g of genericFallback) if (candidates.length < 3) candidates.push(g);
   candidates.sort((a, b) => b.impact - a.impact);
-  if (level === "critique") candidates.unshift({ impact: 99, text: "Déclencher immédiatement un renfort des moyens humains et matériels sur la zone d'intervention." });
-  if (level === "eleve" && candidates[0].impact < 20) candidates.unshift({ impact: 30, text: "Anticiper un pré-positionnement de renforts opérationnels à proximité immédiate de l'incident." });
+  if (level === "critique") candidates.unshift({ impact: 99, text: L.act_critique_override });
+  if (level === "eleve" && candidates[0].impact < 20) candidates.unshift({ impact: 30, text: L.act_eleve_override });
   const seenText = new Set<string>();
   const actions: [string, string, string] = ["", "", ""] as unknown as [string, string, string];
   let k = 0;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useModules } from "@/lib/store";
+import { tpl } from "@/lib/i18n/format";
 import { type ReactNode } from "react";
 import type { SituationalAwareness } from "@/lib/ai/situational/types";
 import {
@@ -28,6 +29,12 @@ export function ShellInner({
   shell: (children: ReactNode) => ReactNode;
 }) {
   const m = useModules();
+  const FLOW_TREND_LOCAL: Record<string, string> = {
+    "↗ stable": m.situational.flow_trend_stable,
+    "↗ en hausse": m.situational.flow_trend_up,
+    "↘ en baisse": m.situational.flow_trend_down,
+  };
+  const localTrend = (raw: string): string => FLOW_TREND_LOCAL[raw] ?? raw;
   const lm = LEVEL_META[sa.niveauGlobal];
   const score = Math.max(0, Math.min(100, Math.round(sa.scoreGlobal)));
 
@@ -108,7 +115,7 @@ export function ShellInner({
               className="btn-secondaire cible-tactile gap-1.5 px-3 text-xs"
             >
               <Icon name="refresh-cw" className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
-              {loading ? "MAJ…" : "Actualiser"}
+              {loading ? m.situational.refreshing : m.situational.refresh_action}
             </button>
             {loading && (
               <div className="flex items-center gap-1.5 rounded-md bg-rdia-500/[0.07] px-2 py-1 text-[9.5px] font-semibold text-rdia-700 dark:bg-rdia-500/10 dark:text-rdia-300">
@@ -128,7 +135,7 @@ export function ShellInner({
           =================================================================== */}
 
       {/* ==== ÉTAGE 1 · Panneaux A (Points chauds) ==== */}
-      <Panel title={m.situational.hotspots} right={`${sa.pointsChauds.length} zone(s)`}>
+      <Panel title={m.situational.hotspots} right={tpl(m.situational.count_zones, { n: sa.pointsChauds.length })}>
         <HotspotsBars data={sa.pointsChauds} totalIncidents={sa.totalIncidents} />
       </Panel>
 
@@ -136,27 +143,33 @@ export function ShellInner({
       <div className="shrink-0 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-4.5 lg:gap-5">
         {/* colonne gauche */}
         <div className="flex min-w-0 flex-col gap-4">
-          <Panel title={m.situational.anticipations} right="30 min → 12 h">
+          <Panel title={m.situational.anticipations} right={m.situational.horizon_30_12h}>
             <ForeBars forecasts={sa.predictions} generatedAt={sa.generatedAt} debug={sa as unknown as { _debugLitsTot?: number; _debugLitsOcc?: number }} />
           </Panel>
-          <Panel title={m.situational.flow6h} right={sa.predictions.flux6h.tendance}>
+          <Panel title={m.situational.flow6h} right={localTrend(sa.predictions.flux6h.tendance)}>
             <MetricBar
               icon="activity"
-              title={`${sa.predictions.flux6h.tendance}`}
-              subtitle={`Pic dans ${fmtDur(sa.predictions.flux6h.picDansMinutes)}`}
+              title={localTrend(sa.predictions.flux6h.tendance)}
+              subtitle={tpl(m.situational.pic_in, { dur: fmtDur(sa.predictions.flux6h.picDansMinutes) })}
               big={`+${sa.predictions.flux6h.total}`}
-              bigUnit="patients"
+              bigUnit={m.situational.unit_patients}
               pct={Math.max(0, Math.min(100, (sa.predictions.flux6h.total / 300) * 100))}
-              ton={sa.predictions.flux6h.tendance === "↗ en hausse" ? "or" : "gray"}
+              ton={
+                sa.predictions.flux6h.tendance.includes("hausse") ||
+                sa.predictions.flux6h.tendance.includes("rising") ||
+                sa.predictions.flux6h.tendance.includes("ارتفاع")
+                  ? "or"
+                  : "gray"
+              }
             />
           </Panel>
         </div>
         {/* colonne droite */}
         <div className="flex min-w-0 flex-col gap-4">
-          <Panel title={m.situational.critical_factors} right={`${sa.facteursCritiques.length} détecté(s)`}>
+          <Panel title={m.situational.critical_factors} right={tpl(m.situational.count_factors, { n: sa.facteursCritiques.length })}>
             <FactorBars data={sa.facteursCritiques} />
           </Panel>
-          <Panel title={m.situational.imminent_risks} right="H2 · H6 · H24">
+          <Panel title={m.situational.imminent_risks} right={m.situational.imminent_horizons_list}>
             <RiskBars risks={sa.risquesProchaines} />
           </Panel>
         </div>
@@ -167,9 +180,9 @@ export function ShellInner({
         <MetricBar
           icon="package"
           title={sa.predictions.stockCritique.niveau === "alerte" ? m.situational.stock_critical : sa.predictions.stockCritique.niveau === "attention" ? m.situational.stock_moderate : m.situational.stock_nominal}
-          subtitle={sa.predictions.stockCritique.ruptures.length ? sa.predictions.stockCritique.ruptures.slice(0, 3).join(" · ") : "Stock nominal"}
+          subtitle={sa.predictions.stockCritique.ruptures.length ? sa.predictions.stockCritique.ruptures.slice(0, 3).join(" · ") : m.situational.stock_nominal}
           big={String(sa.predictions.stockCritique.ruptures.length)}
-          bigUnit={sa.predictions.stockCritique.ruptures.length > 1 ? "ruptures" : sa.predictions.stockCritique.ruptures.length === 1 ? "rupture" : ""}
+          bigUnit={sa.predictions.stockCritique.ruptures.length > 1 ? m.situational.unit_ruptures : sa.predictions.stockCritique.ruptures.length === 1 ? m.situational.unit_rupture : ""}
           pct={sa.predictions.stockCritique.niveau === "alerte" ? 95 : sa.predictions.stockCritique.niveau === "attention" ? 65 : 15}
           ton={sa.predictions.stockCritique.niveau === "alerte" ? "danger" : sa.predictions.stockCritique.niveau === "attention" ? "or" : "green"}
         />
@@ -180,7 +193,7 @@ export function ShellInner({
         <div className="flex items-center gap-1.5">
           <span className="inline-flex h-1.5 w-1.5 rounded-full bg-rdia-400 dark:bg-rdia-500" />
           <span className="font-semibold">
-            SITREP · Mis à jour {new Date(sa.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            {tpl(m.situational.sitrep_updated_at, { time: new Date(sa.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) })}
           </span>
         </div>
         <span className="font-mono tabular-nums opacity-80">

@@ -1,7 +1,7 @@
 // ========================================================================
 // Conscience Situationnelle IA — MODÈLE LLM OLLAMA LOCAL + fallback déterministe.
 // ========================================================================
-import type { DashStats, Hospital, Incident, Unit } from "@/lib/types";
+import type { DashStats, Hospital, Incident, Unit, Lang } from "@/lib/types";
 import type { LlmProviderConfig } from "@/lib/ai/config";
 import { chatComplete } from "@/lib/ai/provider";
 import type { EquipItem } from "@/lib/data/modules";
@@ -15,6 +15,72 @@ import type {
   SituationalForecasts,
 } from "./types";
 import { filterActiveIncidents } from "@/lib/derive";
+import { tpl } from "@/lib/i18n/format";
+
+// ========================================================================
+// Injection libellés localisés · Pattern identique à EvolutionLabels/PdfLabels
+// ------------------------------------------------------------------------
+// Interface publique, DEFAULT FR strict (rétrocompat appel anciens), merge
+// partial → DEFAULT ∪ partial. Param optionnel `labels?` sur les 2 computes.
+// ========================================================================
+export interface SituationalLabels {
+  fc_hospital_saturation_full: string;
+  fc_hospital_saturation_critical: string;
+  fc_hospital_tension: string;
+  fc_simultaneous_high_incidents: string;
+  fc_one_high_incident: string;
+  fc_unit_readiness_low: string;
+  fc_rapid_deterioration: string;
+  fc_notable_improvement: string;
+  fc_situation_controlled: string;
+  rt_hospital_saturation: string;
+  rt_seismic_aftershocks: string;
+  rt_critical_zone_degradation: string;
+  rt_situation_stable: string;
+  zone_national: string;
+  zone_hospital_network: string;
+  zone_epicentral: string;
+  flow_trend_up: string;
+  flow_trend_stable: string;
+  flow_trend_down: string;
+  syn_alerte_rouge: string;
+  syn_vigilance: string;
+  syn_surveillance: string;
+  syn_calme: string;
+}
+
+export const DEFAULT_SITUATIONAL_LABELS: SituationalLabels = {
+  fc_hospital_saturation_full: "Saturation hôpital {nom} ({ville})",
+  fc_hospital_saturation_critical: "Saturation hospitalière critique",
+  fc_hospital_tension: "Tension sur le réseau hospitalier",
+  fc_simultaneous_high_incidents: "{n} incidents critiques simultanés",
+  fc_one_high_incident: "1 incident critique en cours",
+  fc_unit_readiness_low: "Readiness des unités insuffisante",
+  fc_rapid_deterioration: "Aggravation rapide ({durée})",
+  fc_notable_improvement: "Amélioration notable",
+  fc_situation_controlled: "Situation maîtrisée (aucun facteur critique détecté)",
+  rt_hospital_saturation: "Saturation hospitalière",
+  rt_seismic_aftershocks: "Répliques sismiques & aggravation bilan",
+  rt_critical_zone_degradation: "Dégradation zone critique",
+  rt_situation_stable: "Situation stable",
+  zone_national: "National",
+  zone_hospital_network: "Réseau hospitalier",
+  zone_epicentral: "Zone épicentrale",
+  flow_trend_up: "↗ en hausse",
+  flow_trend_stable: "↗ stable",
+  flow_trend_down: "↘ en baisse",
+  syn_alerte_rouge: "ALERTE ROUGE — {openHigh} incident(s) critique(s) · hôpitaux {satPct}% sat. · focus {region}.",
+  syn_vigilance: "Vigilance renforcée — {openInc} incident(s) ouvert(s) · {openHigh} critique(s) · tension capacités.",
+  syn_surveillance: "Surveillance — {openInc} incident(s) ouvert(s) · capacités suffisantes · évolution standard.",
+  syn_calme: "Calme — situation maîtrisée · {openInc} incident(s) ouvert(s).",
+};
+
+export function mergeSituationalLabels(
+  partial?: Partial<SituationalLabels>,
+): SituationalLabels {
+  if (!partial) return DEFAULT_SITUATIONAL_LABELS;
+  return { ...DEFAULT_SITUATIONAL_LABELS, ...partial };
+}
 
 // ---------- helpers (depuis shared.ts : clamp01 + safeNum) ------------------------
 function numOr(v: unknown, d: number): number { return safeNum(v, d); }
@@ -26,15 +92,19 @@ function pickLL<T extends string>(v: unknown, list: readonly T[]): T | null {
 // ============================================================
 // 1) FALLBACK DÉTERMINISTE (100% réel, zéro invention)
 // ============================================================
-export function computeSituationalAwarenessFallback(input: {
-  incidents: Incident[];
-  hospitals: Hospital[];
-  units: Unit[];
-  dashStats: DashStats | null;
-  equipment?: EquipItem[];
-  now?: number;
-}): SituationalAwareness {
+export function computeSituationalAwarenessFallback(
+  input: {
+    incidents: Incident[];
+    hospitals: Hospital[];
+    units: Unit[];
+    dashStats: DashStats | null;
+    equipment?: EquipItem[];
+    now?: number;
+  },
+  labels?: Partial<SituationalLabels>,
+): SituationalAwareness {
   const { incidents, hospitals, units, dashStats, equipment = [], now } = input;
+  const L = mergeSituationalLabels(labels);
   const time = now ?? Date.now();
   const openInc = filterActiveIncidents(incidents);
   const openHigh = openInc.filter((i) => i.sev === "high").length;
@@ -133,7 +203,7 @@ export function computeSituationalAwarenessFallback(input: {
   const s2 = evoBase.length >= 4 ? evoBase.slice(-4, -2).reduce((a, b) => a + (b.opened ?? 0), 0) : 0;
   const ratio = s2 > 0 ? s1 / s2 : 1;
   const tendanceFlux: SituationalForecasts["flux6h"]["tendance"] =
-    ratio >= 1.2 ? "↗ en hausse" : ratio <= 0.8 ? "↘ en baisse" : "↗ stable";
+    ratio >= 1.2 ? L.flow_trend_up : ratio <= 0.8 ? L.flow_trend_down : L.flow_trend_stable;
   const flux6h: SituationalForecasts["flux6h"] = {
     total: Math.max(0, flux6hRaw),
     picDansMinutes: openHigh > 0 ? 30 : ratio >= 1.2 ? 75 : 140, // heure pic prédite
@@ -237,7 +307,9 @@ export function computeSituationalAwarenessFallback(input: {
     }, null);
     facteursCritiques.push({
       id: `fc-hs-sat-${time}`,
-      label: worstH ? `Saturation hôpital ${worstH.nom} (${worstH.ville})` : "Saturation hospitalière critique",
+      label: worstH
+        ? tpl(L.fc_hospital_saturation_full, { nom: worstH.nom, ville: worstH.ville ?? "" })
+        : L.fc_hospital_saturation_critical,
       type: "saturation",
       impact: "haut",
       value: `${Math.round(worstOccPct * 100)}%`,
@@ -246,7 +318,7 @@ export function computeSituationalAwarenessFallback(input: {
   } else if (worstOccPct >= 0.65) {
     facteursCritiques.push({
       id: `fc-hs-ten-${time}`,
-      label: "Tension sur le réseau hospitalier",
+      label: L.fc_hospital_tension,
       type: "saturation",
       impact: "moyen",
       value: `${Math.round(worstOccPct * 100)}%`,
@@ -255,7 +327,7 @@ export function computeSituationalAwarenessFallback(input: {
   if (openHigh >= 2) {
     facteursCritiques.push({
       id: `fc-inc-h-${time}`,
-      label: `${openHigh} incidents critiques simultanés`,
+      label: tpl(L.fc_simultaneous_high_incidents, { n: openHigh }),
       type: "evenement",
       impact: "haut",
       value: `${openHigh}`,
@@ -263,7 +335,7 @@ export function computeSituationalAwarenessFallback(input: {
   } else if (openHigh === 1) {
     facteursCritiques.push({
       id: `fc-inc-h-${time}`,
-      label: "1 incident critique en cours",
+      label: L.fc_one_high_incident,
       type: "evenement",
       impact: "moyen",
     });
@@ -271,7 +343,7 @@ export function computeSituationalAwarenessFallback(input: {
   if (readinessAvg < 0.5 && units.length > 0) {
     facteursCritiques.push({
       id: `fc-read-${time}`,
-      label: "Readiness des unités insuffisante",
+      label: L.fc_unit_readiness_low,
       type: "capacite",
       impact: readinessAvg < 0.3 ? "haut" : "moyen",
       value: `${Math.round(readinessAvg * 100)}%`,
@@ -284,7 +356,7 @@ export function computeSituationalAwarenessFallback(input: {
     if (s1 / s2 > 1.2) {
       facteursCritiques.push({
         id: `fc-evo-${time}`,
-        label: "Aggravation rapide (48h)",
+        label: tpl(L.fc_rapid_deterioration, { durée: "48h" }),
         type: "evenement",
         impact: "haut",
         value: `+${Math.round((s1 / s2 - 1) * 100)}%`,
@@ -292,14 +364,19 @@ export function computeSituationalAwarenessFallback(input: {
     } else if (s1 / s2 < 0.85) {
       facteursCritiques.push({
         id: `fc-evo-${time}`,
-        label: "Amélioration notable",
+        label: L.fc_notable_improvement,
         type: "evenement",
         impact: "faible",
       });
     }
   }
   if (facteursCritiques.length === 0) {
-    facteursCritiques.push({ id: `fc-neutre-${time}`, label: "Situation maîtrisée (aucun facteur critique détecté)", type: "evenement", impact: "faible" });
+    facteursCritiques.push({
+      id: `fc-neutre-${time}`,
+      label: L.fc_situation_controlled,
+      type: "evenement",
+      impact: "faible",
+    });
   }
 
   // Risques prochaines
@@ -312,26 +389,26 @@ export function computeSituationalAwarenessFallback(input: {
   if (worstOccPct >= 0.65 && worstHosp) {
     risquesProchaines.push({
       horizon: "2h",
-      type: "Saturation hospitalière",
+      type: L.rt_hospital_saturation,
       niveau: worstOccPct >= 0.85 ? "critique" : "eleve",
       probabilitePct: Math.round(45 + worstOccPct * 40),
-      zone: `${worstHosp.ville || "Réseau hospitalier"}`,
+      zone: `${worstHosp.ville || L.zone_hospital_network}`,
     });
   }
   const earth = openInc.find((i) => i.type === "earthquake" && i.sev === "high");
   if (earth) {
     risquesProchaines.push({
       horizon: "6h",
-      type: "Répliques sismiques & aggravation bilan",
+      type: L.rt_seismic_aftershocks,
       niveau: openHigh >= 2 ? "critique" : "eleve",
       probabilitePct: 68,
-      zone: earth.region || "Zone épicentrale",
+      zone: earth.region || L.zone_epicentral,
     });
   }
   if (pointsChauds[0] && pointsChauds[0].poids >= 0.55) {
     risquesProchaines.push({
       horizon: "24h",
-      type: "Dégradation zone critique",
+      type: L.rt_critical_zone_degradation,
       niveau: pointsChauds[0].sev === "high" ? "eleve" : "modere",
       probabilitePct: Math.round(50 + pointsChauds[0].poids * 35),
       zone: pointsChauds[0].region,
@@ -339,18 +416,30 @@ export function computeSituationalAwarenessFallback(input: {
   }
   for (const h of ["2h", "6h", "24h"] as const) {
     if (risquesProchaines.find((r) => r.horizon === h)) continue;
-    risquesProchaines.push({ horizon: h, type: "Situation stable", niveau: "faible", probabilitePct: 20, zone: "National" });
+    risquesProchaines.push({
+      horizon: h,
+      type: L.rt_situation_stable,
+      niveau: "faible",
+      probabilitePct: 20,
+      zone: L.zone_national,
+    });
   }
 
   // Synthèse courte
+  const synVars = {
+    openInc: String(openInc.length),
+    openHigh: String(openHigh),
+    satPct: String(Math.round(worstOccPct * 100)),
+    region: pointsChauds[0]?.region?.trim() || L.zone_national,
+  };
   const syntheseRaw =
     niveauGlobal === "alerte_rouge"
-      ? `ALERTE ROUGE — ${openHigh} incident(s) critique(s) · hopitaux ${Math.round(worstOccPct * 100)}% sat. · focus ${pointsChauds[0]?.region ?? "régional"}.`
+      ? tpl(L.syn_alerte_rouge, synVars)
       : niveauGlobal === "vigilance"
-      ? `Vigilance renforcée — ${openInc.length} incident(s) ouvert(s) · ${openHigh} critique(s) · tension capacités.`
+      ? tpl(L.syn_vigilance, synVars)
       : niveauGlobal === "surveillance"
-      ? `Surveillance — ${openInc.length} incident(s) ouvert(s) · capacités suffisantes · évolution standard.`
-      : `Calme — situation maîtrisée · ${openInc.length} incident(s) ouvert(s).`;
+      ? tpl(L.syn_surveillance, synVars)
+      : tpl(L.syn_calme, synVars);
   const synthese = syntheseRaw.slice(0, 200);
 
   return {
@@ -371,7 +460,68 @@ export function computeSituationalAwarenessFallback(input: {
 // ============================================================
 // 2) INFERENCE LLM + sanitize (fallback garanti si LLM échoue)
 // ============================================================
-const SYS = `Tu es le MODÈLE IA DE CONSCIENCE SITUATIONNELLE d'IRIS (FAR, Maroc).
+function buildSystemSitAware(lang: Lang, L: SituationalLabels): string {
+  const tFb = `"${L.flow_trend_stable}" | "${L.flow_trend_up}" | "${L.flow_trend_down}"`;
+  if (lang === "en") {
+    return `You are the SITUATIONAL AWARENESS AI MODEL of IRIS (FAR, Morocco).
+
+🎯 Return ONLY a valid JSON object (no text, no markdown):
+{
+  "niveauGlobal": "calme" | "surveillance" | "vigilance" | "alerte_rouge",
+  "scoreGlobal": 0..100,
+  "synthese": "1 SENTENCE ≤ 180 chars. Short, actionable style.",
+  "pointsChauds": [ { "region","label","typeInc","sev":"high|medium|low","ll":[lng,lat],"poids":0..1,"nIncidents":N } ] (3..5),
+  "facteursCritiques": [ { "label", "type":"capacite|saturation|blocage|evenement|materiel", "impact":"haut|moyen|faible", "value"?:string|number } ] (4..6),
+  "predictions": {
+     "ttgMinutes": number (minutes until global saturation, 9999 if stable),
+     "ttgStable": boolean,
+     "nextSat": null or { "nom": string, "ville"?: string, "occPctNow": 0..1, "minutesUntilSat": integer, "alreadySat": bool },
+     "besoinHMC": null or { "nombre": integer, "litsParHMC": integer, "litsTotal": integer },
+     "redirection": { "nHopitaux": integer, "litsRedirigeables": integer },
+     "flux6h": { "total": integer, "picDansMinutes": integer, "tendance": ${tFb} },
+     "stockCritique": { "niveau": "ok" | "attention" | "alerte", "ruptures": ["O- Group", "Morphine", ...] }
+  },
+  "risquesProchaines": [ { "horizon":"2h|6h|24h", "type", "niveau":"faible|modere|eleve|critique", "probabilitePct":0..100, "zone" } ] (3 — distinct horizons)
+}
+
+RULES:
+- NO INVENTION. All figures 100% from context data.
+- predictions = DO NOT COPY raw capacities (staff / available beds). These 6 indicators MUST BE PREDICTIVE: time / next saturation / HMC need / redirection / 6h flow / stocks.
+- Synthesis = QUOTE level + open/critical incident count + 1 critical point.
+- If insufficient data: use zeros / realistic values (never null).
+- Write ENTIRELY in English. Every textual field (synthese, labels, types, zones, ruptures list) must be in English; proper nouns stay as provided.`;
+  }
+  if (lang === "ar") {
+    return `أنت النموذج الذكي للوعي الظرفي لمنصة إيريس (IRIS) (القوات المسلحة الملكية، المغرب).
+
+🎯 أرجع فقط كائن JSON صالح (لا نصوص، لا markdown):
+{
+  "niveauGlobal": "calme" | "surveillance" | "vigilance" | "alerte_rouge",
+  "scoreGlobal": 0..100,
+  "synthese": "جملة واحدة ≤ 180 حرفاً. أسلوب مختصر وقابل للتنفيذ.",
+  "pointsChauds": [ { "region","label","typeInc","sev":"high|medium|low","ll":[lng,lat],"poids":0..1,"nIncidents":N } ] (3..5),
+  "facteursCritiques": [ { "label", "type":"capacite|saturation|blocage|evenement|materiel", "impact":"haut|moyen|faible", "value"?:string|number } ] (4..6),
+  "predictions": {
+     "ttgMinutes": رقم (دقائق حتى التشبع العام، 9999 إذا كان مستقراً),
+     "ttgStable": منطقي,
+     "nextSat": null أو { "nom": نصي, "ville"?: نصي, "occPctNow": 0..1, "minutesUntilSat": صحيح, "alreadySat": منطقي },
+     "besoinHMC": null أو { "nombre": صحيح, "litsParHMC": صحيح, "litsTotal": صحيح },
+     "redirection": { "nHopitaux": صحيح, "litsRedirigeables": صحيح },
+     "flux6h": { "total": صحيح, "picDansMinutes": صحيح, "tendance": ${tFb} },
+     "stockCritique": { "niveau": "ok" | "attention" | "alerte", "ruptures": ["فصيلة O-", "مورفين", ...] }
+  },
+  "risquesProchaines": [ { "horizon":"2h|6h|24h", "type", "niveau":"faible|modere|eleve|critique", "probabilitePct":0..100, "zone" } ] (3 — آفاق متميزة)
+}
+
+قواعد:
+- لا اختراع أبداً. جميع الأرقام 100% من بيانات السياق.
+- predictions = لا تنسخ القدرات الخامة (الموظفون / الأسرّة المتاحة). هذه المؤشرات الستة يجب أن تكون تنبؤية: الوقت / التشبع القادم / الحاجة إلى مستشفى متنقل / إعادة التوجيه / تدفق 6 ساعات / المخزون.
+- الملخص = اذكر المستوى + عدد الحوادث المفتوحة/الحرجة + نقطة حرجة واحدة.
+- إذا كانت البيانات غير كافية: استخدم أصفاراً / قيم واقعية (لا أبداً null).
+- اكتب باللغة العربية بالكامل. كل حقل نصي (synthese, labels, types, zones, ruptures list) يجب أن يكون بالعربية؛ الأسماء الخاصة تبقى كما هي مكتوبة.`;
+  }
+  // fr — default, retrocompat strict
+  return `Tu es le MODÈLE IA DE CONSCIENCE SITUATIONNELLE d'IRIS (FAR, Maroc).
 
 🎯 Retourne UNIQUEMENT un objet JSON valide (pas de texte, pas de markdown) :
 {
@@ -386,7 +536,7 @@ const SYS = `Tu es le MODÈLE IA DE CONSCIENCE SITUATIONNELLE d'IRIS (FAR, Maroc
      "nextSat": null ou { "nom": string, "ville"?: string, "occPctNow": 0..1, "minutesUntilSat": entier, "alreadySat": bool },
      "besoinHMC": null ou { "nombre": entier, "litsParHMC": entier, "litsTotal": entier },
      "redirection": { "nHopitaux": entier, "litsRedirigeables": entier },
-     "flux6h": { "total": entier, "picDansMinutes": entier, "tendance": "↗ stable" | "↗ en hausse" | "↘ en baisse" },
+     "flux6h": { "total": entier, "picDansMinutes": entier, "tendance": ${tFb} },
      "stockCritique": { "niveau": "ok" | "attention" | "alerte", "ruptures": ["Groupe O-", "Morphine", ...] }
   },
   "risquesProchaines": [ { "horizon":"2h|6h|24h", "type", "niveau":"faible|modere|eleve|critique", "probabilitePct":0..100, "zone" } ] (3 — horizons distincts)
@@ -397,6 +547,7 @@ RÈGLES :
 - predictions = NE PAS RECOPIER les capacités brutes (personnel / lits dispos). Ces 6 indicateurs DOIVENT ETRE PREDICTIFS : temps / prochaine saturation / besoin HMC / redirection / flux 6h / stocks.
 - Synthèse = CITER niveau + nb incidents ouvert/critique + 1 point critique.
 - Si données insuffisantes : utiliser zéros / valeurs réalistes (jamais null).`;
+}
 
 function buildCtx(inp: { incidents: Incident[]; hospitals: Hospital[]; units: Unit[]; dashStats: DashStats | null; now?: number }) {
   const incs = inp.incidents.slice(0, 20).map((i) => ({
@@ -507,7 +658,9 @@ function sanitizeSA(raw: unknown, fallback: SituationalAwareness): SituationalAw
           const o = pp.flux6h && typeof pp.flux6h === "object" ? (pp.flux6h as Record<string, unknown>) : null;
           const total = Math.max(0, Math.round(numOr(o?.total, fallback.predictions.flux6h.total)));
           const picDansMinutes = Math.max(0, Math.min(60 * 12, Math.round(numOr(o?.picDansMinutes, fallback.predictions.flux6h.picDansMinutes))));
-          const tendance = pickLL(o?.tendance, ["↗ stable", "↗ en hausse", "↘ en baisse"] as const) ?? fallback.predictions.flux6h.tendance;
+          const tendance = (typeof o?.tendance === "string" && (o.tendance as string).trim().length <= 40)
+            ? (o.tendance as string).trim()
+            : fallback.predictions.flux6h.tendance;
           return { total, picDansMinutes, tendance };
         })(),
         stockCritique: (() => {
@@ -580,13 +733,21 @@ export async function computeSituationalAwarenessAI(
   input: { incidents: Incident[]; hospitals: Hospital[]; units: Unit[]; dashStats: DashStats | null; equipment?: EquipItem[]; now?: number },
   cfg: LlmProviderConfig,
   /** Permet d'INTERROMPRE le calcul quand une question d'opérateur arrive. */
-  signal?: AbortSignal,
+  signal: AbortSignal | undefined,
+  labels?: Partial<SituationalLabels>,
+  lang: Lang = "fr",
 ): Promise<{ data: SituationalAwareness; error?: string; model: string; aborted?: boolean }> {
-  const fallback = computeSituationalAwarenessFallback(input);
+  const L = mergeSituationalLabels(labels);
+  const fallback = computeSituationalAwarenessFallback(input, L);
   try {
-    const usermsg = `## CONTEXTE RÉEL IRIS (100% réel)\n${buildCtx(input)}\n\n## CONSIGNE\nRetourne UNIQUEMENT l'objet JSON SituationalAwareness valide.`;
+    const usermsg = lang === "fr"
+      ? `## CONTEXTE RÉEL IRIS (100% réel)\n${buildCtx(input)}\n\n## CONSIGNE\nRetourne UNIQUEMENT l'objet JSON SituationalAwareness valide.`
+      : lang === "en"
+      ? `## REAL IRIS CONTEXT (100% factual)\n${buildCtx(input)}\n\n## INSTRUCTION\nReturn ONLY the valid SituationalAwareness JSON object.`
+      : `## سياق إيريس الحقيقي (100٪ واقعي)\n${buildCtx(input)}\n\n## تعليمات\nأرجع فقط كائن JSON SituationalAwareness الصالح.`;
+    const sysPrompt = buildSystemSitAware(lang, L);
     const res = await chatComplete(cfg, [
-      { role: "system", content: SYS },
+      { role: "system", content: sysPrompt },
       { role: "user", content: usermsg },
     ], { signal });
     if (res.aborted) return { data: fallback, error: "annulé", model: cfg.model, aborted: true };

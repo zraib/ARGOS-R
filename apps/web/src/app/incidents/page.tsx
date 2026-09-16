@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { useArgos, useDict } from "@/lib/store";
+import { useArgos, useDict, useModules } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
@@ -32,6 +32,7 @@ import { StatusConfirm } from "@/app/incidents/_parts/StatusConfirm";
 
 export default function IncidentsPage() {
   const t = useDict();
+  const m = useModules();
   const router = useRouter();
   const incidents = useArgos((s) => s.incidents);
   const incidentTypes = useArgos((s) => s.incidentTypes);
@@ -99,23 +100,67 @@ export default function IncidentsPage() {
   // Calculée une fois à chaque rendu, O(1) par incident.
   const compactEvos = useMemo<Record<string, IncidentEvolution>>(() => {
     const out: Record<string, IncidentEvolution> = {};
+    const evoLabels = m.evolution;
+    const partials = {
+      factor_severity: evoLabels.factor_severity,
+      factor_casualties: evoLabels.factor_casualties,
+      factor_hospitals: evoLabels.factor_hospitals,
+      factor_units: evoLabels.factor_units,
+      factor_duration: evoLabels.factor_duration,
+      factor_subincidents: evoLabels.factor_subincidents,
+      factor_seismic: evoLabels.factor_seismic,
+      factor_weather: evoLabels.factor_weather,
+      scenario_critique: evoLabels.scenario_critique,
+      scenario_eleve: evoLabels.scenario_eleve,
+      scenario_modere: evoLabels.scenario_modere,
+      scenario_faible: evoLabels.scenario_faible,
+      drivers_prefix: evoLabels.drivers_prefix,
+      act_sev_high: evoLabels.act_sev_high,
+      act_sev_low: evoLabels.act_sev_low,
+      act_cas_high: evoLabels.act_cas_high,
+      act_cas_low: evoLabels.act_cas_low,
+      act_hosp_high: evoLabels.act_hosp_high,
+      act_hosp_med: evoLabels.act_hosp_med,
+      act_hosp_low: evoLabels.act_hosp_low,
+      act_unit_none: evoLabels.act_unit_none,
+      act_unit_high: evoLabels.act_unit_high,
+      act_unit_low: evoLabels.act_unit_low,
+      act_dur_high: evoLabels.act_dur_high,
+      act_dur_low: evoLabels.act_dur_low,
+      act_sub_high: evoLabels.act_sub_high,
+      act_sub_low: evoLabels.act_sub_low,
+      act_seis_high: evoLabels.act_seis_high,
+      act_seis_low: evoLabels.act_seis_low,
+      act_wx_fire: evoLabels.act_wx_fire,
+      act_wx_flood: evoLabels.act_wx_flood,
+      act_wx_wind: evoLabels.act_wx_wind,
+      act_wx_default: evoLabels.act_wx_default,
+      act_fallback_1: evoLabels.act_fallback_1,
+      act_fallback_2: evoLabels.act_fallback_2,
+      act_fallback_3: evoLabels.act_fallback_3,
+      act_critique_override: evoLabels.act_critique_override,
+      act_eleve_override: evoLabels.act_eleve_override,
+    };
     for (const inc of incidents) {
       try {
-        out[inc.id] = predictIncidentEvolution({
-          incident: inc,
-          allIncidents: incidents,
-          hospitals,
-          units,
-          dashStats,
-          quakes,
-          weather: null,
-        });
+        out[inc.id] = predictIncidentEvolution(
+          {
+            incident: inc,
+            allIncidents: incidents,
+            hospitals,
+            units,
+            dashStats,
+            quakes,
+            weather: null,
+          },
+          partials,
+        );
       } catch {
         /* noop */
       }
     }
     return out;
-  }, [incidents, hospitals, units, dashStats, quakes]);
+  }, [incidents, hospitals, units, dashStats, quakes, m.evolution]);
 
   const toMap = (id: string) => { select("inc", id); router.push("/map"); };
   const setArchived = async (id: string, archived: boolean) => {

@@ -12,6 +12,8 @@ import {
   type DescriptionProposalInput,
   getAllLexiconUnion,
   toponymsFromKeywords,
+  type DraftLabels,
+  mergeDraftLabels,
 } from "@/lib/ai/draft";
 import { chatComplete } from "@/lib/ai/provider";
 import {
@@ -20,6 +22,8 @@ import {
   AI_TIMEOUT_MS,
   type LlmProviderConfig,
 } from "@/lib/ai/config";
+import { tpl as tplStr } from "@/lib/i18n/format";
+import type { Lang } from "@/lib/types";
 
 /* -------------------- Types -------------------- */
 export interface IncidentDraftResult {
@@ -35,56 +39,170 @@ type ParaphraseField = "title" | "desc";
 
 /* -------------------- Prompt système strict anti-invention -------------------- */
 
-const SYSTEM_DRAFT = [
-  "Tu es l'assistant de rédaction de signalements d'incident d'IRIS, la plateforme militaire de gestion des catastrophes.",
-  "Ton unique tâche : produire un TITRE court et professionnel, puis une DESCRIPTION factuelle à partir des mots-clés fournis par l'opérateur.",
-  "",
-  "RÈGLES IMPÉRATIVES (tu les respectes SANS EXCEPTION) :",
-  "[R0] TOPONYMES OBLIGATOIRES — TOUT lieu (ville, province, région, pays, quartier, adresse, lieu-dit, site, zone géographique) ÉCRIT explicitement dans les MOTS-CLÉS fournis OU dans la section LOCALISATION ci-dessous DOIT impérativement :",
-  "     1) apparaître DANS LE TITRE (champ `title`),",
-  "     2) apparaître AU MOINS UNE FOIS DANS LA DESCRIPTION (champ `desc`).",
-  "     Tu n'ignores JAMAIS un lieu, tu ne l'omettras JAMAIS, tu ne le transformes JAMAIS en synonyme. Tu reprends le terme EXACT tel qu'il est fourni.",
-  "[R1] TU N'INVITES RIEN. Aucun lieu, date, chiffre, nombre de victimes, nom de personne, nom de rue, code postal, coordonnées, température, magnitude, surface, durée ne peuvent apparaître s'ils ne sont PAS ÉCRITS explicitement dans les mots-clés fournis.",
-  "[R2] AUCUNE action opérationnelle. Tu ne mentionnes JAMAIS : reconnaissance terrain, périmètre de sécurité, évacuation préventive, renforts, déploiement d'équipes, plan de distribution, camion-citerne, distribution d'eau, coordination, commandement, prise en charge, ouverture de lieux, sensibilisation, espaces rafraîchis, visite de personnes, sécurisation, montée en puissance, ni aucune mesure, recommandation, moyen engagé, action opérationnelle, consigne, procédure ou consigne de sécurité — SAUF si un de ces termes est PRÉSENT littéralement dans les mots-clés fournis.",
-  "[R3] Tu ne transformes JAMAIS une information potentielle ou un risque en événement confirmé. Si les mots-clés mentionnent un « risque » → reste sur le terme « risque » ; ne dis pas « effondrement » si on a écrit « risque d'effondrement ».",
-  "[R4] Tu ne fais PAS de liste. Tu ne recopies PAS les mots-clés à la suite, séparés par des tirets ou des virgules. Tu reformules UNIQUEMENT en phrases naturelles et cohérentes.",
-  "[R5] La DESCRIPTION est une SYNTHÈSE FACTUELLE : 2 à 3 phrases courtes, uniquement sur la base des mots-clés + type d'incident déduit. Elle ne doit JAMAIS être un plan d'action, une procédure, ni une recommandation.",
-  "[R6] Tu peux DÉDUIRE le type d'incident global à partir des mots-clés (ex : « manque d'eau, sols secs, stress hydrique » → type « sécheresse »). Cette déduction est autorisée et recommandée ; elle n'est PAS considérée comme une invention, à condition de ne pas ajouter de détails chiffrés ou de lieu.",
-  "[R7] Si un mot-clé est ambigu ou incomplet, tu l'interprètes au sens strict, sans extrapoler. Si l'information n'est pas là → tu ne la mentionnes PAS.",
-  "",
-  "FORMAT DE SORTIE OBLIGATOIRE (strictement identique à chaque réponse, rien d'autre, pas de préambule, pas de commentaire, pas de Markdown) :",
-  "  ```json",
-  "  { \"title\": \"…\", \"desc\": \"…\" }",
-  "  ```",
-  "",
-  "Exemple :",
-  "  Input : type=sécheresse ; mots-clés = [\"Manques d'eau\", \"Sols secs\", \"Stress hydrique\"]",
-  "  Sortie attendue :",
-  "  ```json",
-  "  { \"title\": \"Sécheresse — Manque d'eau signalé\", \"desc\": \"Un contexte de sécheresse est signalé. Un stress hydrique est constaté dans le contexte ; des sols secs sont observés ; un manque d'eau est signalé.\" }",
-  "  ```",
-  "",
-  "Important : réponds UNIQUEMENT par le bloc ```json…``` précédé et suivi d'une ligne vide si besoin. Rien d'autre, merci.",
-].join("\n");
+function buildSystemDraft(lang: Lang): string {
+  if (lang === "en") {
+    return [
+      "You are the incident report drafting assistant for IRIS, the military disaster management platform.",
+      "Your only task: produce a short, professional TITLE, then a factual DESCRIPTION based on the keywords provided by the operator.",
+      "",
+      "MANDATORY RULES (follow them WITHOUT EXCEPTION):",
+      "[R0] MANDATORY TOPONYMS — EVERY location (city, province, region, country, district, address, place name, site, geographic area) explicitly WRITTEN in the provided KEYWORDS or in the LOCATION section below MUST imperatively:",
+      "     1) appear IN THE TITLE (field `title`),",
+      "     2) appear AT LEAST ONCE IN THE DESCRIPTION (field `desc`).",
+      "     You NEVER ignore a location, you NEVER omit it, you NEVER turn it into a synonym. You use the EXACT term as provided.",
+      "[R1] YOU INVENT NOTHING. No location, date, figure, casualty count, person's name, street name, postal code, coordinates, temperature, magnitude, area, duration may appear unless they are EXPLICITLY WRITTEN in the provided keywords.",
+      "[R2] NO operational actions. You NEVER mention: field reconnaissance, security perimeter, preventive evacuation, reinforcements, team deployment, distribution plan, water tanker, water distribution, coordination, command, care management, opening of sites, awareness, cooling spaces, visits of persons, securing, scaling up, nor any measure, recommendation, engaged asset, operational action, instruction, procedure or safety instruction — UNLESS one of these terms is LITERALLY PRESENT in the provided keywords.",
+      "[R3] You NEVER turn potential information or a risk into a confirmed event. If keywords mention a 'risk' → stay on the term 'risk'; do not say 'collapse' if 'risk of collapse' was written.",
+      "[R4] You do NOT make lists. You do NOT copy the keywords one after another separated by dashes or commas. You ONLY rephrase into natural, coherent sentences.",
+      "[R5] The DESCRIPTION is a FACTUAL SUMMARY: 2 to 3 short sentences, solely based on the keywords + deduced incident type. It must NEVER be an action plan, a procedure, or a recommendation.",
+      "[R6] You may DEDUCE the overall incident type from keywords (e.g. 'water shortage, dry soils, hydric stress' → type 'drought'). This deduction is authorized and recommended; it is NOT considered invention, provided no numeric or location details are added.",
+      "[R7] If a keyword is ambiguous or incomplete, interpret it strictly, without extrapolation. If the information is not there → do NOT mention it.",
+      "[R8] Write ENTIRELY in English. Every single word of title AND description must be in English, except proper nouns (place names, person names) which stay as provided.",
+      "",
+      "MANDATORY OUTPUT FORMAT (strictly identical for every response, nothing else, no preamble, no comment, no Markdown):",
+      "  ```json",
+      "  { \"title\": \"…\", \"desc\": \"…\" }",
+      "  ```",
+      "",
+      "Example:",
+      "  Input: type=drought ; keywords = [\"Water shortage\", \"Dry soils\", \"Hydric stress\"]",
+      "  Expected output:",
+      "  ```json",
+      "  { \"title\": \"Drought — Water shortage reported\", \"desc\": \"A drought context is reported. Hydric stress is observed in the area; dry soils are noted; a water shortage is signalled.\" }",
+      "  ```",
+      "",
+      "Important: reply ONLY with the ```json…``` block, preceded and followed by a blank line if needed. Nothing else, thank you.",
+    ].join("\n");
+  }
+  if (lang === "ar") {
+    return [
+      "أنت مساعد صياغة تقارير الحوادث لمنصة إيريس (IRIS) العسكرية لإدارة الكوارث.",
+      "مهمتك الوحيدة: إنتاج عنوان قصير ومهني TITLE، ثم وصف واقعي DESCRIPTION بناءً على الكلمات المفتاحية المقدمة من المشغل.",
+      "",
+      "قواعد إلزامية (تلتزم بها بدون استثناء):",
+      "[R0] الأسماء الجغرافية إلزامية — كل موقع (مدينة، مقاطعة، منطقة، بلد، حي، عنوان، اسم مكان، موقع، منطقة جغرافية) مكتوب صراحة في الكلمات المفتاحية أو في قسم LOCALIZATION أدناه يجب أن:",
+      "     1) يظهر في العنوان (الحقل `title`)،",
+      "     2) يظهر مرة واحدة على الأقل في الوصف (الحقل `desc`).",
+      "     لا تتجاهل أبداً أي موقع، لا تحذفه أبداً، لا تحوله أبداً إلى مرادف. استخدم المصطلح بالضبط كما هو مقدم.",
+      "[R1] لا تخترع شيئاً. لا يُسمح بظهور أي موقع، تاريخ، رقم، عدد ضحايا، اسم شخص، اسم شارع، رمز بريدي، إحداثيات، درجة حرارة، زلزال، مساحة، مدة إلا إذا كانت مكتوبة صراحة في الكلمات المفتاحية.",
+      "[R2] لا إجراءات تشغيلية. لا تذكر أبداً: استكشاف ميداني، محيط أمني، إخلاء وقائي، تعزيزات، نشر فرق، خطة توزيع، صهريج ماء، توزيع مياه، تنسيق، قيادة، رعاية، فتح مواقع، توعية، مساحات تبريد، زيارات أشخاص، تأمين، تصعيد، ولا أي تدبير أو توصية أو وسيلة منشغلة أو إجراء تشغيلي أو تعليمات أو إجراءات أمان — إلا إذا كان أحد هذه المصطلحات موجوداً حرفياً في الكلمات المفتاحية.",
+      "[R3] لا تحول أبداً معلومة محتملة أو خطراً إلى حدث مؤكد. إذا ذكرت الكلمات المفتاحية \"خطر\" → ابق على مصطلح \"خطر\"؛ لا تقل \"انهيار\" إذا كُتب \"خطر انهيار\".",
+      "[R4] لا تصنع قوائم. لا تنسخ الكلمات المفتاحية متتالية مفصولة بشرطات أو فواصل. أعد الصياغة فقط إلى جمل طبيعية متماسكة.",
+      "[R5] الوصف هو ملخص واقعي: جملتان إلى 3 جمل قصيرة، تستند فقط إلى الكلمات المفتاحية + نوع الحادث المستنتج. يجب ألا يكون أبداً خطة عمل، إجراءً، أو توصية.",
+      "[R6] يمكنك استنتاج نوع الحادث العام من الكلمات المفتاحية (مثال: \"نقص مياه، تربة جافة، إجهاد مائي\" → نوع \"جفاف\"). هذا الاستنتاج مسموح وموصى به؛ لا يعتبر اختراعاً، بشرط عدم إضافة تفاصيل رقمية أو مواقع.",
+      "[R7] إذا كانت كلمة مفتاحية غامضة أو ناقصة، فسرها بصرامة دون استقراء. إذا لم تكن المعلومة هناك → لا تذكرها.",
+      "[R8] اكتب باللغة العربية بالكامل. كل كلمة في العنوان والوصف يجب أن تكون بالعربية، باستثناء الأسماء الخاصة (أسماء الأماكن، أسماء الأشخاص) التي تبقى كما هي مكتوبة.",
+      "",
+      "تنسيق الإخراج الإلزامي (متطابق بدقة لكل رد، لا شيء آخر، لا مقدمات، لا تعليقات، لا Markdown):",
+      "  ```json",
+      "  { \"title\": \"…\", \"desc\": \"…\" }",
+      "  ```",
+      "",
+      "مثال:",
+      "  المدخلات: type=جفاف ; الكلمات المفتاحية = [\"نقص مياه\", \"تربة جافة\", \"إجهاد مائي\"]",
+      "  الإخراج المتوقع:",
+      "  ```json",
+      "  { \"title\": \"جفاف — الإبلاغ عن نقص مياه\", \"desc\": \"يتم الإبلاغ عن سياق جفاف. لوحظ إجهاد مائي في المنطقة؛ سُجلت تربات جافة؛ وتم الإبلاغ عن نقص مياه.\" }",
+      "  ```",
+      "",
+      "مهم: أجب فقط بكتلة ```json…```، مسبوقة ومتبوعة بسطر فارغ إذا لزم الأمر. لا شيء آخر، شكراً.",
+    ].join("\n");
+  }
+  // fr — default, retrocompat strict
+  return [
+    "Tu es l'assistant de rédaction de signalements d'incident d'IRIS, la plateforme militaire de gestion des catastrophes.",
+    "Ton unique tâche : produire un TITRE court et professionnel, puis une DESCRIPTION factuelle à partir des mots-clés fournis par l'opérateur.",
+    "",
+    "RÈGLES IMPÉRATIVES (tu les respectes SANS EXCEPTION) :",
+    "[R0] TOPONYMES OBLIGATOIRES — TOUT lieu (ville, province, région, pays, quartier, adresse, lieu-dit, site, zone géographique) ÉCRIT explicitement dans les MOTS-CLÉS fournis OU dans la section LOCALISATION ci-dessous DOIT impérativement :",
+    "     1) apparaître DANS LE TITRE (champ `title`),",
+    "     2) apparaître AU MOINS UNE FOIS DANS LA DESCRIPTION (champ `desc`).",
+    "     Tu n'ignores JAMAIS un lieu, tu ne l'omettras JAMAIS, tu ne le transformes JAMAIS en synonyme. Tu reprends le terme EXACT tel qu'il est fourni.",
+    "[R1] TU N'INVITES RIEN. Aucun lieu, date, chiffre, nombre de victimes, nom de personne, nom de rue, code postal, coordonnées, température, magnitude, surface, durée ne peuvent apparaître s'ils ne sont PAS ÉCRITS explicitement dans les mots-clés fournis.",
+    "[R2] AUCUNE action opérationnelle. Tu ne mentionnes JAMAIS : reconnaissance terrain, périmètre de sécurité, évacuation préventive, renforts, déploiement d'équipes, plan de distribution, camion-citerne, distribution d'eau, coordination, commandement, prise en charge, ouverture de lieux, sensibilisation, espaces rafraîchis, visite de personnes, sécurisation, montée en puissance, ni aucune mesure, recommandation, moyen engagé, action opérationnelle, consigne, procédure ou consigne de sécurité — SAUF si un de ces termes est PRÉSENT littéralement dans les mots-clés fournis.",
+    "[R3] Tu ne transformes JAMAIS une information potentielle ou un risque en événement confirmé. Si les mots-clés mentionnent un « risque » → reste sur le terme « risque » ; ne dis pas « effondrement » si on a écrit « risque d'effondrement ».",
+    "[R4] Tu ne fais PAS de liste. Tu ne recopies PAS les mots-clés à la suite, séparés par des tirets ou des virgules. Tu reformules UNIQUEMENT en phrases naturelles et cohérentes.",
+    "[R5] La DESCRIPTION est une SYNTHÈSE FACTUELLE : 2 à 3 phrases courtes, uniquement sur la base des mots-clés + type d'incident déduit. Elle ne doit JAMAIS être un plan d'action, une procédure, ni une recommandation.",
+    "[R6] Tu peux DÉDUIRE le type d'incident global à partir des mots-clés (ex : « manque d'eau, sols secs, stress hydrique » → type « sécheresse »). Cette déduction est autorisée et recommandée ; elle n'est PAS considérée comme une invention, à condition de ne pas ajouter de détails chiffrés ou de lieu.",
+    "[R7] Si un mot-clé est ambigu ou incomplet, tu l'interprètes au sens strict, sans extrapoler. Si l'information n'est pas là → tu ne la mentionnes PAS.",
+    "",
+    "FORMAT DE SORTIE OBLIGATOIRE (strictement identique à chaque réponse, rien d'autre, pas de préambule, pas de commentaire, pas de Markdown) :",
+    "  ```json",
+    "  { \"title\": \"…\", \"desc\": \"…\" }",
+    "  ```",
+    "",
+    "Exemple :",
+    "  Input : type=sécheresse ; mots-clés = [\"Manques d'eau\", \"Sols secs\", \"Stress hydrique\"]",
+    "  Sortie attendue :",
+    "  ```json",
+    "  { \"title\": \"Sécheresse — Manque d'eau signalé\", \"desc\": \"Un contexte de sécheresse est signalé. Un stress hydrique est constaté dans le contexte ; des sols secs sont observés ; un manque d'eau est signalé.\" }",
+    "  ```",
+    "",
+    "Important : réponds UNIQUEMENT par le bloc ```json…``` précédé et suivi d'une ligne vide si besoin. Rien d'autre, merci.",
+  ].join("\n");
+}
 
-const SYSTEM_PARAPHRASE = [
-  "Tu es l'assistant de reformulation de signalements d'incident d'IRIS.",
-  "Ta seule et unique tâche : PARAPHRASER le titre et/ou la description qui te sont fournis.",
-  "",
-  "RÈGLES IMPÉRATIVES :",
-  "[P1] MÊME CONTENU FACTUEL EXACT. Tu n'ajoutes AUCUNE information, AUCUN détail, AUCUN chiffre, AUCUN lieu, AUCUNE action, AUCUNE recommandation, AUCUN élément qui n'est pas PRÉSENT dans le texte original.",
-  "[P2] AUCUNE SUPPRESSION. Tu ne retires AUCUNE information qui apparaît dans le texte original (mots-clés, type d'incident, observations).",
-  "[P3] MÊME SENS, MÊME NIVEAU D'INCERTITUDE. Si le texte original dit « risque », tu gardes un terme de même niveau (ex : « risque », « possibilité de ») ; tu ne transformes JAMAIS en événement confirmé.",
-  "[P4] FORMULATION 100% DIFFÉRENTE. Tu utilises des synonymes, une autre structure de phrase, un autre ordre. Évite au maximum de reprendre les mêmes groupes de 3+ mots identiques.",
-  "[P5] STYLE : professionnel, concis, phrases naturelles. Toujours en français.",
-  "",
-  "FORMAT DE SORTIE OBLIGATOIRE :",
-  "  ```json",
-  "  { \"title\": \"…\", \"desc\": \"…\" }",
-  "  ```",
-  "",
-  "Si un seul champ doit être paraphrasé, tu renvois quand même les DEUX champs (l'autre inchangé). Rien d'autre dans la réponse, ni préambule ni commentaire.",
-].join("\n");
+function buildSystemParaphrase(lang: Lang): string {
+  if (lang === "en") {
+    return [
+      "You are the incident report paraphrasing assistant for IRIS.",
+      "Your one and only task: PARAPHRASE the title and/or description provided to you.",
+      "",
+      "MANDATORY RULES:",
+      "[P1] SAME EXACT FACTUAL CONTENT. You add NO information, NO detail, NO figure, NO location, NO action, NO recommendation, NO element that is NOT PRESENT in the original text.",
+      "[P2] NO DELETION. You do NOT remove ANY information that appears in the original text (keywords, incident type, observations).",
+      "[P3] SAME MEANING, SAME UNCERTAINTY LEVEL. If the original text says 'risk', you keep a term of the same level (e.g. 'risk', 'possibility of'); you NEVER turn it into a confirmed event.",
+      "[P4] 100% DIFFERENT FORMULATION. Use synonyms, a different sentence structure, a different order. Avoid reusing the same groups of 3+ identical words as much as possible.",
+      "[P5] STYLE: professional, concise, natural sentences. Write ENTIRELY in English. Every single word must be in English, except proper nouns (place names, person names) which stay as provided.",
+      "",
+      "MANDATORY OUTPUT FORMAT:",
+      "  ```json",
+      "  { \"title\": \"…\", \"desc\": \"…\" }",
+      "  ```",
+      "",
+      "If only one field must be paraphrased, you still return BOTH fields (the other unchanged). Nothing else in the reply, no preamble, no comment.",
+    ].join("\n");
+  }
+  if (lang === "ar") {
+    return [
+      "أنت مساعد إعادة صياغة تقارير الحوادث لمنصة إيريس (IRIS).",
+      "مهمتك الوحيدة: إعادة صياغة (PARAPHRASE) العنوان و/أو الوصف المقدم إليك.",
+      "",
+      "قواعد إلزامية:",
+      "[P1] نفس المحتوى الواقعي بالضبط. لا تضيف أي معلومة، أي تفصيل، أي رقم، أي موقع، أي إجراء، أي توصية، أي عنصر غير موجود في النص الأصلي.",
+      "[P2] لا حذف. لا تحذف أي معلومة تظهر في النص الأصلي (كلمات مفتاحية، نوع الحادث، ملاحظات).",
+      "[P3] نفس المعنى، نفس مستوى عدم اليقين. إذا قال النص الأصلي \"خطر\"، فابق على مصطلح من نفس المستوى (مثل \"خطر\"، \"إمكانية\")؛ لا تحوله أبداً إلى حدث مؤكد.",
+      "[P4] صياغة مختلفة بنسبة 100%. استخدم مرادفات، بنية جملة مختلفة، ترتيباً مختلفاً. تجنب قدر الإمكان إعادة نفس المجموعات من 3 كلمات متطابقة أو أكثر.",
+      "[P5] الأسلوب: مهني، موجز، جمل طبيعية. اكتب باللغة العربية بالكامل. كل كلمة يجب أن تكون بالعربية، باستثناء الأسماء الخاصة (أسماء الأماكن، أسماء الأشخاص) التي تبقى كما هي مكتوبة.",
+      "",
+      "تنسيق الإخراج الإلزامي:",
+      "  ```json",
+      "  { \"title\": \"…\", \"desc\": \"…\" }",
+      "  ```",
+      "",
+      "إذا كان هناك حقل واحد فقط يجب إعادة صياغته، فلا تزل تُرجع الحقلين (الآخر دون تغيير). لا شيء آخر في الرد، لا مقدمات، لا تعليقات.",
+    ].join("\n");
+  }
+  // fr — default, retrocompat strict
+  return [
+    "Tu es l'assistant de reformulation de signalements d'incident d'IRIS.",
+    "Ta seule et unique tâche : PARAPHRASER le titre et/ou la description qui te sont fournis.",
+    "",
+    "RÈGLES IMPÉRATIVES :",
+    "[P1] MÊME CONTENU FACTUEL EXACT. Tu n'ajoutes AUCUNE information, AUCUN détail, AUCUN chiffre, AUCUN lieu, AUCUNE action, AUCUNE recommandation, AUCUN élément qui n'est pas PRÉSENT dans le texte original.",
+    "[P2] AUCUNE SUPPRESSION. Tu ne retires AUCUNE information qui apparaît dans le texte original (mots-clés, type d'incident, observations).",
+    "[P3] MÊME SENS, MÊME NIVEAU D'INCERTITUDE. Si le texte original dit « risque », tu gardes un terme de même niveau (ex : « risque », « possibilité de ») ; tu ne transformes JAMAIS en événement confirmé.",
+    "[P4] FORMULATION 100% DIFFÉRENTE. Tu utilises des synonymes, une autre structure de phrase, un autre ordre. Évite au maximum de reprendre les mêmes groupes de 3+ mots identiques.",
+    "[P5] STYLE : professionnel, concis, phrases naturelles. Toujours en français.",
+    "",
+    "FORMAT DE SORTIE OBLIGATOIRE :",
+    "  ```json",
+    "  { \"title\": \"…\", \"desc\": \"…\" }",
+    "  ```",
+    "",
+    "Si un seul champ doit être paraphrasé, tu renvois quand même les DEUX champs (l'autre inchangé). Rien d'autre dans la réponse, ni préambule ni commentaire.",
+  ].join("\n");
+}
 
 /* -------------------- Utilitaires -------------------- */
 
@@ -352,11 +470,13 @@ async function ollamaChatRaw(
 export async function generateIncidentDraft(
   keywords: string[],
   input: DescriptionProposalInput,
-  opts?: { salt?: number; provider?: LlmProviderConfig },
+  opts?: { salt?: number; provider?: LlmProviderConfig; lang?: Lang; labels?: Partial<DraftLabels> },
 ): Promise<IncidentDraftResult> {
   const salt = opts?.salt ?? 1;
-  const fallbackTitle = pickTitle(input, salt);
-  const fallbackDesc = pickDesc(input, salt);
+  const lang: Lang = opts?.lang ?? "fr";
+  const L = mergeDraftLabels(opts?.labels);
+  const fallbackTitle = pickTitle(input, salt, L);
+  const fallbackDesc = pickDesc(input, salt, L);
 
   // Si aucun keyword, pas de sens à appeler le LLM → fallback direct
   if (!keywords.length) {
@@ -376,34 +496,80 @@ export async function generateIncidentDraft(
     return merged;
   })();
 
+  const H: Record<Lang, {
+    locTitle: string; locConstraintTitle: string;
+    locBullet1: string; locBullet2: string;
+    locNever: string; locEmpty: string;
+    typeTitle: string; kwTitle: string;
+    modeTitle: string; modeDesc: string; output: string;
+  }> = {
+    fr: {
+      locTitle: "## LIEUX CONFIRMÉS (R0 OBLIGATOIRE · chacun doit figurer DANS title ET dans desc)",
+      locConstraintTitle: "CONTRAINTE R0 : Chaque élément de la liste ci-dessus est UN LIEU CONFIRMÉ issu des mots-clés ou champs structurés. Tu dois :",
+      locBullet1: "  1) le mentionner explicitement (terme exact) dans `title` (ex: « … — Mohammedia »)",
+      locBullet2: "  2) le mentionner explicitement au moins une fois dans `desc` (ex: « Un incident est rapporté au niveau de Mohammedia… »)",
+      locNever: "Jamais d'exception.",
+      locEmpty: "## LIEUX CONFIRMÉS\n(aucun fourni → respecte R1 : N'INVENTE JAMAIS de ville, province, adresse, quartier, site, pays, région).",
+      typeTitle: "## TYPE D'INCIDENT (catégorie choisie par l'opérateur)",
+      kwTitle: "## MOTS-CLÉS SAISIS PAR L'OPÉRATEUR (UNIQUEMENT CES ÉLÉMENTS, RIEN D'AUTRE)",
+      modeTitle: "## MODE",
+      modeDesc: "génération initiale : produis un titre court (8-120 caractères) et une description factuelle 2-3 phrases.",
+      output: "Sortie : UNIQUEMENT le bloc JSON comme indiqué, rien d'autre.",
+    },
+    en: {
+      locTitle: "## CONFIRMED LOCATIONS (R0 MANDATORY · each must appear IN title AND in desc)",
+      locConstraintTitle: "R0 CONSTRAINT: Every item in the list above is a CONFIRMED LOCATION from keywords or structured fields. You must:",
+      locBullet1: "  1) mention it explicitly (exact term) in `title` (e.g. « … — Mohammedia »)",
+      locBullet2: "  2) mention it explicitly at least once in `desc` (e.g. « An incident is reported at Mohammedia… »)",
+      locNever: "No exceptions ever.",
+      locEmpty: "## CONFIRMED LOCATIONS\n(none provided → respect R1: NEVER INVENT a city, province, address, district, site, country, region).",
+      typeTitle: "## INCIDENT TYPE (category chosen by the operator)",
+      kwTitle: "## KEYWORDS ENTERED BY THE OPERATOR (ONLY THESE ITEMS, NOTHING ELSE)",
+      modeTitle: "## MODE",
+      modeDesc: "initial generation: produce a short title (8-120 chars) and a factual 2-3 sentence description.",
+      output: "Output: ONLY the JSON block as indicated, nothing else.",
+    },
+    ar: {
+      locTitle: "## المواقع المؤكدة (R0 إلزامي · يجب أن يظهر كل موقع في العنوان وفي الوصف)",
+      locConstraintTitle: "قيد R0: كل عنصر في القائمة أعلاه هو موقع مؤكد من الكلمات المفتاحية أو الحقول المنظمة. يجب عليك:",
+      locBullet1: "  1) ذكره صراحة (بالنص الدقيق) في `title` (مثل: « … — المحمدية »)",
+      locBullet2: "  2) ذكره صراحة مرة واحدة على الأقل في `desc` (مثل: « تم الإبلاغ عن حادث في موقع المحمدية… »)",
+      locNever: "لا استثناءات أبداً.",
+      locEmpty: "## المواقع المؤكدة\n(لا يوجد أي موقع → احترم R1: لا تخترع أبداً مدينة، مقاطعة، عنوان، حي، موقع، بلد، منطقة).",
+      typeTitle: "## نوع الحادث (الفئة التي اختارها المشغل)",
+      kwTitle: "## الكلمات المفتاحية التي أدخلها المشغل (هذه العناصر فقط، لا شيء آخر)",
+      modeTitle: "## الوضع",
+      modeDesc: "توليد أولي: أنتج عنواناً قصيراً (8-120 حرفاً) ووصفاً واقعياً من جملتين إلى 3 جمل.",
+      output: "الإخراج: كتلة JSON فقط كما هو موضح، لا شيء آخر.",
+    },
+  };
+  const h = H[lang];
+
   const lieuSection = confirmedToponyms.length
     ? [
-        "## LIEUX CONFIRMÉS (R0 OBLIGATOIRE · chacun doit figurer DANS title ET dans desc)",
+        h.locTitle,
         ...confirmedToponyms.map((t) => `  - ${t}`),
         "",
-        "CONTRAINTE R0 : Chaque élément de la liste ci-dessus est UN LIEU CONFIRMÉ issu des mots-clés ou champs structurés. Tu dois :",
-        "  1) le mentionner explicitement (terme exact) dans `title` (ex: « … — Mohammedia »)",
-        "  2) le mentionner explicitement au moins une fois dans `desc` (ex: « Un incident est rapporté au niveau de Mohammedia… »)",
-        "Jamais d'exception.",
+        h.locConstraintTitle,
+        h.locBullet1,
+        h.locBullet2,
+        h.locNever,
       ].join("\n")
-    : [
-        "## LIEUX CONFIRMÉS",
-        "(aucun fourni → respecte R1 : N'INVENTE JAMAIS de ville, province, adresse, quartier, site, pays, région).",
-      ].join("\n");
+    : h.locEmpty;
 
   const userMsg = [
-    "## TYPE D'INCIDENT (catégorie choisie par l'opérateur)",
+    h.typeTitle,
     typeLabel,
     "",
-    "## MOTS-CLÉS SAISIS PAR L'OPÉRATEUR (UNIQUEMENT CES ÉLÉMENTS, RIEN D'AUTRE)",
+    h.kwTitle,
     keywords.map((k) => `  - ${k}`).join("\n"),
     "",
     lieuSection,
     "",
-    "## MODE",
-    "génération initiale : produis un titre court (8-120 caractères) et une description factuelle 2-3 phrases.",
+    h.modeTitle,
+    h.modeDesc,
     "",
-    "Sortie : UNIQUEMENT le bloc JSON comme indiqué, rien d'autre.",
+    h.output,
   ].join("\n");
 
   let text = "";
@@ -413,7 +579,7 @@ export async function generateIncidentDraft(
     const timeout = setTimeout(() => ctrl.abort(), AI_TIMEOUT_MS);
     const r = await ollamaChatRaw(
       [
-        { role: "system", content: SYSTEM_DRAFT },
+        { role: "system", content: buildSystemDraft(lang) },
         { role: "user", content: userMsg },
       ],
       { temperature: 0.3, signal: ctrl.signal, provider: opts?.provider },
@@ -453,18 +619,20 @@ export async function generateIncidentDraft(
           }
           if (!normInText(topo, tDesc)) {
             const tPretty = topo.charAt(0).toUpperCase() + topo.slice(1);
-            const prefix = `Au niveau de ${tPretty} : `;
+            const prefix = tplStr(L.r0_desc_prefix_tpl, { lieu: tPretty });
+            const sentencePrep = tplStr(L.r0_desc_sentence_prep, { lieu: tPretty });
+            const confirmSentence = tplStr(L.r0_desc_confirm_tpl, { lieu: tPretty });
             if (tDesc.includes(".")) {
               const firstDot = tDesc.indexOf(".");
               const sentence1 = tDesc.slice(0, firstDot + 1);
               const rest = tDesc.slice(firstDot + 1).trim();
               tDesc = rest
-                ? `${sentence1.slice(0, -1)} à ${tPretty}. ${rest}`
-                : `${sentence1.slice(0, -1)} à ${tPretty}.`;
+                ? `${sentence1.slice(0, -1)} ${sentencePrep} ${rest}`
+                : `${sentence1.slice(0, -1)} ${sentencePrep}.`;
             } else {
               tDesc = `${prefix}${tDesc.charAt(0).toLowerCase() + tDesc.slice(1)}`;
             }
-            if (!normInText(topo, tDesc)) tDesc = `${tDesc}  Localisation confirmée : ${tPretty}.`;
+            if (!normInText(topo, tDesc)) tDesc = `${tDesc}  ${confirmSentence}`;
           }
         }
         tTitle = tTitle.replace(/\s+/g, " ").trim();
@@ -518,13 +686,17 @@ export async function paraphraseIncidentDraft(
     field?: ParaphraseField;
     salt?: number;
     provider?: LlmProviderConfig;
+    lang?: Lang;
+    labels?: Partial<DraftLabels>;
   },
 ): Promise<IncidentDraftResult> {
   const { keywords, input, currentTitle, currentDesc, field, salt = 1 } = opts;
+  const lang: Lang = opts.lang ?? "fr";
+  const L = mergeDraftLabels(opts.labels);
 
   // Fallback déterministe : pools de paraphrase via salt
-  const fallbackTitle = field === "desc" ? currentTitle : pickTitle(input, salt + 1);
-  const fallbackDesc = field === "title" ? currentDesc : pickDesc(input, salt + 1);
+  const fallbackTitle = field === "desc" ? currentTitle : pickTitle(input, salt + 1, L);
+  const fallbackDesc = field === "title" ? currentDesc : pickDesc(input, salt + 1, L);
 
   if (!keywords.length && !currentTitle && !currentDesc) {
     return { title: fallbackTitle, desc: fallbackDesc, fallback: true };
@@ -542,25 +714,74 @@ export async function paraphraseIncidentDraft(
     return merged;
   })();
 
+  const PH: Record<Lang, {
+    fieldsTitle: string; titleOnly: string; descOnly: string; both: string;
+    currentTitle: string; kwRecallTitle: string; none: string; output: string;
+    rulesTitle: string; rB1: string; rB2: string; rB3: string;
+  }> = {
+    fr: {
+      fieldsTitle: "## CHAMP(S) À PARAPHRASER",
+      titleOnly: "title uniquement (le champ `desc` devra être RENVOYÉ INCHANGÉ)",
+      descOnly: "desc uniquement (le champ `title` devra être RENVOYÉ INCHANGÉ)",
+      both: "title ET desc, les deux, avec reformulation indépendante.",
+      currentTitle: "## VALEUR ACTUELLE (source de VÉRITÉ, tout le reste est INTERDIT)",
+      kwRecallTitle: "MOTS-CLÉS rappel (seulement pour vérifier ce qui est autorisé) :",
+      none: "  (aucun)",
+      output: "Sortie : UNIQUEMENT le bloc JSON comme indiqué, rien d'autre.",
+      rulesTitle: "## RAPPEL RÈGLES P1..P5 :",
+      rB1: "  - même infos factuelles, rien ajouté, rien retiré",
+      rB2: "  - formulation 100% différente (pas de simple remplacement 1 mot)",
+      rB3: "  - si original parle de « risque », rester au même niveau",
+    },
+    en: {
+      fieldsTitle: "## FIELD(S) TO PARAPHRASE",
+      titleOnly: "title only (the `desc` field must be RETURNED UNCHANGED)",
+      descOnly: "desc only (the `title` field must be RETURNED UNCHANGED)",
+      both: "title AND desc, both, with independent reformulation.",
+      currentTitle: "## CURRENT VALUE (source of TRUTH, everything else is FORBIDDEN)",
+      kwRecallTitle: "KEYWORDS reminder (only to verify what is allowed):",
+      none: "  (none)",
+      output: "Output: ONLY the JSON block as indicated, nothing else.",
+      rulesTitle: "## RULES REMINDER P1..P5:",
+      rB1: "  - same factual info, nothing added, nothing removed",
+      rB2: "  - 100% different wording (not just 1-word replacement)",
+      rB3: "  - if the original speaks of 'risk', stay at the same level",
+    },
+    ar: {
+      fieldsTitle: "## الحقول المراد إعادة صياغتها",
+      titleOnly: "title فقط (الحقل `desc` يجب إرجاعه دون تغيير)",
+      descOnly: "desc فقط (الحقل `title` يجب إرجاعه دون تغيير)",
+      both: "title و desc معاً، مع إعادة صياغة مستقلة لكل منهما.",
+      currentTitle: "## القيمة الحالية (مصدر الحقيقة، كل شيء آخر محرم)",
+      kwRecallTitle: "تذكير بالكلمات المفتاحية (للتحقق فقط مما هو مسموح به):",
+      none: "  (لا شيء)",
+      output: "الإخراج: كتلة JSON فقط كما هو موضح، لا شيء آخر.",
+      rulesTitle: "## تذكير بالقواعد P1..P5:",
+      rB1: "  - نفس المعلومات الواقعية، لا إضافة، لا حذف",
+      rB2: "  - صياغة مختلفة بنسبة 100% (لا مجرد استبدال كلمة واحدة)",
+      rB3: "  - إذا تحدث الأصل عن \"خطر\"، فابق على نفس المستوى",
+    },
+  };
+  const ph = PH[lang];
+
+  const fieldSel = field === "title" ? ph.titleOnly : field === "desc" ? ph.descOnly : ph.both;
   const userMsg = [
-    "## CHAMP(S) À PARAPHRASER",
-    field === "title" ? "title uniquement (le champ `desc` devra être RENVOYÉ INCHANGÉ)" :
-    field === "desc"  ? "desc uniquement (le champ `title` devra être RENVOYÉ INCHANGÉ)" :
-    "title ET desc, les deux, avec reformulation indépendante.",
+    ph.fieldsTitle,
+    fieldSel,
     "",
-    "## VALEUR ACTUELLE (source de VÉRITÉ, tout le reste est INTERDIT)",
+    ph.currentTitle,
     `  Title: « ${currentTitle} »`,
     `  Desc:  « ${currentDesc} »`,
     "",
-    "## RAPPEL RÈGLES P1..P5 :",
-    "  - même infos factuelles, rien ajouté, rien retiré",
-    "  - formulation 100% différente (pas de simple remplacement 1 mot)",
-    "  - si original parle de « risque », rester au même niveau",
+    ph.rulesTitle,
+    ph.rB1,
+    ph.rB2,
+    ph.rB3,
     "",
-    "MOTS-CLÉS rappel (seulement pour vérifier ce qui est autorisé) :",
-    keywords.length ? keywords.map((k) => `  - ${k}`).join("\n") : "  (aucun)",
+    ph.kwRecallTitle,
+    keywords.length ? keywords.map((k) => `  - ${k}`).join("\n") : ph.none,
     "",
-    "Sortie : UNIQUEMENT le bloc JSON comme indiqué, rien d'autre.",
+    ph.output,
   ].join("\n");
 
   let text = "";
@@ -570,7 +791,7 @@ export async function paraphraseIncidentDraft(
     const timeout = setTimeout(() => ctrl.abort(), AI_TIMEOUT_MS);
     const r = await ollamaChatRaw(
       [
-        { role: "system", content: SYSTEM_PARAPHRASE },
+        { role: "system", content: buildSystemParaphrase(lang) },
         { role: "user", content: userMsg },
       ],
       { temperature: 0.4, signal: ctrl.signal, provider: opts.provider },
@@ -615,15 +836,18 @@ export async function paraphraseIncidentDraft(
           if (!normInText(topo, title)) title = `${title} — ${topo.charAt(0).toUpperCase() + topo.slice(1)}`;
           if (!normInText(topo, desc)) {
             const tPretty = topo.charAt(0).toUpperCase() + topo.slice(1);
+            const prefix = tplStr(L.r0_desc_prefix_tpl, { lieu: tPretty });
+            const sentencePrep = tplStr(L.r0_desc_sentence_prep, { lieu: tPretty });
+            const confirmSentence = tplStr(L.r0_desc_confirm_tpl, { lieu: tPretty });
             if (desc.includes(".")) {
               const firstDot = desc.indexOf(".");
               const s1 = desc.slice(0, firstDot + 1);
               const rest = desc.slice(firstDot + 1).trim();
-              desc = rest ? `${s1.slice(0, -1)} à ${tPretty}. ${rest}` : `${s1.slice(0, -1)} à ${tPretty}.`;
+              desc = rest ? `${s1.slice(0, -1)} ${sentencePrep}. ${rest}` : `${s1.slice(0, -1)} ${sentencePrep}.`;
             } else {
-              desc = `Au niveau de ${tPretty} : ${desc.charAt(0).toLowerCase() + desc.slice(1)}`;
+              desc = `${prefix}${desc.charAt(0).toLowerCase() + desc.slice(1)}`;
             }
-            if (!normInText(topo, desc)) desc = `${desc}  Localisation confirmée : ${tPretty}.`;
+            if (!normInText(topo, desc)) desc = `${desc}  ${confirmSentence}`;
           }
         }
         title = title.replace(/\s+/g, " ").trim();

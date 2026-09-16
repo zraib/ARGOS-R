@@ -17,7 +17,6 @@ import {
   buildLlmHistory,
   layer1Shortcut,
   llmTimeoutMs,
-  measureLabel,
   purgeLog,
   runLlmTurn,
   structuredBlocks,
@@ -240,9 +239,9 @@ export default function CopilotBody() {
           raccourci === "social"
             ? t.cp_title
             : raccourci === "cross_analysis"
-              ? "IRIS · dispositif & recommandations"
+              ? t.cp_provider_cross
               : raccourci === "mobilizable_potential"
-                ? "IRIS · potentiel mobilisable"
+                ? t.cp_provider_potential
                 : t.cp_inv_src;
         pushAi({
           role: "assistant",
@@ -265,17 +264,16 @@ export default function CopilotBody() {
       // Le fil ne montre que « traitement en cours » : les blocs structurés
       // arrivent avec le texte final, jamais avant — l'utilisateur ne voit plus
       // une réponse Couche 1 remplacée sous ses yeux.
-      const msgId = pushAi({ role: "assistant", text: t.cp_processing, provider: `${cfg.label} · ${cfg.model}`, intent: answer.intent });
+      const msgId = pushAi({ role: "assistant", text: t.cp_processing, provider: t.cp_provider_iris, intent: answer.intent });
       setBusy(true);
       // Priorité à l'opérateur : les recalculs IA de fond patientent le temps
       // de la réponse (mesuré : 26,9 s de premier jeton avec eux devant, 3,5 s sans).
       useArgos.getState().setAiOperatorBusy(true);
-      const t0 = Date.now();
       const blocs = structuredBlocks(answer);
       const repli = (llmError: string) =>
         updateAi(msgId, {
           text: cleanFinalText(answer.text),
-          provider: `Données IRIS · ${answer.intent === "unknown" ? t.cp_partial : t.cp_detailed}`,
+          provider: t.cp_provider_iris,
           deterministic: true,
           intent: answer.intent,
           llmError,
@@ -299,18 +297,16 @@ export default function CopilotBody() {
           onLeak: () =>
             updateAi(msgId, {
               text: AI_REFUS_RESPONSE,
-              provider: "🛡️ Garde-fou sécurité (fuite prompt détectée)",
+              provider: t.cp_guard_leak,
               refused: true,
             }),
           // Pendant le flux : texte + fournisseur seulement, SANS persistance.
-          onRender: (text, firstTokenSec) =>
+          onRender: (text) =>
             updateAi(
               msgId,
               {
                 text,
-                provider: firstTokenSec
-                  ? `… · ${cfg.label} (${cfg.model}) · 1er jeton T+${firstTokenSec}s`
-                  : `… · ${cfg.label} (${cfg.model}) · attente du 1er jeton…`,
+                provider: t.cp_streaming,
               },
               { persist: false },
             ),
@@ -319,27 +315,22 @@ export default function CopilotBody() {
 
         if (issue.kind === "leaked") return; // déjà remplacé par le refus
         if (issue.kind === "empty") {
-          const detail =
-            issue.reason === "timeout" ? `⏱️ Délai ${issue.durationSec}s expiré` : issue.reason === "http" ? issue.error ?? "réponse vide" : "réponse vide";
-          repli(`🤖 ${cfg.label} : ${detail}`);
+          repli(t.cp_error_friendly);
           return;
         }
         // ✅ Modèle OK — texte du modèle, blocs si l'intention est reconnue.
-        const first = issue.firstTokenSec ? `1er jeton T+${issue.firstTokenSec}s · ` : "";
         updateAi(msgId, {
           text: cleanFinalText(issue.text),
-          provider: `🤖 ${cfg.label} · ${cfg.model} · ${first}durée ${issue.durationSec}s${measureLabel(issue.stats)}`,
+          provider: t.cp_provider_iris,
           intent: answer.intent,
           ...blocs,
           suggestions: answer.suggestions,
         });
       } catch (err) {
         useArgos.getState().setAiOperatorBusy(false);
-        const durationSec = ((Date.now() - t0) / 1000).toFixed(1);
-        const msg = err instanceof Error ? err.message : "erreur inconnue";
         // eslint-disable-next-line no-console
         console.error("[Copilot] ask() runtime error:", err);
-        repli(`⛔ ERREUR T+${durationSec}s : ${msg}`);
+        repli(t.cp_error_friendly);
       } finally {
         setBusy(false);
       }
@@ -378,7 +369,7 @@ export default function CopilotBody() {
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label="Copilot IRIS"
+        aria-label={t.cp_title}
         className={`fixed z-[70] flex flex-col bg-white shadow-2xl ring-1 ring-gray-200/70 transition-transform duration-300 ease-out dark:bg-rdia-800 dark:ring-rdia-700/60
           ${copilotOpen ? "translate-x-0" : "translate-x-[110%] pointer-events-none"}
           top-0 right-0 h-dvh w-full max-w-full sm:w-[460px] md:w-[500px]`}

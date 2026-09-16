@@ -3,15 +3,9 @@
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
+import { useModules } from "@/lib/store";
 import type { IncidentEvolution, EvolutionTrend } from "@/lib/ai/risk/incidentEvolution";
 import type { RiskLevel } from "@/lib/ai/risk/types";
-
-const LEVEL_BADGE: Record<RiskLevel, { type: "high" | "medium" | "on_hold" | "low" | "active"; label: string }> = {
-  critique: { type: "high", label: "CRITIQUE" },
-  eleve: { type: "medium", label: "ÉLEVÉ" },
-  modere: { type: "on_hold", label: "MODÉRÉ" },
-  faible: { type: "active", label: "FAIBLE" },
-};
 
 const LEVEL_TEXT: Record<RiskLevel, string> = {
   critique: "text-danger-500",
@@ -27,10 +21,17 @@ const LEVEL_BAR: Record<RiskLevel, string> = {
   faible: "bg-green-500",
 };
 
-const TREND_BADGE: Record<EvolutionTrend, { type: "high" | "medium" | "active"; icon: string; label: string }> = {
-  aggravation: { type: "high", icon: UI_ICONS.alert, label: "Aggravation" },
-  stable: { type: "medium", icon: UI_ICONS.scale, label: "Stable" },
-  amelioration: { type: "active", icon: UI_ICONS.check, label: "Amélioration" },
+const TREND_ICON: Record<EvolutionTrend, string> = {
+  aggravation: UI_ICONS.alert,
+  stable: UI_ICONS.scale,
+  amelioration: UI_ICONS.check,
+};
+
+const LEVEL_TYPE: Record<RiskLevel, "high" | "medium" | "on_hold" | "low" | "active"> = {
+  critique: "high",
+  eleve: "medium",
+  modere: "on_hold",
+  faible: "active",
 };
 
 const H_MIN = (m: number): string => {
@@ -46,28 +47,39 @@ const H_MIN = (m: number): string => {
  *  - full    : fiche — score, prob, horizon, scénario, top signaux, 3 actions
  */
 export function IncidentEvolutionCard({ ev, compact }: { ev: IncidentEvolution; compact?: boolean }) {
-  const lb = LEVEL_BADGE[ev.level];
-  const tb = TREND_BADGE[ev.trend];
+  const m = useModules();
+  const e = m.evolution;
   const lvTxt = LEVEL_TEXT[ev.level];
   const lvBar = LEVEL_BAR[ev.level];
   const scoreClean = Math.round(ev.score);
+
+  const LEVEL_LABEL = {
+    critique: e.level_critique,
+    eleve: e.level_eleve,
+    modere: e.level_modere,
+    faible: e.level_faible,
+  };
+
+  const TREND_LABEL = {
+    aggravation: e.trend_aggravation,
+    stable: e.trend_stable,
+    amelioration: e.trend_amelioration,
+  };
 
   if (compact) {
     return (
       <div className="flex flex-col gap-1 py-0.5">
         <div className="flex items-center gap-1.5">
           <span className={`font-mono text-[11px] font-bold ${lvTxt}`}>{scoreClean}/100</span>
-          <Badge type={lb.type} label={lb.label} />
+          <Badge type={LEVEL_TYPE[ev.level]} label={LEVEL_LABEL[ev.level]} />
         </div>
         <div className="flex items-center gap-1">
-          <Icon path={tb.icon} size={10} className={lvTxt} />
-          <span className="text-[10px] text-gray-500 dark:text-rdia-300">{tb.label}</span>
+          <Icon path={TREND_ICON[ev.trend]} size={10} className={lvTxt} />
+          <span className="text-[10px] text-gray-500 dark:text-rdia-300">{TREND_LABEL[ev.trend]}</span>
         </div>
       </div>
     );
   }
-
-  // Top 3 signaux qui tirent le score (les plus utiles à lire).
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white/70 p-5 dark:border-rdia-600/50 dark:bg-rdia-800/30">
@@ -79,17 +91,17 @@ export function IncidentEvolutionCard({ ev, compact }: { ev: IncidentEvolution; 
             <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">/ 100</div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <Badge type={lb.type} label={lb.label} />
+            <Badge type={LEVEL_TYPE[ev.level]} label={LEVEL_LABEL[ev.level]} />
             <div className="flex items-center gap-1.5">
-              <Icon path={tb.icon} size={11} className={lvTxt} />
-              <span className="text-[11px] font-medium text-gray-700 dark:text-rdia-200">{tb.label}</span>
+              <Icon path={TREND_ICON[ev.trend]} size={11} className={lvTxt} />
+              <span className="text-[11px] font-medium text-gray-700 dark:text-rdia-200">{TREND_LABEL[ev.trend]}</span>
             </div>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-right text-[12px]">
-          <div className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400">Probabilité</div>
+          <div className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400">{e.header_prob}</div>
           <div className={`font-mono font-bold ${ev.probabilityPct >= 65 ? "text-danger-500" : ev.probabilityPct >= 40 ? "text-or-500" : "text-green-600 dark:text-green-400"}`}>{Math.round(ev.probabilityPct)}%</div>
-          <div className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400">Horizon</div>
+          <div className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-rdia-400">{e.header_horizon}</div>
           <div className="font-mono font-semibold text-gray-800 dark:text-rdia-50">{H_MIN(ev.horizonMin)}</div>
         </div>
       </div>
@@ -105,7 +117,7 @@ export function IncidentEvolutionCard({ ev, compact }: { ev: IncidentEvolution; 
       {/* ==== DÉTAIL DES 9 FACTEURS (visible en modale uniquement) ==== */}
       <div>
         <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-rdia-300/80">
-          Détail des signaux
+          {e.signals_title}
         </div>
         <div className="flex flex-col gap-1.5">
           {ev.factors.map((f) => {
@@ -129,7 +141,7 @@ export function IncidentEvolutionCard({ ev, compact }: { ev: IncidentEvolution; 
       {/* ==== 3 ACTIONS RECOMMANDÉES ==== */}
       <div>
         <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-rdia-300/80">
-          Actions recommandées
+          {e.actions_title}
         </div>
         <ol className="flex flex-col gap-1.5">
           {ev.actions.map((a, i) => (

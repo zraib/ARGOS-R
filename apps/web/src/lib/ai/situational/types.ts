@@ -77,7 +77,7 @@ export type SituationalForecasts = {
   flux6h: {
     total: number;
     picDansMinutes: number; // heure pic
-    tendance: "↗ stable" | "↗ en hausse" | "↘ en baisse";
+    tendance: string;
   };
   /** 📦 Stock critique (issues de catalog.equipment : stock<threshold ou cond=oos). */
   stockCritique: {
