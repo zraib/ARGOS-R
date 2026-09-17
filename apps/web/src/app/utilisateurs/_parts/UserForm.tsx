@@ -24,7 +24,7 @@ import { GRADES } from "@/lib/data/grades";
 import { AddHospitalModal, AddShelterModal, AddUnitModal } from "@/components/org/AddEntityModals";
 import { AddMorgueModal } from "@/components/morgue/AddMorgueModal";
 import { ApiUser } from "@/app/utilisateurs/_parts/shared";
-import { SWITCHABLE_KEYS, navLabel, type ModuleKey } from "@/lib/nav";
+import { SWITCHABLE_KEYS, moduleLabel, type ModuleKey } from "@/lib/nav";
 import { useDict } from "@/lib/store";
 
 // ===========================================================================
@@ -352,7 +352,7 @@ export function UserForm({
               const cls = (s: typeof state) => `cible-tactile rounded-md px-2 py-0.5 text-[10.5px] font-semibold transition-colors lg:min-h-0 ${state === s ? (s === "off" ? "bg-danger-500 text-white" : s === "on" ? "bg-or-500 text-rdia-600" : "bg-gray-300 text-gray-800 dark:bg-rdia-500 dark:text-rdia-50") : "text-gray-400 hover:text-gray-700 dark:text-rdia-400 dark:hover:text-rdia-100"}`;
               return (
                 <div key={k} className="flex min-h-[40px] items-center justify-between gap-2 border-b border-gray-100 py-1 text-sm dark:border-rdia-700/50">
-                  <span className={`min-w-0 truncate ${state === "off" ? "text-gray-400 line-through dark:text-rdia-400" : "text-gray-700 dark:text-rdia-100"}`}>{navLabel(k, t, roles.find((r) => RESPONSIBILITY_OF_ROLE[r]))}</span>
+                  <span className={`min-w-0 truncate ${state === "off" ? "text-gray-400 line-through dark:text-rdia-400" : "text-gray-700 dark:text-rdia-100"}`}>{moduleLabel(k, t, roles.find((r) => RESPONSIBILITY_OF_ROLE[r]))}</span>
                   <span className="flex shrink-0 gap-0.5 rounded-lg bg-gray-100 p-0.5 dark:bg-rdia-700/60">
                     <button type="button" className={cls("inherit")} onClick={() => void setModule(k, null)}>{t.um_inherit}</button>
                     <button type="button" className={cls("on")} onClick={() => void setModule(k, true)}>{t.um_on}</button>

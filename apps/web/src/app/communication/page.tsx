@@ -46,6 +46,7 @@ export default function CommunicationPage() {
   const loadDomain = useArgos((s) => s.loadDomain);
   const comMsgs = useArgos((s) => s.comMsgs);
   const comSel = useArgos((s) => s.comSel);
+  const unread = useArgos((s) => s.rtUnread);
   const comCollapsed = useArgos((s) => s.comCollapsed);
   const selectChannel = useArgos((s) => s.selectChannel);
   const sendMessage = useArgos((s) => s.sendMessage);
@@ -253,6 +254,9 @@ export default function CommunicationPage() {
                   {cat.chans.map((ch) => {
                     const active = comSel === ch.id;
                     const autre = ch.direct ? correspondentOf(ch, sessionUser?.matricule) : undefined;
+                    // Nouveaux messages non lus : la conversation se signale dans
+                    // la liste — en gras, avec son compte — jusqu'à ce qu'on l'ouvre.
+                    const nouveaux = unread[ch.id] ?? 0;
                     return (
                       // Le raccourci carte d'un correspondant déployé vit À CÔTÉ du
                       // bouton du canal, pas dedans : un bouton ne s'imbrique pas.
@@ -260,11 +264,20 @@ export default function CommunicationPage() {
                         <button
                           onClick={() => openChannel(ch.id)}
                           className={`flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors lg:min-h-0 lg:text-[13px] ${
-                            active ? "bg-or-500/15 font-semibold text-or-500 dark:text-or-400" : "text-gray-500 hover:bg-gray-100 hover:text-or-500 dark:text-rdia-300 dark:hover:bg-rdia-600/40"
+                            active
+                              ? "bg-or-500/15 font-semibold text-or-500 dark:text-or-400"
+                              : nouveaux > 0
+                                ? "bg-danger-500/10 font-bold text-gray-800 hover:bg-danger-500/15 dark:text-rdia-50"
+                                : "text-gray-500 hover:bg-gray-100 hover:text-or-500 dark:text-rdia-300 dark:hover:bg-rdia-600/40"
                           }`}
                         >
                           <Icon path={ch.direct ? UI_ICONS.users : ch.kind === "voice" ? UI_ICONS.voice : UI_ICONS.hash} size={14} className="shrink-0" />
                           <span className="min-w-0 truncate">{ch.name}</span>
+                          {nouveaux > 0 && !active && (
+                            <span className="ms-auto shrink-0 rounded-full bg-danger-500 px-1.5 font-mono text-[10px] font-bold text-white" aria-label={`${nouveaux} ${nouveaux > 1 ? t.notif_unread_many : t.notif_unread_one}`}>
+                              {nouveaux}
+                            </span>
+                          )}
                         </button>
                         {autre && <DeployedShortcut matricule={autre} />}
                       </div>

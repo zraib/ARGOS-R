@@ -454,8 +454,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Poser un poste sur la carte d'une opération — Super Administrateur (audité)
-         * @description Un poste désigne une instance : LE compte OPCOM/TACOM/cellule qui le tient — déployé sur l'opération dans le même geste, retiré de celle qu'il servait — ou L'abri / LE parc représenté. Une instance déjà posée est refusée (409).
+         * Poser un poste sur la carte d'une opération — selon le rôle (audité)
+         * @description Un poste désigne une instance : LE compte OPCOM/TACOM/cellule qui le tient — déployé sur l'opération dans le même geste, retiré de celle qu'il servait — ou L'abri / LE parc représenté. Une instance déjà posée est refusée (409). Le stratégique pose les OPCOM ; l'OPCOM les TACOM, PCO, PCT et cellules ; le Super Administrateur tout (ADR 0018).
          */
         post: operations["PostsController_create"];
         delete?: never;
@@ -475,13 +475,13 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Retirer un poste de la carte — Super Administrateur (audité)
+         * Retirer un poste de la carte — selon le rôle (audité)
          * @description Retire le LIEU. Le compte reste déployé sur l'opération : le retirer de l'opération est un acte de commandement distinct (déploiements).
          */
         delete: operations["PostsController_remove"];
         options?: never;
         head?: never;
-        /** Déplacer ou renommer un poste — Super Administrateur (audité) */
+        /** Déplacer ou renommer un poste — selon le rôle (audité) */
         patch: operations["PostsController_update"];
         trace?: never;
     };
@@ -1894,6 +1894,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/resources/placed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Équipes, véhicules et équipements posés sur le terrain — ce que la carte dessine */
+        get: operations["ResourcesRegistryController_placed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resources/placeable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ce que le compte peut poser sur le terrain (boîte à outils du mode édition)
+         * @description Le TACOM (PC, PCO, PCT) pose ses équipes, équipements et véhicules ; les cellules des équipes et des véhicules ; le Super Administrateur tout. En mode opérationnel : les ressources des unités affectées à l'opération que le compte sert.
+         */
+        get: operations["ResourcesRegistryController_placeable"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resources/{kind}/{id}/position": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Poser ou déplacer une ressource sur le terrain — selon le rôle et le mode (ADR 0018) */
+        put: operations["ResourcesRegistryController_place"];
+        post?: never;
+        /** Retirer une ressource du terrain — selon le rôle et le mode (ADR 0018) */
+        delete: operations["ResourcesRegistryController_unplace"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/resources/persons": {
         parameters: {
             query?: never;
@@ -2816,7 +2871,7 @@ export interface components {
              * @description Module à ouvrir ou couper pour le rôle
              * @enum {string}
              */
-            feature: "dashboard" | "myresp" | "myrespManage" | "incidents" | "map" | "seismic" | "dispatch" | "triage" | "trackers" | "chemlib" | "equip" | "units" | "resources" | "workorders" | "hospitals" | "opsnet" | "morgue" | "ics" | "damage" | "shelters" | "orsec" | "plans" | "comms" | "reports" | "analytics" | "assistant" | "simulation" | "users" | "supervision" | "settings";
+            feature: "dashboard" | "myresp" | "myrespManage" | "incidents" | "map" | "seismic" | "dispatch" | "triage" | "trackers" | "chemlib" | "equip" | "units" | "resources" | "workorders" | "hospitals" | "opsnet" | "morgue" | "ics" | "damage" | "shelters" | "orsec" | "plans" | "comms" | "reports" | "analytics" | "assistant" | "simulation" | "mapEdit" | "simFlood" | "simFire" | "simNrbc" | "users" | "supervision" | "settings";
             enabled: boolean;
         };
         ToggleUserModuleDto: {
@@ -2824,7 +2879,7 @@ export interface components {
              * @description Module à ouvrir ou couper pour le compte
              * @enum {string}
              */
-            module: "dashboard" | "myresp" | "myrespManage" | "incidents" | "map" | "seismic" | "dispatch" | "triage" | "trackers" | "chemlib" | "equip" | "units" | "resources" | "workorders" | "hospitals" | "opsnet" | "morgue" | "ics" | "damage" | "shelters" | "orsec" | "plans" | "comms" | "reports" | "analytics" | "assistant" | "simulation" | "users" | "supervision" | "settings";
+            module: "dashboard" | "myresp" | "myrespManage" | "incidents" | "map" | "seismic" | "dispatch" | "triage" | "trackers" | "chemlib" | "equip" | "units" | "resources" | "workorders" | "hospitals" | "opsnet" | "morgue" | "ics" | "damage" | "shelters" | "orsec" | "plans" | "comms" | "reports" | "analytics" | "assistant" | "simulation" | "mapEdit" | "simFlood" | "simFire" | "simNrbc" | "users" | "supervision" | "settings";
             /** @description true : ouvert malgré le rôle ; false : coupé ; null : le rôle décide */
             enabled: boolean | null;
         };
@@ -3565,6 +3620,18 @@ export interface components {
         PurgeDomainDto: {
             /** @description Mot de passe du compte qui agit — la remise à zéro est un geste signé, pas un clic */
             password: string;
+        };
+        PlaceResourceDto: {
+            /**
+             * @description Point posé [lng, lat].
+             * @example [
+             *       -7.6,
+             *       33.58
+             *     ]
+             */
+            ll: number[];
+            /** @description Opération à laquelle la pose se rattache (la plus proche, choisie par la carte). */
+            incidentId?: string;
         };
         ResourceOwnerDto: {
             /** @enum {string} */
@@ -4524,7 +4591,14 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Incident inconnu. */
+            /** @description Le rôle ne pose pas cette nature de poste. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Incident inconnu, ou hors de la portée du compte. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -4552,6 +4626,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description Le rôle ne pose pas cette nature de poste. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Poste inconnu sur cette opération. */
             404: {
                 headers: {
@@ -4577,6 +4658,13 @@ export interface operations {
             };
         };
         responses: {
+            /** @description Le rôle ne pose pas cette nature de poste. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Poste inconnu sur cette opération. */
             404: {
                 headers: {
@@ -6682,6 +6770,93 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_placed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_placeable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_place: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaceResourceDto"];
+            };
+        };
+        responses: {
+            /** @description Le rôle ne pose pas cette nature, ou l'unité n'est pas affectée à son opération. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Ressource inconnue. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_unplace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ressource inconnue, ou pas sur le terrain. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

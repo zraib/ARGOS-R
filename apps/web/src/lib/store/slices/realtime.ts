@@ -165,6 +165,12 @@ export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice
           void get().loadPosts();
           return;
         }
+        if (e.kind === "placed") {
+          // Une ressource a été posée, déplacée ou retirée du terrain (ADR 0018).
+          void get().loadPlaced();
+          if (get().mapEdit) void get().loadPlaceable();
+          return;
+        }
         if (e.kind === "channel") {
           // La structure a changé sous nos pieds : on la recharge plutôt que de
           // la rejouer à la main, une reconstitution partielle valant pire

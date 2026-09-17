@@ -4,6 +4,8 @@
 // lue par les écrans des modules, à remplacer plus tard par le client API.
 // ============================================================================
 
+import type { Placement } from "@/modules/domain/domain.types";
+
 export type EquipCondition = "ok" | "repair" | "oos";
 export interface EquipItem {
   id: string;
@@ -25,6 +27,8 @@ export interface EquipItem {
   /** Type / numéro d'inventaire (ADR 0016), facultatif. */
   type?: string;
   serial?: string;
+  /** Posé sur le terrain par le TACOM (ADR 0018). */
+  position?: Placement;
   stock: number;
   threshold: number;
   cond: EquipCondition;

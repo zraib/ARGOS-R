@@ -130,13 +130,11 @@ export function canDeployPosts(role: Role): boolean {
 }
 
 /**
- * Mode édition de la carte (poser, déplacer, retirer les postes d'une
- * opération) — miroir de `map_edit`, que la matrice serveur n'accorde à
- * personne : seul le joker du Super Administrateur le détient.
+ * Mode édition de la carte — par rôle depuis l'ADR 0018 : chacun pose ce que
+ * la doctrine lui donne (`lib/edit.ts`). Réexporté ici pour les écrans qui ne
+ * demandent que « a-t-il un mode édition ? ».
  */
-export function canEditMap(role: Role): boolean {
-  return role === "superadmin";
-}
+export { canEditMap } from "@/lib/edit";
 
 // ---------------------------------------------------------------------------
 // Responsabilités opérationnelles (miroir de shared/responsibilities.ts côté API)

@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useArgos, useDict } from "@/lib/store";
-import { POST_DRAG_MIME, parsePostPick } from "@/lib/posts";
+import { POST_DRAG_MIME, nearestIncident, parsePostPick } from "@/lib/posts";
+import { RESOURCE_DRAG_MIME, parseResourcePick, type ResourcePick } from "@/lib/edit";
 import { FLUX } from "@/lib/i18n/flux";
 import { canReportIncident } from "@/lib/roles";
 import { MAP_CENTER, MAP_STYLE, MAP_ZOOM } from "@/lib/map/style";
@@ -65,6 +66,21 @@ import {
  * impératives qui reçoivent la carte et leur objet d'état — testables et
  * lisibles une par une. Les calculs purs sont dans `lib/map/canvas/`.
  */
+/**
+ * Pose une ressource sur le terrain à ce point (ADR 0018) : rattachée à
+ * l'opération active la plus proche s'il y en a une, désarmée aussitôt — un
+ * clic, une pose. L'API tranche ce que le rôle et le mode permettent.
+ */
+function placeResourceAt(pick: ResourcePick, ll: [number, number]): void {
+  const st = useArgos.getState();
+  st.armResource(null);
+  const inc = nearestIncident(ll, st.incidents);
+  void st
+    .placeResource(pick.kind, pick.id, ll, inc?.id)
+    .then(() => st.showToast(st.dict.pl_placed_ok))
+    .catch((err: unknown) => st.showToast(`${st.dict.toast_fail} — ${err instanceof Error ? err.message : String(err)}`));
+}
+
 export function MapCanvas() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -107,6 +123,8 @@ export function MapCanvas() {
   // Postes d'opération (lot #12) : la liste ET le mode — un poste devient
   // saisissable quand le mode s'allume, il faut donc rebâtir les marqueurs.
   const posts = useArgos((s) => s.posts);
+  const placed = useArgos((s) => s.placed);
+  const armedResource = useArgos((s) => s.armedResource);
   const mapEdit = useArgos((s) => s.mapEdit);
   const armedPost = useArgos((s) => s.armedPost);
   const map3d = useArgos((s) => s.map3d);
@@ -233,6 +251,12 @@ export function MapCanvas() {
       if (armed) {
         useArgos.getState().setPendingPost({ ...armed, ll: [e.lngLat.lng, e.lngLat.lat] });
         useArgos.getState().armPost(null);
+        return;
+      }
+      // Une ressource est armée : ce clic la pose sur le terrain (ADR 0018).
+      const armedRes = useArgos.getState().armedResource;
+      if (armedRes) {
+        placeResourceAt(armedRes, [e.lngLat.lng, e.lngLat.lat]);
         return;
       }
       // Le simulateur d'inondation attend son point de départ : ce clic le pose.
@@ -426,13 +450,13 @@ export function MapCanvas() {
   // --- re-synchro des marqueurs si données / sélection / couche changent ---
   useEffect(() => {
     if (readyRef.current) syncMarkers(markersRt.current, mapRef.current);
-  }, [layers, selMarker, incidents, fieldHosps, posts, mapEdit]);
+  }, [layers, selMarker, incidents, fieldHosps, posts, placed, mapEdit]);
 
   // Chip armé, ou point de départ d'une inondation attendu : le curseur le dit avant le clic.
   useEffect(() => {
     const canvas = mapRef.current?.getCanvas();
-    if (canvas) canvas.style.cursor = armedPost || floodArming || fireArming ? "crosshair" : "";
-  }, [armedPost, floodArming, fireArming]);
+    if (canvas) canvas.style.cursor = armedPost || armedResource || floodArming || fireArming ? "crosshair" : "";
+  }, [armedPost, armedResource, floodArming, fireArming]);
 
   // --- suivi aérien : interrogation du flux ---
   // Le minuteur s'arrête dès que la couche est masquée, pour ne pas consommer
@@ -686,15 +710,23 @@ export function MapCanvas() {
       // Glisser-déposer d'un poste depuis la boîte à outils (mode édition) :
       // le point lâché devient le poste en attente, la modale fait le reste.
       onDragOver={(e) => {
-        if (useArgos.getState().mapEdit && e.dataTransfer.types.includes(POST_DRAG_MIME)) e.preventDefault();
+        if (useArgos.getState().mapEdit && (e.dataTransfer.types.includes(POST_DRAG_MIME) || e.dataTransfer.types.includes(RESOURCE_DRAG_MIME))) e.preventDefault();
       }}
       onDrop={(e) => {
-        const pick = parsePostPick(e.dataTransfer.getData(POST_DRAG_MIME));
         const map = mapRef.current, host = containerRef.current;
-        if (!pick || !map || !host || !useArgos.getState().mapEdit) return;
-        e.preventDefault();
+        if (!map || !host || !useArgos.getState().mapEdit) return;
         const rect = host.getBoundingClientRect();
         const ll = map.unproject([e.clientX - rect.left, e.clientY - rect.top]);
+        // Une ressource lâchée se pose tout de suite sur le terrain (ADR 0018).
+        const res = parseResourcePick(e.dataTransfer.getData(RESOURCE_DRAG_MIME));
+        if (res) {
+          e.preventDefault();
+          placeResourceAt(res, [ll.lng, ll.lat]);
+          return;
+        }
+        const pick = parsePostPick(e.dataTransfer.getData(POST_DRAG_MIME));
+        if (!pick) return;
+        e.preventDefault();
         useArgos.getState().setPendingPost({ ...pick, ll: [ll.lng, ll.lat] });
       }}
       onContextMenu={(e) => {

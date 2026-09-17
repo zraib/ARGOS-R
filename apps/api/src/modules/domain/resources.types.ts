@@ -7,6 +7,8 @@
 // TACOM. Elle est visible de tout intervenant qui lit les ressources.
 // ============================================================================
 
+import type { Placement } from "@/modules/domain/domain.types";
+
 export const RESOURCE_OWNER_KINDS = ["unit", "hospital", "shelter"] as const;
 export type ResourceOwnerKind = (typeof RESOURCE_OWNER_KINDS)[number];
 
@@ -55,6 +57,8 @@ export interface Team {
   /** Chef d'équipe, une personne de l'entité. */
   leaderId?: string;
   memberIds: string[];
+  /** Posée sur le terrain par le TACOM ou une cellule (ADR 0018). */
+  position?: Placement;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -76,6 +80,8 @@ export interface Vehicle {
   /** Affectation courante (mission, lieu), texte libre. */
   assignment?: string;
   note?: string;
+  /** Posé sur le terrain par le TACOM ou une cellule (ADR 0018). */
+  position?: Placement;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -106,4 +112,35 @@ export type ResourceKind = (typeof RESOURCE_KINDS)[number];
 
 export function sameOwner(a: ResourceOwner, b: ResourceOwner): boolean {
   return a.kind === b.kind && a.id === b.id;
+}
+
+/** Ce qui se pose sur le terrain (ADR 0018) : équipes, véhicules, équipements. */
+export const PLACEABLE_KINDS = ["teams", "vehicles", "equipment"] as const;
+export type PlaceableKind = (typeof PLACEABLE_KINDS)[number];
+
+export function isPlaceableKind(v: unknown): v is PlaceableKind {
+  return typeof v === "string" && (PLACEABLE_KINDS as readonly string[]).includes(v);
+}
+
+/** Une ressource posée sur le terrain, telle que la carte la lit. */
+export interface PlacedResource {
+  kind: PlaceableKind;
+  id: string;
+  owner: ResourceOwner;
+  ownerLabel: string;
+  label: string;
+  sub?: string;
+  position: Placement;
+}
+
+/** Une ressource que l'appelant peut poser (boîte à outils du mode édition). */
+export interface PlaceableResource {
+  kind: PlaceableKind;
+  id: string;
+  owner: ResourceOwner;
+  ownerLabel: string;
+  label: string;
+  sub?: string;
+  /** Déjà sur le terrain : le chip se lit, il ne se pose pas une seconde fois. */
+  placed: boolean;
 }

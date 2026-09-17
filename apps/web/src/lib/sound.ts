@@ -77,8 +77,9 @@ export function playMessageTone(now = Date.now(), force = false): boolean {
   if (!c) return false;
   dernierMessageA = now;
   const t = c.currentTime;
-  tone(c, t, 660, 0.07, 0.07);
-  tone(c, t + 0.07, 990, 0.1, 0.06);
+  // Gains relevés (0,07 → 0,14) : le « pop » d'origine se perdait dans le bruit d'un PC.
+  tone(c, t, 660, 0.08, 0.14);
+  tone(c, t + 0.08, 990, 0.12, 0.12);
   return true;
 }
 
@@ -87,9 +88,27 @@ export function playNotificationTone(): void {
   const c = ensureCtx();
   if (!c) return;
   const t = c.currentTime;
-  tone(c, t, 880, 0.14, 0.07, "triangle");
-  tone(c, t + 0.15, 740, 0.14, 0.07, "triangle");
-  tone(c, t + 0.3, 620, 0.2, 0.07, "triangle");
+  tone(c, t, 880, 0.14, 0.14, "triangle");
+  tone(c, t + 0.15, 740, 0.14, 0.14, "triangle");
+  tone(c, t + 0.3, 620, 0.22, 0.14, "triangle");
+}
+
+/**
+ * RAPPEL d'un message non lu ou d'une alerte non acquittée : le motif de la
+ * notification, joué deux fois et nettement plus fort que le signal d'arrivée.
+ * Le premier signal peut se manquer dans le bruit d'un PC ; le rappel, lui,
+ * doit s'entendre à travers la pièce jusqu'à ce qu'on y réponde.
+ */
+export function playReminderTone(): void {
+  const c = ensureCtx();
+  if (!c) return;
+  const t = c.currentTime;
+  for (let i = 0; i < 2; i++) {
+    const t0 = t + i * 0.7;
+    tone(c, t0, 988, 0.16, 0.22, "triangle");
+    tone(c, t0 + 0.17, 784, 0.16, 0.22, "triangle");
+    tone(c, t0 + 0.34, 659, 0.26, 0.22, "triangle");
+  }
 }
 
 /** Notification discrète (séisme mondial ≥ seuil app). */

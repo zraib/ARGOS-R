@@ -2,6 +2,7 @@
 // ARGOS — ressources d'une entité (ADR 0016) : types miroir de l'API et aides
 // ============================================================================
 
+import type { Placement } from "@/lib/types";
 import type { Dict } from "@/lib/i18n/translations";
 import type { EquipItem } from "@/lib/data/modules";
 
@@ -41,6 +42,8 @@ export interface Team {
   mission?: string;
   leaderId?: string;
   memberIds: string[];
+  /** Posée sur le terrain (ADR 0018). */
+  position?: Placement;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -58,6 +61,8 @@ export interface Vehicle {
   state: VehicleState;
   assignment?: string;
   note?: string;
+  /** Posé sur le terrain (ADR 0018). */
+  position?: Placement;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

@@ -107,12 +107,13 @@ Format **`fonctionnalité:action`**, défini dans `apps/api/src/shared/permissio
 > registre sans son site ou un compte sans son entité, et dit ce qui retient ;
 > `?force=true` passe outre en connaissance de cause.
 
-**25 fonctionnalités de la matrice** — `dashboard`, `dash_incident`,
+**26 fonctionnalités de la matrice** — `dashboard`, `dash_incident`,
 `dash_hospital`, `dash_shelter`, `dash_morgue`, `dash_unit`, `map`, `incidents`,
 `subincidents`, `hospinet`, `shelters`, `morgue`, `units`, `equipment`, `teams`,
-`comms`, `reports`, `analytics`, `assistant`, `users`, `settings`, et depuis
+`comms`, `reports`, `analytics`, `assistant`, `users`, `settings`, depuis
 l'ADR 0016 `assign` (affectation des unités à l'incident), `deploy` (déploiement
-terrain), `resources` (personnes, équipes, véhicules, logistique), `weather`.
+terrain), `resources` (personnes, équipes, véhicules, logistique), `weather`, et
+depuis l'ADR 0018 `plume` (simulation du panache NRBC, réservée à la conduite).
 
 > **Le MODE de la station resserre la matrice** (ADR 0016). La matrice dit le
 > maximum ; `mode.rules.ts` et `resources.rules.ts` disent ce qui reste ouvert
@@ -121,9 +122,12 @@ terrain), `resources` (personnes, équipes, véhicules, logistique), `weather`.
 > d'entité en opérationnel, etc. Ces règles sont pures et testées
 > (`command-chain.rules.spec.ts`).
 
-**10 modules hors matrice** (`LEGACY`, dotations d'avant conservées, à
+**Modules hors matrice** (`LEGACY`, dotations d'avant conservées, à
 arbitrer) — `dispatch`, `triage`, `ics`, `damage`, `orsec`, `plans`,
-`personnel`, `workorders`, `seismic`, `audit`.
+`personnel`, `workorders`, `seismic`, `audit`, `aviation`, `nrbc`, `missions`,
+`tracking`, `comms_admin` ; `map_edit` y est **par rôle** depuis l'ADR 0018
+(stratégique, OPCOM, TACOM et ses PC, cellules — au contenu dit par
+`edit.rules.ts`).
 
 ## 4. Les 20 rôles
 
@@ -267,12 +271,13 @@ Implémentation : `shared/responsibilities.ts`, `common/guards/scope.guard.ts`,
 
 Second niveau, distinct du RBAC : quels **modules** (écrans) un rôle voit, et
 quels modules sont ouverts pour tout le monde. Deux bascules, un vocabulaire
-(`MODULE_KEYS`, 30 modules — **tout le menu, dans son ordre** (ADR 0017) :
+(`MODULE_KEYS`, 34 modules — **tout le menu, dans son ordre** (ADR 0017) :
 `dashboard`, `myresp`, `myrespManage`, `incidents`, `map`, `seismic`,
 `dispatch`, `triage`, `trackers`, `chemlib`, `equip`, `units`, `resources`,
 `workorders`, `hospitals`, `opsnet`, `morgue`, `ics`, `damage`, `shelters`,
 `orsec`, `plans`, `comms`, `reports`, `analytics`, `assistant`, `simulation`,
-puis le cœur `users`, `supervision`, `settings`) :
+puis les **capacités de la carte** (ADR 0018) `mapEdit`, `simFlood`,
+`simFire`, `simNrbc`, puis le cœur `users`, `supervision`, `settings`) :
 
 - la **matrice rôle → modules** (`PATCH /iam/role-features/:role`, Super
   Administrateur ; défauts dérivés de la matrice RBAC : un module est ouvert
@@ -289,6 +294,15 @@ rallume le reste. **« Gestion de mon entité »** (`myrespManage`) est appliqu�
 par la garde : pour un responsable d'entité, toute écriture cantonnée à son
 entité (`@RequireScope` + action autre que `view`) exige ce module ouvert, en
 plus du module de la fonctionnalité. Tests : `modules/iam/sidebar-modules.spec.ts`.
+
+Le **mode édition de la carte** (ADR 0018) a un contenu par rôle
+(`edit.rules.ts`) : la ligne `map_edit` dit qui en a un (stratégique, OPCOM,
+TACOM et ses PC, cellules), la règle dit ce qu'il y pose — les OPCOM pour le
+stratégique, le dispositif tactique pour l'OPCOM, leurs équipes, équipements et
+véhicules **sur le terrain** pour le TACOM et les cellules (en opérationnel :
+ceux des unités affectées à leur opération). Le panache NRBC relève de
+`plume:view` (conduite) ; les simulateurs de crue et de feu, calculés dans le
+navigateur, sont coupés par leurs modules. Tests : `modules/domain/map-edit.spec.ts`.
 
 Depuis l'ADR 0015 ce n'est plus un simple masquage : `FEATURE_MODULE` relie
 chaque fonctionnalité RBAC à son module, et la garde des permissions refuse

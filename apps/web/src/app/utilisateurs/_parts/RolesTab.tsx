@@ -5,7 +5,7 @@ import { useArgos, useDict, useModules } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
-import { MODULE_KEYS, isCoreModule, navLabel, type ModuleKey } from "@/lib/nav";
+import { MODULE_KEYS, isCoreModule, moduleLabel, type ModuleKey } from "@/lib/nav";
 import {
   ROLES,
   ROLE_ICONS,
@@ -43,8 +43,11 @@ function RolesTab() {
   const def = defaults[selected] ?? {};
   // Le cœur (comptes, supervision, paramètres) figure dans la liste mais suit
   // le RBAC : il compte quand le rôle l'a, il ne se bascule pas (ADR 0017).
+  // Les lignes verrouillées des administrateurs montrent leurs défauts — tout,
+  // sauf ce que le RBAC ne leur donne pas (la supervision et le mode édition
+  // pour l'Administrateur).
   const isOn = (role: Role, k: ModuleKey): boolean =>
-    isCoreModule(k) ? (defaults[role] ?? {})[k] === true : role === "superadmin" || role === "admin" ? true : (roleFeatures[role] ?? {})[k] === true;
+    isCoreModule(k) || role === "superadmin" || role === "admin" ? (defaults[role] ?? {})[k] === true : (roleFeatures[role] ?? {})[k] === true;
   const allowedCount = MODULE_KEYS.filter((k) => isOn(selected, k)).length;
 
   const toggle = async (feature: ModuleKey, enabled: boolean) => {
@@ -112,7 +115,7 @@ function RolesTab() {
                 className="flex min-h-[44px] items-center justify-between gap-2 border-b border-gray-100 py-2 text-sm transition-colors last:border-0 disabled:cursor-not-allowed lg:min-h-0 dark:border-rdia-700/50"
               >
                 <span className="flex min-w-0 items-center gap-1.5 text-start">
-                  <span className={on ? "text-gray-700 dark:text-rdia-100" : "text-gray-400 line-through dark:text-rdia-400"}>{navLabel(k, t, selected)}</span>
+                  <span className={on ? "text-gray-700 dark:text-rdia-100" : "text-gray-400 line-through dark:text-rdia-400"}>{moduleLabel(k, t, selected)}</span>
                   {core && <Icon path={UI_ICONS.lock} size={11} className="shrink-0 text-gray-400 dark:text-rdia-400" />}
                   {!frozen && on !== isDefault && (
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-or-500" title={m.settings.modified} />

@@ -149,6 +149,8 @@ export interface LayerState {
   units: boolean;
   /** Postes d'opération posés sur la carte (PC, cellules, abris, parcs). */
   posts: boolean;
+  /** Équipes, véhicules et équipements posés sur le terrain (ADR 0018). */
+  placed: boolean;
   /** Réseau hospitalier militaire (service de santé militaire). */
   hospitals: boolean;
   /** Réseau hospitalier public civil (CHU / CHR / CHP / locaux). */

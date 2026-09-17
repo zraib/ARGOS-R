@@ -92,7 +92,9 @@ export class NrbcController {
   }
 
   @Get("plume/:incidentId")
-  @RequirePermission("nrbc:view")
+  // `plume:view` et non `nrbc:view` (ADR 0018) : la bibliothèque des substances
+  // se consulte largement, la simulation du panache revient à la conduite.
+  @RequirePermission("plume:view")
   @ApiOperation({
     summary: "Panache chimique estimé d'un incident NRBC (GeoJSON).",
     description:

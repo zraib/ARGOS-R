@@ -1030,6 +1030,17 @@ export class CreatePostDto {
   matricule?: string;
 }
 
+/** Pose d'une ressource sur le terrain (ADR 0018). */
+export class PlaceResourceDto {
+  @ApiProperty({ type: [Number], example: [-7.6, 33.58], description: "Point posé [lng, lat]." })
+  @IsArray() @ArrayMinSize(2) @ArrayMaxSize(2) @IsNumber({}, { each: true })
+  ll!: [number, number];
+
+  @ApiPropertyOptional({ description: "Opération à laquelle la pose se rattache (la plus proche, choisie par la carte)." })
+  @IsOptional() @IsString() @MaxLength(40)
+  incidentId?: string;
+}
+
 export class UpdatePostDto {
   @ApiPropertyOptional({ type: [Number], example: [-7.6, 33.58] })
   @IsOptional() @IsArray() @ArrayMinSize(2) @ArrayMaxSize(2) @IsNumber({}, { each: true })

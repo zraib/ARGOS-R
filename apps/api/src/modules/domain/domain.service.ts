@@ -1555,7 +1555,11 @@ export class DomainService implements OnApplicationBootstrap {
   updateEquipmentOf(owner: { kind: "unit" | "hospital" | "shelter"; id: string }, eid: string, patch: Partial<Omit<EquipItem, "id" | "unit" | "unitId" | "ownerKind">>): EquipItem | undefined {
     const e = this.equipment.find((x) => x.id === eid && x.unitId === owner.id && (x.ownerKind ?? "unit") === owner.kind);
     if (!e) return undefined;
-    for (const [k, v] of Object.entries(patch)) if (v !== undefined) (e as unknown as Record<string, unknown>)[k] = v;
+    // `null` retire le champ (une position quittée, ADR 0018) ; `undefined` le laisse.
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === null) delete (e as unknown as Record<string, unknown>)[k];
+      else if (v !== undefined) (e as unknown as Record<string, unknown>)[k] = v;
+    }
     this.persist();
     return e;
   }

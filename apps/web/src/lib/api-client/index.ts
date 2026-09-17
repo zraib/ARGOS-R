@@ -39,6 +39,8 @@ export type UpdateSupplyBody = Json<NonNullable<paths["/api/resources/supplies/{
 export type CreateOwnedEquipBody = Json<NonNullable<paths["/api/resources/equipment"]["post"]["requestBody"]>>;
 export type UpdateOwnedEquipBody = Json<NonNullable<paths["/api/resources/equipment/{id}"]["patch"]["requestBody"]>>;
 export type ResourceOwner = CreatePersonBody["owner"];
+/** Pose d'une ressource sur le terrain (ADR 0018). */
+export type PlaceResourceBody = Json<NonNullable<paths["/api/resources/{kind}/{id}/position"]["put"]["requestBody"]>>;
 export type AppMode = Json<NonNullable<paths["/api/domain/mode"]["patch"]["requestBody"]>>["mode"];
 /** Postes d'opération sur la carte (lot #12). */
 export type CreatePostBody = Json<NonNullable<paths["/api/incidents/{id}/posts"]["post"]["requestBody"]>>;
@@ -307,6 +309,12 @@ export function createArgosClient(opts: ArgosClientOptions) {
     addOwnedEquip: (body: CreateOwnedEquipBody) => client.POST("/api/resources/equipment", { body }),
     updateOwnedEquip: (id: string, body: UpdateOwnedEquipBody) => client.PATCH("/api/resources/equipment/{id}", { params: { path: { id } }, body }),
     removeOwnedEquip: (id: string) => client.DELETE("/api/resources/equipment/{id}", { params: { path: { id } } }),
+    // --- terrain : équipes, véhicules, équipements posés sur la carte (ADR 0018) ---
+    getPlaced: () => client.GET("/api/resources/placed"),
+    getPlaceable: () => client.GET("/api/resources/placeable"),
+    placeResource: (kind: string, id: string, body: PlaceResourceBody) =>
+      client.PUT("/api/resources/{kind}/{id}/position", { params: { path: { kind, id } }, body }),
+    unplaceResource: (kind: string, id: string) => client.DELETE("/api/resources/{kind}/{id}/position", { params: { path: { kind, id } } }),
     /** Acquitter une alerte adressée (`all` : toutes) — l'acquittement survit au rechargement (ADR 0016). */
     ackNotice: (id: string | "all") => client.POST("/api/comms/notices/{id}/ack", { params: { path: { id } } }),
     /** Remise à zéro du domaine, signée par le mot de passe du Super Administrateur ; le réseau hospitalier reste. */

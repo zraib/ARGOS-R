@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useArgos, useDict, useModules } from "@/lib/store";
 import { POST_DRAG_MIME, POST_FILL, pickGroups, type PickItem } from "@/lib/posts";
+import { PLACED_FILL, RESOURCE_DRAG_MIME, placeablePostKinds, placeableResourceKinds, type ResourcePick } from "@/lib/edit";
+import type { PlaceableKind, PlaceableResource } from "@/lib/types";
 import { isOnlineAs } from "@/lib/responsibles";
 import { Switch } from "@/app/map/_parts/Switch";
 import { Icon } from "@/components/ui/Icon";
@@ -10,7 +12,7 @@ import { UI_ICONS } from "@/lib/icons";
 import type { PostKind } from "@/lib/types";
 
 // ============================================================================
-// Boîte à outils du mode édition (lot #12) — Super Administrateur seulement.
+// Boîte à outils du mode édition (lot #12) — PAR RÔLE depuis l'ADR 0018.
 //
 // Il n'y a pas UN OPCOM, UN TACOM, UNE cellule : il y en a plusieurs, et
 // plusieurs abris, plusieurs parcs. La boîte liste donc les INSTANCES, par
@@ -19,6 +21,11 @@ import type { PostKind } from "@/lib/types";
 // déployée ailleurs, ou déjà posée. Deux gestes pour poser, parce que le
 // glisser-déposer HTML5 n'existe pas au doigt : glisser le chip sur la carte,
 // OU le choisir (il s'arme) puis cliquer la carte.
+//
+// Le contenu suit le rôle (`lib/edit.ts`) : le stratégique ne voit que les
+// OPCOM, l'OPCOM son dispositif tactique ; le TACOM et les cellules voient
+// leurs RESSOURCES (équipes, véhicules, équipements) à poser sur le terrain —
+// l'API dit lesquelles (`/resources/placeable`), selon le mode et l'opération.
 // ============================================================================
 
 export function postKindLabel(kind: PostKind, t: ReturnType<typeof useDict>, m: ReturnType<typeof useModules>): string {
@@ -38,16 +45,36 @@ export function PostToolbox() {
   const units = useArgos((s) => s.units);
   const posts = useArgos((s) => s.posts);
   const online = useArgos((s) => s.rtOnline);
+  const role = useArgos((s) => s.role);
+  const placeable = useArgos((s) => s.placeable);
+  const loadPlaceable = useArgos((s) => s.loadPlaceable);
+  const armedResource = useArgos((s) => s.armedResource);
+  const armResource = useArgos((s) => s.armResource);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState<Record<string, boolean>>({});
 
-  // Les comptes déployables se lisent quand le mode s'allume — pas avant :
-  // la liste n'a de sens que pour qui va poser.
-  useEffect(() => {
-    if (mapEdit) void loadDeployable();
-  }, [mapEdit, loadDeployable]);
+  const postKinds = placeablePostKinds(role);
+  const resourceKinds = placeableResourceKinds(role);
 
-  const groups = useMemo(() => pickGroups({ accounts, shelters, units, posts }, t.post_kind_equipment), [accounts, shelters, units, posts, t.post_kind_equipment]);
+  // Les comptes déployables et les ressources posables se lisent quand le
+  // mode s'allume — pas avant : la liste n'a de sens que pour qui va poser.
+  useEffect(() => {
+    if (!mapEdit) return;
+    if (postKinds.length > 0) void loadDeployable();
+    if (resourceKinds.length > 0) void loadPlaceable();
+  }, [mapEdit, loadDeployable, loadPlaceable, postKinds.length, resourceKinds.length]);
+
+  const groups = useMemo(
+    () => pickGroups({ accounts, shelters, units, posts }, t.post_kind_equipment).filter((g) => postKinds.includes(g.kind)),
+    [accounts, shelters, units, posts, t.post_kind_equipment, postKinds],
+  );
+  const resourceGroups = useMemo(
+    () => resourceKinds.map((kind) => ({ kind, items: placeable.filter((r) => r.kind === kind).sort((a, b) => Number(a.placed) - Number(b.placed) || a.label.localeCompare(b.label, "fr")) })),
+    [placeable, resourceKinds],
+  );
+  const resourceKindLabel = (k: PlaceableKind) => (k === "teams" ? t.pl_teams : k === "vehicles" ? t.pl_vehicles : t.pl_equipment);
+  const resourcePick = (r: PlaceableResource): ResourcePick => ({ kind: r.kind, id: r.id, title: r.label });
+  const isArmedResource = (r: PlaceableResource) => !!armedResource && armedResource.kind === r.kind && armedResource.id === r.id;
   const q = query.trim().toLocaleLowerCase("fr");
   const matches = (i: PickItem) => !q || `${i.pick.title} ${i.sub ?? ""}`.toLocaleLowerCase("fr").includes(q);
   const isArmed = (i: PickItem) => !!armedPost && armedPost.kind === i.pick.kind && armedPost.matricule === i.pick.matricule && armedPost.entityId === i.pick.entityId;
@@ -60,7 +87,7 @@ export function PostToolbox() {
           <Switch on={mapEdit} />
         </button>
       </div>
-      <p className="text-[12px] leading-snug text-white/60">{t.map_edit_hint}</p>
+      {postKinds.length > 0 && <p className="text-[12px] leading-snug text-white/60">{t.map_edit_hint}</p>}
 
       {mapEdit && (
         <>
@@ -143,9 +170,69 @@ export function PostToolbox() {
         </>
       )}
 
-      {mapEdit && armedPost && (
+      {mapEdit && resourceKinds.length > 0 && (
+        <div className="border-t border-white/10 pt-2">
+          <p className="mb-1 text-[12px] font-bold uppercase tracking-wider text-white/50">{t.pl_section}</p>
+          <p className="mb-2 text-[12px] leading-snug text-white/60">{t.pl_place_hint}</p>
+          {placeable.length === 0 && <p className="ps-4 text-[12px] text-white/45">{t.pl_none}</p>}
+          {resourceGroups.map((g) => {
+            const items = g.items.filter((r) => !q || `${r.label} ${r.ownerLabel} ${r.sub ?? ""}`.toLocaleLowerCase("fr").includes(q));
+            const libres = g.items.filter((r) => !r.placed).length;
+            const ouvert = open[`res:${g.kind}`] ?? (!!q || g.items.length <= 4);
+            if (g.items.length === 0) return null;
+            return (
+              <div key={g.kind} className="border-t border-white/10 pt-2">
+                <button type="button" onClick={() => setOpen((o) => ({ ...o, [`res:${g.kind}`]: !ouvert }))} aria-expanded={ouvert} className="flex w-full items-center gap-2 text-start">
+                  <Icon path={UI_ICONS.chevronRight} size={10} strokeWidth={2.5} className="shrink-0 transition-transform" style={{ transform: ouvert ? "rotate(90deg)" : undefined }} />
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-black/40" style={{ background: PLACED_FILL[g.kind] }} aria-hidden="true" />
+                  <span className="min-w-0 flex-1 truncate font-semibold text-white/90">{resourceKindLabel(g.kind)}</span>
+                  <span className="shrink-0 text-[11px] text-white/50">
+                    {libres} {libres > 1 ? t.post_available_many : t.post_available} · {g.items.length}
+                  </span>
+                </button>
+                {ouvert && (
+                  <div className="mt-1.5 flex flex-col gap-1">
+                    {items.map((r) => {
+                      const armed = isArmedResource(r);
+                      return (
+                        <button
+                          key={`${r.kind}:${r.id}`}
+                          type="button"
+                          draggable={!r.placed}
+                          disabled={r.placed}
+                          title={r.placed ? t.pl_placed : undefined}
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData(RESOURCE_DRAG_MIME, JSON.stringify(resourcePick(r)));
+                            e.dataTransfer.effectAllowed = "copy";
+                          }}
+                          onClick={() => armResource(armed ? null : resourcePick(r))}
+                          aria-pressed={armed}
+                          className={`flex min-h-11 items-center gap-2 rounded-lg border px-2 py-1.5 text-start transition-colors ${
+                            r.placed
+                              ? "cursor-not-allowed border-white/10 bg-white/[0.03] text-white/35"
+                              : armed
+                                ? "cursor-grab border-or-400 bg-or-500/20 text-or-300 active:cursor-grabbing"
+                                : "cursor-grab border-white/15 bg-white/5 text-white/85 hover:bg-white/10 active:cursor-grabbing"
+                          }`}
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[13px] font-semibold">{r.label}</span>
+                            <span className="block truncate text-[11px] text-white/50">{r.placed ? t.pl_placed : `${r.ownerLabel}${r.sub ? ` · ${r.sub}` : ""}`}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {mapEdit && (armedPost || armedResource) && (
         <p className="text-[12px] font-semibold text-or-300">
-          {t.map_edit_armed} — {armedPost.title}
+          {t.map_edit_armed} — {armedPost?.title ?? armedResource?.title}
         </p>
       )}
     </div>

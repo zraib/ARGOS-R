@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CORE_MODULES, FLAGGABLE_KEYS, HREF, MODULE_KEYS, NAV, NAV_MODULE, firstOpenHref, keyForPath, moduleOpen, navLabel, screenTitle, type NavEntry, type NavKey } from "@/lib/nav";
+import { CAPABILITY_MODULES, CORE_MODULES, FLAGGABLE_KEYS, HREF, MODULE_KEYS, NAV, NAV_MODULE, firstOpenHref, isCapabilityModule, keyForPath, moduleKeyOpen, moduleLabel, moduleOpen, navLabel, screenTitle, type NavEntry, type NavKey } from "@/lib/nav";
 import { ROLES } from "@/lib/roles";
 import { FR_DICT } from "@/lib/i18n/translations.fr";
 
@@ -46,9 +46,12 @@ describe("navigation", () => {
     expect(items(NAV).find((e) => e.key === "trackers")!.roles).toBeUndefined();
   });
 
-  it("chaque écran connaît son module, et chaque module est un écran", () => {
+  it("chaque écran connaît son module, et chaque module est un écran ou une capacité de la carte", () => {
     for (const key of Object.keys(HREF) as NavKey[]) expect(key in NAV_MODULE, key).toBe(true);
-    for (const m of MODULE_KEYS) expect(HREF[m], m).toBeDefined();
+    for (const m of MODULE_KEYS) expect(isCapabilityModule(m) || m in HREF, m).toBe(true);
+    for (const c of CAPABILITY_MODULES) expect(moduleLabel(c, FR_DICT)).not.toBe("");
+    expect(moduleLabel("mapEdit", FR_DICT)).toBe(FR_DICT.mod_map_edit);
+    expect(moduleLabel("myrespManage", FR_DICT, "resp_unit")).toBe(FR_DICT.nav_manage_unit);
   });
 
   it("tout le menu figure dans la matrice rôle → modules, dans l'ordre du menu (ADR 0017)", () => {
@@ -76,6 +79,10 @@ describe("navigation", () => {
     expect(moduleOpen("opsnet", { units: false }, undefined)).toBe(true);
     expect(moduleOpen("opsnet", { opsnet: false }, undefined)).toBe(false);
     expect(moduleOpen("morgue", {}, { morgue: false })).toBe(false);
+    // Les capacités de la carte se coupent comme les écrans.
+    expect(moduleKeyOpen("simFlood", {}, { simFlood: false })).toBe(false);
+    expect(moduleKeyOpen("mapEdit", {}, undefined, { mapEdit: false })).toBe(false);
+    expect(moduleKeyOpen("simNrbc", {}, undefined)).toBe(true);
   });
 
   it("firstOpenHref : l'accueil de repli est le premier écran ouvert du menu pour le rôle", () => {

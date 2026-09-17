@@ -97,7 +97,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `GET` | `/api/comms/responsables` | `comms:view` | Qui tient quoi — titulaire de chaque entité affectée et de chaque poste déployé |
 | `GET` | `/api/dashboard/risk` | `dashboard:view` | Prédictions de risques (moteur déterministe, calculé côté serveur) |
 | `GET` | `/api/dashboard/stats` | `dashboard:view` | Statistiques de commandement : évolution 30 j, gravité, bilan humain, saturation hospitalière, posture des unités |
-| `GET` | `/api/deployable-posts` | `incidents:update` | Comptes déployables, avec leur affectation courante. |
+| `GET` | `/api/deployable-posts` | `incidents:view` | Comptes déployables, avec leur affectation courante. |
 | `GET` | `/api/dispatch/movements` | `dispatch:view` | Mouvements de transport en cours |
 | `GET` | `/api/dispatch/queue` | `dispatch:view` | File de dispatching (besoins entrants) |
 | `PATCH` | `/api/domain/mode` | `settings:update` | Changer le mode de la station — SUPERADMIN, mot de passe exigé (ADR 0016). |
@@ -136,9 +136,9 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `GET` | `/api/incidents/{id}/deployments` | `incidents:view` | Postes déployés sur cette opération. |
 | `POST` | `/api/incidents/{id}/deployments` | `incidents:update` | Déployer un poste sur l'opération. |
 | `DELETE` | `/api/incidents/{id}/deployments/{matricule}` | `incidents:update` | Retirer un poste de l'opération. |
-| `POST` | `/api/incidents/{id}/posts` | `map_edit:create` | Poser un poste sur la carte d'une opération — Super Administrateur (audité) |
-| `DELETE` | `/api/incidents/{id}/posts/{postId}` | `map_edit:delete` | Retirer un poste de la carte — Super Administrateur (audité) |
-| `PATCH` | `/api/incidents/{id}/posts/{postId}` | `map_edit:update` | Déplacer ou renommer un poste — Super Administrateur (audité) |
+| `POST` | `/api/incidents/{id}/posts` | `map_edit:create` | Poser un poste sur la carte d'une opération — selon le rôle (audité) |
+| `DELETE` | `/api/incidents/{id}/posts/{postId}` | `map_edit:update` | Retirer un poste de la carte — selon le rôle (audité) |
+| `PATCH` | `/api/incidents/{id}/posts/{postId}` | `map_edit:update` | Déplacer ou renommer un poste — selon le rôle (audité) |
 | `POST` | `/api/incidents/{id}/sub-incidents` | `subincidents:create` | Rattacher un sous-incident (aléa secondaire) à un incident (audité) |
 | `DELETE` | `/api/incidents/{id}/sub-incidents/{subId}` | `subincidents:archive` | Détacher un sous-incident (audité) |
 | `GET` | `/api/incidents/{id}/victims` | `victims:view` | Victimes nommées d'un incident — dans son périmètre de visibilité |
@@ -220,7 +220,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | Méthode | Route | Accès | Rôle |
 | --- | --- | --- | --- |
 | `GET` | `/api/nrbc/library` | `nrbc:view` | Bibliothèque de substances dangereuses — recherche et provenance (lot N-3). |
-| `GET` | `/api/nrbc/plume/{incidentId}` | `nrbc:view` | Panache chimique estimé d'un incident NRBC (GeoJSON). |
+| `GET` | `/api/nrbc/plume/{incidentId}` | `plume:view` | Panache chimique estimé d'un incident NRBC (GeoJSON). |
 | `GET` | `/api/nrbc/substances` | `nrbc:view` | Catalogue des substances chimiques (table 1 de l'ERG 2024). |
 | `GET` | `/api/nrbc/substances/{id}` | `nrbc:view` | Fiche opérationnelle d'une substance. |
 
@@ -262,12 +262,16 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | Méthode | Route | Accès | Rôle |
 | --- | --- | --- | --- |
 | `GET` | `/api/resources` | `resources:view` | Les ressources d'une entité (personnes, équipes, véhicules, logistique, équipements), ou le registre entier. |
+| `DELETE` | `/api/resources/{kind}/{id}/position` | `map_edit:update` | Retirer une ressource du terrain — selon le rôle et le mode (ADR 0018) |
+| `PUT` | `/api/resources/{kind}/{id}/position` | `map_edit:update` | Poser ou déplacer une ressource sur le terrain — selon le rôle et le mode (ADR 0018) |
 | `POST` | `/api/resources/equipment` | `resources:create` | Ajouter un article au parc d'une entité (unité, hôpital, abri) |
 | `DELETE` | `/api/resources/equipment/{id}` | `resources:archive` | Sortir un article du parc |
 | `PATCH` | `/api/resources/equipment/{id}` | `resources:update` | Mettre à jour un article du parc |
 | `POST` | `/api/resources/persons` | `resources:create` | Inscrire une personne au registre d'une entité |
 | `DELETE` | `/api/resources/persons/{id}` | `resources:archive` | Retirer une personne du registre |
 | `PATCH` | `/api/resources/persons/{id}` | `resources:update` | Mettre à jour une personne |
+| `GET` | `/api/resources/placeable` | `map_edit:view` | Ce que le compte peut poser sur le terrain (boîte à outils du mode édition) |
+| `GET` | `/api/resources/placed` | `resources:view` | Équipes, véhicules et équipements posés sur le terrain — ce que la carte dessine |
 | `POST` | `/api/resources/supplies` | `resources:create` | Inscrire une ressource logistique (carburant, vivres, couchage, campement) |
 | `DELETE` | `/api/resources/supplies/{id}` | `resources:archive` | Retirer une ressource logistique du registre |
 | `PATCH` | `/api/resources/supplies/{id}` | `resources:update` | Mettre à jour une ressource logistique |
@@ -291,7 +295,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 ## Chiffres
 
-146 chemins · 187 opérations · 14 groupes.
+149 chemins · 191 opérations · 14 groupes.
 
 ## Modifier le contrat
 

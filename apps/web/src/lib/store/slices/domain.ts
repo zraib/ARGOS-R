@@ -25,6 +25,9 @@ import type {
   IncidentTypeDef,
   Mission,
   Notice,
+  PlaceableKind,
+  PlaceableResource,
+  PlacedResource,
   PostKind,
   Province,
   Responsible,
@@ -93,6 +96,16 @@ export interface DomainSlice {
   deployable: DeployableAccount[];
   loadDeployable: () => Promise<void>;
   loadPosts: () => Promise<void>;
+  // --- ressources sur le terrain (mode édition par rôle, ADR 0018) ---
+  /** Ce que la carte dessine : équipes, véhicules, équipements posés. */
+  placed: PlacedResource[];
+  /** Ce que le compte peut poser (boîte à outils) — lu quand le mode s'allume. */
+  placeable: PlaceableResource[];
+  loadPlaced: () => Promise<void>;
+  loadPlaceable: () => Promise<void>;
+  placeResource: (kind: PlaceableKind, id: string, ll: [number, number], incidentId?: string) => Promise<void>;
+  movePlaced: (kind: PlaceableKind, id: string, ll: [number, number]) => Promise<void>;
+  unplaceResource: (kind: PlaceableKind, id: string) => Promise<void>;
   createPost: (incidentId: string, body: { kind: PostKind; ll: [number, number]; label?: string; entityId?: string; matricule?: string }) => Promise<void>;
   movePost: (id: string, ll: [number, number]) => Promise<void>;
   deletePost: (id: string) => Promise<void>;
@@ -162,6 +175,31 @@ function marquerMiens(
   return sortie;
 }
 
+/**
+ * Relecture du domaine SANS perdre ce que le flux a déjà apporté : un message
+ * reçu en direct pendant que `/comms` se relisait (conversation ouverte puis
+ * écrite dans la foulée) manquait à l'instantané serveur et disparaissait avec
+ * lui — la conversation s'ouvrait vide. Chaque canal garde l'union des deux,
+ * dédoublonnée sur l'identifiant, dans l'ordre des identifiants.
+ */
+function fusionnerMessages(
+  local: Record<string, CommMessage[]>,
+  serveur: Record<string, CommMessage[]>,
+): Record<string, CommMessage[]> {
+  const sortie: Record<string, CommMessage[]> = { ...serveur };
+  for (const [canal, liste] of Object.entries(local)) {
+    const base = sortie[canal] ?? [];
+    const connus = new Set(base.map((m) => m.id));
+    const manquants = liste.filter((m) => !connus.has(m.id));
+    if (manquants.length === 0) {
+      if (!(canal in sortie)) sortie[canal] = liste;
+      continue;
+    }
+    sortie[canal] = [...base, ...manquants].sort((a, b) => a.id - b.id);
+  }
+  return sortie;
+}
+
 export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = (set, get) => ({
   incidents: [],
   units: [],
@@ -192,6 +230,8 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
     }
   },
   deployable: [],
+  placed: [],
+  placeable: [],
   comCollapsed: {},
   provinces: [],
   cities: [],
@@ -221,6 +261,7 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
       api.getPosts(),
       api.getShelters(),
       api.getMorgues(),
+      api.getPlaced(),
     ]);
     const data = <T,>(i: number): T | undefined =>
       results[i].status === "fulfilled"
@@ -245,8 +286,9 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
       posts: data<IncidentPost[]>(15) ?? s.posts,
       shelters: data<Shelter[]>(16) ?? s.shelters,
       morgues: data<MorgueSite[]>(17) ?? s.morgues,
+      placed: data<PlacedResource[]>(18) ?? s.placed,
       comCats: comms?.categories ?? s.comCats,
-      comMsgs: comms?.messages ? marquerMiens(comms.messages, s.sessionUser?.matricule) : s.comMsgs,
+      comMsgs: comms?.messages ? fusionnerMessages(s.comMsgs, marquerMiens(comms.messages, s.sessionUser?.matricule)) : s.comMsgs,
       comMembers: comms?.members ?? s.comMembers,
       provinces: reference?.provinces ?? s.provinces,
       cities: reference?.cities ?? s.cities,
@@ -309,6 +351,32 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
     get().recomputeRiskPredictions();
   },
   selectChannel: (id) => set({ comSel: id }),
+  loadPlaced: async () => {
+    const res = await api.getPlaced();
+    if (res.data) set({ placed: res.data as unknown as PlacedResource[] });
+  },
+  loadPlaceable: async () => {
+    const res = await api.getPlaceable();
+    if (res.data) set({ placeable: res.data as unknown as PlaceableResource[] });
+  },
+  placeResource: async (kind, id, ll, incidentId) => {
+    const res = await api.placeResource(kind, id, { ll, incidentId });
+    if (res.error) throw new Error(apiErrorMessage(res.error));
+    await Promise.all([get().loadPlaced(), get().loadPlaceable()]);
+  },
+  // Optimiste, comme un poste : le marqueur reste où l'opérateur l'a lâché.
+  movePlaced: async (kind, id, ll) => {
+    const cur = get().placed.find((p) => p.kind === kind && p.id === id);
+    if (!cur) return;
+    set({ placed: get().placed.map((p) => (p === cur ? { ...p, position: { ...p.position, ll } } : p)) });
+    const res = await api.placeResource(kind, id, { ll, incidentId: cur.position.incidentId });
+    if (res.error) await get().loadPlaced();
+  },
+  unplaceResource: async (kind, id) => {
+    const res = await api.unplaceResource(kind, id);
+    if (res.error) throw new Error(apiErrorMessage(res.error));
+    await Promise.all([get().loadPlaced(), get().loadPlaceable()]);
+  },
   loadPosts: async () => {
     const res = await api.getPosts();
     if (res.data) set({ posts: res.data as unknown as IncidentPost[] });

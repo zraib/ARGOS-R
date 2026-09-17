@@ -375,7 +375,10 @@ export class IncidentsController {
   }
 
   @Get("deployable-posts")
-  @RequirePermission("incidents:update")
+  // `incidents:view` et non `incidents:update` (ADR 0018) : l'utilisateur
+  // stratégique, qui pose les OPCOM sur la carte, doit lire qui peut l'être —
+  // un annuaire des comptes déployables, rien que le commandement ne sache déjà.
+  @RequirePermission("incidents:view")
   @ApiOperation({
     summary: "Comptes déployables, avec leur affectation courante.",
     description:

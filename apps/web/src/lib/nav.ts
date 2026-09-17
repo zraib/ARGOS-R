@@ -177,8 +177,28 @@ export const MODULE_KEYS = [
   "equip", "units", "resources", "workorders",
   "hospitals", "opsnet", "morgue", "ics", "damage", "shelters",
   "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation",
+  "mapEdit", "simFlood", "simFire", "simNrbc",
   "users", "supervision", "settings",
 ] as const satisfies readonly ModuleKey[];
+
+/**
+ * Capacités de la carte (ADR 0018) : des modules SANS écran — le mode édition
+ * et les trois simulations — que la matrice ouvre ou coupe par rôle comme les
+ * écrans. Leur libellé vient d'ici, pas du menu.
+ */
+export const CAPABILITY_MODULES = ["mapEdit", "simFlood", "simFire", "simNrbc"] as const satisfies readonly ModuleKey[];
+export type CapabilityModule = (typeof CAPABILITY_MODULES)[number];
+
+const CAPABILITY_LABEL_KEYS: Record<CapabilityModule, keyof Dict> = {
+  mapEdit: "mod_map_edit",
+  simFlood: "mod_sim_flood",
+  simFire: "mod_sim_fire",
+  simNrbc: "mod_sim_nrbc",
+};
+
+export function isCapabilityModule(m: ModuleKey): m is CapabilityModule {
+  return (CAPABILITY_MODULES as readonly ModuleKey[]).includes(m);
+}
 
 // Garde de complétude : si l'API ajoute un module au contrat, cette ligne
 // refuse de compiler tant que la liste ci-dessus ne le porte pas.
@@ -249,7 +269,18 @@ export function moduleOpen(
   myModules?: Record<string, boolean> | null,
 ): boolean {
   const m = NAV_MODULE[key];
-  if (m === null || isCoreModule(m)) return true;
+  if (m === null) return true;
+  return moduleKeyOpen(m, flags, roleFeatures, myModules);
+}
+
+/** Même règle, par clé de module — pour les capacités de la carte, qui n'ont pas d'écran (ADR 0018). */
+export function moduleKeyOpen(
+  m: ModuleKey,
+  flags: Record<string, boolean>,
+  roleFeatures: Record<string, boolean> | undefined,
+  myModules?: Record<string, boolean> | null,
+): boolean {
+  if (isCoreModule(m)) return true;
   if (myModules) return myModules[m] !== false;
   return flags[m] !== false && roleFeatures?.[m] !== false;
 }
@@ -331,6 +362,11 @@ export function navLabel(key: NavKey | GroupKey, t: Dict, role?: Role): string {
     if (kind) return t[MANAGE_LABEL_KEYS[kind]];
   }
   return t[LABEL_KEYS[key]];
+}
+
+/** Libellé d'un module : celui de son écran, ou celui de la capacité de la carte. */
+export function moduleLabel(m: ModuleKey, t: Dict, role?: Role): string {
+  return isCapabilityModule(m) ? t[CAPABILITY_LABEL_KEYS[m]] : navLabel(m, t, role);
 }
 
 /** Résout un chemin vers le libellé de l'écran courant (pour l'en-tête). */

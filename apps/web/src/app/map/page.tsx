@@ -27,6 +27,8 @@ import { Switch } from "@/app/map/_parts/Switch";
 import { PostToolbox, postKindLabel } from "@/components/map/PostToolbox";
 import { PlacePostModal } from "@/components/map/PlacePostModal";
 import { canEditMap } from "@/lib/roles";
+import { PLACED_FILL, placeablePostKinds, placeableResourceKinds } from "@/lib/edit";
+import { moduleKeyOpen } from "@/lib/nav";
 import { POST_FILL, postCaption } from "@/lib/posts";
 import { Panel } from "@/app/map/_parts/Panel";
 import { FloodPanel } from "@/app/map/_parts/FloodPanel";
@@ -50,6 +52,15 @@ export default function MapPage() {
   const responsables = useArgos((s) => s.responsables);
   const mapEdit = useArgos((s) => s.mapEdit);
   const deletePost = useArgos((s) => s.deletePost);
+  const placed = useArgos((s) => s.placed);
+  const unplaceResource = useArgos((s) => s.unplaceResource);
+  // Capacités de la carte (ADR 0018) : mode édition et simulations suivent la
+  // matrice rôle → modules comme les écrans — coupées, elles n'apparaissent pas.
+  const flags = useArgos((s) => s.flags);
+  const roleFeatures = useArgos((s) => s.roleFeatures);
+  const myModules = useArgos((s) => s.myModules);
+  const capOpen = (k: "mapEdit" | "simFlood" | "simFire" | "simNrbc") => moduleKeyOpen(k, flags, roleFeatures[role], myModules);
+  const editOpen = canEditMap(role) && capOpen("mapEdit");
   const showToast = useArgos((s) => s.showToast);
   const hospitals = useArgos((s) => s.hospitals);
   const layers = useArgos((s) => s.layers);
@@ -252,6 +263,12 @@ export default function MapPage() {
           label: t.lg_posts,
           leaves: posts.map((p) => ({ id: p.id, label: `${postKindLabel(p.kind, t, m)} · ${postCaption(p, { shelters, units, responsables }) ?? p.incidentId}`, kind: "post" as const })),
         },
+        {
+          // Équipes, véhicules et équipements posés sur le terrain (ADR 0018).
+          key: "placed",
+          label: t.lg_placed,
+          leaves: placed.map((p) => ({ id: `${p.kind}:${p.id}`, label: `${p.label} · ${p.ownerLabel}`, kind: "placed" as const })),
+        },
       ],
     },
   ];
@@ -316,6 +333,35 @@ export default function MapPage() {
           lines: [{ k: t.col_id, v: i.id }, { k: t.h_typev, v: typeLabel(i.type, incidentTypes, lang) }, { k: t.col_status, v: stBadge(i.st, t).label }, { k: t.col_time, v: i.time }],
         };
       }
+    } else if (kind === "placed") {
+      const p = placed.find((x) => `${x.kind}:${x.id}` === id);
+      if (p) {
+        const inc = p.position.incidentId ? incidents.find((i) => i.id === p.position.incidentId) : undefined;
+        const kindLabel = p.kind === "teams" ? t.pl_teams : p.kind === "vehicles" ? t.pl_vehicles : t.pl_equipment;
+        selInfo = {
+          titre: p.label,
+          sub: p.sub ? `${kindLabel} · ${p.sub}` : kindLabel,
+          badgeType: "active",
+          badgeLabel: t.pl_placed,
+          lines: [
+            { k: t.pl_owner, v: p.ownerLabel },
+            ...(inc ? [{ k: t.post_incident, v: `${inc.id} · ${inc.titre}` }] : []),
+            { k: t.pl_by, v: `${p.position.by} · ${p.position.at.slice(0, 16).replace("T", " ")}` },
+            { k: t.post_coords, v: `${p.position.ll[1].toFixed(4)}, ${p.position.ll[0].toFixed(4)}` },
+          ],
+          remove:
+            mapEdit && editOpen && placeableResourceKinds(role).includes(p.kind)
+              ? () => {
+                  void unplaceResource(p.kind, p.id)
+                    .then(() => {
+                      clearSelection();
+                      showToast(t.pl_removed);
+                    })
+                    .catch((err: unknown) => showToast(`${t.toast_fail} — ${err instanceof Error ? err.message : String(err)}`));
+                }
+              : undefined,
+        };
+      }
     } else if (kind === "post") {
       const p = posts.find((x) => x.id === id);
       if (p) {
@@ -338,7 +384,7 @@ export default function MapPage() {
           ],
           responsible,
           remove:
-            mapEdit && canEditMap(role)
+            mapEdit && editOpen && placeablePostKinds(role).includes(p.kind)
               ? () => {
                   void deletePost(p.id)
                     .then(() => {
@@ -404,6 +450,7 @@ export default function MapPage() {
     [<path key="i" d="M0,-6 L6,5 L-6,5 Z" fill="#EF4444" />, t.nav_inc],
     ...(vehRoutes.length > 0 ? [[<path key="v" d="M0,-5 L5,0 L0,5 L-5,0 Z" fill="#3B82F6" />, t.lg_veh] as [ReactNode, string]] : []),
     [<rect key="p" x={-7} y={-4} width={14} height={8} rx={2} fill={POST_FILL.opcom} stroke="#0f1f14" />, t.lg_posts],
+    [<rect key="pl" x={-7} y={-4} width={14} height={8} rx={4} fill={PLACED_FILL.teams} stroke="#0f1f14" />, t.lg_placed],
     [<circle key="s" r={5} fill="#15803d" stroke="#fff" strokeWidth={1.5} />, t.lg_shelters],
     [<circle key="m" r={5} fill="#64748b" stroke="#fff" strokeWidth={1.5} />, t.lg_morgues],
     [<circle key="k" r={5} fill="#C9A84C" stroke="#fff" strokeWidth={1.5} />, t.lg_trackers],
@@ -667,9 +714,9 @@ export default function MapPage() {
     { key: "aircraft", label: t.acft_panel, body: <AircraftPanel /> },
     { key: "legend", label: t.legend, body: legendBody },
   ];
-  if (canEditMap(role)) sheetTabs.push({ key: "edit", label: t.map_edit_mode, body: <PostToolbox /> });
-  sheetTabs.push({ key: "flood", label: t.flood_panel, body: <FloodPanel /> });
-  sheetTabs.push({ key: "fire", label: t.fire_panel, body: <FirePanel /> });
+  if (editOpen) sheetTabs.push({ key: "edit", label: t.map_edit_mode, body: <PostToolbox /> });
+  if (capOpen("simFlood")) sheetTabs.push({ key: "flood", label: t.flood_panel, body: <FloodPanel /> });
+  if (capOpen("simFire")) sheetTabs.push({ key: "fire", label: t.fire_panel, body: <FirePanel /> });
   if (selInfo) sheetTabs.push({ key: "selection", label: selInfo.titre, body: selectionBody });
   const openTab = sheetTabs.find((x) => x.key === sheet) ?? null;
 
@@ -702,17 +749,18 @@ export default function MapPage() {
                 { key: "layers" as const, icon: UI_ICONS.layers, label: t.layers },
                 { key: "air" as const, icon: UI_ICONS.plane, label: t.acft_panel },
                 { key: "legend" as const, icon: UI_ICONS.legend, label: t.legend },
-                // Crues : prévisions Flood Hub et simulateur d'inondation (ADR 0010).
-                { key: "flood" as const, icon: TYPE_ICONS.flood, label: t.flood_panel },
+                // Crues : prévisions Flood Hub et simulateur d'inondation (ADR 0010) —
+                // réservé à la conduite par la matrice (ADR 0018).
+                ...(capOpen("simFlood") ? [{ key: "flood" as const, icon: TYPE_ICONS.flood, label: t.flood_panel }] : []),
                 // Feux de forêt : simulateur de propagation du front (ADR 0011).
-                { key: "fire" as const, icon: TYPE_ICONS.wildfire, label: t.fire_panel },
-                // Le mode édition n'existe que pour qui peut poser un poste :
-                // l'API le refuserait de toute façon aux autres.
-                ...(canEditMap(role) ? [{ key: "edit" as const, icon: UI_ICONS.edit, label: t.map_edit_mode }] : []),
+                ...(capOpen("simFire") ? [{ key: "fire" as const, icon: TYPE_ICONS.wildfire, label: t.fire_panel }] : []),
+                // Le mode édition n'existe que pour qui a quelque chose à poser
+                // (ADR 0018) : l'API refuserait de toute façon le reste.
+                ...(editOpen ? [{ key: "edit" as const, icon: UI_ICONS.edit, label: t.map_edit_mode }] : []),
                 // Le bouton NRBC existe dès qu'un incident chimique est en cours
                 // (ou qu'un panache est déjà affiché) : la capacité se découvre
                 // depuis la carte, sans passer par la fiche incident.
-                ...(plumeIncidentId || nrbcIncidents.length > 0
+                ...(capOpen("simNrbc") && (plumeIncidentId || nrbcIncidents.length > 0)
                   ? [{ key: "nrbc" as const, icon: UI_ICONS.nrbc, label: t.nrbc_panel }]
                   : []),
               ]

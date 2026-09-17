@@ -6,7 +6,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
 import { Pill } from "@/components/ui/Pill";
 import { UI_ICONS, NAV_ICONS, INCIDENT_ICON_CHOICES } from "@/lib/icons";
-import { FLAGGABLE_KEYS, navLabel } from "@/lib/nav";
+import { FLAGGABLE_KEYS, moduleLabel } from "@/lib/nav";
 import { AI_PROVIDERS, AI_DEFAULT_SETTINGS, resolveProvider, type LlmProviderId } from "@/lib/ai/config";
 import { probeProvider, listModels } from "@/lib/ai/provider";
 import { api } from "@/lib/api";
@@ -329,7 +329,7 @@ export default function ParametresPage() {
                 onClick={() => toggleFlag(k, on)}
                 className="flex min-h-11 items-center justify-between gap-2 border-b border-gray-100 py-2 text-start text-sm transition-colors last:border-0 lg:min-h-0 dark:border-rdia-700/50"
               >
-                <span className={`min-w-0 truncate ${on ? "text-gray-700 dark:text-rdia-100" : "text-gray-400 line-through dark:text-rdia-400"}`}>{navLabel(k, t)}</span>
+                <span className={`min-w-0 truncate ${on ? "text-gray-700 dark:text-rdia-100" : "text-gray-400 line-through dark:text-rdia-400"}`}>{moduleLabel(k, t)}</span>
                 <span className={`relative h-4 w-8 shrink-0 rounded-full transition-colors ${on ? "bg-or-500" : "bg-gray-300 dark:bg-rdia-600"}`}>
                   {/* Propriété logique : en RTL le curseur doit glisser vers la gauche. */}
                   <span className="absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all" style={{ insetInlineStart: on ? 18 : 2 }} />

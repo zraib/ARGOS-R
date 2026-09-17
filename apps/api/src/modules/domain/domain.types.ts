@@ -482,6 +482,18 @@ export const POST_KINDS = ["opcom", "tacom", "pco", "pct", "bluecell", "greencel
 export type PostKind = (typeof POST_KINDS)[number];
 
 /**
+ * Position sur le terrain d'une équipe, d'un véhicule ou d'un équipement
+ * (mode édition par rôle, ADR 0018) : où et par qui il a été posé, et sur
+ * quelle opération s'il y en avait une à portée.
+ */
+export interface Placement {
+  ll: [number, number];
+  incidentId?: string;
+  at: string;
+  by: string;
+}
+
+/**
  * Un poste posé sur la carte d'une opération : un PC (OPCOM, TACOM), une
  * cellule, un abri ou un parc d'équipement, à un point précis.
  *

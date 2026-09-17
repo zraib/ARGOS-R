@@ -32,6 +32,8 @@ export type RealtimeEvent =
   | { kind: "notice"; notice: Notice }
   /** Les postes d'une opération ont changé : chaque poste relit ceux qu'il a le droit de voir. */
   | { kind: "posts"; incidentId: string }
+  /** Une équipe, un véhicule ou un équipement a été posé, déplacé ou retiré du terrain (ADR 0018) : la carte relit. */
+  | { kind: "placed" }
   /** Accusé d'une conversation directe : le correspondant a reçu (« remis ») ou lu les messages jusqu'à `upToId`. */
   | { kind: "receipt"; channelId: string; by: string; state: "delivered" | "read"; upToId: number }
   /** Le correspondant écrit — transitoire, jamais gardé. */

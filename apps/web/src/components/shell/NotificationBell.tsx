@@ -6,10 +6,13 @@ import { useArgos, useDict } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import { noticeTime, unseenNotices } from "@/lib/notices";
-import { playNotificationTone } from "@/lib/sound";
+import { playReminderTone } from "@/lib/sound";
 
 /** Cadence du rappel sonore tant qu'une alerte ou un message reste à acquitter (ADR 0016). */
-const REMINDER_MS = 45_000;
+// Toutes les 20 s, et une première fois 3 s après l'arrivée : un rappel qu'on
+// n'entend qu'au bout d'une minute laisse le temps de partir de la pièce.
+const REMINDER_MS = 20_000;
+const FIRST_REMINDER_MS = 3_000;
 import type { Notice } from "@/lib/types";
 
 // ============================================================================
@@ -39,6 +42,7 @@ export function NotificationBell() {
   const status = useArgos((s) => s.rtStatus);
   const comCats = useArgos((s) => s.comCats);
   const setActive = useArgos((s) => s.rtSetActiveChannel);
+  const selectChannel = useArgos((s) => s.selectChannel);
   const notices = useArgos((s) => s.rtNotices);
   const seen = useArgos((s) => s.rtNoticesSeen);
   const markSeen = useArgos((s) => s.rtMarkNoticeSeen);
@@ -57,16 +61,20 @@ export function NotificationBell() {
 
   // PERSISTANT JUSQU'À L'ACQUITTEMENT (ADR 0016) : tant qu'une alerte n'est pas
   // acquittée ou qu'un message n'est pas lu, la cloche bat et un rappel sonore
-  // discret revient à cadence fixe — une notification qu'on peut manquer une
+  // NET revient à cadence serrée — une notification qu'on peut manquer une
   // fois ne doit pas se taire d'elle-même. Les préférences sonores du poste
-  // restent maîtresses.
+  // restent maîtresses ; le rappel se tait dès que le compte est à jour.
   const pending = fraiches.length > 0 || totalMessages > 0;
   useEffect(() => {
     if (!pending) return;
     const wantsSound = (fraiches.length > 0 && sounds.alerts) || (totalMessages > 0 && sounds.messages);
     if (!wantsSound) return;
-    const id = window.setInterval(() => playNotificationTone(), REMINDER_MS);
-    return () => window.clearInterval(id);
+    const first = window.setTimeout(() => playReminderTone(), FIRST_REMINDER_MS);
+    const id = window.setInterval(() => playReminderTone(), REMINDER_MS);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(id);
+    };
   }, [pending, fraiches.length, totalMessages, sounds.alerts, sounds.messages]);
 
   /** Nom lisible d'un canal — l'identifiant ne dit rien à personne. */
@@ -102,7 +110,9 @@ export function NotificationBell() {
     };
   }, [ouvert]);
 
+  /** Ouvre LA conversation concernée dans le centre de communication — pas seulement l'écran. */
   const allerAuCanal = (id: string) => {
+    selectChannel(id);
     setActive(id);
     setOuvert(false);
     router.push("/communication");

@@ -35,6 +35,18 @@ export function postMarkerHTML(code: string, fill: string, sel: boolean, caption
   );
 }
 
+/** Ressource posée sur le terrain (ADR 0018) : pastille ronde à code court, pour ne pas la confondre avec un poste. */
+export function placedMarkerHTML(code: string, fill: string, sel: boolean, caption?: string): string {
+  return (
+    '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">' +
+    `<div style="min-width:22px;padding:3px 5px;border-radius:999px;background:${fill};border:2px solid #0f1f14;color:#fff;font:800 9px Inter,sans-serif;letter-spacing:.04em;text-align:center;text-shadow:0 1px 1px rgba(0,0,0,.5);white-space:nowrap;${selRing(sel)}">${esc(code)}</div>` +
+    (caption
+      ? `<span style="font:700 9px Inter,sans-serif;color:#fff;text-shadow:0 1px 2px #000;background:rgba(15,31,20,.7);padding:0 4px;border-radius:4px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(caption)}</span>`
+      : "") +
+    "</div>"
+  );
+}
+
 export function unitMarkerHTML(u: Unit, sel: boolean): string {
   return (
     '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">' +

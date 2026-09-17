@@ -5,6 +5,7 @@
 // (ArgosState) : une tranche peut lire les autres, jamais les importer.
 // ============================================================================
 
+import type { ResourcePick } from "@/lib/edit";
 import type { StateCreator } from "zustand";
 import type { ArgosState } from "@/lib/store";
 import type {
@@ -47,8 +48,11 @@ export interface MapSlice {
   armedPost: PostPick | null;
   /** Instance en attente de rattachement (opération, libellé) — la modale de pose. */
   pendingPost: (PostPick & { ll: [number, number] }) | null;
+  /** Ressource choisie dans la boîte à outils (ADR 0018) : le prochain clic sur la carte la pose sur le terrain. */
+  armedResource: ResourcePick | null;
   setMapEdit: (v: boolean) => void;
   armPost: (pick: PostPick | null) => void;
+  armResource: (pick: ResourcePick | null) => void;
   setPendingPost: (p: (PostPick & { ll: [number, number] }) | null) => void;
   /** Demande le centrage de la carte sur un incident (active la couche incidents) ; null pour purger. */
   focusIncident: (inc: Incident | null) => void;
@@ -78,14 +82,17 @@ export const createMapSlice: StateCreator<ArgosState, [], [], MapSlice> = (set, 
   selHosp: null,
   // Le réseau civil (106 établissements) est masqué par défaut : il se
   // rallume d'un clic quand l'opérateur cherche une capacité d'accueil.
-  layers: { units: true, posts: true, hospitals: true, hospitalsCiv: false, incidents: true, vehicles: true, field: true, aircraft: true, missions: true, morgues: true, shelters: true, trackers: true },
+  layers: { units: true, posts: true, placed: true, hospitals: true, hospitalsCiv: false, incidents: true, vehicles: true, field: true, aircraft: true, missions: true, morgues: true, shelters: true, trackers: true },
   mapEdit: false,
   armedPost: null,
   pendingPost: null,
+  armedResource: null,
   // Quitter le mode désarme le chip et lâche le poste en attente : rien ne
   // reste « à moitié posé » derrière un interrupteur éteint.
-  setMapEdit: (v) => set(v ? { mapEdit: true } : { mapEdit: false, armedPost: null, pendingPost: null }),
-  armPost: (pick) => set({ armedPost: pick }),
+  setMapEdit: (v) => set(v ? { mapEdit: true } : { mapEdit: false, armedPost: null, pendingPost: null, armedResource: null }),
+  // Un seul chip armé à la fois : armer une ressource désarme le poste, et inversement.
+  armPost: (pick) => set({ armedPost: pick, ...(pick ? { armedResource: null } : {}) }),
+  armResource: (pick) => set({ armedResource: pick, ...(pick ? { armedPost: null } : {}) }),
   setPendingPost: (p) => set({ pendingPost: p }),
   map3d: false,
   mapSat: true,

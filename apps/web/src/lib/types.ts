@@ -464,6 +464,38 @@ export type PostKind = "opcom" | "tacom" | "pco" | "pct" | "bluecell" | "greence
  * un parc, à un point. Le poste est un lieu ; la personne qui le tient vient
  * du déploiement ou de l'affectation, jointe à l'affichage.
  */
+/** Position sur le terrain d'une équipe, d'un véhicule ou d'un équipement (ADR 0018) — miroir de l'API. */
+export interface Placement {
+  ll: [number, number];
+  incidentId?: string;
+  at: string;
+  by: string;
+}
+
+export type PlaceableKind = "teams" | "vehicles" | "equipment";
+
+/** Une ressource posée sur le terrain, telle que la carte la dessine. */
+export interface PlacedResource {
+  kind: PlaceableKind;
+  id: string;
+  owner: { kind: "unit" | "hospital" | "shelter"; id: string };
+  ownerLabel: string;
+  label: string;
+  sub?: string;
+  position: Placement;
+}
+
+/** Une ressource que le compte peut poser (boîte à outils du mode édition). */
+export interface PlaceableResource {
+  kind: PlaceableKind;
+  id: string;
+  owner: { kind: "unit" | "hospital" | "shelter"; id: string };
+  ownerLabel: string;
+  label: string;
+  sub?: string;
+  placed: boolean;
+}
+
 export interface IncidentPost {
   id: string;
   incidentId: string;
@@ -661,8 +693,8 @@ export interface SeismicNotification {
 
 // --- Sélection sur la carte opérationnelle -------------------------------
 
-/** `shelter` : abri d'hébergement ; `trk` : traceur GPS ou position partagée. */
-export type MarkerKind = "unit" | "hosp" | "inc" | "veh" | "field" | "acft" | "post" | "morgue" | "shelter" | "trk";
+/** `shelter` : abri d'hébergement ; `trk` : traceur GPS ou position partagée ; `placed` : ressource posée sur le terrain (ADR 0018). */
+export type MarkerKind = "unit" | "hosp" | "inc" | "veh" | "field" | "acft" | "post" | "morgue" | "shelter" | "trk" | "placed";
 
 // --- suivi aérien (feux de forêt) ---
 // Miroir des types du module `aviation` de l'API. Le poste de commandement ne

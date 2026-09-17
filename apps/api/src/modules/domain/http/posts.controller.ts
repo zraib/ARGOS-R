@@ -2,13 +2,15 @@
 // ARGOS — adaptateur HTTP du domaine · postes d'opération sur la carte (lot #12)
 //
 // LIRE suit la visibilité des incidents : qui voit une opération voit ses
-// postes. ÉCRIRE relève de `map_edit`, que la matrice n'accorde à personne :
-// seul le joker du Super Administrateur pose, déplace ou retire un poste.
-// Chaque écriture pousse un signal temps réel ; les postes relisent ce qu'ils
-// ont le droit de voir — le signal ne porte rien qu'un identifiant.
+// postes. ÉCRIRE relève de `map_edit`, dont le CONTENU dépend du rôle (ADR
+// 0018, `edit.rules.ts`) : le stratégique pose les OPCOM, l'OPCOM son
+// dispositif tactique (TACOM, PCO, PCT, cellules), le Super Administrateur
+// tout — et toujours sur une opération que le compte voit. Chaque écriture
+// pousse un signal temps réel ; les postes relisent ce qu'ils ont le droit de
+// voir — le signal ne porte rien qu'un identifiant.
 // ============================================================================
 
-import { Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post } from "@nestjs/common";
+import { Body, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { AuditMeta, type AuditMetaSetter } from "@/common/decorators/audit-meta.decorator";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
@@ -16,6 +18,8 @@ import { RequirePermission } from "@/common/decorators/require-permission.decora
 import type { AuthUser } from "@/common/types/auth-user";
 import { CreatePostDto, UpdatePostDto } from "@/modules/domain/dto";
 import { DomainService } from "@/modules/domain/domain.service";
+import type { PostKind } from "@/modules/domain/domain.types";
+import { canPlacePost, placeablePostKinds } from "@/modules/domain/edit.rules";
 import { DeploymentService } from "@/modules/domain/deployment.service";
 import { VisibilityService } from "@/modules/domain/visibility.service";
 import { RealtimeService } from "@/modules/realtime/realtime.service";
@@ -36,6 +40,24 @@ export class PostsController {
   /** Le compte existe et tient ce rôle — ce que les règles d'un poste demandent. */
   private readonly accountHasRole = (matricule: string, role: string) => this.users.hasRole(matricule, role as Parameters<UsersService["hasRole"]>[1]);
 
+  /** Le rôle pose-t-il cette nature de poste ? Sinon 403, qui dit ce qu'il pose. */
+  private assertKind(user: AuthUser, kind: PostKind): void {
+    if (canPlacePost(user.role, kind)) return;
+    const allowed = placeablePostKinds(user.role);
+    throw new ForbiddenException(
+      allowed.length ? `Le rôle ${user.role} pose ${allowed.join(", ")} — pas ${kind}.` : `Le rôle ${user.role} ne pose rien sur la carte.`,
+    );
+  }
+
+  /** L'opération existe et le compte la voit — on ne pose rien sur une opération qu'on ne voit pas. */
+  private assertCanSee(id: string, user: AuthUser): void {
+    const inc = this.domain.listIncidents().find((i) => i.id === id);
+    const scope = this.visibility.scopeOfUser(user.role, user.scope, (kind, eid) => this.domain.regionOfEntity(kind, eid));
+    if (!inc || !this.visibility.canSeeIncident(inc, scope, (iid) => this.domain.entitiesOnIncident(iid))) {
+      throw new NotFoundException(`Incident inconnu : ${id}`);
+    }
+  }
+
   @Get("posts")
   @RequirePermission("map:view")
   @ApiOperation({
@@ -51,15 +73,19 @@ export class PostsController {
   @Post("incidents/:id/posts")
   @RequirePermission("map_edit:create")
   @ApiOperation({
-    summary: "Poser un poste sur la carte d'une opération — Super Administrateur (audité)",
+    summary: "Poser un poste sur la carte d'une opération — selon le rôle (audité)",
     description:
       "Un poste désigne une instance : LE compte OPCOM/TACOM/cellule qui le tient — déployé sur l'opération dans le même " +
-      "geste, retiré de celle qu'il servait — ou L'abri / LE parc représenté. Une instance déjà posée est refusée (409).",
+      "geste, retiré de celle qu'il servait — ou L'abri / LE parc représenté. Une instance déjà posée est refusée (409). " +
+      "Le stratégique pose les OPCOM ; l'OPCOM les TACOM, PCO, PCT et cellules ; le Super Administrateur tout (ADR 0018).",
   })
   @ApiResponse({ status: 400, description: "Instance manquante ou invalide (compte sans le rôle, abri ou unité inconnus)." })
-  @ApiResponse({ status: 404, description: "Incident inconnu." })
+  @ApiResponse({ status: 403, description: "Le rôle ne pose pas cette nature de poste." })
+  @ApiResponse({ status: 404, description: "Incident inconnu, ou hors de la portée du compte." })
   @ApiResponse({ status: 409, description: "Instance déjà posée, ou opération close." })
   create(@Param("id") id: string, @Body() dto: CreatePostDto, @CurrentUser() user: AuthUser, @AuditMeta() audit: AuditMetaSetter) {
+    this.assertKind(user, dto.kind);
+    this.assertCanSee(id, user);
     // Trancher AVANT de déployer : un poste refusé ne doit pas laisser un
     // déploiement derrière lui.
     const ids = this.domain.assertPostAllowed({ incidentId: id, ...dto }, this.accountHasRole);
@@ -72,11 +98,14 @@ export class PostsController {
 
   @Patch("incidents/:id/posts/:postId")
   @RequirePermission("map_edit:update")
-  @ApiOperation({ summary: "Déplacer ou renommer un poste — Super Administrateur (audité)" })
+  @ApiOperation({ summary: "Déplacer ou renommer un poste — selon le rôle (audité)" })
+  @ApiResponse({ status: 403, description: "Le rôle ne pose pas cette nature de poste." })
   @ApiResponse({ status: 404, description: "Poste inconnu sur cette opération." })
-  update(@Param("id") id: string, @Param("postId") postId: string, @Body() dto: UpdatePostDto, @AuditMeta() audit: AuditMetaSetter) {
+  update(@Param("id") id: string, @Param("postId") postId: string, @Body() dto: UpdatePostDto, @CurrentUser() user: AuthUser, @AuditMeta() audit: AuditMetaSetter) {
+    this.assertCanSee(id, user);
     const post = this.domain.listPosts([id]).find((p) => p.id === postId);
     if (!post) throw new NotFoundException(`Poste inconnu : ${postId}`);
+    this.assertKind(user, post.kind);
     const updated = this.domain.updatePost(postId, dto);
     audit({ post: postId, onto: id, moved: !!dto.ll, relabelled: dto.label !== undefined });
     this.realtime.emit({ kind: "posts", incidentId: id });
@@ -84,15 +113,21 @@ export class PostsController {
   }
 
   @Delete("incidents/:id/posts/:postId")
-  @RequirePermission("map_edit:delete")
+  // `update` et non `delete` : retirer un poste retire un LIEU de la carte,
+  // pas une donnée — c'est une mise à jour de la carte, ouverte à qui pose
+  // cette nature de poste (ADR 0018).
+  @RequirePermission("map_edit:update")
   @ApiOperation({
-    summary: "Retirer un poste de la carte — Super Administrateur (audité)",
+    summary: "Retirer un poste de la carte — selon le rôle (audité)",
     description: "Retire le LIEU. Le compte reste déployé sur l'opération : le retirer de l'opération est un acte de commandement distinct (déploiements).",
   })
+  @ApiResponse({ status: 403, description: "Le rôle ne pose pas cette nature de poste." })
   @ApiResponse({ status: 404, description: "Poste inconnu sur cette opération." })
   remove(@Param("id") id: string, @Param("postId") postId: string, @CurrentUser() user: AuthUser, @AuditMeta() audit: AuditMetaSetter) {
+    this.assertCanSee(id, user);
     const post = this.domain.listPosts([id]).find((p) => p.id === postId);
     if (!post) throw new NotFoundException(`Poste inconnu : ${postId}`);
+    this.assertKind(user, post.kind);
     this.domain.deletePost(postId, user.username);
     audit({ post: postId, removedFrom: id, kind: post.kind });
     this.realtime.emit({ kind: "posts", incidentId: id });

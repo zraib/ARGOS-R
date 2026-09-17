@@ -10,8 +10,9 @@
 import maplibregl from "maplibre-gl";
 import { useArgos } from "@/lib/store";
 import { hospKind } from "@/lib/hospitals";
-import { fieldLL, fieldMarkerHTML, hospMarkerHTML, incMarkerHTML, postMarkerHTML, unitMarkerHTML, vehMarkerHTML, vehPos } from "@/lib/map/markers";
+import { fieldLL, fieldMarkerHTML, hospMarkerHTML, incMarkerHTML, placedMarkerHTML, postMarkerHTML, unitMarkerHTML, vehMarkerHTML, vehPos } from "@/lib/map/markers";
 import { POST_FILL, postCaption, postCode } from "@/lib/posts";
+import { PLACED_FILL, placeableResourceKinds } from "@/lib/edit";
 import type { MarkerKind } from "@/lib/types";
 
 export interface VehMarker {
@@ -83,6 +84,29 @@ export function syncMarkers(rt: MarkersRuntime, map: maplibregl.Map | null) {
         mk.on("dragend", () => {
           const { lng, lat } = mk.getLngLat();
           void useArgos.getState().movePost(p.id, [lng, lat]);
+        });
+      }
+      rt.markers.push(mk);
+    });
+  }
+
+  // Ressources sur le terrain (ADR 0018) : équipes, véhicules, équipements
+  // posés par le TACOM et les cellules. En mode édition, celles que le rôle
+  // pose se saisissent et se déplacent ; les autres se lisent.
+  if (L.placed) {
+    const edit = state.mapEdit;
+    const mine = placeableResourceKinds(state.role);
+    const code = (k: (typeof state.placed)[number]["kind"]) => (k === "teams" ? state.dict.pl_teams : k === "vehicles" ? state.dict.pl_vehicles : state.dict.pl_equipment).slice(0, 3).toUpperCase();
+    state.placed.forEach((p) => {
+      const key = `${p.kind}:${p.id}`;
+      const draggable = edit && mine.includes(p.kind);
+      const el = mkEl(placedMarkerHTML(code(p.kind), PLACED_FILL[p.kind], isSel("placed", key), p.label), "placed", key);
+      el.style.cursor = draggable ? "grab" : "pointer";
+      const mk = new maplibregl.Marker({ element: el, draggable }).setLngLat(p.position.ll).addTo(map);
+      if (draggable) {
+        mk.on("dragend", () => {
+          const { lng, lat } = mk.getLngLat();
+          void useArgos.getState().movePlaced(p.kind, p.id, [lng, lat]);
         });
       }
       rt.markers.push(mk);

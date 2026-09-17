@@ -8,7 +8,7 @@
 // sienne, une cellule tient selon sa fonction, l'opérationnel resserre.
 // ============================================================================
 
-import { Body, ConflictException, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
+import { Body, ConflictException, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Put, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
@@ -17,9 +17,11 @@ import { DomainService } from "@/modules/domain/domain.service";
 import { ResourcesService } from "@/modules/domain/resources.service";
 import { ModeService } from "@/modules/mode/mode.service";
 import { canManageResource, refusalReason } from "@/modules/domain/resources.rules";
-import { RESOURCE_OWNER_KINDS, type ResourceKind, type ResourceOwner } from "@/modules/domain/resources.types";
+import { canPlaceResource, placeRefusal, placeableResourceKinds, type PlaceContext } from "@/modules/domain/edit.rules";
+import { RealtimeService } from "@/modules/realtime/realtime.service";
+import { RESOURCE_OWNER_KINDS, isPlaceableKind, type PlaceableKind, type ResourceKind, type ResourceOwner } from "@/modules/domain/resources.types";
 import {
-  CreateOwnedEquipDto, CreatePersonDto, CreateSupplyDto, CreateTeamDto, CreateVehicleDto,
+  CreateOwnedEquipDto, CreatePersonDto, CreateSupplyDto, CreateTeamDto, CreateVehicleDto, PlaceResourceDto,
   UpdateOwnedEquipDto, UpdatePersonDto, UpdateSupplyDto, UpdateTeamDto, UpdateVehicleDto,
 } from "@/modules/domain/dto";
 
@@ -31,6 +33,7 @@ export class ResourcesRegistryController {
     private readonly domain: DomainService,
     private readonly resources: ResourcesService,
     private readonly mode: ModeService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   @Get()
@@ -53,6 +56,72 @@ export class ResourcesRegistryController {
       mode: this.mode.current(),
       canManage: { persons: can("persons"), teams: can("teams"), vehicles: can("vehicles"), supplies: can("supplies"), equipment: can("equipment") },
     };
+  }
+
+  // --- terrain (ADR 0018) -----------------------------------------------------
+
+  @Get("placed")
+  @RequirePermission("resources:view")
+  @ApiOperation({ summary: "Équipes, véhicules et équipements posés sur le terrain — ce que la carte dessine" })
+  placed() {
+    return this.resources.listPlaced();
+  }
+
+  @Get("placeable")
+  @RequirePermission("map_edit:view")
+  @ApiOperation({
+    summary: "Ce que le compte peut poser sur le terrain (boîte à outils du mode édition)",
+    description:
+      "Le TACOM (PC, PCO, PCT) pose ses équipes, équipements et véhicules ; les cellules des équipes et des véhicules ; le Super " +
+      "Administrateur tout. En mode opérationnel : les ressources des unités affectées à l'opération que le compte sert.",
+  })
+  placeable(@CurrentUser() user: AuthUser) {
+    const kinds = placeableResourceKinds(user.role);
+    return this.resources.listPlaceable(kinds, (owner) => canPlaceResource(this.placeContext(user, kinds[0] ?? "teams", owner)));
+  }
+
+  @Put(":kind/:id/position")
+  @RequirePermission("map_edit:update")
+  @ApiOperation({ summary: "Poser ou déplacer une ressource sur le terrain — selon le rôle et le mode (ADR 0018)" })
+  @ApiResponse({ status: 403, description: "Le rôle ne pose pas cette nature, ou l'unité n'est pas affectée à son opération." })
+  @ApiResponse({ status: 404, description: "Ressource inconnue." })
+  place(@Param("kind") kind: string, @Param("id") id: string, @Body() dto: PlaceResourceDto, @CurrentUser() user: AuthUser) {
+    const k = this.placeableKind(kind);
+    const target = this.resources.findPlaceable(k, id);
+    if (!target) throw new NotFoundException(`Ressource inconnue : ${k} ${id}`);
+    this.assertCanPlace(user, k, target.owner);
+    const placed = this.resources.setPosition(k, id, { ll: dto.ll, incidentId: dto.incidentId, at: new Date().toISOString(), by: user.username });
+    this.realtime.emit({ kind: "placed" });
+    return placed;
+  }
+
+  @Delete(":kind/:id/position")
+  @RequirePermission("map_edit:update")
+  @ApiOperation({ summary: "Retirer une ressource du terrain — selon le rôle et le mode (ADR 0018)" })
+  @ApiResponse({ status: 404, description: "Ressource inconnue, ou pas sur le terrain." })
+  unplace(@Param("kind") kind: string, @Param("id") id: string, @CurrentUser() user: AuthUser) {
+    const k = this.placeableKind(kind);
+    const target = this.resources.findPlaceable(k, id);
+    if (!target?.position) throw new NotFoundException(`Ressource inconnue ou pas sur le terrain : ${k} ${id}`);
+    this.assertCanPlace(user, k, target.owner);
+    this.resources.setPosition(k, id, undefined);
+    this.realtime.emit({ kind: "placed" });
+    return { removed: id };
+  }
+
+  private placeableKind(v: string): PlaceableKind {
+    if (!isPlaceableKind(v)) throw new NotFoundException(`Nature inconnue sur le terrain : ${v}`);
+    return v;
+  }
+
+  private placeContext(user: AuthUser, kind: PlaceableKind, owner: ResourceOwner): PlaceContext {
+    const unit = owner.kind === "unit" ? this.domain.findUnit(owner.id) : undefined;
+    return { role: user.role, mode: this.mode.current(), scope: user.scope, kind, ownerKind: owner.kind, unitIncidentId: unit?.assignment?.incidentId ?? null };
+  }
+
+  private assertCanPlace(user: AuthUser, kind: PlaceableKind, owner: ResourceOwner): void {
+    const ctx = this.placeContext(user, kind, owner);
+    if (!canPlaceResource(ctx)) throw new ForbiddenException(placeRefusal(ctx));
   }
 
   // --- personnes -------------------------------------------------------------

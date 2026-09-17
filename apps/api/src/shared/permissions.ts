@@ -55,6 +55,10 @@ export const MATRIX_FEATURES = [
   "deploy",         // Déploiement terrain des unités affectées (TACOM, cellules)
   "resources",      // Ressources : personnes, équipes, véhicules, logistique
   "weather",        // Météo (grilles, prévisions)
+  // Simulations (ADR 0018) : le panache NRBC est calculé par l'API — sa ligne
+  // dit qui le demande ; les simulateurs de crue et de feu tournent dans le
+  // navigateur, leurs modules (`simFlood`, `simFire`) suivent une règle.
+  "plume",          // Panache chimique estimé d'un incident NRBC
 ] as const;
 
 /**
@@ -78,9 +82,10 @@ export const LEGACY_FEATURES = [
   "missions",   // Boucles opérationnelles (ordres, demandes, transferts) — à arbitrer
   "tracking",   // Traceurs GPS FMC920 (lot N-2) — absent de la matrice, à arbitrer
   "comms_admin", // Administration des canaux (lot COMMS) — absent de la matrice, à arbitrer
-  // Mode édition de la carte (lot #12) : poser, déplacer et retirer les postes
-  // d'une opération. AUCUNE ligne dans la matrice, à dessein : seul le joker du
-  // Super Administrateur l'accorde — l'Administrateur ne l'hérite pas.
+  // Mode édition de la carte (lot #12, par rôle depuis l'ADR 0018) : poser,
+  // déplacer et retirer les postes d'une opération, et les ressources sur le
+  // terrain. Le CONTENU dépend du rôle (`edit.rules.ts`) : la ligne dit qui a
+  // un mode édition, la règle dit ce qu'il y pose. L'Administrateur n'en a pas.
   "map_edit",
 ] as const;
 
@@ -115,6 +120,7 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   deploy: "Déploiement terrain",
   resources: "Ressources (personnes, équipes, véhicules, logistique)",
   weather: "Météo",
+  plume: "Simulation NRBC (panache)",
   dispatch: "Répartiteur",
   triage: "Triage de masse",
   ics: "Formulaires ICS",
@@ -381,6 +387,9 @@ const MATRIX: Record<(typeof MATRIX_FEATURES)[number], Partial<Record<Role, Cell
     bluecell: V, greencell: V, orangecell: V,
     resp_hospital: V, resp_shelter: V, resp_unit: V, resp_morgue: V, resp_equipment: V,
   },
+  // Simulation NRBC (ADR 0018) : la conduite — administrateurs, stratégique,
+  // OPCOM (et ses représentants, dérivés) et TACOM (et ses PC, dérivés).
+  plume: { admin: ALL, strategic: V, opcom: V, tacom: V },
 };
 
 /**
@@ -389,13 +398,15 @@ const MATRIX: Record<(typeof MATRIX_FEATURES)[number], Partial<Record<Role, Cell
  *   - les représentants de l'OPCOM (gendarmerie, état-major, Intérieur)
  *     lisent comme l'OPCOM mais ne conduisent pas l'incident : ils ne le
  *     créent, ne le modifient ni ne l'archivent — ils affectent leurs unités ;
+ *     poser le dispositif tactique sur la carte est de la conduite : pas de
+ *     mode édition pour eux (ADR 0018) ;
  *   - les chefs de PC du TACOM (PCO, PCT) ont la dotation du TACOM.
  * Une cellule `null` retire la ligne au rôle dérivé.
  */
 const DERIVED_ROLES: Partial<Record<Role, { like: Role; except: Partial<Record<Feature, Cell | null>> }>> = {
-  gendarmerie: { like: "opcom", except: { incidents: V, subincidents: V, victims: V, reports: V, dispatch: V, orsec: V, plans: V, aviation: V, nrbc: V, tracking: V, missions: V } },
-  etat_major: { like: "opcom", except: { incidents: V, subincidents: V, victims: V, reports: V, dispatch: V, orsec: V, plans: V, aviation: V, nrbc: V, tracking: V, missions: V } },
-  interieur: { like: "opcom", except: { incidents: V, subincidents: V, victims: V, reports: V, dispatch: V, orsec: V, plans: V, aviation: V, nrbc: V, tracking: V, missions: V } },
+  gendarmerie: { like: "opcom", except: { incidents: V, subincidents: V, victims: V, reports: V, dispatch: V, orsec: V, plans: V, aviation: V, nrbc: V, tracking: V, missions: V, map_edit: null } },
+  etat_major: { like: "opcom", except: { incidents: V, subincidents: V, victims: V, reports: V, dispatch: V, orsec: V, plans: V, aviation: V, nrbc: V, tracking: V, missions: V, map_edit: null } },
+  interieur: { like: "opcom", except: { incidents: V, subincidents: V, victims: V, reports: V, dispatch: V, orsec: V, plans: V, aviation: V, nrbc: V, tracking: V, missions: V, map_edit: null } },
   pco: { like: "tacom", except: {} },
   pct: { like: "tacom", except: {} },
 };
@@ -464,7 +475,10 @@ const LEGACY: Record<(typeof LEGACY_FEATURES)[number], Partial<Record<Role, Cell
   comms_admin: { admin: ALL },
   // Édition de la carte (lot #12) : ligne VIDE à dessein — personne, hormis le
   // joker du Super Administrateur. L'Administrateur ne l'hérite pas.
-  map_edit: {},
+  // Mode édition (ADR 0018) : qui pose quelque chose sur la carte. Le contenu
+  // par rôle est dans `edit.rules.ts` ; retirer un poste ou une ressource du
+  // terrain est une mise à jour de la carte (`update`), pas une suppression.
+  map_edit: { strategic: AMV, opcom: AMV, tacom: AMV, bluecell: AMV, greencell: AMV, orangecell: AMV },
   // NRBC : même logique que l'aviation — la conduite (déclarer la substance,
   // choisir le référentiel du panache) revient au commandement opératif et
   // tactique ; l'état-major et les cellules consultent. Dotation provisoire,
@@ -590,6 +604,9 @@ export const MODULE_KEYS = [
   "equip", "units", "resources", "workorders",
   "hospitals", "opsnet", "morgue", "ics", "damage", "shelters",
   "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation",
+  // Capacités de la carte (ADR 0018) : pas des écrans, mais des outils que la
+  // matrice ouvre ou coupe par rôle — le mode édition et les trois simulations.
+  "mapEdit", "simFlood", "simFire", "simNrbc",
   "users", "supervision", "settings",
 ] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
@@ -666,7 +683,7 @@ export const FEATURE_MODULE: Record<Feature, ModuleKey | null> = {
   missions: null,
   tracking: "trackers",
   comms_admin: "comms",
-  map_edit: "map",
+  map_edit: "mapEdit",
   // Chaîne de commandement (ADR 0016) : l'affectation et le déploiement se
   // jouent dans l'incident ; les ressources ont leur module ; la météo suit la
   // carte (elle n'a pas d'écran à elle).
@@ -674,6 +691,7 @@ export const FEATURE_MODULE: Record<Feature, ModuleKey | null> = {
   deploy: "incidents",
   resources: "resources",
   weather: "map",
+  plume: "simNrbc",
 };
 
 /** Module d'une permission `fonctionnalité:action` ; `null` pour le cœur. */
@@ -702,9 +720,18 @@ const RESPONSIBLE_ROLES: readonly Role[] = ["resp_hospital", "resp_unit", "resp_
 // Les administrateurs ont tout, verrouillé : leurs lignes disent « accès
 // total », y compris sur ces deux écrans qu'ils ne voient pas dans leur menu.
 const responsibleOrAdmin = (role: Role) => RESPONSIBLE_ROLES.includes(role) || role === "superadmin" || role === "admin";
+/**
+ * Qui simule (ADR 0018) : la conduite — administrateurs, stratégique, OPCOM
+ * et TACOM avec leurs rôles dérivés — jamais les cellules ni les responsables
+ * d'entité. Les simulateurs de crue et de feu n'ont pas de route : la règle
+ * tient lieu de ligne de matrice.
+ */
+const SIM_ROLES: readonly Role[] = ["superadmin", "admin", "strategic", "opcom", "gendarmerie", "etat_major", "interieur", "tacom", "pco", "pct"];
 const MODULE_DEFAULT_RULE: Partial<Record<ModuleKey, (role: Role) => boolean>> = {
   myresp: responsibleOrAdmin,
   myrespManage: responsibleOrAdmin,
+  simFlood: (role) => SIM_ROLES.includes(role),
+  simFire: (role) => SIM_ROLES.includes(role),
   opsnet: (role) => roleHasPermission(role, "teams:view") || roleHasPermission(role, "shelters:view"),
   users: (role) => roleHasPermission(role, "users:view"),
   settings: (role) => roleHasPermission(role, "settings:view"),

@@ -235,6 +235,11 @@ export interface Dict {
   nav_myresp_manage: string;
   /** « Gestion de mon entité » nommée par la nature de l'entité du rôle (ADR 0017). */
   nav_manage_unit: string; nav_manage_hospital: string; nav_manage_shelter: string; nav_manage_morgue: string; nav_manage_equipment: string;
+  /** Capacités de la carte dans la matrice rôle → modules (ADR 0018). */
+  mod_map_edit: string; mod_sim_flood: string; mod_sim_fire: string; mod_sim_nrbc: string;
+  /** Ressources sur le terrain (mode édition par rôle, ADR 0018). */
+  pl_section: string; pl_teams: string; pl_vehicles: string; pl_equipment: string; pl_placed: string; pl_place_hint: string;
+  pl_remove: string; pl_removed: string; pl_placed_ok: string; pl_by: string; pl_owner: string; pl_none: string; lg_placed: string;
   nav_supervision: string;
   nav_settings: string;
   stub_msg: string;

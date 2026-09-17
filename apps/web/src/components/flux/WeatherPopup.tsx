@@ -4,6 +4,9 @@
 // ARGOS — pop-up de prévisions météo d'un point de la carte
 // Ouverte depuis le menu contextuel (Maj + clic droit). Reprend les détails de
 // l'ancienne page Météo : conditions actuelles + 7 jours, sans défilement.
+// Chaque jour se CONSULTE : le choisir montre son détail (températures et
+// ressentis, précipitations et probabilité, vent et rafales, UV, lever et
+// coucher) — avant, seul le jour courant se lisait.
 // ============================================================================
 
 import { useEffect, useState } from "react";
@@ -55,7 +58,10 @@ export function WeatherPopup({ ll, place, onClose }: { ll: [number, number]; pla
 
   const now = fc?.current;
   const w = now ? wmoText(now.code, lang) : null;
-  const today = fc?.daily[0];
+  // Le jour consulté : aujourd'hui à l'ouverture, puis celui qu'on choisit.
+  const [dayIdx, setDayIdx] = useState(0);
+  const day = fc?.daily[dayIdx] ?? fc?.daily[0];
+  const dayLabel = (i: number, date: string) => (i === 0 ? f.wx_today : fmtDay(date, lang));
 
   return (
     <Modal open title={`${f.wx_title} — ${place ?? `${ll[1].toFixed(3)}, ${ll[0].toFixed(3)}`}`} onClose={onClose} size="xl">
@@ -90,30 +96,48 @@ export function WeatherPopup({ ll, place, onClose }: { ll: [number, number]; pla
             <div className="grid grid-cols-7 gap-2">
               {fc.daily.map((d, i) => {
                 const wd = wmoText(d.code, lang);
+                const on = i === dayIdx;
                 return (
-                  <div
+                  <button
                     key={d.date}
-                    className={`flex flex-col items-center gap-1 rounded-xl px-1 py-2.5 text-center ${i === 0 ? "bg-or-500/10 ring-1 ring-or-500/30" : "bg-gray-50 dark:bg-rdia-800/50"}`}
+                    type="button"
+                    onClick={() => setDayIdx(i)}
+                    aria-pressed={on}
+                    className={`cible-tactile flex flex-col items-center gap-1 rounded-xl px-1 py-2.5 text-center transition-colors ${
+                      on ? "bg-or-500/10 ring-1 ring-or-500/30" : "bg-gray-50 hover:bg-or-500/5 dark:bg-rdia-800/50 dark:hover:bg-rdia-700/50"
+                    }`}
                   >
-                    <div className="text-[11px] font-semibold text-gray-500 dark:text-rdia-300">{i === 0 ? f.wx_today : fmtDay(d.date, lang)}</div>
+                    <div className="text-[11px] font-semibold text-gray-500 dark:text-rdia-300">{dayLabel(i, d.date)}</div>
                     <div className="text-2xl leading-none">{wd.icon}</div>
                     <div className="flex items-baseline gap-1 tabular-nums">
                       <span className="text-sm font-bold text-gray-800 dark:text-rdia-50">{d.tmax}°</span>
                       <span className="text-xs text-gray-400 dark:text-rdia-400">{d.tmin}°</span>
                     </div>
                     <div className="min-h-[13px] text-[10px] font-semibold tabular-nums text-blue-500">{d.precip > 0 ? `${d.precip} mm` : ""}</div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Repères du jour */}
-          {today && (
-            <div className="grid grid-cols-3 gap-4 border-t border-gray-100 pt-3 dark:border-rdia-700/50">
-              <Metric label={f.wx_sunrise} value={hm(today.sunrise)} />
-              <Metric label={f.wx_sunset} value={hm(today.sunset)} />
-              <Metric label={f.wx_uv} value={`${today.uvMax}`} />
+          {/* Détail du jour consulté */}
+          {day && (
+            <div className="border-t border-gray-100 pt-3 dark:border-rdia-700/50">
+              <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">
+                <span>{f.wx_details} — {dayLabel(dayIdx, day.date)}</span>
+                <span className="text-base leading-none">{wmoText(day.code, lang).icon}</span>
+                <span className="normal-case tracking-normal">{wmoText(day.code, lang).label}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-4">
+                <Metric label={f.wx_high} value={`${day.tmax}° · ${f.wx_feels_short} ${day.feelMax}°`} />
+                <Metric label={f.wx_low} value={`${day.tmin}° · ${f.wx_feels_short} ${day.feelMin}°`} />
+                <Metric label={f.wx_precip} value={`${day.precip} mm`} />
+                <Metric label={f.wx_precip_prob} value={`${day.precipProb} %`} />
+                <Metric label={f.wx_wind_max} value={`${day.windMax} km/h`} />
+                <Metric label={f.wx_gust} value={`${day.gustMax} km/h`} />
+                <Metric label={f.wx_uv} value={`${day.uvMax}`} />
+                <Metric label={`${f.wx_sunrise} · ${f.wx_sunset}`} value={`${hm(day.sunrise)} · ${hm(day.sunset)}`} />
+              </div>
             </div>
           )}
         </div>

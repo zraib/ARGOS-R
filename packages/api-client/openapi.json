@@ -754,7 +754,7 @@
     },
     "/api/incidents/{id}/posts": {
       "post": {
-        "description": "Un poste désigne une instance : LE compte OPCOM/TACOM/cellule qui le tient — déployé sur l'opération dans le même geste, retiré de celle qu'il servait — ou L'abri / LE parc représenté. Une instance déjà posée est refusée (409).",
+        "description": "Un poste désigne une instance : LE compte OPCOM/TACOM/cellule qui le tient — déployé sur l'opération dans le même geste, retiré de celle qu'il servait — ou L'abri / LE parc représenté. Une instance déjà posée est refusée (409). Le stratégique pose les OPCOM ; l'OPCOM les TACOM, PCO, PCT et cellules ; le Super Administrateur tout (ADR 0018).",
         "operationId": "PostsController_create",
         "parameters": [
           {
@@ -780,8 +780,11 @@
           "400": {
             "description": "Instance manquante ou invalide (compte sans le rôle, abri ou unité inconnus)."
           },
+          "403": {
+            "description": "Le rôle ne pose pas cette nature de poste."
+          },
           "404": {
-            "description": "Incident inconnu."
+            "description": "Incident inconnu, ou hors de la portée du compte."
           },
           "409": {
             "description": "Instance déjà posée, ou opération close."
@@ -792,7 +795,7 @@
             "bearer": []
           }
         ],
-        "summary": "Poser un poste sur la carte d'une opération — Super Administrateur (audité)",
+        "summary": "Poser un poste sur la carte d'une opération — selon le rôle (audité)",
         "tags": [
           "domain"
         ]
@@ -830,6 +833,9 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Le rôle ne pose pas cette nature de poste."
+          },
           "404": {
             "description": "Poste inconnu sur cette opération."
           }
@@ -839,7 +845,7 @@
             "bearer": []
           }
         ],
-        "summary": "Déplacer ou renommer un poste — Super Administrateur (audité)",
+        "summary": "Déplacer ou renommer un poste — selon le rôle (audité)",
         "tags": [
           "domain"
         ]
@@ -866,6 +872,9 @@
           }
         ],
         "responses": {
+          "403": {
+            "description": "Le rôle ne pose pas cette nature de poste."
+          },
           "404": {
             "description": "Poste inconnu sur cette opération."
           }
@@ -875,7 +884,7 @@
             "bearer": []
           }
         ],
-        "summary": "Retirer un poste de la carte — Super Administrateur (audité)",
+        "summary": "Retirer un poste de la carte — selon le rôle (audité)",
         "tags": [
           "domain"
         ]
@@ -3954,6 +3963,132 @@
         ]
       }
     },
+    "/api/resources/placed": {
+      "get": {
+        "operationId": "ResourcesRegistryController_placed",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Équipes, véhicules et équipements posés sur le terrain — ce que la carte dessine",
+        "tags": [
+          "resources"
+        ]
+      }
+    },
+    "/api/resources/placeable": {
+      "get": {
+        "description": "Le TACOM (PC, PCO, PCT) pose ses équipes, équipements et véhicules ; les cellules des équipes et des véhicules ; le Super Administrateur tout. En mode opérationnel : les ressources des unités affectées à l'opération que le compte sert.",
+        "operationId": "ResourcesRegistryController_placeable",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ce que le compte peut poser sur le terrain (boîte à outils du mode édition)",
+        "tags": [
+          "resources"
+        ]
+      }
+    },
+    "/api/resources/{kind}/{id}/position": {
+      "put": {
+        "operationId": "ResourcesRegistryController_place",
+        "parameters": [
+          {
+            "name": "kind",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaceResourceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Le rôle ne pose pas cette nature, ou l'unité n'est pas affectée à son opération."
+          },
+          "404": {
+            "description": "Ressource inconnue."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Poser ou déplacer une ressource sur le terrain — selon le rôle et le mode (ADR 0018)",
+        "tags": [
+          "resources"
+        ]
+      },
+      "delete": {
+        "operationId": "ResourcesRegistryController_unplace",
+        "parameters": [
+          {
+            "name": "kind",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Ressource inconnue, ou pas sur le terrain."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Retirer une ressource du terrain — selon le rôle et le mode (ADR 0018)",
+        "tags": [
+          "resources"
+        ]
+      }
+    },
     "/api/resources/persons": {
       "post": {
         "operationId": "ResourcesRegistryController_addPerson",
@@ -6198,6 +6333,10 @@
               "analytics",
               "assistant",
               "simulation",
+              "mapEdit",
+              "simFlood",
+              "simFire",
+              "simNrbc",
               "users",
               "supervision",
               "settings"
@@ -6246,6 +6385,10 @@
               "analytics",
               "assistant",
               "simulation",
+              "mapEdit",
+              "simFlood",
+              "simFire",
+              "simNrbc",
               "users",
               "supervision",
               "settings"
@@ -8133,6 +8276,29 @@
         },
         "required": [
           "password"
+        ]
+      },
+      "PlaceResourceDto": {
+        "type": "object",
+        "properties": {
+          "ll": {
+            "example": [
+              -7.6,
+              33.58
+            ],
+            "description": "Point posé [lng, lat].",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "incidentId": {
+            "type": "string",
+            "description": "Opération à laquelle la pose se rattache (la plus proche, choisie par la carte)."
+          }
+        },
+        "required": [
+          "ll"
         ]
       },
       "ResourceOwnerDto": {
