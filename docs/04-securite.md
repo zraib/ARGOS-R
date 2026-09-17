@@ -283,6 +283,17 @@ correspondants d'une conversation directe, les membres d'un canal restreint),
 seul un canal ouvert se diffuse à tous. Tests :
 `modules/domain/resources-visibility.spec.ts`.
 
+**Unités (ADR 0020) — « chaque utilisateur ne voit que les unités qu'il a
+inscrites », et celles qui le concernent.** `filterUnits` : administration et
+stratégique tout ; chacun ses unités inscrites (`createdBy`), la sienne, celle
+de son parc ; wali et place d'armes celles de leur région ; la conduite
+déployée celles de son opération — et qui affecte (OPCOM et représentants)
+le vivier de la région de l'opération ; les responsables celles de
+l'opération où ils sont déployés. Une unité inscrite par un compte déployé
+rejoint son opération à l'inscription. **La carte des incidents**, elle, est
+celle de tous (`GET /incidents/map`, `map:view`) : la liste et la fiche
+restent sous la doctrine. Tests : `modules/domain/units-visibility.spec.ts`.
+
 ## 6. Matrice rôle → modules, drapeaux globaux
 
 Second niveau, distinct du RBAC : quels **modules** (écrans) un rôle voit, et

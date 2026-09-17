@@ -94,7 +94,11 @@ describe("Menu complet dans la matrice — défauts, cœur verrouillé, gestion 
     const dir = await devToken("s.moutaouakil", "resp_hospital");
     await base().get("/api/hospitals/H2/wards").set(auth(dir)).expect(200);
     await base().patch("/api/hospitals/H2").set(auth(dir)).send({ occ: 50 }).expect(403);
-    // L'OPCOM (en démonstration) modifie les unités par la même route, sans être touché.
+    // L'OPCOM (en démonstration) modifie les unités par la même route, sans être touché —
+    // déployé sur une opération de la région, il voit le vivier de la région (ADR 0020).
+    const op = (await base().post("/api/incidents").set(auth(root))
+      .send({ type: "flood", titre: "Crue — vivier OPCOM", region: "Rabat-Salé-Kénitra", sev: "medium", st: "open", x: 300, y: 150, ll: [-6.8, 34.0] }).expect(201)).body.id as string;
+    await base().post(`/api/incidents/${op}/deployments`).set(auth(root)).send({ matricule: "o.chraibi" }).expect(201);
     const opcom = await devToken("o.chraibi", "opcom");
     await base().patch(`/api/units/${unitId}`).set(auth(opcom)).send({ readiness: 77 }).expect(200);
     // Le compte rouvert malgré le rôle.

@@ -55,6 +55,18 @@ export class IncidentsController {
     return this.incidentTypes.register(dto);
   }
 
+  @Get("incidents/map")
+  @RequirePermission("map:view")
+  @ApiOperation({
+    summary: "Tous les incidents actifs, pour la carte de chacun (ADR 0020).",
+    description:
+      "Décision produit : « tout le monde doit voir l'incident sur la carte ». La liste et la fiche restent gardées par la " +
+      "doctrine de visibilité ; la carte, elle, montre chaque incident actif à quiconque lit la carte — non archivés seulement.",
+  })
+  mapIncidents() {
+    return this.domain.listIncidents().filter((i) => !i.archived);
+  }
+
   @Get("incidents")
   @RequirePermission("incidents:view")
   @ApiOperation({

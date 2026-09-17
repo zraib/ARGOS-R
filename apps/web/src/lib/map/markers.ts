@@ -12,6 +12,7 @@ import type {
   VehRoute,
 } from "@/lib/types";
 import { incidentFill } from "@/lib/helpers";
+import { corpsShort } from "@/lib/corps";
 import { fieldKind, hospKind, kindDef } from "@/lib/hospitals";
 import { FAMILY_PICTOGRAM, hazardSvgString } from "@/lib/hazard/pictograms";
 
@@ -47,11 +48,15 @@ export function placedMarkerHTML(code: string, fill: string, sel: boolean, capti
   );
 }
 
+/**
+ * Unité : le carré or, et dessous son ORGANE devant son nom (ADR 0020) —
+ * « FAR · 3e Bataillon du Génie » — plutôt que son seul identifiant.
+ */
 export function unitMarkerHTML(u: Unit, sel: boolean): string {
   return (
     '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">' +
     `<div style="width:16px;height:16px;background:#C9A84C;border:2px solid #0f1f14;${selRing(sel)}"></div>` +
-    `<span style="font:700 9px Inter,sans-serif;color:#fff;text-shadow:0 1px 2px #000;background:rgba(15,31,20,.7);padding:0 4px;border-radius:4px;">${u.id}</span></div>`
+    `<span style="font:700 9px Inter,sans-serif;color:#fff;text-shadow:0 1px 2px #000;background:rgba(15,31,20,.7);padding:0 4px;border-radius:4px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(`${corpsShort(u.corps)} · ${u.nom}`)}</span></div>`
   );
 }
 

@@ -7,7 +7,7 @@
 // la main, et pour que le service garde la seule responsabilité de l'état.
 // ============================================================================
 
-import { ORSEC_BOARD, ROSTER, TRIAGE_ZONES, type EquipItem } from "@/modules/domain/catalog.data";
+import { ROSTER, TRIAGE_ZONES, type EquipItem } from "@/modules/domain/catalog.data";
 import type { Hospital, Incident, Unit } from "@/modules/domain/domain.types";
 
 /** Ce que les calculs ont besoin de voir du domaine. */
@@ -18,32 +18,45 @@ export interface DomainSnapshot {
   equipment: EquipItem[];
 }
 
+/** Clé jour (AAAA-MM-JJ, heure locale du serveur) d'un horodatage ISO ; `null` s'il est illisible. */
+function dayKey(iso: string | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 /**
  * Vue globale pour le commandement : évolution des déclarations sur 30 jours,
- * répartition par gravité, bilan humain (source unique : tableau ORSEC),
- * saturation hospitalière et posture des unités. Série d'évolution
- * déterministe (pseudo-aléatoire seedé) + comptes réels du registre.
+ * répartition par gravité, bilan humain, saturation hospitalière et posture
+ * des unités — TOUT compté sur les données introduites (ADR 0020). La série
+ * de trente jours compte les incidents déclarés (`declaredAt`) et clôturés
+ * (`closedAt`) par jour ; le bilan humain est la somme des bilans des
+ * incidents actifs. Rien n'est tiré au sort ni lu dans une constante : une
+ * station sans incident affiche des zéros, pas un scénario.
  */
-export function computeStats(snap: DomainSnapshot) {
-  // Série 30 jours déterministe : même graphe à chaque appel (pas de flicker).
+export function computeStats(snap: DomainSnapshot, now: Date = new Date()) {
   const evolution: { d: string; opened: number; closed: number }[] = [];
-  const today = new Date();
-  let seed = 42;
-  const rnd = () => {
-    // LCG simple — suffisant pour une série de démonstration stable.
-    seed = (seed * 1103515245 + 12345) % 2147483648;
-    return seed / 2147483648;
-  };
-  for (let i = 29; i >= 0; i--) {
-    const day = new Date(today.getTime() - i * 86400000);
-    const label = `${String(day.getDate()).padStart(2, "0")}/${String(day.getMonth() + 1).padStart(2, "0")}`;
-    // Fond de bruit 0–3, pic sismique sur les 4 derniers jours (scénario Al Haouz).
-    const base = Math.floor(rnd() * 3);
-    const spike = i <= 3 ? Math.floor(rnd() * 5) + 3 : 0;
-    const opened = base + spike + (i === 0 ? snap.incidents.filter((x) => x.st !== "closed").length % 3 : 0);
-    const closed = Math.max(0, Math.floor((base + spike) * (0.4 + rnd() * 0.3)));
-    evolution.push({ d: label, opened, closed });
+  const opened = new Map<string, number>();
+  const closed = new Map<string, number>();
+  for (const inc of snap.incidents) {
+    const o = dayKey(inc.declaredAt);
+    if (o) opened.set(o, (opened.get(o) ?? 0) + 1);
+    const c = dayKey(inc.closedAt);
+    if (c) closed.set(c, (closed.get(c) ?? 0) + 1);
   }
+  for (let i = 29; i >= 0; i--) {
+    const day = new Date(now.getTime() - i * 86400000);
+    const key = dayKey(day.toISOString()) ?? "";
+    const label = `${String(day.getDate()).padStart(2, "0")}/${String(day.getMonth() + 1).padStart(2, "0")}`;
+    evolution.push({ d: label, opened: opened.get(key) ?? 0, closed: closed.get(key) ?? 0 });
+  }
+
+  const actifs = snap.incidents.filter((i) => !i.archived);
+  const casualties = actifs.reduce(
+    (acc, i) => ({ dead: acc.dead + (i.casualties?.dead ?? 0), injured: acc.injured + (i.casualties?.injured ?? 0), missing: acc.missing + (i.casualties?.missing ?? 0), rescued: 0 }),
+    { dead: 0, injured: 0, missing: 0, rescued: 0 },
+  );
 
   const severity = {
     high: snap.incidents.filter((i) => i.sev === "high").length,
@@ -82,7 +95,7 @@ export function computeStats(snap: DomainSnapshot) {
     avgReadiness: Math.round(snap.units.reduce((s, u) => s + u.readiness, 0) / Math.max(1, snap.units.length)),
   };
 
-  return { evolution, severity, status, casualties: ORSEC_BOARD.casualties, hospitals, units };
+  return { evolution, severity, status, casualties, hospitals, units };
 }
 
 export function computeAnalyticsOf(snap: DomainSnapshot) {

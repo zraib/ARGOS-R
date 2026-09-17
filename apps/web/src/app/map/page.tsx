@@ -30,6 +30,7 @@ import { canEditMap } from "@/lib/roles";
 import { PLACED_FILL, placeablePostKinds, placeableResourceKinds } from "@/lib/edit";
 import { moduleKeyOpen } from "@/lib/nav";
 import { POST_FILL, postCaption } from "@/lib/posts";
+import { corpsLabel, corpsShort } from "@/lib/corps";
 import { Panel } from "@/app/map/_parts/Panel";
 import { FloodPanel } from "@/app/map/_parts/FloodPanel";
 import { FirePanel } from "@/app/map/_parts/FirePanel";
@@ -80,7 +81,9 @@ export default function MapPage() {
   const fx = FLUX[lang];
   const setSelUnit = useArgos((s) => s.setSelUnit);
   const setSelHosp = useArgos((s) => s.setSelHosp);
-  const incidents = useArgos((s) => s.incidents);
+  // La carte montre TOUS les incidents actifs (ADR 0020) ; `incidents` reste
+  // la liste cantonnée du compte, pour ce qui renvoie à un écran gardé.
+  const incidents = useArgos((s) => s.mapIncidents);
   const fieldHosps = useArgos((s) => s.fieldHosps);
   const select = useArgos((s) => s.select);
   const [full, setFull] = useState(false);
@@ -177,7 +180,7 @@ export default function MapPage() {
     {
       label: t.fam_forces,
       layers: [
-        { key: "units", label: t.lg_units, leaves: units.map((u) => ({ id: u.id, label: u.nom, kind: "unit" })) },
+        { key: "units", label: t.lg_units, leaves: units.map((u) => ({ id: u.id, label: `${corpsShort(u.corps)} · ${u.nom}`, kind: "unit" })) },
         // Convois animés : une simulation, servie en profil « demo » seulement —
         // la couche n'apparaît que s'il y a quelque chose à animer.
         ...(vehRoutes.length > 0
@@ -286,7 +289,7 @@ export default function MapPage() {
           standby: { type: "on_hold", label: t.u_standby },
         };
         selInfo = {
-          titre: u.nom, sub: u.ville, badgeType: b[u.dispo].type, badgeLabel: b[u.dispo].label,
+          titre: `${corpsShort(u.corps)} · ${u.nom}`, sub: `${corpsLabel(u.corps ?? "far", t)} · ${u.ville}`, badgeType: b[u.dispo].type, badgeLabel: b[u.dispo].label,
           lines: [{ k: t.commander, v: u.cmdt }, { k: t.effectif, v: String(u.eff) }, { k: t.readiness, v: `${u.readiness} %` }],
           responsible: { kind: "unit", entityId: u.id, incidentId: incidents.find((i) => i.responders?.units?.includes(u.id))?.id },
           action: () => { setSelUnit(u.id); clearSelection(); router.push("/equipes"); },

@@ -30,6 +30,14 @@ export interface Incident {
   sev: "high" | "medium" | "low";
   st: "open" | "prog" | "closed";
   time: string;
+  /**
+   * Horodatages (ADR 0020) : déclaration et clôture, ISO. C'est sur eux que
+   * le tableau de bord compte les incidents déclarés et clôturés par jour —
+   * la série de trente jours était jusqu'ici tirée au sort. Absents sur les
+   * incidents d'avant : ils ne comptent alors dans aucun jour.
+   */
+  declaredAt?: string;
+  closedAt?: string;
   x: number;
   y: number;
   ll: [number, number];
@@ -129,6 +137,12 @@ export interface Unit {
   ll: [number, number];
   /** Opération à laquelle l'unité est affectée, et sa destination — dénormalisé pour la carte et les listes. */
   assignment?: { incidentId: string; destination: Destination; deployed: boolean };
+  /**
+   * Compte qui a inscrit l'unité (ADR 0020) : chacun voit les unités qu'il a
+   * inscrites, en plus de celles qui le concernent. Absent sur les unités
+   * d'avant et sur les graines.
+   */
+  createdBy?: string;
 }
 
 /**

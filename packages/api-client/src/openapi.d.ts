@@ -503,6 +503,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/incidents/map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tous les incidents actifs, pour la carte de chacun (ADR 0020).
+         * @description Décision produit : « tout le monde doit voir l'incident sur la carte ». La liste et la fiche restent gardées par la doctrine de visibilité ; la carte, elle, montre chaque incident actif à quiconque lit la carte — non archivés seulement.
+         */
+        get: operations["IncidentsController_mapIncidents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/incidents": {
         parameters: {
             query?: never;
@@ -1118,8 +1138,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Liste des unités visibles.
-         * @description Seule la place d'armes est restreinte — à sa zone de compétence.
+         * Liste des unités visibles (ADR 0020).
+         * @description Chacun voit les unités qu'il a inscrites et celles qui le concernent : la sienne, celles de sa région (wali, place d'armes), celles affectées ou intervenantes sur son opération (conduite déployée). L'administration et le stratégique voient tout.
          */
         get: operations["ResourcesController_units"];
         put?: never;
@@ -1528,7 +1548,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Statistiques de commandement : évolution 30 j, gravité, bilan humain, saturation hospitalière, posture des unités */
+        /**
+         * Statistiques de commandement : évolution 30 j, gravité, bilan humain, saturation hospitalière, posture des unités
+         * @description Comptées sur les DONNÉES INTRODUITES (ADR 0020) — incidents déclarés et clôturés par jour, bilans des incidents actifs — et sur ce que le compte voit : ses incidents, ses unités.
+         */
         get: operations["DashboardController_dashboardStats"];
         put?: never;
         post?: never;
@@ -1565,7 +1588,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Fil des événements */
+        /** Fil des événements — ceux des incidents que le compte voit, et les lignes sans incident */
         get: operations["DashboardController_feed"];
         put?: never;
         post?: never;
@@ -4749,6 +4772,23 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IncidentsController_mapIncidents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

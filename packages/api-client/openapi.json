@@ -938,6 +938,27 @@
         ]
       }
     },
+    "/api/incidents/map": {
+      "get": {
+        "description": "Décision produit : « tout le monde doit voir l'incident sur la carte ». La liste et la fiche restent gardées par la doctrine de visibilité ; la carte, elle, montre chaque incident actif à quiconque lit la carte — non archivés seulement.",
+        "operationId": "IncidentsController_mapIncidents",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Tous les incidents actifs, pour la carte de chacun (ADR 0020).",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/incidents": {
       "get": {
         "description": "Filtrée par la doctrine de visibilité (lot V-1) : globale pour l'état-major, la région pour un wali, la zone de 40 km pour une place d'armes, l'incident de déploiement pour la conduite, les incidents servis pour un responsable d'entité. Un rôle cantonné SANS affectation ne voit rien.",
@@ -2244,7 +2265,7 @@
     },
     "/api/units": {
       "get": {
-        "description": "Seule la place d'armes est restreinte — à sa zone de compétence.",
+        "description": "Chacun voit les unités qu'il a inscrites et celles qui le concernent : la sienne, celles de sa région (wali, place d'armes), celles affectées ou intervenantes sur son opération (conduite déployée). L'administration et le stratégique voient tout.",
         "operationId": "ResourcesController_units",
         "parameters": [],
         "responses": {
@@ -2257,7 +2278,7 @@
             "bearer": []
           }
         ],
-        "summary": "Liste des unités visibles.",
+        "summary": "Liste des unités visibles (ADR 0020).",
         "tags": [
           "domain"
         ]
@@ -3420,6 +3441,7 @@
     },
     "/api/dashboard/stats": {
       "get": {
+        "description": "Comptées sur les DONNÉES INTRODUITES (ADR 0020) — incidents déclarés et clôturés par jour, bilans des incidents actifs — et sur ce que le compte voit : ses incidents, ses unités.",
         "operationId": "DashboardController_dashboardStats",
         "parameters": [],
         "responses": {
@@ -3473,7 +3495,7 @@
             "bearer": []
           }
         ],
-        "summary": "Fil des événements",
+        "summary": "Fil des événements — ceux des incidents que le compte voit, et les lignes sans incident",
         "tags": [
           "domain"
         ]

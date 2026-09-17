@@ -49,6 +49,8 @@ import {
 export interface DomainSlice {
   // --- domaine (état serveur, chargé depuis l'API) ---
   incidents: Incident[];
+  /** Tous les incidents actifs, pour la carte (ADR 0020) — `incidents` reste ce que le compte voit dans sa liste. */
+  mapIncidents: Incident[];
   units: Unit[];
   hospitals: Hospital[];
   fieldHosps: FieldHospital[];
@@ -202,6 +204,7 @@ function fusionnerMessages(
 
 export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = (set, get) => ({
   incidents: [],
+  mapIncidents: [],
   units: [],
   hospitals: [],
   fieldHosps: [],
@@ -262,6 +265,7 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
       api.getShelters(),
       api.getMorgues(),
       api.getPlaced(),
+      api.getMapIncidents(),
     ]);
     const data = <T,>(i: number): T | undefined =>
       results[i].status === "fulfilled"
@@ -287,6 +291,7 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
       shelters: data<Shelter[]>(16) ?? s.shelters,
       morgues: data<MorgueSite[]>(17) ?? s.morgues,
       placed: data<PlacedResource[]>(18) ?? s.placed,
+      mapIncidents: data<Incident[]>(19) ?? s.mapIncidents,
       comCats: comms?.categories ?? s.comCats,
       comMsgs: comms?.messages ? fusionnerMessages(s.comMsgs, marquerMiens(comms.messages, s.sessionUser?.matricule)) : s.comMsgs,
       comMembers: comms?.members ?? s.comMembers,

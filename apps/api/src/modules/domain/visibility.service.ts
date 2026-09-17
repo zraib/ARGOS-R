@@ -207,9 +207,12 @@ export class VisibilityService {
       regionOf: (kind: ResourceOwner["kind"], id: string) => string | undefined;
       /** Détenteurs engagés sur une opération (identifiants d'entités). */
       ownersOnIncident: (incidentId: string) => readonly string[];
+      /** Le compte a inscrit ce détenteur (ADR 0020 : une unité qu'on a inscrite se voit). */
+      createdByMe?: (owner: ResourceOwner) => boolean;
     },
   ): boolean {
     if (deps.parkUnit && owner.kind === "unit" && owner.id === deps.parkUnit) return true;
+    if (deps.createdByMe?.(owner)) return true;
     switch (scope.kind) {
       case "global":
         return true;
@@ -225,13 +228,51 @@ export class VisibilityService {
   }
 
   /**
-   * Unités visibles : TOUTES, quelle que soit la portée. Le wali et la place
-   * d'armes gardent la vue nationale des moyens (décision produit), et la
-   * conduite déployée a besoin de voir les unités engageables sur son
-   * opération. Une unité n'est pas un secret ; un incident, si.
+   * Unités visibles (ADR 0020) : « chaque utilisateur ne voit que les unités
+   * qu'il a inscrites » — et celles qui le concernent :
+   *   - global (administration, stratégique) : toutes ;
+   *   - toujours : celles qu'il a inscrites (`createdBy`), la sienne
+   *     (commandant d'unité), celle de son parc (responsable d'équipement) ;
+   *   - région (wali, place d'armes) : celles de sa région — ils n'inscrivent
+   *     pas d'unité mais affectent celles de leur territoire ;
+   *   - opération (conduite déployée) : celles affectées ou intervenantes sur
+   *     son opération — et, pour qui AFFECTE (l'OPCOM et ses représentants),
+   *     le vivier de la région de l'opération, sans quoi il n'aurait rien à
+   *     affecter ; le TACOM et les cellules, qui exploitent, ne voient que le
+   *     dispositif de l'opération ;
+   *   - entité (responsables) : celles engagées sur l'opération où ils sont
+   *     déployés, en plus de la leur.
+   * Le reste n'existe pas pour lui. Une unité d'avant l'horodatage, sans
+   * auteur, ne se voit que par ces autres chemins.
    */
-  filterUnits(units: Unit[], _scope: VisibilityScope): Unit[] {
-    return units;
+  filterUnits(
+    units: Unit[],
+    scope: VisibilityScope,
+    ctx?: {
+      matricule: string;
+      assignments?: Assignments;
+      regionOf: (id: string) => string | undefined;
+      ownersOnIncident: (incidentId: string) => readonly string[];
+      /** Le rôle affecte des unités à l'opération (OPCOM et représentants) : il voit le vivier de la région de l'opération. */
+      assigns?: boolean;
+      regionOfIncident?: (incidentId: string) => string | undefined;
+    },
+  ): Unit[] {
+    if (scope.kind === "global" || !ctx) return units;
+    const me = ctx.matricule.toLowerCase();
+    const mine = new Set([ctx.assignments?.unit, ctx.assignments?.equipment].filter((x): x is string => !!x));
+    const engaged = new Set<string>();
+    const incidentId = scope.kind === "region" ? null : scope.incidentId ?? null;
+    if (incidentId) for (const id of ctx.ownersOnIncident(incidentId)) engaged.add(id);
+    const pool = incidentId && ctx.assigns ? ctx.regionOfIncident?.(incidentId) : undefined;
+    return units.filter((u) => {
+      if (u.createdBy?.toLowerCase() === me) return true;
+      if (mine.has(u.id)) return true;
+      if (scope.kind === "region") return !!scope.region && ctx.regionOf(u.id) === scope.region;
+      if (scope.kind === "entity" && scope.entities.includes(u.id)) return true;
+      if (engaged.has(u.id)) return true;
+      return !!pool && ctx.regionOf(u.id) === pool;
+    });
   }
 
   /**

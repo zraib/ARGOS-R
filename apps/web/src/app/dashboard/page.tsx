@@ -79,6 +79,20 @@ export default function DashboardPage() {
   const activeInc = filterActiveIncidents(incidents).length;
   const bedsFixed = hospitals.reduce((a, h) => a + (h.lits - h.occ), 0);
   const bedsField = fieldHosps.reduce((a, f) => a + (f.cap - f.occ), 0);
+  // TOUT compté sur les données introduites (ADR 0020) — les quatre KPI
+  // portaient des chiffres figés (« 1 043 », « +2 · 24h », « 4 unités ») qui ne
+  // changeaient jamais. Ici : incidents déclarés depuis 24 h, effectif des
+  // unités déployées et effectif total, unités en alerte et déployées — sur les
+  // unités que le compte voit.
+  const units = useArgos((s) => s.units);
+  const since24h = Date.now() - 86400000;
+  const declared24h = incidents.filter((i) => i.declaredAt && new Date(i.declaredAt).getTime() >= since24h).length;
+  const effDeployed = units.filter((u) => u.dispo === "deployed").reduce((a, u) => a + u.eff, 0);
+  const effTotal = units.reduce((a, u) => a + u.eff, 0);
+  const unitsStandby = units.filter((u) => u.dispo === "standby").length;
+  const unitsDeployed = units.filter((u) => u.dispo === "deployed").length;
+  const unitsReady = units.filter((u) => u.dispo === "ready").length;
+  const fmt = (n: number) => n.toLocaleString("fr-FR");
 
   // 5e KPI : niveau global de conscience situationnelle (IA + repli).
   const kpiSA = useMemo(() => {
@@ -104,17 +118,18 @@ export default function DashboardPage() {
   }, [situational]);
 
   const kpis: Kpi[] = [
-    { label: t.kpi_inc, val: String(activeInc), sub: "+2 · 24h", subColor: "text-danger-500", icon: KPI_ICONS.incidents, iconWrap: "bg-danger-500/10 text-danger-500" },
-    { label: t.kpi_pers, val: "1 043", sub: "+320 · 24h", subColor: "text-or-500", icon: KPI_ICONS.personnel, iconWrap: "bg-or-500/15 text-or-500" },
-    { label: t.kpi_beds, val: String(bedsFixed + bedsField), sub: `+${bedsField} HMC`, subColor: "text-green-600", icon: KPI_ICONS.beds, iconWrap: "bg-green-500/10 text-green-600" },
-    { label: t.kpi_units, val: "4", sub: `2 ${t.u_deployed.toLowerCase()}`, subColor: "text-blue-500", icon: KPI_ICONS.units, iconWrap: "bg-blue-500/10 text-blue-500" },
+    { label: t.kpi_inc, val: String(activeInc), sub: `+${declared24h} · 24h`, subColor: "text-danger-500", icon: KPI_ICONS.incidents, iconWrap: "bg-danger-500/10 text-danger-500" },
+    { label: t.kpi_pers, val: fmt(effDeployed), sub: `/ ${fmt(effTotal)}`, subColor: "text-or-500", icon: KPI_ICONS.personnel, iconWrap: "bg-or-500/15 text-or-500" },
+    { label: t.kpi_beds, val: fmt(bedsFixed + bedsField), sub: `+${bedsField} HMC`, subColor: "text-green-600", icon: KPI_ICONS.beds, iconWrap: "bg-green-500/10 text-green-600" },
+    { label: t.kpi_units, val: String(unitsStandby), sub: `${unitsDeployed} ${t.u_deployed.toLowerCase()}`, subColor: "text-blue-500", icon: KPI_ICONS.units, iconWrap: "bg-blue-500/10 text-blue-500" },
   ];
 
+  // Moyens engagés : la posture réelle des unités visibles — plus de barres
+  // figées « véhicules / ambulances / génie / hélicos » sans source.
   const chartMoyens: ChartDatum[] = [
-    { label: "Véhicules", value: 86, couleur: "#C9A84C" },
-    { label: "Ambulances", value: 76, couleur: "#EF4444" },
-    { label: "Génie", value: 24, couleur: "#3B82F6" },
-    { label: "Hélicos", value: 12, couleur: "#10B981" },
+    { label: t.u_deployed, value: unitsDeployed, couleur: "#C9A84C" },
+    { label: t.u_ready, value: unitsReady, couleur: "#10B981" },
+    { label: t.u_standby, value: unitsStandby, couleur: "#3B82F6" },
   ];
 
   // ===== Bilan humain · un seul useMemo via le helper source unique (derive.ts)

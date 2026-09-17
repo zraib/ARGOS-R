@@ -69,7 +69,9 @@ export function syncMarkers(rt: MarkersRuntime, map: maplibregl.Map | null) {
   if (L.hospitalsCiv) hosps.filter((h) => hospKind(h) !== "mil").forEach(addHosp);
   if (L.hospitals) hosps.filter((h) => hospKind(h) === "mil").forEach(addHosp);
   if (L.field) state.fieldHosps.forEach((f) => add(fieldLL(f), mkEl(fieldMarkerHTML(f, isSel("field", f.nom)), "field", f.nom)));
-  if (L.incidents) state.incidents.forEach((i) => add(i.ll, mkEl(incMarkerHTML(i, isSel("inc", i.id)), "inc", i.id)));
+  // Tout le monde voit l'incident sur la carte (ADR 0020) : la couche dessine
+  // `mapIncidents`, pas la liste cantonnée du compte.
+  if (L.incidents) state.mapIncidents.forEach((i) => add(i.ll, mkEl(incMarkerHTML(i, isSel("inc", i.id)), "inc", i.id)));
 
   // Postes d'opération (lot #12). En mode édition, le marqueur se saisit et se
   // déplace ; lâché, il écrit sa nouvelle position. Hors mode, il se lit.

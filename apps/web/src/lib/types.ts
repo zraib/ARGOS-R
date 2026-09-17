@@ -160,6 +160,9 @@ export interface Incident {
   nrbc?: NrbcDetails;
   /** Incident archivé (masqué de la liste active) */
   archived?: boolean;
+  /** Horodatages ISO de déclaration et de clôture (ADR 0020) ; absents sur les incidents d'avant. */
+  declaredAt?: string;
+  closedAt?: string;
 }
 
 /** Aléa secondaire rattaché à un incident principal (mêmes détails qu'un incident). */
@@ -224,7 +227,9 @@ export interface Unit {
   y: number;
   ll: [number, number];
   /** Opération à laquelle l'unité est affectée, et sa destination. */
-  assignment?: { incidentId: string; destination: Destination; deployed: boolean };
+  assignment?: { incidentId: string; destination: Destination; deployed: boolean   /** Compte qui a inscrit l'unité (ADR 0020) : il la voit toujours. */
+  createdBy?: string;
+};
 }
 
 /**

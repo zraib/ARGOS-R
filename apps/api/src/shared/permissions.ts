@@ -225,7 +225,14 @@ const V = "V", VM = "VM", AMV = "AMV", ALL = "AMRV";
  * Le Super Administrateur n'y figure pas : il détient tout (`*`).
  */
 const MATRIX: Record<(typeof MATRIX_FEATURES)[number], Partial<Record<Role, Cell>>> = {
-  dashboard: { admin: ALL, strategic: V },
+  // Le tableau de bord national est l'écran d'accueil de tout rôle de conduite
+  // et se lit par chacun sur SA portée (ADR 0020) : la ligne s'ouvre à tous.
+  dashboard: {
+    admin: ALL, strategic: V, place_arme: V, wali: V, opcom: V, tacom: V,
+    gendarmerie: V, etat_major: V, interieur: V, pco: V, pct: V,
+    bluecell: V, greencell: V, orangecell: V,
+    resp_hospital: V, resp_shelter: V, resp_unit: V, resp_morgue: V, resp_equipment: V,
+  },
   dash_incident: {
     admin: ALL, strategic: V, place_arme: V, wali: V, opcom: V, tacom: V,
     bluecell: V, greencell: V, orangecell: V, resp_shelter: V, resp_morgue: V,

@@ -107,7 +107,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `POST` | `/api/equipment-parks/{id}/items` | `equipment:create` | Ajouter un article — dans SON parc uniquement |
 | `DELETE` | `/api/equipment-parks/{id}/items/{eid}` | `equipment:archive` | Sortir un article du parc — dans SON parc uniquement |
 | `PATCH` | `/api/equipment-parks/{id}/items/{eid}` | `equipment:update` | Modifier un article — dans SON parc uniquement |
-| `GET` | `/api/feed` | `dashboard:view` | Fil des événements |
+| `GET` | `/api/feed` | `dashboard:view` | Fil des événements — ceux des incidents que le compte voit, et les lignes sans incident |
 | `GET` | `/api/field-hospitals` | `hospinet:view` | Hôpitaux de campagne visibles. |
 | `GET` | `/api/floods/gauges` | `seismic:view` | Jauges du Maroc et leur dernier statut de crue (Flood Hub, proxy souverain, cache 15 min) |
 | `GET` | `/api/floods/gauges/{id}/forecast` | `seismic:view` | Dernière prévision émise pour une jauge, avec ses seuils d'alerte |
@@ -146,6 +146,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `DELETE` | `/api/incidents/{id}/victims/{vid}` | `victims:update` | Retirer une victime nommée — tant qu'elle n'est pas affectée à une morgue, dans son périmètre |
 | `PATCH` | `/api/incidents/{id}/victims/{vid}` | `victims:update` | Corriger une victime nommée — dans son périmètre |
 | `POST` | `/api/incidents/{id}/victims/{vid}/morgue` | `victims:update` | Affecter un décédé à une morgue : le dossier s'ouvre là-bas, réception à confirmer — dans son périmètre |
+| `GET` | `/api/incidents/map` | `map:view` | Tous les incidents actifs, pour la carte de chacun (ADR 0020). |
 | `GET` | `/api/morgues` | `morgue:view` | Sites mortuaires |
 | `POST` | `/api/morgues` | `morgue:create` | Créer un site mortuaire fixe — de ville ou régional, rattaché à un établissement |
 | `DELETE` | `/api/morgues/{id}` | `morgue:delete` | Supprimer définitivement un site mortuaire — SUPERADMIN uniquement. |
@@ -172,7 +173,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `POST` | `/api/sitreps` | `missions:create` | Publier un compte rendu — IMMUABLE et numéroté une fois publié. |
 | `GET` | `/api/sitreps/missing` | `missions:view` | Entités EN RETARD de compte rendu. |
 | `GET` | `/api/sub-incident-types` | `subincidents:view` | Catalogue des sous-types + mapping par type d'incident principal |
-| `GET` | `/api/units` | `teams:view` | Liste des unités visibles. |
+| `GET` | `/api/units` | `teams:view` | Liste des unités visibles (ADR 0020). |
 | `POST` | `/api/units` | `teams:create` | Créer une unité (audité). |
 | `DELETE` | `/api/units/{id}` | `teams:update` | Supprimer définitivement une unité — Super Administrateur ; OPCOM et cellules hors mode opérationnel (ADR 0016). |
 | `PATCH` | `/api/units/{id}` | `units:update` | Mettre à jour une unité — un responsable ne peut agir que sur la sienne ; l'OPCOM et les cellules en démonstration et en exercice |
@@ -296,7 +297,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 ## Chiffres
 
-150 chemins · 192 opérations · 14 groupes.
+151 chemins · 193 opérations · 14 groupes.
 
 ## Modifier le contrat
 

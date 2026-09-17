@@ -74,7 +74,7 @@ import {
 function placeResourceAt(pick: ResourcePick, ll: [number, number]): void {
   const st = useArgos.getState();
   st.armResource(null);
-  const inc = nearestIncident(ll, st.incidents);
+  const inc = nearestIncident(ll, st.mapIncidents);
   void st
     .placeResource(pick.kind, pick.id, ll, inc?.id)
     .then(() => st.showToast(st.dict.pl_placed_ok))
@@ -124,6 +124,7 @@ export function MapCanvas() {
   // saisissable quand le mode s'allume, il faut donc rebâtir les marqueurs.
   const posts = useArgos((s) => s.posts);
   const placed = useArgos((s) => s.placed);
+  const mapIncidents = useArgos((s) => s.mapIncidents);
   const armedResource = useArgos((s) => s.armedResource);
   const mapEdit = useArgos((s) => s.mapEdit);
   const armedPost = useArgos((s) => s.armedPost);
@@ -450,7 +451,7 @@ export function MapCanvas() {
   // --- re-synchro des marqueurs si données / sélection / couche changent ---
   useEffect(() => {
     if (readyRef.current) syncMarkers(markersRt.current, mapRef.current);
-  }, [layers, selMarker, incidents, fieldHosps, posts, placed, mapEdit]);
+  }, [layers, selMarker, incidents, mapIncidents, fieldHosps, posts, placed, mapEdit]);
 
   // Chip armé, ou point de départ d'une inondation attendu : le curseur le dit avant le clic.
   useEffect(() => {
@@ -495,7 +496,7 @@ export function MapCanvas() {
     if (!map || !selMarker) return;
     const st = useArgos.getState();
     const ll =
-      selMarker.kind === "inc" ? st.incidents.find((i) => i.id === selMarker.id)?.ll
+      selMarker.kind === "inc" ? st.mapIncidents.find((i) => i.id === selMarker.id)?.ll
       : selMarker.kind === "unit" ? st.units.find((u) => u.id === selMarker.id)?.ll
       : selMarker.kind === "hosp" ? st.hospitals.find((h) => h.id === selMarker.id)?.ll
       : selMarker.kind === "morgue" ? st.morgues.find((x) => x.id === selMarker.id)?.ll

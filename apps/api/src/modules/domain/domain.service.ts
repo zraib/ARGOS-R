@@ -365,6 +365,16 @@ export class DomainService implements OnApplicationBootstrap {
     } else if (this.tombstones.size > 0) {
       this.applyPrune(pruneDemo(this.collections(), { ids: this.tombstones }));
     }
+    // Les graines de démonstration se datent (ADR 0020) : étalées sur les
+    // douze derniers jours, de façon stable, pour que le tableau de bord ait
+    // une courbe à montrer sans rien tirer au sort. Un incident d'opérateur
+    // d'avant l'horodatage reste sans date : il ne compte dans aucun jour.
+    this.incidents.forEach((inc, k) => {
+      if (!inc.seeded || inc.declaredAt) return;
+      const day = new Date(Date.now() - (k % 12) * 86400000);
+      inc.declaredAt = day.toISOString();
+      if (inc.st === "closed") inc.closedAt = new Date(day.getTime() + 86400000).toISOString();
+    });
     if (!sameSeed || snap.dataProfile !== DATA_PROFILE) this.persist();
   }
 
@@ -618,7 +628,7 @@ export class DomainService implements OnApplicationBootstrap {
     }, 2607);
     // `archived: false` explicite : un incident fraîchement déclaré est actif ;
     // l'absence du champ laissait les filtres « actifs » interpréter `undefined`.
-    const inc: Incident = { archived: false, ...input, id: `INC-${highest + 1}`, time };
+    const inc: Incident = { archived: false, declaredAt: d.toISOString(), ...input, id: `INC-${highest + 1}`, time };
     this.incidents.unshift(inc);
     this.feed.unshift({ time, c: "bg-danger-500", txt: `${inc.id} — ${inc.titre}` });
     this.persist();
@@ -632,9 +642,13 @@ export class DomainService implements OnApplicationBootstrap {
     // N'écrase que les champs réellement fournis : les DTO exposent les champs
     // optionnels absents comme `undefined`, et un Object.assign brut effacerait
     // les valeurs existantes (titre, type, gravité…) lors d'une mise à jour partielle.
+    const wasClosed = inc.st === "closed";
     for (const [k, v] of Object.entries(patch)) {
       if (v !== undefined) (inc as unknown as Record<string, unknown>)[k] = v;
     }
+    // La clôture se date (ADR 0020) ; une réouverture efface la date.
+    if (inc.st === "closed" && !wasClosed) inc.closedAt = new Date().toISOString();
+    else if (inc.st !== "closed" && wasClosed) delete inc.closedAt;
     // Un bilan corrigé par l'opérateur devient le nouveau chiffre déclaré ; la lecture garde le plancher des victimes nommées.
     if (patch.casualties) {
       inc.declaredCasualties = { dead: patch.casualties.dead, injured: patch.casualties.injured, missing: patch.casualties.missing };
@@ -910,14 +924,14 @@ export class DomainService implements OnApplicationBootstrap {
   }
 
   /** Crée une unité (id séquentiel U<n>) et trace l'événement dans le fil. */
-  createUnit(input: Omit<Unit, "id" | "cmdt"> & { cmdt?: string }): Unit {
+  createUnit(input: Omit<Unit, "id" | "cmdt"> & { cmdt?: string }, createdBy?: string): Unit {
     const n = Math.max(0, ...this.units.map((u) => parseInt(u.id.replace(/\D/g, ""), 10) || 0)) + 1;
     // Le commandant n'est plus saisi à la création : c'est le compte
     // « responsable d'unité » affecté à l'unité qui le désigne. Un tiret tant
     // qu'aucun n'est affecté — jamais un nom inventé.
     // Le corps par défaut est celui des FAR : le champ est apparu avec l'ADR
     // 0016 et les unités d'avant sont des unités militaires.
-    const unit: Unit = { ...input, corps: input.corps ?? "far", cmdt: input.cmdt?.trim() || "—", id: `U${n}` };
+    const unit: Unit = { ...input, corps: input.corps ?? "far", cmdt: input.cmdt?.trim() || "—", id: `U${n}`, ...(createdBy ? { createdBy } : {}) };
     this.units.push(unit);
     const d = new Date();
     const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -1797,6 +1811,28 @@ export class DomainService implements OnApplicationBootstrap {
     return { ok: true, assignment: a };
   }
 
+  /**
+   * Rattache à l'opération une unité qu'un compte DÉPLOYÉ vient d'inscrire
+   * (ADR 0020) : en exercice, la cellule qui crée une unité la crée pour son
+   * opération — l'OPCOM et le TACOM de cette opération la voient aussitôt,
+   * sans passer par le corps qu'affecte le rôle. Destination par corps
+   * (FAR → PCT, les autres → PCO), pas encore déployée ; sans effet si
+   * l'opération est close ou inconnue.
+   */
+  attachUnitToOperation(unitId: string, incidentId: string, actor: string): boolean {
+    const inc = this.incidents.find((i) => i.id === incidentId);
+    const unit = this.units.find((u) => u.id === unitId);
+    if (!inc || !unit || inc.archived || inc.st === "closed" || unit.assignment) return false;
+    const destination = destinationFor(unit.corps ?? "far");
+    inc.assignments ??= [];
+    inc.assignments.push({ unitId, destination, by: actor, at: new Date().toISOString() });
+    inc.responders ??= { units: [], hospitals: [] };
+    if (!inc.responders.units.includes(unitId)) inc.responders.units.push(unitId);
+    unit.assignment = { incidentId, destination, deployed: false };
+    this.persist();
+    return true;
+  }
+
   /** L'OPCOM retire une affectation ; une unité déployée est d'abord retirée du terrain. */
   unassignUnit(incidentId: string, unitId: string, actor: string): { ok?: true; missing?: boolean } {
     const inc = this.incidents.find((i) => i.id === incidentId);
@@ -1880,8 +1916,9 @@ export class DomainService implements OnApplicationBootstrap {
 
   // --- statistiques de commandement (tableau de bord national) -------------
 
-  stats() {
-    return computeStats(this.snapshot());
+  /** Statistiques de commandement — sur les incidents et unités que le compte voit (ADR 0020), sinon tout. */
+  stats(view?: { incidents: Incident[]; units: Unit[] }) {
+    return computeStats(view ? { ...this.snapshot(), incidents: view.incidents, units: view.units } : this.snapshot());
   }
 
   /** L'instantané que lisent les calculs purs (domain.analytics.ts). */

@@ -5,7 +5,7 @@ import { useArgos, useDict, useModules } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { UNIT_CORPS, type Unit, type UnitCorps } from "@/lib/types";
-import { corpsLabel } from "@/lib/corps";
+import { corpsLabel, corpsShort } from "@/lib/corps";
 import { SHELTER_ORGANS, type Shelter, type ShelterBuilding, type ShelterKind, type ShelterOrgan } from "@/lib/data/modules";
 
 // ============================================================================
@@ -62,7 +62,7 @@ export function EditUnitModal({ unit, onClose }: { unit: Unit; onClose: () => vo
   };
 
   return (
-    <Modal open title={`${t.ops_edit_unit} — ${unit.id}`} onClose={onClose} size="md">
+    <Modal open title={`${t.ops_edit_unit} — ${corpsShort(unit.corps)} · ${unit.nom}`} onClose={onClose} size="md">
       <div className="space-y-3">
         <div>
           <label className={labelCls}>{t.ops_unit}</label>

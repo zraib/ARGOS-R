@@ -142,6 +142,8 @@ export function createArgosClient(opts: ArgosClientOptions) {
       client.PATCH("/api/iam/users/{id}/modules", { params: { path: { id } }, body: { module, enabled } }),
     // --- domaine opérationnel (Phase 2) ---
     getIncidents: () => client.GET("/api/incidents"),
+    /** Tous les incidents actifs, pour la carte de chacun (ADR 0020) — la liste reste sous la doctrine de visibilité. */
+    getMapIncidents: () => client.GET("/api/incidents/map"),
     getIncidentTypes: () => client.GET("/api/incident-types"),
     getSubIncidentTypes: () => client.GET("/api/sub-incident-types"),
     registerIncidentType: (body: RegisterIncidentTypeBody) => client.POST("/api/incident-types", { body }),

@@ -18,6 +18,7 @@ import { RequireScope } from "@/common/decorators/require-scope.decorator";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
 import { DomainService } from "@/modules/domain/domain.service";
+import { assignableCorps } from "@/modules/domain/assignment.rules";
 import { VisibilityService } from "@/modules/domain/visibility.service";
 import { UsersService } from "@/modules/iam/users.service";
 
@@ -35,11 +36,13 @@ export class ResourcesController {
   @Get("units")
   @RequirePermission("teams:view")
   @ApiOperation({
-    summary: "Liste des unités visibles.",
-    description: "Seule la place d'armes est restreinte — à sa zone de compétence.",
+    summary: "Liste des unités visibles (ADR 0020).",
+    description:
+      "Chacun voit les unités qu'il a inscrites et celles qui le concernent : la sienne, celles de sa région (wali, place d'armes), " +
+      "celles affectées ou intervenantes sur son opération (conduite déployée). L'administration et le stratégique voient tout.",
   })
   units(@CurrentUser() user: AuthUser) {
-    return this.visibility.filterUnits(this.domain.listUnits(), this.scopeFor(user));
+    return this.visibleUnits(user);
   }
 
   @Post("units")
@@ -53,7 +56,12 @@ export class ResourcesController {
   @ApiResponse({ status: 403, description: "Le mode de la station ne le permet pas à ce rôle." })
   createUnit(@Body() dto: CreateUnitDto, @CurrentUser() user: AuthUser) {
     if (!canCreateUnit(user.role, this.mode.current())) throw new ForbiddenException(`Mode ${this.mode.current()} : la création d'unités n'est pas ouverte au rôle ${user.role}.`);
-    return this.domain.createUnit(dto);
+    // L'unité porte son auteur (ADR 0020) : il la verra toujours. Inscrite par
+    // un compte déployé (cellule, OPCOM, TACOM en exercice), elle rejoint son
+    // opération aussitôt — l'OPCOM et le TACOM de l'opération la voient.
+    const unit = this.domain.createUnit(dto, user.username);
+    if (user.scope?.incident) this.domain.attachUnitToOperation(unit.id, user.scope.incident, user.username);
+    return this.domain.findUnit(unit.id) ?? unit;
   }
 
   @Patch("units/:id")
@@ -61,6 +69,8 @@ export class ResourcesController {
   @RequireScope("unit")
   @ApiOperation({ summary: "Mettre à jour une unité — un responsable ne peut agir que sur la sienne ; l'OPCOM et les cellules en démonstration et en exercice" })
   updateUnit(@Param("id") id: string, @Body() dto: UpdateUnitDto, @CurrentUser() user: AuthUser) {
+    // Ce qu'on ne voit pas ne se modifie pas — et n'existe pas (404).
+    if (!this.visibleUnits(user).some((u) => u.id === id)) throw new NotFoundException(`Unité introuvable : ${id}`);
     if (!canEditUnit(user.role, this.mode.current(), user.scope?.unit === id)) throw new ForbiddenException(`Mode ${this.mode.current()} : la modification d'unités n'est pas ouverte au rôle ${user.role}.`);
     const u = this.domain.updateUnit(id, dto);
     if (!u) throw new NotFoundException(`Unité introuvable : ${id}`);
@@ -321,6 +331,18 @@ export class ResourcesController {
    */
   private scopeFor(user: AuthUser) {
     return this.visibility.scopeOfUser(user.role, user.scope);
+  }
+
+  /** Les unités que ce compte voit (ADR 0020). */
+  private visibleUnits(user: AuthUser) {
+    return this.visibility.filterUnits(this.domain.listUnits(), this.scopeFor(user), {
+      matricule: user.username,
+      assignments: user.scope,
+      regionOf: (id) => this.domain.regionOfEntity("unit", id),
+      ownersOnIncident: (id) => this.domain.resourceOwnersOnIncident(id),
+      assigns: assignableCorps(user.role) === "*" || assignableCorps(user.role).length > 0,
+      regionOfIncident: (id) => this.domain.listIncidents().find((i) => i.id === id)?.region,
+    });
   }
   /** Suppression commune aux trois entités : garde-fous du domaine + responsables IAM, puis retrait. */
   private deleteEntity(kind: "unit" | "shelter" | "morgue", id: string, force: string | undefined, user: AuthUser) {

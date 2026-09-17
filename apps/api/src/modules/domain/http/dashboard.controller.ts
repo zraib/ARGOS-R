@@ -11,9 +11,13 @@ import { Get, Controller } from "@nestjs/common";
 import { SelfService } from "@/common/decorators/self-service.decorator";
 import { ApiOperation, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
+import { CurrentUser } from "@/common/decorators/current-user.decorator";
+import type { AuthUser } from "@/common/types/auth-user";
 import { RiskService } from "@/modules/domain/risk.service";
 import { DomainService } from "@/modules/domain/domain.service";
+import { assignableCorps } from "@/modules/domain/assignment.rules";
 import { CatalogService } from "@/modules/domain/catalog.service";
+import { VisibilityService } from "@/modules/domain/visibility.service";
 
 @ApiTags("domain")
 @ApiBearerAuth()
@@ -23,7 +27,23 @@ export class DashboardController {
     private readonly risk: RiskService,
     private readonly domain: DomainService,
     private readonly catalog: CatalogService,
+    private readonly visibility: VisibilityService,
   ) {}
+
+  /** Ce que le compte voit (ADR 0020) : les incidents et les unités de sa portée — le tableau de bord se calcule dessus. */
+  private view(user: AuthUser) {
+    const scope = this.visibility.scopeOfUser(user.role, user.scope, (kind, id) => this.domain.regionOfEntity(kind, id));
+    const incidents = this.visibility.filterIncidents(this.domain.listIncidents(), scope, (id) => this.domain.entitiesOnIncident(id));
+    const units = this.visibility.filterUnits(this.domain.listUnits(), scope, {
+      matricule: user.username,
+      assignments: user.scope,
+      regionOf: (id) => this.domain.regionOfEntity("unit", id),
+      ownersOnIncident: (id) => this.domain.resourceOwnersOnIncident(id),
+      assigns: assignableCorps(user.role) === "*" || assignableCorps(user.role).length > 0,
+      regionOfIncident: (id) => this.domain.listIncidents().find((i) => i.id === id)?.region,
+    });
+    return { incidents, units };
+  }
 
   @Get("catalog")
   @RequirePermission("dashboard:view")
@@ -34,9 +54,12 @@ export class DashboardController {
 
   @Get("dashboard/stats")
   @RequirePermission("dashboard:view")
-  @ApiOperation({ summary: "Statistiques de commandement : évolution 30 j, gravité, bilan humain, saturation hospitalière, posture des unités" })
-  dashboardStats() {
-    return this.domain.stats();
+  @ApiOperation({
+    summary: "Statistiques de commandement : évolution 30 j, gravité, bilan humain, saturation hospitalière, posture des unités",
+    description: "Comptées sur les DONNÉES INTRODUITES (ADR 0020) — incidents déclarés et clôturés par jour, bilans des incidents actifs — et sur ce que le compte voit : ses incidents, ses unités.",
+  })
+  dashboardStats(@CurrentUser() user: AuthUser) {
+    return this.domain.stats(this.view(user));
   }
 
   @Get("dashboard/risk")
@@ -53,9 +76,10 @@ export class DashboardController {
 
   @Get("feed")
   @RequirePermission("dashboard:view")
-  @ApiOperation({ summary: "Fil des événements" })
-  feed() {
-    return this.domain.listFeed();
+  @ApiOperation({ summary: "Fil des événements — ceux des incidents que le compte voit, et les lignes sans incident" })
+  feed(@CurrentUser() user: AuthUser) {
+    const visible = new Set(this.view(user).incidents.map((i) => i.id));
+    return this.domain.listFeed().filter((f) => !f.incidentId || visible.has(f.incidentId));
   }
 
   @Get("dispatch/queue")

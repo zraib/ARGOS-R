@@ -51,6 +51,7 @@ export class ResourcesRegistryController {
       parkUnit: user.scope?.equipment,
       regionOf: (kind, id) => this.domain.regionOfEntity(kind, id),
       ownersOnIncident: (id) => this.domain.resourceOwnersOnIncident(id),
+      createdByMe: (o) => o.kind === "unit" && this.domain.findUnit(o.id)?.createdBy?.toLowerCase() === user.username.toLowerCase(),
     });
   }
 
