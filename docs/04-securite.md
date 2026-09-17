@@ -338,11 +338,13 @@ Exigences du `MASTER_PLAN.md` §4.3 :
   construite avec `MAP_TILES=external`, `img-src` et `connect-src` admettent
   les trois hôtes du fond de carte (imagerie Esri/Maxar, plan et toponymes
   OpenFreeMap, relief AWS) — et eux seuls. Le greffon RTL des étiquettes est
-  auto-hébergé (`public/vendor`), jamais pris sur un CDN ; il est en
-  WebAssembly, d'où `'wasm-unsafe-eval'` dans `script-src` en production
-  (compilation Wasm seulement, aucune évaluation de JS). C'est le défaut de la pile de déploiement aujourd'hui ; le
-  mode `sovereign` (tuiles servies par la station) reste disponible pour un
-  réseau isolé.
+  auto-hébergé (`public/vendor`), jamais pris sur un CDN ; c'est le build
+  asm.js 0.2.3 (la seule version que MapLibre 4 charge : les suivantes
+  s'enregistrent après une instanciation Wasm asynchrone, que MapLibre ne
+  sait pas attendre), donc du JS ordinaire couvert par `'self'` — aucun
+  mot-clé d'évaluation dans `script-src` en production. C'est le défaut de la
+  pile de déploiement aujourd'hui ; le mode `sovereign` (tuiles servies par la
+  station) reste disponible pour un réseau isolé.
 - Les prévisions de crue (ADR 0010) suivent la même règle : appel côté
   serveur — GloFAS via Open-Meteo sans clé, Google Flood Hub avec
   `FLOOD_API_KEY`, jamais depuis le navigateur ; le simulateur d'inondation,

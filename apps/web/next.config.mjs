@@ -91,14 +91,13 @@ const connectSrc = IS_PROD
  * middleware Next — travail distinct, hors de la phase 1. Cette phase traite
  * l'EXFILTRATION (`connect-src`, `img-src`), pas l'injection de script.
  */
-// `'wasm-unsafe-eval'` : n'autorise QUE la compilation WebAssembly — celle du
-// greffon RTL auto-hébergé (`public/vendor/mapbox-gl-rtl-text.js`, ADR 0014)
-// qui met en forme l'arabe des étiquettes dans le worker de la carte. Sans lui,
-// MapLibre retient toutes les étiquettes des tuiles qui portent de l'arabe :
-// la carte du Maroc n'aurait plus un seul nom. Aucune évaluation de JS n'est
-// ouverte par ce mot-clé.
+// Le greffon RTL auto-hébergé (`public/vendor/mapbox-gl-rtl-text.js`, ADR
+// 0014) qui met en forme l'arabe des étiquettes dans le worker de la carte est
+// un build asm.js (0.2.3, voir scripts/vendor.mjs) : du JS ordinaire chargé par
+// `importScripts` depuis notre origine — `'self'` suffit, aucun mot-clé
+// d'évaluation (ni `'unsafe-eval'` ni `'wasm-unsafe-eval'`) en production.
 const scriptSrc = IS_PROD
-  ? ["'self'", "'unsafe-inline'", "'wasm-unsafe-eval'"]
+  ? ["'self'", "'unsafe-inline'"]
   : ["'self'", "'unsafe-inline'", "'unsafe-eval'"];
 
 const csp = [

@@ -16,7 +16,8 @@ ARG NODE_IMAGE=node:22-alpine
 # --- 1. dépendances ---------------------------------------------------------
 FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
+# .npmrc : n'installe pas la dépendance de pair du greffon RTL (voir le fichier).
+COPY package.json package-lock.json .npmrc ./
 RUN npm ci --no-audit --no-fund
 
 # --- 2. construction --------------------------------------------------------

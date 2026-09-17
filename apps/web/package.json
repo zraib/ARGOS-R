@@ -24,7 +24,7 @@
     "zustand": "^5.0.3"
   },
   "devDependencies": {
-    "@mapbox/mapbox-gl-rtl-text": "^0.4.0",
+    "@mapbox/mapbox-gl-rtl-text": "0.2.3",
     "@types/node": "^22.10.7",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",

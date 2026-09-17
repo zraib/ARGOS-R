@@ -69,10 +69,17 @@ seul un rendu que l'application contrôle le permet.
 4. **L'arabe des étiquettes** est mis en forme par le greffon RTL de MapLibre
    (`@mapbox/mapbox-gl-rtl-text`, BSD-2-Clause), **auto-hébergé**
    (`public/vendor`, copié par `scripts/vendor.mjs` avant `dev` et `build`) —
-   aucun CDN. Il est en WebAssembly : la CSP de production ajoute
-   `'wasm-unsafe-eval'` à `script-src` (compilation Wasm seulement, aucune
-   évaluation de JS) ; sans lui MapLibre retient toutes les étiquettes des
-   tuiles qui portent de l'arabe, et la carte du Maroc n'a plus un nom.
+   aucun CDN. Version **figée à 0.2.3** (build asm.js, tout embarqué) : c'est
+   la seule que MapLibre 4 sait charger, car il vérifie l'enregistrement du
+   greffon de façon synchrone juste après `importScripts` ; les versions 0.3
+   et 0.4 s'enregistrent après l'instanciation asynchrone de leur Wasm, et
+   MapLibre conclut « RTL Text Plugin failed to import scripts » — les
+   étiquettes qui portent de l'arabe disparaissent alors de la carte du Maroc.
+   Ce greffon est du JS ordinaire chargé depuis notre origine : `'self'` le
+   couvre, la CSP de production n'ouvre aucun mot-clé d'évaluation
+   (`'wasm-unsafe-eval'`, ajouté pour la 0.4, a été retiré). Le paquet 0.2.3
+   déclare `mapbox-gl` en dépendance de pair : `apps/web/.npmrc`
+   (`legacy-peer-deps`) évite de l'installer.
 5. **Le mode hors ligne reste entier** : `MAP_TILES=sovereign` plus
    `COMPOSE_PROFILES=sovereign` lancent le serveur de tuiles, et le
    provisionnement `infra/geo` s'applique tel quel. Le service `tiles` passe
