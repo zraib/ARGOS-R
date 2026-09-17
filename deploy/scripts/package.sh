@@ -198,6 +198,13 @@ ARGOS / IRIS — station Windows, paquet ${VERSION}
    Comptes, exploitation : deploy\\GUIDE-DEBUTANT-WINDOWS.md (étapes 7 à 11).
    Démonstration à distance (tunnel) : deploy\\README.md § 10, .\\scripts\\tunnel.ps1.
 
+STATION DÉJÀ INSTALLÉE (mise à jour, comptes conservés) : ne pas décompresser
+par-dessus l'ancienne installation. Décompresser ce paquet dans un dossier à
+part, puis, depuis son dossier deploy\\ :
+   .\\scripts\\upgrade.ps1 -Current C:\\iris\\deploy -Backups D:\\sauvegardes\\iris
+Le script sauvegarde, reprend votre .env, arrête l'ancienne pile sans toucher
+aux volumes, installe et contrôle. Pas à pas : deploy\\MISE-A-JOUR-STATION.md.
+
 Contenu vérifiable : MANIFEST.txt (empreintes SHA-256 des images et outils).
 EOF
 

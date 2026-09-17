@@ -222,10 +222,13 @@ outils. Un seul script fait le travail des § 4 et § 5.
 > carte s'affiche directement (fond externe, § 6).
 
 Ce que le script ne fait pas : les comptes (§ 8) et, en mode hors ligne
-seulement, les tuiles (§ 6). Pour une mise à jour, décompressez le nouveau
-paquet par-dessus l'ancien dossier (ou remplacez `deploy\images` et
-`deploy\VERSION`) et relancez le script : votre `.env` et vos données sont
-conservés.
+seulement, les tuiles (§ 6). Pour une **mise à jour** d'une station qui tourne
+déjà, ne décompressez pas par-dessus : suivez
+[MISE-A-JOUR-STATION.md](MISE-A-JOUR-STATION.md) — nouveau paquet dans un
+dossier à part, puis `.\scripts\upgrade.ps1 -Current C:\iris\deploy` qui
+sauvegarde, reprend votre `.env`, arrête l'ancienne pile sans toucher aux
+volumes et installe : comptes et données sont conservés, et l'ancien dossier
+reste votre retour en arrière.
 
 ---
 

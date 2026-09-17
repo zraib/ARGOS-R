@@ -1,200 +1,264 @@
-# Mettre à jour la station Windows sans perdre les comptes — pas à pas
+# Mettre à jour la station Windows en gardant les utilisateurs
 
-Ce guide s'applique à une station déjà installée depuis un paquet
-(`iris-station-<version>.zip`, README § 9) et qui tourne. Il installe le
-nouveau paquet en **conservant** les comptes utilisateurs, les entités créées,
-les messages, les pièces jointes, le journal d'audit et les réglages (`.env`).
+Ce guide s'adresse à la personne qui tient la station : une machine Windows
+avec Docker Desktop, installée depuis un paquet `iris-station-<version>.zip`
+(README § 9), qui tourne aujourd'hui. Il explique comment passer au paquet
+suivant **sans perdre** :
 
-Ce qui est conservé, et pourquoi : les comptes et le domaine vivent dans le
-volume Docker `iris_api_data` (instantanés JSON, dont `iam.json` pour les
-comptes), le journal d'audit et les drapeaux dans `iris_db_data` (PostgreSQL).
-Une mise à jour **remplace les images** (le code) et **ne touche pas aux
-volumes** : `docker compose up -d` réutilise les volumes existants tels
-quels. Le `.env` n'est pas dans le paquet : il reste le vôtre.
+- les **comptes utilisateurs** (identifiants, mots de passe, rôles,
+  affectations, photos, bascules de modules par compte) ;
+- le **domaine** : incidents, unités, hôpitaux de campagne, abris, morgues,
+  ressources, postes posés sur la carte, ordres, comptes rendus ;
+- les **messages**, les **pièces jointes**, les **alertes** et leurs
+  acquittements ;
+- le **journal d'audit**, les **drapeaux** et la **matrice rôle → modules** ;
+- les **réglages** de la station (`.env` : secrets, port, HTTPS, fond de
+  carte, mode).
 
-> Durée : 10 à 15 minutes, dont 3 à 5 de chargement des images. Prévoir la
-> mise à jour hors conduite d'opération : la station est indisponible pendant
-> le redémarrage (une à deux minutes).
+> **Pourquoi rien ne se perd.** Le paquet contient le *code* (les images
+> Docker). Les *données* vivent dans deux volumes Docker que le code ne
+> contient pas : `iris_api_data` (les instantanés JSON — dont `iam.json`, les
+> comptes — et les pièces jointes) et `iris_db_data` (PostgreSQL : audit,
+> drapeaux, bons de travail). Une mise à jour remplace les images et redémarre
+> la pile **sur les mêmes volumes**. Le seul geste qui effacerait les données
+> est `docker compose down -v` — il n'apparaît nulle part dans ce guide.
+
+Durée : 15 minutes, dont 5 de chargement des images. La station est
+indisponible pendant le redémarrage (1 à 2 minutes) : prévoir la mise à jour
+**hors conduite d'opération**.
 
 ---
 
-## 0. Sur le poste de développement : fabriquer le paquet
+## En un coup d'œil
+
+| Étape | Où | Commande |
+| --- | --- | --- |
+| 1. Vérifier le paquet | PowerShell, dossier de transfert | `Get-FileHash` = contenu du `.sha256` |
+| 2. Décompresser **à part** | PowerShell | `Expand-Archive … -DestinationPath C:\iris-<version>` |
+| 3. Mettre à jour | `deploy\` du **nouveau** paquet | `.\scripts\upgrade.ps1 -Current C:\iris\deploy -Backups D:\sauvegardes\iris` |
+| 4. Vérifier | navigateur | connexion avec un compte existant, liste des comptes, entités |
+| 5. Ranger | PowerShell | renommer l'ancien dossier, garder la sauvegarde |
+
+`upgrade.ps1` enchaîne, dans l'ordre et en s'arrêtant à la première erreur :
+sauvegarde, reprise du `.env`, arrêt de l'ancienne pile **sans** ses volumes,
+contrôle des volumes, installation du nouveau paquet, contrôle de santé. Le
+§ 7 décrit les mêmes gestes à la main, si vous préférez les faire un à un.
+
+---
+
+## 1. Sur le poste de développement : fabriquer le paquet
 
 ```bash
-deploy/scripts/package.sh            # → deploy/dist/iris-station-<version>.zip (+ .sha256)
+deploy/scripts/package.sh            # → deploy/dist/iris-station-<version>.zip et .zip.sha256
 ```
 
-Copier sur la station **le zip et son `.sha256`** (clé USB ou partage
-réseau). La version se lit dans le nom : `AAAAMMJJ-<commit>`.
+La version se lit dans le nom : `AAAAMMJJ-<commit>`. Copier sur la station **le
+zip et son `.sha256`** (clé USB ou partage réseau), par exemple dans
+`D:\transfert`.
 
-## 1. Sur la station : vérifier le paquet
+## 2. Sur la station : vérifier le paquet
 
-Dans PowerShell (pas besoin d'administrateur pour cette étape) :
+Dans PowerShell (pas besoin d'administrateur) :
 
 ```powershell
-cd D:\transfert                                  # là où le zip a été copié
+cd D:\transfert
 Get-FileHash .\iris-station-<version>.zip -Algorithm SHA256
 Get-Content .\iris-station-<version>.zip.sha256
 ```
 
-Les deux empreintes doivent être identiques. Sinon, recopier le fichier.
-
-## 2. Sauvegarder d'abord
-
-Depuis l'installation **actuelle** (par exemple `C:\iris\deploy`) :
-
-```powershell
-cd C:\iris\deploy
-.\scripts\backup.ps1 -Dest D:\sauvegardes\iris
-```
-
-Le script produit un `pg_dump` de la base et une archive du volume
-`iris_api_data` (comptes, domaine, pièces jointes), horodatés. **Noter
-l'horodatage affiché** (`Stamp`) : c'est lui qu'il faudrait à `restore.ps1`.
-
-Vérifier que la sauvegarde est là :
-
-```powershell
-Get-ChildItem D:\sauvegardes\iris | Sort-Object LastWriteTime | Select-Object -Last 3
-```
+Les deux empreintes doivent être **identiques** (majuscules/minuscules sans
+importance). Sinon, la copie est abîmée : recopier le fichier avant d'aller
+plus loin.
 
 ## 3. Décompresser le nouveau paquet dans un dossier à part
 
-Ne pas écraser l'ancienne installation : on garde de quoi revenir en arrière.
+Ne jamais décompresser par-dessus l'installation qui tourne : l'ancien dossier
+est votre retour en arrière. `upgrade.ps1` refuse d'ailleurs de s'exécuter si
+les deux dossiers sont le même.
 
 ```powershell
 Expand-Archive -Path D:\transfert\iris-station-<version>.zip -DestinationPath C:\iris-<version>
 Get-ChildItem C:\iris-<version>\iris-station-<version>\deploy
 ```
 
-Le dossier `deploy\` du paquet contient `docker-compose.yml`, `images\`
-(les images Docker), `scripts\`, `.env.example`, `VERSION` — mais **pas de
-`.env`**.
+On doit y voir `docker-compose.yml`, `VERSION`, `.env.example`, `images\`
+(les images Docker, ~1,6 Go), `scripts\` — et **pas de `.env`** : ce fichier
+reste le vôtre, il sera repris de l'installation actuelle.
 
-## 4. Reprendre le `.env` de l'installation actuelle
+> Si `Expand-Archive` se plaint d'un chemin trop long, décompressez plus près
+> de la racine (`C:\i-<version>`) ou activez les chemins longs de Windows.
 
-C'est le geste qui préserve vos secrets et vos réglages (mot de passe de la
-base, secret de session, port, HTTPS, fond de carte) :
+## 4. Mettre à jour en une commande
 
-```powershell
-Copy-Item C:\iris\deploy\.env C:\iris-<version>\iris-station-<version>\deploy\.env
-```
-
-> **Important** : `AUTH_DEV_SECRET` et `POSTGRES_PASSWORD` doivent rester les
-> mêmes. Changer le premier déconnecte tout le monde (les jetons de session
-> ne sont plus reconnus) ; changer le second empêche l'API de joindre la base
-> existante.
-
-Rien à ajouter au `.env` pour ce paquet : les nouveaux réglages ont des
-défauts (`APP_MODE=operational` — station en service). Si vous voulez les
-voir, comparez avec `.env.example` :
-
-```powershell
-Compare-Object (Get-Content C:\iris-<version>\iris-station-<version>\deploy\.env.example) (Get-Content C:\iris-<version>\iris-station-<version>\deploy\.env) | Where-Object { $_.InputObject -notmatch "^#|^$" }
-```
-
-## 5. Arrêter l'ancienne pile (sans toucher aux volumes)
-
-```powershell
-cd C:\iris\deploy
-docker compose --project-directory . down
-```
-
-`down` **sans `-v`** : les conteneurs s'arrêtent, les volumes restent. Ne
-jamais utiliser `down -v` ici — il effacerait les comptes et la base.
-
-Vérifier que les volumes sont toujours là :
-
-```powershell
-docker volume ls | Select-String iris_
-```
-
-On doit voir au moins `iris_api_data` et `iris_db_data`.
-
-## 6. Installer le nouveau paquet
+Depuis le dossier `deploy\` du **nouveau** paquet, en indiquant le dossier
+`deploy\` de l'installation **actuelle** et un dossier de sauvegarde (de
+préférence sur un autre disque) :
 
 ```powershell
 cd C:\iris-<version>\iris-station-<version>\deploy
-.\scripts\install.ps1
+.\scripts\upgrade.ps1 -Current C:\iris\deploy -Backups D:\sauvegardes\iris
 ```
 
-Le script : charge les images du dossier `images\` et les étiquette `latest`,
-constate que `.env` existe et **le conserve**, démarre la pile
-(`docker compose up -d --remove-orphans`) et attend l'API. Le nom du projet
-compose est fixé dans `docker-compose.yml` (`name: iris`), quel que soit le
-dossier : la pile retrouve ses volumes `iris_api_data` et `iris_db_data`.
+Le script affiche sept étapes :
 
-Au premier démarrage de cette version, l'API :
+1. **Préalables** — Docker répond ; le paquet est complet (`VERSION`, images) ;
+   l'installation actuelle a bien un `.env` ; il affiche « version actuelle →
+   nouvelle version ».
+2. **Sauvegarde** — `backup.ps1` de l'installation actuelle : un `pg_dump` de
+   la base et une archive du volume `iris_api_data`, horodatés. **Notez
+   l'horodatage** (`Stamp`) affiché : c'est la clé du retour en arrière.
+3. **Réglages** — le `.env` actuel est copié dans le nouveau dossier. Les
+   secrets restent donc les mêmes — c'est ce qui garde la base joignable et
+   les sessions valides. Les réglages apparus depuis votre version sont
+   listés ; ils prennent leur défaut (`APP_MODE=operational`).
+4. **Arrêt de l'ancienne pile** — `docker compose down` **sans `-v`** : les
+   conteneurs s'arrêtent, les volumes restent.
+5. **Volumes** — le script vérifie que `iris_api_data` et `iris_db_data`
+   existent, et s'arrête sinon (on n'installe pas par-dessus des données
+   disparues).
+6. **Installation** — `install.ps1` du nouveau paquet : charge les images,
+   constate que `.env` existe et le conserve, démarre la pile, attend l'API.
+   Le nom du projet compose est fixé dans `docker-compose.yml` (`name:
+   iris`), quel que soit le dossier : la pile retrouve ses volumes.
+7. **Contrôle** — santé de l'API (`status: ok`, mode de la station) et
+   rappel de la liste de vérification.
 
-- applique les migrations de base manquantes (par exemple la table des bons
-  de travail, absente des versions précédentes) ;
-- **élague le jeu de démonstration** s'il était présent et garde ce que les
-  opérateurs ont créé (mode opérationnel, ADR 0015/0016) ;
-- ajoute les nouveaux rôles et modules à la matrice persistée sans toucher
-  aux comptes.
+Au premier démarrage de la nouvelle version, l'API applique d'elle-même les
+migrations de base manquantes, ajoute à la matrice persistée les rôles et
+modules nouveaux **sans toucher aux comptes** (les nouveaux modules prennent
+leur défaut : par exemple « Gestion de mon unité » est ouverte aux commandants
+d'unité existants), et élague un éventuel jeu de démonstration en gardant ce
+que les opérateurs ont créé.
 
-## 7. Vérifier
+Options : `-SkipBackup` saute la sauvegarde (à éviter : plus de retour en
+arrière par `restore.ps1`). Sans `-Backups`, la sauvegarde va dans
+`C:\iris\deploy\backups`.
+
+## 5. Vérifier dans le navigateur
 
 ```powershell
 .\scripts\status.ps1
 Invoke-RestMethod http://localhost/api/health | Select-Object status, appMode, dataProfile
 ```
 
-`status` doit être `ok` et `appMode` `operational`. Puis, dans le navigateur :
+`status` doit être `ok` et `appMode` `operational`. Puis, à l'adresse
+habituelle de la station :
 
-1. se connecter avec un compte **existant** (pas le compte fondateur) : la
-   connexion prouve que `iam.json` a été repris ;
-2. *Gestion des utilisateurs* : la liste des comptes est intacte ;
-3. *Hospinet*, *OPSnet*, *Ressources* : les entités créées avant la mise à jour
-   sont là ;
-4. *Paramètres › Profil de données* : mode « Opérationnel », volume du domaine.
+1. **Se connecter avec un compte existant** — pas le compte fondateur. Une
+   connexion réussie prouve que `iam.json` et le secret de session ont été
+   repris.
+2. **Gestion des utilisateurs** : la liste des comptes est intacte, leurs
+   rôles et affectations aussi.
+3. **Hospinet, OPSnet, Ressources, Carte** : les entités, ressources et postes
+   créés avant la mise à jour sont là.
+4. **Paramètres › Profil de données** : mode « Opérationnel ».
+5. **Paramètres › Rôles & fonctionnalités** : la matrice porte les lignes
+   nouvelles (tout le menu, mode édition, simulations) ; les réglages faits
+   avant la mise à jour sont conservés.
 
-## 8. Ranger
+## 6. Ranger
 
-Une fois la vérification faite, l'ancienne installation peut être archivée :
+Une fois la vérification faite, archiver l'ancienne installation (elle ne
+contient plus rien d'utile que ses images et son `.env`, déjà repris) :
 
 ```powershell
-Rename-Item C:\iris C:\iris-ancien-<date>      # à supprimer plus tard, quand tout est validé
-```
-
-Et, si vous voulez retrouver le chemin habituel `C:\iris\deploy` :
-
-```powershell
+Rename-Item C:\iris C:\iris-ancien-<date>
 Move-Item C:\iris-<version>\iris-station-<version> C:\iris
 ```
 
-(le projet compose s'appelle `iris` par `docker-compose.yml`, pas d'après le
-dossier : le renommage ne change rien aux volumes.)
+Le projet compose s'appelle `iris` par `docker-compose.yml`, pas d'après le
+dossier : renommer ou déplacer ne change rien aux volumes ni à la pile qui
+tourne. Conserver la sauvegarde du § 4 (étape 2) au moins jusqu'à la mise à
+jour suivante ; supprimer `C:\iris-ancien-<date>` quand tout est validé.
 
-## 9. Revenir en arrière (si quelque chose ne va pas)
+## 7. Les mêmes gestes à la main
+
+Si vous préférez ne pas passer par `upgrade.ps1`, voici exactement ce qu'il
+fait. Chaque commande s'exécute dans PowerShell.
+
+```powershell
+# a. Sauvegarder l'installation actuelle (noter le Stamp affiché)
+cd C:\iris\deploy
+.\scripts\backup.ps1 -Dest D:\sauvegardes\iris
+
+# b. Reprendre le .env — les secrets doivent rester identiques
+Copy-Item C:\iris\deploy\.env C:\iris-<version>\iris-station-<version>\deploy\.env
+
+# c. Arrêter l'ancienne pile SANS toucher aux volumes (jamais `down -v`)
+docker compose --project-directory C:\iris\deploy down --remove-orphans
+
+# d. Vérifier que les volumes sont toujours là
+docker volume ls | Select-String iris_          # iris_api_data et iris_db_data attendus
+
+# e. Installer le nouveau paquet (images, .env conservé, démarrage)
+cd C:\iris-<version>\iris-station-<version>\deploy
+.\scripts\install.ps1
+
+# f. Contrôler
+.\scripts\status.ps1
+Invoke-RestMethod http://localhost/api/health | Select-Object status, appMode
+```
+
+Puis le § 5.
+
+## 8. Revenir en arrière
+
+Deux niveaux, selon ce qui s'est passé.
+
+**La nouvelle version ne démarre pas, ou ne convient pas** — les volumes n'ont
+pas été touchés : il suffit de redémarrer l'ancienne :
 
 ```powershell
 cd C:\iris-<version>\iris-station-<version>\deploy
-docker compose --project-directory . down          # sans -v
-cd C:\iris-ancien-<date>\deploy                    # ou C:\iris\deploy si non renommé
-.\scripts\install.ps1                              # recharge les anciennes images
+docker compose --project-directory . down            # sans -v
+cd C:\iris\deploy                                    # ou C:\iris-ancien-<date>\deploy si déjà renommé
+.\scripts\install.ps1                                # recharge les anciennes images sur les mêmes volumes
 ```
 
-Les volumes n'ayant pas été touchés, les comptes sont intacts. Si la mise à
-jour avait été poussée plus loin (données modifiées à tort), restaurer la
-sauvegarde du § 2 :
+**Des données ont été modifiées à tort après la mise à jour** — restaurer la
+sauvegarde faite avant elle (le script arrête l'API, remet la base et le
+volume, redémarre) :
 
 ```powershell
+cd C:\iris\deploy
 .\scripts\restore.ps1 -Stamp <horodatage> -Source D:\sauvegardes\iris
 ```
 
-## 10. Après la mise à jour : ce qui a changé pour les utilisateurs
+## 9. Erreurs fréquentes
 
-- **Cinq rôles** de plus (représentants de l'OPCOM : Gendarmerie Royale,
-  État-Major des FAR, Intérieur ; chefs du PCO et du PCT) — à attribuer depuis
-  *Gestion des utilisateurs*.
-- **Corps des unités** : les unités existantes sont réputées FAR ; corriger
-  celles qui sont de la Gendarmerie, de la DGSN, de la DGPC ou des Forces
-  Auxiliaires (fiche de l'unité, *Modifier*) pour que l'OPCOM puisse les
-  affecter selon la doctrine.
-- **Modes** : la station est en mode *Opérationnel*. Pour une formation ou un
-  exercice, *Paramètres › Profil de données › Mode de la station* — l'API
-  redémarre seule (30 s).
-- **Ressources** : l'écran *Ressources* remplace l'ancien *Personnel*.
-- Une **alerte** reste signalée (cloche, rappel sonore) jusqu'à son
-  acquittement.
+| Symptôme | Cause | Remède |
+| --- | --- | --- |
+| `Docker ne répond pas` | Docker Desktop n'est pas lancé | Ouvrir Docker Desktop, attendre « Engine running », relancer |
+| PowerShell refuse d'exécuter le script | politique d'exécution | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` puis relancer |
+| Les empreintes du § 2 diffèrent | copie abîmée | recopier le zip depuis le poste de développement |
+| `Un .env DIFFÉRENT de l'actuel existe déjà` | un `.env` a été créé dans le nouveau dossier (par exemple par un `install.ps1` lancé trop tôt) | le supprimer, relancer `upgrade.ps1` : il reprend celui de l'installation actuelle |
+| Après la mise à jour, tout le monde est déconnecté | `AUTH_DEV_SECRET` a changé (nouveau `.env` généré au lieu d'être repris) | remettre le `.env` de l'ancienne installation, `docker compose up -d` |
+| `Base PostgreSQL injoignable` dans les journaux de l'API | `POSTGRES_PASSWORD` a changé, même cause | idem ; au tout premier démarrage d'une base neuve, l'API peut aussi tomber une fois et Docker la relance seul |
+| `Volume iris_api_data ABSENT` | pile installée sous un autre nom de projet, ou volumes supprimés | `docker volume ls` ; si les volumes ont un autre préfixe, ne pas continuer sans avis ; sinon `restore.ps1` |
+| Le port 80 (ou celui du `.env`) est pris | un autre service écoute | `HTTP_PORT` et `PUBLIC_URL` dans `.env` (README § 11), puis `docker compose up -d` |
+| L'API ne répond pas au bout de 3 minutes | démarrage lent, ou erreur | `.\scripts\status.ps1` puis `docker compose logs api --tail 50` |
+
+## 10. Ce qui change pour les utilisateurs avec les paquets de septembre 2026
+
+- **Rôles & fonctionnalités** porte désormais **tout le menu** et les
+  **capacités de la carte** (mode édition, simulations crues, feux de forêt,
+  NRBC) : chaque ligne s'ouvre ou se coupe par rôle, et par compte depuis la
+  fiche de l'utilisateur. Le cœur (utilisateurs, supervision, paramètres)
+  figure mais reste verrouillé.
+- **Commandant d'unité** (ex-« Responsable Unité ») : « Gestion de mon
+  unité » lui est ouverte d'office.
+- **Mode édition de la carte par rôle** : le stratégique pose les OPCOM ;
+  l'OPCOM les TACOM, PCO, PCT et cellules ; le TACOM et les cellules posent
+  leurs équipes, équipements et véhicules sur le terrain (en mode
+  opérationnel : ceux des unités affectées à leur opération).
+- **Simulations** crues, feux de forêt et panache NRBC : réservées aux
+  administrateurs, au stratégique, à l'OPCOM et au TACOM.
+- **Cinq rôles** (représentants de l'OPCOM, chefs du PCO et du PCT), **corps
+  des unités** (les unités existantes sont réputées FAR : corriger celles de
+  la Gendarmerie, DGSN, DGPC ou des Forces Auxiliaires), **modes**
+  démonstration / exercice / opérationnel (Paramètres), écran **Ressources**.
+- **Notifications** : rappel sonore net toutes les 20 s jusqu'à lecture ou
+  acquittement ; la cloche ouvre la conversation concernée ; les conversations
+  qui ont reçu du nouveau se signalent dans le centre de communication.
+- **Carte** : l'arabe des étiquettes est de nouveau mis en forme (greffon RTL
+  corrigé) ; chaque jour des prévisions météo se consulte.
