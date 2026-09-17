@@ -596,6 +596,8 @@ export interface Dict {
   ops_search: string;
   ops_add_shelter: string; ops_open_shelter: string; ops_shelter_name: string; ops_shelter_city: string;
   ops_shelter_created: string; ops_city_help: string; ops_city_known: string; ops_city_unknown: string;
+  /** Modification depuis OPSnet (ADR 0019) et organe d'origine sur les tuiles. */
+  ops_edit_unit: string; ops_edit_shelter: string; ops_unit_updated: string; ops_shelter_updated: string; ops_organ: string; ops_occupants_now: string;
   ops_position: string; ops_pos_from_city: string; ops_pos_unresolved: string; ops_pos_unknown: string;
   ops_critical_one: string; ops_critical_many: string; ops_affect_title: string; ops_mode_engage: string;
   ops_mode_shelter: string; ops_affect_engage_help: string; ops_affect_shelter_help: string; ops_need_strength: string;
@@ -711,7 +713,9 @@ export interface Dict {
   as_assigned_toast: string; as_deployed_toast: string; as_withdrawn_toast: string; as_removed_toast: string; as_no_unit: string; as_search: string; as_corps_hint: string; as_failed: string;
   rs_title: string; rs_hint: string; rs_owner: string; rs_owner_unit: string; rs_owner_hospital: string; rs_owner_shelter: string; rs_pick_owner: string;
   rs_tab_persons: string; rs_tab_teams: string; rs_tab_vehicles: string; rs_tab_supplies: string; rs_tab_equipment: string;
-  rs_add_person: string; rs_add_team: string; rs_add_vehicle: string; rs_add_supply: string; rs_add_equip: string; rs_empty: string; rs_readonly: string;
+  rs_add_person: string; rs_add_team: string; rs_add_vehicle: string; rs_add_supply: string; rs_add_equip: string; rs_empty: string;
+  /** Aucun détenteur visible du compte (ADR 0019). */
+  rs_no_owner: string; rs_readonly: string;
   rs_grade: string; rs_nom: string; rs_prenom: string; rs_matricule: string; rs_fonction: string; rs_team: string; rs_status: string;
   rs_status_present: string; rs_status_deployed: string; rs_status_rest: string; rs_status_absent: string; rs_phone: string; rs_note: string;
   rs_team_name: string; rs_mission: string; rs_leader: string; rs_members: string; rs_no_team: string;

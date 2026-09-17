@@ -267,6 +267,22 @@ réseau : le cantonnement porte sur l'écriture.
 Implémentation : `shared/responsibilities.ts`, `common/guards/scope.guard.ts`,
 `common/ports/scope-resolver.port.ts`. Tests : `modules/iam/scope.spec.ts`.
 
+**Ressources (ADR 0019) — « un compte ne voit que les ressources qui le
+concernent ».** La doctrine de visibilité (`visibility.service.ts`,
+`canSeeResourceOwner`) dit quels DÉTENTEURS — unités, hôpitaux, abris — un
+compte lit : tous pour l'administration et le stratégique ; ceux de sa région
+pour le wali et la place d'armes ; en opérationnel, ceux engagés sur son
+opération (unités affectées ou intervenantes, hôpitaux intervenants, abris
+posés) pour la conduite déployée — en démonstration et en exercice, tous ; sa
+seule entité pour un responsable, et l'unité de son parc pour le responsable
+d'équipement. `GET /resources`, `/resources/owners`, `/resources/placed` et
+toute lecture ou écriture d'un détenteur suivent cette portée ; ce qui n'est
+pas visible répond **404**, sans dire si cela existe. Les messages suivent la
+même idée : un message n'est poussé qu'à l'audience de son canal (les deux
+correspondants d'une conversation directe, les membres d'un canal restreint),
+seul un canal ouvert se diffuse à tous. Tests :
+`modules/domain/resources-visibility.spec.ts`.
+
 ## 6. Matrice rôle → modules, drapeaux globaux
 
 Second niveau, distinct du RBAC : quels **modules** (écrans) un rôle voit, et

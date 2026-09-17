@@ -1883,9 +1883,29 @@ export interface paths {
         };
         /**
          * Les ressources d'une entité (personnes, équipes, véhicules, logistique, équipements), ou le registre entier.
-         * @description Avec `ownerKind` et `ownerId` : tout ce que l'entité tient ; sans : le registre entier, pour la conduite. La réponse dit aussi ce que l'appelant peut y tenir.
+         * @description Avec `ownerKind` et `ownerId` : tout ce que l'entité tient ; sans : le registre des détenteurs que le compte voit (ADR 0019 : son entité, sa région, son opération). La réponse dit aussi ce que l'appelant peut y tenir.
          */
         get: operations["ResourcesRegistryController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resources/owners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Les détenteurs dont le compte voit les ressources (ADR 0019) — ce que l'écran Ressources propose
+         * @description Son entité pour un responsable ; sa région pour un wali ou une place d'armes ; son opération pour la conduite déployée en mode opérationnel ; tout pour l'administration et le stratégique.
+         */
+        get: operations["ResourcesRegistryController_owners"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1901,7 +1921,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Équipes, véhicules et équipements posés sur le terrain — ce que la carte dessine */
+        /** Équipes, véhicules et équipements posés sur le terrain — ce que la carte dessine, parmi les détenteurs que le compte voit */
         get: operations["ResourcesRegistryController_placed"];
         put?: never;
         post?: never;
@@ -3256,6 +3276,11 @@ export interface components {
              * @enum {string}
              */
             building?: "dedie" | "ecole" | "college" | "lycee" | "autre";
+            /**
+             * @description Organe d'origine : qui ouvre et tient l'abri (Protection civile, FAR, FA, commune, Croissant-Rouge, Entraide nationale, Éducation, Santé, autre).
+             * @enum {string}
+             */
+            organ?: "dgpc" | "far" | "fa" | "commune" | "croissant_rouge" | "entraide" | "education" | "sante" | "autre";
             /** @description Tentes : nombre de tentes. */
             tents?: number;
             /** @description Tentes : personnes par tente (défaut 6, standard Sphère). */
@@ -3287,6 +3312,25 @@ export interface components {
             needs?: string;
         };
         UpdateShelterDto: {
+            /** @description Nom de l'abri */
+            nom?: string;
+            /** @description Commune d'implantation */
+            ville?: string;
+            /**
+             * @description Typologie : camp de tentes ou bâtiment en dur.
+             * @enum {string}
+             */
+            kind?: "tentes" | "dur";
+            /**
+             * @description En dur : nature du bâtiment.
+             * @enum {string}
+             */
+            building?: "dedie" | "ecole" | "college" | "lycee" | "autre";
+            /**
+             * @description Organe d'origine de l'abri.
+             * @enum {string}
+             */
+            organ?: "dgpc" | "far" | "fa" | "commune" | "croissant_rouge" | "entraide" | "education" | "sante" | "autre";
             /** @description Tentes : nombre de tentes — la capacité est recalculée. */
             tents?: number;
             /** @description Tentes : personnes par tente — la capacité est recalculée. */
@@ -6763,6 +6807,23 @@ export interface operations {
                 ownerId?: unknown;
                 ownerKind?: "unit" | "hospital" | "shelter";
             };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ResourcesRegistryController_owners: {
+        parameters: {
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;

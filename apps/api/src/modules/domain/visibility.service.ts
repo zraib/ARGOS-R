@@ -1,7 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import { DEPLOYABLE_ROLES, type Assignments, type ResponsibilityKind } from "@/shared/responsibilities";
 import type { Role } from "@/shared/permissions";
+import type { AppMode } from "@/common/app-mode";
 import type { Incident, Unit, FieldHospital } from "@/modules/domain/domain.service";
+import type { ResourceOwner } from "@/modules/domain/resources.types";
 
 // ============================================================================
 // ARGOS — DOCTRINE DE VISIBILITÉ : qui voit quoi (lot V-1)
@@ -179,6 +181,47 @@ export class VisibilityService {
     entitiesOnIncident: (incidentId: string) => string[],
   ): boolean {
     return this.filterIncidents([incident], scope, entitiesOnIncident).length > 0;
+  }
+
+  /**
+   * RESSOURCES (ADR 0019) : « un compte ne voit que les ressources qui le
+   * concernent ». La portée du compte dit quels DÉTENTEURS (unités, hôpitaux,
+   * abris) il lit :
+   *   global   → tous ;
+   *   region   → les détenteurs de SA région ;
+   *   incident → en opérationnel, les détenteurs engagés sur SON opération
+   *              (unités affectées ou intervenantes, hôpitaux intervenants,
+   *              abris posés) ; en démonstration et en exercice, tous — on joue
+   *              le scénario avec les entités qu'on y crée ;
+   *   entity   → SES entités, et celles de l'opération où il est déployé.
+   * Le responsable de parc voit en outre l'unité de son parc, déployé ou non.
+   * Default-deny : un rôle cantonné sans affectation ne voit rien.
+   */
+  canSeeResourceOwner(
+    scope: VisibilityScope,
+    owner: ResourceOwner,
+    deps: {
+      mode: AppMode;
+      /** Unité du parc d'un responsable d'équipement (`assignments.equipment`). */
+      parkUnit?: string;
+      regionOf: (kind: ResourceOwner["kind"], id: string) => string | undefined;
+      /** Détenteurs engagés sur une opération (identifiants d'entités). */
+      ownersOnIncident: (incidentId: string) => readonly string[];
+    },
+  ): boolean {
+    if (deps.parkUnit && owner.kind === "unit" && owner.id === deps.parkUnit) return true;
+    switch (scope.kind) {
+      case "global":
+        return true;
+      case "region":
+        return !!scope.region && deps.regionOf(owner.kind, owner.id) === scope.region;
+      case "incident":
+        if (deps.mode !== "operational") return true;
+        return !!scope.incidentId && deps.ownersOnIncident(scope.incidentId).includes(owner.id);
+      case "entity":
+        if (scope.entities.includes(owner.id)) return true;
+        return !!scope.incidentId && deps.ownersOnIncident(scope.incidentId).includes(owner.id);
+    }
   }
 
   /**

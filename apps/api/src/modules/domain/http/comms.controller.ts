@@ -267,8 +267,14 @@ export class CommsController {
       txt: dto.txt,
       attachment: dto.attachment,
     });
-    // Poussé APRÈS l'enregistrement : ce qui est diffusé est ce qui est gardé.
-    this.realtime.emit({ kind: "message", channelId: dto.channelId, message: msg });
+    // Poussé APRÈS l'enregistrement : ce qui est diffusé est ce qui est gardé —
+    // et poussé aux seuls destinataires du canal (ADR 0019) : une conversation
+    // directe ne sonne que chez ses deux correspondants, un canal restreint chez
+    // ses membres ; seul un canal ouvert se diffuse à tous.
+    const audience = this.comms.audienceOf(dto.channelId);
+    const event = { kind: "message" as const, channelId: dto.channelId, message: msg };
+    if (audience) this.realtime.emitTo(audience, event);
+    else this.realtime.emit(event);
     return msg;
   }
 

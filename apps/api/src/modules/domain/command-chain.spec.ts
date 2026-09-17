@@ -111,9 +111,11 @@ describe("Chaîne de commandement — affectation, déploiement, ressources, bas
       .send({ owner: { kind: "unit", id: "U3" }, corps: "far", grade: "Sergent", nom: "Alami", prenom: "Karim", matricule: "MLE-1", fonction: "Chef de groupe" })
       .expect(201);
     expect(p.body.id).toMatch(/^P-/);
+    // 404 et non 403 depuis l'ADR 0019 : l'unité d'un autre n'existe pas pour
+    // un responsable — on ne lui dit même pas qu'elle est là.
     await base().post("/api/resources/persons").set(auth(resp))
       .send({ owner: { kind: "unit", id: far }, corps: "far", nom: "X", prenom: "Y", matricule: "MLE-2", fonction: "—" })
-      .expect(403);
+      .expect(404);
     const team = await base().post("/api/resources/teams").set(auth(resp)).send({ owner: { kind: "unit", id: "U3" }, nom: "Binôme 1", memberIds: [p.body.id] }).expect(201);
     expect(team.body.memberIds).toEqual([p.body.id]);
     const blue = await devToken("y.tazi", "bluecell");

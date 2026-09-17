@@ -26,6 +26,16 @@ export type ShelterKind = (typeof SHELTER_KINDS)[number];
 export const SHELTER_BUILDINGS = ["dedie", "ecole", "college", "lycee", "autre"] as const;
 export type ShelterBuilding = (typeof SHELTER_BUILDINGS)[number];
 
+/**
+ * Organe d'origine d'un abri (ADR 0019) : qui l'ouvre et le tient — la
+ * Protection civile, les FAR, les Forces Auxiliaires, la commune, le
+ * Croissant-Rouge, l'Entraide nationale, l'Éducation nationale (écoles et
+ * lycées mis à disposition), la Santé, ou un autre organisme. Se lit sur la
+ * tuile de l'abri, à côté de sa commune, comme le corps d'une unité.
+ */
+export const SHELTER_ORGANS = ["dgpc", "far", "fa", "commune", "croissant_rouge", "entraide", "education", "sante", "autre"] as const;
+export type ShelterOrgan = (typeof SHELTER_ORGANS)[number];
+
 /** Personnes par tente proposées par défaut (Sphère : 3,5 m² couverts par personne, tente familiale 16–23 m²). */
 export const DEFAULT_PER_TENT = 6;
 

@@ -22,12 +22,16 @@ import type { EquipItem } from "@/lib/data/modules";
 // logistique et équipements d'une entité — unité, hôpital ou abri.
 //
 // Un responsable arrive sur SON entité ; la conduite et les cellules
-// choisissent l'entité. Ce que l'appelant peut y tenir est dit par l'API
-// (`canManage`, selon le rôle, la portée et le mode de la station) : l'écran
-// ne fait que masquer ce qui serait refusé.
+// choisissent l'entité — parmi celles que l'API leur montre (ADR 0019 :
+// `/resources/owners`, son entité, sa région, son opération). Ce que
+// l'appelant peut y tenir est dit par l'API (`canManage`, selon le rôle, la
+// portée et le mode de la station) : l'écran ne fait que masquer ce qui
+// serait refusé.
 // ============================================================================
 
 type Row = Person | Team | Vehicle | Supply | EquipItem;
+/** Un détenteur que l'API montre au compte (`/resources/owners`). */
+type VisibleOwner = { kind: ResourceOwnerKind; id: string; label: string; corps?: string };
 
 const STATUS_TONE: Record<Person["status"], Tone> = { present: "green", deployed: "amber", rest: "gray", absent: "red" };
 const STATE_TONE: Record<Vehicle["state"], Tone> = { ok: "green", repair: "amber", oos: "red" };
@@ -37,11 +41,23 @@ export function ResourcesScreen({ fixedOwner }: { fixedOwner?: ResourceOwner }) 
   const m = useModules();
   const router = useRouter();
   const params = useSearchParams();
-  const units = useArgos((s) => s.units);
-  const hospitals = useArgos((s) => s.hospitals);
-  const shelters = useArgos((s) => s.shelters);
   const showToast = useArgos((s) => s.showToast);
   const mine = useResponsibility();
+  // Les détenteurs visibles du compte, servis par l'API (ADR 0019).
+  const [visibleOwners, setVisibleOwners] = useState<VisibleOwner[]>([]);
+  const [ownersLoaded, setOwnersLoaded] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void (api.getResourceOwners() as Promise<{ data?: unknown }>).then((res) => {
+      if (!alive) return;
+      setVisibleOwners(((res.data as VisibleOwner[] | undefined) ?? []));
+      setOwnersLoaded(true);
+    });
+    return () => { alive = false; };
+  }, []);
+  const units = useMemo(() => visibleOwners.filter((o) => o.kind === "unit").map((o) => ({ id: o.id, nom: o.label, corps: o.corps })), [visibleOwners]);
+  const hospitals = useMemo(() => visibleOwners.filter((o) => o.kind === "hospital").map((o) => ({ id: o.id, nom: o.label })), [visibleOwners]);
+  const shelters = useMemo(() => visibleOwners.filter((o) => o.kind === "shelter").map((o) => ({ id: o.id, nom: o.label })), [visibleOwners]);
 
   // L'entité : imposée (responsable), sinon lue dans l'URL, sinon la première unité.
   const own: ResourceOwner | null = useMemo(() => {
@@ -50,9 +66,15 @@ export function ResourcesScreen({ fixedOwner }: { fixedOwner?: ResourceOwner }) 
     return null;
   }, [fixedOwner, mine.kind, mine.entityId]);
   const locked = !!own && mine.kind !== null && mine.kind !== "morgue";
-  const [owner, setOwner] = useState<ResourceOwner | null>(own ?? parseOwner(params.get("owner")) ?? (units[0] ? { kind: "unit", id: units[0].id } : null));
+  const [owner, setOwner] = useState<ResourceOwner | null>(own ?? parseOwner(params.get("owner")));
   useEffect(() => { if (own) setOwner(own); }, [own]);
-  useEffect(() => { if (!owner && units[0]) setOwner({ kind: "unit", id: units[0].id }); }, [owner, units]);
+  // Sans entité choisie — ou une entité que l'API ne montre pas — la première
+  // visible prend la place ; rien de visible : l'écran le dit.
+  useEffect(() => {
+    if (own || !ownersLoaded) return;
+    const visible = owner && visibleOwners.some((o) => o.kind === owner.kind && o.id === owner.id);
+    if (!visible) setOwner(visibleOwners[0] ? { kind: visibleOwners[0].kind, id: visibleOwners[0].id } : null);
+  }, [own, owner, ownersLoaded, visibleOwners]);
 
   const [tab, setTab] = useState<ResourceKind>((params.get("tab") as ResourceKind | null) ?? "persons");
   const [data, setData] = useState<OwnerResources | null>(null);
@@ -144,11 +166,14 @@ export function ResourcesScreen({ fixedOwner }: { fixedOwner?: ResourceOwner }) 
     "matricule" in r ? personName(r) : "memberIds" in r ? r.nom : "plate" in r ? `${r.type} ${r.plate}`.trim() : "unit" in r && "desig" in r ? r.desig : (r as Supply).label;
   const tabCls = (k: ResourceKind) =>
     `min-h-[44px] shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors lg:min-h-0 ${tab === k ? "bg-or-500 text-rdia-600" : "bg-gray-100 text-gray-500 hover:text-or-500 dark:bg-rdia-600 dark:text-rdia-300"}`;
-  const kinds: { kind: ResourceOwnerKind; label: string; items: { id: string; nom: string }[] }[] = [
-    { kind: "unit", label: t.rs_owner_unit, items: units },
-    { kind: "hospital", label: t.rs_owner_hospital, items: hospitals },
-    { kind: "shelter", label: t.rs_owner_shelter, items: shelters },
-  ];
+  // Seules les natures qui ont au moins un détenteur visible sont proposées.
+  const kinds: { kind: ResourceOwnerKind; label: string; items: { id: string; nom: string; corps?: string }[] }[] = (
+    [
+      { kind: "unit", label: t.rs_owner_unit, items: units },
+      { kind: "hospital", label: t.rs_owner_hospital, items: hospitals },
+      { kind: "shelter", label: t.rs_owner_shelter, items: shelters },
+    ] as { kind: ResourceOwnerKind; label: string; items: { id: string; nom: string; corps?: string }[] }[]
+  ).filter((k) => k.items.length > 0);
 
   return (
     <section className="flex flex-col gap-4 animate-fade-in">
@@ -185,6 +210,7 @@ export function ResourcesScreen({ fixedOwner }: { fixedOwner?: ResourceOwner }) 
       </div>
 
       {error && <p className="carte p-4 text-sm text-danger-500">{error}</p>}
+      {ownersLoaded && !owner && !error && <p className="carte p-4 text-sm text-gray-500 dark:text-rdia-300">{t.rs_no_owner}</p>}
 
       <div className="carte flex flex-col gap-3 p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">

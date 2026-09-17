@@ -238,6 +238,8 @@ export interface Shelter {
    */
   kind?: "tentes" | "dur";
   building?: "dedie" | "ecole" | "college" | "lycee" | "autre";
+  /** Organe d'origine — qui ouvre et tient l'abri (ADR 0019) ; absent sur les abris d'avant. */
+  organ?: "dgpc" | "far" | "fa" | "commune" | "croissant_rouge" | "entraide" | "education" | "sante" | "autre";
   /** Camp de tentes : la capacité en découle (tentes × personnes par tente). */
   tents?: number;
   perTent?: number;

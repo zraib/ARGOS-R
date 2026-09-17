@@ -11,7 +11,7 @@ import { WardsEditor, autosumServices, type WardsEditorValue } from "@/component
 import { ARGOS_WARD_REFERENCE } from "@/lib/types";
 import { UNIT_CORPS, type HospitalKind, type UnitCorps, type UnitReadiness } from "@/lib/types";
 import { corpsLabel } from "@/lib/corps";
-import type { ShelterBuilding, ShelterKind } from "@/lib/data/modules";
+import { SHELTER_ORGANS, type ShelterBuilding, type ShelterKind, type ShelterOrgan } from "@/lib/data/modules";
 import dynamic from "next/dynamic";
 import { EMPTY_LOCATION, LocationCascade, locationLL, locationProvince, type LocationValue } from "@/components/org/LocationCascade";
 
@@ -331,6 +331,8 @@ export function AddShelterModal({ open, onClose, onCreated }: { open: boolean; o
   // la même chose se contrediraient au premier ravitaillement.
   const [kind, setKind] = useState<ShelterKind>("dur");
   const [building, setBuilding] = useState<ShelterBuilding>("dedie");
+  // L'organe d'origine (ADR 0019) : qui ouvre et tient l'abri — lu sur sa tuile.
+  const [organ, setOrgan] = useState<ShelterOrgan>("dgpc");
   const [tents, setTents] = useState(20);
   const [perTent, setPerTent] = useState(6);
   const [capacity, setCapacity] = useState(300);
@@ -359,6 +361,7 @@ export function AddShelterModal({ open, onClose, onCreated }: { open: boolean; o
         nom: nom.trim(),
         ville: ville.trim(),
         kind,
+        organ,
         ...(kind === "tentes" ? { tents, perTent } : { building, capacity }),
         ...(loc.region ? { region: loc.region as never } : {}),
         ...(loc.province ? { province: loc.province } : {}),
@@ -473,6 +476,12 @@ export function AddShelterModal({ open, onClose, onCreated }: { open: boolean; o
           </div>
         )}
         <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>{m.shelters.organ}</label>
+            <select className={inputCls + " w-full"} value={organ} onChange={(e) => setOrgan(e.target.value as ShelterOrgan)}>
+              {SHELTER_ORGANS.map((o) => <option key={o} value={o}>{m.shelters[`o_${o}` as const]}</option>)}
+            </select>
+          </div>
           <div>
             <label className={labelCls}>{t.ops_staff}</label>
             <input

@@ -3924,7 +3924,7 @@
     },
     "/api/resources": {
       "get": {
-        "description": "Avec `ownerKind` et `ownerId` : tout ce que l'entité tient ; sans : le registre entier, pour la conduite. La réponse dit aussi ce que l'appelant peut y tenir.",
+        "description": "Avec `ownerKind` et `ownerId` : tout ce que l'entité tient ; sans : le registre des détenteurs que le compte voit (ADR 0019 : son entité, sa région, son opération). La réponse dit aussi ce que l'appelant peut y tenir.",
         "operationId": "ResourcesRegistryController_list",
         "parameters": [
           {
@@ -3963,6 +3963,27 @@
         ]
       }
     },
+    "/api/resources/owners": {
+      "get": {
+        "description": "Son entité pour un responsable ; sa région pour un wali ou une place d'armes ; son opération pour la conduite déployée en mode opérationnel ; tout pour l'administration et le stratégique.",
+        "operationId": "ResourcesRegistryController_owners",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Les détenteurs dont le compte voit les ressources (ADR 0019) — ce que l'écran Ressources propose",
+        "tags": [
+          "resources"
+        ]
+      }
+    },
     "/api/resources/placed": {
       "get": {
         "operationId": "ResourcesRegistryController_placed",
@@ -3977,7 +3998,7 @@
             "bearer": []
           }
         ],
-        "summary": "Équipes, véhicules et équipements posés sur le terrain — ce que la carte dessine",
+        "summary": "Équipes, véhicules et équipements posés sur le terrain — ce que la carte dessine, parmi les détenteurs que le compte voit",
         "tags": [
           "resources"
         ]
@@ -7368,6 +7389,21 @@
             ],
             "description": "En dur : nature du bâtiment — abri dédié, école, collège, lycée, autre établissement."
           },
+          "organ": {
+            "type": "string",
+            "enum": [
+              "dgpc",
+              "far",
+              "fa",
+              "commune",
+              "croissant_rouge",
+              "entraide",
+              "education",
+              "sante",
+              "autre"
+            ],
+            "description": "Organe d'origine : qui ouvre et tient l'abri (Protection civile, FAR, FA, commune, Croissant-Rouge, Entraide nationale, Éducation, Santé, autre)."
+          },
           "tents": {
             "type": "number",
             "minimum": 1,
@@ -7446,6 +7482,48 @@
       "UpdateShelterDto": {
         "type": "object",
         "properties": {
+          "nom": {
+            "type": "string",
+            "description": "Nom de l'abri"
+          },
+          "ville": {
+            "type": "string",
+            "description": "Commune d'implantation"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "tentes",
+              "dur"
+            ],
+            "description": "Typologie : camp de tentes ou bâtiment en dur."
+          },
+          "building": {
+            "type": "string",
+            "enum": [
+              "dedie",
+              "ecole",
+              "college",
+              "lycee",
+              "autre"
+            ],
+            "description": "En dur : nature du bâtiment."
+          },
+          "organ": {
+            "type": "string",
+            "enum": [
+              "dgpc",
+              "far",
+              "fa",
+              "commune",
+              "croissant_rouge",
+              "entraide",
+              "education",
+              "sante",
+              "autre"
+            ],
+            "description": "Organe d'origine de l'abri."
+          },
           "tents": {
             "type": "number",
             "minimum": 1,

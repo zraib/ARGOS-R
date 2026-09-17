@@ -309,6 +309,8 @@ export function createArgosClient(opts: ArgosClientOptions) {
     addOwnedEquip: (body: CreateOwnedEquipBody) => client.POST("/api/resources/equipment", { body }),
     updateOwnedEquip: (id: string, body: UpdateOwnedEquipBody) => client.PATCH("/api/resources/equipment/{id}", { params: { path: { id } }, body }),
     removeOwnedEquip: (id: string) => client.DELETE("/api/resources/equipment/{id}", { params: { path: { id } } }),
+    /** Les détenteurs dont le compte voit les ressources (ADR 0019) — ce que l'écran Ressources propose. */
+    getResourceOwners: () => client.GET("/api/resources/owners"),
     // --- terrain : équipes, véhicules, équipements posés sur la carte (ADR 0018) ---
     getPlaced: () => client.GET("/api/resources/placed"),
     getPlaceable: () => client.GET("/api/resources/placeable"),

@@ -888,6 +888,23 @@ export class DomainService implements OnApplicationBootstrap {
     return [...(inc?.responders?.units ?? []), ...(inc?.responders?.hospitals ?? []), ...(inc?.responders?.morgues ?? []), ...morgues];
   }
 
+  /**
+   * Détenteurs de ressources engagés sur une opération (ADR 0019) : les unités
+   * affectées par l'OPCOM ou déclarées intervenantes, les hôpitaux
+   * intervenants, les abris posés sur la carte de l'opération. C'est le
+   * périmètre des ressources qu'un compte déployé sur cette opération lit.
+   */
+  resourceOwnersOnIncident(incidentId: string): string[] {
+    const inc = this.incidents.find((i) => i.id === incidentId);
+    if (!inc) return [];
+    const ids = new Set<string>();
+    for (const a of inc.assignments ?? []) ids.add(a.unitId);
+    for (const u of inc.responders?.units ?? []) ids.add(u);
+    for (const h of inc.responders?.hospitals ?? []) ids.add(h);
+    for (const p of this.posts) if (p.incidentId === incidentId && p.kind === "shelter" && p.entityId) ids.add(p.entityId);
+    return [...ids];
+  }
+
   listUnits(): Unit[] {
     return this.units;
   }
@@ -919,6 +936,7 @@ export class DomainService implements OnApplicationBootstrap {
   createShelter(input: ShelterTypologyInput & {
     nom: string;
     ville: string;
+    organ?: Shelter["organ"];
     region?: string;
     province?: string;
     ll?: [number, number];
@@ -938,6 +956,7 @@ export class DomainService implements OnApplicationBootstrap {
       ...(input.region ? { region: input.region } : {}),
       ...(input.province ? { province: input.province } : {}),
       ...(input.ll ? { ll: input.ll } : {}),
+      ...(input.organ ? { organ: input.organ } : {}),
       kind: typo.value.kind,
       ...(typo.value.kind === "dur" ? { building: typo.value.building } : { tents: typo.value.tents, perTent: typo.value.perTent }),
       capacity: typo.value.capacity,

@@ -2,7 +2,7 @@ import { DESTINATIONS, POST_KINDS, UNIT_CORPS } from "@/modules/domain/domain.ty
 import { APP_MODES } from "@/common/app-mode";
 import { PERSON_CORPS, PERSON_STATUS, RESOURCE_OWNER_KINDS, SUPPLY_KINDS, VEHICLE_STATES } from "@/modules/domain/resources.types";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { SHELTER_BUILDINGS, SHELTER_KINDS } from "@/modules/domain/shelter.rules";
+import { SHELTER_BUILDINGS, SHELTER_KINDS, SHELTER_ORGANS } from "@/modules/domain/shelter.rules";
 import { REGIONS_MA } from "@/modules/domain/provinces.data";
 import {
   ArrayMaxSize,
@@ -664,6 +664,10 @@ export class CreateShelterDto {
   @IsOptional() @IsIn(SHELTER_BUILDINGS as unknown as string[])
   building?: (typeof SHELTER_BUILDINGS)[number];
 
+  @ApiPropertyOptional({ enum: SHELTER_ORGANS, description: "Organe d'origine : qui ouvre et tient l'abri (Protection civile, FAR, FA, commune, Croissant-Rouge, Entraide nationale, Éducation, Santé, autre)." })
+  @IsOptional() @IsIn(SHELTER_ORGANS as unknown as string[])
+  organ?: (typeof SHELTER_ORGANS)[number];
+
   @ApiPropertyOptional({ minimum: 1, description: "Tentes : nombre de tentes." })
   @IsOptional() @IsInt() @Min(1)
   tents?: number;
@@ -705,7 +709,28 @@ export class CreateShelterDto {
   needs?: string;
 }
 
+/** Mise à jour d'un abri — depuis OPSnet (ADR 0019) comme depuis « Gestion de mon abri » : identité, typologie, organe, chiffres. */
 export class UpdateShelterDto {
+  @ApiPropertyOptional({ description: "Nom de l'abri" })
+  @IsOptional() @IsString() @Length(2, 80)
+  nom?: string;
+
+  @ApiPropertyOptional({ description: "Commune d'implantation" })
+  @IsOptional() @IsString() @Length(2, 60)
+  ville?: string;
+
+  @ApiPropertyOptional({ enum: SHELTER_KINDS, description: "Typologie : camp de tentes ou bâtiment en dur." })
+  @IsOptional() @IsIn(SHELTER_KINDS as unknown as string[])
+  kind?: (typeof SHELTER_KINDS)[number];
+
+  @ApiPropertyOptional({ enum: SHELTER_BUILDINGS, description: "En dur : nature du bâtiment." })
+  @IsOptional() @IsIn(SHELTER_BUILDINGS as unknown as string[])
+  building?: (typeof SHELTER_BUILDINGS)[number];
+
+  @ApiPropertyOptional({ enum: SHELTER_ORGANS, description: "Organe d'origine de l'abri." })
+  @IsOptional() @IsIn(SHELTER_ORGANS as unknown as string[])
+  organ?: (typeof SHELTER_ORGANS)[number];
+
   @ApiPropertyOptional({ minimum: 1, description: "Tentes : nombre de tentes — la capacité est recalculée." })
   @IsOptional() @IsInt() @Min(1)
   tents?: number;

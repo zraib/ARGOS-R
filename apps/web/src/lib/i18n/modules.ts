@@ -96,6 +96,8 @@ export interface ModulesDict {
     per_zone: string;
   };
   shelters: {
+    /** Organe d'origine (ADR 0019) et ses valeurs. */
+    organ: string; o_dgpc: string; o_far: string; o_fa: string; o_commune: string; o_croissant_rouge: string; o_entraide: string; o_education: string; o_sante: string; o_autre: string;
     col_occupancy: string;
     col_occupants: string;
     col_supplies: string;

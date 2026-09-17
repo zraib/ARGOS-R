@@ -267,11 +267,12 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `POST` | `/api/resources/equipment` | `resources:create` | Ajouter un article au parc d'une entité (unité, hôpital, abri) |
 | `DELETE` | `/api/resources/equipment/{id}` | `resources:archive` | Sortir un article du parc |
 | `PATCH` | `/api/resources/equipment/{id}` | `resources:update` | Mettre à jour un article du parc |
+| `GET` | `/api/resources/owners` | `resources:view` | Les détenteurs dont le compte voit les ressources (ADR 0019) — ce que l'écran Ressources propose |
 | `POST` | `/api/resources/persons` | `resources:create` | Inscrire une personne au registre d'une entité |
 | `DELETE` | `/api/resources/persons/{id}` | `resources:archive` | Retirer une personne du registre |
 | `PATCH` | `/api/resources/persons/{id}` | `resources:update` | Mettre à jour une personne |
 | `GET` | `/api/resources/placeable` | `map_edit:view` | Ce que le compte peut poser sur le terrain (boîte à outils du mode édition) |
-| `GET` | `/api/resources/placed` | `resources:view` | Équipes, véhicules et équipements posés sur le terrain — ce que la carte dessine |
+| `GET` | `/api/resources/placed` | `resources:view` | Équipes, véhicules et équipements posés sur le terrain — ce que la carte dessine, parmi les détenteurs que le compte voit |
 | `POST` | `/api/resources/supplies` | `resources:create` | Inscrire une ressource logistique (carburant, vivres, couchage, campement) |
 | `DELETE` | `/api/resources/supplies/{id}` | `resources:archive` | Retirer une ressource logistique du registre |
 | `PATCH` | `/api/resources/supplies/{id}` | `resources:update` | Mettre à jour une ressource logistique |
@@ -295,7 +296,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 ## Chiffres
 
-149 chemins · 191 opérations · 14 groupes.
+150 chemins · 192 opérations · 14 groupes.
 
 ## Modifier le contrat
 

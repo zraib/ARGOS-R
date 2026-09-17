@@ -219,6 +219,19 @@ export class CommsService {
     return chan;
   }
 
+  /**
+   * À qui un message de ce canal est poussé (ADR 0019) : les membres d'un canal
+   * restreint ou direct, et eux seuls ; `null` pour un canal ouvert (sans
+   * liste de membres), qui se diffuse à tous. Avant, chaque message — une
+   * conversation directe comprise — traversait le fil de tout le monde, et la
+   * cloche de chacun comptait des messages qui ne le concernaient pas.
+   */
+  audienceOf(channelId: string): readonly string[] | null {
+    const chan = this.findChannel(channelId);
+    if (!chan || !chan.members || chan.members.length === 0) return null;
+    return chan.members;
+  }
+
   /** Les autres membres d'un canal restreint — à qui un accusé ou un signal de frappe s'adresse. */
   private otherMembers(chan: Channel, matricule: string): string[] {
     const m = matricule.toLowerCase();

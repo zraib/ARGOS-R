@@ -83,6 +83,9 @@ export interface Victim {
 export type SupplyStatus = "ok" | "low" | "critical";
 export type ShelterKind = "tentes" | "dur";
 export type ShelterBuilding = "dedie" | "ecole" | "college" | "lycee" | "autre";
+/** Organe d'origine d'un abri — qui l'ouvre et le tient (ADR 0019). */
+export const SHELTER_ORGANS = ["dgpc", "far", "fa", "commune", "croissant_rouge", "entraide", "education", "sante", "autre"] as const;
+export type ShelterOrgan = (typeof SHELTER_ORGANS)[number];
 
 export interface Shelter {
   id: string;
@@ -95,6 +98,8 @@ export interface Shelter {
   /** Camp de tentes ou bâtiment en dur ; absent sur les abris d'avant la typologie. */
   kind?: ShelterKind;
   building?: ShelterBuilding;
+  /** Organe d'origine (ADR 0019) ; absent sur les abris d'avant. */
+  organ?: ShelterOrgan;
   tents?: number;
   perTent?: number;
   capacity: number;

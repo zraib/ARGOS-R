@@ -6,6 +6,11 @@
 // maximum du rôle ; qui tient QUELLE ressource sur QUELLE entité, dans quel
 // MODE, est tranché par `resources.rules.ts` — un responsable ne tient que la
 // sienne, une cellule tient selon sa fonction, l'opérationnel resserre.
+//
+// Et qui VOIT quoi (ADR 0019) est tranché par la doctrine de visibilité : un
+// compte ne lit que les ressources des détenteurs qui le concernent — son
+// entité, sa région, son opération. Ce qu'il ne voit pas n'existe pas pour
+// lui (404), lecture comme écriture.
 // ============================================================================
 
 import { Body, ConflictException, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Put, Query } from "@nestjs/common";
@@ -15,6 +20,7 @@ import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
 import { DomainService } from "@/modules/domain/domain.service";
 import { ResourcesService } from "@/modules/domain/resources.service";
+import { VisibilityService } from "@/modules/domain/visibility.service";
 import { ModeService } from "@/modules/mode/mode.service";
 import { canManageResource, refusalReason } from "@/modules/domain/resources.rules";
 import { canPlaceResource, placeRefusal, placeableResourceKinds, type PlaceContext } from "@/modules/domain/edit.rules";
@@ -34,19 +40,51 @@ export class ResourcesRegistryController {
     private readonly resources: ResourcesService,
     private readonly mode: ModeService,
     private readonly realtime: RealtimeService,
+    private readonly visibility: VisibilityService,
   ) {}
+
+  /** Le compte voit-il ce détenteur (ADR 0019) ? */
+  private sees(user: AuthUser, owner: ResourceOwner): boolean {
+    const scope = this.visibility.scopeOfUser(user.role, user.scope, (kind, id) => this.domain.regionOfEntity(kind, id));
+    return this.visibility.canSeeResourceOwner(scope, owner, {
+      mode: this.mode.current(),
+      parkUnit: user.scope?.equipment,
+      regionOf: (kind, id) => this.domain.regionOfEntity(kind, id),
+      ownersOnIncident: (id) => this.domain.resourceOwnersOnIncident(id),
+    });
+  }
+
+  /** Le détenteur existe ET le compte le voit — sinon 404, sans dire s'il existe. */
+  private assertSees(user: AuthUser, owner: ResourceOwner): void {
+    if (!this.domain.resourceOwner(owner) || !this.sees(user, owner)) {
+      throw new NotFoundException(`Détenteur introuvable : ${owner.kind} ${owner.id}`);
+    }
+  }
 
   @Get()
   @RequirePermission("resources:view")
   @ApiOperation({
     summary: "Les ressources d'une entité (personnes, équipes, véhicules, logistique, équipements), ou le registre entier.",
-    description: "Avec `ownerKind` et `ownerId` : tout ce que l'entité tient ; sans : le registre entier, pour la conduite. La réponse dit aussi ce que l'appelant peut y tenir.",
+    description:
+      "Avec `ownerKind` et `ownerId` : tout ce que l'entité tient ; sans : le registre des détenteurs que le compte voit (ADR 0019 : son entité, sa région, son opération). " +
+      "La réponse dit aussi ce que l'appelant peut y tenir.",
   })
   @ApiQuery({ name: "ownerKind", required: false, enum: RESOURCE_OWNER_KINDS })
   @ApiQuery({ name: "ownerId", required: false })
   list(@Query("ownerKind") ownerKind: string | undefined, @Query("ownerId") ownerId: string | undefined, @CurrentUser() user: AuthUser) {
-    if (!ownerKind && !ownerId) return { ...this.resources.listAll(), mode: this.mode.current() };
+    if (!ownerKind && !ownerId) {
+      const all = this.resources.listAll();
+      const keep = (r: { owner: ResourceOwner }) => this.sees(user, r.owner);
+      return {
+        persons: all.persons.filter(keep),
+        teams: all.teams.filter(keep),
+        vehicles: all.vehicles.filter(keep),
+        supplies: all.supplies.filter(keep),
+        mode: this.mode.current(),
+      };
+    }
     const owner = this.owner(ownerKind, ownerId);
+    this.assertSees(user, owner);
     const res = this.resources.listFor(owner);
     if (!res) throw new NotFoundException(`Détenteur introuvable : ${owner.kind} ${owner.id}`);
     const corps = this.domain.resourceOwner(owner)?.corps;
@@ -60,11 +98,31 @@ export class ResourcesRegistryController {
 
   // --- terrain (ADR 0018) -----------------------------------------------------
 
+  @Get("owners")
+  @RequirePermission("resources:view")
+  @ApiOperation({
+    summary: "Les détenteurs dont le compte voit les ressources (ADR 0019) — ce que l'écran Ressources propose",
+    description: "Son entité pour un responsable ; sa région pour un wali ou une place d'armes ; son opération pour la conduite déployée en mode opérationnel ; tout pour l'administration et le stratégique.",
+  })
+  owners(@CurrentUser() user: AuthUser) {
+    const out: { kind: ResourceOwner["kind"]; id: string; label: string; corps?: string }[] = [];
+    const push = (kind: ResourceOwner["kind"], id: string) => {
+      const owner = { kind, id };
+      if (!this.sees(user, owner)) return;
+      const o = this.domain.resourceOwner(owner);
+      if (o) out.push({ kind, id, label: o.label, corps: o.corps });
+    };
+    for (const u of this.domain.listUnits()) push("unit", u.id);
+    for (const h of this.domain.listHospitals()) push("hospital", h.id);
+    for (const sh of this.domain.listShelters()) push("shelter", sh.id);
+    return out;
+  }
+
   @Get("placed")
   @RequirePermission("resources:view")
-  @ApiOperation({ summary: "Équipes, véhicules et équipements posés sur le terrain — ce que la carte dessine" })
-  placed() {
-    return this.resources.listPlaced();
+  @ApiOperation({ summary: "Équipes, véhicules et équipements posés sur le terrain — ce que la carte dessine, parmi les détenteurs que le compte voit" })
+  placed(@CurrentUser() user: AuthUser) {
+    return this.resources.listPlaced().filter((p) => this.sees(user, p.owner));
   }
 
   @Get("placeable")
@@ -301,10 +359,10 @@ export class ResourcesRegistryController {
     return { kind: e.ownerKind ?? "unit", id: e.unitId };
   }
 
-  /** Le détenteur existe, et l'appelant tient cette ressource dessus — sinon 404 / 403. */
+  /** Le détenteur existe, l'appelant le voit, et il tient cette ressource dessus — sinon 404 / 403. */
   private assertOwner(owner: ResourceOwner, user: AuthUser, kind: ResourceKind): ResourceOwner {
     const o = this.domain.resourceOwner(owner);
-    if (!o) throw new NotFoundException(`Détenteur introuvable : ${owner.kind} ${owner.id}`);
+    if (!o || !this.sees(user, owner)) throw new NotFoundException(`Détenteur introuvable : ${owner.kind} ${owner.id}`);
     const ctx = { role: user.role, mode: this.mode.current(), scope: user.scope, owner, ownerCorps: o.corps, kind };
     if (!canManageResource(ctx)) throw new ForbiddenException(refusalReason(ctx));
     return { kind: owner.kind, id: owner.id };

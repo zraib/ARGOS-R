@@ -9,6 +9,9 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { occBarClass } from "@/lib/helpers";
 import { NAV_ICONS, KPI_ICONS, UI_ICONS } from "@/lib/icons";
 import { AddUnitModal, AddShelterModal } from "@/components/org/AddEntityModals";
+import { EditUnitModal, EditShelterModal } from "@/components/org/EditEntityModals";
+import { canEditShelter, canEditUnit } from "@/lib/mode";
+import { corpsLabel } from "@/lib/corps";
 import { ResponsibleCard } from "@/components/responsibility/ResponsibleCard";
 import {
   Anneau,
@@ -55,12 +58,21 @@ export default function OpsnetPage() {
   const incidents = useArgos((s) => s.incidents);
   const cities = useArgos((s) => s.cities);
   const shelters = useArgos((s) => s.catalog.shelters);
+  // Modifier (ADR 0019) : proposé à qui l'API l'accorde — l'administration,
+  // l'OPCOM et les cellules hors opérationnel, chaque responsable sur le sien.
+  const role = useArgos((s) => s.role);
+  const appMode = useArgos((s) => s.appMode);
+  const sessionUser = useArgos((s) => s.sessionUser);
+  const editUnit = (u: Unit) => canEditUnit(role, appMode, sessionUser?.assignments?.unit === u.id);
+  const editShelter = (a: Shelter) => canEditShelter(role, sessionUser?.assignments?.shelter === a.id);
 
   const [onglet, setOnglet] = useState<Onglet>("vue");
   const [ajoutUnite, setAjoutUnite] = useState(false);
   const [ajoutAbri, setAjoutAbri] = useState(false);
   const [detailU, setDetailU] = useState<Unit | null>(null);
   const [detailA, setDetailA] = useState<Shelter | null>(null);
+  const [editU, setEditU] = useState<Unit | null>(null);
+  const [editA, setEditA] = useState<Shelter | null>(null);
   const [affecteurOpen, setAffecteurOpen] = useState(false);
   const [q, setQ] = useState("");
 
@@ -219,6 +231,8 @@ export default function OpsnetPage() {
                   <div className="min-w-0 flex-1">
                     <h3 className="break-words text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{u.nom}</h3>
                     <div className="mt-0.5 text-xs text-gray-500 dark:text-rdia-300">{u.ville}</div>
+                    {/* L'organe d'origine (ADR 0019) : le corps de l'unité — FAR, Gendarmerie, DGSN, DGPC, FA. */}
+                    <div className="mt-0.5 text-[11px] font-semibold text-or-600 dark:text-or-400">{corpsLabel(u.corps ?? "far", t)}</div>
                     <div className="mt-1"><EtatUnite dispo={u.dispo} /></div>
                   </div>
                 </div>
@@ -243,6 +257,11 @@ export default function OpsnetPage() {
                   <button className="btn-secondaire min-h-[44px] flex-1 text-xs lg:min-h-0" onClick={() => setDetailU(u)}>
                     {t.act_view}
                   </button>
+                  {editUnit(u) && (
+                    <button className="btn-secondaire min-h-[44px] flex-1 text-xs lg:min-h-0" onClick={() => setEditU(u)}>
+                      {t.act_edit}
+                    </button>
+                  )}
                   <DeleteEntityButton kind="unit" id={u.id} name={u.nom} compact />
                 </div>
               </div>
@@ -271,6 +290,8 @@ export default function OpsnetPage() {
                         {a.ville}
                         {a.kind === "tentes" && a.tents ? ` · ${a.tents} × ${a.perTent ?? "—"}` : a.building ? ` · ${m.shelters[`b_${a.building}` as const]}` : ""}
                       </div>
+                      {/* L'organe d'origine (ADR 0019) : qui ouvre et tient l'abri. */}
+                      {a.organ && <div className="mt-0.5 text-[11px] font-semibold text-blue-600 dark:text-blue-400">{m.shelters[`o_${a.organ}` as const]}</div>}
                       <div className="mt-1"><EtatAppro niveau={a.supplies} /></div>
                     </div>
                   </div>
@@ -295,6 +316,11 @@ export default function OpsnetPage() {
                     <button className="btn-secondaire min-h-[44px] flex-1 text-xs lg:min-h-0" onClick={() => setDetailA(a)}>
                       {t.act_view}
                     </button>
+                    {editShelter(a) && (
+                      <button className="btn-secondaire min-h-[44px] flex-1 text-xs lg:min-h-0" onClick={() => setEditA(a)}>
+                        {t.act_edit}
+                      </button>
+                    )}
                     <DeleteEntityButton kind="shelter" id={a.id} name={a.nom} compact />
                   </div>
                 </div>
@@ -307,6 +333,8 @@ export default function OpsnetPage() {
       {/* --- modales ------------------------------------------------------- */}
       <AddUnitModal open={ajoutUnite} onClose={() => setAjoutUnite(false)} />
       <AddShelterModal open={ajoutAbri} onClose={() => setAjoutAbri(false)} />
+      {editU && <EditUnitModal unit={editU} onClose={() => setEditU(null)} />}
+      {editA && <EditShelterModal shelter={editA} onClose={() => setEditA(null)} />}
 
       <Modal open={affecteurOpen} onClose={() => setAffecteurOpen(false)} size="2xl" title={`${t.af_launcher} · ${t.nav_opsnet}`}>
         <OpsnetAffecteurIA />
@@ -316,6 +344,7 @@ export default function OpsnetPage() {
         <Modal open title={detailU.nom} onClose={() => setDetailU(null)} size="md">
           <dl className="grid grid-cols-2 gap-3">
             <Champ label={t.lbl_city} value={detailU.ville} />
+            <Champ label={t.ops_organ} value={corpsLabel(detailU.corps ?? "far", t)} />
             <Champ label={t.ops_commander} value={detailU.cmdt} />
             <Champ label={t.ops_strength} value={String(detailU.eff)} />
             <Champ label={t.ops_readiness} value={`${detailU.readiness}%`} />
@@ -338,6 +367,7 @@ export default function OpsnetPage() {
         <Modal open title={detailA.nom} onClose={() => setDetailA(null)} size="md">
           <dl className="grid grid-cols-2 gap-3">
             <Champ label={t.lbl_city} value={detailA.ville} />
+            <Champ label={t.ops_organ} value={detailA.organ ? m.shelters[`o_${detailA.organ}` as const] : "—"} />
             <Champ label={t.ops_capacity} value={String(detailA.capacity)} />
             <Champ label={t.ops_occupants} value={String(detailA.occupants)} />
             <Champ label={t.ops_staff} value={String(detailA.staff)} />
