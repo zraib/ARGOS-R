@@ -133,6 +133,8 @@ export const UI_ICONS = {
   legend: "M8.5 6h12 M8.5 12h12 M8.5 18h12 M3.5 6h.01 M3.5 12h.01 M3.5 18h.01",
   /** NRBC : losange danger (placard matières dangereuses) + point d'exclamation. */
   nrbc: "M12 2l10 10-10 10L2 12z M12 8v5 M12 16h.01",
+  /** Cadenas fermé : module du cœur, verrouillé dans la matrice (ADR 0017). */
+  lock: "M5 11h14v10H5z M8 11V7a4 4 0 018 0v4",
   /** Menu mobile : trois barres, convention universelle du tiroir de navigation. */
   menu: "M4 7h16 M4 12h16 M4 17h16",
   logout: "M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4 M16 17l5-5-5-5 M21 12H9",

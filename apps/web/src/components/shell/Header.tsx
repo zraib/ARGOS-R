@@ -194,6 +194,7 @@ export function Header() {
   const toggleNav = useArgos((s) => s.toggleNav);
   const navOpen = useArgos((s) => s.navOpen);
   const ticker = useArgos((s) => s.feed[0]);
+  const role = useArgos((s) => s.role);
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 border-b border-gray-200 bg-white px-3 sm:gap-3 sm:px-4 lg:h-16 lg:px-6 dark:border-rdia-700 dark:bg-rdia-800">
@@ -219,7 +220,7 @@ export function Header() {
           <Icon path={UI_ICONS.sidebar} size={18} />
         </button>
         <h1 className="min-w-0 truncate text-base font-bold text-rdia-600 sm:text-lg lg:max-w-[240px] dark:text-rdia-50">
-          {screenTitle(pathname, t)}
+          {screenTitle(pathname, t, role)}
         </h1>
       </div>
 

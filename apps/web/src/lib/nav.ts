@@ -8,7 +8,7 @@
 import type { Dict } from "@/lib/i18n/translations";
 import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
 import { AI_ENABLED } from "@/lib/ai/config";
-import type { Role } from "@/lib/roles";
+import { RESPONSIBILITY_OF_ROLE, type Role } from "@/lib/roles";
 import type { ModuleFeature } from "@/lib/api-client";
 
 export type NavKey =
@@ -166,13 +166,18 @@ export const STUB_KEYS: NavKey[] = [];
 
 export type ModuleKey = ModuleFeature;
 
-/** Tous les modules, dans l'ordre d'affichage des écrans d'administration. */
+/**
+ * Tous les modules, dans l'ORDRE de la barre latérale : la matrice rôle →
+ * modules se lit comme le menu, et chaque entrée du menu y figure (ADR 0017).
+ * Miroir de `MODULE_KEYS` de l'API.
+ */
 export const MODULE_KEYS = [
-  "incidents", "map", "seismic", "dispatch", "triage",
-  "equip", "units", "workorders", "resources",
-  "hospitals", "ics", "damage", "shelters", "morgue",
+  "dashboard", "myresp", "myrespManage",
+  "incidents", "map", "seismic", "dispatch", "triage", "trackers", "chemlib",
+  "equip", "units", "resources", "workorders",
+  "hospitals", "opsnet", "morgue", "ics", "damage", "shelters",
   "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation",
-  "trackers", "chemlib",
+  "users", "supervision", "settings",
 ] as const satisfies readonly ModuleKey[];
 
 // Garde de complétude : si l'API ajoute un module au contrat, cette ligne
@@ -181,11 +186,23 @@ const MODULE_KEYS_COMPLETE: Exclude<ModuleKey, (typeof MODULE_KEYS)[number]> ext
 void MODULE_KEYS_COMPLETE;
 
 /**
- * Module qui gouverne chaque écran ; `null` pour le cœur, qui ne se coupe
- * jamais (tableau de bord, comptes, paramètres, « ma responsabilité »).
+ * Modules « cœur » de l'administration (miroir de `CORE_MODULES` de l'API) :
+ * ils figurent dans la matrice mais ne se coupent par rien — leur état est
+ * celui du RBAC, qui les réserve aux administrateurs. L'API refuse toute
+ * bascule sur eux ; ici, on ne les propose pas.
+ */
+export const CORE_MODULES = ["users", "supervision", "settings"] as const satisfies readonly ModuleKey[];
+
+export function isCoreModule(m: ModuleKey): boolean {
+  return (CORE_MODULES as readonly ModuleKey[]).includes(m);
+}
+
+/**
+ * Module qui gouverne chaque écran — chaque entrée du menu a le sien (ADR
+ * 0017), l'OPSnet compris, qui suivait le module des unités.
  */
 export const NAV_MODULE: Record<NavKey, ModuleKey | null> = {
-  dashboard: null,
+  dashboard: "dashboard",
   incidents: "incidents",
   map: "map",
   seismic: "seismic",
@@ -206,15 +223,14 @@ export const NAV_MODULE: Record<NavKey, ModuleKey | null> = {
   analytics: "analytics",
   assistant: "assistant",
   simulation: "simulation",
-  users: null,
-  settings: null,
-  myresp: null,
-  myrespManage: null,
-  supervision: null,
+  users: "users",
+  settings: "settings",
+  myresp: "myresp",
+  myrespManage: "myrespManage",
+  supervision: "supervision",
   chemlib: "chemlib",
   trackers: "trackers",
-  // Le réseau opérationnel (unités + abris) suit le module des unités.
-  opsnet: "units",
+  opsnet: "opsnet",
   morgue: "morgue",
 };
 
@@ -222,8 +238,9 @@ export const NAV_MODULE: Record<NavKey, ModuleKey | null> = {
  * Un écran est ouvert si son module n'est coupé ni globalement (drapeaux) ni
  * pour le rôle (matrice rôle → modules) ni pour le compte (bascule propre,
  * ADR 0016). Quand l'API a servi les modules EFFECTIFS du compte
- * (`myModules` : drapeaux ∧ rôle ∧ compte), ils font foi. Le cœur est toujours
- * ouvert.
+ * (`myModules` : drapeaux ∧ rôle ∧ compte), ils font foi. Le cœur (comptes,
+ * supervision, paramètres) est toujours ouvert : c'est le RBAC et la liste
+ * des rôles du menu qui décident de sa visibilité, jamais une bascule.
  */
 export function moduleOpen(
   key: NavKey,
@@ -232,17 +249,41 @@ export function moduleOpen(
   myModules?: Record<string, boolean> | null,
 ): boolean {
   const m = NAV_MODULE[key];
-  if (m === null) return true;
+  if (m === null || isCoreModule(m)) return true;
   if (myModules) return myModules[m] !== false;
   return flags[m] !== false && roleFeatures?.[m] !== false;
 }
 
-/** Modules pilotables par drapeau global (§6.15) — tous. `assistant` et `simulation` suivent le flag de build AI_ENABLED. */
-export const FLAGGABLE_KEYS: readonly ModuleKey[] = MODULE_KEYS;
+/** Modules pilotables par drapeau global (§6.15) — tous sauf le cœur. `assistant` et `simulation` suivent le flag de build AI_ENABLED. */
+export const FLAGGABLE_KEYS: readonly ModuleKey[] = MODULE_KEYS.filter((k) => !isCoreModule(k));
+
+/** Modules que la matrice rôle → modules et la bascule par compte proposent — tous sauf le cœur. */
+export const SWITCHABLE_KEYS: readonly ModuleKey[] = FLAGGABLE_KEYS;
 
 export const DEFAULT_FLAGS: Record<string, boolean> = Object.fromEntries(
-  MODULE_KEYS.map((k) => [k, (k === "assistant" || k === "simulation") ? AI_ENABLED : true]),
+  FLAGGABLE_KEYS.map((k) => [k, (k === "assistant" || k === "simulation") ? AI_ENABLED : true]),
 );
+
+/**
+ * Premier écran ouvert du menu pour ce rôle — la page d'accueil quand le
+ * tableau de bord (ou « Ma responsabilité ») lui est coupé. `null` si rien
+ * n'est ouvert : le cœur reste joignable par son adresse.
+ */
+export function firstOpenHref(
+  role: Role,
+  flags: Record<string, boolean>,
+  roleFeatures: Record<string, boolean> | undefined,
+  myModules?: Record<string, boolean> | null,
+): string | null {
+  for (const e of NAV) {
+    const items = e.kind === "item" ? [e] : e.children;
+    for (const it of items) {
+      if (it.roles && !it.roles.includes(role)) continue;
+      if (moduleOpen(it.key, flags, roleFeatures, myModules)) return it.href;
+    }
+  }
+  return null;
+}
 
 /** Résout un chemin vers la clé de module courante (pour la garde de route). */
 /**
@@ -269,13 +310,32 @@ const LABEL_KEYS: Record<NavKey | GroupKey, keyof Dict> = {
   res: "nav_res", dis: "nav_dis", cmd: "nav_cmd", chemlib: "nav_chemlib", trackers: "nav_trackers", opsnet: "nav_opsnet", morgue: "nav_morgue",
 };
 
-export function navLabel(key: NavKey | GroupKey, t: Dict): string {
+/** « Gestion de mon entité », nommée par la nature de l'entité du rôle : mon unité, mon hôpital, mon abri… */
+const MANAGE_LABEL_KEYS: Record<NonNullable<(typeof RESPONSIBILITY_OF_ROLE)[Role]>, keyof Dict> = {
+  unit: "nav_manage_unit",
+  hospital: "nav_manage_hospital",
+  shelter: "nav_manage_shelter",
+  morgue: "nav_manage_morgue",
+  equipment: "nav_manage_equipment",
+};
+
+/**
+ * Libellé d'une entrée du menu. Avec le rôle, « Gestion de mon entité » se
+ * nomme par l'entité de ce rôle — le commandant d'unité lit « Gestion de mon
+ * unité », le directeur « Gestion de mon hôpital » — dans le menu comme dans
+ * la matrice rôle → modules.
+ */
+export function navLabel(key: NavKey | GroupKey, t: Dict, role?: Role): string {
+  if (key === "myrespManage" && role) {
+    const kind = RESPONSIBILITY_OF_ROLE[role];
+    if (kind) return t[MANAGE_LABEL_KEYS[kind]];
+  }
   return t[LABEL_KEYS[key]];
 }
 
 /** Résout un chemin vers le libellé de l'écran courant (pour l'en-tête). */
-export function screenTitle(pathname: string, t: Dict): string {
+export function screenTitle(pathname: string, t: Dict, role?: Role): string {
   if (pathname === "/profil" || pathname.startsWith("/profil/")) return t.pr_title;
   const key = keyForPath(pathname);
-  return key ? navLabel(key, t) : t.nav_dash;
+  return key ? navLabel(key, t, role) : t.nav_dash;
 }

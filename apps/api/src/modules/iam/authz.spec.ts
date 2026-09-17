@@ -59,7 +59,7 @@ describe("Authz — default-deny (gate de sécurité Phase 0)", () => {
     const tok = await devToken("agent", "resp_unit");
     const res = await base().get("/api/iam/me").set("Authorization", `Bearer ${tok}`).expect(200);
     expect(res.body.role).toBe("resp_unit");
-    // Dotation issue de la matrice : le Responsable Unité pilote SON unité,
+    // Dotation issue de la matrice : le Commandant d'unité pilote SON unité,
     // voit l'annuaire et le parc, mais n'archive ni ne supprime rien.
     const perms: string[] = res.body.permissions;
     expect(perms).toEqual(expect.arrayContaining(["units:view", "units:create", "units:update", "teams:view", "equipment:view"]));

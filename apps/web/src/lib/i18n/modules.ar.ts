@@ -113,7 +113,7 @@ export const AR_MODULES: ModulesDict = {
     f_name: "الاسم", f_last: "اللقب", f_first: "الاسم الشخصي", f_cni: "البطاقة الوطنية", f_cni_ph: "إن وُجدت", f_age: "العمر", f_age_ph: "غير معروف", f_hospital: "مؤسسة الإجلاء", f_hospital_none: "— غير مُجلى / غير معروف —", last_seen: "شوهد آخر مرة",
     assign: "تخصيص لمشرحة", assign_hint: "المشرحة المربوطة عند التصريح تُقترح أولًا (★)، ثم مواقع الجهة والأقرب، مع أماكنها الشاغرة.", assigned: "خُصص المتوفى — فُتح الملف في", no_morgue: "بلا مشرحة", at_morgue: "في المشرحة", confirmed: "هوية مؤكدة", no_site: "لا موقع جنائزيًا مفتوحًا.",
   },
-  roles: { superadmin: "المدير الأعلى", admin: "المدير", strategic: "المستخدم الاستراتيجي", place_arme: "ساحة السلاح", wali: "الوالي / العامل", opcom: "أوبكوم OPCOM — مركز قيادة أركان الحادث", gendarmerie: "ممثل الدرك الملكي (OPCOM)", etat_major: "ممثل أركان القوات المسلحة الملكية (OPCOM)", interieur: "ممثل وزارة الداخلية (OPCOM)", tacom: "تاكوم TACOM — مركز القيادة التكتيكي", pco: "رئيس مركز القيادة العملياتي (PCO)", pct: "رئيس مركز القيادة التكتيكي (PCT)", bluecell: "الخلية الزرقاء — العمليات", greencell: "الخلية الخضراء — اللوجستيك", orangecell: "الخلية البرتقالية — الأمن", resp_hospital: "مسؤول المستشفى", resp_shelter: "مسؤول الملجأ", resp_morgue: "مسؤول المشرحة", resp_unit: "مسؤول الوحدة", resp_equipment: "مسؤول المعدات" },
+  roles: { superadmin: "المدير الأعلى", admin: "المدير", strategic: "المستخدم الاستراتيجي", place_arme: "ساحة السلاح", wali: "الوالي / العامل", opcom: "أوبكوم OPCOM — مركز قيادة أركان الحادث", gendarmerie: "ممثل الدرك الملكي (OPCOM)", etat_major: "ممثل أركان القوات المسلحة الملكية (OPCOM)", interieur: "ممثل وزارة الداخلية (OPCOM)", tacom: "تاكوم TACOM — مركز القيادة التكتيكي", pco: "رئيس مركز القيادة العملياتي (PCO)", pct: "رئيس مركز القيادة التكتيكي (PCT)", bluecell: "الخلية الزرقاء — العمليات", greencell: "الخلية الخضراء — اللوجستيك", orangecell: "الخلية البرتقالية — الأمن", resp_hospital: "مسؤول المستشفى", resp_shelter: "مسؤول الملجأ", resp_morgue: "مسؤول المشرحة", resp_unit: "قائد الوحدة", resp_equipment: "مسؤول المعدات" },
   users: {
     title: "إدارة المستخدمين", subtitle: "إنشاء الحسابات والأدوار ودورة الحياة",
     tab_users: "المستخدمون", tab_roles: "الأدوار والوظائف",
@@ -147,7 +147,7 @@ firstname: "الاسم الشخصي", firstname_ph: "مثال: أحمد", phone:
     civil_no_grade: "سلطة مدنية: بلا رتبة عسكرية.",
     create_entity: "إنشاء", entity_missing: "الكيان غير موجود بعد؟ أنشئه هنا وسيُسند فوراً.",
     responsibility: { hospital: "مستشفى عسكري", unit: "وحدة", shelter: "ملجأ", morgue: "مشرحة", equipment: "حظيرة المعدات" },
-    role_features_title: "الوظائف حسب الدور", role_features_hint: "فعّل أو عطّل الوحدات المسموح بها لكل دور. تكمّل هذه الحقوق التطبيق من جهة الواجهة.",
+    role_features_title: "الوظائف حسب الدور", role_features_hint: "فعّل أو عطّل الوحدات المسموح بها لكل دور. تكمّل هذه الحقوق التطبيق من جهة الواجهة.", core_locked: "نواة الإدارة — محجوزة للمسؤولين بموجب الصلاحيات، لا يمكن إيقافها",
     feature: "الوظيفة", allowed: "مسموح", reset_role: "إعادة تعيين", locked_all: "وصول كامل (مقفل)",
     select_role: "اختر دورا", modules_count: "وحدات مسموحة", empty: "لا مستخدمون.",
     cp_title: "تغيير كلمة السر", cp_hint: "أول اتصال: عيّن كلمة سرك الشخصية لتفعيل الحساب.",

@@ -59,7 +59,7 @@ export function Sidebar() {
         <Link
           key={it.key}
           href={it.href}
-          title={navLabel(it.key, t)}
+          title={navLabel(it.key, t, role)}
           className={`flex w-full items-center justify-center rounded-lg py-2.5 transition-colors ${active ? activeCls : inactiveCls}`}
         >
           <Icon path={it.icon} size={17} />
@@ -76,7 +76,7 @@ export function Sidebar() {
           }`}
           style={{ paddingInlineStart: 38 }}
         >
-          <span className="flex-1 truncate text-start">{navLabel(it.key, t)}</span>
+          <span className="flex-1 truncate text-start">{navLabel(it.key, t, role)}</span>
         </Link>
       );
     }
@@ -87,7 +87,7 @@ export function Sidebar() {
         className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${active ? activeCls : inactiveCls}`}
       >
         <Icon path={it.icon} size={17} className="shrink-0" />
-        <span className="flex-1 truncate text-start">{navLabel(it.key, t)}</span>
+        <span className="flex-1 truncate text-start">{navLabel(it.key, t, role)}</span>
         {it.key === "incidents" && activeInc > 0 && (
           <span className="rounded-full bg-danger-500 px-2 py-0.5 text-[10px] font-bold text-white">{activeInc}</span>
         )}

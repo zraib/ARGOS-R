@@ -147,7 +147,7 @@ Faire évoluer les droits = modifier cette table, jamais des listes à la main.
 | `resp_hospital` | Responsable Hôpital | A-M-V Hospinet (pas d'archivage) |
 | `resp_shelter` | Responsable Abri | A-M-V Abri |
 | `resp_morgue` | Responsable Morgue | A-M-V Morgue |
-| `resp_unit` | Responsable Unité | A-M-V Unité |
+| `resp_unit` | Commandant d'unité | A-M-V Unité |
 | `resp_equipment` | Responsable Équipement | A-M-V Gestion Équipement |
 | `gendarmerie` | Représentant Gendarmerie Royale (OPCOM) | dérivé d'`opcom` sans conduite de l'incident ; affecte les unités de gendarmerie (→ PCO) — ADR 0016 |
 | `etat_major` | Représentant État-Major des FAR (OPCOM) | dérivé d'`opcom` ; affecte les unités des FAR (→ PCO ou PCT) — ADR 0016 |
@@ -267,15 +267,28 @@ Implémentation : `shared/responsibilities.ts`, `common/guards/scope.guard.ts`,
 
 Second niveau, distinct du RBAC : quels **modules** (écrans) un rôle voit, et
 quels modules sont ouverts pour tout le monde. Deux bascules, un vocabulaire
-(`MODULE_KEYS`, 23 modules : `incidents`, `map`, `seismic`, `dispatch`,
-`triage`, `equip`, `units`, `personnel`, `workorders`, `hospitals`, `ics`,
-`damage`, `shelters`, `morgue`, `orsec`, `plans`, `comms`, `reports`,
-`analytics`, `assistant`, `simulation`, `trackers`, `chemlib`) :
+(`MODULE_KEYS`, 30 modules — **tout le menu, dans son ordre** (ADR 0017) :
+`dashboard`, `myresp`, `myrespManage`, `incidents`, `map`, `seismic`,
+`dispatch`, `triage`, `trackers`, `chemlib`, `equip`, `units`, `resources`,
+`workorders`, `hospitals`, `opsnet`, `morgue`, `ics`, `damage`, `shelters`,
+`orsec`, `plans`, `comms`, `reports`, `analytics`, `assistant`, `simulation`,
+puis le cœur `users`, `supervision`, `settings`) :
 
 - la **matrice rôle → modules** (`PATCH /iam/role-features/:role`, Super
   Administrateur ; défauts dérivés de la matrice RBAC : un module est ouvert
-  dès que le rôle peut visualiser l'une de ses fonctionnalités) ;
+  dès que le rôle peut visualiser l'une de ses fonctionnalités ; un module sans
+  fonctionnalité propre suit une règle — « Ma responsabilité » et « Gestion de
+  mon entité » aux responsables d'entité, l'OPSnet à qui lit les unités ou les
+  abris, le tableau de bord et la simulation à tous) ;
 - les **drapeaux globaux** (`PATCH /flags/:key`, Super Administrateur).
+
+Le **cœur** (`CORE_MODULES` : comptes, supervision, paramètres) figure dans la
+matrice, verrouillé sur l'état que lui donne le RBAC : l'API refuse (400) toute
+bascule sur lui, par rôle, par compte ou par drapeau — c'est par lui qu'on
+rallume le reste. **« Gestion de mon entité »** (`myrespManage`) est appliquée
+par la garde : pour un responsable d'entité, toute écriture cantonnée à son
+entité (`@RequireScope` + action autre que `view`) exige ce module ouvert, en
+plus du module de la fonctionnalité. Tests : `modules/iam/sidebar-modules.spec.ts`.
 
 Depuis l'ADR 0015 ce n'est plus un simple masquage : `FEATURE_MODULE` relie
 chaque fonctionnalité RBAC à son module, et la garde des permissions refuse
@@ -284,11 +297,11 @@ chaque fonctionnalité RBAC à son module, et la garde des permissions refuse
 0016 s'y ajoute la **bascule par compte** (`PATCH /iam/users/:id/modules`) :
 consultée avant le rôle, elle coupe ou rouvre un module pour ce compte seul ;
 `/iam/me` sert les modules effectifs (drapeaux ∧ rôle ∧ compte) que le
-navigateur applique tels quels. Le cœur —
-tableau de bord, comptes, paramètres, audit, boucles opérationnelles — n'a pas
-de module et ne se coupe pas : c'est par lui qu'on rallume le reste. Tout
-compte authentifié lit les deux bascules (`GET /flags`, `GET
-/iam/role-features`) pour masquer ce que l'API refuse déjà.
+navigateur applique tels quels. Les fonctionnalités du cœur — comptes,
+paramètres, audit, boucles opérationnelles, routes `dashboard:view` — n'ont
+pas de module et ne se coupent pas. Tout compte authentifié lit les deux
+bascules (`GET /flags`, `GET /iam/role-features`) pour masquer ce que l'API
+refuse déjà.
 
 ## 7. Journal d'audit chaîné
 

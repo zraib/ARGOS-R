@@ -33,7 +33,7 @@ export class AssignmentsDto {
   @IsOptional() @IsString()
   hospital?: string;
 
-  @ApiPropertyOptional({ example: "U2", description: "Unité (Responsable Unité)" })
+  @ApiPropertyOptional({ example: "U2", description: "Unité (Commandant d'unité)" })
   @IsOptional() @IsString()
   unit?: string;
 

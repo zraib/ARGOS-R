@@ -6000,7 +6000,7 @@
           "unit": {
             "type": "string",
             "example": "U2",
-            "description": "Unité (Responsable Unité)"
+            "description": "Unité (Commandant d'unité)"
           },
           "shelter": {
             "type": "string",
@@ -6171,20 +6171,26 @@
           "feature": {
             "type": "string",
             "enum": [
+              "dashboard",
+              "myresp",
+              "myrespManage",
               "incidents",
               "map",
               "seismic",
               "dispatch",
               "triage",
+              "trackers",
+              "chemlib",
               "equip",
               "units",
-              "workorders",
               "resources",
+              "workorders",
               "hospitals",
+              "opsnet",
+              "morgue",
               "ics",
               "damage",
               "shelters",
-              "morgue",
               "orsec",
               "plans",
               "comms",
@@ -6192,8 +6198,9 @@
               "analytics",
               "assistant",
               "simulation",
-              "trackers",
-              "chemlib"
+              "users",
+              "supervision",
+              "settings"
             ],
             "description": "Module à ouvrir ou couper pour le rôle"
           },
@@ -6212,20 +6219,26 @@
           "module": {
             "type": "string",
             "enum": [
+              "dashboard",
+              "myresp",
+              "myrespManage",
               "incidents",
               "map",
               "seismic",
               "dispatch",
               "triage",
+              "trackers",
+              "chemlib",
               "equip",
               "units",
-              "workorders",
               "resources",
+              "workorders",
               "hospitals",
+              "opsnet",
+              "morgue",
               "ics",
               "damage",
               "shelters",
-              "morgue",
               "orsec",
               "plans",
               "comms",
@@ -6233,8 +6246,9 @@
               "analytics",
               "assistant",
               "simulation",
-              "trackers",
-              "chemlib"
+              "users",
+              "supervision",
+              "settings"
             ],
             "description": "Module à ouvrir ou couper pour le compte"
           },

@@ -233,6 +233,8 @@ export interface Dict {
   nav_users: string;
   nav_myresp: string;
   nav_myresp_manage: string;
+  /** « Gestion de mon entité » nommée par la nature de l'entité du rôle (ADR 0017). */
+  nav_manage_unit: string; nav_manage_hospital: string; nav_manage_shelter: string; nav_manage_morgue: string; nav_manage_equipment: string;
   nav_supervision: string;
   nav_settings: string;
   stub_msg: string;

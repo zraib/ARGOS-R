@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HREF, MODULE_KEYS, NAV, NAV_MODULE, keyForPath, moduleOpen, screenTitle, type NavEntry, type NavKey } from "@/lib/nav";
+import { CORE_MODULES, FLAGGABLE_KEYS, HREF, MODULE_KEYS, NAV, NAV_MODULE, firstOpenHref, keyForPath, moduleOpen, navLabel, screenTitle, type NavEntry, type NavKey } from "@/lib/nav";
 import { ROLES } from "@/lib/roles";
 import { FR_DICT } from "@/lib/i18n/translations.fr";
 
@@ -51,15 +51,45 @@ describe("navigation", () => {
     for (const m of MODULE_KEYS) expect(HREF[m], m).toBeDefined();
   });
 
-  it("moduleOpen : le cœur reste ouvert, un module coupé (drapeau ou rôle) ferme son écran", () => {
-    expect(moduleOpen("dashboard", { incidents: false }, { incidents: false })).toBe(true);
-    expect(moduleOpen("settings", {}, undefined)).toBe(true);
+  it("tout le menu figure dans la matrice rôle → modules, dans l'ordre du menu (ADR 0017)", () => {
+    // Chaque entrée de la barre latérale a son module — plus aucun écran qui
+    // suit celui d'un autre ni qui échappe à la matrice.
+    for (const it of items(NAV)) expect(NAV_MODULE[it.key], it.key).toBe(it.key);
+    // L'assistant n'est pas une entrée du menu (tiroir ouvert depuis l'en-tête)
+    // mais reste un module ; le menu, lui, est repris tel quel, dans son ordre.
+    const menu = items(NAV).map((it) => it.key);
+    expect(MODULE_KEYS.filter((k) => (menu as string[]).includes(k))).toEqual(menu);
+    // Le cœur n'est pas proposé aux drapeaux globaux : on ne s'enferme pas dehors.
+    for (const c of CORE_MODULES) expect(FLAGGABLE_KEYS).not.toContain(c);
+    expect(FLAGGABLE_KEYS).toContain("dashboard");
+  });
+
+  it("moduleOpen : le cœur reste ouvert, un module coupé (drapeau, rôle ou compte) ferme son écran", () => {
+    expect(moduleOpen("settings", { settings: false }, { settings: false }, { settings: false })).toBe(true);
+    expect(moduleOpen("users", {}, undefined)).toBe(true);
     expect(moduleOpen("hospitals", {}, undefined)).toBe(true);
     expect(moduleOpen("hospitals", { hospitals: false }, undefined)).toBe(false);
     expect(moduleOpen("hospitals", {}, { hospitals: false })).toBe(false);
-    // Le réseau opérationnel suit le module des unités.
-    expect(moduleOpen("opsnet", { units: false }, undefined)).toBe(false);
+    // Le tableau de bord, « ma responsabilité », sa gestion et l'OPSnet se coupent désormais par eux-mêmes.
+    expect(moduleOpen("dashboard", {}, { dashboard: false })).toBe(false);
+    expect(moduleOpen("myrespManage", {}, undefined, { myrespManage: false })).toBe(false);
+    expect(moduleOpen("opsnet", { units: false }, undefined)).toBe(true);
+    expect(moduleOpen("opsnet", { opsnet: false }, undefined)).toBe(false);
     expect(moduleOpen("morgue", {}, { morgue: false })).toBe(false);
+  });
+
+  it("firstOpenHref : l'accueil de repli est le premier écran ouvert du menu pour le rôle", () => {
+    expect(firstOpenHref("wali", {}, { dashboard: false })).toBe(HREF.incidents);
+    expect(firstOpenHref("resp_unit", {}, { dashboard: false, myresp: false })).toBe(HREF.myrespManage);
+    expect(firstOpenHref("wali", {}, undefined)).toBe(HREF.dashboard);
+  });
+
+  it("« Gestion de mon entité » se nomme par l'entité du rôle", () => {
+    expect(navLabel("myrespManage", FR_DICT)).toBe(FR_DICT.nav_myresp_manage);
+    expect(navLabel("myrespManage", FR_DICT, "resp_unit")).toBe(FR_DICT.nav_manage_unit);
+    expect(navLabel("myrespManage", FR_DICT, "resp_hospital")).toBe(FR_DICT.nav_manage_hospital);
+    expect(navLabel("myrespManage", FR_DICT, "wali")).toBe(FR_DICT.nav_myresp_manage);
+    expect(screenTitle("/ma-responsabilite/gestion", FR_DICT, "resp_unit")).toBe(FR_DICT.nav_manage_unit);
   });
 
   it("les substances et les traceurs sont des entrées de PREMIER niveau", () => {

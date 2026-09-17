@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, Patch } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Param, Patch } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { FlagsService } from "@/modules/flags/flags.service";
 import { ToggleFlagDto } from "@/modules/flags/dto";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import { SelfService } from "@/common/decorators/self-service.decorator";
+import { isCoreModule } from "@/shared/permissions";
 
 @ApiTags("flags")
 @ApiBearerAuth()
@@ -27,6 +28,9 @@ export class FlagsController {
   @RequirePermission("settings:update")
   @ApiOperation({ summary: "Activer/désactiver un module (Super Admin) — audité, effectif côté API dès la requête suivante" })
   toggle(@Param("key") key: string, @Body() dto: ToggleFlagDto) {
+    // Le cœur de l'administration ne se coupe pas, même globalement : un
+    // drapeau `settings` à faux enfermerait le Super Administrateur dehors.
+    if (isCoreModule(key)) throw new BadRequestException(`Module verrouillé : ${key}`);
     return this.flags.set(key, dto.enabled);
   }
 }

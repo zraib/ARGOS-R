@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useArgos, useDict, useModules } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
-import { MODULE_KEYS, navLabel, type ModuleKey } from "@/lib/nav";
+import { UI_ICONS } from "@/lib/icons";
+import { MODULE_KEYS, isCoreModule, navLabel, type ModuleKey } from "@/lib/nav";
 import {
   ROLES,
   ROLE_ICONS,
@@ -39,9 +40,12 @@ function RolesTab() {
   }, [refresh]);
 
   const locked = selected === "superadmin" || selected === "admin";
-  const feats = roleFeatures[selected] ?? {};
   const def = defaults[selected] ?? {};
-  const allowedCount = MODULE_KEYS.filter((k) => feats[k]).length;
+  // Le cœur (comptes, supervision, paramètres) figure dans la liste mais suit
+  // le RBAC : il compte quand le rôle l'a, il ne se bascule pas (ADR 0017).
+  const isOn = (role: Role, k: ModuleKey): boolean =>
+    isCoreModule(k) ? (defaults[role] ?? {})[k] === true : role === "superadmin" || role === "admin" ? true : (roleFeatures[role] ?? {})[k] === true;
+  const allowedCount = MODULE_KEYS.filter((k) => isOn(selected, k)).length;
 
   const toggle = async (feature: ModuleKey, enabled: boolean) => {
     await api.setRoleFeature(selected, feature, enabled);
@@ -62,7 +66,7 @@ function RolesTab() {
         <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 lg:mx-0 lg:flex-col lg:gap-1 lg:overflow-x-visible lg:px-0 lg:pb-0">
           {ROLES.map((r) => {
             const on = r === selected;
-            const count = MODULE_KEYS.filter((k) => (roleFeatures[r] ?? {})[k]).length;
+            const count = MODULE_KEYS.filter((k) => isOn(r, k)).length;
             return (
               <button key={r} onClick={() => setSelected(r)} className={`flex min-h-[44px] shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors lg:min-h-0 lg:w-full ${on ? "bg-or-500/15 text-or-600 dark:text-or-400" : "text-gray-600 hover:bg-gray-100 dark:text-rdia-200 dark:hover:bg-rdia-700/50"}`}>
                 <Icon path={ROLE_ICONS[r]} size={16} className="shrink-0" />
@@ -90,19 +94,31 @@ function RolesTab() {
 
         <p className="text-[11px] text-gray-400 dark:text-rdia-400">{m.users.role_features_hint}</p>
 
+        {/* Tout le menu, dans son ordre (ADR 0017) : les modules qui se
+            basculent, puis le cœur, verrouillé sur l'état que lui donne le
+            RBAC — on voit qu'il existe et à qui il revient. */}
         <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2 lg:gap-x-8">
           {MODULE_KEYS.map((k) => {
-            const on = locked ? true : feats[k] === true;
+            const core = isCoreModule(k);
+            const on = isOn(selected, k);
             const isDefault = def[k] ?? false;
+            const frozen = locked || core;
             return (
-              <button key={k} disabled={locked} onClick={() => void toggle(k, !on)} className="flex min-h-[44px] items-center justify-between gap-2 border-b border-gray-100 py-2 text-sm transition-colors last:border-0 disabled:cursor-not-allowed lg:min-h-0 dark:border-rdia-700/50">
+              <button
+                key={k}
+                disabled={frozen}
+                title={core ? m.users.core_locked : undefined}
+                onClick={() => void toggle(k, !on)}
+                className="flex min-h-[44px] items-center justify-between gap-2 border-b border-gray-100 py-2 text-sm transition-colors last:border-0 disabled:cursor-not-allowed lg:min-h-0 dark:border-rdia-700/50"
+              >
                 <span className="flex min-w-0 items-center gap-1.5 text-start">
-                  <span className={on ? "text-gray-700 dark:text-rdia-100" : "text-gray-400 line-through dark:text-rdia-400"}>{navLabel(k, t)}</span>
-                  {!locked && on !== isDefault && (
+                  <span className={on ? "text-gray-700 dark:text-rdia-100" : "text-gray-400 line-through dark:text-rdia-400"}>{navLabel(k, t, selected)}</span>
+                  {core && <Icon path={UI_ICONS.lock} size={11} className="shrink-0 text-gray-400 dark:text-rdia-400" />}
+                  {!frozen && on !== isDefault && (
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-or-500" title={m.settings.modified} />
                   )}
                 </span>
-                <span className={`relative h-4 w-8 shrink-0 rounded-full transition-colors ${on ? "bg-or-500" : "bg-gray-300 dark:bg-rdia-600"} ${locked ? "opacity-60" : ""}`}>
+                <span className={`relative h-4 w-8 shrink-0 rounded-full transition-colors ${on ? "bg-or-500" : "bg-gray-300 dark:bg-rdia-600"} ${frozen ? "opacity-60" : ""}`}>
                   <span className="absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all" style={{ insetInlineStart: on ? 18 : 2 }} />
                 </span>
               </button>

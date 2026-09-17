@@ -200,7 +200,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   resp_hospital: "Responsable Hôpital",
   resp_shelter: "Responsable Abri",
   resp_morgue: "Responsable Morgue",
-  resp_unit: "Responsable Unité",
+  resp_unit: "Commandant d'unité",
   resp_equipment: "Responsable Équipement",
 };
 
@@ -580,21 +580,53 @@ export function canAssignMultipleRoles(creator: Role): boolean {
 // fonctionnalités, côté serveur — le masquage du web n'est qu'un reflet.
 // ---------------------------------------------------------------------------
 
+// Dans l'ORDRE de la barre latérale du web : la matrice rôle → modules se lit
+// comme le menu, chaque entrée du menu y figure (lot « rôles complets »,
+// ADR 0017). `personnel` (ancien roster fictif) est absorbé par `resources`
+// (ADR 0016).
 export const MODULE_KEYS = [
-  "incidents", "map", "seismic", "dispatch", "triage",
-  // `personnel` (ancien roster fictif) est absorbé par `resources` (ADR 0016).
-  "equip", "units", "workorders", "resources",
-  "hospitals", "ics", "damage", "shelters", "morgue",
+  "dashboard", "myresp", "myrespManage",
+  "incidents", "map", "seismic", "dispatch", "triage", "trackers", "chemlib",
+  "equip", "units", "resources", "workorders",
+  "hospitals", "opsnet", "morgue", "ics", "damage", "shelters",
   "orsec", "plans", "comms", "reports", "analytics", "assistant", "simulation",
-  "trackers", "chemlib",
+  "users", "supervision", "settings",
 ] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 
 /**
- * Module qui porte chaque fonctionnalité. `null` : cœur toujours actif — le
- * tableau de bord, les comptes, les paramètres, l'audit et les boucles
- * opérationnelles ne se coupent ni globalement ni par rôle (sinon plus personne
- * ne pourrait rallumer quoi que ce soit).
+ * Modules « cœur » de l'administration : ils FIGURENT dans la matrice (on doit
+ * y voir tout ce que le menu propose) mais ne se coupent JAMAIS — ni drapeau
+ * global, ni matrice de rôle, ni bascule de compte : c'est par eux qu'on
+ * rallume le reste, et les couper enfermerait l'administrateur dehors. Leur
+ * état affiché est celui du RBAC (`users:view`, `settings:view`, joker), qui
+ * les réserve au Super Administrateur et à l'Administrateur.
+ */
+export const CORE_MODULES = ["users", "supervision", "settings"] as const satisfies readonly ModuleKey[];
+export type CoreModule = (typeof CORE_MODULES)[number];
+
+export function isCoreModule(m: string): m is CoreModule {
+  return (CORE_MODULES as readonly string[]).includes(m);
+}
+
+/** Les modules que l'administration BASCULE (tous sauf le cœur). */
+export const SWITCHABLE_MODULES: readonly ModuleKey[] = MODULE_KEYS.filter((m) => !isCoreModule(m));
+
+/**
+ * Module qui porte chaque fonctionnalité. `null` : cœur toujours actif — les
+ * comptes, les paramètres, l'audit et les boucles opérationnelles ne se coupent
+ * ni globalement ni par rôle (sinon plus personne ne pourrait rallumer quoi que
+ * ce soit).
+ *
+ * Certains modules du menu n'ont AUCUNE fonctionnalité RBAC à eux : le tableau
+ * de bord national (vue du navigateur sur des données que chaque rôle lit déjà
+ * — ses routes `dashboard:view` restent du cœur, car `/catalog` et `/feed` y
+ * sont adossés et servent bien d'autres écrans), « Ma responsabilité »
+ * (lecture de sa propre entité, par les routes des modules concernés), OPSnet
+ * (unités + abris) et la simulation. Les couper masque l'écran ; leurs données
+ * restent gouvernées par les modules qui les portent. « Gestion de mon
+ * entité » (`myrespManage`) est l'exception : la garde RBAC l'applique aux
+ * ÉCRITURES cantonnées d'un responsable (voir PermissionsGuard).
  */
 export const FEATURE_MODULE: Record<Feature, ModuleKey | null> = {
   dashboard: null,
@@ -657,18 +689,42 @@ export function isModuleKey(v: unknown): v is ModuleKey {
 export const MODULE_FEATURES = MODULE_KEYS;
 export type ModuleFeature = ModuleKey;
 
+/** Rôles rattachés à une entité (miroir local de `ROLE_RESPONSIBILITY`, qui importe ce fichier). */
+const RESPONSIBLE_ROLES: readonly Role[] = ["resp_hospital", "resp_unit", "resp_shelter", "resp_morgue", "resp_equipment"];
+
+/**
+ * Ouverture par défaut des modules SANS fonctionnalité RBAC propre : ce que
+ * l'écran demande pour avoir un sens. « Ma responsabilité » et « Gestion de
+ * mon entité » n'existent que pour un responsable d'entité — le commandant
+ * d'unité les a d'office ; OPSnet lit les unités et les abris ; le cœur suit
+ * le RBAC. Absent de la table : ouvert à tous (tableau de bord, simulation).
+ */
+// Les administrateurs ont tout, verrouillé : leurs lignes disent « accès
+// total », y compris sur ces deux écrans qu'ils ne voient pas dans leur menu.
+const responsibleOrAdmin = (role: Role) => RESPONSIBLE_ROLES.includes(role) || role === "superadmin" || role === "admin";
+const MODULE_DEFAULT_RULE: Partial<Record<ModuleKey, (role: Role) => boolean>> = {
+  myresp: responsibleOrAdmin,
+  myrespManage: responsibleOrAdmin,
+  opsnet: (role) => roleHasPermission(role, "teams:view") || roleHasPermission(role, "shelters:view"),
+  users: (role) => roleHasPermission(role, "users:view"),
+  settings: (role) => roleHasPermission(role, "settings:view"),
+  supervision: (role) => role === "superadmin",
+};
+
 /**
  * Modules ouverts par défaut à chaque rôle : un module est ouvert dès que le
  * rôle peut VISUALISER l'une de ses fonctionnalités. Un module sans
- * fonctionnalité RBAC (la simulation, écran d'exercice) est ouvert à tous —
+ * fonctionnalité RBAC suit `MODULE_DEFAULT_RULE`, sinon il est ouvert à tous —
  * la matrice ne dit rien contre. Reste pilotable par le Super Administrateur
- * depuis l'écran Utilisateurs.
+ * depuis l'écran Utilisateurs (sauf le cœur, verrouillé).
  */
 export const DEFAULT_ROLE_FEATURES: Record<Role, Record<ModuleKey, boolean>> = Object.fromEntries(
   ROLES.map((role) => [
     role,
     Object.fromEntries(
       MODULE_KEYS.map((m) => {
+        const rule = MODULE_DEFAULT_RULE[m];
+        if (rule) return [m, rule(role)];
         const feats = FEATURES.filter((f) => FEATURE_MODULE[f] === m);
         return [m, feats.length === 0 || feats.some((f) => roleHasPermission(role, `${f}:view`))];
       }),

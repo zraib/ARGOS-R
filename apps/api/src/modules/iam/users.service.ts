@@ -10,6 +10,7 @@ import {
   canAssignMultipleRoles,
   DEFAULT_ROLE_FEATURES,
   defaultRoleFeatures,
+  isCoreModule,
   isModuleKey,
   MODULE_KEYS,
   type ModuleKey,
@@ -596,6 +597,11 @@ export class UsersService implements ScopeResolver {
     if (!isModuleKey(feature)) {
       throw new BadRequestException(`Module inconnu : ${feature}`);
     }
+    // Le cœur (comptes, supervision, paramètres) figure dans la matrice mais ne
+    // se coupe pas : c'est par lui qu'on rallume le reste (ADR 0017).
+    if (isCoreModule(feature)) {
+      throw new BadRequestException(`Module verrouillé : ${feature}`);
+    }
     if (role === "superadmin" || role === "admin") {
       throw new ForbiddenException("Les rôles superadmin/admin ont un accès total verrouillé.");
     }
@@ -610,6 +616,7 @@ export class UsersService implements ScopeResolver {
    */
   setUserModule(actorRole: Role, id: string, module: string, enabled: boolean | null): ManagedUserPublic {
     if (!isModuleKey(module)) throw new BadRequestException(`Module inconnu : ${module}`);
+    if (isCoreModule(module)) throw new BadRequestException(`Module verrouillé : ${module}`);
     const u = this.findVisible(actorRole, id);
     this.assertManageable(actorRole, u);
     if (u.roles.some((r) => r === "superadmin" || r === "admin")) {
@@ -631,12 +638,14 @@ export class UsersService implements ScopeResolver {
   /**
    * Modules effectifs d'un compte pour un rôle actif : drapeaux globaux ∧ rôle
    * ∧ compte. Le joker du Super Administrateur n'est coupé que par les drapeaux.
+   * Le cœur (ADR 0017) ne se coupe par rien : son état est celui du RBAC.
    */
   effectiveModules(matricule: string, role: Role, flags: Record<string, boolean>): Record<ModuleKey, boolean> {
     const own = this.userModules(matricule);
     const byRole = this.roleFeatures[role] ?? {};
     return Object.fromEntries(
       MODULE_KEYS.map((m) => {
+        if (isCoreModule(m)) return [m, DEFAULT_ROLE_FEATURES[role][m]];
         if (flags[m] === false) return [m, false];
         if (role === "superadmin") return [m, true];
         if (own[m] !== undefined) return [m, own[m] === true];

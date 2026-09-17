@@ -65,7 +65,7 @@ de bord.
 | Rôle | Entité pilotée | Ce qu'il gère |
 | --- | --- | --- |
 | Responsable Hôpital | un hôpital militaire | capacités, services de soins, hôpitaux de campagne |
-| Responsable Unité | une unité | posture, effectif, taux de préparation |
+| Commandant d'unité | une unité | posture, effectif, taux de préparation |
 | Responsable Abri | un abri | capacité, démographie, approvisionnement |
 | Responsable Morgue | un site mortuaire | registre d'identification des victimes (DVI) |
 | Responsable Équipement | le parc d'une unité | inventaire, seuils d'alerte, état du matériel |

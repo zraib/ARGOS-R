@@ -2740,7 +2740,7 @@ export interface components {
              */
             hospital?: string;
             /**
-             * @description Unité (Responsable Unité)
+             * @description Unité (Commandant d'unité)
              * @example U2
              */
             unit?: string;
@@ -2816,7 +2816,7 @@ export interface components {
              * @description Module à ouvrir ou couper pour le rôle
              * @enum {string}
              */
-            feature: "incidents" | "map" | "seismic" | "dispatch" | "triage" | "equip" | "units" | "workorders" | "resources" | "hospitals" | "ics" | "damage" | "shelters" | "morgue" | "orsec" | "plans" | "comms" | "reports" | "analytics" | "assistant" | "simulation" | "trackers" | "chemlib";
+            feature: "dashboard" | "myresp" | "myrespManage" | "incidents" | "map" | "seismic" | "dispatch" | "triage" | "trackers" | "chemlib" | "equip" | "units" | "resources" | "workorders" | "hospitals" | "opsnet" | "morgue" | "ics" | "damage" | "shelters" | "orsec" | "plans" | "comms" | "reports" | "analytics" | "assistant" | "simulation" | "users" | "supervision" | "settings";
             enabled: boolean;
         };
         ToggleUserModuleDto: {
@@ -2824,7 +2824,7 @@ export interface components {
              * @description Module à ouvrir ou couper pour le compte
              * @enum {string}
              */
-            module: "incidents" | "map" | "seismic" | "dispatch" | "triage" | "equip" | "units" | "workorders" | "resources" | "hospitals" | "ics" | "damage" | "shelters" | "morgue" | "orsec" | "plans" | "comms" | "reports" | "analytics" | "assistant" | "simulation" | "trackers" | "chemlib";
+            module: "dashboard" | "myresp" | "myrespManage" | "incidents" | "map" | "seismic" | "dispatch" | "triage" | "trackers" | "chemlib" | "equip" | "units" | "resources" | "workorders" | "hospitals" | "opsnet" | "morgue" | "ics" | "damage" | "shelters" | "orsec" | "plans" | "comms" | "reports" | "analytics" | "assistant" | "simulation" | "users" | "supervision" | "settings";
             /** @description true : ouvert malgré le rôle ; false : coupé ; null : le rôle décide */
             enabled: boolean | null;
         };

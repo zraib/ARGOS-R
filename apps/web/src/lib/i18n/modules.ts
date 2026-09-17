@@ -522,6 +522,8 @@ export interface ModulesDict {
     dup_matricule: string;
     role_features_title: string;
     role_features_hint: string;
+    /** Module du cœur (comptes, supervision, paramètres) : figure dans la matrice, suit le RBAC, ne se coupe pas (ADR 0017). */
+    core_locked: string;
     feature: string;
     allowed: string;
     reset_role: string;
