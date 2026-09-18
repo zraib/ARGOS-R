@@ -9,7 +9,15 @@
 
 import { Body, Delete, Get, HttpCode, NotFoundException, Param, Patch, Post, Controller } from "@nestjs/common";
 import { ApiOperation, ApiResponse, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
-import { CreateCategoryDto, CreateChannelDto, UpdateChannelDto, ChannelMembersDto, ReceiptDto, SendMessageDto } from "@/modules/domain/dto";
+import {
+  CreateCategoryDto,
+  CreateChannelDto,
+  UpdateChannelDto,
+  ChannelMembersDto,
+  ReceiptDto,
+  SendMessageDto,
+  ImportCommsDto,
+} from "@/modules/domain/dto";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import { SkipAudit } from "@/common/decorators/skip-audit.decorator";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
@@ -201,6 +209,61 @@ export class CommsController {
   commsAll(@CurrentUser() user: AuthUser) {
     // Les conversations directes ne sortent que pour leurs deux membres.
     return this.comms.all(user.username);
+  }
+
+  // --- traçabilité (ADR 0021) : archiver, exporter, importer -----------------
+
+  @Post("comms/channels/:id/archive")
+  @RequirePermission("comms_admin:update")
+  @ApiOperation({ summary: "Archiver un canal : conservé, lisible, en lecture seule, rangé sous « Archives » (audité)" })
+  @ApiResponse({ status: 400, description: "Une conversation directe ne s'archive pas." })
+  archiveChannel(@Param("id") id: string, @CurrentUser() user: AuthUser) {
+    const chan = this.comms.archiveChannel(id, true, user.username);
+    this.realtime.emit({ kind: "channel", action: "updated", channelId: id, payload: chan });
+    return chan;
+  }
+
+  @Post("comms/channels/:id/unarchive")
+  @RequirePermission("comms_admin:update")
+  @ApiOperation({ summary: "Rouvrir un canal archivé (audité)" })
+  unarchiveChannel(@Param("id") id: string, @CurrentUser() user: AuthUser) {
+    const chan = this.comms.archiveChannel(id, false, user.username);
+    this.realtime.emit({ kind: "channel", action: "updated", channelId: id, payload: chan });
+    return chan;
+  }
+
+  @Get("comms/channels/:id/export")
+  @RequirePermission("comms:view")
+  @SkipAudit()
+  @ApiOperation({
+    summary: "Exporter un canal : le document JSON daté de sa conversation (ADR 0021)",
+    description: "Un fichier `iris-comms/1` avec le canal, ses membres et tous ses messages horodatés. Une conversation directe ne s'exporte que par ses correspondants.",
+  })
+  exportChannel(@Param("id") id: string, @CurrentUser() user: AuthUser) {
+    return this.comms.exportChannels(user.username, [id]);
+  }
+
+  @Get("comms/export")
+  @RequirePermission("comms_admin:view")
+  @SkipAudit()
+  @ApiOperation({ summary: "Exporter tout le centre de communication (administration) — canaux, membres, messages horodatés" })
+  exportAll(@CurrentUser() user: AuthUser) {
+    return this.comms.exportChannels(user.username);
+  }
+
+  @Post("comms/import")
+  @RequirePermission("comms_admin:create")
+  @ApiOperation({
+    summary: "Importer un export : ses canaux deviennent des archives (audité)",
+    description:
+      "Chaque canal du document est repris, archivé, dans le groupe « ARCHIVES IMPORTÉES », avec ses messages, leurs auteurs et " +
+      "leurs horodatages. Rien n'est fusionné dans un canal en cours ; un canal déjà repris du même export est sauté.",
+  })
+  @ApiResponse({ status: 400, description: "Le document n'est pas un export iris-comms/1." })
+  importDocument(@Body() dto: ImportCommsDto, @CurrentUser() user: AuthUser) {
+    const res = this.comms.importDocument(dto, user.username);
+    this.realtime.emit({ kind: "channel", action: "created", channelId: "import", payload: res });
+    return res;
   }
 
   /**

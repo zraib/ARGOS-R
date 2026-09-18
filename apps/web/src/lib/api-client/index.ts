@@ -45,6 +45,8 @@ export type AppMode = Json<NonNullable<paths["/api/domain/mode"]["patch"]["reque
 /** Postes d'opération sur la carte (lot #12). */
 export type CreatePostBody = Json<NonNullable<paths["/api/incidents/{id}/posts"]["post"]["requestBody"]>>;
 export type UpdatePostBody = Json<NonNullable<paths["/api/incidents/{id}/posts/{postId}"]["patch"]["requestBody"]>>;
+/** Export du centre de communication, tel que l'import le reprend (ADR 0021). */
+export type ImportCommsBody = Json<NonNullable<paths["/api/comms/import"]["post"]["requestBody"]>>;
 /** Fiche d'une pièce jointe versée — le contenu vit côté serveur (lot COMMS). */
 export type CommsAttachment = { id: string; name: string; mime: string; bytes: number };
 // Traceurs GPS FMC920 (lot N-2). Le type de la RÉPONSE est exporté aussi : la
@@ -195,6 +197,14 @@ export function createArgosClient(opts: ArgosClientOptions) {
       client.PATCH("/api/comms/channels/{id}", { params: { path: { id } }, body: { name } }),
     deleteCommsChannel: (id: string) =>
       client.DELETE("/api/comms/channels/{id}", { params: { path: { id } } }),
+    /** Traçabilité (ADR 0021) : archiver et rouvrir un canal (`comms_admin:update`). */
+    archiveCommsChannel: (id: string) => client.POST("/api/comms/channels/{id}/archive", { params: { path: { id } } }),
+    unarchiveCommsChannel: (id: string) => client.POST("/api/comms/channels/{id}/unarchive", { params: { path: { id } } }),
+    /** Le document d'export d'un canal (`comms:view`, une conversation directe par ses membres) ou de tout le centre (`comms_admin:view`). */
+    exportCommsChannel: (id: string) => client.GET("/api/comms/channels/{id}/export", { params: { path: { id } } }),
+    exportComms: () => client.GET("/api/comms/export"),
+    /** Reprend un export en archives (`comms_admin:create`). */
+    importComms: (doc: ImportCommsBody) => client.POST("/api/comms/import", { body: doc }),
     createCommsCategory: (name: string) => client.POST("/api/comms/categories", { body: { name } }),
     /**
      * Suppression DÉFINITIVE d'un incident — `incidents:delete`, que la matrice

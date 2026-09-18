@@ -15,6 +15,7 @@ import { tpl } from "@/lib/i18n/format";
 import { ATTACHMENT_ACCEPT, uploadAttachment } from "@/lib/comms/attachments";
 import { receiptState } from "@/lib/comms/receipts";
 import { correspondentOf } from "@/lib/chat";
+import { downloadJson, exportFileName, formatStamp, isCommsExport, isImportOutcome } from "@/lib/comms/archives";
 import type { Channel } from "@/lib/types";
 
 /**
@@ -60,6 +61,7 @@ export default function CommunicationPage() {
   const showToast = useArgos((s) => s.showToast);
   const rtTyping = useArgos((s) => s.rtTyping);
   const rtSendTyping = useArgos((s) => s.rtSendTyping);
+  const lang = useArgos((s) => s.lang);
 
   const [msg, setMsg] = useState("");
   const [newCatOpen, setNewCatOpen] = useState(false);
@@ -85,6 +87,10 @@ export default function CommunicationPage() {
   const [envoiPJ, setEnvoiPJ] = useState(false);
   const [erreurPJ, setErreurPJ] = useState<string | null>(null);
   const fichierRef = useRef<HTMLInputElement>(null);
+  // --- traçabilité (ADR 0021) : archives, export, import ---
+  const [archivesOuvertes, setArchivesOuvertes] = useState(true);
+  const [importEnCours, setImportEnCours] = useState(false);
+  const importRef = useRef<HTMLInputElement>(null);
   const canAdmin = isSuperAdmin(role) || role === "admin";
 
   const selChan: Channel | undefined = useMemo(() => {
@@ -96,6 +102,13 @@ export default function CommunicationPage() {
   // Dans une conversation directe : les coches de mes messages, et la frappe de l'autre.
   const correspondant = selChan?.direct ? correspondentOf(selChan, sessionUser?.matricule) : undefined;
   const frappe = selChan?.direct ? rtTyping[selChan.id] : undefined;
+  // Les canaux archivés quittent leur groupe pour une section « Archives » en
+  // fin de liste : la liste courante ne montre que ce qui vit, et l'archive
+  // reste à portée de main, son groupe d'origine en info-bulle.
+  const archives = useMemo(
+    () => comCats.flatMap((c) => c.chans.filter((ch) => ch.archived).map((ch) => ({ ch, cat: c.name }))),
+    [comCats],
+  );
 
   // Le canal ouvert à l'écran ne compte jamais comme non lu : une pastille qui
   // s'allume pour ce qu'on est en train de lire finit par être ignorée, et une
@@ -145,6 +158,47 @@ export default function CommunicationPage() {
     if (!window.confirm(t.cm_delete_confirm)) return;
     const res = await api.deleteCommsChannel(id);
     if (!res.error) await loadDomain();
+  };
+  /** Archive ou rouvre un canal (ADR 0021) : archivé, il se lit encore, il ne s'écrit plus. */
+  const archiver = async (id: string, archived: boolean) => {
+    const res = archived ? await api.archiveCommsChannel(id) : await api.unarchiveCommsChannel(id);
+    showToast(res.error ? t.toast_fail : archived ? t.cm_archive_done : t.cm_unarchive_done);
+    if (!res.error) await loadDomain();
+  };
+  /** Fait télécharger l'export d'un canal — ou de tout le centre — sous un nom parlant. */
+  const exporter = async (id?: string) => {
+    const res = id ? await api.exportCommsChannel(id) : await api.exportComms();
+    if (res.error || res.data === undefined) {
+      showToast(t.cm_export_failed);
+      return;
+    }
+    downloadJson(res.data, exportFileName(id ? (selChan?.id === id ? selChan.name : id) : "centre"));
+  };
+  /** Reprend un fichier d'export en archives ; un fichier qui n'en est pas un est refusé ici, avant tout envoi. */
+  const importer = async (f: File) => {
+    setImportEnCours(true);
+    try {
+      let doc: unknown = null;
+      try {
+        doc = JSON.parse(await f.text());
+      } catch {
+        doc = null;
+      }
+      if (!isCommsExport(doc)) {
+        showToast(t.cm_import_bad);
+        return;
+      }
+      const res = await api.importComms(doc);
+      if (res.error) {
+        showToast(res.response.status === 400 ? t.cm_import_bad : t.toast_fail);
+        return;
+      }
+      showToast(isImportOutcome(res.data) ? tpl(t.cm_import_done, res.data) : t.cm_import_done);
+      await loadDomain();
+    } finally {
+      setImportEnCours(false);
+      if (importRef.current) importRef.current.value = "";
+    }
   };
   // Sur téléphone, choisir un canal bascule aussitôt sur son fil ; au-dessus de
   // `lg` les trois colonnes restent affichées et l'état n'a aucun effet visible.
@@ -228,9 +282,33 @@ export default function CommunicationPage() {
       <div className={`carte min-h-0 min-w-0 flex-1 flex-col overflow-y-auto p-3 lg:flex ${mobileView === "chans" ? "flex" : "hidden"}`}>
         <div className="mb-1 flex items-center justify-between gap-2 px-1">
           <span className="min-w-0 truncate text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-rdia-400">{t.nav_comms}</span>
-          <button className={`${iconBtnCls} p-1.5`} title={t.cm_new_cat} aria-label={t.cm_new_cat} onClick={() => { setNewCatOpen(true); setNewCat(""); }}>
-            <Icon path={UI_ICONS.plus} size={14} strokeWidth={2} />
-          </button>
+          <div className="flex shrink-0 items-center">
+            {/* TRAÇABILITÉ (ADR 0021) — tout exporter, importer un export : de
+                l'administration (`comms_admin`), comme la structure du centre. */}
+            {canAdmin && (
+              <>
+                <input
+                  ref={importRef}
+                  type="file"
+                  className="sr-only"
+                  accept="application/json,.json"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void importer(f);
+                  }}
+                />
+                <button className={`${iconBtnCls} p-1.5 disabled:opacity-40`} title={t.cm_import} aria-label={t.cm_import} disabled={importEnCours} onClick={() => importRef.current?.click()}>
+                  <Icon path={UI_ICONS.upload} size={14} strokeWidth={2} />
+                </button>
+                <button className={`${iconBtnCls} p-1.5`} title={t.cm_export_all} aria-label={t.cm_export_all} onClick={() => void exporter()}>
+                  <Icon path={UI_ICONS.download} size={14} strokeWidth={2} />
+                </button>
+              </>
+            )}
+            <button className={`${iconBtnCls} p-1.5`} title={t.cm_new_cat} aria-label={t.cm_new_cat} onClick={() => { setNewCatOpen(true); setNewCat(""); }}>
+              <Icon path={UI_ICONS.plus} size={14} strokeWidth={2} />
+            </button>
+          </div>
         </div>
         {newCatOpen && (
           // 16 px sur mobile : sous ce seuil, iOS zoome au focus et décale la page.
@@ -238,6 +316,10 @@ export default function CommunicationPage() {
         )}
         {comCats.map((cat) => {
           const open = !comCollapsed[cat.id];
+          // Ses canaux vivants ; un groupe dont tout est archivé (les archives
+          // importées, une opération close) ne s'affiche que sous « Archives ».
+          const vivants = cat.chans.filter((ch) => !ch.archived);
+          if (vivants.length === 0 && cat.chans.length > 0) return null;
           return (
             <div key={cat.id}>
               <div className="mt-3 flex items-center justify-between gap-1 px-1">
@@ -251,7 +333,7 @@ export default function CommunicationPage() {
               </div>
               {open && (
                 <div className="mt-1 flex flex-col gap-0.5">
-                  {cat.chans.map((ch) => {
+                  {vivants.map((ch) => {
                     const active = comSel === ch.id;
                     const autre = ch.direct ? correspondentOf(ch, sessionUser?.matricule) : undefined;
                     // Nouveaux messages non lus : la conversation se signale dans
@@ -288,6 +370,42 @@ export default function CommunicationPage() {
             </div>
           );
         })}
+        {/* ARCHIVES (ADR 0021) — les conversations closes, lisibles, en fin de liste. */}
+        {archives.length > 0 && (
+          <div>
+            <div className="mt-3 flex items-center justify-between gap-1 px-1">
+              <button
+                className="flex min-h-11 min-w-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 transition-colors hover:text-or-500 lg:min-h-0 dark:text-rdia-400"
+                onClick={() => setArchivesOuvertes((o) => !o)}
+                aria-expanded={archivesOuvertes}
+              >
+                <Icon path={UI_ICONS.chevronRight} size={10} strokeWidth={2.5} className="shrink-0 transition-transform" style={{ transform: archivesOuvertes ? "rotate(90deg)" : undefined }} />
+                <Icon path={UI_ICONS.archive} size={11} className="shrink-0" />
+                <span className="truncate">{t.cm_archives}</span>
+                <span className="font-mono tabular-nums">{archives.length}</span>
+              </button>
+            </div>
+            {archivesOuvertes && (
+              <div className="mt-1 flex flex-col gap-0.5">
+                {archives.map(({ ch, cat }) => (
+                  <button
+                    key={ch.id}
+                    onClick={() => openChannel(ch.id)}
+                    title={cat}
+                    className={`flex min-h-11 min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors lg:min-h-0 lg:text-[13px] ${
+                      comSel === ch.id
+                        ? "bg-or-500/15 font-semibold text-or-500 dark:text-or-400"
+                        : "text-gray-500 hover:bg-gray-100 hover:text-or-500 dark:text-rdia-300 dark:hover:bg-rdia-600/40"
+                    }`}
+                  >
+                    <Icon path={UI_ICONS.archive} size={14} className="shrink-0" />
+                    <span className="min-w-0 truncate">{ch.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Colonne 2 — chat / vocal */}
@@ -318,6 +436,18 @@ export default function CommunicationPage() {
               rattrape pas — d'où la séparation. */}
           {canAdmin && selChan && !isVoice && (
             <div className="flex shrink-0 items-center gap-0.5">
+              {/* ARCHIVER / ROUVRIR (ADR 0021) — jamais une conversation directe :
+                  elle appartient à ses deux correspondants, pas à l'administration. */}
+              {!selChan.direct && (
+                <button
+                  onClick={() => void archiver(selChan.id, !selChan.archived)}
+                  title={selChan.archived ? t.cm_unarchive : t.cm_archive}
+                  aria-label={`${selChan.archived ? t.cm_unarchive : t.cm_archive} — ${selChan.name}`}
+                  className={iconBtnCls}
+                >
+                  <Icon path={selChan.archived ? UI_ICONS.refresh : UI_ICONS.archive} size={15} />
+                </button>
+              )}
               <button
                 onClick={() => {
                   setRenomme(selChan.id);
@@ -338,6 +468,19 @@ export default function CommunicationPage() {
                 <Icon path={UI_ICONS.trash} size={15} />
               </button>
             </div>
+          )}
+          {/* EXPORTER (ADR 0021) — la conversation en un document JSON daté :
+              chacun garde trace de ce qu'il voit ; l'API ne rend une conversation
+              directe qu'à ses correspondants. */}
+          {selChan && !isVoice && (
+            <button
+              onClick={() => void exporter(selChan.id)}
+              title={t.cm_export}
+              aria-label={`${t.cm_export} — ${selChan.name}`}
+              className={`${iconBtnCls} shrink-0`}
+            >
+              <Icon path={UI_ICONS.download} size={15} />
+            </button>
           )}
           {/* PARTICIPANTS du canal — révisable par la conduite, pas seulement par
               l'administration : convoquer un renfort ou relever une unité fait
@@ -364,6 +507,22 @@ export default function CommunicationPage() {
           </button>
         </div>
 
+        {/* Bandeau d'archive (ADR 0021) : par qui, quand — et d'où, pour une archive importée. */}
+        {selChan?.archived && !isVoice && (
+          <div role="status" className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-or-500/30 bg-or-500/10 px-3 py-1.5 text-[11.5px] text-gray-700 lg:px-4 dark:text-rdia-100">
+            <span className="flex items-center gap-1 font-semibold">
+              <Icon path={UI_ICONS.archive} size={13} className="shrink-0" />
+              {t.cm_archived_notice}
+            </span>
+            {selChan.archivedAt && (
+              <span className="text-gray-500 dark:text-rdia-300">{tpl(t.cm_archived_by, { date: formatStamp(selChan.archivedAt, lang), by: selChan.archivedBy ?? "IRIS" })}</span>
+            )}
+            {selChan.imported && (
+              <span className="text-gray-500 dark:text-rdia-300">{tpl(t.cm_imported_from, { date: selChan.imported.from.slice(0, 10), cat: selChan.imported.category ?? "—" })}</span>
+            )}
+          </div>
+        )}
+
         {selChan && !isVoice && (
           <>
             <div className="flex min-h-0 flex-1 flex-col-reverse gap-4 overflow-y-auto overscroll-contain p-3 sm:p-4">
@@ -376,7 +535,8 @@ export default function CommunicationPage() {
                     <div className="flex flex-wrap items-center gap-x-2">
                       {!m.mine && m.author && <DeployedShortcut matricule={m.author} />}
                       <span className={`text-xs font-bold ${m.mine ? "text-or-500" : "text-rdia-600 dark:text-rdia-100"}`}>{m.who}</span>
-                      <span className="font-mono text-[10px] text-gray-400 dark:text-rdia-400">{m.time}</span>
+                      {/* Dans une archive, l'heure seule ne dit plus rien : la date l'accompagne. */}
+                      <span className="font-mono text-[10px] text-gray-400 dark:text-rdia-400">{selChan.archived && m.at ? formatStamp(m.at, lang) : m.time}</span>
                       {/* Les coches : sur MES messages d'une conversation directe. */}
                       {m.mine && correspondant && <Receipt state={receiptState(m, correspondant)} tone="list" />}
                     </div>
@@ -388,55 +548,60 @@ export default function CommunicationPage() {
                 </div>
               ))}
             </div>
-            {/* Barre de saisie ancrée : seule la liste défile, la barre reste au
-                bas du panneau — dont la hauteur est bornée par le `h-dvh` de la
-                coquille (et non `100vh`), donc elle reste atteignable clavier
-                ouvert. */}
-            <div className="flex shrink-0 items-center gap-2 border-t border-gray-200 p-2 sm:p-3 dark:border-rdia-600">
-              {/* Le fichier part dès qu'il est choisi, avec le texte tapé pour
-                  légende : demander un second clic sur « envoyer » ferait perdre
-                  la pièce à qui presse Entrée par réflexe. */}
-              <input
-                ref={fichierRef}
-                type="file"
-                className="sr-only"
-                accept={ATTACHMENT_ACCEPT}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void joindre(f);
-                }}
-              />
-              <button
-                onClick={() => fichierRef.current?.click()}
-                disabled={envoiPJ}
-                title={t.cm_attach}
-                aria-label={t.cm_attach}
-                className="cible-tactile flex shrink-0 items-center justify-center rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 disabled:opacity-40 dark:hover:bg-rdia-600"
-              >
-                <Icon path={UI_ICONS.paperclip} size={17} />
-              </button>
-              <input
-                className="input-champ min-w-0 flex-1 text-base md:text-sm"
-                placeholder={t.cm_msg_ph}
-                value={msg}
-                onChange={(e) => {
-                  setMsg(e.target.value);
-                  // Le correspondant d'une conversation directe voit qu'on écrit.
-                  if (selChan?.direct && e.target.value) rtSendTyping(selChan.id);
-                }}
-                onKeyDown={onMsgKey}
-              />
-              <button className="btn-primaire cible-tactile shrink-0 px-3 text-sm" onClick={send} aria-label={t.send} disabled={envoiPJ}>
-                <Icon path={UI_ICONS.send} size={16} strokeWidth={2} />
-              </button>
-            </div>
-            {(envoiPJ || erreurPJ) && (
-              <p
-                role={erreurPJ ? "alert" : undefined}
-                className={`px-3 pb-2 text-[11.5px] font-semibold ${erreurPJ ? "text-danger-400" : "text-gray-500 dark:text-rdia-300"}`}
-              >
-                {erreurPJ ?? t.cm_attach_sending}
-              </p>
+            {/* Une archive se lit, elle ne s'écrit plus : ni saisie, ni pièce jointe. */}
+            {!selChan.archived && (
+              <>
+              {/* Barre de saisie ancrée : seule la liste défile, la barre reste au
+                  bas du panneau — dont la hauteur est bornée par le `h-dvh` de la
+                  coquille (et non `100vh`), donc elle reste atteignable clavier
+                  ouvert. */}
+              <div className="flex shrink-0 items-center gap-2 border-t border-gray-200 p-2 sm:p-3 dark:border-rdia-600">
+                {/* Le fichier part dès qu'il est choisi, avec le texte tapé pour
+                    légende : demander un second clic sur « envoyer » ferait perdre
+                    la pièce à qui presse Entrée par réflexe. */}
+                <input
+                  ref={fichierRef}
+                  type="file"
+                  className="sr-only"
+                  accept={ATTACHMENT_ACCEPT}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void joindre(f);
+                  }}
+                />
+                <button
+                  onClick={() => fichierRef.current?.click()}
+                  disabled={envoiPJ}
+                  title={t.cm_attach}
+                  aria-label={t.cm_attach}
+                  className="cible-tactile flex shrink-0 items-center justify-center rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-or-500 disabled:opacity-40 dark:hover:bg-rdia-600"
+                >
+                  <Icon path={UI_ICONS.paperclip} size={17} />
+                </button>
+                <input
+                  className="input-champ min-w-0 flex-1 text-base md:text-sm"
+                  placeholder={t.cm_msg_ph}
+                  value={msg}
+                  onChange={(e) => {
+                    setMsg(e.target.value);
+                    // Le correspondant d'une conversation directe voit qu'on écrit.
+                    if (selChan?.direct && e.target.value) rtSendTyping(selChan.id);
+                  }}
+                  onKeyDown={onMsgKey}
+                />
+                <button className="btn-primaire cible-tactile shrink-0 px-3 text-sm" onClick={send} aria-label={t.send} disabled={envoiPJ}>
+                  <Icon path={UI_ICONS.send} size={16} strokeWidth={2} />
+                </button>
+              </div>
+              {(envoiPJ || erreurPJ) && (
+                <p
+                  role={erreurPJ ? "alert" : undefined}
+                  className={`px-3 pb-2 text-[11.5px] font-semibold ${erreurPJ ? "text-danger-400" : "text-gray-500 dark:text-rdia-300"}`}
+                >
+                  {erreurPJ ?? t.cm_attach_sending}
+                </p>
+              )}
+              </>
             )}
           </>
         )}

@@ -20,6 +20,7 @@ import { DomainService } from "@/modules/domain/domain.service";
 import { VisibilityService } from "@/modules/domain/visibility.service";
 import { DeploymentService } from "@/modules/domain/deployment.service";
 import { CommsService } from "@/modules/domain/comms.service";
+import { RealtimeService } from "@/modules/realtime/realtime.service";
 import { IncidentTypesService } from "@/modules/domain/incident-types.service";
 import { SubIncidentTypesService } from "@/modules/domain/sub-incident-types.service";
 import { NoticesService } from "@/modules/realtime/notices.service";
@@ -39,6 +40,7 @@ export class IncidentsController {
     private readonly subIncidentTypes: SubIncidentTypesService,
     private readonly users: UsersService,
     private readonly notices: NoticesService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   @Get("incident-types")
@@ -178,7 +180,9 @@ export class IncidentsController {
     // intervenants ont un lieu pour se parler dès la déclaration, et les jalons
     // de boucle viendront s'y inscrire tout seuls. Le canal porte le TITRE de
     // l'opération — c'est sous ce nom que l'état-major la désigne à l'oral.
-    this.comms.channelForIncident(inc.id, inc.titre);
+    const chan = this.comms.channelForIncident(inc.id, inc.titre);
+    // Les postes connectés voient le canal paraître sans recharger (ADR 0021).
+    this.realtime.emit({ kind: "channel", action: "created", channelId: chan.id, payload: chan });
     // Le wali et le commandant de place d'armes de la région sont prévenus à
     // la déclaration — eux, et eux seuls : l'alerte est adressée, pas diffusée.
     // Elle porte le point de l'incident, pour que leur carte s'y centre.
@@ -200,12 +204,19 @@ export class IncidentsController {
   @Patch("incidents/:id")
   @RequirePermission("incidents:update")
   @ApiOperation({ summary: "Modifier ou archiver un incident (audité)" })
-  updateIncident(@Param("id") id: string, @Body() dto: UpdateIncidentDto) {
+  updateIncident(@Param("id") id: string, @Body() dto: UpdateIncidentDto, @CurrentUser() user: AuthUser) {
     if (dto.type && !this.incidentTypes.isValid(dto.type)) {
       throw new BadRequestException(`Type d'incident inconnu : ${dto.type}`);
     }
     const inc = this.domain.updateIncident(id, dto);
     if (!inc) throw new NotFoundException(`Incident inconnu : ${id}`);
+    // Le canal de l'opération suit son titre et son archivage (ADR 0021) :
+    // renommé avec elle, archivé avec elle — la conversation reste lisible.
+    if (dto.titre) this.comms.renameIncidentChannel(id, dto.titre);
+    if (dto.archived !== undefined) this.comms.archiveChannelForIncident(id, dto.archived, user.username);
+    if (dto.titre || dto.archived !== undefined) {
+      this.realtime.emit({ kind: "channel", action: "updated", channelId: `c-${id.toLowerCase()}` });
+    }
     return inc;
   }
 

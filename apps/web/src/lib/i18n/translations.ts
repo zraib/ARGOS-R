@@ -628,6 +628,10 @@ export interface Dict {
   cm_delete_confirm: string; cm_admin_only: string; cm_attach: string; cm_attach_too_big: string;
   cm_attach_refused: string; cm_attach_failed: string; cm_attach_sending: string; cm_download: string;
   cm_stream_down: string;
+  // Traçabilité du centre (ADR 0021) : archives, export, import
+  cm_archives: string; cm_archive: string; cm_unarchive: string; cm_archived_notice: string; cm_archived_by: string;
+  cm_imported_from: string; cm_export: string; cm_export_all: string; cm_import: string; cm_import_hint: string;
+  cm_import_done: string; cm_import_bad: string; cm_archive_done: string; cm_unarchive_done: string; cm_export_failed: string;
   // Alerte adressée : un compte demande la réinitialisation de son mot de passe
   notif_reset_requested: string; notif_reset_open: string;
   // Écran de connexion : mot de passe oublié

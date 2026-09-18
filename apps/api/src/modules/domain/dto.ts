@@ -4,6 +4,7 @@ import { PERSON_CORPS, PERSON_STATUS, RESOURCE_OWNER_KINDS, SUPPLY_KINDS, VEHICL
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { SHELTER_BUILDINGS, SHELTER_KINDS, SHELTER_ORGANS } from "@/modules/domain/shelter.rules";
 import { REGIONS_MA } from "@/modules/domain/provinces.data";
+import { COMMS_EXPORT_FORMAT } from "@/modules/domain/comms.service";
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -318,6 +319,86 @@ export class ReceiptDto {
   @IsInt()
   @Min(0)
   upToId!: number;
+}
+
+/**
+ * Un message d'un export du centre de communication (ADR 0021). Seuls les
+ * champs qui portent la trace sont contrôlés ; le reste est repris tel quel
+ * ou remplacé par une valeur neutre au moment de l'import.
+ */
+export class ImportedMessageDto {
+  @ApiProperty({ description: "Texte du message." })
+  @IsString()
+  @MaxLength(4000)
+  txt!: string;
+
+  @ApiPropertyOptional({ description: "Identifiant d'origine — sans effet : l'import en attribue un nouveau." }) @IsOptional() @IsInt() id?: number;
+  @ApiPropertyOptional({ description: "Nom affiché de l'auteur." }) @IsOptional() @IsString() @MaxLength(120) who?: string;
+  @ApiPropertyOptional({ description: "Matricule de l'auteur." }) @IsOptional() @IsString() @MaxLength(64) author?: string;
+  @ApiPropertyOptional({ description: "Heure affichée (HH:MM)." }) @IsOptional() @IsString() @MaxLength(16) time?: string;
+  @ApiPropertyOptional({ description: "Horodatage ISO complet." }) @IsOptional() @IsString() @MaxLength(40) at?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(8) initials?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(120) av?: string;
+  @ApiPropertyOptional({ description: "Sans effet à l'import : un message repris n'est à personne." }) @IsOptional() @IsBoolean() mine?: boolean;
+  @ApiPropertyOptional({ type: MessageAttachmentDto, description: "La FICHE de la pièce jointe ; son contenu ne voyage pas avec l'export." })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => MessageAttachmentDto)
+  attachment?: MessageAttachmentDto;
+  @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @IsString({ each: true }) deliveredBy?: string[];
+  @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @IsString({ each: true }) readBy?: string[];
+}
+
+/** Un canal d'un export du centre de communication (ADR 0021). */
+export class ImportedChannelDto {
+  @ApiProperty({ description: "Identifiant dans l'export d'origine — sert à ne pas reprendre deux fois le même canal." })
+  @IsString()
+  @Length(1, 80)
+  id!: string;
+
+  @ApiProperty({ example: "Séisme Al Haouz" })
+  @IsString()
+  @Length(1, 120)
+  name!: string;
+
+  @ApiPropertyOptional({ enum: ["text", "voice"] }) @IsOptional() @IsIn(["text", "voice"]) kind?: "text" | "voice";
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200) topic?: string;
+  @ApiPropertyOptional({ description: "Nom du groupe d'origine, gardé pour mémoire." }) @IsOptional() @IsString() @MaxLength(120) category?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(80) incidentId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() archived?: boolean;
+  @ApiPropertyOptional({ description: "Conversation directe : reste réservée à ses deux correspondants." }) @IsOptional() @IsBoolean() direct?: boolean;
+  @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @IsString({ each: true }) @ArrayMaxSize(500) members?: string[];
+
+  @ApiProperty({ type: [ImportedMessageDto] })
+  @IsArray()
+  @ArrayMaxSize(100000)
+  @ValidateNested({ each: true })
+  @Type(() => ImportedMessageDto)
+  messages!: ImportedMessageDto[];
+}
+
+/**
+ * Le document que produit `GET /comms/export` (ou `/comms/channels/:id/export`),
+ * rendu à `POST /comms/import` — un fichier JSON, pas un flux (ADR 0021).
+ */
+export class ImportCommsDto {
+  @ApiProperty({ enum: [COMMS_EXPORT_FORMAT], description: "Format du document ; tout autre est refusé." })
+  @IsIn([COMMS_EXPORT_FORMAT])
+  format!: typeof COMMS_EXPORT_FORMAT;
+
+  @ApiProperty({ description: "Date de l'export (ISO) — reprise dans le nom des archives importées." })
+  @IsString()
+  @Length(1, 40)
+  exportedAt!: string;
+
+  @ApiPropertyOptional({ description: "Qui a exporté, pour mémoire." }) @IsOptional() @IsString() @MaxLength(64) exportedBy?: string;
+
+  @ApiProperty({ type: [ImportedChannelDto] })
+  @IsArray()
+  @ArrayMaxSize(2000)
+  @ValidateNested({ each: true })
+  @Type(() => ImportedChannelDto)
+  channels!: ImportedChannelDto[];
 }
 
 /** Création d'un groupe de canaux. */

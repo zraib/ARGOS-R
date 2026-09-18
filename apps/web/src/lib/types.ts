@@ -368,7 +368,12 @@ export interface Channel {
   members?: string[];
   /** Incident porteur, pour les canaux nés d'une déclaration. */
   incidentId?: string;
+  /** Canal archivé (ADR 0021) : conservé, lisible, en lecture seule, rangé sous « Archives ». */
   archived?: boolean;
+  archivedAt?: string;
+  archivedBy?: string;
+  /** Canal repris d'un export (ADR 0021) : d'où il vient, quand il a été importé. */
+  imported?: { from: string; originalId: string; category?: string; at: string; by: string };
   /** Conversation directe entre deux comptes — servie à ses deux membres seulement. */
   direct?: boolean;
   /** Les deux correspondants d'une conversation directe (le nom servi est déjà celui de l'autre). */
@@ -407,6 +412,8 @@ export interface CommMessage {
   /** classes Tailwind pour l'avatar */
   av: string;
   time: string;
+  /** Horodatage ISO complet (ADR 0021) — `time` n'en est que l'heure ; absent sur les messages d'avant. */
+  at?: string;
   txt: string;
   mine?: boolean;
   /** Absente pour un message de texte seul — la majorité. */

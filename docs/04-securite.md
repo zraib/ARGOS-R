@@ -294,6 +294,21 @@ rejoint son opération à l'inscription. **La carte des incidents**, elle, est
 celle de tous (`GET /incidents/map`, `map:view`) : la liste et la fiche
 restent sous la doctrine. Tests : `modules/domain/units-visibility.spec.ts`.
 
+**Centre de communication (ADR 0021) — la trace se garde.** Les conversations
+sont conservées (instantané `comms`, chaque message horodaté `at`) ; le canal
+d'une opération porte son titre et le suit (renommé, archivé, rouvert avec
+elle). **Archiver** (`POST comms/channels/:id/archive|unarchive`,
+`comms_admin:update`, audité, daté et signé) laisse lire sans laisser écrire
+(403 sur le message) ; une conversation directe ne s'archive pas.
+**Exporter** rend un document `iris-comms/1` : sa propre conversation sous
+`comms:view` (une conversation directe pour ses correspondants seuls), tout le
+centre sous `comms_admin:view`. **Importer** (`comms_admin:create`, audité,
+`ImportCommsDto` validé, 400 sinon) reprend chaque canal en archive dans
+« ARCHIVES IMPORTÉES » — rien n'est fusionné dans un canal en cours, un canal
+déjà repris du même export est sauté. Le fichier d'export n'est pas chiffré :
+il se garde comme un document opérationnel. Tests :
+`modules/realtime/comms-archive.spec.ts`, `modules/domain/comms.spec.ts`.
+
 ## 6. Matrice rôle → modules, drapeaux globaux
 
 Second niveau, distinct du RBAC : quels **modules** (écrans) un rôle voit, et

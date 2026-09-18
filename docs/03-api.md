@@ -85,12 +85,17 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `POST` | `/api/comms/channels` | `comms_admin:create` | Créer un canal texte dans un groupe — ADMINISTRATION (audité). |
 | `DELETE` | `/api/comms/channels/{id}` | `comms_admin:delete` | Supprimer définitivement un canal — SUPERADMIN uniquement. |
 | `PATCH` | `/api/comms/channels/{id}` | `comms_admin:update` | Renommer un canal / changer son sujet. |
+| `POST` | `/api/comms/channels/{id}/archive` | `comms_admin:update` | Archiver un canal : conservé, lisible, en lecture seule, rangé sous « Archives » (audité) |
+| `GET` | `/api/comms/channels/{id}/export` | `comms:view` | Exporter un canal : le document JSON daté de sa conversation (ADR 0021) |
 | `POST` | `/api/comms/channels/{id}/members` | `comms:update` | Ajouter des membres à un canal. |
 | `DELETE` | `/api/comms/channels/{id}/members/{matricule}` | `comms:update` | Retirer un membre d'un canal. |
 | `POST` | `/api/comms/channels/{id}/receipts` | `comms:view` | Accuser réception ou lecture des messages d'une conversation directe, jusqu'à `upToId`. |
 | `POST` | `/api/comms/channels/{id}/typing` | `comms:view` | Signaler qu'on écrit dans une conversation directe (transitoire, non journalisé). |
+| `POST` | `/api/comms/channels/{id}/unarchive` | `comms_admin:update` | Rouvrir un canal archivé (audité) |
 | `POST` | `/api/comms/direct/{matricule}` | `comms:update` | Ouvrir la conversation directe avec un compte (idempotent) |
 | `GET` | `/api/comms/directory` | `comms:view` | Annuaire des comptes joignables — pour composer un canal |
+| `GET` | `/api/comms/export` | `comms_admin:view` | Exporter tout le centre de communication (administration) — canaux, membres, messages horodatés |
+| `POST` | `/api/comms/import` | `comms_admin:create` | Importer un export : ses canaux deviennent des archives (audité) |
 | `POST` | `/api/comms/messages` | `comms:view` | Envoyer un message dans un canal (audité) |
 | `GET` | `/api/comms/notices` | `comms:view` | Alertes adressées au compte connecté (incident déclaré dans sa région…) |
 | `POST` | `/api/comms/notices/{id}/ack` | `comms:view` | Acquitter une alerte adressée (`all` : toutes) — l'acquittement survit au rechargement et au redémarrage (ADR 0016) |
@@ -297,7 +302,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 ## Chiffres
 
-151 chemins · 193 opérations · 14 groupes.
+156 chemins · 198 opérations · 14 groupes.
 
 ## Modifier le contrat
 

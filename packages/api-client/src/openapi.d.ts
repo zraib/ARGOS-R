@@ -1036,6 +1036,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/comms/channels/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archiver un canal : conservé, lisible, en lecture seule, rangé sous « Archives » (audité) */
+        post: operations["CommsController_archiveChannel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/comms/channels/{id}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rouvrir un canal archivé (audité) */
+        post: operations["CommsController_unarchiveChannel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/comms/channels/{id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Exporter un canal : le document JSON daté de sa conversation (ADR 0021)
+         * @description Un fichier `iris-comms/1` avec le canal, ses membres et tous ses messages horodatés. Une conversation directe ne s'exporte que par ses correspondants.
+         */
+        get: operations["CommsController_exportChannel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/comms/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Exporter tout le centre de communication (administration) — canaux, membres, messages horodatés */
+        get: operations["CommsController_exportAll"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/comms/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Importer un export : ses canaux deviennent des archives (audité)
+         * @description Chaque canal du document est repris, archivé, dans le groupe « ARCHIVES IMPORTÉES », avec ses messages, leurs auteurs et leurs horodatages. Rien n'est fusionné dans un canal en cours ; un canal déjà repris du même export est sauté.
+         */
+        post: operations["CommsController_importDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/comms/responsables": {
         parameters: {
             query?: never;
@@ -3203,6 +3294,57 @@ export interface components {
             name: string;
             mime: string;
             bytes: number;
+        };
+        ImportedMessageDto: {
+            /** @description Texte du message. */
+            txt: string;
+            /** @description Identifiant d'origine — sans effet : l'import en attribue un nouveau. */
+            id?: number;
+            /** @description Nom affiché de l'auteur. */
+            who?: string;
+            /** @description Matricule de l'auteur. */
+            author?: string;
+            /** @description Heure affichée (HH:MM). */
+            time?: string;
+            /** @description Horodatage ISO complet. */
+            at?: string;
+            initials?: string;
+            av?: string;
+            /** @description Sans effet à l'import : un message repris n'est à personne. */
+            mine?: boolean;
+            /** @description La FICHE de la pièce jointe ; son contenu ne voyage pas avec l'export. */
+            attachment?: components["schemas"]["MessageAttachmentDto"];
+            deliveredBy?: string[];
+            readBy?: string[];
+        };
+        ImportedChannelDto: {
+            /** @description Identifiant dans l'export d'origine — sert à ne pas reprendre deux fois le même canal. */
+            id: string;
+            /** @example Séisme Al Haouz */
+            name: string;
+            /** @enum {string} */
+            kind?: "text" | "voice";
+            topic?: string;
+            /** @description Nom du groupe d'origine, gardé pour mémoire. */
+            category?: string;
+            incidentId?: string;
+            archived?: boolean;
+            /** @description Conversation directe : reste réservée à ses deux correspondants. */
+            direct?: boolean;
+            members?: string[];
+            messages: components["schemas"]["ImportedMessageDto"][];
+        };
+        ImportCommsDto: {
+            /**
+             * @description Format du document ; tout autre est refusé.
+             * @enum {string}
+             */
+            format: "iris-comms/1";
+            /** @description Date de l'export (ISO) — reprise dans le nom des archives importées. */
+            exportedAt: string;
+            /** @description Qui a exporté, pour mémoire. */
+            exportedBy?: string;
+            channels: components["schemas"]["ImportedChannelDto"][];
         };
         SendMessageDto: {
             /** @example c1 */
@@ -5561,6 +5703,103 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommsController_archiveChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Une conversation directe ne s'archive pas. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommsController_unarchiveChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommsController_exportChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommsController_exportAll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommsController_importDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportCommsDto"];
+            };
+        };
+        responses: {
+            /** @description Le document n'est pas un export iris-comms/1. */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

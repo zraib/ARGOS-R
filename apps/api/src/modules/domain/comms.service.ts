@@ -1,10 +1,19 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { DEMO_DATA } from "@/common/data-profile";
+import { loadDevState, saveDevState } from "@/common/dev-store";
 
 // ============================================================================
-// ARGOS — centre de communication (Phase 2, in-memory)
+// ARGOS — centre de communication (Phase 2)
 // Canaux, messages et présence. En production : EMQX/MQTT + WebSocket temps réel
 // (MASTER_PLAN §5). Ici, REST simple : lecture groupée + envoi de message.
+//
+// TRAÇABILITÉ (ADR 0021) : les canaux et les messages sont PERSISTÉS dans
+// l'instantané `comms` (dev-store, volume /data sur la station) — avant, ils
+// ne vivaient qu'en mémoire et chaque redémarrage de l'API (bascule de mode,
+// mise à jour) effaçait toutes les conversations, canaux d'incident compris.
+// Chaque message porte son horodatage complet. Un canal s'ARCHIVE (conservé,
+// lecture seule), s'EXPORTE (document JSON daté, avec ses messages) et
+// s'IMPORTE (reprise d'un export dans un groupe d'archives).
 // ============================================================================
 
 /** Pièce jointe d'un message — le contenu vit sur disque, ceci en est la fiche. */
@@ -21,6 +30,8 @@ export interface CommMessage {
   initials: string;
   av: string;
   time: string;
+  /** Horodatage complet ISO (ADR 0021) — `time` n'en est que l'heure affichée ; absent sur les messages d'avant. */
+  at?: string;
   txt: string;
   /**
    * MATRICULE de l'auteur — l'identité, par opposition à `who` qui en est
@@ -62,8 +73,13 @@ interface Channel {
   members?: string[];
   /** Incident porteur, pour les canaux créés à la déclaration. */
   incidentId?: string;
-  /** Canal archivé avec son incident — conservé, masqué de la liste active. */
+  /** Canal archivé — conservé, en lecture seule, rangé sous « Archives » (ADR 0021). */
   archived?: boolean;
+  /** Horodatage de l'archivage, et par qui. */
+  archivedAt?: string;
+  archivedBy?: string;
+  /** Canal repris d'un export (ADR 0021) : d'où il vient, quand il a été importé. */
+  imported?: { from: string; originalId: string; category?: string; at: string; by: string };
   /**
    * Conversation directe entre deux comptes : ne sort du serveur que pour
    * ses deux membres, et sa composition ne se modifie pas.
@@ -85,6 +101,53 @@ interface CommCategory {
   id: string;
   name: string;
   chans: Channel[];
+}
+
+/** L'instantané persisté du centre (ADR 0021). */
+interface CommsSnapshot {
+  categories?: CommCategory[];
+  messages?: Record<string, CommMessage[]>;
+  dernierId?: number;
+}
+
+/** Groupe qui reçoit les canaux repris d'un export (ADR 0021), créé au premier import. */
+const IMPORT_CATEGORY_ID = "g-import";
+
+/** Format du document d'export — vérifié à l'import. */
+export const COMMS_EXPORT_FORMAT = "iris-comms/1";
+
+/** Un canal exporté avec ses messages (ADR 0021). */
+export interface ExportedChannel {
+  id: string;
+  name: string;
+  kind: "text" | "voice";
+  topic?: string;
+  category?: string;
+  incidentId?: string;
+  archived?: boolean;
+  direct?: boolean;
+  members?: string[];
+  messages: CommMessage[];
+}
+
+export interface CommsExport {
+  format: typeof COMMS_EXPORT_FORMAT;
+  exportedAt: string;
+  exportedBy: string;
+  channels: ExportedChannel[];
+}
+
+/**
+ * Ce que l'import ACCEPTE : un export dont tout champ non essentiel peut
+ * manquer — un fichier repris d'une autre station, d'une autre version, ou
+ * retouché à la main, se lit quand même ; chaque champ absent reçoit une
+ * valeur neutre.
+ */
+export interface CommsImportInput {
+  format: string;
+  exportedAt?: string;
+  exportedBy?: string;
+  channels: Array<Partial<Omit<ExportedChannel, "messages">> & { messages?: Partial<CommMessage>[] }>;
 }
 interface Member {
   n: string;
@@ -168,6 +231,23 @@ export class CommsService {
     { n: "Cdt. N. Chraibi", g: "4e NRBC", av: "bg-gray-400 text-white", initials: "NC" },
   ] : [];
 
+  constructor() {
+    // Reprise de l'instantané (ADR 0021) : ce qui a été dit reste dit. Sans
+    // instantané — premier démarrage — les canaux d'accueil ci-dessus.
+    const snap = loadDevState<CommsSnapshot>("comms", {});
+    if (snap.categories && snap.categories.length > 0) {
+      this.categories.splice(0, this.categories.length, ...snap.categories);
+      for (const k of Object.keys(this.messages)) delete this.messages[k];
+      Object.assign(this.messages, snap.messages ?? {});
+      this.dernierId = snap.dernierId ?? 0;
+    }
+  }
+
+  /** Écrit l'instantané : canaux, messages, dernier identifiant. */
+  private persist(): void {
+    saveDevState("comms", { categories: this.categories, messages: this.messages, dernierId: this.dernierId } satisfies CommsSnapshot);
+  }
+
   /**
    * Le centre tel que `viewer` (un matricule) a le droit de le voir.
    *
@@ -216,6 +296,7 @@ export class CommsService {
     const chan = this.findChannel(channelId);
     if (!chan || chan.kind !== "text") throw new NotFoundException(`Canal texte inconnu : ${channelId}`);
     if (chan.direct && !this.isMember(chan, matricule)) throw new ForbiddenException("Cette conversation directe ne vous concerne pas.");
+    if (chan.archived) throw new ForbiddenException("Canal archivé : il se lit, il ne s'écrit plus.");
     return chan;
   }
 
@@ -288,8 +369,9 @@ export class CommsService {
     // seul qui fasse foi pour dédoublonner), et l'appartenance se décide sur
     // chaque poste. `mine: true` stocké ici faisait apparaître TOUS les
     // messages comme les siens à quiconque rechargeait le centre.
-    const entry: CommMessage = { id: this.nextMessageId(), ...msg, time };
+    const entry: CommMessage = { id: this.nextMessageId(), ...msg, time, at: d.toISOString() };
     list.push(entry);
+    this.persist();
     return entry;
   }
 
@@ -308,6 +390,7 @@ export class CommsService {
   addCategory(name: string): CommCategory {
     const cat: CommCategory = { id: `g${Date.now()}`, name: name.trim().toUpperCase(), chans: [] };
     this.categories.push(cat);
+    this.persist();
     return cat;
   }
 
@@ -332,10 +415,11 @@ export class CommsService {
     const ops = this.categories.find((c) => c.id === "g1") ?? this.categories[0];
     const chan: Channel = {
       id: `c-${incidentId.toLowerCase()}`,
-      // Le NOM est celui de l'opération, pas sa référence : « crues-de-l-oued-
-      // ourika » se reconnaît dans une liste, « inc-2623 » demande d'aller
-      // chercher à quoi il correspond. La référence reste dans le sujet.
-      name: this.uniqueChannelName(titre?.trim() ? titre : incidentId, incidentId),
+      // Le NOM est le TITRE de l'incident, tel qu'il a été saisi (ADR 0021) —
+      // « Crue de l'oued Ourika », pas « crue-de-l-oued-ourika » ni « INC-2623 » :
+      // c'est ainsi que l'opération se nomme partout ailleurs. La référence
+      // reste dans le sujet.
+      name: this.uniqueChannelTitle(titre, incidentId),
       kind: "text",
       topic: titre?.trim() ? `Coordination — ${incidentId} · ${titre.trim()}` : `Coordination — ${incidentId}`,
       incidentId,
@@ -344,6 +428,7 @@ export class CommsService {
     };
     ops.chans.push(chan);
     this.messages[chan.id] = [];
+    this.persist();
     return chan;
   }
 
@@ -384,25 +469,35 @@ export class CommsService {
     };
     cat.chans.push(channel);
     this.messages[id] = [];
+    this.persist();
     return { channel, created: true };
   }
 
   /**
-   * Nom de canal à partir d'un texte libre : minuscules, sans accents, un tiret
-   * par séparateur, 48 caractères au plus. Deux incidents peuvent porter le
-   * même titre ; le second reçoit alors le numéro de sa référence en suffixe,
-   * pour que la liste reste lisible sans deviner lequel est lequel.
+   * Nom du canal d'un incident : son TITRE, tel quel, 80 caractères au plus.
+   * Deux incidents peuvent porter le même titre ; le second reçoit alors le
+   * numéro de sa référence entre parenthèses, pour que la liste reste lisible
+   * sans deviner lequel est lequel.
    */
-  private uniqueChannelName(source: string, incidentId: string): string {
-    const base = slugify(source) || incidentId.toLowerCase();
-    const pris = new Set(this.categories.flatMap((c) => c.chans).map((ch) => ch.name));
+  private uniqueChannelTitle(titre: string | undefined, incidentId: string, exceptId?: string): string {
+    const base = (titre?.trim() || incidentId).slice(0, 80);
+    const pris = new Set(this.categories.flatMap((c) => c.chans).filter((ch) => ch.id !== exceptId).map((ch) => ch.name));
     if (!pris.has(base)) return base;
-    const suffixe = incidentId.replace(/^INC-/i, "").toLowerCase();
-    const avecSuffixe = `${base}-${suffixe}`;
+    const suffixe = incidentId.replace(/^INC-/i, "");
+    const avecSuffixe = `${base} (${suffixe})`;
     if (!pris.has(avecSuffixe)) return avecSuffixe;
     let n = 2;
-    while (pris.has(`${avecSuffixe}-${n}`)) n += 1;
-    return `${avecSuffixe}-${n}`;
+    while (pris.has(`${avecSuffixe} ${n}`)) n += 1;
+    return `${avecSuffixe} ${n}`;
+  }
+
+  /** Le titre de l'incident change : son canal suit (ADR 0021). Sans effet s'il n'a pas de canal. */
+  renameIncidentChannel(incidentId: string, titre: string): void {
+    const chan = this.categories.flatMap((c) => c.chans).find((ch) => ch.incidentId === incidentId);
+    if (!chan || !titre.trim()) return;
+    chan.name = this.uniqueChannelTitle(titre, incidentId, chan.id);
+    chan.topic = `Coordination — ${incidentId} · ${titre.trim()}`;
+    this.persist();
   }
 
   /** Retrouve un canal par identifiant, ou `undefined`. */
@@ -419,6 +514,7 @@ export class CommsService {
       chan.name = slug;
     }
     if (patch.topic !== undefined) chan.topic = patch.topic.trim();
+    this.persist();
     return chan;
   }
 
@@ -432,6 +528,7 @@ export class CommsService {
     this.assertComposable(chan);
     const set = new Set([...(chan.members ?? []), ...matricules.map((m) => m.trim()).filter(Boolean)]);
     chan.members = [...set];
+    this.persist();
     return chan;
   }
 
@@ -441,6 +538,7 @@ export class CommsService {
     this.assertComposable(chan);
     if (!chan.members) throw new BadRequestException("Ce canal est ouvert : il n'a pas de liste de membres.");
     chan.members = chan.members.filter((m) => m !== matricule);
+    this.persist();
     return chan;
   }
 
@@ -450,9 +548,137 @@ export class CommsService {
   }
 
   /** Archive le canal d'un incident (appelé avec l'archivage de l'incident). */
-  archiveChannelForIncident(incidentId: string, archived = true): void {
+  archiveChannelForIncident(incidentId: string, archived = true, by = "IRIS"): void {
     const chan = this.categories.flatMap((c) => c.chans).find((ch) => ch.incidentId === incidentId);
-    if (chan) chan.archived = archived;
+    if (chan) this.setArchived(chan, archived, by);
+  }
+
+  /**
+   * Archive ou désarchive un canal (ADR 0021) : archivé, il reste lisible par
+   * ceux qui le voyaient, rangé sous « Archives », et n'accepte plus de
+   * message. Une conversation directe ne s'archive pas : elle appartient à
+   * ses deux correspondants, pas à l'administration.
+   */
+  archiveChannel(channelId: string, archived: boolean, by: string): Channel {
+    const chan = this.requireChannel(channelId);
+    if (chan.direct) throw new BadRequestException("Une conversation directe ne s'archive pas.");
+    this.setArchived(chan, archived, by);
+    return chan;
+  }
+
+  private setArchived(chan: Channel, archived: boolean, by: string): void {
+    if (archived) {
+      chan.archived = true;
+      chan.archivedAt = new Date().toISOString();
+      chan.archivedBy = by;
+    } else {
+      delete chan.archived;
+      delete chan.archivedAt;
+      delete chan.archivedBy;
+    }
+    this.persist();
+  }
+
+  /**
+   * Export (ADR 0021) : les canaux demandés — ou tous ceux que `viewer` voit —
+   * avec leurs messages, dans un document daté et signé du compte qui
+   * l'exporte. Une conversation directe ne sort que pour ses membres.
+   */
+  exportChannels(viewer: string, ids?: readonly string[]): CommsExport {
+    const wanted = ids ? new Set(ids) : null;
+    const channels: ExportedChannel[] = [];
+    for (const cat of this.categories) {
+      for (const ch of cat.chans) {
+        if (wanted && !wanted.has(ch.id)) continue;
+        if (ch.direct && !this.isMember(ch, viewer)) continue;
+        channels.push({
+          id: ch.id,
+          name: ch.name,
+          kind: ch.kind,
+          topic: ch.topic,
+          category: cat.name,
+          incidentId: ch.incidentId,
+          archived: ch.archived,
+          direct: ch.direct,
+          members: ch.members,
+          messages: [...(this.messages[ch.id] ?? [])],
+        });
+      }
+    }
+    if (wanted && channels.length === 0) throw new NotFoundException("Aucun canal à exporter.");
+    return { format: COMMS_EXPORT_FORMAT, exportedAt: new Date().toISOString(), exportedBy: viewer, channels };
+  }
+
+  /**
+   * Import (ADR 0021) : chaque canal du document devient un canal ARCHIVÉ du
+   * groupe « ARCHIVES IMPORTÉES », ses messages repris avec leurs
+   * horodatages et leurs auteurs sous de nouveaux identifiants. Rien n'est
+   * fusionné dans un canal existant : un import est une pièce d'archive, pas
+   * une reprise en direct. Un canal déjà repris du même export est sauté.
+   */
+  importDocument(doc: CommsImportInput, by: string): { channels: number; messages: number; skipped: number } {
+    if (!doc || doc.format !== COMMS_EXPORT_FORMAT || !Array.isArray(doc.channels)) {
+      throw new BadRequestException(`Document inattendu : un export « ${COMMS_EXPORT_FORMAT} » est attendu.`);
+    }
+    let cat = this.categories.find((c) => c.id === IMPORT_CATEGORY_ID);
+    if (!cat) {
+      cat = { id: IMPORT_CATEGORY_ID, name: "ARCHIVES IMPORTÉES", chans: [] };
+      this.categories.push(cat);
+    }
+    const pris = new Set(this.categories.flatMap((c) => c.chans).map((ch) => ch.name));
+    const from = typeof doc.exportedAt === "string" ? doc.exportedAt : "?";
+    let channels = 0;
+    let messages = 0;
+    let skipped = 0;
+    const now = new Date().toISOString();
+    for (const src of doc.channels) {
+      if (!src || typeof src.id !== "string" || typeof src.name !== "string") continue;
+      if (cat.chans.some((ch) => ch.imported?.from === from && ch.imported.originalId === src.id)) {
+        skipped += 1;
+        continue;
+      }
+      let name = `${src.name} (${from.slice(0, 10)})`.slice(0, 80);
+      let n = 2;
+      while (pris.has(name)) name = `${src.name} (${from.slice(0, 10)}) ${n++}`.slice(0, 80);
+      pris.add(name);
+      const chan: Channel = {
+        id: `ci-${Date.now().toString(36)}-${channels}`,
+        name,
+        kind: src.kind === "voice" ? "voice" : "text",
+        topic: src.topic,
+        incidentId: src.incidentId,
+        archived: true,
+        archivedAt: now,
+        archivedBy: by,
+        imported: { from, originalId: src.id, category: src.category, at: now, by },
+      };
+      // Les membres d'origine ne gouvernent plus rien : une archive se lit par
+      // qui lit les archives. Une conversation directe importée reste réservée
+      // à ses deux correspondants.
+      if (src.direct && Array.isArray(src.members)) {
+        chan.direct = true;
+        chan.members = src.members.filter((m) => typeof m === "string");
+      }
+      cat.chans.push(chan);
+      this.messages[chan.id] = (Array.isArray(src.messages) ? src.messages : [])
+        .filter((m): m is Partial<CommMessage> & { txt: string } => !!m && typeof m.txt === "string")
+        .map((m) => ({
+          id: this.nextMessageId(),
+          who: typeof m.who === "string" ? m.who : "?",
+          initials: typeof m.initials === "string" ? m.initials : "?",
+          av: typeof m.av === "string" ? m.av : "bg-gray-500 text-white",
+          time: typeof m.time === "string" ? m.time : "--:--",
+          ...(typeof m.at === "string" ? { at: m.at } : {}),
+          txt: m.txt,
+          ...(typeof m.author === "string" ? { author: m.author } : {}),
+          ...(m.attachment ? { attachment: m.attachment } : {}),
+          mine: false,
+        }));
+      channels += 1;
+      messages += this.messages[chan.id].length;
+    }
+    this.persist();
+    return { channels, messages, skipped };
   }
 
   /**
@@ -472,6 +698,7 @@ export class CommsService {
     }
     for (const cat of this.categories) cat.chans = cat.chans.filter((c) => c.id !== channelId);
     delete this.messages[channelId];
+    this.persist();
   }
 
   private requireChannel(channelId: string): Channel {
@@ -496,9 +723,11 @@ export class CommsService {
       av: "bg-rdia-500",
       txt,
       time,
+      at: d.toISOString(),
       // La plateforme rend compte : ce n'est le message de personne.
       mine: false,
     });
+    this.persist();
   }
 
   /**
@@ -520,6 +749,7 @@ export class CommsService {
     if (membres.length) chan.members = membres;
     cat.chans.push(chan);
     this.messages[chan.id] = [];
+    this.persist();
     return chan;
   }
 }

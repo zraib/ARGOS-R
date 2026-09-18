@@ -2121,6 +2121,145 @@
         ]
       }
     },
+    "/api/comms/channels/{id}/archive": {
+      "post": {
+        "operationId": "CommsController_archiveChannel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Une conversation directe ne s'archive pas."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Archiver un canal : conservé, lisible, en lecture seule, rangé sous « Archives » (audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/comms/channels/{id}/unarchive": {
+      "post": {
+        "operationId": "CommsController_unarchiveChannel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Rouvrir un canal archivé (audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/comms/channels/{id}/export": {
+      "get": {
+        "description": "Un fichier `iris-comms/1` avec le canal, ses membres et tous ses messages horodatés. Une conversation directe ne s'exporte que par ses correspondants.",
+        "operationId": "CommsController_exportChannel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Exporter un canal : le document JSON daté de sa conversation (ADR 0021)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/comms/export": {
+      "get": {
+        "operationId": "CommsController_exportAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Exporter tout le centre de communication (administration) — canaux, membres, messages horodatés",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/comms/import": {
+      "post": {
+        "description": "Chaque canal du document est repris, archivé, dans le groupe « ARCHIVES IMPORTÉES », avec ses messages, leurs auteurs et leurs horodatages. Rien n'est fusionné dans un canal en cours ; un canal déjà repris du même export est sauté.",
+        "operationId": "CommsController_importDocument",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportCommsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Le document n'est pas un export iris-comms/1."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Importer un export : ses canaux deviennent des archives (audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/comms/responsables": {
       "get": {
         "description": "Une ligne par (entité, titulaire) et par (incident, poste déployé). L'état de connexion vient du flux de présence.",
@@ -7186,6 +7325,153 @@
           "name",
           "mime",
           "bytes"
+        ]
+      },
+      "ImportedMessageDto": {
+        "type": "object",
+        "properties": {
+          "txt": {
+            "type": "string",
+            "description": "Texte du message."
+          },
+          "id": {
+            "type": "number",
+            "description": "Identifiant d'origine — sans effet : l'import en attribue un nouveau."
+          },
+          "who": {
+            "type": "string",
+            "description": "Nom affiché de l'auteur."
+          },
+          "author": {
+            "type": "string",
+            "description": "Matricule de l'auteur."
+          },
+          "time": {
+            "type": "string",
+            "description": "Heure affichée (HH:MM)."
+          },
+          "at": {
+            "type": "string",
+            "description": "Horodatage ISO complet."
+          },
+          "initials": {
+            "type": "string"
+          },
+          "av": {
+            "type": "string"
+          },
+          "mine": {
+            "type": "boolean",
+            "description": "Sans effet à l'import : un message repris n'est à personne."
+          },
+          "attachment": {
+            "description": "La FICHE de la pièce jointe ; son contenu ne voyage pas avec l'export.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MessageAttachmentDto"
+              }
+            ]
+          },
+          "deliveredBy": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "readBy": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "txt"
+        ]
+      },
+      "ImportedChannelDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identifiant dans l'export d'origine — sert à ne pas reprendre deux fois le même canal."
+          },
+          "name": {
+            "type": "string",
+            "example": "Séisme Al Haouz"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "text",
+              "voice"
+            ]
+          },
+          "topic": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "description": "Nom du groupe d'origine, gardé pour mémoire."
+          },
+          "incidentId": {
+            "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "direct": {
+            "type": "boolean",
+            "description": "Conversation directe : reste réservée à ses deux correspondants."
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportedMessageDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "messages"
+        ]
+      },
+      "ImportCommsDto": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "iris-comms/1"
+            ],
+            "description": "Format du document ; tout autre est refusé."
+          },
+          "exportedAt": {
+            "type": "string",
+            "description": "Date de l'export (ISO) — reprise dans le nom des archives importées."
+          },
+          "exportedBy": {
+            "type": "string",
+            "description": "Qui a exporté, pour mémoire."
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportedChannelDto"
+            }
+          }
+        },
+        "required": [
+          "format",
+          "exportedAt",
+          "channels"
         ]
       },
       "SendMessageDto": {

@@ -64,7 +64,8 @@ describe("Publieur opérationnel — la boucle devient visible", () => {
     const { publisher, comms } = await build();
     await publisher.publish(ev("mission.accepted", snap({ state: "accepted" })));
     const chan = comms.channelForIncident("INC-2613");
-    expect(chan.name).toBe("inc-2613");
+    // Sans titre connu, le canal porte la référence telle quelle (ADR 0021).
+    expect(chan.name).toBe("INC-2613");
     const msgs = comms.all().messages[chan.id];
     expect(msgs[msgs.length - 1].txt).toContain("ACCUSÉ RÉCEPTION");
     // Message de la plateforme, pas de l'opérateur.
