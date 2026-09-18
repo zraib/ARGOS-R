@@ -16,7 +16,12 @@ ARG NODE_IMAGE=node:22-alpine
 FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
+# Cache npm partagé entre les constructions (montage BuildKit) et téléchargements
+# patients : une coupure réseau en cours d'installation (ECONNRESET) se rejoue
+# sur ce qui manque au lieu de repartir de zéro — décisif pour une image amd64
+# fabriquée sous émulation, où l'installation dure longtemps.
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --no-fund --fetch-retries=6 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=180000 --fetch-timeout=900000
 
 # --- 2. compilation ---------------------------------------------------------
 FROM ${NODE_IMAGE} AS build
