@@ -1,0 +1,46 @@
+﻿fonctionnalité;libellé;Super Administrateur;Administrateur;Chef / DIREX;Eval / DIREX;Anim / DIREX;RLS / DIREX (renseignement, logistique, sécurité);Chef / PC FAR;OPS / PC FAR;LOG / PC FAR;Planif & Rens / PC FAR;SYNTH / PC FAR;Chef / PCF;OPS / PCF;LOG / PCF;Planif & Rens / PCF;SYNTH / PCF;Chef / PCT;Ops / PCT;LOG / PCT;Rens / PCT;Chef / PCO;Ops / PCO;LOG / PCO;Rens & Com / PCO;Commandant d'unité;Directeur d'hôpital;Chef d'abri;Directeur de morgue
+;échelon;Administration;Administration;DIREX;DIREX;DIREX;DIREX;PC FAR;PC FAR;PC FAR;PC FAR;PC FAR;PCF;PCF;PCF;PCF;PCF;PCT;PCT;PCT;PCT;PCO;PCO;PCO;PCO;Entités;Entités;Entités;Entités
+;identifiant;superadmin;admin;direx_chef;direx_eval;direx_anim;direx_rls;pcfar_chef;pcfar_ops;pcfar_log;pcfar_planif_rens;pcfar_synth;pcf_chef;pcf_ops;pcf_log;pcf_planif_rens;pcf_synth;pct_chef;pct_ops;pct_log;pct_rens;pco_chef;pco_ops;pco_log;pco_rens_com;resp_unit;resp_hospital;resp_shelter;resp_morgue
+dashboard;Tableau de bord général;*;ALL;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V
+dash_incident;Tableau de bord Incident;*;ALL;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V
+dash_hospital;Tableau de bord Hôpital;*;ALL;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;;V;;
+dash_shelter;Tableau de bord Abri;*;ALL;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;;;V;
+dash_morgue;Tableau de bord Morgue;*;ALL;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;;V;;V
+dash_unit;Tableau de bord Unité;*;ALL;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;;;
+map;Carte;*;ALL;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V
+incidents;Incident;*;ALL;ALL;V;ALL;V;ALL;AMV;V;V;V;ALL;AMV;V;V;V;VM;V;V;V;VM;V;V;V;;V;;
+subincidents;Sous-incidents;*;ALL;ALL;V;ALL;V;ALL;AMV;V;AMV;V;ALL;AMV;V;AMV;V;ALL;AMV;V;V;ALL;AMV;V;V;;;;
+victims;Bilan des victimes;*;ALL;ALL;V;ALL;V;ALL;AMV;V;V;V;ALL;AMV;V;V;V;ALL;AMV;AMV;V;ALL;AMV;AMV;V;AMV;AMV;;V
+hospinet;Hospinet;*;ALL;V;V;AMV;V;V;V;AMV;V;V;V;V;AMV;V;V;V;V;AMV;V;V;V;AMV;V;;AMV;;
+shelters;Abri;*;ALL;V;V;AMV;AMV;V;V;AMV;V;V;V;V;AMV;V;V;V;;;;V;;;;;;AMV;
+morgue;Morgue;*;ALL;V;V;AMV;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;;V;;AMV
+units;Unité;*;ALL;AMV;V;AMV;V;AMV;AMV;V;V;V;AMV;AMV;V;V;V;V;AMV;AMV;AMV;V;AMV;AMV;AMV;AMV;;;
+equipment;Gestion Équipement;*;ALL;V;V;AMV;AMV;V;V;AMV;V;V;V;V;AMV;V;V;V;V;AMV;V;V;V;AMV;V;V;;;
+teams;Unités / Équipes;*;ALL;AMV;V;AMV;V;AMV;AMV;V;V;V;AMV;AMV;V;V;V;V;AMV;AMV;AMV;V;AMV;AMV;AMV;V;;;
+comms;Centre de communication;*;ALL;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM
+reports;Rapports d'incidents;*;ALL;ALL;AMV;V;AMV;ALL;AMV;AMV;AMV;ALL;ALL;AMV;AMV;AMV;ALL;VM;V;V;AMV;VM;V;V;AMV;;;;
+analytics;Analytique;*;ALL;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;;;
+assistant;Assistant IA;*;ALL;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM
+users;Gestion des utilisateurs;*;ALL;;;;;;;;;;;;;;;;;;;;;;;;;;
+settings;Paramètres;*;ALL;;;;;;;;;;;;;;;;;;;;;;;;;;
+assign;Affectation des unités;*;ALL;V;V;V;V;AMV;AMV;V;V;V;AMV;AMV;V;V;V;V;V;V;V;V;V;V;V;V;;;
+deploy;Déploiement terrain;*;ALL;V;V;V;V;AMV;AMV;V;V;V;AMV;AMV;V;V;V;AMV;AMV;AMV;AMV;AMV;AMV;AMV;AMV;V;;;
+resources;Ressources (personnes, équipes, véhicules, logistique);*;ALL;V;V;ALL;AMV;V;V;AMV;V;V;V;V;AMV;V;V;V;ALL;ALL;ALL;V;ALL;ALL;ALL;ALL;ALL;ALL;V
+weather;Météo;*;ALL;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V
+plume;Simulation NRBC (panache);*;ALL;AMV;V;AMV;AMV;V;V;;AMV;V;V;V;;AMV;V;V;;;V;V;;;V;;;;
+dispatch;Répartiteur;*;V;V;V;V;AMV;AMV;AMV;AMV;V;V;AMV;AMV;AMV;V;V;AMV;AMV;AMV;;AMV;AMV;AMV;;;;;
+triage;Triage de masse;*;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;AMV;;V;V;AMV;;V;;;;V
+ics;Formulaires ICS;*;V;V;V;V;V;V;AMV;V;AMV;V;V;AMV;V;AMV;V;V;AMV;;V;V;AMV;;V;;;;
+damage;Évaluation des dommages;*;V;V;V;AMV;V;V;V;V;AMV;V;V;V;V;AMV;V;V;V;;AMV;V;V;;AMV;;;;
+orsec;Tableau ORSEC;*;V;V;V;V;V;AMV;AMV;V;ALL;V;AMV;AMV;V;ALL;V;AMV;;;;AMV;;;;;;;
+plans;Plans;*;V;V;V;V;V;AMV;V;V;ALL;V;AMV;V;V;ALL;V;V;;;;V;;;;;;;
+personnel;Personnel;*;V;;V;AMV;AMV;;;AMV;V;V;;;AMV;V;V;;;AMV;;;;AMV;;V;;;
+workorders;Bons de travail;*;V;;V;;AMV;;;AMV;V;V;;;AMV;V;V;;;AMV;;;;AMV;;;;;
+seismic;Sismologie & météo;*;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;;;V;V;;;;;;
+audit;Journal d'audit;*;V;V;V;;V;;;;;;;;;;;;;;;;;;;;;;
+aviation;Suivi aérien;*;ALL;AMV;V;AMV;AMV;AMV;V;V;AMV;V;AMV;V;V;AMV;V;AMV;V;V;V;AMV;V;V;V;;;;
+tracking;Traceurs GPS (FMC920);*;ALL;AMV;V;AMV;AMV;AMV;AMV;V;AMV;V;AMV;AMV;V;AMV;V;AMV;V;V;AMV;AMV;V;V;AMV;V;V;V;V
+comms_admin;Administration des canaux;*;ALL;AMV;;;AMV;;;;;;;;;;;;;;;;;;AMV;;;;
+map_edit;Édition de la carte (postes d'opération);*;;AMV;;AMV;V;AMV;AMV;;V;;AMV;AMV;;V;;AMV;AMV;AMV;AMV;AMV;AMV;AMV;AMV;;;;
+nrbc;NRBC;*;ALL;AMV;V;AMV;AMV;AMV;V;V;AMV;V;AMV;V;V;AMV;V;AMV;V;V;AMV;AMV;V;V;AMV;;;;
+missions;Missions (boucles opérationnelles);*;ALL;V;V;V;V;AMV;AMV;AMV;V;V;AMV;AMV;AMV;V;V;AMV;AMV;V;V;AMV;AMV;V;V;AMV;AMV;AMV;AMV
