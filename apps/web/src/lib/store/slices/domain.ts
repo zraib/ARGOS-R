@@ -35,7 +35,6 @@ import type {
   Unit,
   VehRoute,
 } from "@/lib/types";
-import { hospKind } from "@/lib/hospitals";
 import { FEED_POOL } from "@/lib/data/seed";
 import { api } from "@/lib/api";
 import type { QueueItem, TransportMovement } from "@/lib/data/dispatch";
@@ -134,7 +133,8 @@ export interface DomainSlice {
    */
   loadDomain: (opts?: { ai?: boolean }) => Promise<void>;
   addIncident: (inc: Incident) => void;
-  deployFieldHospital: (h: Hospital) => void;
+  /** Déploie un hôpital de campagne de `h` au point choisi sur la carte (API). Rend `true` si l'API a accepté. */
+  deployFieldHospital: (h: Hospital, ll: [number, number], cap?: number, incidentId?: string) => Promise<boolean>;
   /** Mise à jour locale optimiste d'un hôpital (services, capacités…) */
   patchHospital: (id: string, patch: Partial<Hospital>) => void;
   selectChannel: (id: string) => void;
@@ -327,27 +327,15 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
     // Recalcul IA prédictions
     get().recomputeRiskPredictions();
   },
-  deployFieldHospital: (h) => {
-    set((s) => {
-      const n = s.fieldHosps.filter((f) => f.hid === h.id).length + 1;
-      // Le détachement hérite du réseau de son hôpital de rattachement :
-      // HMC = hôpital militaire de campagne, HCC = hôpital civil de campagne.
-      const mil = hospKind(h) === "mil";
-      const entry: FieldHospital = {
-        hid: h.id,
-        kind: mil ? "mil_field" : "civ_field",
-        nom: `${mil ? "HMC" : "HCC"} ${h.ville} — Détachement ${n}`,
-        cap: 40,
-        occ: 0,
-        statut: "partial",
-        depuis: "J+0",
-        x: h.x + 8 + n * 4,
-        y: h.y + 10 + n * 3,
-        ll: [h.ll[0] + 0.05 * n, h.ll[1] - 0.04 * n],
-      };
-      return { fieldHosps: [...s.fieldHosps, entry] };
-    });
+  deployFieldHospital: async (h, ll, cap, incidentId) => {
+    // Le détachement est posé PAR L'API, au point choisi sur la carte : il se
+    // dessine sur la carte de chaque poste et survit au rechargement. Avant,
+    // il ne vivait que dans ce store, décalé d'un pas fixe près de l'hôpital.
+    const res = await api.deployFieldHospital({ hospitalId: h.id, ll, ...(cap ? { cap } : {}), ...(incidentId ? { incidentId } : {}) });
+    if (res.error) return false;
+    await get().loadDomain({ ai: false });
     get().recomputeRiskPredictions();
+    return true;
   },
   patchHospital: (id, patch) => {
     set((s) => ({
@@ -575,7 +563,13 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
         void get().loadDomain();
       });
   },
-  relieveUnit: (unitId) => set((s) => ({ engagements: s.engagements.filter((e) => e.unitId !== unitId) })),
+  relieveUnit: (unitId) => {
+    // Relever une unité, c'est ANNULER l'ordre qui l'engageait : l'API retire
+    // l'engagement (intervenante, affectation) et le commandant en est informé.
+    const eng = get().engagements.find((e) => e.unitId === unitId);
+    set((s) => ({ engagements: s.engagements.filter((e) => e.unitId !== unitId) }));
+    if (eng) void get().actOnMission(eng.id, "cancel", "Relevée par le répartiteur");
+  },
   resolveQueueItem: (id) => set((s) => ({ queue: s.queue.filter((q) => q.id !== id) })),
   // Le tick de simulation n'a de sens qu'en profil « demo » : sur une station
   // en service, rien ne bouge que l'on n'ait déclaré.

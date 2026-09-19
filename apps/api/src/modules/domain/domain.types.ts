@@ -15,6 +15,13 @@ export interface Incident {
   /** Type d'incident : identifiant du catalogue paramétrable (IncidentTypesService). */
   type: string;
   titre: string;
+  /**
+   * Incident PARENT : un incident rattaché à un autre est un incident entier
+   * (type du catalogue, lieu, bilan, moyens — les mêmes étapes que la
+   * déclaration), déclaré depuis la fiche du parent et présenté sous lui.
+   * Les sous-incidents (`subIncidents`) restent les aléas secondaires légers.
+   */
+  parentId?: string;
   region: string;
   /** Adresse / lieu-dit saisi à la déclaration (optionnel). */
   adresse?: string;
@@ -118,6 +125,8 @@ export interface UnitAssignment {
   /** Déployée sur le terrain ; absent tant qu'elle attend au PC. */
   deployedAt?: string;
   deployedBy?: string;
+  /** Née d'un ORDRE du répartiteur (identifiant de la mission) : elle tombe avec lui. */
+  engagement?: string;
 }
 
 export interface Unit {
@@ -218,6 +227,12 @@ export interface FieldHospital {
   depuis: string;
   /** Réseau de rattachement : campagne militaire ou campagne civile. */
   kind?: "mil_field" | "civ_field";
+  /** Position choisie sur la carte au déploiement ([lng, lat]) ; absente pour les graines. */
+  ll?: [number, number];
+  /** Opération servie, quand le déploiement en désigne une. */
+  incidentId?: string;
+  deployedBy?: string;
+  deployedAt?: string;
 }
 
 /**

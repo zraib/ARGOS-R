@@ -160,6 +160,8 @@ export interface Dict {
   cancel: string;
   toast_ok: string;
   toast_field: string;
+  // Déploiement d'un hôpital de campagne au point choisi sur la carte
+  fh_title: string; fh_hint: string; fh_cap: string; fh_incident: string; fh_incident_none: string; fh_deploy: string;
   layers: string;
   legend: string;
   sel_none: string;
@@ -346,6 +348,8 @@ export interface Dict {
   det_personnel: string;
   det_vehicles: string;
   si_title: string;
+  // Incident rattaché à un autre (mêmes étapes que la déclaration)
+  wiz_nested_title: string; wiz_nested_of: string; wiz_nested_add: string; wiz_nested_badge: string;
   si_add: string;
   si_type: string;
   si_note: string;

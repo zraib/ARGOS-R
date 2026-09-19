@@ -34,6 +34,7 @@ import { RequirePermission } from "@/common/decorators/require-permission.decora
 import type { AuthUser } from "@/common/types/auth-user";
 import { responsibilityOfRole } from "@/shared/responsibilities";
 import { MissionService } from "@/modules/missions/application/mission.service";
+import { RealtimeService } from "@/modules/realtime/realtime.service";
 import {
   isMissionKind,
   isMissionState,
@@ -65,7 +66,16 @@ function actorOf(user: AuthUser): MissionActor {
 @ApiBearerAuth()
 @Controller("missions")
 export class MissionsController {
-  constructor(private readonly missions: MissionService) {}
+  constructor(
+    private readonly missions: MissionService,
+    private readonly realtime: RealtimeService,
+  ) {}
+
+  /** Un ordre engage ou désengage une unité (publieur) : les postes relisent unités et opérations. */
+  private announce<T extends { payload: { kind: string } }>(res: T): T {
+    if (res.payload.kind === "order") this.realtime.emit({ kind: "domain", what: "units" });
+    return res;
+  }
 
   @Get()
   @RequirePermission("missions:view")
@@ -126,7 +136,7 @@ export class MissionsController {
   @ApiResponse({ status: 400, description: "Corps invalide ou nature de mission inconnue." })
   async issue(@Body() dto: IssueMissionDto, @CurrentUser() user: AuthUser) {
     const me = actorOf(user);
-    return this.run(() =>
+    return this.announce(await this.run(() =>
       this.missions.issue(
         {
           incidentId: dto.incidentId,
@@ -139,7 +149,7 @@ export class MissionsController {
         },
         me.userId,
       ),
-    );
+    ));
   }
 
   @Post(":id/accept")
@@ -148,7 +158,7 @@ export class MissionsController {
   @ApiResponse({ status: 403, description: "Vous n'êtes pas le destinataire de cette mission." })
   @ApiResponse({ status: 409, description: "Transition impossible dans l'état courant." })
   async accept(@Param("id") id: string, @CurrentUser() user: AuthUser) {
-    return this.run(() => this.missions.accept(id, actorOf(user)));
+    return this.announce(await this.run(() => this.missions.accept(id, actorOf(user))));
   }
 
   @Post(":id/decline")
@@ -157,7 +167,7 @@ export class MissionsController {
   @ApiResponse({ status: 400, description: "Motif manquant." })
   @ApiResponse({ status: 403, description: "Vous n'êtes pas le destinataire de cette mission." })
   async decline(@Param("id") id: string, @Body() dto: ReasonDto, @CurrentUser() user: AuthUser) {
-    return this.run(() => this.missions.decline(id, actorOf(user), dto.reason));
+    return this.announce(await this.run(() => this.missions.decline(id, actorOf(user), dto.reason)));
   }
 
   @Post(":id/milestone")
@@ -174,7 +184,7 @@ export class MissionsController {
   @ApiOperation({ summary: "Clore la boucle — réservé au destinataire." })
   @ApiResponse({ status: 403, description: "Vous n'êtes pas le destinataire de cette mission." })
   async complete(@Param("id") id: string, @CurrentUser() user: AuthUser) {
-    return this.run(() => this.missions.complete(id, actorOf(user)));
+    return this.announce(await this.run(() => this.missions.complete(id, actorOf(user))));
   }
 
   @Post(":id/cancel")
@@ -183,7 +193,7 @@ export class MissionsController {
   @ApiResponse({ status: 400, description: "Motif manquant." })
   @ApiResponse({ status: 403, description: "Seul l'émetteur peut annuler." })
   async cancel(@Param("id") id: string, @Body() dto: ReasonDto, @CurrentUser() user: AuthUser) {
-    return this.run(() => this.missions.cancel(id, actorOf(user), dto.reason));
+    return this.announce(await this.run(() => this.missions.cancel(id, actorOf(user), dto.reason)));
   }
 
   /**

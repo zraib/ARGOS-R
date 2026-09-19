@@ -75,6 +75,10 @@ export class CreateIncidentDto {
   @MinLength(1)
   type!: string;
 
+  @ApiPropertyOptional({ example: "INC-2623", description: "Incident parent : l'incident déclaré lui est rattaché (exige « Sous-incidents : ajouter »)." })
+  @IsOptional() @IsString() @MaxLength(40)
+  parentId?: string;
+
   @ApiProperty()
   @IsString()
   @MinLength(1)
@@ -485,6 +489,33 @@ export class CreateUnitDto {
 }
 
 /** Création d'un établissement de santé (réseau militaire ou civil). */
+/** Déploiement d'un hôpital de campagne à un point choisi sur la carte. */
+export class DeployFieldHospitalDto {
+  @ApiProperty({ example: "H1", description: "Établissement de rattachement (HMC pour un hôpital militaire, HCC pour un civil)" })
+  @IsString()
+  @MinLength(1)
+  hospitalId!: string;
+
+  @ApiProperty({ type: [Number], description: "[lng, lat] — le point choisi sur la carte" })
+  @IsArray()
+  @ArrayMinSize(2)
+  @ArrayMaxSize(2)
+  @IsNumber({}, { each: true })
+  ll!: [number, number];
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 2000, description: "Capacité en lits (40 par défaut)" })
+  @IsOptional() @IsInt() @Min(1) @Max(2000)
+  cap?: number;
+
+  @ApiPropertyOptional({ description: "Nom du détachement ; sinon « HMC/HCC <ville> — Détachement n »" })
+  @IsOptional() @IsString() @MaxLength(120)
+  nom?: string;
+
+  @ApiPropertyOptional({ description: "Opération servie : l'établissement en devient intervenant" })
+  @IsOptional() @IsString() @MaxLength(40)
+  incidentId?: string;
+}
+
 export class CreateHospitalDto {
   @ApiProperty({ example: "Hôpital Militaire de Tanger" })
   @IsString()

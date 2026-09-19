@@ -155,6 +155,8 @@ provisionnées (§ 4). Réglages dans `.env` :
 - `VALHALLA_TILE_URLS=` (vide) — Valhalla lit l'extrait OSM déjà déposé par
   `tiles-fetch pbf` au lieu de le télécharger ;
 - `AVIATION_FEED=exercise` — le suivi aérien passe en noria simulée.
+- `INCIDENTS_VISIBILITY` — `all` (défaut : tout incident se voit de tous les rôles) ou `scoped`
+  (cantonnement par région, opération de déploiement, entité — doctrine V-1).
 - `FLOOD_API_KEY` vide (défaut) — les prévisions de crue (ADR 0010) viennent
   de GloFAS via Open-Meteo, sans clé ; posée, la clé bascule le courtier sur
   Google Flood Hub (jauges, seuils et cartes d'inondation du fournisseur).

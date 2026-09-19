@@ -99,8 +99,8 @@ describe("Mode de l'application — réglage de station", () => {
     expect(me.profile).toBe("direx");
     expect(me.permissions).toContain("assign:create");
     expect(me.permissions).not.toContain("users:view");
-    // Non déployé, il ne voit aucun incident (default-deny) — comme l'OPCOM classique.
-    expect((await base().get("/api/incidents").set(bearer(chef.access_token)).expect(200)).body).toEqual([]);
+    // Tout incident se voit de tous (décision du 19 septembre 2026) : la liste lui est servie.
+    await base().get("/api/incidents").set(bearer(chef.access_token)).expect(200);
 
     // L'administration et les chefs d'entité passent dans les deux modes.
     await base().get("/api/iam/me").set(bearer(root)).expect(200);

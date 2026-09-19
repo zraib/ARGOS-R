@@ -300,6 +300,24 @@ cd C:\iris\deploy
   (commandant d'unité, directeur d'hôpital, chef d'abri, directeur de
   morgue) : l'entité s'affecte plus tard depuis la fiche du compte ; sans
   elle, le compte ne voit rien.
+- **Tout incident déclaré se voit de tous** les rôles (liste, fiche, tableau
+  de bord d'incident), plus seulement sur la carte ; `INCIDENTS_VISIBILITY=scoped`
+  dans `.env` rétablit l'ancien cantonnement par portée.
+- **La répartition engage vraiment** : un ordre émis depuis *Répartition*
+  rend l'unité intervenante et affectée à l'opération ; son commandant voit
+  l'opération et reçoit l'ordre dans *Ordres reçus* ; relever l'unité annule
+  l'ordre. Les engagements viennent de l'API et survivent au rechargement.
+- **Hôpital de campagne** : depuis la fiche d'un établissement (*Hôpitaux de
+  campagne › Déployer*), le point se choisit sur la carte ; le détachement se
+  dessine chez tous.
+- **Incident rattaché** : sur toute ligne d'incident, l'action « Rattacher un
+  incident » ouvre la déclaration complète (mêmes étapes) d'un incident présenté
+  sous son parent ; elle suit la fonctionnalité « Sous-incidents » du rôle.
+  Déclarer, modifier et rattacher suivent désormais la permission servie par
+  l'API — qui peut déclarer en déclare autant qu'il veut.
+- Les bascules de fonctionnalités d'un rôle sont désormais persistées comme
+  écarts aux défauts ; celles enregistrées par le paquet du 19 septembre
+  (`ca50468`) sont reprises à leurs défauts à la mise à jour.
 - Le mode et les bascules sont persistés dans le volume de l'API
   (`settings.json`, instantané IAM) : la sauvegarde d'`upgrade.ps1` les
   emporte, la remise en arrière (§ 8) les rend.

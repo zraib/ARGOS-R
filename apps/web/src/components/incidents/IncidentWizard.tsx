@@ -36,6 +36,7 @@ export function IncidentWizard() {
   const open = useArgos((s) => s.wizOpen);
   const initLL = useArgos((s) => s.wizInitLL);
   const wizEdit = useArgos((s) => s.wizEdit);
+  const wizParent = useArgos((s) => s.wizParent);
   const close = useArgos((s) => s.closeWizard);
   const loadDomain = useArgos((s) => s.loadDomain);
   const provinces = useArgos((s) => s.provinces);
@@ -162,7 +163,7 @@ export function IncidentWizard() {
       if (wizEdit) {
         await api.updateIncident(wizEdit.id, body as never);
       } else {
-        await api.createIncident({ ...body, sev: "medium", st: "open" } as never);
+        await api.createIncident({ ...body, sev: "medium", st: "open", ...(wizParent ? { parentId: wizParent.id } : {}) } as never);
       }
       await loadDomain();
       showToast(t.toast_ok);
@@ -176,8 +177,13 @@ export function IncidentWizard() {
   };
 
   return (
-    <Modal open={open} title={wizEdit ? t.edit_title : t.wiz_title} onClose={onClose} size="xl">
+    <Modal open={open} title={wizEdit ? t.edit_title : wizParent ? t.wiz_nested_title : t.wiz_title} onClose={onClose} size="xl">
       <div className="flex flex-col gap-5">
+        {wizParent && (
+          <p className="rounded-lg border border-or-500/30 bg-or-500/10 px-3 py-2 text-[12px] text-gray-700 dark:text-rdia-100">
+            <span className="font-semibold">{t.wiz_nested_of}</span> <span className="font-mono">{wizParent.id}</span> · {wizParent.titre}
+          </p>
+        )}
         <Stepper steps={[t.wz1, t.wz2, t.wz3, t.wz4]} step={step} />
 
         {step === 1 && <StepType types={incidentTypes} lang={lang} value={form.type} onSelect={(id) => actions.patch({ type: id })} />}

@@ -78,6 +78,14 @@ describe("Fonctionnalités par rôle", () => {
     await base().post(`/api/incidents/${inc}/sub-incidents`).set(bearer(tacom)).send(body).expect(201);
   });
 
+  it("une fonctionnalité que la matrice vient d'ouvrir à un rôle n'est pas masquée par un « non » persisté d'avant", async () => {
+    // Le commandant d'unité lit les incidents depuis le 19 septembre 2026 : ses grants servis le disent.
+    const g = (await base().get("/api/iam/role-grants").set(bearer(root)).expect(200)).body;
+    expect(g.resp_unit.incidents).toBe(true);
+    const cdt = await jeton("n.fassi", "resp_unit");
+    await base().get("/api/incidents").set(bearer(cdt)).expect(200);
+  });
+
   it("le cœur et les administrateurs sont verrouillés ; une fonctionnalité inconnue est refusée", async () => {
     await base().patch("/api/iam/role-grants/tacom").set(bearer(root)).send({ feature: "users", enabled: true }).expect(400);
     await base().patch("/api/iam/role-grants/admin").set(bearer(root)).send({ feature: "incidents", enabled: false }).expect(403);

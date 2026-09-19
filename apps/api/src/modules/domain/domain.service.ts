@@ -902,7 +902,86 @@ export class DomainService implements OnApplicationBootstrap {
   entitiesOnIncident(incidentId: string): string[] {
     const inc = this.incidents.find((i) => i.id === incidentId);
     const morgues = new Set(this.mortuaryRecords.filter((r) => r.incidentId === incidentId).map((r) => r.mid));
-    return [...(inc?.responders?.units ?? []), ...(inc?.responders?.hospitals ?? []), ...(inc?.responders?.morgues ?? []), ...morgues];
+    // Les unités AFFECTÉES (OPCOM, engagement du répartiteur) servent l'opération au même titre que les intervenants déclarés.
+    const assigned = (inc?.assignments ?? []).map((a) => a.unitId);
+    return [...new Set([...(inc?.responders?.units ?? []), ...assigned, ...(inc?.responders?.hospitals ?? []), ...(inc?.responders?.morgues ?? []), ...morgues])];
+  }
+
+  /**
+   * ENGAGE une unité sur une opération par un ordre du répartiteur : elle
+   * devient intervenante (`responders.units`) et, si elle n'est affectée
+   * nulle part, affectée à l'opération (destination par corps) — l'affectation
+   * porte l'identifiant de l'ordre et tombera avec lui. Son commandant voit
+   * dès lors l'opération et l'engagement. Une unité déjà affectée ailleurs
+   * n'est pas déplacée : elle est seulement déclarée intervenante ici.
+   */
+  engageUnit(unitId: string, incidentId: string, actor: string, missionId: string): boolean {
+    const inc = this.incidents.find((i) => i.id === incidentId);
+    const unit = this.units.find((u) => u.id === unitId);
+    if (!inc || !unit || inc.archived || inc.st === "closed") return false;
+    inc.responders ??= { units: [], hospitals: [] };
+    if (!inc.responders.units.includes(unitId)) inc.responders.units.push(unitId);
+    if (!unit.assignment) {
+      const destination = destinationFor(unit.corps ?? "far");
+      inc.assignments ??= [];
+      inc.assignments.push({ unitId, destination, by: actor, at: new Date().toISOString(), engagement: missionId });
+      unit.assignment = { incidentId, destination, deployed: false };
+    }
+    // Pas de ligne de fil ici : l'ordre lui-même s'y inscrit (« ORDRE ÉMIS »).
+    this.persist();
+    return true;
+  }
+
+  /** L'ordre est refusé, annulé ou terminé : l'engagement qu'il portait tombe (l'affectation d'un OPCOM, elle, reste). */
+  disengageUnit(unitId: string, incidentId: string, missionId: string): void {
+    const inc = this.incidents.find((i) => i.id === incidentId);
+    const unit = this.units.find((u) => u.id === unitId);
+    if (!inc) return;
+    const a = inc.assignments?.find((x) => x.unitId === unitId);
+    if (a && a.engagement === missionId && !a.deployedAt) {
+      inc.assignments = (inc.assignments ?? []).filter((x) => x.unitId !== unitId);
+      if (unit?.assignment?.incidentId === incidentId) delete unit.assignment;
+    }
+    const encoreAffectee = inc.assignments?.some((x) => x.unitId === unitId) ?? false;
+    if (!encoreAffectee && inc.responders?.units) inc.responders.units = inc.responders.units.filter((u) => u !== unitId);
+    this.persist();
+  }
+
+  /**
+   * Déploie un hôpital de campagne d'un établissement à un point choisi sur la
+   * carte : le détachement hérite du réseau de son hôpital (HMC / HCC) et se
+   * dessine à sa position. Persisté comme le reste du domaine.
+   */
+  deployFieldHospital(input: { hospitalId: string; ll: [number, number]; cap?: number; nom?: string; incidentId?: string }, actor: string): { field?: FieldHospital; error?: string } {
+    const h = this.hospitals.find((x) => x.id === input.hospitalId);
+    if (!h) return { error: `Établissement introuvable : ${input.hospitalId}.` };
+    if (input.incidentId && !this.incidents.some((i) => i.id === input.incidentId)) return { error: `Incident inconnu : ${input.incidentId}.` };
+    const mil = (h.kind ?? "mil") === "mil";
+    const n = this.fieldHospitals.filter((f) => f.hid === h.id).length + 1;
+    const field: FieldHospital = {
+      hid: h.id,
+      nom: input.nom?.trim() || `${mil ? "HMC" : "HCC"} ${h.ville} — Détachement ${n}`,
+      cap: input.cap ?? 40,
+      occ: 0,
+      statut: "partial",
+      depuis: "J+0",
+      kind: mil ? "mil_field" : "civ_field",
+      ll: input.ll,
+      ...(input.incidentId ? { incidentId: input.incidentId } : {}),
+      deployedBy: actor,
+      deployedAt: new Date().toISOString(),
+    };
+    this.fieldHospitals.push(field);
+    if (input.incidentId) {
+      const inc = this.incidents.find((i) => i.id === input.incidentId);
+      if (inc) {
+        inc.responders ??= { units: [], hospitals: [] };
+        if (!inc.responders.hospitals.includes(h.id)) inc.responders.hospitals.push(h.id);
+      }
+    }
+    this.pushFeed(`Hôpital de campagne déployé : ${field.nom} — par ${actor}`, "bg-green-500", input.incidentId);
+    this.persist();
+    return { field };
   }
 
   /**

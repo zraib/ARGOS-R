@@ -121,6 +121,8 @@ export interface NrbcPlume {
 
 export interface Incident {
   id: string;
+  /** Incident parent : un incident entier rattaché à un autre, présenté sous lui. */
+  parentId?: string;
   type: IncidentType;
   titre: string;
   region: string;
@@ -336,6 +338,10 @@ export interface FieldHospital {
   x?: number;
   y?: number;
   ll?: [number, number];
+  /** Opération servie, qui a posé le détachement, et quand (déploiement par l'API). */
+  incidentId?: string;
+  deployedBy?: string;
+  deployedAt?: string;
 }
 
 export interface FeedItem {

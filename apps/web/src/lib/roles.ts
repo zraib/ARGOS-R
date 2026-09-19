@@ -270,17 +270,6 @@ export function isSuperAdmin(role: Role): boolean {
   return role === "superadmin";
 }
 
-/**
- * Rôles autorisés à déclarer un incident — miroir de la permission serveur
- * `incidents:create` (l'API reste l'autorité ; ceci ne fait que masquer l'UI).
- */
-export function canReportIncident(role: Role): boolean {
-  return (
-    role === "superadmin" || role === "tacom" || role === "pco" || role === "pct" || role === "bluecell" ||
-    // Profil « direx » : la DIREX déclare (Chef, Anim), les chefs de PC tactiques et leurs cellules Ops rendent compte.
-    role === "direx_chef" || role === "direx_anim" || role === "pct_chef" || role === "pco_chef" || role === "pct_ops" || role === "pco_ops"
-  );
-}
 
 /**
  * Rôles autorisés à DÉPLOYER un poste sur une opération — miroir de la

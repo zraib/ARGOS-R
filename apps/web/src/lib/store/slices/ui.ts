@@ -59,6 +59,9 @@ export interface UiSlice {
   wizEdit: Incident | null;
   /** Coordonnées [lng, lat] pré-remplies quand le wizard est ouvert depuis la carte */
   wizInitLL: [number, number] | null;
+  /** Incident parent quand on déclare un incident RATTACHÉ (mêmes étapes, présenté sous le parent). */
+  wizParent: Incident | null;
+  openWizardNested: (parent: Incident) => void;
   /** Signatures sonores activées sur ce poste (messages, autres notifications). */
   sounds: SoundPrefs;
   setLang: (lang: Lang) => void;
@@ -93,6 +96,7 @@ export const createUiSlice: StateCreator<ArgosState, [], [], UiSlice> = (set, ge
   copilotOpen: false,
   wizEdit: null,
   wizInitLL: null,
+  wizParent: null,
   sounds: DEFAULT_SOUNDS,
   setSound: (kind, on) =>
     set((s) => {
@@ -127,9 +131,11 @@ export const createUiSlice: StateCreator<ArgosState, [], [], UiSlice> = (set, ge
     set({ toast: msg });
     toastTimerRef.current = setTimeout(() => set({ toast: null }), 4000);
   },
-  openWizard: (initLL) => set({ wizOpen: true, wizInitLL: initLL ?? null, wizEdit: null }),
-  openWizardEdit: (inc) => set({ wizOpen: true, wizInitLL: null, wizEdit: inc }),
-  closeWizard: () => set({ wizOpen: false, wizInitLL: null, wizEdit: null }),
+  openWizard: (initLL) => set({ wizOpen: true, wizInitLL: initLL ?? null, wizEdit: null, wizParent: null }),
+  openWizardEdit: (inc) => set({ wizOpen: true, wizInitLL: null, wizEdit: inc, wizParent: null }),
+  // Rattaché : le point de départ est celui du parent, l'opérateur l'ajuste.
+  openWizardNested: (parent) => set({ wizOpen: true, wizInitLL: parent.ll, wizEdit: null, wizParent: parent }),
+  closeWizard: () => set({ wizOpen: false, wizInitLL: null, wizEdit: null, wizParent: null }),
   openCopilot: () => set({ copilotOpen: true }),
   closeCopilot: () => set({ copilotOpen: false }),
   toggleCopilot: () => set((s) => ({ copilotOpen: !s.copilotOpen })),

@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+// La carte de choix du point (MapLibre) ne se rend qu'au client.
+const LocationPreviewMap = dynamic(
+  () => import("@/components/incidents/LocationPreviewMap").then((m) => m.LocationPreviewMap),
+  { ssr: false },
+);
 import Link from "next/link";
 import { useArgos, useDict, useModules } from "@/lib/store";
 import { Badge } from "@/components/ui/Badge";
@@ -39,6 +45,14 @@ export default function HospinetPage() {
   const dataProfile = useArgos((s) => s.dataProfile);
   const fieldHosps = useArgos((s) => s.fieldHosps);
   const deployField = useArgos((s) => s.deployFieldHospital);
+  const activeIncidents = useArgos((s) => s.incidents);
+  // Déploiement d'un hôpital de campagne : le point se CHOISIT sur la carte,
+  // comme pour un incident, puis l'API le pose — il se dessine chez tous.
+  const [fieldOpen, setFieldOpen] = useState(false);
+  const [fieldPt, setFieldPt] = useState<[number, number] | null>(null);
+  const [fieldCap, setFieldCap] = useState(40);
+  const [fieldInc, setFieldInc] = useState("");
+  const [fieldBusy, setFieldBusy] = useState(false);
   const showToast = useArgos((s) => s.showToast);
   const [tab, setTab] = useState<"staff" | "beds" | "veh" | "field">("staff");
   // Onglets de la vue LISTE, repris de la disposition d'OPSnet : un bandeau
@@ -458,10 +472,52 @@ export default function HospinetPage() {
         </>
       )}
 
+      <Modal open={fieldOpen} size="lg" title={t.fh_title} onClose={() => setFieldOpen(false)}>
+        <div className="flex flex-col gap-4">
+          <p className="text-[12px] text-gray-500 dark:text-rdia-300">{t.fh_hint}</p>
+          <div className="flex min-h-[320px] flex-col">
+            <LocationPreviewMap value={fieldPt} onPick={setFieldPt} labels={{ hint: t.wz_map_hint, full: t.wz_fullscreen, exit: t.wz_exit_full }} />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1 text-[11px] font-semibold text-gray-600 dark:text-rdia-200">
+              {t.fh_cap}
+              <input type="number" min={1} max={2000} className="input-champ text-base md:text-sm" value={fieldCap} onChange={(e) => setFieldCap(Math.max(1, Number(e.target.value) || 1))} />
+            </label>
+            <label className="flex flex-col gap-1 text-[11px] font-semibold text-gray-600 dark:text-rdia-200">
+              {t.fh_incident}
+              <select className="input-champ text-base md:text-sm" value={fieldInc} onChange={(e) => setFieldInc(e.target.value)}>
+                <option value="">{t.fh_incident_none}</option>
+                {activeIncidents.filter((i) => i.st !== "closed" && !i.archived).map((i) => (
+                  <option key={i.id} value={i.id}>{i.id} · {i.titre}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {fieldPt && <p className="font-mono text-[11px] text-gray-500 dark:text-rdia-300">{fieldPt[1].toFixed(4)}, {fieldPt[0].toFixed(4)}</p>}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button className="btn-secondaire text-sm" onClick={() => setFieldOpen(false)} disabled={fieldBusy}>{t.cancel}</button>
+            <button
+              className="btn-primaire text-sm disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={!fieldPt || fieldBusy}
+              onClick={async () => {
+                if (!fieldPt) return;
+                setFieldBusy(true);
+                const ok = await deployField(hosp, fieldPt, fieldCap, fieldInc || undefined);
+                setFieldBusy(false);
+                showToast(ok ? t.toast_field : t.toast_fail);
+                if (ok) setFieldOpen(false);
+              }}
+            >
+              {fieldBusy ? "…" : t.fh_deploy}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       {tab === "field" && (
         <div className="flex flex-col gap-4">
           <div className="flex justify-end">
-            <button className="btn-primaire w-full text-sm sm:w-auto" onClick={() => { deployField(hosp); showToast(t.toast_field); }}>{t.deploy_field}</button>
+            <button className="btn-primaire w-full text-sm sm:w-auto" onClick={() => { setFieldPt(null); setFieldCap(40); setFieldOpen(true); }}>{t.deploy_field}</button>
           </div>
           {fields.length > 0 && (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">

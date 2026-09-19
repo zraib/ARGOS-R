@@ -85,10 +85,25 @@ export const createMissionsSlice: StateCreator<ArgosState, [], [], MissionsSlice
       const d = r.value.data as { missions?: Mission[] } | undefined;
       return d?.missions ?? [];
     };
+    const ouvertes = pick(open);
     set({
       missionInbox: pick(inbox),
       missionOutbox: pick(outbox),
-      resourceRequests: pick(open).filter((m) => m.kind === "resource_request"),
+      resourceRequests: ouvertes.filter((m) => m.kind === "resource_request"),
+      // Les ENGAGEMENTS du répartiteur sont les ordres ouverts adressés à une
+      // unité : ils viennent de l'API, pas de la mémoire du navigateur — un
+      // rechargement ne les efface plus, et chaque poste voit les mêmes.
+      engagements: ouvertes
+        .filter((m) => m.payload.kind === "order" && typeof m.payload.unitId === "string")
+        .map((m) => ({
+          id: m.id,
+          unitId: m.payload.unitId as string,
+          incidentId: m.incidentId,
+          reason: m.label.includes(" — ") ? m.label.slice(m.label.indexOf(" — ") + 3) : m.label,
+          via: (typeof m.payload.etaMin === "number" ? "reco" : "manual") as "manual" | "reco",
+          ...(typeof m.payload.etaMin === "number" ? { score: m.payload.etaMin } : {}),
+          time: new Date(m.issuedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+        })),
     });
   },
   loadPosture: async () => {

@@ -50,6 +50,8 @@ export type CreatePostBody = Json<NonNullable<paths["/api/incidents/{id}/posts"]
 export type UpdatePostBody = Json<NonNullable<paths["/api/incidents/{id}/posts/{postId}"]["patch"]["requestBody"]>>;
 /** Export du centre de communication, tel que l'import le reprend (ADR 0021). */
 export type ImportCommsBody = Json<NonNullable<paths["/api/comms/import"]["post"]["requestBody"]>>;
+/** Déploiement d'un hôpital de campagne à un point de la carte. */
+export type DeployFieldHospitalBody = Json<NonNullable<paths["/api/field-hospitals"]["post"]["requestBody"]>>;
 /** Fiche d'une pièce jointe versée — le contenu vit côté serveur (lot COMMS). */
 export type CommsAttachment = { id: string; name: string; mime: string; bytes: number };
 // Traceurs GPS FMC920 (lot N-2). Le type de la RÉPONSE est exporté aussi : la
@@ -395,6 +397,8 @@ export function createArgosClient(opts: ArgosClientOptions) {
     removeParkItem: (id: string, eid: string) =>
       client.DELETE("/api/equipment-parks/{id}/items/{eid}", { params: { path: { id, eid } } }),
     getFieldHospitals: () => client.GET("/api/field-hospitals"),
+    /** Déploie un hôpital de campagne au point choisi sur la carte (`hospinet:create`). */
+    deployFieldHospital: (body: DeployFieldHospitalBody) => client.POST("/api/field-hospitals", { body }),
     getFeed: () => client.GET("/api/feed"),
     getDispatchQueue: () => client.GET("/api/dispatch/queue"),
     getDispatchMovements: () => client.GET("/api/dispatch/movements"),

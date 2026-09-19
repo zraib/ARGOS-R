@@ -3,7 +3,6 @@
 import { useArgos, useDict } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
-import { canReportIncident } from "@/lib/roles";
 import type { Incident } from "@/lib/types";
 import { SubIncidentCard } from "@/app/incidents/_parts/SubIncidentCard";
 
@@ -11,7 +10,9 @@ import { SubIncidentCard } from "@/app/incidents/_parts/SubIncidentCard";
 export function SubIncidentSection({ incident, onAdd }: { incident: Incident; onAdd: () => void }) {
   const t = useDict();
   const role = useArgos((s) => s.role);
-  const canEdit = canReportIncident(role);
+  // La permission servie (« Sous-incidents : ajouter, modifier, supprimer »), commutable par rôle.
+  const can = useArgos((s) => s.can);
+  const canEdit = can("subincidents:create") || role === "superadmin";
   const subs = incident.subIncidents ?? [];
 
   return (

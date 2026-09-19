@@ -1696,7 +1696,11 @@ export interface paths {
          */
         get: operations["HospitalsController_fieldHospitals"];
         put?: never;
-        post?: never;
+        /**
+         * Déployer un hôpital de campagne à un point choisi sur la carte (audité).
+         * @description Le détachement hérite du réseau de son établissement (HMC / HCC), se dessine à sa position et, si une opération est désignée, en fait un intervenant.
+         */
+        post: operations["HospitalsController_deployFieldHospital"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3243,6 +3247,11 @@ export interface components {
              * @example earthquake
              */
             type: string;
+            /**
+             * @description Incident parent : l'incident déclaré lui est rattaché (exige « Sous-incidents : ajouter »).
+             * @example INC-2623
+             */
+            parentId?: string;
             titre: string;
             /**
              * @description Région administrative — DOIT appartenir au référentiel des 12 régions. Sans cette contrainte, « Oriental » et « L'Oriental » coexistaient et apparaissaient comme deux filtres distincts, et un wali affecté à l'une ne voyait pas les incidents libellés de l'autre.
@@ -3901,6 +3910,21 @@ export interface components {
             /** @enum {string} */
             statut?: "open" | "saturated" | "closed";
             chef?: string;
+        };
+        DeployFieldHospitalDto: {
+            /**
+             * @description Établissement de rattachement (HMC pour un hôpital militaire, HCC pour un civil)
+             * @example H1
+             */
+            hospitalId: string;
+            /** @description [lng, lat] — le point choisi sur la carte */
+            ll: number[];
+            /** @description Capacité en lits (40 par défaut) */
+            cap?: number;
+            /** @description Nom du détachement ; sinon « HMC/HCC <ville> — Détachement n » */
+            nom?: string;
+            /** @description Opération servie : l'établissement en devient intervenant */
+            incidentId?: string;
         };
         AuthorityContactDto: {
             /** @example Centre de Veille et de Coordination */
@@ -6877,6 +6901,28 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HospitalsController_deployFieldHospital: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeployFieldHospitalDto"];
+            };
+        };
+        responses: {
+            /** @description Établissement ou opération inconnus. */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

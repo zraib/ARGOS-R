@@ -171,9 +171,19 @@ export class IncidentsController {
   @Post("incidents")
   @RequirePermission("incidents:create")
   @ApiOperation({ summary: "Déclarer un incident (audité) — type validé contre le catalogue" })
-  createIncident(@Body() dto: CreateIncidentDto) {
+  createIncident(@Body() dto: CreateIncidentDto, @CurrentUser() user: AuthUser) {
     if (!this.incidentTypes.isValid(dto.type)) {
       throw new BadRequestException(`Type d'incident inconnu : ${dto.type}`);
+    }
+    if (dto.parentId) {
+      // Rattacher un incident à un autre relève de « Sous-incidents : ajouter »
+      // — la fonctionnalité que l'administration ouvre ou coupe par rôle.
+      const allowed = user.permissions === "*" || (user.permissions.includes("subincidents:create") && this.users.isFeatureGranted(user.role, "subincidents"));
+      if (!allowed) throw new ForbiddenException("Rattacher un incident à un autre exige « Sous-incidents : ajouter ».");
+      const parent = this.domain.listIncidents().find((i) => i.id === dto.parentId);
+      if (!parent) throw new BadRequestException(`Incident parent inconnu : ${dto.parentId}`);
+      if (parent.archived || parent.st === "closed") throw new BadRequestException(`L'incident parent ${dto.parentId} est clos ou archivé.`);
+      if (parent.parentId) throw new BadRequestException("Un incident rattaché ne porte pas lui-même d'incident rattaché.");
     }
     const inc = this.domain.createIncident(dto);
     // Tout incident naît avec son canal de coordination (ADR 0007, P1-a) : les

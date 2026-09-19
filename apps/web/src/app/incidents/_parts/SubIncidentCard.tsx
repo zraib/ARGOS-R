@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import { sevBadge, subTypeLabel} from "@/lib/helpers";
-import { canReportIncident } from "@/lib/roles";
 import type { Incident, SubIncident } from "@/lib/types";
 import {
   llTxt,
@@ -28,7 +27,9 @@ export function SubIncidentCard({ incident, sub }: { incident: Incident; sub: Su
   const hospitals = useArgos((s) => s.hospitals);
   const loadDomain = useArgos((s) => s.loadDomain);
   const showToast = useArgos((s) => s.showToast);
-  const canEdit = canReportIncident(role);
+  // La permission servie (« Sous-incidents : ajouter, modifier, supprimer »), commutable par rôle.
+  const can = useArgos((s) => s.can);
+  const canEdit = can("subincidents:create") || role === "superadmin";
   const [busy, setBusy] = useState(false);
 
   const sb = sevBadge(sub.sev, t);

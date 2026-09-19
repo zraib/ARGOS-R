@@ -171,6 +171,13 @@ export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice
           if (get().mapEdit) void get().loadPlaceable();
           return;
         }
+        if (e.kind === "domain") {
+          // Une unité engagée ou relevée, un hôpital de campagne posé : le
+          // domaine et les boucles se relisent — sans les modèles IA.
+          void get().loadDomain({ ai: false });
+          if ((e.data as { what?: string }).what === "units") void get().loadMissions();
+          return;
+        }
         if (e.kind === "channel") {
           // La structure a changé sous nos pieds : on la recharge plutôt que de
           // la rejouer à la main, une reconstitution partielle valant pire

@@ -212,7 +212,7 @@ export class UsersService implements ScopeResolver {
     // le mot de passe fondateur (et tous les comptes) SURVIVE aux redémarrages —
     // plus de « 1er login » à chaque lancement. Voir common/dev-store.
     // (Réinitialiser : supprimer le dossier .dev-data.)
-    const snap = loadDevState<{ users?: ManagedUser[]; roleFeatures?: Record<Role, Record<string, boolean>>; roleGrants?: Record<Role, Record<string, boolean>> }>("iam", {});
+    const snap = loadDevState<{ users?: ManagedUser[]; roleFeatures?: Record<Role, Record<string, boolean>>; roleGrants?: Record<Role, Record<string, boolean>>; roleGrantsVersion?: number }>("iam", {});
     if (snap.users && snap.users.length > 0) {
       // `online` est un état de session : on repart déconnecté après un restart.
       // Les rôles HÉRITÉS (avant la refonte de l'organisation) sont migrés vers
@@ -262,11 +262,18 @@ export class UsersService implements ScopeResolver {
         }
       }
     }
-    if (snap.roleGrants) {
+    // Les bascules de fonctionnalités ne sont persistées que comme ÉCARTS aux
+    // défauts (version 2) : une coupure décidée par l'administration. Un
+    // instantané de la version 1 écrivait la table entière — chaque « non »
+    // hérité de la matrice d'alors y passait pour une coupure, et masquait
+    // ensuite toute fonctionnalité qu'une mise à jour ouvrait au rôle (le
+    // commandant d'unité et la liste des incidents). Ces instantanés-là sont
+    // repris à leurs défauts.
+    if (snap.roleGrants && (snap.roleGrantsVersion ?? 1) >= 2) {
       for (const role of ROLES) {
         if (!snap.roleGrants[role]) continue;
         for (const [k, v] of Object.entries(snap.roleGrants[role])) {
-          if (isFeatureKey(k) && typeof v === "boolean") this.roleGrants[role][k] = v;
+          if (isFeatureKey(k) && typeof v === "boolean" && DEFAULT_ROLE_GRANTS[role][k]) this.roleGrants[role][k] = v;
         }
       }
     }
@@ -274,7 +281,13 @@ export class UsersService implements ScopeResolver {
 
   /** Écrit l'instantané du registre (débounce dans dev-store ; no-op hors dev). */
   private persist(): void {
-    saveDevState("iam", { users: this.users, roleFeatures: this.roleFeatures, roleGrants: this.roleGrants });
+    // Fonctionnalités : seuls les écarts aux défauts (les coupures) sont écrits.
+    const roleGrants: Partial<Record<Role, Record<string, boolean>>> = {};
+    for (const role of ROLES) {
+      const ecarts = Object.entries(this.roleGrants[role] ?? {}).filter(([k, v]) => isFeatureKey(k) && v !== DEFAULT_ROLE_GRANTS[role][k]);
+      if (ecarts.length > 0) roleGrants[role] = Object.fromEntries(ecarts);
+    }
+    saveDevState("iam", { users: this.users, roleFeatures: this.roleFeatures, roleGrants, roleGrantsVersion: 2 });
   }
 
   // --- lecture -------------------------------------------------------------

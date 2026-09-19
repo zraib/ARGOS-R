@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ROLES, canDeployPosts, canReportIncident, isSuperAdmin, profileOfRoles, roleInProfile, rolesOfProfile, type Role } from "@/lib/roles";
+import { ROLES, canDeployPosts, isSuperAdmin, profileOfRoles, roleInProfile, rolesOfProfile, type Role } from "@/lib/roles";
 
 // Miroirs côté écran de permissions serveur : on épingle la table de vérité
 // pour qu'un élargissement passe par une décision, pas par un oubli.
@@ -7,11 +7,6 @@ describe("rôles — tables de vérité", () => {
   const tous = ROLES as Role[];
   it("seul superadmin est super administrateur", () => {
     expect(tous.filter(isSuperAdmin)).toEqual(["superadmin"]);
-  });
-  it("déclarer un incident : superadmin, tacom et ses PC, bluecell — et, sous direx, la DIREX, les chefs de PC tactiques et leurs Ops", () => {
-    expect(tous.filter(canReportIncident).sort()).toEqual(
-      ["bluecell", "direx_anim", "direx_chef", "pco", "pco_chef", "pco_ops", "pct", "pct_chef", "pct_ops", "superadmin", "tacom"],
-    );
   });
   it("déployer un poste : superadmin, admin, opcom, tacom et ses PC — et, sous direx, la DIREX et les chefs et OPS des PC", () => {
     expect(tous.filter(canDeployPosts).sort()).toEqual(

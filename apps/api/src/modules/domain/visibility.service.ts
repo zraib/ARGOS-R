@@ -45,11 +45,23 @@ import type { ResourceOwner } from "@/modules/domain/resources.types";
 /**
  * L'unité existe-t-elle sous ce mode de l'application (ADR 0022) ? Une unité
  * porte le mode où elle a été créée et ne se montre que sous lui ; celles
- * d'avant (sans mode) et les graines se voient des deux côtés. Les hôpitaux,
+ * d'avant (sans mode) sont réputées classiques — c'est le mode où elles sont
+ * nées ; les graines de démonstration se voient des deux côtés. Les hôpitaux,
  * abris et morgues sont communs aux deux modes.
  */
-export function unitFitsMode(unit: Pick<Unit, "profile">, profile: ProfileId): boolean {
-  return !unit.profile || unit.profile === profile;
+export function unitFitsMode(unit: Pick<Unit, "profile" | "seeded">, profile: ProfileId): boolean {
+  if (unit.seeded) return true;
+  return (unit.profile ?? "classique") === profile;
+}
+
+/**
+ * Tout incident déclaré se voit de tous les rôles (décision du 19 septembre
+ * 2026) — c'est le défaut. `INCIDENTS_VISIBILITY=scoped` rend le cantonnement
+ * par portée (doctrine V-1 : région, opération de déploiement, entité) : la
+ * règle reste écrite et éprouvée, une station peut la choisir.
+ */
+export function incidentsVisibleToAll(): boolean {
+  return (process.env.INCIDENTS_VISIBILITY ?? "all").trim().toLowerCase() !== "scoped";
 }
 
 export type VisibilityScope =
@@ -156,6 +168,14 @@ export class VisibilityService {
     scope: VisibilityScope,
     entitiesOnIncident: (incidentId: string) => string[],
   ): Incident[] {
+    // Décision du 19 septembre 2026 : UN INCIDENT DÉCLARÉ SE VOIT DE TOUS, quel
+    // que soit le rôle — liste, fiche, tableau de bord d'incident. La carte le
+    // montrait déjà à tous (ADR 0020) ; la liste suivait la portée du compte,
+    // si bien qu'un commandant d'unité non engagé ne trouvait pas l'opération
+    // dont on lui parlait. La portée continue de gouverner les unités, les
+    // ressources et les comptes — pas les incidents. Le cantonnement par
+    // portée reste écrit ci-dessous, pour le jour où une station le voudrait.
+    if (incidentsVisibleToAll()) return incidents;
     switch (scope.kind) {
       case "global":
         return incidents;

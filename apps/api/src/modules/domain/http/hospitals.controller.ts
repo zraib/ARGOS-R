@@ -7,16 +7,17 @@
 // et `authz-coverage.spec.ts` en font foi.
 // ============================================================================
 
-import { Body, ConflictException, Delete, Get, NotFoundException, Param, Patch, Post, Query, Controller } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
 import { entityDeleteConflict, isForced } from "@/modules/domain/http/entity-delete";
 import { UsersService } from "@/modules/iam/users.service";
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
-import { CreateHospitalDto, CreateWardDto, HospitalDeathDto, UpdateHospitalDto, UpdateWardDto } from "@/modules/domain/dto";
+import { CreateHospitalDto, CreateWardDto, HospitalDeathDto, UpdateHospitalDto, UpdateWardDto, DeployFieldHospitalDto } from "@/modules/domain/dto";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import { RequireScope } from "@/common/decorators/require-scope.decorator";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
 import { DomainService } from "@/modules/domain/domain.service";
+import { RealtimeService } from "@/modules/realtime/realtime.service";
 import { VisibilityService } from "@/modules/domain/visibility.service";
 
 @ApiTags("domain")
@@ -27,6 +28,7 @@ export class HospitalsController {
     private readonly domain: DomainService,
     private readonly visibility: VisibilityService,
     private readonly users: UsersService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   @Get("hospitals")
@@ -135,6 +137,20 @@ export class HospitalsController {
   })
   fieldHospitals(@CurrentUser() user: AuthUser) {
     return this.visibility.filterFieldHospitals(this.domain.listFieldHospitals(), this.scopeFor(user));
+  }
+
+  @Post("field-hospitals")
+  @RequirePermission("hospinet:create")
+  @ApiOperation({
+    summary: "Déployer un hôpital de campagne à un point choisi sur la carte (audité).",
+    description: "Le détachement hérite du réseau de son établissement (HMC / HCC), se dessine à sa position et, si une opération est désignée, en fait un intervenant.",
+  })
+  @ApiResponse({ status: 400, description: "Établissement ou opération inconnus." })
+  deployFieldHospital(@Body() dto: DeployFieldHospitalDto, @CurrentUser() user: AuthUser) {
+    const res = this.domain.deployFieldHospital(dto, user.username);
+    if (res.error) throw new BadRequestException(res.error);
+    this.realtime.emit({ kind: "domain", what: "hospitals" });
+    return res.field;
   }
 
   /**

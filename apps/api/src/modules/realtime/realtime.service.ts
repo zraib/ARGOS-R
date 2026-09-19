@@ -34,6 +34,8 @@ export type RealtimeEvent =
   | { kind: "posts"; incidentId: string }
   /** Une équipe, un véhicule ou un équipement a été posé, déplacé ou retiré du terrain (ADR 0018) : la carte relit. */
   | { kind: "placed" }
+  /** Le domaine a changé (engagement d'une unité, hôpital de campagne déployé…) : chaque poste relit ce qu'il voit. */
+  | { kind: "domain"; what: "units" | "hospitals" | "incidents" }
   /** Accusé d'une conversation directe : le correspondant a reçu (« remis ») ou lu les messages jusqu'à `upToId`. */
   | { kind: "receipt"; channelId: string; by: string; state: "delivered" | "read"; upToId: number }
   /** Le correspondant écrit — transitoire, jamais gardé. */

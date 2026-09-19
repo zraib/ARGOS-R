@@ -294,6 +294,16 @@ rejoint son opération à l'inscription. **La carte des incidents**, elle, est
 celle de tous (`GET /incidents/map`, `map:view`) : la liste et la fiche
 restent sous la doctrine. Tests : `modules/domain/units-visibility.spec.ts`.
 
+**Incidents visibles de tous (19 septembre 2026).** `GET incidents`, la fiche et le tableau de
+bord d'incident servent tout incident à tout rôle (`incidentsVisibleToAll()`), la portée ne
+gouvernant plus que les unités, les ressources et les comptes ; `INCIDENTS_VISIBILITY=scoped`
+rétablit la doctrine V-1 (suites `visibility.spec`, `deployment.spec`, `posts.spec`,
+`incident-dashboard.spec`, `units-visibility.spec`, `engagement.spec` tournent sous ce réglage).
+La ligne `incidents` s'ouvre en lecture aux quatre chefs d'entité. Un ordre de la répartition
+engage l'unité sur l'opération (`engagement.spec`) ; rattacher un incident à un autre exige
+`incidents:create` **et** la fonctionnalité « Sous-incidents » ; déployer un hôpital de campagne
+exige `hospinet:create`.
+
 **Centre de communication (ADR 0021) — la trace se garde.** Les conversations
 sont conservées (instantané `comms`, chaque message horodaté `at`) ; le canal
 d'une opération porte son titre et le suit (renommé, archivé, rouvert avec

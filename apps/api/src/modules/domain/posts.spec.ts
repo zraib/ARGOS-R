@@ -4,6 +4,10 @@ import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { AppModule } from "@/app.module";
 
+// Cette suite éprouve le CANTONNEMENT des incidents par portée (doctrine V-1) ;
+// par défaut, tout incident se voit de tous (décision du 19 septembre 2026).
+process.env.INCIDENTS_VISIBILITY = "scoped";
+
 // ============================================================================
 // Postes d'opération sur la carte — vus par l'HTTP
 //

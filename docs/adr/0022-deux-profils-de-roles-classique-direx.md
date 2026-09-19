@@ -224,6 +224,29 @@ restent verrouillés.
 - **L'entité d'un responsable est optionnelle** à la création du compte (commandant d'unité,
   directeur d'hôpital, chef d'abri, directeur de morgue) : elle s'affecte plus tard ; sans elle, le
   compte ne voit rien (default-deny). La région d'une autorité reste exigée.
+- **Un incident déclaré se voit de tous les rôles** (décision du 19 septembre 2026) : liste, fiche,
+  tableau de bord d'incident — plus seulement la carte (ADR 0020). `filterIncidents` rend tout par
+  défaut ; `INCIDENTS_VISIBILITY=scoped` rétablit le cantonnement par portée (doctrine V-1), qui
+  reste écrit et éprouvé (ses suites tournent sous ce réglage). La portée continue de gouverner les
+  unités, les ressources et les comptes. La ligne `incidents` de la matrice s'ouvre en lecture aux
+  chefs d'entité (commandant d'unité, chef d'abri, directeur de morgue, responsable de parc) qui en
+  manquaient — un commandant engagé recevait 403 sur la liste.
+- **La répartition engage.** Un ORDRE émis par la répartition (`POST missions`, `payload.kind =
+  "order"`) engage l'unité sur l'opération : intervenante (`responders.units`) et, si elle n'est
+  affectée nulle part, affectée (destination par corps, `assignment.engagement` = identifiant de
+  l'ordre) ; son commandant voit l'opération et l'ordre dans « Ordres reçus ». Refusé, annulé ou
+  terminé, l'engagement tombe — l'affectation d'un OPCOM, elle, reste. Les engagements de l'écran
+  Répartition sont les ordres ouverts servis par l'API (plus la mémoire du navigateur) ; relever une
+  unité annule l'ordre. L'API pousse `{kind:"domain"}` : les postes relisent.
+- **Hôpital de campagne posé sur la carte** : `POST field-hospitals` (`hospinet:create`) déploie un
+  détachement d'un établissement au point choisi (sélecteur de carte de la fiche Hospinet, comme
+  pour un incident), avec sa capacité et, au choix, l'opération servie ; persisté, dessiné chez tous.
+- **Incident rattaché** : depuis l'arborescence d'un incident, « Rattacher un incident » ouvre le
+  wizard complet (mêmes étapes) et déclare un incident entier portant `parentId`, présenté sous son
+  parent ; exige `incidents:create` et la fonctionnalité « Sous-incidents : ajouter » ; un rattaché
+  ne porte pas de rattaché, un parent clos est refusé. Les sous-incidents légers (aléas secondaires)
+  restent. Déclarer, modifier, rattacher se décident sur la permission servie, plus sur une liste de
+  rôles écrite dans le web (« qui peut déclarer en déclare autant qu'il veut »).
 - Les **graines de démonstration** (mode démo, ADR 0015) reçoivent des comptes du profil `direx`
   (Chef Direx, Anim, Eval, RLS, chefs et cellules de PC FAR, PCF, PCT, PCO) à côté des comptes
   actuels, déployés sur les mêmes opérations : le jeu se joue sous l'un ou l'autre profil, ou les

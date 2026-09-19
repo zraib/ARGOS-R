@@ -3685,6 +3685,35 @@
         "tags": [
           "domain"
         ]
+      },
+      "post": {
+        "description": "Le détachement hérite du réseau de son établissement (HMC / HCC), se dessine à sa position et, si une opération est désignée, en fait un intervenant.",
+        "operationId": "HospitalsController_deployFieldHospital",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeployFieldHospitalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Établissement ou opération inconnus."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Déployer un hôpital de campagne à un point choisi sur la carte (audité).",
+        "tags": [
+          "domain"
+        ]
       }
     },
     "/api/catalog": {
@@ -7179,6 +7208,11 @@
             "example": "earthquake",
             "description": "Identifiant d'un type du catalogue /incident-types (validé côté service)"
           },
+          "parentId": {
+            "type": "string",
+            "example": "INC-2623",
+            "description": "Incident parent : l'incident déclaré lui est rattaché (exige « Sous-incidents : ajouter »)."
+          },
           "titre": {
             "type": "string"
           },
@@ -8886,6 +8920,41 @@
             "type": "string"
           }
         }
+      },
+      "DeployFieldHospitalDto": {
+        "type": "object",
+        "properties": {
+          "hospitalId": {
+            "type": "string",
+            "example": "H1",
+            "description": "Établissement de rattachement (HMC pour un hôpital militaire, HCC pour un civil)"
+          },
+          "ll": {
+            "description": "[lng, lat] — le point choisi sur la carte",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "cap": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 2000,
+            "description": "Capacité en lits (40 par défaut)"
+          },
+          "nom": {
+            "type": "string",
+            "description": "Nom du détachement ; sinon « HMC/HCC <ville> — Détachement n »"
+          },
+          "incidentId": {
+            "type": "string",
+            "description": "Opération servie : l'établissement en devient intervenant"
+          }
+        },
+        "required": [
+          "hospitalId",
+          "ll"
+        ]
       },
       "AuthorityContactDto": {
         "type": "object",

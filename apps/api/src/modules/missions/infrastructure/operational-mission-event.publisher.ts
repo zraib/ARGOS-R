@@ -60,6 +60,7 @@ export class OperationalMissionEventPublisher implements MissionEventPublisher {
 
       this.domain.pushFeed(txt, TINT[event.type], mission.incidentId);
       this.comms.postSystem(mission.incidentId, txt);
+      this.syncEngagement(event);
       this.syncUnitPosture(event);
       this.applyTransfer(event);
     } catch (e) {
@@ -123,6 +124,23 @@ export class OperationalMissionEventPublisher implements MissionEventPublisher {
    * fait. La posture suit désormais la boucle. Elle reste modifiable
    * manuellement — le terrain prime sur le modèle — mais un jalon la réaligne.
    */
+  /**
+   * Un ORDRE du répartiteur engage l'unité sur l'opération : elle en devient
+   * intervenante et affectée, son commandant voit l'opération et l'ordre.
+   * Refusé, annulé ou terminé, l'engagement tombe. Avant, l'ordre ne laissait
+   * aucune trace sur l'incident : la répartition n'engageait rien.
+   */
+  private syncEngagement(event: MissionEvent): void {
+    const { mission } = event;
+    if (mission.payload.kind !== "order" || !mission.payload.unitId) return;
+    const unitId = mission.payload.unitId;
+    if (event.type === "mission.issued") {
+      this.domain.engageUnit(unitId, mission.incidentId, mission.from.userId ?? mission.from.role, mission.id);
+    } else if (event.type === "mission.declined" || event.type === "mission.cancelled" || event.type === "mission.completed") {
+      this.domain.disengageUnit(unitId, mission.incidentId, mission.id);
+    }
+  }
+
   private syncUnitPosture(event: MissionEvent): void {
     const { mission } = event;
     if (mission.payload.kind !== "order") return;

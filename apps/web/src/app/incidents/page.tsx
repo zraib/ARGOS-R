@@ -9,7 +9,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
 import { UI_ICONS } from "@/lib/icons";
 import { sevBadge, stBadge, typeLabel} from "@/lib/helpers";
-import { canReportIncident, isSuperAdmin } from "@/lib/roles";
+import { isSuperAdmin } from "@/lib/roles";
 import { compareIncidentDate, formatIncidentHour } from "@/lib/derive";
 import type { Incident, IncidentStatus } from "@/lib/types";
 import { predictIncidentEvolution, type IncidentEvolution } from "@/lib/ai/risk/incidentEvolution";
@@ -81,9 +81,16 @@ export default function IncidentsPage() {
   const toggleIn = (set: (fn: (a: string[]) => string[]) => void) => (v: string) =>
     set((a) => (a.includes(v) ? a.filter((x) => x !== v) : [...a, v]));
 
+  // Les incidents RATTACHÉS ne font pas de ligne à eux : ils se présentent sous leur parent.
+  const childrenOf = useMemo(() => {
+    const m: Record<string, Incident[]> = {};
+    for (const i of incidents) if (i.parentId) (m[i.parentId] ??= []).push(i);
+    return m;
+  }, [incidents]);
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const r = base
+      .filter((i) => !i.parentId || !incidents.some((p) => p.id === i.parentId))
       .filter((i) => !needle || `${i.titre}${i.region}${i.id}`.toLowerCase().includes(needle))
       .filter((i) => !fType.length || fType.includes(i.type))
       .filter((i) => !fSev.length || fSev.includes(i.sev))
@@ -94,7 +101,7 @@ export default function IncidentsPage() {
       if (sortBy === "type") return typeLabel(a.type, incidentTypes, lang).localeCompare(typeLabel(b.type, incidentTypes, lang));
       return compareIncidentDate(a, b);
     });
-  }, [base, q, fType, fSev, fRegion, fStatus, sortBy, incidentTypes, lang]);
+  }, [base, incidents, q, fType, fSev, fRegion, fStatus, sortBy, incidentTypes, lang]);
 
   // Évolutions IA (version compacte, sans météo — affichée dans le tableau principal).
   // Calculée une fois à chaque rendu, O(1) par incident.
@@ -199,7 +206,14 @@ export default function IncidentsPage() {
   const regionOptions = regions.map((r) => ({ value: r, label: r }));
   const statusOptions = STATUSES.map((s) => ({ value: s, label: stBadge(s, t).label }));
   const sortOptions: [typeof sortBy, string][] = [["time", t.sort_time], ["sev", t.sort_sev], ["type", t.flt_type]];
-  const canEdit = canReportIncident(role);
+  // Qui déclare et modifie : la permission servie par l'API (matrice, mode,
+  // fonctionnalités coupées) — plus une liste de rôles écrite ici. Qui a le
+  // droit de déclarer un incident en déclare autant qu'il veut.
+  const can = useArgos((s) => s.can);
+  const canEdit = can("incidents:update") || isSuperAdmin(role);
+  const canReport = can("incidents:create") || isSuperAdmin(role);
+  const canNest = canReport && (can("subincidents:create") || isSuperAdmin(role));
+  const openWizardNested = useArgos((s) => s.openWizardNested);
   // `incidents:delete` n'est accordé à personne dans la matrice : seul le
   // joker du Super Administrateur la détient.
   const canDelete = isSuperAdmin(role);
@@ -220,6 +234,10 @@ export default function IncidentsPage() {
     <>
       <button className={iconBtn} title={t.act_view} aria-label={t.act_view} onClick={() => setViewInc(i)}><Icon path={UI_ICONS.eye} size={16} /></button>
       {canEdit && <button className={iconBtn} title={t.act_edit} aria-label={t.act_edit} onClick={() => openWizardEdit(i)}><Icon path={UI_ICONS.edit} size={15} /></button>}
+      {/* Rattacher un incident entier sous celui-ci (mêmes étapes) — sur toute ligne, pas seulement dans l'arborescence dépliée. */}
+      {canNest && !i.parentId && !i.archived && i.st !== "closed" && (
+        <button className={iconBtn} title={t.wiz_nested_add} aria-label={`${t.wiz_nested_add} — ${i.id}`} onClick={() => openWizardNested(i)}><Icon path={UI_ICONS.branch} size={15} /></button>
+      )}
       <button className={iconBtn} title={t.to_map} aria-label={t.to_map} onClick={() => toMap(i.id)}><Icon path={UI_ICONS.map} size={16} /></button>
       {canEdit && (
         i.archived
@@ -295,7 +313,7 @@ export default function IncidentsPage() {
             </>
           )}
         </div>
-        {canEdit && (
+        {canReport && (
           <button className="btn-primaire flex items-center gap-1.5 whitespace-nowrap text-sm" onClick={() => openWizard()}>
             <Icon path={UI_ICONS.plus} size={15} />
             {t.report}
@@ -363,7 +381,7 @@ export default function IncidentsPage() {
           <tbody>
             {rows.map((i) => {
               const sb = sevBadge(i.sev, t);
-              const subCount = i.subIncidents?.length ?? 0;
+              const subCount = (i.subIncidents?.length ?? 0) + (childrenOf[i.id]?.length ?? 0);
               const isOpen = subCount > 0 && expanded.includes(i.id);
               return (
                 <Fragment key={i.id}>
@@ -425,7 +443,7 @@ export default function IncidentsPage() {
                 {isOpen && (
                   <tr className="border-b border-gray-100 bg-gray-50 dark:border-rdia-700/50 dark:bg-rdia-700/30">
                     <td colSpan={9} className="px-4 pb-3 pt-0">
-                      <SubIncidentTree incident={i} onAddSub={() => setAddSubFor(i)} />
+                      <SubIncidentTree incident={i} onAddSub={() => setAddSubFor(i)} children={childrenOf[i.id] ?? []} onOpen={(c) => setViewInc(c)} />
                     </td>
                   </tr>
                 )}
@@ -440,7 +458,7 @@ export default function IncidentsPage() {
       <div className="flex flex-col gap-2 md:hidden">
         {rows.map((i) => {
           const sb = sevBadge(i.sev, t);
-          const subCount = i.subIncidents?.length ?? 0;
+          const subCount = (i.subIncidents?.length ?? 0) + (childrenOf[i.id]?.length ?? 0);
           const isOpen = subCount > 0 && expanded.includes(i.id);
           return (
             <div key={i.id} className="carte flex flex-col gap-2 p-3">
@@ -504,7 +522,7 @@ export default function IncidentsPage() {
                 <div className="flex items-center gap-0.5">{rowActions(i)}</div>
               </div>
 
-              {isOpen && <SubIncidentTree incident={i} onAddSub={() => setAddSubFor(i)} />}
+              {isOpen && <SubIncidentTree incident={i} onAddSub={() => setAddSubFor(i)} children={childrenOf[i.id] ?? []} onOpen={(c) => setViewInc(c)} />}
             </div>
           );
         })}

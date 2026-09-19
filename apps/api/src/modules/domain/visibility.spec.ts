@@ -1,6 +1,10 @@
 import { VisibilityService } from "@/modules/domain/visibility.service";
 import type { Incident } from "@/modules/domain/domain.service";
 
+// Cette suite éprouve le CANTONNEMENT des incidents par portée (doctrine V-1) ;
+// par défaut, tout incident se voit de tous (décision du 19 septembre 2026).
+process.env.INCIDENTS_VISIBILITY = "scoped";
+
 // ============================================================================
 // ARGOS — la doctrine de visibilité, éprouvée (lot V-1)
 //

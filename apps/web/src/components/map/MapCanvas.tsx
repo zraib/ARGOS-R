@@ -7,7 +7,6 @@ import { useArgos, useDict } from "@/lib/store";
 import { POST_DRAG_MIME, nearestIncident, parsePostPick } from "@/lib/posts";
 import { RESOURCE_DRAG_MIME, parseResourcePick, type ResourcePick } from "@/lib/edit";
 import { FLUX } from "@/lib/i18n/flux";
-import { canReportIncident } from "@/lib/roles";
 import { MAP_CENTER, MAP_STYLE, MAP_ZOOM } from "@/lib/map/style";
 import { TILES_MODE } from "@/lib/map/tiles";
 import { installPlanStyle, loadPlanStyle } from "@/lib/map/plan";
@@ -101,6 +100,7 @@ export function MapCanvas() {
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; ll: [number, number] } | null>(null);
   const [wxPopup, setWxPopup] = useState<{ ll: [number, number]; place: string | null } | null>(null);
   const role = useArgos((s) => s.role);
+  const can = useArgos((s) => s.can);
   const openWizard = useArgos((s) => s.openWizard);
   // Coordonnées + altitude sous le curseur, écrites directement dans le DOM
   // (aucun re-rendu React à chaque mouvement de souris).
@@ -852,7 +852,7 @@ export function MapCanvas() {
               top: Math.min(ctxMenu.y, (containerRef.current?.clientHeight ?? 9999) - 140),
             }}
           >
-            {canReportIncident(role) && (
+            {(can("incidents:create") || role === "superadmin") && (
               <button
                 type="button"
                 className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-start text-[14px] font-semibold text-white/90 transition-colors hover:bg-white/10"

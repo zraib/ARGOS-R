@@ -256,6 +256,12 @@ const MATRIX: Record<(typeof MATRIX_FEATURES)[number], Partial<Record<Role, Cell
     admin: ALL, opcom: ALL, tacom: VM,
     bluecell: V, greencell: V, orangecell: V, resp_hospital: V,
     strategic: V, wali: V, place_arme: V,
+    // Les autres chefs d'entité manquaient à cette ligne : un commandant
+    // d'unité engagée recevait 403 sur la liste des opérations — il ne voyait
+    // donc jamais celle où son unité sert. Comme le directeur d'hôpital, ils
+    // lisent, sur la seule portée de leur entité (doctrine V-1 : les
+    // opérations où elle sert, sa région, celle où ils sont déployés).
+    resp_unit: V, resp_shelter: V, resp_morgue: V, resp_equipment: V,
   },
   subincidents: {
     admin: ALL, opcom: ALL, tacom: ALL, bluecell: AMV, greencell: V, orangecell: V,
