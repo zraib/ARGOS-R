@@ -283,12 +283,14 @@ cd C:\iris\deploy
   `c.pcfar` / `PCFAR-2026`, `o.pcfar` / `OPSF-2026`, `c.pcf` / `PCF-2026`,
   `o.pcf` / `OPSP-2026`, `c.pct` / `PCT-2026`, `o.pct` / `OPST-2026`,
   `c.pco` / `PCO-2026`, `o.pco` / `OPSO-2026`.
-- **Gestion des utilisateurs** : un onglet *Utilisateurs classique* et un
-  onglet *Utilisateurs Direx* (les comptes communs figurent dans les deux) ;
-  l'administration prépare les comptes des deux profils quel que soit le mode
-  en service. *Rôles & fonctionnalités* : un onglet par profil, les modules du
+- **Sous un mode, l'autre profil n'existe pas** : la gestion des utilisateurs
+  ne montre que les comptes du mode (onglet *Utilisateurs classique* ou
+  *Utilisateurs Direx* ; les comptes communs y sont), le centre de
+  communication ne connaît que ces comptes (annuaire, correspondants, comptes
+  déployables). *Rôles & fonctionnalités* : les rôles du mode, les modules du
   menu et les **43 fonctionnalités de l'API** commutables par rôle — dont
-  « Sous-incidents (ajouter, modifier, supprimer) ».
+  « Sous-incidents (ajouter, modifier, supprimer) ». Pour préparer les comptes
+  Direx, basculer en Mode Direx, les créer, puis revenir.
 - Le mode et les bascules sont persistés dans le volume de l'API
   (`settings.json`, instantané IAM) : la sauvegarde d'`upgrade.ps1` les
   emporte, la remise en arrière (§ 8) les rend.

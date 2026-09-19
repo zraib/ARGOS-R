@@ -206,14 +206,15 @@ restent verrouillés.
   sans redémarrage. La sonde publique `/health` l'annonce (`roleProfile`), `/iam/me` et
   `GET /iam/profiles` (`active`) aussi ; l'écran de connexion l'affiche (« Mode en service »), l'en-tête
   le rappelle, les Paramètres le basculent.
-- **Sous un mode, l'autre profil n'a pas accès** : la connexion d'un compte de l'autre profil est
-  refusée (403 « Le Mode X est activé sur cette station — contactez l'administrateur ») ; une session
-  déjà ouverte de l'autre profil tombe à sa requête suivante (401, la garde JWT compare le rôle au mode
-  en service). L'administration, elle, **gère les deux profils** quel que soit le mode : la table des
-  comptes a un onglet « Utilisateurs classique » et un onglet « Utilisateurs Direx » (les comptes
-  communs figurent dans les deux), « Rôles & fonctionnalités » un onglet par profil ; les comptes de
-  l'autre profil se créent et se règlent, ils n'entrent pas. L'administration et les chefs d'entité,
-  communs, passent dans les deux modes.
+- **Sous un mode, l'autre profil n'existe pas** — pour tout le monde : la connexion d'un compte de
+  l'autre profil est refusée (403 « Le Mode X est activé sur cette station — contactez
+  l'administrateur ») ; une session déjà ouverte tombe à sa requête suivante (401, la garde JWT compare
+  le rôle au mode en service) ; la **gestion des utilisateurs** ne liste que les comptes du mode
+  (onglet « Utilisateurs classique » ou « Utilisateurs Direx »), leurs fiches seulement (404 pour
+  les autres), leurs rôles seulement (400 sinon), leur matrice seulement ; le **centre de
+  communication** (annuaire, correspondants, comptes déployables, autorités prévenues) ne connaît
+  que les comptes du mode. Tout passe par un seul point de l'API (`UsersService.fitsMode`). Les
+  comptes communs (administration, chefs d'entité) existent dans les deux modes.
 - Un compte porte des rôles d'un seul profil ; `/iam/me` dit le mode en service.
 - Les **graines de démonstration** (mode démo, ADR 0015) reçoivent des comptes du profil `direx`
   (Chef Direx, Anim, Eval, RLS, chefs et cellules de PC FAR, PCF, PCT, PCO) à côté des comptes
@@ -248,9 +249,9 @@ Avant le premier lot : étiquette git `v1-roles-classiques` sur `1ee4239`, paque
    existantes passent inchangées (profil classique) ; suites ajoutées : `shared/profiles.spec.ts`,
    `iam/login-mode.spec.ts`.
 2. **Fonctionnalités et comptes (livré)** — les 43 fonctionnalités de l'API commutables par rôle
-   (§ 4), onglets de comptes par profil, onglets de profil dans « Rôles & fonctionnalités » ; la
-   grille `docs/matrice-roles-direx.xlsx` reste telle quelle (décision du propriétaire), le script
-   la reporte quand elle changera.
+   (§ 4) ; sous un mode, la gestion des utilisateurs et le centre de communication ne connaissent
+   que les comptes du mode ; la grille `docs/matrice-roles-direx.xlsx` reste telle quelle (décision
+   du propriétaire), le script la reporte quand elle changera.
 3. **Web** — annuaire et canaux du centre de communication groupés par échelon ; comptes de
    démonstration déployés sur les opérations du jeu.
 4. **Livraison** — tableau des rôles par profil dans `README.md`, guides, paquet ; fusion de

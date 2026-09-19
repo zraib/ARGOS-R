@@ -87,8 +87,8 @@ Le Super Administrateur, l'Administrateur et les chefs d'entité (unité, hôpit
 communs aux deux modes. Sous un mode, les comptes de l'autre profil ne se connectent pas — « Le Mode X
 est activé sur cette station — contactez l'administrateur » — et leurs rôles ne s'attribuent pas.
 La grille de départ du profil Direx est `docs/matrice-roles-direx.xlsx` (reportée dans le code par
-`apps/api/scripts/direx-matrix.mjs`). L'administration gère les comptes des deux profils (onglets
-« Utilisateurs classique » et « Utilisateurs Direx ») et règle, rôle par rôle et par profil, les
+`apps/api/scripts/direx-matrix.mjs`). Sous un mode, la gestion des utilisateurs et le centre de
+communication ne connaissent que les comptes de ce mode ; l'administration règle, rôle par rôle, les
 modules du menu et les **43 fonctionnalités de l'API** (dont les sous-incidents) dans « Rôles &
 fonctionnalités ».
 

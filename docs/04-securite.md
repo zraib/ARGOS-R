@@ -322,8 +322,10 @@ connexion refusée (403 « Le Mode X est activé sur cette station — contactez
 l'administrateur »), session déjà ouverte refusée à sa requête suivante (401 —
 la garde JWT compare le rôle du jeton au mode en service), rôles non
 attribuables (400), matrice et sélecteur limités au profil en service. Les
-rôles techniques et les chefs d'entité passent dans les deux modes ; l'administration gère les
-comptes des deux profils (seul l'accès est fermé). **Fonctionnalités par rôle** : chacune des 43
+rôles techniques et les chefs d'entité passent dans les deux modes ; la gestion des utilisateurs
+(liste, fiches, rôles, matrices) et le centre de communication (annuaire, correspondants, comptes
+déployables) ne connaissent que les comptes du mode (`UsersService.fitsMode`). **Fonctionnalités
+par rôle** : chacune des 43
 fonctionnalités de la matrice s'ouvre ou se coupe par rôle (`iam/role-grants`, Super
 Administrateur) — coupée, toutes ses actions sont refusées (403) et retirées des permissions
 servies ; le cœur (`users`, `settings`, `audit`) et les administrateurs sont verrouillés. Tests :

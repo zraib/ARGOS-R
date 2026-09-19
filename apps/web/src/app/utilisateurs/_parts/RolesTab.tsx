@@ -7,10 +7,8 @@ import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import { MODULE_KEYS, isCoreModule, moduleLabel, type ModuleKey } from "@/lib/nav";
 import {
-  PROFILE_IDS,
   ROLE_ICONS,
   rolesOfProfile,
-  type ProfileId,
   type Role,
 } from "@/lib/roles";
 import { DEFAULT_ROLE_FEATURES } from "@/lib/data/users";
@@ -24,8 +22,8 @@ import { DEFAULT_ROLE_FEATURES } from "@/lib/data/users";
 //   - les FONCTIONNALITÉS de l'API (ADR 0022, lot 2) : les 43 lignes de la
 //     matrice RBAC, dont « Sous-incidents (ajouter, modifier, supprimer) » —
 //     coupée, une fonctionnalité retire toutes ses actions au rôle (403).
-// Un onglet par profil de rôles (classique, Direx) : l'administration règle
-// les deux, quel que soit le mode en service.
+// Les rôles du mode de l'application en service : l'autre profil n'existe
+// pas sous ce mode — l'API ne sert que celui-là.
 // ===========================================================================
 
 /** Les fonctionnalités de l'API, dans l'ordre de la matrice ; le cœur est verrouillé. */
@@ -49,14 +47,9 @@ export function RolesTab() {
   const setRoleFeatures = useArgos((s) => s.setRoleFeatures);
   const sessionProfile = useArgos((s) => s.profile);
 
-  // Un onglet par profil ; celui du mode en service s'ouvre en premier.
-  const [profile, setProfile] = useState<ProfileId>(sessionProfile);
+  const profile = sessionProfile;
   const roles = rolesOfProfile(profile);
   const [selected, setSelected] = useState<Role>(sessionProfile === "direx" ? "direx_chef" : "strategic");
-  const pickProfile = (p: ProfileId) => {
-    setProfile(p);
-    setSelected(p === "direx" ? "direx_chef" : "strategic");
-  };
   // Les défauts font foi côté API (dérivés de la matrice RBAC) ; la table
   // locale n'est que le repli hors connexion.
   const [defaults, setDefaults] = useState<Record<Role, Record<string, boolean>>>(DEFAULT_ROLE_FEATURES);
@@ -118,20 +111,10 @@ export function RolesTab() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
       <div className="carte flex shrink-0 flex-col gap-1 p-3 lg:w-64 lg:overflow-auto">
-        <div role="tablist" aria-label={t.profile_title} className="mb-1 flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-rdia-700/50">
-          {PROFILE_IDS.map((p) => (
-            <button
-              key={p}
-              role="tab"
-              aria-selected={profile === p}
-              onClick={() => pickProfile(p)}
-              className={`min-h-[36px] flex-1 rounded-md px-2 text-xs font-semibold transition-colors ${profile === p ? "bg-white text-or-600 shadow-sm dark:bg-rdia-600 dark:text-or-400" : "text-gray-500 hover:text-or-500 dark:text-rdia-300"}`}
-            >
-              {p === "direx" ? t.lg_mode_direx : t.lg_mode_classique}
-            </button>
-          ))}
-        </div>
-        <p className="px-2 py-1 text-[11px] uppercase tracking-wide text-gray-400 dark:text-rdia-400">{m.users.select_role}</p>
+        <p className="px-2 py-1 text-[11px] uppercase tracking-wide text-gray-400 dark:text-rdia-400">
+          {m.users.select_role}
+          <span className="ms-1 font-bold text-or-500" title={t.profile_title}>· {profile === "direx" ? t.lg_mode_direx : t.lg_mode_classique}</span>
+        </p>
         {/* Sous `lg` : bandeau défilable horizontalement — quinze rôles empilés
             repousseraient la matrice des fonctionnalités hors de l'écran. */}
         <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 lg:mx-0 lg:flex-col lg:gap-1 lg:overflow-x-visible lg:px-0 lg:pb-0">

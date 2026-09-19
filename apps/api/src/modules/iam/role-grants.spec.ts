@@ -41,8 +41,9 @@ describe("Fonctionnalités par rôle", () => {
     expect(d.tacom.subincidents).toBe(true);
     expect(d.tacom.settings).toBe(false);
     expect(d.resp_shelter.assign).toBe(false);
-    expect(d.pcfar_chef.assign).toBe(true);
-    expect(d.pcfar_log.map_edit).toBe(false);
+    expect(d.opcom.assign).toBe(true);
+    // En mode classique, le profil Direx n'est pas servi.
+    expect(d.pcfar_chef).toBeUndefined();
     const g = (await base().get("/api/iam/role-grants").set(bearer(tacom)).expect(200)).body;
     expect(g.tacom).toEqual(d.tacom);
   });
@@ -84,10 +85,12 @@ describe("Fonctionnalités par rôle", () => {
     await base().patch("/api/iam/role-grants/inconnu").set(bearer(root)).send({ feature: "incidents", enabled: false }).expect(400);
   });
 
-  it("le profil Direx se règle de la même façon, quel que soit le mode en service", async () => {
+  it("la matrice servie ne porte que le mode en service ; un rôle de l'autre profil se règle mais ne se lit pas", async () => {
+    const servie = (await base().get("/api/iam/role-grants").set(bearer(root)).expect(200)).body;
+    expect(Object.keys(servie)).toContain("tacom");
+    expect(Object.keys(servie)).not.toContain("pcf_ops");
     const coupe = (await base().patch("/api/iam/role-grants/pcf_ops").set(bearer(root)).send({ feature: "missions", enabled: false }).expect(200)).body;
     expect(coupe.missions).toBe(false);
-    await base().post("/api/iam/role-grants/pcf_ops/reset").set(bearer(root)).expect(201);
-    expect((await base().get("/api/iam/role-grants").set(bearer(root)).expect(200)).body.pcf_ops.missions).toBe(true);
+    expect((await base().post("/api/iam/role-grants/pcf_ops/reset").set(bearer(root)).expect(201)).body.missions).toBe(true);
   });
 });

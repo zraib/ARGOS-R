@@ -1,5 +1,6 @@
-import { rolesShareProfile } from "@/shared/profiles";
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { accountFitsProfile, roleInProfile, rolesShareProfile, type ProfileId } from "@/shared/profiles";
+import { ProfileService } from "@/modules/mode/profile.service";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   assignableRoles,
   canAssignMultipleRoles,
@@ -206,7 +207,7 @@ export class UsersService implements ScopeResolver {
   /** Fonctionnalités de l'API ouvertes par rôle (ADR 0022, lot 2) — défauts dérivés de la matrice RBAC. */
   private roleGrants = defaultRoleGrants();
 
-  constructor() {
+  constructor(@Optional() private readonly profiles?: ProfileService) {
     // Persistance dev : restaure le registre depuis l'instantané disque afin que
     // le mot de passe fondateur (et tous les comptes) SURVIVE aux redémarrages —
     // plus de « 1er login » à chaque lancement. Voir common/dev-store.
@@ -287,13 +288,29 @@ export class UsersService implements ScopeResolver {
     return this.users.filter((u) => this.isVisibleTo(viewer, u)).map(toPublic);
   }
 
+  /** Le mode de l'application en service (ADR 0022) ; « classique » à défaut de service (tests unitaires). */
+  private activeProfile(): ProfileId {
+    return this.profiles?.current() ?? "classique";
+  }
+
+  /**
+   * Le compte existe-t-il POUR le mode en service ? Sous un mode, l'autre
+   * profil n'existe pas : ni dans la gestion des utilisateurs, ni dans le
+   * centre de communication, ni parmi les comptes déployables. Les comptes
+   * communs (administration, chefs d'entité) existent dans les deux.
+   */
+  private fitsMode(target: ManagedUser): boolean {
+    return accountFitsProfile(target.roles, this.activeProfile());
+  }
+
   /** Le compte `target` est-il visible par un porteur du rôle `viewer` ? */
   private isVisibleTo(viewer: Role, target: ManagedUser): boolean {
+    if (!this.fitsMode(target)) return false;
     return viewer === "superadmin" || !target.roles.includes("superadmin");
   }
 
   private find(id: string): ManagedUser {
-    const u = this.users.find((x) => x.id === id);
+    const u = this.users.find((x) => x.id === id && this.fitsMode(x));
     if (!u) throw new NotFoundException(`Utilisateur inconnu : ${id}`);
     return u;
   }
@@ -326,6 +343,11 @@ export class UsersService implements ScopeResolver {
     // communs aux deux, se cumulent avec l'un ou l'autre.
     if (!rolesShareProfile(roles)) {
       throw new BadRequestException("Un compte porte les rôles d'un seul mode : classique ou Direx, pas les deux.");
+    }
+    // Sous un mode, l'autre profil n'existe pas : ses rôles ne s'attribuent pas.
+    const horsMode = roles.filter((r) => !roleInProfile(r, this.activeProfile()));
+    if (horsMode.length > 0) {
+      throw new BadRequestException(`${this.profiles?.refusal() ?? "Mode en service."} Rôle(s) hors mode : ${horsMode.join(", ")}.`);
     }
   }
 
@@ -623,23 +645,29 @@ export class UsersService implements ScopeResolver {
 
   // --- matrice rôle → fonctionnalités --------------------------------------
 
+  /** Ne garde que les rôles du mode en service (ADR 0022) : l'autre profil n'existe pas sous ce mode. */
+  private onlyActive<T>(table: Record<Role, T>): Record<Role, T> {
+    const active = this.activeProfile();
+    return Object.fromEntries(Object.entries(table).filter(([r]) => roleInProfile(r as Role, active))) as Record<Role, T>;
+  }
+
   getRoleFeatures(): Record<Role, Record<string, boolean>> {
-    return this.roleFeatures;
+    return this.onlyActive(this.roleFeatures);
   }
 
   /** Les défauts (dérivés de la matrice RBAC) : ce que « réinitialiser » restaure, ce que le point « modifié » compare. */
   getDefaultRoleFeatures(): Record<Role, Record<string, boolean>> {
-    return DEFAULT_ROLE_FEATURES;
+    return this.onlyActive(DEFAULT_ROLE_FEATURES);
   }
 
   // --- fonctionnalités de l'API par rôle (ADR 0022, lot 2) --------------------
 
   getRoleGrants(): Record<Role, Record<Feature, boolean>> {
-    return this.roleGrants;
+    return this.onlyActive(this.roleGrants);
   }
 
   getDefaultRoleGrants(): Record<Role, Record<Feature, boolean>> {
-    return DEFAULT_ROLE_GRANTS;
+    return this.onlyActive(DEFAULT_ROLE_GRANTS);
   }
 
   /** Ouvre ou coupe une fonctionnalité pour un rôle ; le cœur et les administrateurs sont verrouillés. */
@@ -821,7 +849,7 @@ export class UsersService implements ScopeResolver {
 
   /** Comptes actifs tenant l'un de ces rôles SUR cette région — les autorités à prévenir. */
   listByRegion(region: string, roles: readonly Role[]): ManagedUser[] {
-    return this.users.filter((u) => !u.disabled && u.assignments?.region === region && u.roles.some((r) => roles.includes(r)));
+    return this.users.filter((u) => !u.disabled && this.fitsMode(u) && u.assignments?.region === region && u.roles.some((r) => roles.includes(r)));
   }
 
   /** Comptes occupant un poste déployable — les candidats au déploiement. */

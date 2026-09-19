@@ -44,19 +44,30 @@ describe("Mode de l'application — réglage de station", () => {
     expect((await base().get("/api/iam/me").set(bearer(root)).expect(200)).body.profile).toBe("classique");
   });
 
-  it("en mode classique, un compte Direx n'entre pas et son jeton ne sert pas ; l'administration prépare pourtant ses comptes", async () => {
+  it("en mode classique, l'autre profil n'existe pas : ni connexion, ni comptes, ni rôles, ni annuaire", async () => {
     // c.pcfar : Chef / PC FAR de démonstration (code provisoire PCFAR-2026).
     const refus = await login("c.pcfar", "PCFAR-2026").expect(403);
     expect(refus.body.message).toContain("Mode classique est activé");
     expect(refus.body.message).toContain("contactez l'administrateur");
     const t = await jeton("c.pcfar", "pcfar_chef");
     await base().get("/api/iam/me").set(bearer(t)).expect(401);
-    // Les comptes de l'autre profil se créent et se gèrent : seul l'ACCÈS est fermé.
-    await base().post("/api/iam/users").set(bearer(root)).send({ matricule: "x.direx", nom: "Préparé", roles: ["pcf_ops"] }).expect(201);
-    // La matrice servie montre les deux profils : l'administration les règle tous deux.
+    // La gestion des utilisateurs ne montre pas les comptes Direx, ni leur fiche.
+    const users = (await base().get("/api/iam/users").set(bearer(root)).expect(200)).body as { id: string; matricule: string }[];
+    expect(users.some((u) => u.matricule === "c.pcfar")).toBe(false);
+    expect(users.some((u) => u.matricule === "o.chraibi")).toBe(true);
+    expect(users.some((u) => u.matricule === "n.fassi")).toBe(true);
+    await base().get("/api/iam/users/u-pcfar-chef/temp-code").set(bearer(root)).expect(404);
+    await base().delete("/api/iam/users/u-pcfar-chef").set(bearer(root)).expect(404);
+    // Ses rôles ne s'attribuent pas ; sa matrice n'est pas servie.
+    const res = await base().post("/api/iam/users").set(bearer(root)).send({ matricule: "x.direx", nom: "Hors mode", roles: ["pcf_ops"] }).expect(400);
+    expect(res.body.message).toContain("hors mode");
     const defaults = (await base().get("/api/iam/role-features/defaults").set(bearer(root)).expect(200)).body;
     expect(Object.keys(defaults)).toContain("opcom");
-    expect(Object.keys(defaults)).toContain("pcfar_chef");
+    expect(Object.keys(defaults)).not.toContain("pcfar_chef");
+    // Le centre de communication ne connaît pas les comptes Direx.
+    const deployables = (await base().get("/api/deployable-posts").set(bearer(root)).expect(200)).body as { matricule: string }[];
+    expect(deployables.some((d) => d.matricule === "c.pcfar")).toBe(false);
+    expect(deployables.some((d) => d.matricule === "o.chraibi")).toBe(true);
   });
 
   it("seul le Super Administrateur change le mode, mot de passe à l'appui", async () => {
@@ -96,9 +107,24 @@ describe("Mode de l'application — réglage de station", () => {
     await login("h.alami", "argos").expect(201);
     await login("n.fassi", "A7X2-K9D3").expect(201);
 
-    // Un compte ne mêle pas les deux organisations ; un compte Direx + chef d'entité, si.
+    // Sous Direx : les comptes classiques n'existent plus pour l'administration ni pour le centre.
+    const users = (await base().get("/api/iam/users").set(bearer(root)).expect(200)).body as { matricule: string }[];
+    expect(users.some((u) => u.matricule === "o.chraibi")).toBe(false);
+    expect(users.some((u) => u.matricule === "y.tazi")).toBe(false);
+    expect(users.some((u) => u.matricule === "c.pcfar")).toBe(true);
+    expect(users.some((u) => u.matricule === "n.fassi")).toBe(true);
+    await base().get("/api/iam/users/u-opcom-demo/temp-code").set(bearer(root)).expect(404);
+    const deployables = (await base().get("/api/deployable-posts").set(bearer(root)).expect(200)).body as { matricule: string }[];
+    expect(deployables.some((d) => d.matricule === "o.chraibi")).toBe(false);
+    expect(deployables.some((d) => d.matricule === "c.pcfar")).toBe(true);
+    // Les rôles classiques ne s'attribuent pas ; un compte ne mêle pas les deux organisations ; Direx + chef d'entité, si.
+    await base().post("/api/iam/users").set(bearer(root)).send({ matricule: "x.opcom", nom: "Hors mode", roles: ["opcom"] }).expect(400);
     await base().post("/api/iam/users").set(bearer(root)).send({ matricule: "x.mixte", nom: "Mixte", roles: ["pcf_ops", "opcom"] }).expect(400);
     await base().post("/api/iam/users").set(bearer(root)).send({ matricule: "x.ok", nom: "PCF + unité", roles: ["pcf_ops", "resp_unit"], assignments: { unit: "U1" } }).expect(201);
+    const defaults = (await base().get("/api/iam/role-features/defaults").set(bearer(root)).expect(200)).body;
+    expect(Object.keys(defaults)).toContain("pcfar_chef");
+    expect(Object.keys(defaults)).not.toContain("opcom");
+    expect(Object.keys(defaults)).toContain("resp_unit");
 
     // Retour au mode classique : idempotent, et la station repart comme avant.
     await base().patch("/api/domain/profile").set(bearer(root)).send({ profile: "classique", password: "ARGOS-2026" }).expect(200);

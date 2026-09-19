@@ -222,8 +222,10 @@ aussi (couche « Traceurs et positions partagées »).
   de l'application* : *classique* (l'organisation d'origine) ou *Direx*
   (direction d'exercice et PC par fonctions). Super Administrateur seul, mot de
   passe exigé, sans redémarrage ; sous un mode, les comptes de l'autre profil
-  ne se connectent pas (message à l'écran) et leurs sessions tombent ; annoncé
-  sur l'écran de connexion et dans l'en-tête ; persisté dans `settings.json`.
+  ne se connectent pas (message à l'écran), leurs sessions tombent, et ils
+  n'apparaissent ni dans la gestion des utilisateurs ni dans le centre de
+  communication ; annoncé sur l'écran de connexion et dans l'en-tête ;
+  persisté dans `settings.json`.
 
 ## 7. Ce qui est persisté, et où
 
