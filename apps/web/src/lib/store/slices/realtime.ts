@@ -178,6 +178,11 @@ export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice
           if ((e.data as { what?: string }).what === "units") void get().loadMissions();
           return;
         }
+        if (e.kind === "drawings") {
+          // Un croquis a bougé quelque part : la carte relit les croquis.
+          void get().loadDrawings();
+          return;
+        }
         if (e.kind === "channel") {
           // La structure a changé sous nos pieds : on la recharge plutôt que de
           // la rejouer à la main, une reconstitution partielle valant pire

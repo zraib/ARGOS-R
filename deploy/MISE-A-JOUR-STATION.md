@@ -287,6 +287,19 @@ cd C:\iris\deploy
   agrandit la tuile parente : floue de près, jamais vide. Ajouter des zones :
   `infra/geo/zones.json`, puis `tiles-fetch fetch sat --zones <nom>` sur une
   machine qui a Internet, et une nouvelle archive.
+## 13. Croquis sur la carte et fiches des établissements (paquets du 20 septembre 2026)
+
+- **Mode dessin** : sur la carte, le bouton « Dessin » (pour qui édite la
+  carte) ouvre quatre outils — sélection, point, cercle, polygone. Un clic pose
+  un point ; un cercle se tire du centre vers le bord ; un polygone se ferme
+  d'un double-clic ou sur son premier sommet ; Échap annule. Chaque croquis a un
+  nom, une couleur et une note ; l'étiquette d'un cercle ou d'un polygone se
+  glisse à la souris pour rester lisible dans la forme ; les poignées déplacent
+  les sommets, le centre et le rayon. Tous les postes voient les croquis en
+  temps réel ; l'auteur ou un administrateur les retire.
+- **Hospinet** : chaque établissement de la liste se modifie et se retire
+  directement depuis sa carte (« Modifier », « Retirer »), comme les unités de
+  l'OPSnet — à qui l'API l'accorde.
 
 ## 11. La V2 des rôles : deux modes de l'application (paquets `fusion-V2`)
 

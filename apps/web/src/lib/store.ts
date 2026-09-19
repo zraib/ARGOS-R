@@ -9,6 +9,7 @@ import { createMapSlice, type MapSlice } from "@/lib/store/slices/map";
 import { createMissionsSlice, type MissionsSlice } from "@/lib/store/slices/missions";
 import { createNrbcSlice, type NrbcSlice } from "@/lib/store/slices/nrbc";
 import { createRealtimeSlice, type RealtimeSlice } from "@/lib/store/slices/realtime";
+import { createDrawingsSlice, type DrawingsSlice } from "@/lib/store/slices/drawings";
 import { createAiSlice, type AiSlice } from "@/lib/store/slices/ai";
 import { createAviationSlice, type AviationSlice } from "@/lib/store/slices/aviation";
 import { createChatSlice, type ChatSlice } from "@/lib/store/slices/chat";
@@ -28,7 +29,7 @@ export type { Role } from "@/lib/store/shared";
  * lib/store/slices/ ; aucune n'importe une autre — elles ne partagent que ce
  * type et lib/store/shared.ts.
  */
-export interface ArgosState extends SessionSlice, UiSlice, DomainSlice, SeismicSlice, MapSlice, MissionsSlice, NrbcSlice, RealtimeSlice, AiSlice, AviationSlice, ChatSlice, FloodSlice, FireSlice, TrackingSlice {}
+export interface ArgosState extends SessionSlice, UiSlice, DomainSlice, SeismicSlice, MapSlice, MissionsSlice, NrbcSlice, RealtimeSlice, AiSlice, AviationSlice, ChatSlice, FloodSlice, FireSlice, TrackingSlice, DrawingsSlice {}
 
 export const useArgos = create<ArgosState>()((...a) => ({
   ...createSessionSlice(...a),
@@ -39,6 +40,7 @@ export const useArgos = create<ArgosState>()((...a) => ({
   ...createMissionsSlice(...a),
   ...createNrbcSlice(...a),
   ...createRealtimeSlice(...a),
+  ...createDrawingsSlice(...a),
   ...createAiSlice(...a),
   ...createAviationSlice(...a),
   ...createChatSlice(...a),

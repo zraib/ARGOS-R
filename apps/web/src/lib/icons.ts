@@ -220,4 +220,8 @@ export const UI_ICONS = {
   branch: "M6 3a3 3 0 100 6 3 3 0 000-6z M6 9v6 M6 15a3 3 0 100 6 3 3 0 000-6z M18 4a3 3 0 100 6 3 3 0 000-6z M18 10c0 5-4 6-9 6.6",
   // 🎯 Cible / point d'évacuation (croix de visée)
   target: "M12 3a9 9 0 100 18 9 9 0 000-18z M12 8a4 4 0 100 8 4 4 0 000-8z M12 2v3 M12 19v3 M2 12h3 M19 12h3",
+  // Mode dessin : point, cercle, polygone.
+  drawPoint: "M12 21s-6-5.33-6-10a6 6 0 0112 0c0 4.67-6 10-6 10z M12 11a2 2 0 100-4 2 2 0 000 4z",
+  drawCircle: "M12 4a8 8 0 100 16 8 8 0 000-16z M12 12h.01",
+  drawPolygon: "M6 4l12 2 2 10-8 5-8-6z M6 4v0 M18 6v0 M20 16v0 M12 21v0 M4 15v0",
 } as const;

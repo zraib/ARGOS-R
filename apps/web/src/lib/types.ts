@@ -516,6 +516,29 @@ export interface PlaceableResource {
   placed: boolean;
 }
 
+/** Natures de croquis dessinés sur la carte (mode dessin). */
+export const DRAWING_KINDS = ["point", "circle", "polygon"] as const;
+export type DrawingKind = (typeof DRAWING_KINDS)[number];
+
+/** Un croquis dessiné sur la carte : point, cercle ou polygone nommé (miroir de l'API). */
+export interface Drawing {
+  id: string;
+  kind: DrawingKind;
+  label: string;
+  /** Point : [le point] ; cercle : [le centre] ; polygone : ses sommets. */
+  coords: [number, number][];
+  radiusM?: number;
+  /** Emplacement de l'étiquette (cercle, polygone) ; absent : le centre. */
+  labelLL?: [number, number];
+  color?: string;
+  note?: string;
+  incidentId?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedBy: string;
+  updatedAt: string;
+}
+
 export interface IncidentPost {
   id: string;
   incidentId: string;

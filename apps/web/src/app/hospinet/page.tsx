@@ -65,6 +65,9 @@ export default function HospinetPage() {
   const [adding, setAdding] = useState(false);
   // Modifier l'établissement (identité, implantation, capacités) : à qui l'API l'accorde ; le directeur sur le sien.
   const [editing, setEditing] = useState(false);
+  // Modifier depuis la liste : l'établissement visé par son identifiant.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editingList = editingId ? hospitals.find((h) => h.id === editingId) ?? null : null;
   const sessionUser = useArgos((s) => s.sessionUser);
   const canEditHospital = (id: string) => role === "superadmin" || (can("hospinet:update") && (role !== "resp_hospital" || sessionUser?.assignments?.hospital === id));
   const [affecteurOpen, setAffecteurOpen] = useState(false);
@@ -283,7 +286,14 @@ export default function HospinetPage() {
                       <span className="text-gray-500 dark:text-rdia-300">{t.staff}</span>
                       <span className="font-semibold tabular-nums text-gray-800 dark:text-rdia-50">{h.staff}</span>
                     </div>
-                    <button className="btn-secondaire min-h-[44px] w-full text-xs lg:min-h-0" onClick={() => { setTab("staff"); setSelHosp(h.id); }}>{t.view}</button>
+                    {/* Voir, modifier, supprimer — comme les unités de l'OPSnet : à qui l'API l'accorde. */}
+                    <div className="flex gap-2">
+                      <button className="btn-secondaire min-h-[44px] flex-1 text-xs lg:min-h-0" onClick={() => { setTab("staff"); setSelHosp(h.id); }}>{t.view}</button>
+                      {canEditHospital(h.id) && (
+                        <button className="btn-secondaire min-h-[44px] flex-1 text-xs lg:min-h-0" onClick={() => setEditingId(h.id)}>{t.act_edit}</button>
+                      )}
+                      <DeleteEntityButton kind="hospital" id={h.id} name={h.nom} compact />
+                    </div>
                   </div>
                 );
               })}
@@ -292,6 +302,7 @@ export default function HospinetPage() {
         )}
 
         <AddHospitalModal open={adding} onClose={() => setAdding(false)} />
+        {editingList && <EditHospitalModal hospital={editingList} onClose={() => setEditingId(null)} />}
         <Modal open={affecteurOpen} onClose={() => setAffecteurOpen(false)} size="2xl" title={`${t.af_launcher} · ${t.nav_hosp}`}>
           <HospinetAffecteurIA />
         </Modal>

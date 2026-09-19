@@ -44,6 +44,8 @@ export type UpdateOwnedEquipBody = Json<NonNullable<paths["/api/resources/equipm
 export type ResourceOwner = CreatePersonBody["owner"];
 /** Pose d'une ressource sur le terrain (ADR 0018). */
 export type PlaceResourceBody = Json<NonNullable<paths["/api/resources/{kind}/{id}/position"]["put"]["requestBody"]>>;
+export type CreateDrawingBody = Json<NonNullable<paths["/api/drawings"]["post"]["requestBody"]>>;
+export type UpdateDrawingBody = Json<NonNullable<paths["/api/drawings/{id}"]["patch"]["requestBody"]>>;
 export type AppMode = Json<NonNullable<paths["/api/domain/mode"]["patch"]["requestBody"]>>["mode"];
 /** Postes d'opération sur la carte (lot #12). */
 export type CreatePostBody = Json<NonNullable<paths["/api/incidents/{id}/posts"]["post"]["requestBody"]>>;
@@ -185,6 +187,11 @@ export function createArgosClient(opts: ArgosClientOptions) {
     getNotices: () => client.GET("/api/comms/notices"),
     /** Postes posés sur la carte des opérations visibles (permission `map:view`). */
     getPosts: () => client.GET("/api/posts"),
+    // Croquis dessinés sur la carte (mode dessin).
+    getDrawings: () => client.GET("/api/drawings"),
+    createDrawing: (body: CreateDrawingBody) => client.POST("/api/drawings", { body }),
+    updateDrawing: (id: string, body: UpdateDrawingBody) => client.PATCH("/api/drawings/{id}", { params: { path: { id } }, body }),
+    deleteDrawing: (id: string) => client.DELETE("/api/drawings/{id}", { params: { path: { id } } }),
     createPost: (id: string, body: CreatePostBody) => client.POST("/api/incidents/{id}/posts", { params: { path: { id } }, body }),
     updatePost: (id: string, postId: string, body: UpdatePostBody) =>
       client.PATCH("/api/incidents/{id}/posts/{postId}", { params: { path: { id, postId } }, body }),

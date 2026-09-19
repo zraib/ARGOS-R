@@ -28,6 +28,12 @@ import { applyAircraftTrails, dropAircraft, renderAircraft, setupAircraftTrailLa
 import { pulseQuakes, quakePopup, setupQuakeLayers, syncQuakes } from "@/components/map/layers/quakes";
 import { applyMissions, setupMissionLayers } from "@/components/map/layers/missions";
 import { drawMeasure, setupMeasureLayer } from "@/components/map/layers/measure";
+import {
+  DRAW_FILL, DRAW_HANDLE, DRAW_LINE, DRAW_POINT,
+  applyDraft, applyDrawings, clearDrawingLabels, createDrawingLabelsRuntime, setupDrawingLayers, syncDrawingLabels,
+} from "@/components/map/layers/drawings";
+import { distanceM } from "@/lib/map/drawings";
+import type { Drawing } from "@/lib/types";
 import { PlumeRuntime, applyPlume, playPlume, setupPlumeLayers } from "@/components/map/layers/plume";
 import {
   FloodRuntime,
@@ -108,6 +114,15 @@ export function MapCanvas() {
   const lngRef = useRef<HTMLSpanElement | null>(null);
   const altRef = useRef<HTMLSpanElement | null>(null);
   const altSeqRef = useRef(0);
+  // Mode dessin (croquis) : l'outil armé, le croquis sélectionné, le tracé en cours.
+  const drawings = useArgos((s) => s.drawings);
+  const drawTool = useArgos((s) => s.drawTool);
+  const drawSelected = useArgos((s) => s.drawSelected);
+  const drawEditable = drawTool !== null && can("map_edit:update");
+  const drawRt = useRef(createDrawingLabelsRuntime());
+  const draftRef = useRef<[number, number][]>([]);
+  // Une poignée en cours de glissement : quel croquis, quel rôle, quel sommet ; la copie qui suit la souris.
+  const dragRef = useRef<{ id: string; role: string; index: number; draft: Drawing } | null>(null);
   // Outil de mesure : points saisis, itinéraire calculé, curseur en croix.
   const [measureOn, setMeasureOn] = useState(false);
   const [pts, setPts] = useState<[number, number][]>([]);
@@ -237,7 +252,62 @@ export function MapCanvas() {
     // indépendant du pipeline d'événements interne de MapLibre.)
 
     // Lecture continue de la position du curseur (+ altitude via le MNT).
+    // Polygone terminé : au double-clic, ou sur le premier sommet.
+    const finishPolygon = () => {
+      const st = useArgos.getState();
+      const coords = draftRef.current;
+      draftRef.current = [];
+      applyDraft(map, null, [], null);
+      if (coords.length < 3) return;
+      void st.createDrawing({ kind: "polygon", label: st.dict.dr_new_polygon, coords }).then((d) => d && st.showToast(st.dict.dr_created));
+      st.setDrawTool("select");
+    };
+    map.on("dblclick", (e) => {
+      const tool = useArgos.getState().drawTool;
+      if (tool !== "polygon" || draftRef.current.length < 2) return;
+      e.preventDefault();
+      // Le double-clic a déjà ajouté son sommet au premier clic : on le garde.
+      finishPolygon();
+    });
+    // Une poignée du croquis sélectionné : la saisir déplace le sommet, le centre ou le rayon.
+    map.on("mousedown", DRAW_HANDLE, (e) => {
+      const f = e.features?.[0];
+      const id = f?.properties?.id;
+      const st = useArgos.getState();
+      const d = typeof id === "string" ? st.drawings.find((x) => x.id === id) : undefined;
+      if (!f || !d || !st.drawTool || !st.can("map_edit:update")) return;
+      e.preventDefault();
+      map.dragPan.disable();
+      dragRef.current = { id: d.id, role: String(f.properties?.role), index: Number(f.properties?.index ?? 0), draft: structuredClone(d) };
+      map.getCanvas().style.cursor = "grabbing";
+    });
+    map.on("mouseup", () => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      dragRef.current = null;
+      map.dragPan.enable();
+      map.getCanvas().style.cursor = "";
+      const st = useArgos.getState();
+      const patch: { coords?: [number, number][]; radiusM?: number } = drag.role === "radius" ? { radiusM: drag.draft.radiusM } : { coords: drag.draft.coords };
+      void st.updateDrawing(drag.id, patch);
+      // Le clic qui suit le relâchement ne doit pas désélectionner.
+      window.setTimeout(() => {
+        dragRef.current = null;
+      }, 0);
+    });
     map.on("mousemove", (e) => {
+      const drag = dragRef.current;
+      if (drag) {
+        const ll: [number, number] = [e.lngLat.lng, e.lngLat.lat];
+        if (drag.role === "radius") drag.draft.radiusM = Math.max(1, Math.round(distanceM(drag.draft.coords[0], ll)));
+        else if (drag.role === "center") drag.draft.coords = [ll];
+        else drag.draft.coords = drag.draft.coords.map((c, i) => (i === drag.index ? ll : c));
+        const st = useArgos.getState();
+        applyDrawings(map, st.drawings.map((d) => (d.id === drag.id ? drag.draft : d)), drag.id, true);
+        return;
+      }
+      const tool = useArgos.getState().drawTool;
+      if ((tool === "polygon" || tool === "circle") && draftRef.current.length > 0) applyDraft(map, tool, draftRef.current, [e.lngLat.lng, e.lngLat.lat]);
       if (latRef.current) latRef.current.textContent = `${e.lngLat.lat.toFixed(5)}°`;
       if (lngRef.current) lngRef.current.textContent = `${e.lngLat.lng.toFixed(5)}°`;
       // Altitude : échantillon MNT (asynchrone, tuiles mises en cache).
@@ -251,6 +321,51 @@ export function MapCanvas() {
     // Clic sur la carte : en mode mesure → ajoute un point ; sinon → sélectionne
     // un séisme si le clic tombe sur un marqueur (bandeau de détail).
     map.on("click", (e) => {
+      // Mode dessin : l'outil armé décide de ce que fait le clic.
+      const tool = useArgos.getState().drawTool;
+      if (tool) {
+        if (dragRef.current) return;
+        const ll: [number, number] = [e.lngLat.lng, e.lngLat.lat];
+        const st = useArgos.getState();
+        const pixelsTo = (p: [number, number]) => {
+          const a = map.project(p);
+          return Math.hypot(a.x - e.point.x, a.y - e.point.y);
+        };
+        if (tool === "select") {
+          const layers = [DRAW_POINT, DRAW_LINE, DRAW_FILL].filter((l) => map.getLayer(l));
+          const hit = layers.length ? map.queryRenderedFeatures(e.point, { layers })[0] : undefined;
+          const id = hit?.properties?.id;
+          st.selectDrawing(typeof id === "string" ? id : null);
+          return;
+        }
+        if (tool === "point") {
+          void st.createDrawing({ kind: "point", label: st.dict.dr_new_point, coords: [ll] }).then((d) => d && st.showToast(st.dict.dr_created));
+          st.setDrawTool("select");
+          return;
+        }
+        if (tool === "circle") {
+          if (draftRef.current.length === 0) {
+            draftRef.current = [ll];
+            applyDraft(map, "circle", draftRef.current, ll);
+            return;
+          }
+          const center = draftRef.current[0];
+          const r = Math.max(1, distanceM(center, ll));
+          draftRef.current = [];
+          applyDraft(map, null, [], null);
+          void st.createDrawing({ kind: "circle", label: st.dict.dr_new_circle, coords: [center], radiusM: Math.round(r) }).then((d) => d && st.showToast(st.dict.dr_created));
+          st.setDrawTool("select");
+          return;
+        }
+        // Polygone : un sommet de plus ; un clic sur le premier sommet (≥ 3) ferme.
+        if (draftRef.current.length >= 3 && pixelsTo(draftRef.current[0]) < 12) {
+          finishPolygon();
+          return;
+        }
+        draftRef.current = [...draftRef.current, ll];
+        applyDraft(map, "polygon", draftRef.current, ll);
+        return;
+      }
       // Un chip de la boîte à outils est armé : ce clic pose le poste ici.
       const armed = useArgos.getState().armedPost;
       if (armed) {
@@ -359,6 +474,7 @@ export function MapCanvas() {
       setupRoutesLayer(map);
       setupMissionLayers(map);
       setupMeasureLayer(map);
+      setupDrawingLayers(map);
       setupWeatherLayers(wx, map);
       setupQuakeLayers(map, () => measureOnRef.current, quakeBound);
       setupPlumeLayers(plumeRt.current, map);
@@ -371,6 +487,7 @@ export function MapCanvas() {
       const st = useArgos.getState();
       applyAircraftTrails(map, st.aircraft, st.layers.aircraft);
       applyMorgues(map, st.morgues, st.layers.morgues);
+      applyDrawings(map, st.drawings, st.drawSelected, st.drawTool !== null && st.can("map_edit:update"));
       applyShelters(map, st.shelters, st.layers.shelters);
       applyTrackers(map, st.trackers, st.layers.trackers);
       applyFireSeed(map, st.fireSeed);
@@ -449,9 +566,52 @@ export function MapCanvas() {
       mapRef.current = null;
       markersRt.current.markers = [];
       markersRt.current.veh = [];
+      clearDrawingLabels(drawRt.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // --- croquis : formes, poignées et étiquettes suivent l'état ; Échap annule un tracé ---
+  useEffect(() => {
+    void useArgos.getState().loadDrawings();
+  }, []);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !readyRef.current) return;
+    applyDrawings(map, drawings, drawSelected, drawEditable);
+    syncDrawingLabels(
+      drawRt.current,
+      map,
+      drawings,
+      drawSelected,
+      drawEditable,
+      (id) => {
+        const st = useArgos.getState();
+        if (!st.drawTool) st.setDrawTool("select");
+        st.selectDrawing(id);
+      },
+      (d, ll) => {
+        // Un point suit son étiquette ; une forme garde sa place, seule l'étiquette bouge.
+        void useArgos.getState().updateDrawing(d.id, d.kind === "point" ? { coords: [ll] } : { labelLL: ll });
+      },
+    );
+  }, [drawings, drawSelected, drawEditable, mapSat, map3d]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map && !drawTool) {
+      draftRef.current = [];
+      applyDraft(map, null, [], null);
+    }
+    if (!drawTool || drawTool === "select") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      draftRef.current = [];
+      applyDraft(mapRef.current, null, [], null);
+      useArgos.getState().setDrawTool("select");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawTool]);
 
   // --- re-synchro des marqueurs si données / sélection / couche changent ---
   useEffect(() => {
@@ -461,8 +621,9 @@ export function MapCanvas() {
   // Chip armé, ou point de départ d'une inondation attendu : le curseur le dit avant le clic.
   useEffect(() => {
     const canvas = mapRef.current?.getCanvas();
-    if (canvas) canvas.style.cursor = armedPost || armedResource || floodArming || fireArming ? "crosshair" : "";
-  }, [armedPost, armedResource, floodArming, fireArming]);
+    const dessin = drawTool && drawTool !== "select";
+    if (canvas) canvas.style.cursor = armedPost || armedResource || floodArming || fireArming || dessin ? "crosshair" : "";
+  }, [armedPost, armedResource, floodArming, fireArming, drawTool]);
 
   // --- suivi aérien : interrogation du flux ---
   // Le minuteur s'arrête dès que la couche est masquée, pour ne pas consommer

@@ -1,4 +1,4 @@
-import { DESTINATIONS, POST_KINDS, UNIT_CORPS } from "@/modules/domain/domain.types";
+import { DESTINATIONS, DRAWING_KINDS, POST_KINDS, UNIT_CORPS } from "@/modules/domain/domain.types";
 import { APP_MODES } from "@/common/app-mode";
 import { PERSON_CORPS, PERSON_STATUS, RESOURCE_OWNER_KINDS, SUPPLY_KINDS, VEHICLE_STATES } from "@/modules/domain/resources.types";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
@@ -21,6 +21,7 @@ import {
   Min,
   MinLength,
   ValidateNested,
+  Matches,
 } from "class-validator";
 import { Type } from "class-transformer";
 
@@ -1210,6 +1211,53 @@ export class CreatePostDto {
 }
 
 /** Pose d'une ressource sur le terrain (ADR 0018). */
+/** Un croquis dessiné sur la carte (mode dessin). */
+export class CreateDrawingDto {
+  @ApiProperty({ enum: DRAWING_KINDS, description: "Nature : point, cercle ou polygone." })
+  @IsIn(DRAWING_KINDS as unknown as string[])
+  kind!: (typeof DRAWING_KINDS)[number];
+
+  @ApiProperty({ description: "Le nom (étiquette), affiché sur la carte.", maxLength: 80 })
+  @IsString() @MaxLength(80)
+  label!: string;
+
+  @ApiProperty({ type: "array", items: { type: "array", items: { type: "number" } }, description: "Point : [[lng, lat]] ; cercle : [[centre]] ; polygone : ses sommets (≥ 3)." })
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(500)
+  coords!: [number, number][];
+
+  @ApiPropertyOptional({ minimum: 1, description: "Cercle : rayon en mètres." })
+  @IsOptional() @IsNumber() @Min(1)
+  radiusM?: number;
+
+  @ApiPropertyOptional({ type: [Number], description: "Emplacement de l'étiquette [lng, lat] (cercle, polygone)." })
+  @IsOptional() @IsArray() @ArrayMinSize(2) @ArrayMaxSize(2) @IsNumber({}, { each: true })
+  labelLL?: [number, number];
+
+  @ApiPropertyOptional({ description: "Couleur hex (#rrggbb)." })
+  @IsOptional() @IsString() @Matches(/^#[0-9a-fA-F]{6}$/)
+  color?: string;
+
+  @ApiPropertyOptional({ maxLength: 500 })
+  @IsOptional() @IsString() @MaxLength(500)
+  note?: string;
+
+  @ApiPropertyOptional({ description: "Opération concernée." })
+  @IsOptional() @IsString() @MaxLength(40)
+  incidentId?: string;
+}
+
+export class UpdateDrawingDto {
+  @ApiPropertyOptional({ maxLength: 80 }) @IsOptional() @IsString() @MaxLength(80) label?: string;
+  @ApiPropertyOptional({ type: "array", items: { type: "array", items: { type: "number" } } })
+  @IsOptional() @IsArray() @ArrayMinSize(1) @ArrayMaxSize(500)
+  coords?: [number, number][];
+  @ApiPropertyOptional({ minimum: 1 }) @IsOptional() @IsNumber() @Min(1) radiusM?: number;
+  @ApiPropertyOptional({ type: [Number] }) @IsOptional() @IsArray() @ArrayMinSize(2) @ArrayMaxSize(2) @IsNumber({}, { each: true }) labelLL?: [number, number];
+  @ApiPropertyOptional() @IsOptional() @IsString() @Matches(/^#[0-9a-fA-F]{6}$/) color?: string;
+  @ApiPropertyOptional({ maxLength: 500 }) @IsOptional() @IsString() @MaxLength(500) note?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(40) incidentId?: string;
+}
+
 export class PlaceResourceDto {
   @ApiProperty({ type: [Number], example: [-7.6, 33.58], description: "Point posé [lng, lat]." })
   @IsArray() @ArrayMinSize(2) @ArrayMaxSize(2) @IsNumber({}, { each: true })
