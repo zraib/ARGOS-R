@@ -260,5 +260,37 @@ cd C:\iris\deploy
 - **Notifications** : rappel sonore net toutes les 20 s jusqu'à lecture ou
   acquittement ; la cloche ouvre la conversation concernée ; les conversations
   qui ont reçu du nouveau se signalent dans le centre de communication.
+- **Centre de communication** (ADR 0021) : le canal d'un incident porte son
+  titre ; les conversations sont conservées au redémarrage ; un canal
+  s'archive (lecture seule), s'exporte et s'importe en archive.
+
+## 11. La V2 des rôles : deux modes de l'application (paquets `fusion-V2`)
+
+- **Rien ne change au démarrage** : la station repart en **Mode classique**
+  — les comptes, rôles et réglages actuels sont intacts ; le mode se lit sur
+  l'écran de connexion (« Mode en service ») et dans l'en-tête.
+- **Mode Direx** : le Super Administrateur le bascule dans *Paramètres ›
+  Profil de données › Mode de l'application* (mot de passe exigé, sans
+  redémarrage). Sous ce mode, les comptes classiques (stratégique, OPCOM,
+  TACOM, cellules, autorités, responsable de parc) ne se connectent plus —
+  message « Le Mode Direx est activé sur cette station — contactez
+  l'administrateur » — et leurs sessions ouvertes tombent ; les comptes
+  Direx (DIREX, PC FAR, PCF, PCT, PCO) entrent. L'administration et les chefs
+  d'entité (unité, hôpital, abri, morgue) entrent dans les deux modes.
+- **Comptes de démonstration Direx** livrés avec le paquet (codes provisoires,
+  mot de passe à poser au premier login) : `a.direx` / `DIREX-2026` (Chef),
+  `e.direx` / `EVAL-2026`, `n.direx` / `ANIM-2026`, `r.direx` / `RLS-2026`,
+  `c.pcfar` / `PCFAR-2026`, `o.pcfar` / `OPSF-2026`, `c.pcf` / `PCF-2026`,
+  `o.pcf` / `OPSP-2026`, `c.pct` / `PCT-2026`, `o.pct` / `OPST-2026`,
+  `c.pco` / `PCO-2026`, `o.pco` / `OPSO-2026`.
+- **Gestion des utilisateurs** : un onglet *Utilisateurs classique* et un
+  onglet *Utilisateurs Direx* (les comptes communs figurent dans les deux) ;
+  l'administration prépare les comptes des deux profils quel que soit le mode
+  en service. *Rôles & fonctionnalités* : un onglet par profil, les modules du
+  menu et les **43 fonctionnalités de l'API** commutables par rôle — dont
+  « Sous-incidents (ajouter, modifier, supprimer) ».
+- Le mode et les bascules sont persistés dans le volume de l'API
+  (`settings.json`, instantané IAM) : la sauvegarde d'`upgrade.ps1` les
+  emporte, la remise en arrière (§ 8) les rend.
 - **Carte** : l'arabe des étiquettes est de nouveau mis en forme (greffon RTL
   corrigé) ; chaque jour des prévisions météo se consulte.

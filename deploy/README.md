@@ -216,7 +216,14 @@ aussi (couche « Traceurs et positions partagées »).
   dit pourquoi — l'opérateur passe outre en connaissance de cause.
 - Les bascules d'administration sont **effectives côté API** : un module coupé
   dans *Paramètres › Modules* l'est pour tous ; un module coupé pour un rôle
-  dans *Utilisateurs › Rôles* lui est refusé, pas seulement masqué (ADR 0015).
+  dans *Utilisateurs › Rôles* lui est refusé, pas seulement masqué (ADR 0015) ;
+  de même pour les **43 fonctionnalités de l'API** coupées par rôle (ADR 0022).
+- **Mode de l'application** (ADR 0022) — *Paramètres › Profil de données › Mode
+  de l'application* : *classique* (l'organisation d'origine) ou *Direx*
+  (direction d'exercice et PC par fonctions). Super Administrateur seul, mot de
+  passe exigé, sans redémarrage ; sous un mode, les comptes de l'autre profil
+  ne se connectent pas (message à l'écran) et leurs sessions tombent ; annoncé
+  sur l'écran de connexion et dans l'en-tête ; persisté dans `settings.json`.
 
 ## 7. Ce qui est persisté, et où
 
