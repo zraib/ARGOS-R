@@ -1,5 +1,7 @@
 "use client";
 
+import { axisTicks } from "@/lib/charts";
+
 // ============================================================================
 // ARGOS — graphe d'évolution (SVG pur, sans dépendance externe)
 // Série temporelle à deux courbes : aire dorée (incidents déclarés) + ligne
@@ -36,8 +38,8 @@ export function LineAreaChart({ titre, data, labelOpened, labelClosed, bare = fa
     data.map((p, i) => `${i === 0 ? "M" : "L"}${xAt(i).toFixed(1)},${yAt(get(p)).toFixed(1)}`).join(" ");
   const area = `${line((p) => p.opened)} L${xAt(data.length - 1).toFixed(1)},${(PAD.top + innerH).toFixed(1)} L${PAD.left},${(PAD.top + innerH).toFixed(1)} Z`;
 
-  // Graduations Y (4 lignes) + étiquettes X clairsemées (1 sur 6).
-  const ticks = [0.25, 0.5, 0.75, 1].map((f) => Math.round(max * f));
+  // Graduations Y (jusqu'à 4 lignes, distinctes — voir `lib/charts`) + étiquettes X clairsemées (1 sur 6).
+  const ticks = axisTicks(max);
 
   const legend = (
     <div className="flex items-center gap-3 text-[10px] text-gray-500 dark:text-rdia-300">
