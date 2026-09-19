@@ -2,7 +2,7 @@
   "_comment": "Profils de téléchargement des tuiles raster (imagerie « sat », altitude « dem »). bbox = [ouest, sud, est, nord] en degrés. Le pays entier au-delà de z13 est hors de portée (Maroc à z19 : ~800 millions de tuiles, ~18 To) : l'imagerie fine se prend PAR ZONE. Ajouter une zone = un objet de plus ; enabled:false la met de côté sans la perdre. Estimer avant de lancer : docker compose run --rm tiles-fetch estimate sat",
   "sat": [
     { "name": "maroc",            "bbox": [-17.20, 20.70, -0.95, 36.00], "minzoom": 0,  "maxzoom": 13, "note": "tout le territoire, y compris les provinces du Sud (~200 000 tuiles)" },
-    { "name": "communes",         "communes": 3,                         "minzoom": 14, "maxzoom": 15, "note": "3 km autour du chef-lieu de CHACUNE des ~1 500 communes (infra/geo/communes.json, écrit par apps/api/scripts/communes.mjs) : les villages sinistrés se lisent de près (~70 000 tuiles)" },
+    { "name": "communes",         "communes": 3,                         "minzoom": 14, "maxzoom": 16, "note": "3 km autour du chef-lieu de CHACUNE des ~1 500 communes (infra/geo/communes.json, écrit par apps/api/scripts/communes.mjs) : les villages sinistrés se lisent bâtiment par bâtiment (~380 000 tuiles)" },
     { "name": "rabat-sale",       "bbox": [-6.95, 33.85, -6.70, 34.10],  "minzoom": 14, "maxzoom": 17 },
     { "name": "casablanca",       "bbox": [-7.75, 33.45, -7.35, 33.70],  "minzoom": 14, "maxzoom": 17 },
     { "name": "mohammedia",       "bbox": [-7.45, 33.65, -7.33, 33.73],  "minzoom": 14, "maxzoom": 17 },
