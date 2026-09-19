@@ -1,7 +1,7 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { UsersService } from "@/modules/iam/users.service";
-import { CreateUserDto, SetActiveDto, ToggleRoleFeatureDto, ToggleUserModuleDto, UpdateUserDto } from "@/modules/iam/dto";
+import { CreateUserDto, SetActiveDto, ToggleRoleFeatureDto, ToggleRoleGrantDto, ToggleUserModuleDto, UpdateUserDto } from "@/modules/iam/dto";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import { SelfService } from "@/common/decorators/self-service.decorator";
@@ -114,5 +114,42 @@ export class UsersController {
   resetRoleFeatures(@Param("role") role: string) {
     if (!isRole(role)) throw new BadRequestException(`Rôle inconnu : ${role}`);
     return this.users.resetRoleFeatures(role as Role);
+  }
+
+  // --- fonctionnalités de l'API par rôle (ADR 0022, lot 2) --------------------
+
+  @ApiOperation({
+    summary: "Matrice rôle → fonctionnalités de l'API (43), commutables.",
+    description: "Lisible par tout compte : le navigateur masque ce que l'API refuse. Une fonctionnalité coupée retire toutes ses actions au rôle.",
+  })
+  @Get("role-grants")
+  @SelfService()
+  roleGrants() {
+    return this.users.getRoleGrants();
+  }
+
+  @Get("role-grants/defaults")
+  @SelfService()
+  @ApiOperation({ summary: "Matrice rôle → fonctionnalités PAR DÉFAUT (dérivée de la matrice RBAC) — ce que « réinitialiser » restaure" })
+  defaultRoleGrants() {
+    return this.users.getDefaultRoleGrants();
+  }
+
+  @Patch("role-grants/:role")
+  @RequirePermission("users:update")
+  @ApiOperation({ summary: "Ouvrir/couper une fonctionnalité de l'API pour un rôle (Super Admin) — effectif dès la requête suivante" })
+  setRoleGrant(@CurrentUser() actor: AuthUser, @Param("role") role: string, @Body() dto: ToggleRoleGrantDto) {
+    if (actor.role !== "superadmin") throw new ForbiddenException("La matrice des fonctionnalités se règle au niveau Super Administrateur.");
+    if (!isRole(role)) throw new BadRequestException(`Rôle inconnu : ${role}`);
+    return this.users.setRoleGrant(role as Role, dto.feature, dto.enabled);
+  }
+
+  @Post("role-grants/:role/reset")
+  @RequirePermission("users:update")
+  @ApiOperation({ summary: "Remettre un rôle à ses fonctionnalités par défaut (Super Admin)" })
+  resetRoleGrants(@CurrentUser() actor: AuthUser, @Param("role") role: string) {
+    if (actor.role !== "superadmin") throw new ForbiddenException("La matrice des fonctionnalités se règle au niveau Super Administrateur.");
+    if (!isRole(role)) throw new BadRequestException(`Rôle inconnu : ${role}`);
+    return this.users.resetRoleGrants(role as Role);
   }
 }

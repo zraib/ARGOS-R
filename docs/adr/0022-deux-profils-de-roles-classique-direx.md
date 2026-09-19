@@ -1,6 +1,7 @@
 # ADR 0022 — Deux profils de rôles dans une même application : « classique » (l'organisation actuelle) et « direx » (DIREX / PC FAR / PCF / PCT / PCO)
 
-- **Statut :** accepté — lot 1 livré (socle, profil `direx`, mode de l'application) ; la grille reste à corriger
+- **Statut :** accepté — lots 1 et 2 livrés (socle, profil `direx`, mode de l'application, fonctionnalités
+  commutables par rôle, comptes par profil) ; la grille reste telle quelle jusqu'à décision
 - **Date :** 2026-09-19 (révisée le même jour : un seul port, une seule base, deux profils ; PCF ajouté ; le
   mode est un réglage de station changé par le Super Administrateur seul)
 - **Branche :** `fusion-V2` (ouverte depuis `fusion`, qui reste la version livrée)
@@ -186,14 +187,17 @@ les PC, pas des postes à part) ; la DIREX ne se pose pas ; `pct` et `pco` sont 
 connus, partagés avec le profil `classique`. Les modes de la station restent orthogonaux : la DIREX
 n'a de sens qu'en exercice et démonstration ; en opérationnel seuls Eval (lecture) et les PC servent.
 
-### 4. Les sous-incidents, fonctionnalité à part
+### 4. Les 43 fonctionnalités de l'API, commutables par rôle — dont les sous-incidents
 
-La matrice RBAC les distingue déjà (`subincidents` : A/M/R/V, séparé d'`incidents`). Ce qui manque :
-une entrée **module** propre dans la matrice rôle → modules (ADR 0017), pour couper ou ouvrir par
-rôle et par compte « déclarer / modifier / retirer un sous-incident » indépendamment de l'incident.
-Proposition : module `subincidents` (« Sous-incidents ») inséré après `incidents` dans
-`MODULE_KEYS`, défaut = ce que la matrice RBAC accorde, garde `assertModuleOpen` sur les routes
-`incidents/:id/sub-incidents*`.
+Au-delà des modules du menu (ADR 0017), chaque **fonctionnalité de la matrice RBAC** (43 lignes,
+dont `subincidents` — « Sous-incidents : ajouter, modifier, supprimer », distincte d'`incidents`)
+s'ouvre ou se coupe par rôle depuis « Rôles & fonctionnalités » : `DEFAULT_ROLE_GRANTS` (ouverte au
+rôle qui en détient au moins une action), `GET/PATCH iam/role-grants[/:role]`, `POST …/reset`
+(Super Administrateur), persistées dans l'instantané IAM. Coupée, une fonctionnalité retire au rôle
+**toutes** ses actions (`PermissionsGuard` → 403 « Fonctionnalité coupée pour le rôle … ») et
+disparaît des permissions servies par `/iam/me` — le navigateur masque d'après elles (`can()`). La
+matrice RBAC elle-même ne bouge pas ; le cœur (`users`, `settings`, `audit`) et les administrateurs
+restent verrouillés.
 
 ### 5. Une instance, deux profils, un mode en service, les mêmes données
 
@@ -202,11 +206,13 @@ Proposition : module `subincidents` (« Sous-incidents ») inséré après `inci
   sans redémarrage. La sonde publique `/health` l'annonce (`roleProfile`), `/iam/me` et
   `GET /iam/profiles` (`active`) aussi ; l'écran de connexion l'affiche (« Mode en service »), l'en-tête
   le rappelle, les Paramètres le basculent.
-- **Sous un mode, l'autre profil n'est pas servi** : la connexion d'un compte de l'autre profil est
+- **Sous un mode, l'autre profil n'a pas accès** : la connexion d'un compte de l'autre profil est
   refusée (403 « Le Mode X est activé sur cette station — contactez l'administrateur ») ; une session
   déjà ouverte de l'autre profil tombe à sa requête suivante (401, la garde JWT compare le rôle au mode
-  en service) ; ses rôles ne s'attribuent pas (400) ; la matrice servie (`/iam/role-features*`) et le
-  sélecteur de rôle ne montrent que le profil en service. L'administration et les chefs d'entité,
+  en service). L'administration, elle, **gère les deux profils** quel que soit le mode : la table des
+  comptes a un onglet « Utilisateurs classique » et un onglet « Utilisateurs Direx » (les comptes
+  communs figurent dans les deux), « Rôles & fonctionnalités » un onglet par profil ; les comptes de
+  l'autre profil se créent et se règlent, ils n'entrent pas. L'administration et les chefs d'entité,
   communs, passent dans les deux modes.
 - Un compte porte des rôles d'un seul profil ; `/iam/me` dit le mode en service.
 - Les **graines de démonstration** (mode démo, ADR 0015) reçoivent des comptes du profil `direx`
@@ -241,8 +247,10 @@ Avant le premier lot : étiquette git `v1-roles-classiques` sur `1ee4239`, paque
    service, écritures gardées par la permission servie (`can()`), miroirs des traits. Les gates
    existantes passent inchangées (profil classique) ; suites ajoutées : `shared/profiles.spec.ts`,
    `iam/login-mode.spec.ts`.
-2. **Grille** — corrections cellule par cellule de `docs/matrice-roles-direx.xlsx`, reportées par le
-   script ; module `subincidents` du menu.
+2. **Fonctionnalités et comptes (livré)** — les 43 fonctionnalités de l'API commutables par rôle
+   (§ 4), onglets de comptes par profil, onglets de profil dans « Rôles & fonctionnalités » ; la
+   grille `docs/matrice-roles-direx.xlsx` reste telle quelle (décision du propriétaire), le script
+   la reporte quand elle changera.
 3. **Web** — annuaire et canaux du centre de communication groupés par échelon ; comptes de
    démonstration déployés sur les opérations du jeu.
 4. **Livraison** — tableau des rôles par profil dans `README.md`, guides, paquet ; fusion de

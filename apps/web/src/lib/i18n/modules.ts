@@ -450,11 +450,18 @@ export interface ModulesDict {
     | "pco_chef" | "pco_ops" | "pco_log" | "pco_rens_com",
     string
   >;
+  /** Les fonctionnalités de l'API (matrice RBAC), commutables par rôle (ADR 0022, lot 2). */
+  features: Record<
+    "dashboard" | "dash_incident" | "dash_hospital" | "dash_shelter" | "dash_morgue" | "dash_unit" | "map" | "incidents" | "subincidents" | "victims" | "hospinet" | "shelters" | "morgue" | "units" | "equipment" | "teams" | "comms" | "reports" | "analytics" | "assistant" | "users" | "settings" | "assign" | "deploy" | "resources" | "weather" | "plume" | "dispatch" | "triage" | "ics" | "damage" | "orsec" | "plans" | "personnel" | "workorders" | "seismic" | "audit" | "aviation" | "nrbc" | "missions" | "tracking" | "comms_admin" | "map_edit",
+    string
+  >;
   users: {
     title: string;
     subtitle: string;
     tab_users: string;
     tab_roles: string;
+    tab_classique: string; tab_direx: string; profile_of_account: string;
+    modules_title: string; modules_hint: string; features_title: string; features_hint: string; feature_locked: string;
     new_user: string;
     edit_user: string;
     edit: string;

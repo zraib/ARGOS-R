@@ -19,6 +19,8 @@ import {
   type ResponsibilityKind,
   type Role,
   type ScopedAssignments,
+  profileOfRoles,
+  type ProfileId,
 } from "@/lib/roles";
 import { GRADES } from "@/lib/data/grades";
 import { AddHospitalModal, AddShelterModal, AddUnitModal } from "@/components/org/AddEntityModals";
@@ -55,12 +57,15 @@ type AssignmentsBody = NonNullable<Parameters<typeof api.createUser>[0]["assignm
 
 export function UserForm({
   creatorRole,
+  profile: tabProfile,
   user,
   onClose,
   onDone,
   onCreated,
 }: {
   creatorRole: Role;
+  /** Profil de l'onglet d'où l'on crée (ADR 0022) ; un compte édité garde celui de ses rôles. */
+  profile?: ProfileId;
   user?: ApiUser;
   onClose: () => void;
   onDone: () => void;
@@ -82,9 +87,10 @@ export function UserForm({
     setUserModules((s) => { const next = { ...s }; if (enabled === null) delete next[module]; else next[module] = enabled; return next; });
   };
   const superAdmin = isSuperAdmin(creatorRole);
-  // Les rôles proposés sont ceux du mode de l'application en service (ADR 0022) :
-  // l'autre profil n'est pas servi, l'API refuserait de toute façon.
-  const profile = useArgos((s) => s.profile);
+  // Les rôles proposés sont ceux du profil de l'onglet — celui des rôles du
+  // compte édité, sinon celui de l'onglet, sinon le mode en service (ADR 0022).
+  const sessionProfile = useArgos((s) => s.profile);
+  const profile: ProfileId = (user ? profileOfRoles(user.roles as Role[]) : null) ?? tabProfile ?? sessionProfile;
   const options = assignableRoles(creatorRole, profile);
   const multiple = canAssignMultipleRoles(creatorRole);
 

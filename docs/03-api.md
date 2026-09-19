@@ -50,6 +50,10 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `PATCH` | `/api/iam/role-features/{role}` | `users:update` | Ouvrir/couper un module pour un rôle (Super Admin) — effectif côté API dès la requête suivante |
 | `POST` | `/api/iam/role-features/{role}/reset` | `users:update` | Remettre un rôle à ses modules par défaut (Super Admin) |
 | `GET` | `/api/iam/role-features/defaults` | authentifié (soi-même) | Matrice rôle → modules PAR DÉFAUT (dérivée de la matrice RBAC) — ce que « réinitialiser » restaure |
+| `GET` | `/api/iam/role-grants` | authentifié (soi-même) | Matrice rôle → fonctionnalités de l'API (43), commutables. |
+| `PATCH` | `/api/iam/role-grants/{role}` | `users:update` | Ouvrir/couper une fonctionnalité de l'API pour un rôle (Super Admin) — effectif dès la requête suivante |
+| `POST` | `/api/iam/role-grants/{role}/reset` | `users:update` | Remettre un rôle à ses fonctionnalités par défaut (Super Admin) |
+| `GET` | `/api/iam/role-grants/defaults` | authentifié (soi-même) | Matrice rôle → fonctionnalités PAR DÉFAUT (dérivée de la matrice RBAC) — ce que « réinitialiser » restaure |
 | `GET` | `/api/iam/roles` | `users:view` | Catalogue des rôles et de leurs permissions |
 | `GET` | `/api/iam/users` | `users:view` | Lister les utilisateurs (Admin/Super Admin) |
 | `POST` | `/api/iam/users` | `users:create` | Créer un utilisateur (règles d'attribution appliquées côté serveur) |
@@ -304,7 +308,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 ## Chiffres
 
-157 chemins · 200 opérations · 14 groupes.
+161 chemins · 204 opérations · 14 groupes.
 
 ## Modifier le contrat
 

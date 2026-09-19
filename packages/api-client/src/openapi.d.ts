@@ -404,6 +404,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/iam/role-grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Matrice rôle → fonctionnalités de l'API (43), commutables.
+         * @description Lisible par tout compte : le navigateur masque ce que l'API refuse. Une fonctionnalité coupée retire toutes ses actions au rôle.
+         */
+        get: operations["UsersController_roleGrants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/iam/role-grants/defaults": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Matrice rôle → fonctionnalités PAR DÉFAUT (dérivée de la matrice RBAC) — ce que « réinitialiser » restaure */
+        get: operations["UsersController_defaultRoleGrants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/iam/role-grants/{role}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Ouvrir/couper une fonctionnalité de l'API pour un rôle (Super Admin) — effectif dès la requête suivante */
+        patch: operations["UsersController_setRoleGrant"];
+        trace?: never;
+    };
+    "/api/iam/role-grants/{role}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remettre un rôle à ses fonctionnalités par défaut (Super Admin) */
+        post: operations["UsersController_resetRoleGrants"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/flags": {
         parameters: {
             query?: never;
@@ -3038,6 +3109,14 @@ export interface components {
             /** @description true : ouvert malgré le rôle ; false : coupé ; null : le rôle décide */
             enabled: boolean | null;
         };
+        ToggleRoleGrantDto: {
+            /**
+             * @description Fonctionnalité de la matrice à ouvrir ou couper pour le rôle
+             * @enum {string}
+             */
+            feature: "dashboard" | "dash_incident" | "dash_hospital" | "dash_shelter" | "dash_morgue" | "dash_unit" | "map" | "incidents" | "subincidents" | "victims" | "hospinet" | "shelters" | "morgue" | "units" | "equipment" | "teams" | "comms" | "reports" | "analytics" | "assistant" | "users" | "settings" | "assign" | "deploy" | "resources" | "weather" | "plume" | "dispatch" | "triage" | "ics" | "damage" | "orsec" | "plans" | "personnel" | "workorders" | "seismic" | "audit" | "aviation" | "nrbc" | "missions" | "tracking" | "comms_admin" | "map_edit";
+            enabled: boolean;
+        };
         ToggleFlagDto: {
             /** @description Nouvel état du flag */
             enabled: boolean;
@@ -4750,6 +4829,82 @@ export interface operations {
         };
     };
     UsersController_resetRoleFeatures: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UsersController_roleGrants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UsersController_defaultRoleGrants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UsersController_setRoleGrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToggleRoleGrantDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UsersController_resetRoleGrants: {
         parameters: {
             query?: never;
             header?: never;

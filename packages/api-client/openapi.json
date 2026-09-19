@@ -691,6 +691,115 @@
         ]
       }
     },
+    "/api/iam/role-grants": {
+      "get": {
+        "description": "Lisible par tout compte : le navigateur masque ce que l'API refuse. Une fonctionnalité coupée retire toutes ses actions au rôle.",
+        "operationId": "UsersController_roleGrants",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Matrice rôle → fonctionnalités de l'API (43), commutables.",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/iam/role-grants/defaults": {
+      "get": {
+        "operationId": "UsersController_defaultRoleGrants",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Matrice rôle → fonctionnalités PAR DÉFAUT (dérivée de la matrice RBAC) — ce que « réinitialiser » restaure",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/iam/role-grants/{role}": {
+      "patch": {
+        "operationId": "UsersController_setRoleGrant",
+        "parameters": [
+          {
+            "name": "role",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToggleRoleGrantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ouvrir/couper une fonctionnalité de l'API pour un rôle (Super Admin) — effectif dès la requête suivante",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/iam/role-grants/{role}/reset": {
+      "post": {
+        "operationId": "UsersController_resetRoleGrants",
+        "parameters": [
+          {
+            "name": "role",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remettre un rôle à ses fonctionnalités par défaut (Super Admin)",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
     "/api/flags": {
       "get": {
         "description": "Lisible par tout compte authentifié : le navigateur masque les modules coupés, l'API les refuse (ADR 0015). Avant, la route exigeait `settings:view` — un rôle non administrateur ne recevait jamais les drapeaux.",
@@ -6722,6 +6831,67 @@
         },
         "required": [
           "module",
+          "enabled"
+        ]
+      },
+      "ToggleRoleGrantDto": {
+        "type": "object",
+        "properties": {
+          "feature": {
+            "type": "string",
+            "enum": [
+              "dashboard",
+              "dash_incident",
+              "dash_hospital",
+              "dash_shelter",
+              "dash_morgue",
+              "dash_unit",
+              "map",
+              "incidents",
+              "subincidents",
+              "victims",
+              "hospinet",
+              "shelters",
+              "morgue",
+              "units",
+              "equipment",
+              "teams",
+              "comms",
+              "reports",
+              "analytics",
+              "assistant",
+              "users",
+              "settings",
+              "assign",
+              "deploy",
+              "resources",
+              "weather",
+              "plume",
+              "dispatch",
+              "triage",
+              "ics",
+              "damage",
+              "orsec",
+              "plans",
+              "personnel",
+              "workorders",
+              "seismic",
+              "audit",
+              "aviation",
+              "nrbc",
+              "missions",
+              "tracking",
+              "comms_admin",
+              "map_edit"
+            ],
+            "description": "Fonctionnalité de la matrice à ouvrir ou couper pour le rôle"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "feature",
           "enabled"
         ]
       },

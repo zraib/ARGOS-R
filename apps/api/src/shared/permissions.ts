@@ -144,6 +144,19 @@ export const FEATURE_LABELS: Record<Feature, string> = {
 
 export type Permission = `${Feature}:${Action}`;
 
+export function isFeatureKey(v: unknown): v is Feature {
+  return typeof v === "string" && (FEATURES as readonly string[]).includes(v);
+}
+
+/**
+ * Fonctionnalités du CŒUR d'administration : listées, jamais coupées — c'est
+ * par elles qu'on rallume le reste (même logique que `CORE_MODULES`).
+ */
+export const CORE_FEATURES = ["users", "settings", "audit"] as const satisfies readonly Feature[];
+export function isCoreFeature(f: string): boolean {
+  return (CORE_FEATURES as readonly string[]).includes(f);
+}
+
 /** Toutes les permissions existantes (produit fonctionnalités × actions). */
 export const PERMISSIONS: Permission[] = FEATURES.flatMap((f) =>
   ACTIONS.map((a) => `${f}:${a}` as Permission),
@@ -737,4 +750,22 @@ export const DEFAULT_ROLE_FEATURES: Record<Role, Record<ModuleKey, boolean>> = O
 /** Copie profonde des défauts (état initial modifiable). */
 export function defaultRoleFeatures(): Record<Role, Record<ModuleKey, boolean>> {
   return structuredClone(DEFAULT_ROLE_FEATURES);
+}
+
+/**
+ * Matrice rôle → FONCTIONNALITÉS commutables (ADR 0022, lot 2) : chacune des
+ * fonctionnalités de l'API s'ouvre ou se coupe par rôle, en plus des modules
+ * du menu. Par défaut, une fonctionnalité est ouverte au rôle qui en détient au
+ * moins une action dans la matrice RBAC ; couper une fonctionnalité retire
+ * TOUTES ses actions au rôle (403), sans toucher à la matrice.
+ */
+export const DEFAULT_ROLE_GRANTS: Record<Role, Record<Feature, boolean>> = Object.fromEntries(
+  ROLES.map((role) => [
+    role,
+    Object.fromEntries(FEATURES.map((f) => [f, ACTIONS.some((a) => roleHasPermission(role, `${f}:${a}`))])),
+  ]),
+) as Record<Role, Record<Feature, boolean>>;
+
+export function defaultRoleGrants(): Record<Role, Record<Feature, boolean>> {
+  return structuredClone(DEFAULT_ROLE_GRANTS);
 }

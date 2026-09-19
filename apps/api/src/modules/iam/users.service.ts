@@ -1,6 +1,5 @@
-import { roleInProfile, rolesShareProfile } from "@/shared/profiles";
-import { ProfileService } from "@/modules/mode/profile.service";
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { rolesShareProfile } from "@/shared/profiles";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import {
   assignableRoles,
   canAssignMultipleRoles,
@@ -15,6 +14,13 @@ import {
   ROLES,
   ROLE_LABELS,
   type Role,
+  DEFAULT_ROLE_GRANTS,
+  defaultRoleGrants,
+  isFeatureKey,
+  isCoreFeature,
+  PERMISSIONS,
+  type Feature,
+  type Permission,
 } from "@/shared/permissions";
 import {
   type Assignments,
@@ -197,13 +203,15 @@ export class UsersService implements ScopeResolver {
   ];
 
   private roleFeatures = defaultRoleFeatures();
+  /** Fonctionnalités de l'API ouvertes par rôle (ADR 0022, lot 2) — défauts dérivés de la matrice RBAC. */
+  private roleGrants = defaultRoleGrants();
 
-  constructor(@Optional() private readonly profiles?: ProfileService) {
+  constructor() {
     // Persistance dev : restaure le registre depuis l'instantané disque afin que
     // le mot de passe fondateur (et tous les comptes) SURVIVE aux redémarrages —
     // plus de « 1er login » à chaque lancement. Voir common/dev-store.
     // (Réinitialiser : supprimer le dossier .dev-data.)
-    const snap = loadDevState<{ users?: ManagedUser[]; roleFeatures?: Record<Role, Record<string, boolean>> }>("iam", {});
+    const snap = loadDevState<{ users?: ManagedUser[]; roleFeatures?: Record<Role, Record<string, boolean>>; roleGrants?: Record<Role, Record<string, boolean>> }>("iam", {});
     if (snap.users && snap.users.length > 0) {
       // `online` est un état de session : on repart déconnecté après un restart.
       // Les rôles HÉRITÉS (avant la refonte de l'organisation) sont migrés vers
@@ -253,11 +261,19 @@ export class UsersService implements ScopeResolver {
         }
       }
     }
+    if (snap.roleGrants) {
+      for (const role of ROLES) {
+        if (!snap.roleGrants[role]) continue;
+        for (const [k, v] of Object.entries(snap.roleGrants[role])) {
+          if (isFeatureKey(k) && typeof v === "boolean") this.roleGrants[role][k] = v;
+        }
+      }
+    }
   }
 
   /** Écrit l'instantané du registre (débounce dans dev-store ; no-op hors dev). */
   private persist(): void {
-    saveDevState("iam", { users: this.users, roleFeatures: this.roleFeatures });
+    saveDevState("iam", { users: this.users, roleFeatures: this.roleFeatures, roleGrants: this.roleGrants });
   }
 
   // --- lecture -------------------------------------------------------------
@@ -310,12 +326,6 @@ export class UsersService implements ScopeResolver {
     // communs aux deux, se cumulent avec l'un ou l'autre.
     if (!rolesShareProfile(roles)) {
       throw new BadRequestException("Un compte porte les rôles d'un seul mode : classique ou Direx, pas les deux.");
-    }
-    // Sous un mode, l'autre profil n'est pas servi : ses rôles ne s'attribuent pas.
-    const active = this.profiles?.current() ?? "classique";
-    const horsMode = roles.filter((r) => !roleInProfile(r, active));
-    if (horsMode.length > 0) {
-      throw new BadRequestException(`${this.profiles?.refusal() ?? "Mode en service."} Rôle(s) hors mode : ${horsMode.join(", ")}.`);
     }
   }
 
@@ -613,19 +623,56 @@ export class UsersService implements ScopeResolver {
 
   // --- matrice rôle → fonctionnalités --------------------------------------
 
-  /** Ne garde que les rôles du mode en service (ADR 0022) : l'autre profil n'est pas servi. */
-  private onlyActive<T>(table: Record<Role, T>): Record<Role, T> {
-    const active = this.profiles?.current() ?? "classique";
-    return Object.fromEntries(Object.entries(table).filter(([r]) => roleInProfile(r as Role, active))) as Record<Role, T>;
-  }
-
   getRoleFeatures(): Record<Role, Record<string, boolean>> {
-    return this.onlyActive(this.roleFeatures);
+    return this.roleFeatures;
   }
 
   /** Les défauts (dérivés de la matrice RBAC) : ce que « réinitialiser » restaure, ce que le point « modifié » compare. */
   getDefaultRoleFeatures(): Record<Role, Record<string, boolean>> {
-    return this.onlyActive(DEFAULT_ROLE_FEATURES);
+    return DEFAULT_ROLE_FEATURES;
+  }
+
+  // --- fonctionnalités de l'API par rôle (ADR 0022, lot 2) --------------------
+
+  getRoleGrants(): Record<Role, Record<Feature, boolean>> {
+    return this.roleGrants;
+  }
+
+  getDefaultRoleGrants(): Record<Role, Record<Feature, boolean>> {
+    return DEFAULT_ROLE_GRANTS;
+  }
+
+  /** Ouvre ou coupe une fonctionnalité pour un rôle ; le cœur et les administrateurs sont verrouillés. */
+  setRoleGrant(role: Role, feature: string, enabled: boolean): Record<Feature, boolean> {
+    if (!isFeatureKey(feature)) throw new BadRequestException(`Fonctionnalité inconnue : ${feature}`);
+    if (isCoreFeature(feature)) throw new BadRequestException(`Fonctionnalité verrouillée : ${feature}`);
+    if (role === "superadmin" || role === "admin") {
+      throw new ForbiddenException("Les rôles superadmin/admin ont un accès total verrouillé.");
+    }
+    this.roleGrants[role] = { ...this.roleGrants[role], [feature]: enabled };
+    this.persist();
+    return this.roleGrants[role];
+  }
+
+  resetRoleGrants(role: Role): Record<Feature, boolean> {
+    if (role === "superadmin" || role === "admin") {
+      throw new ForbiddenException("Les rôles superadmin/admin ont un accès total verrouillé.");
+    }
+    this.roleGrants[role] = { ...DEFAULT_ROLE_GRANTS[role] };
+    this.persist();
+    return this.roleGrants[role];
+  }
+
+  /** La fonctionnalité est-elle ouverte à ce rôle ? Les administrateurs et le cœur : toujours. */
+  isFeatureGranted(role: Role, feature: Feature): boolean {
+    if (role === "superadmin" || role === "admin" || isCoreFeature(feature)) return true;
+    return (this.roleGrants[role] ?? {})[feature] !== false;
+  }
+
+  /** Les permissions d'un compte, moins celles des fonctionnalités coupées à son rôle. */
+  grantedPermissions(role: Role, permissions: Permission[] | "*"): Permission[] {
+    const all = permissions === "*" ? [...PERMISSIONS] : permissions;
+    return all.filter((p) => this.isFeatureGranted(role, p.split(":")[0] as Feature));
   }
 
   setRoleFeature(role: Role, feature: string, enabled: boolean): Record<string, boolean> {

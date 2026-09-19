@@ -3,7 +3,7 @@ import { Reflector } from "@nestjs/core";
 import { REQUIRE_PERMISSION_KEY } from "@/common/decorators/require-permission.decorator";
 import { REQUIRE_SCOPE_KEY, type ScopeRequirement } from "@/common/decorators/require-scope.decorator";
 import { FEATURE_GATE, type FeatureGate } from "@/common/ports/feature-gate.port";
-import { moduleOfPermission, type ModuleKey, type Permission } from "@/shared/permissions";
+import { moduleOfPermission, type Feature, type ModuleKey, type Permission } from "@/shared/permissions";
 import { ROLE_RESPONSIBILITY } from "@/shared/responsibilities";
 import type { AuthUser } from "@/common/types/auth-user";
 
@@ -48,6 +48,11 @@ export class PermissionsGuard implements CanActivate {
 
     const module = moduleOfPermission(required);
     if (module) await this.assertModuleOpen(user, module);
+    // Fonctionnalité coupée au rôle (ADR 0022, lot 2) : toutes ses actions lui sont refusées.
+    const feature = required.split(":")[0] as Feature;
+    if (this.gate && user.role !== "superadmin" && this.gate.roleFeatureDisabled(user.role, feature)) {
+      throw new ForbiddenException(`Fonctionnalité coupée pour le rôle ${user.role} : ${feature}`);
+    }
 
     const scope = this.reflector.getAllAndOverride<ScopeRequirement | undefined>(REQUIRE_SCOPE_KEY, targets);
     if (scope && ROLE_RESPONSIBILITY[user.role] === scope.kind && !required.endsWith(":view")) {

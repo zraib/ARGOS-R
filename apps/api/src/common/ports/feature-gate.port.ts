@@ -7,13 +7,15 @@
 // dépend pas de `modules/`. Même inversion que pour la portée ABAC.
 // ============================================================================
 
-import type { ModuleKey, Role } from "@/shared/permissions";
+import type { Feature, ModuleKey, Role } from "@/shared/permissions";
 
 export interface FeatureGate {
   /** Le module est coupé pour tout le monde (drapeau global à `false`). */
   moduleDisabled(module: ModuleKey): Promise<boolean>;
   /** Le module est coupé pour ce rôle (matrice rôle → modules à `false`). */
   roleModuleDisabled(role: Role, module: ModuleKey): boolean;
+  /** La fonctionnalité de l'API est-elle coupée pour ce rôle (ADR 0022, lot 2) ? */
+  roleFeatureDisabled(role: Role, feature: Feature): boolean;
   /**
    * Le module est tranché pour CE compte (ADR 0016) : `false` coupé, `true`
    * rouvert malgré le rôle, `undefined` quand le compte n'a rien de propre.

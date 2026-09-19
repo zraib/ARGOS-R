@@ -12,6 +12,9 @@ import {
   assignableRoles,
   isSuperAdmin,
   type Role,
+  PROFILE_IDS,
+  profileOfRoles,
+  type ProfileId,
 } from "@/lib/roles";
 import { initials } from "@/lib/data/users";
 import {
@@ -37,6 +40,11 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
   const resetNotices = useArgos((s) => s.rtNotices.filter((n) => n.kind === "password_reset_requested").length);
 
   const [users, setUsers] = useState<ApiUser[]>([]);
+  // Un onglet par profil de rôles (ADR 0022) : les comptes classiques, les
+  // comptes Direx ; les comptes communs (administration, chefs d'entité)
+  // figurent dans les deux. Celui du mode en service s'ouvre en premier.
+  const sessionProfile = useArgos((s) => s.profile);
+  const [profile, setProfile] = useState<ProfileId>(sessionProfile);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [codes, setCodes] = useState<Record<string, string>>({});
@@ -81,9 +89,11 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
   // l'administrateur vient chercher quand la cloche l'a mené ici.
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const liste = q ? users.filter((u) => u.matricule.toLowerCase().includes(q) || u.nom.toLowerCase().includes(q)) : users;
+    const duProfil = users.filter((u) => (profileOfRoles(u.roles as Role[]) ?? profile) === profile);
+    const liste = q ? duProfil.filter((u) => u.matricule.toLowerCase().includes(q) || u.nom.toLowerCase().includes(q)) : duProfil;
     return [...liste].sort((a, b) => Number(!!b.resetRequestedAt) - Number(!!a.resetRequestedAt));
-  }, [users, query]);
+  }, [users, query, profile]);
+  const countOf = (p: ProfileId) => users.filter((u) => (profileOfRoles(u.roles as Role[]) ?? p) === p).length;
   const enAttente = useMemo(() => users.filter((u) => u.resetRequestedAt).length, [users]);
 
   const reveal = async (u: ApiUser) => {
@@ -164,6 +174,20 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       {/* Barre d'outils : recherche pleine largeur puis action, empilées sous
           `sm` — côte à côte elles se seraient réduites à une centaine de pixels. */}
+      <div role="tablist" aria-label={t.profile_title} className="flex gap-1 self-start rounded-lg bg-gray-100 p-1 dark:bg-rdia-700/50">
+        {PROFILE_IDS.map((p) => (
+          <button
+            key={p}
+            role="tab"
+            aria-selected={profile === p}
+            onClick={() => setProfile(p)}
+            className={`min-h-[36px] rounded-md px-3 text-xs font-semibold transition-colors ${profile === p ? "bg-white text-or-600 shadow-sm dark:bg-rdia-600 dark:text-or-400" : "text-gray-500 hover:text-or-500 dark:text-rdia-300"}`}
+          >
+            {p === "direx" ? m.users.tab_direx : m.users.tab_classique}
+            <span className="ms-1.5 font-mono text-[10px] text-gray-400 dark:text-rdia-400">{countOf(p)}</span>
+          </button>
+        ))}
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-0 basis-full sm:max-w-[320px] sm:flex-1 sm:basis-auto">
           {/* 16 px sous `md` : en dessous, iOS zoome à la prise de focus. */}
@@ -365,6 +389,7 @@ function UsersTab({ creatorRole, currentMatricule }: { creatorRole: Role; curren
         {form && (
           <UserForm
             creatorRole={creatorRole}
+            profile={profile}
             user={form.mode === "edit" ? form.user : undefined}
             onClose={() => setForm(null)}
             onDone={() => { setForm(null); void load(); }}

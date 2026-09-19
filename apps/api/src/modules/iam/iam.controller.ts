@@ -28,7 +28,14 @@ export class IamController {
   @ApiOperation({ summary: "Profil de l'utilisateur courant + permissions résolues + modules effectifs (drapeaux ∧ rôle ∧ compte, ADR 0016) + mode de la station" })
   async me(@CurrentUser() user: AuthUser) {
     const flags = await this.flags.all();
-    return { ...user, modules: this.users.effectiveModules(user.username, user.role, flags), appMode: this.mode.current() };
+    return {
+      ...user,
+      // Ce que le compte peut faire aujourd'hui : sa dotation, moins les
+      // fonctionnalités coupées à son rôle (ADR 0022, lot 2) — le navigateur masque d'après ceci.
+      permissions: this.users.grantedPermissions(user.role, user.permissions),
+      modules: this.users.effectiveModules(user.username, user.role, flags),
+      appMode: this.mode.current(),
+    };
   }
 
   @Get("profiles")

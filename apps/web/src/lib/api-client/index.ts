@@ -20,6 +20,9 @@ export type CreateUserBody = Json<NonNullable<paths["/api/iam/users"]["post"]["r
 export type UpdateUserBody = Json<NonNullable<paths["/api/iam/users/{id}"]["patch"]["requestBody"]>>;
 export type RoleFeatureBody = Json<NonNullable<paths["/api/iam/role-features/{role}"]["patch"]["requestBody"]>>;
 export type ModuleFeature = RoleFeatureBody["feature"];
+/** Fonctionnalité de l'API commutable par rôle (ADR 0022, lot 2). */
+export type RoleGrantBody = Json<NonNullable<paths["/api/iam/role-grants/{role}"]["patch"]["requestBody"]>>;
+export type ApiFeature = RoleGrantBody["feature"];
 export type CreateIncidentBody = Json<NonNullable<paths["/api/incidents"]["post"]["requestBody"]>>;
 export type UpdateIncidentBody = Json<NonNullable<paths["/api/incidents/{id}"]["patch"]["requestBody"]>>;
 export type CreateSubIncidentBody = Json<NonNullable<paths["/api/incidents/{id}/sub-incidents"]["post"]["requestBody"]>>;
@@ -139,6 +142,12 @@ export function createArgosClient(opts: ArgosClientOptions) {
     setRoleFeature: (role: ArgosRole, feature: ModuleFeature, enabled: boolean) =>
       client.PATCH("/api/iam/role-features/{role}", { params: { path: { role } }, body: { feature, enabled } }),
     resetRoleFeatures: (role: ArgosRole) => client.POST("/api/iam/role-features/{role}/reset", { params: { path: { role } } }),
+    /** Fonctionnalités de l'API commutables par rôle (ADR 0022, lot 2). */
+    getRoleGrants: () => client.GET("/api/iam/role-grants"),
+    getDefaultRoleGrants: () => client.GET("/api/iam/role-grants/defaults"),
+    setRoleGrant: (role: ArgosRole, feature: RoleGrantBody["feature"], enabled: boolean) =>
+      client.PATCH("/api/iam/role-grants/{role}", { params: { path: { role } }, body: { feature, enabled } }),
+    resetRoleGrants: (role: ArgosRole) => client.POST("/api/iam/role-grants/{role}/reset", { params: { path: { role } } }),
     /** Bascule d'un module pour UN compte (ADR 0016) ; `enabled: null` rend la main au rôle. */
     setUserModule: (id: string, module: ModuleFeature, enabled: boolean | null) =>
       client.PATCH("/api/iam/users/{id}/modules", { params: { path: { id } }, body: { module, enabled } }),

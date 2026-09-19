@@ -66,6 +66,9 @@ describe("couverture des gardes", () => {
       "flags/flags.controller.ts : GET  → all",
       "iam/users.controller.ts : GET role-features → roleFeatures",
       "iam/users.controller.ts : GET role-features/defaults → defaultRoleFeatures",
+      // Fonctionnalités de l'API par rôle (ADR 0022, lot 2) : même logique que les modules.
+      "iam/users.controller.ts : GET role-grants → roleGrants",
+      "iam/users.controller.ts : GET role-grants/defaults → defaultRoleGrants",
       // Partage de position par l'application (ADR 0008, révision) : un compte ne
       // lit et ne verse que SON partage — la propriété est vérifiée par le service.
       "tracking/http/tracking.controller.ts : GET trackers/mine → mine",

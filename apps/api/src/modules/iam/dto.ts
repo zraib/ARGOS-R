@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { REGIONS_MA } from "@/modules/domain/provinces.data";
 import { Type } from "class-transformer";
 import { ArrayMinSize, IsArray, IsBoolean, IsIn, IsOptional, IsString, MaxLength, MinLength, ValidateIf, ValidateNested } from "class-validator";
-import { MODULE_FEATURES, ROLES, type Role } from "@/shared/permissions";
+import { FEATURES, MODULE_FEATURES, ROLES, type Role } from "@/shared/permissions";
 
 /**
  * Rattachement d'un compte : l'entité dont il répond, par nature de
@@ -207,6 +207,17 @@ export class SetActiveDto {
 }
 
 /** Bascule d'un module pour un rôle (vocabulaire `MODULE_KEYS`, ADR 0015). */
+/** Bascule d'une fonctionnalité de l'API pour un rôle (ADR 0022, lot 2). */
+export class ToggleRoleGrantDto {
+  @ApiProperty({ enum: FEATURES, description: "Fonctionnalité de la matrice à ouvrir ou couper pour le rôle" })
+  @IsIn(FEATURES as unknown as string[])
+  feature!: string;
+
+  @ApiProperty()
+  @IsBoolean()
+  enabled!: boolean;
+}
+
 export class ToggleRoleFeatureDto {
   @ApiProperty({ enum: MODULE_FEATURES, description: "Module à ouvrir ou couper pour le rôle" })
   @IsIn(MODULE_FEATURES as unknown as string[])

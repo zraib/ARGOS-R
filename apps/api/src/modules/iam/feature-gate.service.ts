@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type { FeatureGate } from "@/common/ports/feature-gate.port";
 import { FlagsService } from "@/modules/flags/flags.service";
 import { UsersService } from "@/modules/iam/users.service";
-import type { ModuleKey, Role } from "@/shared/permissions";
+import type { Feature, ModuleKey, Role } from "@/shared/permissions";
 
 /**
  * Répond à la garde RBAC : « ce module est-il coupé ? » — globalement (drapeaux,
@@ -19,6 +19,10 @@ export class FeatureGateService implements FeatureGate {
   async moduleDisabled(module: ModuleKey): Promise<boolean> {
     const all = await this.flags.all();
     return all[module] === false;
+  }
+
+  roleFeatureDisabled(role: Role, feature: Feature): boolean {
+    return !this.users.isFeatureGranted(role, feature);
   }
 
   roleModuleDisabled(role: Role, module: ModuleKey): boolean {
