@@ -22,13 +22,20 @@ Quatre sources, sous `/tiles/{source}/{z}/{x}/{y}` — le motif câblé dans
 | --- | --- | --- | --- |
 | `plan` | fond planimétrique (raster) | **rendu à la demande** par tileserver-gl depuis les tuiles vectorielles OSM du Maroc (`plan-vector.mbtiles`) | 0–19, tout le pays |
 | `lbl` | toponymes et limites, fond transparent | idem, style « étiquettes seules » | 0–19, tout le pays |
-| `sat` | imagerie (raster JPEG) | `sat.mbtiles`, téléchargé **par zones** (`zones.json`) | 0–13 pays, 14–17 villes, plus au besoin |
+| `sat` | imagerie (raster JPEG) | `sat.mbtiles`, téléchargé **par zones** (`zones.json`) | 0–13 pays, 14–15 autour de **chaque commune** (`communes.json`), 14–17 villes, plus au besoin |
 | `dem` | altitude terrarium (relief 3D) | `dem.mbtiles`, tuiles ouvertes AWS Terrain Tiles | 0–13, tout le pays |
 
 Le plan et les toponymes sont **rendus**, pas stockés tuile par tuile : les
 données vectorielles du Maroc entier tiennent en quelques centaines de
-mégaoctets et couvrent tous les niveaux de zoom. C'est ce qui rend « tout le
-pays, tous les zooms » possible pour le plan — et impossible pour l'imagerie :
+mégaoctets et couvrent tous les niveaux de zoom. Depuis l'ADR 0023 (branche
+RIF), le navigateur les rend lui-même : il lit le style `plan` de tileserver-gl
+(`/tiles/styles/plan/style.json`), les tuiles vectorielles (`/tiles/data/
+plan-vector/{z}/{x}/{y}.pbf`) et les polices (`/tiles/fonts/…`) — les tuiles
+raster `plan` et `lbl` ne servent plus que de repli. L'imagerie absente à un
+zoom est fabriquée par le navigateur depuis la tuile parente (`lib/map/
+satFallback.ts`) : la couverture par zones ne laisse pas de trou. C'est ce qui
+rend « tout le pays, tous les zooms » possible pour le plan — et impossible
+pour l'imagerie :
 
 | Imagerie jusqu'au zoom | Maroc entier | Casablanca |
 | --- | --- | --- |
@@ -37,9 +44,13 @@ pays, tous les zooms » possible pour le plan — et impossible pour l'imagerie 
 | 17 | 50 M ≈ 1,1 To | 21 503 ≈ 0,5 Go |
 | 19 | **803 M ≈ 17,7 To** | 340 805 ≈ 7,5 Go |
 
-D'où le profil de `zones.json` : le pays à z13, vingt-deux agglomérations à
-z17, et des zones d'intérêt opérationnel à z18–19 à activer au cas par cas
-(`enabled`). `tiles-fetch estimate sat` chiffre le profil avant de lancer.
+D'où le profil de `zones.json` : le pays à z13, **3 km autour du chef-lieu de
+chacune des ~1 500 communes** à z14–15 (profil `communes`, points dans
+`communes.json` — écrit par `node apps/api/scripts/communes.mjs`, le même
+référentiel que l'application), vingt-deux agglomérations à z17, et des zones
+d'intérêt opérationnel à z18–19 à activer au cas par cas (`enabled`).
+`tiles-fetch estimate sat` chiffre le profil avant de lancer (≈ 424 000 tuiles,
+9,3 Go) ; `--max-zoom N` plafonne une passe, `--zones communes` la limite.
 
 ## 2. Remplir le volume (une fois, avec Internet)
 
@@ -59,7 +70,11 @@ docker compose restart tiles
 
 Un téléchargement interrompu **reprend** : relancer la même commande ne
 redemande que les tuiles absentes. `--zones casablanca,rabat-sale` limite un
-passage à quelques zones ; `--workers 4` ménage une source lente.
+passage à quelques zones ; `--workers 4` ménage une source lente ;
+`--max-zoom 11` dégrossit le pays avant les niveaux fins. Le volume plein,
+`deploy/scripts/tiles-export.sh` l'archive (tar + SHA-256) pour les stations :
+`deploy/scripts/tiles-import.ps1` l'y importe, ou `package.sh --with-tiles`
+l'embarque dans le paquet.
 
 Sans imagerie, `tiles-fetch placeholder` crée des fichiers `sat`/`dem` vides
 mais valides : le serveur démarre, la carte a le plan et les toponymes.

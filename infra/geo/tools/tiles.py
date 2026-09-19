@@ -43,6 +43,10 @@ from pathlib import Path
 
 TILES_DIR = Path(os.environ.get("TILES_DIR", "/data"))
 ZONES_FILE = Path(os.environ.get("ZONES_FILE", "/config/zones.json"))
+# Les communes du Royaume (nom, province, [lng, lat]) — écrites par
+# apps/api/scripts/communes.mjs, le même référentiel que celui de l'application.
+# Une zone `"communes": <rayon km>` de zones.json s'y déploie en une emprise par commune.
+COMMUNES_FILE = Path(os.environ.get("COMMUNES_FILE", "/config/communes.json"))
 PBF_DIR = Path(os.environ.get("PBF_DIR", "/pbf"))
 # Cache des sources de planetiler (volume planetiler_cache) — pour y déposer ce
 # que planetiler ne peut pas télécharger lui-même quand github.com est bloqué.
@@ -157,12 +161,32 @@ class MBTiles:
 
 # --- zones -------------------------------------------------------------------
 
-def load_zones(source: str) -> list[dict]:
-    """Les zones actives d'une source (`sat` ou `dem`) — voir zones.json."""
+def commune_zones(zone: dict) -> list[dict]:
+    """Une zone `"communes": <rayon km>` → une emprise carrée autour du chef-lieu de CHAQUE commune."""
+    if not COMMUNES_FILE.exists():
+        sys.exit(f"Zone « {zone.get('name')} » : fichier des communes introuvable : {COMMUNES_FILE} (node apps/api/scripts/communes.mjs l'écrit)")
+    radius_km = float(zone["communes"])
+    out = []
+    for c in json.loads(COMMUNES_FILE.read_text(encoding="utf-8")):
+        lng, lat = c["ll"]
+        dlat = radius_km / 111.0
+        dlng = radius_km / (111.0 * max(0.2, math.cos(math.radians(lat))))
+        out.append({"name": f"{zone['name']}:{c['v']}", "bbox": [lng - dlng, lat - dlat, lng + dlng, lat + dlat], "minzoom": zone["minzoom"], "maxzoom": zone["maxzoom"]})
+    return out
+
+
+def load_zones(source: str, max_zoom: int | None = None) -> list[dict]:
+    """Les zones actives d'une source (`sat` ou `dem`) — voir zones.json ; `max_zoom` plafonne chaque zone (passe de validation)."""
     if not ZONES_FILE.exists():
         sys.exit(f"Fichier de zones introuvable : {ZONES_FILE}")
     conf = json.loads(ZONES_FILE.read_text(encoding="utf-8"))
-    zones = [z for z in conf.get(source, []) if z.get("enabled", True)]
+    zones: list[dict] = []
+    for z in conf.get(source, []):
+        if not z.get("enabled", True):
+            continue
+        zones.extend(commune_zones(z) if "communes" in z else [z])
+    if max_zoom is not None:
+        zones = [{**z, "maxzoom": min(z["maxzoom"], max_zoom)} for z in zones if z["minzoom"] <= max_zoom]
     if not zones:
         sys.exit(f"Aucune zone active pour « {source} » dans {ZONES_FILE}")
     return zones
@@ -221,10 +245,13 @@ def cmd_fetch(args: argparse.Namespace) -> None:
         if ph not in template:
             sys.exit(f"Le gabarit doit contenir {{z}}, {{x}} et {{y}} — reçu : {template}")
     fmt = args.format or ("png" if source == "dem" else "jpg")
-    zones = load_zones(source)
+    zones = load_zones(source, args.max_zoom)
     if args.zones:
+        # Une zone de communes se choisit par son nom de profil (« communes »), pas commune par commune.
         wanted = set(args.zones.split(","))
-        zones = [z for z in zones if z["name"] in wanted]
+        zones = [z for z in zones if z["name"] in wanted or z["name"].split(":")[0] in wanted]
+        if not zones:
+            sys.exit(f"Aucune zone ne correspond à --zones {args.zones}")
     total = sum(estimate(zones).values())
     TILES_DIR.mkdir(parents=True, exist_ok=True)
     out = TILES_DIR / f"{source}.mbtiles"
@@ -255,6 +282,10 @@ def cmd_fetch(args: argparse.Namespace) -> None:
                 mb.put(z, x, y, data)
                 done += 1
         mb.commit()
+        # Les bornes de zoom suivent chaque lot : un téléchargement interrompu
+        # (coupure, arrêt du conteneur) laisse un fichier que tileserver-gl sert
+        # tel quel — il refuse les zooms au-delà de ce que déclare `metadata`.
+        mb.finalize_zooms()
         elapsed = time.time() - t0
         rate = done / elapsed if elapsed > 0 else 0
         print(f"  {done + skipped:,}/{total:,} ({100 * (done + skipped) / max(total, 1):.1f} %) · {rate:.0f} tuiles/s · absentes {missing} · échecs {failed}")
@@ -287,11 +318,12 @@ def union_bbox(zones: list[dict]) -> list[float]:
 
 
 def cmd_estimate(args: argparse.Namespace) -> None:
-    zones = load_zones(args.source)
+    zones = load_zones(args.source, args.max_zoom)
     per_zoom = estimate(zones)
     kb = 30 if args.source == "dem" else 22
     total = 0
-    print(f"{args.source} — {len(zones)} zone(s) active(s) : " + ", ".join(z["name"] for z in zones))
+    names = sorted({z["name"].split(":")[0] for z in zones})
+    print(f"{args.source} — {len(zones)} zone(s) active(s), {len(names)} profil(s) : " + ", ".join(names))
     for z in sorted(per_zoom):
         total += per_zoom[z]
         print(f"  zoom {z:>2} : {per_zoom[z]:>12,} tuiles")
@@ -552,9 +584,11 @@ def main() -> None:
     f.add_argument("--format", choices=["jpg", "png", "webp"], help="format déclaré du MBTiles (défaut : jpg pour sat, png pour dem)")
     f.add_argument("--workers", type=int, default=int(os.environ.get("TILES_WORKERS", "8")), help="téléchargements simultanés")
     f.add_argument("--batch", type=int, default=2000, help="tuiles par lot (une écriture disque par lot)")
+    f.add_argument("--max-zoom", type=int, help="plafonne toutes les zones à ce zoom (passe de validation ou de dégrossissage)")
     f.set_defaults(fn=cmd_fetch)
     e = sub.add_parser("estimate", help="compter les tuiles d'un profil sans télécharger")
     e.add_argument("source", choices=["sat", "dem"])
+    e.add_argument("--max-zoom", type=int)
     e.set_defaults(fn=cmd_estimate)
     sub.add_parser("assets", help="polices, sprites et styles plan/lbl").set_defaults(fn=cmd_assets)
     b = sub.add_parser("pbf", help="extrait OSM du Maroc (Geofabrik)")

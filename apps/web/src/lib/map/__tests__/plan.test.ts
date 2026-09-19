@@ -71,3 +71,29 @@ describe("fond plan vectoriel — style corrigé", () => {
     expect((await loadPlanStyle(ok))?.layers.length).toBe(distant.layers.length - 1);
   });
 });
+
+describe("mode souverain (RIF) — le style « plan » de la station, rebasé", () => {
+  it("la source vectorielle est adressée tuile par tuile sur la station, polices et sprites suivent", async () => {
+    const { rebasePlanStyle } = await import("@/lib/map/plan");
+    const servi: StyleSpecification = {
+      version: 8,
+      sources: { openmaptiles: { type: "vector", url: "http://station-declaree/tiles/data/plan-vector.json" } },
+      glyphs: "http://station-declaree/tiles/fonts/{fontstack}/{range}.pbf",
+      sprite: "http://station-declaree/tiles/styles/plan/sprite",
+      layers: [],
+    };
+    const r = rebasePlanStyle(servi, "http://10.0.0.5:8088/tiles");
+    expect(r.sources.openmaptiles).toEqual({ type: "vector", tiles: ["http://10.0.0.5:8088/tiles/data/plan-vector/{z}/{x}/{y}.pbf"], minzoom: 0, maxzoom: 14 });
+    expect(r.glyphs).toBe("http://10.0.0.5:8088/tiles/fonts/{fontstack}/{range}.pbf");
+    expect(r.sprite).toBe("http://10.0.0.5:8088/tiles/styles/plan/sprite");
+    // Le style d'origine n'est pas touché ; sans base, rien ne change.
+    expect(servi.sources.openmaptiles).toEqual({ type: "vector", url: "http://station-declaree/tiles/data/plan-vector.json" });
+    expect(rebasePlanStyle(servi, null)).toBe(servi);
+  });
+  it("une source raster ou un style sans polices passent tels quels", async () => {
+    const { rebasePlanStyle } = await import("@/lib/map/plan");
+    const r = rebasePlanStyle({ version: 8, sources: { sat: { type: "raster", tiles: ["x/{z}/{x}/{y}"] } }, layers: [] }, "http://s/tiles");
+    expect(r.sources.sat).toEqual({ type: "raster", tiles: ["x/{z}/{x}/{y}"] });
+    expect(r.glyphs).toBeUndefined();
+  });
+});

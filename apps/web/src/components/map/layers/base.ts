@@ -66,14 +66,17 @@ function applyBaseNow(map: maplibregl.Map, sat: boolean) {
     if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
   };
   set("sat", sat);
-  // Mode souverain : plan et repères sont des couches raster de la station.
-  set("plan", !sat);
-  set("lbl", sat);
-  // Mode externe : le fond vectoriel (`lib/map/plan.ts`) — tout le plan en
-  // mode Plan ; frontières et toponymes dans les deux modes.
-  for (const layer of map.getStyle()?.layers ?? []) {
+  const layers = map.getStyle()?.layers ?? [];
+  // Le fond vectoriel (`lib/map/plan.ts`, externe comme souverain) — tout le
+  // plan en mode Plan ; frontières et toponymes dans les deux modes.
+  const vectoriel = layers.some((l) => planGroupOf(l) !== null);
+  for (const layer of layers) {
     const group = planGroupOf(layer);
     if (group === "plan") set(layer.id, !sat);
     else if (group === "labels") set(layer.id, true);
   }
+  // Mode souverain sans style vectoriel (station sans polices ni style) : le
+  // plan et les repères RENDUS en raster par la station prennent le relais.
+  set("plan", !sat && !vectoriel);
+  set("lbl", sat && !vectoriel);
 }

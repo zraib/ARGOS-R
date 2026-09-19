@@ -28,6 +28,10 @@
 #                        external (défaut : Esri/Maxar, OpenStreetMap, relief
 #                        AWS — Internet requis sur les postes) ou sovereign
 #                        (tuiles hors ligne de la station ; version suffixée -souv)
+#   --with-tiles <tar>   embarque l'archive des tuiles hors ligne (fabriquée par
+#                        scripts/tiles-export.sh) dans deploy/tiles-data/ :
+#                        install.ps1 l'importe dans le volume — la station n'a
+#                        alors plus rien à télécharger (version RIF, sans Internet)
 #   --skip-build         réutilise les images iris-*:<version> déjà construites
 #   --no-zip             laisse le dossier tel quel, sans l'archiver
 #   --out <dossier>      destination (défaut : deploy/dist)
@@ -50,6 +54,7 @@ WITH_TILES_BUILD=0
 SKIP_BUILD=0
 DO_ZIP=1
 MAP_MODE="external"
+TILES_TAR=""
 DIST="$DEPLOY/dist"
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -57,6 +62,7 @@ while [ $# -gt 0 ]; do
     --with-tiles-build) WITH_TILES_BUILD=1 ;;
     --map) shift; MAP_MODE="$1"; [ "$MAP_MODE" = external ] || [ "$MAP_MODE" = sovereign ] || { echo "--map attend external ou sovereign" >&2; exit 1; } ;;
     --skip-build) SKIP_BUILD=1 ;;
+    --with-tiles) shift; TILES_TAR="$1"; [ -f "$TILES_TAR" ] || { echo "--with-tiles : archive introuvable : $TILES_TAR" >&2; exit 1; } ;;
     --no-zip) DO_ZIP=0 ;;
     --out) shift; DIST="$(mkdir -p "$1" && cd "$1" && pwd)" ;;
     -h|--help) sed -n '2,36p' "$0"; exit 0 ;;
@@ -166,6 +172,17 @@ else
   warn "téléchargement impossible (github.com filtré ?) — client non embarqué (tunnel.ps1 le téléchargera et le vérifiera lui-même)"
 fi
 
+# --- 5 bis. tuiles hors ligne (version RIF) -----------------------------------
+if [ -n "$TILES_TAR" ]; then
+  [ "$MAP_MODE" = sovereign ] || warn "--with-tiles sans --map sovereign : l'image web appellera quand même les fournisseurs en ligne"
+  say "Tuiles hors ligne → deploy/tiles-data/$(basename "$TILES_TAR")"
+  mkdir -p "$OUT/deploy/tiles-data"
+  cp "$TILES_TAR" "$OUT/deploy/tiles-data/"
+  [ -f "$TILES_TAR.sha256" ] && cp "$TILES_TAR.sha256" "$OUT/deploy/tiles-data/"
+  [ -f "${TILES_TAR%.tar}.txt" ] && cp "${TILES_TAR%.tar}.txt" "$OUT/deploy/tiles-data/"
+  ls -lh "$OUT/deploy/tiles-data/$(basename "$TILES_TAR")" | awk '{print "    " $5 "  " $9}'
+fi
+
 # --- 6. manifeste et notice ---------------------------------------------------
 say "Manifeste"
 {
@@ -176,6 +193,7 @@ say "Manifeste"
   echo "fabriqué  : $(date -u +%Y-%m-%dT%H:%M:%SZ) sur $(uname -s)/$(uname -m)"
   echo "plateforme: linux/amd64"
   echo "fond de carte : ${MAP_MODE} (figé dans iris-web ; .env : MAP_TILES=${MAP_MODE}$([ "$MAP_MODE" = sovereign ] && echo ', COMPOSE_PROFILES=sovereign'))"
+  [ -n "$TILES_TAR" ] && echo "tuiles hors ligne : deploy/tiles-data/$(basename "$TILES_TAR") (importées par install.ps1 ; à la main : scripts\\tiles-import.ps1)"
   echo
   echo "Images (identifiant · empreinte du registre) :"
   for img in "${APP_IMAGES[@]}" ${BASE_IMAGES[@]+"${BASE_IMAGES[@]}"}; do
@@ -183,7 +201,7 @@ say "Manifeste"
   done
   echo
   echo "Fichiers :"
-  (cd "$OUT" && find deploy/images deploy/tools -type f ! -name '*.sha256' -exec shasum -a 256 {} \;)
+  (cd "$OUT" && find deploy/images deploy/tools deploy/tiles-data -type f ! -name '*.sha256' ! -name '*.txt' -exec shasum -a 256 {} \; 2>/dev/null)
 } > "$OUT/MANIFEST.txt"
 cat > "$OUT/LISEZMOI.txt" <<EOF
 ARGOS / IRIS — station Windows, paquet ${VERSION}
@@ -194,7 +212,7 @@ ARGOS / IRIS — station Windows, paquet ${VERSION}
    Le script charge les images (deploy\\images), écrit .env avec des secrets
    générés, démarre la pile et attend que l'API réponde. Aucun accès Internet requis.
 4. Ouvrir http://localhost — compte fondateur m.zraib, code ARGOS-2026 (à changer).
-5. Fond de carte : ${MAP_MODE} — $([ "$MAP_MODE" = external ] && echo "Esri/Maxar, OpenStreetMap et relief en ligne, rien à préparer (Internet requis sur les postes)." || echo "tuiles hors ligne à préparer une fois : deploy\\GUIDE-DEBUTANT-WINDOWS.md, étape 6.")
+5. Fond de carte : ${MAP_MODE} — $([ "$MAP_MODE" = external ] && echo "Esri/Maxar, OpenStreetMap et relief en ligne, rien à préparer (Internet requis sur les postes)." || { [ -n "$TILES_TAR" ] && echo "tuiles hors ligne EMBARQUÉES (deploy\\tiles-data) : install.ps1 les importe, rien à télécharger." || echo "tuiles hors ligne à préparer une fois : deploy\\GUIDE-DEBUTANT-WINDOWS.md, étape 6."; })
    Comptes, exploitation : deploy\\GUIDE-DEBUTANT-WINDOWS.md (étapes 7 à 11).
    Démonstration à distance (tunnel) : deploy\\README.md § 10, .\\scripts\\tunnel.ps1.
 
@@ -211,7 +229,8 @@ EOF
 # --- 7. archive ---------------------------------------------------------------
 if [ "$DO_ZIP" = 1 ]; then
   say "Archive ${NAME}.zip"
-  (cd "$DIST" && rm -f "$NAME.zip" && zip -q -r -1 "$NAME.zip" "$NAME" && shasum -a 256 "$NAME.zip" > "$NAME.zip.sha256")
+  # `-n .tar:.gz` : les archives déjà compressées (images, tuiles) sont stockées telles quelles.
+  (cd "$DIST" && rm -f "$NAME.zip" && zip -q -r -1 -n .tar:.gz:.tgz "$NAME.zip" "$NAME" && shasum -a 256 "$NAME.zip" > "$NAME.zip.sha256")
   ls -lh "$DIST/$NAME.zip" | awk '{print "    " $5 "  " $9}'
 fi
 

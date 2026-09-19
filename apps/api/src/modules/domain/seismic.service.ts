@@ -70,7 +70,8 @@ export class SeismicService {
     if (region === "morocco") for (const [k, v] of Object.entries(MOROCCO_BBOX)) params.set(k, String(v));
 
     try {
-      const res = await fetch(`${EMSC_URL}?${params.toString()}`, { headers: { Accept: "application/json" } });
+      // Station sans Internet (RIF) : l'appel doit tomber vite, pas rester pendu.
+      const res = await fetch(`${EMSC_URL}?${params.toString()}`, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(8_000) });
       if (!res.ok) throw new Error(`EMSC ${res.status}`);
       const json = (await res.json()) as { features?: EmscFeature[] };
       const data = (json.features ?? [])

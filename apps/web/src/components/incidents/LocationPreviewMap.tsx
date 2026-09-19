@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MAP_CENTER, MAP_STYLE, MAP_ZOOM } from "@/lib/map/style";
-import { TILES_MODE } from "@/lib/map/tiles";
-import { installPlanStyle, loadPlanStyle, planGroupOf } from "@/lib/map/plan";
+import { installPlanStyle, loadPlanStyle, planGroupOf, planStyleUrl, sovereignBase } from "@/lib/map/plan";
+import { registerSatFallback } from "@/lib/map/satFallback";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 
@@ -57,6 +57,9 @@ export function LocationPreviewMap({ value, onPick, labels }: Props) {
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const init = valueRef.current;
+    // Mode souverain : l'imagerie de la station, avec repli sur la tuile parente.
+    const base = sovereignBase();
+    if (base) registerSatFallback(base);
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: MAP_STYLE,
@@ -80,10 +83,11 @@ export function LocationPreviewMap({ value, onPick, labels }: Props) {
       placeMarker(init);
     }
 
-    // Les noms des villes et communes (mode externe) : le fond vectoriel s'insère
-    // sous le marqueur, seules ses couches de repères (lieux, eaux, frontières)
-    // restent visibles — le plan entier masquerait l'imagerie.
-    if (TILES_MODE === "external") {
+    // Les noms des villes et communes : le fond vectoriel (OpenFreeMap en
+    // externe, la station en souverain) s'insère sous le marqueur, seules ses
+    // couches de repères (lieux, eaux, frontières) restent visibles — le plan
+    // entier masquerait l'imagerie.
+    if (planStyleUrl()) {
       if (maplibregl.getRTLTextPluginStatus() === "unavailable") {
         void maplibregl.setRTLTextPlugin("/vendor/mapbox-gl-rtl-text.js", true).catch(() => undefined);
       }

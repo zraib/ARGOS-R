@@ -17,13 +17,64 @@
 // groupes : `plan` (tout le fond, visible en mode Plan) et `labels`
 // (frontières et toponymes, visibles aussi sur le satellite — le rôle que
 // jouait la couche de repères Esri).
+//
+// En mode SOUVERAIN (branche RIF, sans Internet), le style est le « plan » que
+// la station sert elle-même (tileserver-gl, dérivé du même OSM Bright, sur les
+// tuiles vectorielles du Maroc fabriquées par planetiler, polices latin +
+// arabe) : la même expérience, rendue par le même code, sans un appel dehors.
 // ============================================================================
 
 import type maplibregl from "maplibre-gl";
 import type { FilterSpecification, LayerSpecification, StyleSpecification } from "maplibre-gl";
+import { SOVEREIGN_TILES_URL, TILES_MODE } from "@/lib/map/tiles";
 
 /** Style OpenFreeMap « bright » : sources, glyphes (polices) et sprites sur le même hôte. */
 export const PLAN_STYLE_URL = "https://tiles.openfreemap.org/styles/bright";
+
+/**
+ * Base ABSOLUE du serveur de tuiles de la station (`/tiles` derrière le proxy
+ * → origine de la page) ; `null` sans serveur configuré. Côté serveur (pas de
+ * `window`), une base relative reste telle quelle — la carte n'y est pas rendue.
+ */
+export function sovereignBase(): string | null {
+  if (!SOVEREIGN_TILES_URL) return null;
+  const raw = SOVEREIGN_TILES_URL.replace(/\/$/, "");
+  return raw.startsWith("/") && typeof window !== "undefined" ? `${window.location.origin}${raw}` : raw;
+}
+
+/**
+ * D'où vient le style du fond dans le mode courant : OpenFreeMap en externe,
+ * le style « plan » de la station en souverain — `null` si la station n'a pas
+ * de serveur de tuiles (la carte reste sans plan, et le dit).
+ */
+export function planStyleUrl(): string | null {
+  if (TILES_MODE === "external") return PLAN_STYLE_URL;
+  const base = sovereignBase();
+  return base ? `${base}/styles/plan/style.json` : null;
+}
+
+/**
+ * Rebase (pure) un style servi par tileserver-gl sur la base donnée : la source
+ * vectorielle est adressée tuile par tuile (`/data/plan-vector/{z}/{x}/{y}.pbf`)
+ * plutôt que par le TileJSON — dont les URL absolues dépendent du `PUBLIC_URL`
+ * déclaré au serveur, pas de l'adresse par laquelle le poste joint la station
+ * (nom, IP, tunnel) ; polices et sprites suivent la même base. Sans base, le
+ * style est rendu tel quel.
+ */
+export function rebasePlanStyle(style: StyleSpecification, base: string | null): StyleSpecification {
+  if (!base) return style;
+  const out: StyleSpecification = { ...style, sources: { ...style.sources } };
+  for (const [id, src] of Object.entries(style.sources)) {
+    if (src.type !== "vector") continue;
+    // tileserver-gl nomme la source d'après le MBTiles (`data/<nom>.json`) ; à défaut, le nom de la source.
+    const m = typeof src.url === "string" ? /\/data\/([^/]+)\.json$/.exec(src.url) : null;
+    const data = m?.[1] ?? "plan-vector";
+    out.sources[id] = { type: "vector", tiles: [`${base}/data/${data}/{z}/{x}/{y}.pbf`], minzoom: src.minzoom ?? 0, maxzoom: src.maxzoom ?? 14 };
+  }
+  if (style.glyphs) out.glyphs = `${base}/fonts/{fontstack}/{range}.pbf`;
+  if (typeof style.sprite === "string") out.sprite = style.sprite.replace(/^.*\/styles\//, `${base}/styles/`);
+  return out;
+}
 
 export type PlanGroup = "plan" | "labels";
 
@@ -123,14 +174,20 @@ export function patchPlanStyle(style: StyleSpecification): PlanStyle {
   };
 }
 
-/** Récupère et corrige le style ; `null` si le réseau ou le document ne suit pas (la carte reste sans plan). */
-export async function loadPlanStyle(fetchImpl: typeof fetch = fetch): Promise<PlanStyle | null> {
+/**
+ * Récupère et corrige le style du mode courant ; `null` si aucun n'est
+ * configuré, ou si le réseau ou le document ne suit pas (la carte reste sans
+ * plan). En souverain, le style est rebasé sur la station avant correction.
+ */
+export async function loadPlanStyle(fetchImpl: typeof fetch = fetch, url: string | null = planStyleUrl()): Promise<PlanStyle | null> {
+  if (!url) return null;
   try {
-    const res = await fetchImpl(PLAN_STYLE_URL, { cache: "force-cache" });
+    const res = await fetchImpl(url, { cache: "force-cache" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const style = (await res.json()) as Partial<StyleSpecification>;
     if (style.version !== 8 || !Array.isArray(style.layers) || !style.sources) throw new Error("style invalide");
-    return patchPlanStyle(style as StyleSpecification);
+    const rebased = TILES_MODE === "external" ? (style as StyleSpecification) : rebasePlanStyle(style as StyleSpecification, sovereignBase());
+    return patchPlanStyle(rebased);
   } catch (e) {
     console.warn("[carte] fond plan indisponible :", e instanceof Error ? e.message : e);
     return null;

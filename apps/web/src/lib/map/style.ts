@@ -56,7 +56,10 @@ function sovereignSources(): StyleSpecification["sources"] {
   const raw = SOVEREIGN_TILES_URL.replace(/\/$/, "");
   const base = raw.startsWith("/") && typeof window !== "undefined" ? `${window.location.origin}${raw}` : raw;
   return {
-    sat: { type: "raster", tiles: [`${base}/sat/{z}/{x}/{y}`], tileSize: 256, maxzoom: 19 },
+    // L'imagerie passe par le protocole `iris-sat` (lib/map/satFallback.ts) : une
+    // tuile absente à ce zoom se fabrique depuis son parent — la couverture hors
+    // ligne n'est pas uniforme (pays z13, agglomérations et communes plus fin).
+    sat: { type: "raster", tiles: ["iris-sat://{z}/{x}/{y}"], tileSize: 256, maxzoom: 19 },
     plan: { type: "raster", tiles: [`${base}/plan/{z}/{x}/{y}`], tileSize: 256, maxzoom: 19 },
     lbl: { type: "raster", tiles: [`${base}/lbl/{z}/{x}/{y}`], tileSize: 256, maxzoom: 19 },
     dem: { type: "raster-dem", tiles: [`${base}/dem/{z}/{x}/{y}`], encoding: "terrarium", tileSize: 256, maxzoom: 13 },

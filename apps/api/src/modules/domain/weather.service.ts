@@ -162,7 +162,8 @@ export class WeatherService {
         hourly: "temperature_2m,wind_speed_10m,wind_direction_10m,precipitation_probability",
         forecast_days: "7",
       });
-      const res = await fetch(`${OM_URL}?${params.toString()}`, { headers: { Accept: "application/json" } });
+      // Station sans Internet (RIF) : l'appel doit tomber vite, pas rester pendu.
+      const res = await fetch(`${OM_URL}?${params.toString()}`, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(8_000) });
       if (!res.ok) throw new Error(`Open-Meteo ${res.status}`);
       const raw = (await res.json()) as unknown;
       const arr = Array.isArray(raw) ? raw : [raw];
@@ -288,7 +289,8 @@ export class WeatherService {
       forecast_days: "7",
     });
     try {
-      const res = await fetch(`${OM_URL}?${params.toString()}`, { headers: { Accept: "application/json" } });
+      // Station sans Internet (RIF) : l'appel doit tomber vite, pas rester pendu.
+      const res = await fetch(`${OM_URL}?${params.toString()}`, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(8_000) });
       if (!res.ok) throw new Error(`Open-Meteo ${res.status}`);
       const j = (await res.json()) as {
         current?: {

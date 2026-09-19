@@ -116,13 +116,26 @@ tout le reste reste `'self'`. Dans les deux modes, le plan ne trace aucune
 frontière contestée (ADR 0014) : la frontière du Maroc court sans rupture
 jusqu'à la Mauritanie et à l'Algérie.
 
-### Tuiles hors ligne (mode `sovereign`)
+### Tuiles hors ligne (mode `sovereign`) — la version RIF
 
 La carte n'appelle alors **aucun fournisseur externe** : tout ce qu'elle
-affiche vient du volume `iris_argos_tiles`. Le remplir est une opération à
-faire **une fois**, depuis une machine qui a Internet (la station, ou une
-autre — le volume se copie). Marche à suivre détaillée et licences :
-[`../infra/geo/README.md`](../infra/geo/README.md).
+affiche vient du volume `iris_argos_tiles` — et c'est **la même carte qu'en
+ligne** ([ADR 0023](../docs/adr/0023-version-rif-carte-complete-sans-internet.md)) :
+imagerie par zones (le pays, les agglomérations, 3 km autour de chaque
+commune), relief 3D, plan et toponymes **vectoriels** du Maroc entier (latin et
+arabe, sans frontière contestée), rendus par le navigateur comme en ligne. Là
+où l'imagerie fine n'a pas été provisionnée, la tuile parente est agrandie :
+la carte ne se vide jamais.
+
+Deux façons de remplir le volume :
+
+- **le paquet l'embarque** (`deploy\tiles-data\iris-tiles-….tar`, fabriqué avec
+  `package.sh --map sovereign --with-tiles …`) : `install.ps1` l'importe seul,
+  rien à télécharger, jamais ; une archive reçue à part s'importe par
+  `.\scripts\tiles-import.ps1 -Archive D:\iris-tiles-….tar` ;
+- **le remplir une fois** depuis une machine qui a Internet (la station, ou
+  une autre — `scripts/tiles-export.sh` en fait l'archive). Marche à suivre
+  détaillée et licences : [`../infra/geo/README.md`](../infra/geo/README.md).
 
 ```powershell
 cd deploy
@@ -130,11 +143,16 @@ docker compose run --rm tiles-fetch pbf          # extrait OSM du Maroc (~250 Mo
 docker compose run --rm tiles-osm                # tuiles vectorielles du Maroc, tous zooms (~10 min)
 docker compose run --rm tiles-fetch assets       # polices (latin + arabe) + styles « plan » et « toponymes »
 docker compose run --rm tiles-fetch fetch dem    # relief 3D, tout le pays (~200 000 tuiles, ~6 Go)
-docker compose run --rm tiles-fetch estimate sat # combien d'imagerie le profil demande
-docker compose run --rm tiles-fetch fetch sat    # imagerie, selon infra/geo/zones.json — voir la licence !
+docker compose run --rm tiles-fetch estimate sat # combien d'imagerie le profil demande (≈ 424 000 tuiles, 9,3 Go)
+docker compose run --rm tiles-fetch fetch sat    # imagerie : pays z13, agglomérations z17, chaque commune z15 — voir la licence !
 docker compose run --rm tiles-fetch status
 docker compose restart tiles
 ```
+
+Un téléchargement s'interrompt et **reprend** (relancer la même commande) ;
+`--zones maroc`, `--zones communes`, `--max-zoom 11` découpent le travail.
+Une fois le volume plein, `bash scripts/tiles-export.sh` (macOS/Linux) en fait
+l'archive à livrer aux autres stations.
 
 Sans imagerie (`SAT_TILE_URL` vide dans `.env`), lancer quand même
 `tiles-fetch placeholder` pour que le serveur de tuiles démarre : la carte a

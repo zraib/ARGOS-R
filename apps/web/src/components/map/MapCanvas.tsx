@@ -8,8 +8,8 @@ import { POST_DRAG_MIME, nearestIncident, parsePostPick } from "@/lib/posts";
 import { RESOURCE_DRAG_MIME, parseResourcePick, type ResourcePick } from "@/lib/edit";
 import { FLUX } from "@/lib/i18n/flux";
 import { MAP_CENTER, MAP_STYLE, MAP_ZOOM } from "@/lib/map/style";
-import { TILES_MODE } from "@/lib/map/tiles";
-import { installPlanStyle, loadPlanStyle } from "@/lib/map/plan";
+import { installPlanStyle, loadPlanStyle, planStyleUrl, sovereignBase } from "@/lib/map/plan";
+import { registerSatFallback } from "@/lib/map/satFallback";
 import { routeThrough, type RouteResult } from "@/lib/map/routing";
 import { OVERLAY_STYLE } from "@/lib/map/overlay";
 import { Icon } from "@/components/ui/Icon";
@@ -190,6 +190,10 @@ export function MapCanvas() {
   // --- initialisation de la carte (une fois) ---
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
+    // Mode souverain (RIF) : l'imagerie vient de la station, une tuile absente
+    // se fabrique depuis son parent — branché avant que la carte ne demande rien.
+    const tuiles = sovereignBase();
+    if (tuiles) registerSatFallback(tuiles);
     const map = new maplibregl.Map({
       container: containerRef.current,
       // Clone profond : MapLibre MUTE l'objet style qu'on lui passe — réutiliser
@@ -397,11 +401,12 @@ export function MapCanvas() {
       map.once("load", trySetup);
     }
 
-    // Mode externe : le fond « plan » et les repères sont des tuiles
-    // vectorielles stylées par nos soins (frontières contestées non tracées —
-    // ADR 0014). Le style distant arrive quand il arrive : il s'insère sous
-    // les couches déjà posées, puis la bascule de fond est rejouée.
-    if (TILES_MODE === "external") {
+    // Le fond « plan » et les repères sont des tuiles vectorielles stylées par
+    // nos soins (frontières contestées non tracées — ADR 0014) : celles
+    // d'OpenFreeMap en mode externe, celles de la station en mode souverain
+    // (branche RIF). Le style arrive quand il arrive : il s'insère sous les
+    // couches déjà posées, puis la bascule de fond est rejouée.
+    if (planStyleUrl()) {
       // Les étiquettes vectorielles portent aussi l'arabe : sans le greffon de
       // mise en forme (bidi, ligatures) MapLibre l'écrit à l'envers. Le greffon
       // est AUTO-HÉBERGÉ (public/vendor, copié par scripts/vendor.mjs) et

@@ -7,6 +7,8 @@
 #   1. vérifie que Docker Desktop répond ;
 #   2. charge les images du paquet et les étiquette `latest`, l'étiquette que
 #      docker-compose.yml attend (sans paquet : construction depuis le code) ;
+#      puis importe les tuiles hors ligne si le paquet en embarque
+#      (deploy\tiles-data\*.tar — version RIF, scripts\tiles-import.ps1) ;
 #   3. écrit .env depuis .env.example avec deux secrets générés — s'il n'existe pas ;
 #   4. démarre la pile, sans rien compiler ni télécharger ;
 #   5. attend que l'API réponde et affiche l'adresse à ouvrir.
@@ -147,7 +149,13 @@ $port = if ($url -like "https:*") { [int](Get-EnvValue $envFile "HTTPS_PORT" "44
 $mapMode = "external"
 $mapLine = Get-Content $envFile | Where-Object { $_ -match "^\s*MAP_TILES=(\w+)" } | Select-Object -Last 1
 if ($mapLine -and $mapLine -match "^\s*MAP_TILES=(\w+)") { $mapMode = $Matches[1] }
-$mapHint = if ($mapMode -eq "sovereign") { "souverain (hors ligne) — préparer les tuiles : GUIDE-DEBUTANT-WINDOWS.md, étape 6" } else { "externe (Esri/Maxar, OpenStreetMap, relief en ligne — Internet requis sur les postes)" }
+$tilesDir = Join-Path $deploy "tiles-data"
+$tilesTar = if (Test-Path $tilesDir) { Get-ChildItem -Path $tilesDir -File -Filter "*.tar" | Sort-Object Name | Select-Object -First 1 } else { $null }
+if ($mapMode -eq "sovereign" -and $tilesTar) {
+  Step 3.5 "Tuiles hors ligne embarquées : import dans le volume (version RIF)"
+  & (Join-Path $PSScriptRoot "tiles-import.ps1") -Archive $tilesTar.FullName
+}
+$mapHint = if ($mapMode -eq "sovereign") { if ($tilesTar) { "souverain (hors ligne) — tuiles importées depuis deploy\tiles-data" } else { "souverain (hors ligne) — préparer les tuiles : GUIDE-DEBUTANT-WINDOWS.md, étape 6 (ou scripts\tiles-import.ps1 avec l'archive)" } } else { "externe (Esri/Maxar, OpenStreetMap, relief en ligne — Internet requis sur les postes)" }
 # Mode de la station (ADR 0016) : opérationnel en service, exercice ou démonstration pour former.
 $appMode = Get-EnvValue $envFile "APP_MODE" (Get-EnvValue $envFile "DATA_PROFILE" "operational")
 $profileHint = switch ($appMode) {

@@ -20,11 +20,11 @@ const COUCHES = [
   { id: "boundary_2", type: "line", metadata: { "argos:group": "labels" } },
   { id: "routes-line", type: "line" },
 ];
-function fausseCarte(stylePret: boolean) {
+function fausseCarte(stylePret: boolean, couches = COUCHES) {
   const handlers: Record<string, (() => void)[]> = {};
   const carte = {
-    getStyle: () => (stylePret ? { version: 8, layers: COUCHES } : undefined),
-    getLayer: (id: string) => COUCHES.find((l) => l.id === id),
+    getStyle: () => (stylePret ? { version: 8, layers: couches } : undefined),
+    getLayer: (id: string) => couches.find((l) => l.id === id),
     once: (ev: string, cb: () => void) => {
       (handlers[ev] ??= []).push(cb);
     },
@@ -43,11 +43,25 @@ function fausseCarte(stylePret: boolean) {
 }
 
 describe("bascules pendant le chargement", () => {
-  it("style prêt : la bascule s'applique tout de suite", () => {
+  it("style prêt : la bascule s'applique tout de suite — le fond vectoriel installé, le plan raster de la station reste éteint (pas de doublon)", () => {
     const { carte, setLayoutProperty } = fausseCarte(true);
     applyBase(carte, false);
-    expect(setLayoutProperty).toHaveBeenCalledWith("plan", "visibility", "visible");
     expect(setLayoutProperty).toHaveBeenCalledWith("sat", "visibility", "none");
+    expect(setLayoutProperty).toHaveBeenCalledWith("landuse", "visibility", "visible");
+    expect(setLayoutProperty).toHaveBeenCalledWith("plan", "visibility", "none");
+    expect(setLayoutProperty).toHaveBeenCalledWith("lbl", "visibility", "none");
+  });
+
+  it("sans fond vectoriel (station sans style ni polices) : le plan et les repères raster de la station prennent le relais", () => {
+    const raster = COUCHES.filter((l) => !("metadata" in l));
+    const plan = fausseCarte(true, raster);
+    applyBase(plan.carte, false);
+    expect(plan.setLayoutProperty).toHaveBeenCalledWith("plan", "visibility", "visible");
+    expect(plan.setLayoutProperty).toHaveBeenCalledWith("lbl", "visibility", "none");
+    const sat = fausseCarte(true, raster);
+    applyBase(sat.carte, true);
+    expect(sat.setLayoutProperty).toHaveBeenCalledWith("plan", "visibility", "none");
+    expect(sat.setLayoutProperty).toHaveBeenCalledWith("lbl", "visibility", "visible");
   });
 
   it("fond vectoriel : le plan suit le mode, les repères restent dans les deux, le reste n'est pas touché", () => {

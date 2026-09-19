@@ -35,13 +35,15 @@ export const TILES_MODE: TilesMode =
   demande === "external" ? "external" : demande === "" && process.env.NODE_ENV !== "production" ? "external" : "sovereign";
 
 /**
- * Base des tuiles auto-hébergées (martin, `infra/compose`).
- *
- * ATTENTION : martin ne sert aujourd'hui AUCUNE donnée — le pipeline
- * `infra/geo` qui alimenterait PostGIS depuis un extrait OSM n'est pas encore
- * construit. En mode souverain, la carte est donc volontairement sans fond
- * tant que ce pipeline n'existe pas. C'est le comportement voulu : mieux vaut
- * une carte vide et un bandeau explicite qu'une fuite invisible.
+ * Base des tuiles auto-hébergées : tileserver-gl de la station (`/tiles`
+ * derrière le proxy, `deploy/docker-compose.yml`, profil `sovereign`), rempli
+ * une fois par le pipeline `infra/geo` (extrait OSM → planetiler → tuiles
+ * vectorielles du Maroc, polices latin + arabe, imagerie et relief par zones —
+ * README de `infra/geo`). Le fond « plan » et les toponymes y sont les mêmes
+ * tuiles vectorielles qu'en mode externe (`lib/map/plan.ts`) ; l'imagerie
+ * passe par `lib/map/satFallback.ts`. Sans base configurée, la carte est
+ * volontairement sans fond : mieux vaut une carte vide et un bandeau explicite
+ * qu'une fuite invisible.
  */
 export const SOVEREIGN_TILES_URL = process.env.NEXT_PUBLIC_TILES_URL ?? "";
 

@@ -58,3 +58,4 @@ infra/geo/styles/
 
 # rapports de démonstration et documents de présentation — hors dépôt
 /rapports/
+deploy/tiles-data/

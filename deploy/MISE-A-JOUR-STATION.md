@@ -264,6 +264,30 @@ cd C:\iris\deploy
   titre ; les conversations sont conservées au redémarrage ; un canal
   s'archive (lecture seule), s'exporte et s'importe en archive.
 
+## 12. La version RIF : la carte complète sans Internet (paquets `fusion-RIF`, suffixe `-souv`)
+
+- **Ce qui change** : la station sert elle-même tout ce que la carte affiche —
+  imagerie, relief 3D, plan et toponymes vectoriels du Maroc (latin + arabe),
+  polices — depuis le volume `iris_argos_tiles`. Le navigateur ne contacte que
+  la station ; la carte est celle du mode en ligne (ADR 0023). Les référentiels
+  (régions, provinces, ~1 500 communes) sont dans l'application.
+- **Installer** : le paquet `-souv` embarque l'archive des tuiles dans
+  `deploy\tiles-data\` (plusieurs Go : support physique) ; `install.ps1` la
+  vérifie (SHA-256) et l'importe dans le volume avant de démarrer. Sans archive
+  dans le paquet : `.\scripts\tiles-import.ps1 -Archive D:\iris-tiles-….tar`.
+- **Mettre à jour** une station RIF : `upgrade.ps1` comme d'habitude — le volume
+  des tuiles n'est pas touché ; une nouvelle archive de tuiles (imagerie plus
+  fine, nouvelles zones) s'importe seule avec `tiles-import.ps1`, sans
+  redémarrer l'application.
+- **`.env`** : `MAP_TILES=sovereign`, `COMPOSE_PROFILES=sovereign`,
+  `VALHALLA_TILE_URLS=` (vide), `AVIATION_FEED=exercise`. Les modules météo,
+  sismique et crues affichent « flux indisponible » sans Internet ; le
+  simulateur d'inondation calcule sur le relief de la station.
+- **Là où l'imagerie fine manque** (hors des zones provisionnées), la carte
+  agrandit la tuile parente : floue de près, jamais vide. Ajouter des zones :
+  `infra/geo/zones.json`, puis `tiles-fetch fetch sat --zones <nom>` sur une
+  machine qui a Internet, et une nouvelle archive.
+
 ## 11. La V2 des rôles : deux modes de l'application (paquets `fusion-V2`)
 
 - **Rien ne change au démarrage** : la station repart en **Mode classique**

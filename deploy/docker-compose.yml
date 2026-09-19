@@ -240,6 +240,7 @@ services:
       - valhalla_data:/pbf
       - planetiler_cache:/planetiler-sources
       - ../infra/geo/zones.json:/config/zones.json:ro
+      - ../infra/geo/communes.json:/config/communes.json:ro
 
 volumes:
   db_data:

@@ -224,4 +224,10 @@ export interface CityDef {
 export const CITIES_MA: CityDef[] = [
 `;
 writeFileSync(outPath, `${header}${lines.join("\n")}\n];\n`, "utf8");
-console.log(`cities.data.ts : ${total} communes — ${JSON.stringify(stats)}`);
+// Le même référentiel pour le provisionnement des tuiles hors ligne (infra/geo,
+// profil « communes » de zones.json) : nom, province, position — rien d'autre.
+const geoPath = resolve(here, "../../../infra/geo/communes.json");
+const geo = [];
+for (const region of REGION_ORDER) for (const p of PROVINCES.filter((x) => x.region === region)) for (const e of byProvince.get(p.v)?.values() ?? []) geo.push({ v: e.v, province: p.v, ll: e.ll });
+writeFileSync(geoPath, `${JSON.stringify(geo)}\n`, "utf8");
+console.log(`cities.data.ts : ${total} communes — ${JSON.stringify(stats)} ; ${geoPath} : ${geo.length} points`);
