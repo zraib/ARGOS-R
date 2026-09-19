@@ -120,7 +120,8 @@ export default function RepartitionPage() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
         <StatTile label={m.dispatch.strip_ops} value={activeIncidents.length} icon={KPI_ICONS.incidents} tint="danger" />
         <StatTile label={m.dispatch.strip_units} value={engagements.length} icon={KPI_ICONS.units} tint="or" />
-        <StatTile label={m.dispatch.strip_available} value={units.length - engagements.length} icon={NAV_ICONS.res} tint="green" />
+        {/* Les unités VISIBLES non engagées : un engagement peut viser une unité hors de vue (autre mode, autre portée), jamais un compte négatif. */}
+        <StatTile label={m.dispatch.strip_available} value={units.filter((u) => !engagementFor(u.id)).length} icon={NAV_ICONS.res} tint="green" />
         <StatTile label={m.dispatch.strip_movements} value={movements.filter((x) => x.progress < 100).length} icon={NAV_ICONS.map} tint="blue" />
         <StatTile label={m.dispatch.strip_queue} value={queue.length} icon={NAV_ICONS.dispatch} tint="amber" />
       </div>

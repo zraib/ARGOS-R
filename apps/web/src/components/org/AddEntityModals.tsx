@@ -5,6 +5,7 @@ import { useArgos, useDict, useModules } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { svgToLL } from "@/lib/helpers";
+import { resolvePoint } from "@/lib/geo";
 import { HOSPITAL_KINDS, kindDef } from "@/lib/hospitals";
 import { HealthGlyph } from "@/components/health/HealthGlyph";
 import { WardsEditor, autosumServices, type WardsEditorValue } from "@/components/health/WardsEditor";
@@ -44,6 +45,7 @@ type Created = (id: string) => void;
  */
 export function AddUnitModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated?: Created }) {
   const t = useDict();
+  const m = useModules();
   const provinces = useArgos((s) => s.provinces);
   const cities = useArgos((s) => s.cities);
   const loadDomain = useArgos((s) => s.loadDomain);
@@ -56,22 +58,34 @@ export function AddUnitModal({ open, onClose, onCreated }: { open: boolean; onCl
   const [dispo, setDispo] = useState<UnitReadiness>("ready");
   const [readiness, setReadiness] = useState(85);
   const [loc, setLoc] = useState<LocationValue>(EMPTY_LOCATION);
+  // Un point posé sur la carte, comme à la déclaration d'un incident : il
+  // prime sur la cascade et en déduit région, province et ville.
+  const [pin, setPin] = useState<[number, number] | null>(null);
   const [busy, setBusy] = useState(false);
+  const onPin = (ll: [number, number]) => {
+    setPin(ll);
+    const r = resolvePoint(ll, { provinces, cities });
+    if (r.region || r.province) setLoc({ region: r.region ?? "", province: r.province ?? "", city: r.city ?? "" });
+    if (r.city) setVille(r.city);
+  };
+  const apercu = pin ?? locationLL(loc, provinces, cities) ?? null;
 
   // Choisir une ville dans la cascade remplit le champ ville ; il reste
   // modifiable pour une localité absente du référentiel.
   const onLoc = (next: LocationValue) => {
     setLoc(next);
+    setPin(null);
     if (next.city) setVille(next.city);
   };
-  const canSubmit = !!(nom.trim() && ville.trim() && loc.province && eff > 0);
+  const canSubmit = !!(nom.trim() && ville.trim() && (loc.province || pin) && eff > 0);
 
   const submit = async () => {
     if (!canSubmit || busy) return;
     setBusy(true);
     try {
       const p = locationProvince(loc, provinces);
-      if (!p) return;
+      const ll = pin ?? locationLL(loc, provinces, cities) ?? (p ? svgToLL(p.x, p.y) : undefined);
+      if (!ll) return;
       const res = await api.createUnit({
         nom: nom.trim(),
         ville: ville.trim(),
@@ -79,15 +93,15 @@ export function AddUnitModal({ open, onClose, onCreated }: { open: boolean; onCl
         eff,
         dispo,
         readiness,
-        x: p.x,
-        y: p.y,
-        ll: locationLL(loc, provinces, cities) ?? svgToLL(p.x, p.y),
+        x: p?.x ?? 0,
+        y: p?.y ?? 0,
+        ll,
       });
       if (res.error) return;
       const created = res.data as { id?: string } | undefined;
       await loadDomain();
       showToast(t.toast_unit);
-      setNom(""); setVille(""); setLoc(EMPTY_LOCATION);
+      setNom(""); setVille(""); setLoc(EMPTY_LOCATION); setPin(null);
       if (created?.id) onCreated?.(created.id);
       onClose();
     } finally {
@@ -114,6 +128,11 @@ export function AddUnitModal({ open, onClose, onCreated }: { open: boolean; onCl
           </select>
         </div>
         <LocationCascade value={loc} onChange={onLoc} />
+        {/* La localisation, comme à la déclaration d'un incident : la cascade, puis un point sur la carte. */}
+        <div className="h-56 overflow-hidden rounded-lg border border-gray-200 dark:border-rdia-600">
+          <LocationPreviewMap value={apercu} onPick={onPin} labels={{ hint: m.morgue.a_map_hint, full: m.morgue.a_map_full, exit: m.morgue.a_map_exit }} />
+        </div>
+        {pin && <p className="-mt-2 font-mono text-[11px] text-gray-500 dark:text-rdia-300">{pin[1].toFixed(4)}, {pin[0].toFixed(4)}</p>}
         <div>
           <label className={labelCls}>{t.lbl_city}</label>
           <input className={inputCls} value={ville} onChange={(e) => setVille(e.target.value)} />

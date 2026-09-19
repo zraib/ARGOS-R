@@ -338,8 +338,17 @@ déployables) ne connaissent que les comptes du mode (`UsersService.fitsMode`). 
 par rôle** : chacune des 43
 fonctionnalités de la matrice s'ouvre ou se coupe par rôle (`iam/role-grants`, Super
 Administrateur) — coupée, toutes ses actions sont refusées (403) et retirées des permissions
-servies ; le cœur (`users`, `settings`, `audit`) et les administrateurs sont verrouillés. Tests :
-`shared/profiles.spec.ts`, `modules/iam/login-mode.spec.ts`, `modules/iam/role-grants.spec.ts`.
+servies ; le cœur (`users`, `settings`, `audit`) et les administrateurs sont verrouillés. Les
+bascules par rôle — modules du menu et fonctionnalités — ne sont persistées que comme **écarts aux
+défauts** (`iam/snapshot.rules.ts`, version 2) : une ouverture décidée par une mise à jour de la
+matrice n'est jamais masquée par un « non » hérité d'un instantané d'avant. **Le mode édition suit le
+mode** : chaque profil a ses natures de poste (`PROFILE_POST_KINDS`), la pose et la liste des postes
+refusent celles de l'autre mode (403), Super Administrateur compris. **Conduite des PC opératifs** :
+LOG et OPS des PC (PCO, PCT, PC FAR, PCF) et Anim / DIREX répartissent et créent, modifient, retirent
+unités (règle de mode, ADR 0016), abris et morgues — cellule `FULL` (`AMRVD`) de la grille, `D` =
+`delete`, première ouverture de cette action hors du joker du Super Administrateur. Tests :
+`shared/profiles.spec.ts`, `modules/iam/login-mode.spec.ts`, `modules/iam/role-grants.spec.ts`,
+`modules/iam/snapshot.rules.spec.ts`, `modules/domain/mode-rights.spec.ts`.
 
 ## 6. Matrice rôle → modules, drapeaux globaux
 
@@ -376,7 +385,10 @@ stratégique, le dispositif tactique pour l'OPCOM, leurs équipes, équipements 
 véhicules **sur le terrain** pour le TACOM et les cellules (en opérationnel :
 ceux des unités affectées à leur opération). Le panache NRBC relève de
 `plume:view` (conduite) ; les simulateurs de crue et de feu, calculés dans le
-navigateur, sont coupés par leurs modules. Tests : `modules/domain/map-edit.spec.ts`.
+navigateur, sont coupés par leurs modules. Depuis l'ADR 0022 (lot 6), les natures posables sont
+bornées par le **mode de l'application** (`placeablePostKinds(role, profile)`) : sous Direx, le Chef /
+DIREX pose PC FAR et PCF, l'Anim / DIREX et les OPS des PC opératifs y ajoutent PCT et PCO. Tests :
+`modules/domain/map-edit.spec.ts`, `modules/domain/mode-rights.spec.ts`.
 
 Depuis l'ADR 0015 ce n'est plus un simple masquage : `FEATURE_MODULE` relie
 chaque fonctionnalité RBAC à son module, et la garde des permissions refuse

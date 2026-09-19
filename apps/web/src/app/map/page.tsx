@@ -47,6 +47,7 @@ export default function MapPage() {
   const lang = useArgos((s) => s.lang);
   const m = useModules();
   const role = useArgos((s) => s.role);
+  const profile = useArgos((s) => s.profile);
   const posts = useArgos((s) => s.posts);
   const shelters = useArgos((s) => s.shelters);
   const trackers = useArgos((s) => s.trackers);
@@ -61,7 +62,8 @@ export default function MapPage() {
   const roleFeatures = useArgos((s) => s.roleFeatures);
   const myModules = useArgos((s) => s.myModules);
   const capOpen = (k: "mapEdit" | "simFlood" | "simFire" | "simNrbc") => moduleKeyOpen(k, flags, roleFeatures[role], myModules);
-  const editOpen = canEditMap(role) && capOpen("mapEdit");
+  // Le mode en service borne les natures posables : sans nature ni ressource, pas d'édition.
+  const editOpen = canEditMap(role, profile) && capOpen("mapEdit");
   const showToast = useArgos((s) => s.showToast);
   const hospitals = useArgos((s) => s.hospitals);
   const layers = useArgos((s) => s.layers);
@@ -392,7 +394,7 @@ export default function MapPage() {
           ],
           responsible,
           remove:
-            mapEdit && editOpen && placeablePostKinds(role).includes(p.kind)
+            mapEdit && editOpen && placeablePostKinds(role, profile).includes(p.kind)
               ? () => {
                   void deletePost(p.id)
                     .then(() => {

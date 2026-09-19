@@ -76,7 +76,8 @@ export function MorgueService() {
 
   // Qui agit : le service (admin) et les responsables de site ; les autres lisent.
   const canWrite = can("morgue:update") || role === "superadmin";
-  const canCreate = role === "superadmin" || role === "admin";
+  // Créer un site : la permission servie (`morgue:create` — administration, LOG / OPS des PC et Anim en direx).
+  const canCreate = role === "superadmin" || can("morgue:create");
 
   const load = useCallback(async () => {
     const res = await api.getMortuaryRegistry();

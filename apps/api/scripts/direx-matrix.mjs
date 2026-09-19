@@ -23,7 +23,7 @@ for (const r of rows.slice(3)) {
     if (i < 2 || SKIP.has(id)) return;
     const v = r[i];
     if (!v) return;
-    const code = { ALL: "ALL", AMV: "AMV", VM: "VM", V: "V" }[v];
+    const code = { ALL: "ALL", AMV: "AMV", VM: "VM", V: "V", FULL: "FULL" }[v];
     if (!code) throw new Error(`cellule inconnue « ${v} » (${feature} / ${id})`);
     cells.push(`${id}: ${code}`);
   });
@@ -39,7 +39,7 @@ const ts = `// =================================================================
 import type { Feature } from "@/shared/permissions";
 import type { Role } from "@/shared/profiles";
 
-const V = "V", VM = "VM", AMV = "AMV", ALL = "AMRV";
+const V = "V", VM = "VM", AMV = "AMV", ALL = "AMRV", FULL = "AMRVD";
 
 export const DIREX_MATRIX: Record<Feature, Partial<Record<Role, string>>> = {
 ${out.join("\n")}

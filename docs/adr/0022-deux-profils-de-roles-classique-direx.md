@@ -286,6 +286,26 @@ Avant le premier lot : étiquette git `v1-roles-classiques` sur `1ee4239`, paque
    (décision du propriétaire), le script la reporte quand elle changera.
 3. **Web** — annuaire et canaux du centre de communication groupés par échelon ; comptes de
    démonstration déployés sur les opérations du jeu.
+3 bis. **Mode édition et conduite des PC opératifs (livré, lot 6)** — le mode édition de la carte
+   suit le **mode de l'application** : chaque profil a ses natures de poste (`PROFILE_POST_KINDS` :
+   classique = OPCOM, TACOM, PCO, PCT, cellules ; direx = PC FAR, PCF, PCT, PCO ; abris et parcs
+   communs), `placeablePostKinds(role, profile)` ne rend que celles du mode et la liste des postes
+   servie (`GET posts`) les filtre — même pour le Super Administrateur (403 pour une nature de
+   l'autre mode). La boîte à outils groupe les comptes par les rôles qui **tiennent** chaque nature
+   (`POST_HOLDERS` : un PC FAR par son chef, un PCT ou un PCO par le chef de l'un ou l'autre
+   profil). **LOG et OPS des PC (PCO, PCT, PC FAR, PCF) et Anim / DIREX** répartissent (dispatch,
+   missions, deploy : AMV) et créent, modifient, retirent des unités (traits `unitMaker` +
+   `unitRemover`, règle de mode ADR 0016), des abris et des morgues : la grille gagne le code
+   **`FULL` = `AMRVD`** — `D` = `delete`, jusqu'ici réservé au joker du Super Administrateur.
+   Les boutons du web suivent la permission servie (`can("shelters:delete")`,
+   `can("morgue:create")`, `canCreateUnit`/`canDeleteUnit` miroirs) et `can()` est refait quand
+   les permissions arrivent (un écran rendu avant `/iam/me` se rend à nouveau). Les **modules du
+   menu** par rôle sont persistés en écarts aux défauts comme les fonctionnalités (`snapshot.rules`,
+   version 2 ; une table entière d'avant est reprise à ses défauts — elle masquait la liste des
+   incidents au responsable d'équipement). Les formulaires **unité** et **morgue** portent le
+   sélecteur de position de l'incident (pin sur la carte → région, province, ville).
+   Tests : `domain/mode-rights.spec.ts`, `iam/snapshot.rules.spec.ts`, `shared/profiles.spec.ts`
+   (droits des neuf rôles, natures par mode) ; web `mode-rights.test.ts`, `posts.test.ts`.
 4. **Livraison** — tableau des rôles par profil dans `README.md`, guides, paquet ; fusion de
    `fusion-V2` dans `fusion` quand les deux profils sont vérifiés.
 

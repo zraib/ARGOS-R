@@ -48,7 +48,12 @@ export interface SessionSlice {
   profile: ProfileId;
   /** Permissions effectives du compte, servies par `/iam/me` — pour masquer ce que l'API refuse. */
   permissions: string[];
-  /** Le compte détient-il cette permission (`fonctionnalité:action`) ? Sans réponse de l'API : non. */
+  /**
+   * Le compte détient-il cette permission (`fonctionnalité:action`) ? Sans
+   * réponse de l'API : non. La fonction est REFAITE à chaque arrivée des
+   * permissions : un écran qui la sélectionne se rend à nouveau quand elles
+   * arrivent (elles suivent le premier rendu, servies par `/iam/me`).
+   */
   can: (perm: string) => boolean;
   /** JWT courant (mode API) ; null en mode démo hors-ligne */
   token: string | null;
@@ -153,6 +158,7 @@ export const createSessionSlice: StateCreator<ArgosState, [], [], SessionSlice> 
       roleFeatures: (ctx.roleFeatures as Record<Role, Record<string, boolean>> | undefined) ?? s.roleFeatures,
       myModules: ctx.myModules ?? s.myModules,
       permissions: ctx.permissions ?? s.permissions,
+      can: ctx.permissions ? ((perms) => (perm: string) => perms.includes(perm))(ctx.permissions) : s.can,
       profile: ctx.profile ?? s.profile,
       appMode: ctx.appMode ?? s.appMode,
     })),
@@ -183,6 +189,9 @@ export const createSessionSlice: StateCreator<ArgosState, [], [], SessionSlice> 
       myModules: null,
       token: null,
       sessionUser: null,
+      // Les permissions partent avec la session : le prochain compte n'hérite de rien.
+      permissions: [],
+      can: () => false,
       mustChangePassword: false,
       mustChooseRole: false,
       aiLog: [],

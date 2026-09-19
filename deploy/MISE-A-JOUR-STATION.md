@@ -315,9 +315,24 @@ cd C:\iris\deploy
   sous son parent ; elle suit la fonctionnalité « Sous-incidents » du rôle.
   Déclarer, modifier et rattacher suivent désormais la permission servie par
   l'API — qui peut déclarer en déclare autant qu'il veut.
-- Les bascules de fonctionnalités d'un rôle sont désormais persistées comme
-  écarts aux défauts ; celles enregistrées par le paquet du 19 septembre
-  (`ca50468`) sont reprises à leurs défauts à la mise à jour.
+- **Le mode édition de la carte suit le mode** : en Mode Direx, la boîte à
+  outils ne propose que PC FAR, PCF, PCT, PCO (tenus par leurs chefs), abris
+  et parcs ; en Mode classique, OPCOM, TACOM, PCO, PCT et cellules. Un poste
+  de l'autre mode ne se pose pas et ne se liste pas.
+- **LOG et OPS des PC (PCO, PCT, PC FAR, PCF) et Anim / DIREX** répartissent
+  les unités (*Répartition*, ordres), créent, modifient et **suppriment** des
+  unités (hors mode opérationnel), des abris (*OPSnet*) et des sites
+  mortuaires (*Service morgue*) ; les boutons apparaissent chez qui l'API
+  l'accorde.
+- **Créer une unité** et **créer un site mortuaire** se font avec le sélecteur
+  de position de l'incident : un clic sur la carte pose la position et remplit
+  région, province et ville.
+- Les bascules d'un rôle (fonctionnalités **et modules du menu**) sont
+  persistées comme écarts aux défauts ; celles enregistrées par les paquets
+  antérieurs au 19 septembre au soir sont reprises à leurs défauts à la mise à
+  jour (un « non » hérité masquait la liste des incidents au responsable
+  d'équipement). À refaire depuis *Utilisateurs › Rôles & fonctionnalités* si
+  une coupure avait été décidée.
 - Le mode et les bascules sont persistés dans le volume de l'API
   (`settings.json`, instantané IAM) : la sauvegarde d'`upgrade.ps1` les
   emporte, la remise en arrière (§ 8) les rend.

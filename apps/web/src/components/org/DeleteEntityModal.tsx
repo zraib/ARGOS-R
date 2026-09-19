@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useArgos, useDict } from "@/lib/store";
 import { api } from "@/lib/api";
 import { isSuperAdmin } from "@/lib/roles";
+import { canDeleteUnit } from "@/lib/mode";
 import { Modal } from "@/components/ui/Modal";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
@@ -185,12 +186,19 @@ interface DeleteEntityButtonProps {
   compact?: boolean;
 }
 
-/** Le bouton de suppression, rendu au seul Super Administrateur, avec sa modale. */
+/** Le bouton de suppression, rendu à qui détient `<entité>:delete` (le Super Administrateur toujours), avec sa modale. */
 export function DeleteEntityButton({ kind, id, name, onDeleted, className = "", compact = false }: DeleteEntityButtonProps) {
   const t = useDict();
   const role = useArgos((s) => s.role);
+  const can = useArgos((s) => s.can);
+  const appMode = useArgos((s) => s.appMode);
   const [open, setOpen] = useState(false);
-  if (!isSuperAdmin(role)) return null;
+  // Une unité se retire selon la règle de mode (ADR 0016) ; les autres entités, selon `<entité>:delete`.
+  const allowed =
+    kind === "unit"
+      ? canDeleteUnit(role, appMode, can)
+      : isSuperAdmin(role) || can({ shelter: "shelters:delete", morgue: "morgue:delete", hospital: "hospinet:delete" }[kind]);
+  if (!allowed) return null;
   const label = { unit: t.del_unit, shelter: t.del_shelter, morgue: t.del_morgue, hospital: t.del_hospital }[kind];
   return (
     <>

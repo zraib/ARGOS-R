@@ -10,7 +10,7 @@ import { occBarClass } from "@/lib/helpers";
 import { NAV_ICONS, KPI_ICONS, UI_ICONS } from "@/lib/icons";
 import { AddUnitModal, AddShelterModal } from "@/components/org/AddEntityModals";
 import { EditUnitModal, EditShelterModal } from "@/components/org/EditEntityModals";
-import { canEditShelter, canEditUnit } from "@/lib/mode";
+import { canCreateUnit, canEditShelter, canEditUnit } from "@/lib/mode";
 import { corpsLabel } from "@/lib/corps";
 import { ResponsibleCard } from "@/components/responsibility/ResponsibleCard";
 import {
@@ -64,7 +64,11 @@ export default function OpsnetPage() {
   const appMode = useArgos((s) => s.appMode);
   const sessionUser = useArgos((s) => s.sessionUser);
   const editUnit = (u: Unit) => canEditUnit(role, appMode, sessionUser?.assignments?.unit === u.id);
-  const editShelter = (a: Shelter) => canEditShelter(role, sessionUser?.assignments?.shelter === a.id);
+  const can = useArgos((s) => s.can);
+  const editShelter = (a: Shelter) => canEditShelter(role, sessionUser?.assignments?.shelter === a.id, can);
+  // Ajouter : à qui l'API l'accorde (LOG / OPS des PC et Anim en direx, l'OPCOM et les cellules en classique…).
+  const addUnit = canCreateUnit(role, appMode, can);
+  const addShelter = role === "superadmin" || can("shelters:create");
 
   const [onglet, setOnglet] = useState<Onglet>("vue");
   const [ajoutUnite, setAjoutUnite] = useState(false);
@@ -174,14 +178,18 @@ export default function OpsnetPage() {
             type="search"
             className="input-champ cible-tactile w-[220px] text-sm"
           />
-          <button className="btn-secondaire cible-tactile flex items-center gap-1.5 text-sm" onClick={() => setAjoutUnite(true)}>
-            <Icon path={UI_ICONS.plus} size={15} />
-            {t.ops_add_unit}
-          </button>
-          <button className="btn-primaire cible-tactile flex items-center gap-1.5 text-sm" onClick={() => setAjoutAbri(true)}>
-            <Icon path={UI_ICONS.plus} size={15} />
-            {t.ops_add_shelter}
-          </button>
+          {addUnit && (
+            <button className="btn-secondaire cible-tactile flex items-center gap-1.5 text-sm" onClick={() => setAjoutUnite(true)}>
+              <Icon path={UI_ICONS.plus} size={15} />
+              {t.ops_add_unit}
+            </button>
+          )}
+          {addShelter && (
+            <button className="btn-primaire cible-tactile flex items-center gap-1.5 text-sm" onClick={() => setAjoutAbri(true)}>
+              <Icon path={UI_ICONS.plus} size={15} />
+              {t.ops_add_shelter}
+            </button>
+          )}
           <button type="button" onClick={() => setAffecteurOpen(true)} className="btn-affecteur cible-tactile">
             <Icon path={UI_ICONS.target} size={15} strokeWidth={2} />
             <span className="tracking-wide">{t.af_launcher}</span>

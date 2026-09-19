@@ -14,7 +14,7 @@ import {
 import { ROLES, ROLE_LABELS, ROLE_PERMISSIONS, roleHasPermission } from "@/shared/permissions";
 import { assignableCorps, canDeploy } from "@/modules/domain/assignment.rules";
 import { canCreateUnit, canDeleteUnit, canEditUnit } from "@/modules/domain/mode.rules";
-import { placeablePostKinds, placeableResourceKinds } from "@/modules/domain/edit.rules";
+import { canPlacePost, placeablePostKinds, placeableResourceKinds } from "@/modules/domain/edit.rules";
 import { canManageResource } from "@/modules/domain/resources.rules";
 import { DEPLOYABLE_ROLES, REGIONAL_AUTHORITY_ROLES, CIVIL_ROLES, ROLE_RESPONSIBILITY } from "@/shared/responsibilities";
 
@@ -144,9 +144,9 @@ describe("profil direx — la conduite par les mêmes règles", () => {
     for (const r of ["pcfar_log", "pcf_synth", "direx_chef", "direx_anim", "pct_chef", "pco_ops"] as const) expect(assignableCorps(r)).toEqual([]);
   });
 
-  it("les PC opératifs et les PC tactiques déploient ; la DIREX ne déploie pas", () => {
+  it("les PC opératifs (chef, OPS, LOG) et les PC tactiques déploient ; la DIREX ne déploie pas", () => {
     expect(DIREX_ONLY_ROLES.filter(canDeploy).sort()).toEqual(
-      ["pcf_chef", "pcf_ops", "pcfar_chef", "pcfar_ops", "pco_chef", "pco_log", "pco_ops", "pco_rens_com", "pct_chef", "pct_log", "pct_ops", "pct_rens"],
+      ["pcf_chef", "pcf_log", "pcf_ops", "pcfar_chef", "pcfar_log", "pcfar_ops", "pco_chef", "pco_log", "pco_ops", "pco_rens_com", "pct_chef", "pct_log", "pct_ops", "pct_rens"],
     );
     for (const r of DIREX_ONLY_ROLES) expect(DEPLOYABLE_ROLES.includes(r)).toBe(!r.startsWith("direx_"));
   });
@@ -179,5 +179,29 @@ describe("profil direx — la conduite par les mêmes règles", () => {
     expect(roleHasPermission("pcfar_chef", "assign:create")).toBe(true);
     expect(roleHasPermission("pcfar_log", "assign:create")).toBe(false);
     expect(roleHasPermission("pcf_ops", "deploy:create")).toBe(true);
+  });
+
+  it("les LOG / OPS des quatre PC et l'Anim répartissent et créent, modifient, suppriment unités, abris et morgues (19 septembre 2026)", () => {
+    for (const r of ["pcfar_log", "pcfar_ops", "pcf_log", "pcf_ops", "pct_log", "pct_ops", "pco_log", "pco_ops", "direx_anim"] as const) {
+      expect(roleHasPermission(r, "dispatch:create")).toBe(true);
+      expect(roleHasPermission(r, "missions:create")).toBe(true);
+      expect(roleHasPermission(r, "teams:create")).toBe(true);
+      expect(roleHasPermission(r, "shelters:delete")).toBe(true);
+      expect(roleHasPermission(r, "morgue:delete")).toBe(true);
+      expect(canCreateUnit(r, "exercise")).toBe(true);
+      expect(canDeleteUnit(r, "demo")).toBe(true);
+    }
+    // La suppression reste hors de portée des autres postes et de toute cellule classique.
+    expect(roleHasPermission("pcfar_synth", "shelters:delete")).toBe(false);
+    expect(roleHasPermission("greencell", "shelters:delete")).toBe(false);
+    expect(roleHasPermission("opcom", "morgue:delete")).toBe(false);
+  });
+
+  it("chaque mode ne pose que ses natures de poste : le Super Administrateur suit le mode en service", () => {
+    expect(placeablePostKinds("superadmin", "classique")).toEqual(["opcom", "tacom", "pco", "pct", "bluecell", "greencell", "orangecell", "shelter", "equipment"]);
+    expect(placeablePostKinds("superadmin", "direx")).toEqual(["pco", "pct", "shelter", "equipment", "pcfar", "pcf"]);
+    expect(placeablePostKinds("direx_chef", "direx")).toEqual(["pcfar", "pcf"]);
+    expect(placeablePostKinds("opcom", "classique")).toEqual(["tacom", "pco", "pct", "bluecell", "greencell", "orangecell"]);
+    expect(canPlacePost("opcom", "tacom", "direx")).toBe(false);
   });
 });

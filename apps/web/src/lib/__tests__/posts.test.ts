@@ -54,3 +54,22 @@ describe("postes d'opération", () => {
     expect(nearestIncident([-7.6, 33.58], [inc("C", [-7.6, 33.58], true)])).toBeUndefined();
   });
 });
+
+describe("qui tient chaque nature de poste", () => {
+  it("les PC du profil direx sont tenus par leur chef ; un PCT ou un PCO par le chef de l'un ou l'autre profil", async () => {
+    const { holdsPost, postHolderRole } = await import("@/lib/posts");
+    expect(holdsPost(["pcfar_chef"], "pcfar")).toBe(true);
+    expect(holdsPost(["pcfar_ops"], "pcfar")).toBe(false);
+    expect(holdsPost(["pco_chef"], "pco")).toBe(true);
+    expect(holdsPost(["pco"], "pco")).toBe(true);
+    expect(holdsPost(["opcom"], "opcom")).toBe(true);
+    expect(holdsPost(["opcom"], "shelter")).toBe(false);
+    expect(postHolderRole("pcf")).toBe("pcf_chef");
+    expect(postHolderRole("tacom")).toBe("tacom");
+    expect(postHolderRole("equipment")).toBeUndefined();
+    // La boîte à outils groupe les comptes par nature tenue : un chef de PC FAR apparaît sous « PC FAR ».
+    const accounts = [{ matricule: "c.pcfar", nom: "Colonel El Amrani", roles: ["pcfar_chef"], currentIncidentId: null }];
+    const g = pickGroups({ accounts, shelters, units, posts: [] }, "Parc").find((x) => x.kind === "pcfar");
+    expect(g?.items.map((i) => i.pick.matricule)).toEqual(["c.pcfar"]);
+  });
+});

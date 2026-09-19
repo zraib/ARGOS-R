@@ -191,7 +191,7 @@ export const ROLE_LABELS: Record<Role, string> = Object.fromEntries(ROLES.map((r
 // Transcription de la matrice
 // ---------------------------------------------------------------------------
 
-/** Codes de cellule : V=visualiser, A=ajouter, M=modifier, R=archiver (Ar). */
+/** Codes de cellule : V=visualiser, A=ajouter, M=modifier, R=archiver (Ar), D=supprimer (matrice direx). */
 type Cell = string;
 
 const V = "V", VM = "VM", AMV = "AMV", ALL = "AMRV";
@@ -501,7 +501,11 @@ function expand(cell: Cell): Action[] {
   if (cell.includes("A")) out.push("create");
   if (cell.includes("M")) out.push("update");
   if (cell.includes("R")) out.push("archive");
-  // `delete` n'est JAMAIS accordé par la matrice — réservé au superadmin.
+  // `delete` : la matrice classique ne l'accorde jamais (joker du Super
+  // Administrateur) ; la matrice direx le donne par la cellule « FULL »
+  // (AMRVD) aux LOG / OPS des PC et à l'Anim, sur les abris et les morgues
+  // (décision du 19 septembre 2026).
+  if (cell.includes("D")) out.push("delete");
   return out;
 }
 

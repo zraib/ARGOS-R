@@ -11,28 +11,31 @@
 //   (ni le TACOM ni les cellules ne voient un poste ou un parc à poser)
 // ============================================================================
 
-import type { Role } from "@/lib/roles";
+import type { ProfileId, Role } from "@/lib/roles";
 import type { PlaceableKind, PostKind } from "@/lib/types";
-import { POST_KINDS } from "@/lib/posts";
+import { POST_KINDS, postKindInProfile } from "@/lib/posts";
 
 const TACOM_ROLES: readonly Role[] = ["tacom", "pco", "pct"];
 const CELL_ROLES: readonly Role[] = ["bluecell", "greencell", "orangecell"];
 // Profil « direx » (ADR 0022) : qui pose des moyens sur le terrain — l'animation,
 // les OPS des PC opératifs, les chefs et les cellules des PC tactiques.
 const DIREX_FIELD_ROLES: readonly Role[] = [
-  "direx_anim", "pcfar_ops", "pcf_ops",
+  "direx_anim", "pcfar_ops", "pcfar_log", "pcf_ops", "pcf_log",
   "pct_chef", "pct_ops", "pct_log", "pct_rens", "pco_chef", "pco_ops", "pco_log", "pco_rens_com",
 ];
 
-/** Les natures de postes que le rôle pose sur la carte (miroir du trait `placePosts`). */
-export function placeablePostKinds(role: Role): readonly PostKind[] {
-  if (role === "superadmin") return POST_KINDS;
-  if (role === "strategic") return ["opcom"];
-  if (role === "opcom") return ["tacom", "pco", "pct", "bluecell", "greencell", "orangecell"];
-  if (role === "direx_chef") return ["pcfar", "pcf"];
-  if (role === "direx_anim") return ["pcfar", "pcf", "pct", "pco"];
-  if (role === "pcfar_chef" || role === "pcfar_ops" || role === "pcf_chef" || role === "pcf_ops") return ["pct", "pco"];
-  return [];
+/** Les natures de postes que le rôle pose sur la carte (miroir du trait `placePosts`) — celles du mode en service seulement. */
+export function placeablePostKinds(role: Role, profile?: ProfileId): readonly PostKind[] {
+  const kinds = (() => {
+    if (role === "superadmin") return POST_KINDS;
+    if (role === "strategic") return ["opcom"] as const;
+    if (role === "opcom") return ["tacom", "pco", "pct", "bluecell", "greencell", "orangecell"] as const;
+    if (role === "direx_chef") return ["pcfar", "pcf"] as const;
+    if (role === "direx_anim") return ["pcfar", "pcf", "pct", "pco"] as const;
+    if (role === "pcfar_chef" || role === "pcfar_ops" || role === "pcf_chef" || role === "pcf_ops") return ["pct", "pco"] as const;
+    return [] as const;
+  })() as readonly PostKind[];
+  return profile ? kinds.filter((k) => postKindInProfile(k, profile)) : kinds;
 }
 
 /** Les natures de ressources que le rôle pose sur le terrain (miroir du trait `placeResources`). */
@@ -43,8 +46,8 @@ export function placeableResourceKinds(role: Role): readonly PlaceableKind[] {
 }
 
 /** Le rôle a-t-il un mode édition — quelque chose à poser ? */
-export function canEditMap(role: Role): boolean {
-  return placeablePostKinds(role).length > 0 || placeableResourceKinds(role).length > 0;
+export function canEditMap(role: Role, profile?: ProfileId): boolean {
+  return placeablePostKinds(role, profile).length > 0 || placeableResourceKinds(role).length > 0;
 }
 
 /** Type MIME du glisser-déposer d'une ressource de la boîte à outils vers la carte. */

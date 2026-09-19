@@ -6,25 +6,54 @@ import { distKm } from "@/lib/geo";
 import type { Dict } from "@/lib/i18n/translations";
 import type { Shelter } from "@/lib/data/modules";
 import type { DeployableAccount, Incident, IncidentPost, PostKind, Responsible, Unit } from "@/lib/types";
-import type { Role } from "@/lib/roles";
+import type { ProfileId, Role } from "@/lib/roles";
 
 export const POST_KINDS: readonly PostKind[] = ["opcom", "tacom", "pco", "pct", "bluecell", "greencell", "orangecell", "shelter", "equipment", "pcfar", "pcf"];
+
+/** Les natures de poste de chaque mode de l'application (miroir de `PROFILE_POST_KINDS` de l'API). */
+export const PROFILE_POST_KINDS: Record<ProfileId, readonly PostKind[]> = {
+  classique: ["opcom", "tacom", "pco", "pct", "bluecell", "greencell", "orangecell", "shelter", "equipment"],
+  direx: ["pcfar", "pcf", "pct", "pco", "shelter", "equipment"],
+};
+export function postKindInProfile(kind: PostKind, profile: ProfileId): boolean {
+  return PROFILE_POST_KINDS[profile].includes(kind);
+}
 
 /** Les natures tenues par un compte déployable (PC et cellules des deux profils, ADR 0022) ; les deux autres représentent une entité. */
 export const ROLE_POST_KINDS: readonly PostKind[] = ["opcom", "tacom", "pco", "pct", "bluecell", "greencell", "orangecell", "pcfar", "pcf"];
 
 /**
- * Le rôle qui tient d'ordinaire un poste de cette nature. Sous le profil
- * classique, la nature EST le rôle (un poste OPCOM est tenu par un `opcom`) ;
- * les PC du profil « direx » sont tenus par leur chef (ADR 0022). Un poste PCT
- * ou PCO peut aussi être tenu par un chef de PC direx : on préfère toujours le
- * rôle du compte déployé quand on le connaît.
+ * Les rôles qui tiennent un poste de chaque nature (miroir du trait `postKind`
+ * de l'API, `rolesHoldingPost`). Sous le profil classique, la nature EST le
+ * rôle (un poste OPCOM est tenu par un `opcom`) ; les PC du profil « direx »
+ * sont tenus par leur chef (ADR 0022) — un PCT ou un PCO l'est par le chef de
+ * l'un ou l'autre profil.
+ */
+export const POST_HOLDERS: Record<Exclude<PostKind, "shelter" | "equipment">, readonly Role[]> = {
+  opcom: ["opcom"],
+  tacom: ["tacom"],
+  pco: ["pco", "pco_chef"],
+  pct: ["pct", "pct_chef"],
+  bluecell: ["bluecell"],
+  greencell: ["greencell"],
+  orangecell: ["orangecell"],
+  pcfar: ["pcfar_chef"],
+  pcf: ["pcf_chef"],
+};
+
+/** Le compte tient-il un poste de cette nature ? */
+export function holdsPost(roles: readonly string[], kind: PostKind): boolean {
+  if (kind === "shelter" || kind === "equipment") return false;
+  return POST_HOLDERS[kind].some((r) => roles.includes(r));
+}
+
+/**
+ * Le rôle qui tient d'ordinaire un poste de cette nature ; on préfère toujours
+ * le rôle du compte déployé quand on le connaît.
  */
 export function postHolderRole(kind: PostKind): Role | undefined {
-  if (kind === "pcfar") return "pcfar_chef";
-  if (kind === "pcf") return "pcf_chef";
   if (kind === "shelter" || kind === "equipment") return undefined;
-  return kind;
+  return POST_HOLDERS[kind][0];
 }
 
 /** Type MIME du glisser-déposer d'un chip de la boîte à outils vers la carte. */
@@ -90,7 +119,7 @@ export function pickGroups(
     kind,
     items: sorted(
       ctx.accounts
-        .filter((a) => a.roles.includes(kind))
+        .filter((a) => holdsPost(a.roles, kind))
         .map((a) => ({
           pick: { kind, title: a.nom, matricule: a.matricule },
           // Le nom porte déjà le grade ; le matricule, lui, distingue deux homonymes.

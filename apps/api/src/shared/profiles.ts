@@ -175,6 +175,20 @@ export interface RoleTraits {
 }
 
 const ALL_POST_KINDS: readonly PostKind[] = ["opcom", "tacom", "pco", "pct", "bluecell", "greencell", "orangecell", "shelter", "equipment", "pcfar", "pcf"];
+
+/**
+ * Les natures de poste de chaque mode de l'application : le mode édition de
+ * la carte ne propose — et la carte ne montre — que celles-là. Le PCT et le
+ * PCO existent dans les deux organisations ; les abris et les parcs aussi.
+ */
+export const PROFILE_POST_KINDS: Record<ProfileId, readonly PostKind[]> = {
+  classique: ["opcom", "tacom", "pco", "pct", "bluecell", "greencell", "orangecell", "shelter", "equipment"],
+  direx: ["pcfar", "pcf", "pct", "pco", "shelter", "equipment"],
+};
+
+export function postKindInProfile(kind: PostKind, profile: ProfileId): boolean {
+  return PROFILE_POST_KINDS[profile].includes(kind);
+}
 const CIVIL: readonly UnitCorps[] = ["dgsn", "dgpc", "fa"];
 const NON_FAR: readonly UnitCorps[] = ["dgsn", "dgpc", "fa", "gendarmerie"];
 
@@ -203,9 +217,10 @@ function pc(echelon: "pcfar" | "pcf", fonction: Fonction, label: string, corps: 
     case "chef":
       return { ...base, assignCorps: corps, deploy: true, placePosts: ["pct", "pco"], simulate: true, postKind: echelon };
     case "ops":
-      return { ...base, assignCorps: corps, deploy: true, placePosts: ["pct", "pco"], placeResources: true, simulate: true };
+      return { ...base, assignCorps: corps, deploy: true, unitMaker: true, unitRemover: true, resources: "ops", placePosts: ["pct", "pco"], placeResources: true, simulate: true };
     case "log":
-      return { ...base, resources: "logistics" };
+      // Les LOG des PC opératifs déploient et tiennent aussi les unités (décision du 19 septembre 2026).
+      return { ...base, resources: "logistics", deploy: true, unitMaker: true, unitRemover: true, placeResources: true };
     case "planif_rens":
       return { ...base, simulate: true };
     default:

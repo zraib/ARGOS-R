@@ -58,7 +58,9 @@ export function PostToolbox() {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState<Record<string, boolean>>({});
 
-  const postKinds = placeablePostKinds(role);
+  const profile = useArgos((s) => s.profile);
+  // Les natures du mode en service seulement : en Direx, ni OPCOM, ni TACOM, ni cellules.
+  const postKinds = placeablePostKinds(role, profile);
   const resourceKinds = placeableResourceKinds(role);
 
   // Les comptes déployables et les ressources posables se lisent quand le

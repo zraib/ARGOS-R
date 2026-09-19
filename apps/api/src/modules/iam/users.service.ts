@@ -1,5 +1,6 @@
 import { accountFitsProfile, roleInProfile, rolesShareProfile, type ProfileId } from "@/shared/profiles";
 import { ProfileService } from "@/modules/mode/profile.service";
+import { DEVIATIONS_VERSION, deviationsOf, restoreDeviations } from "@/modules/iam/snapshot.rules";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   assignableRoles,
@@ -12,7 +13,6 @@ import {
   type ModuleKey,
   isRole,
   LEGACY_ROLE_MAP,
-  ROLES,
   ROLE_LABELS,
   type Role,
   DEFAULT_ROLE_GRANTS,
@@ -212,7 +212,13 @@ export class UsersService implements ScopeResolver {
     // le mot de passe fondateur (et tous les comptes) SURVIVE aux redémarrages —
     // plus de « 1er login » à chaque lancement. Voir common/dev-store.
     // (Réinitialiser : supprimer le dossier .dev-data.)
-    const snap = loadDevState<{ users?: ManagedUser[]; roleFeatures?: Record<Role, Record<string, boolean>>; roleGrants?: Record<Role, Record<string, boolean>>; roleGrantsVersion?: number }>("iam", {});
+    const snap = loadDevState<{
+      users?: ManagedUser[];
+      roleFeatures?: Partial<Record<Role, Record<string, boolean>>>;
+      roleFeaturesVersion?: number;
+      roleGrants?: Partial<Record<Role, Record<string, boolean>>>;
+      roleGrantsVersion?: number;
+    }>("iam", {});
     if (snap.users && snap.users.length > 0) {
       // `online` est un état de session : on repart déconnecté après un restart.
       // Les rôles HÉRITÉS (avant la refonte de l'organisation) sont migrés vers
@@ -248,46 +254,25 @@ export class UsersService implements ScopeResolver {
         founder.phone = "+212663002950";
       }
     }
-    // La matrice persistée peut porter d'anciens rôles ou l'ancien vocabulaire
-    // (fonctionnalités RBAC au lieu de modules, avant l'ADR 0015) : on ne reprend
-    // que les clés connues, les défauts complètent le reste.
-    // Un instantané d'avant l'ADR 0022 ne connaît pas les rôles du profil
-    // « direx » : on reprend les bascules des rôles qu'il connaît, les autres
-    // gardent leurs défauts.
-    if (snap.roleFeatures) {
-      for (const role of ROLES) {
-        if (!snap.roleFeatures[role]) continue;
-        for (const [k, v] of Object.entries(snap.roleFeatures[role])) {
-          if (isModuleKey(k) && typeof v === "boolean") this.roleFeatures[role][k] = v;
-        }
-      }
-    }
-    // Les bascules de fonctionnalités ne sont persistées que comme ÉCARTS aux
-    // défauts (version 2) : une coupure décidée par l'administration. Un
-    // instantané de la version 1 écrivait la table entière — chaque « non »
-    // hérité de la matrice d'alors y passait pour une coupure, et masquait
-    // ensuite toute fonctionnalité qu'une mise à jour ouvrait au rôle (le
-    // commandant d'unité et la liste des incidents). Ces instantanés-là sont
-    // repris à leurs défauts.
-    if (snap.roleGrants && (snap.roleGrantsVersion ?? 1) >= 2) {
-      for (const role of ROLES) {
-        if (!snap.roleGrants[role]) continue;
-        for (const [k, v] of Object.entries(snap.roleGrants[role])) {
-          if (isFeatureKey(k) && typeof v === "boolean" && DEFAULT_ROLE_GRANTS[role][k]) this.roleGrants[role][k] = v;
-        }
-      }
-    }
+    // Modules et fonctionnalités par rôle : l'instantané ne porte que les
+    // ÉCARTS aux défauts (version 2, voir snapshot.rules) — une table entière
+    // d'avant (rôles hérités, ancien vocabulaire, « non » hérités de la
+    // matrice d'alors) est reprise à ses défauts. Les fonctionnalités ne se
+    // coupent que là où la matrice les ouvre.
+    restoreDeviations(this.roleFeatures, snap.roleFeatures, snap.roleFeaturesVersion, isModuleKey);
+    restoreDeviations(this.roleGrants, snap.roleGrants, snap.roleGrantsVersion, isFeatureKey, (role, k) => DEFAULT_ROLE_GRANTS[role][k]);
   }
 
   /** Écrit l'instantané du registre (débounce dans dev-store ; no-op hors dev). */
   private persist(): void {
-    // Fonctionnalités : seuls les écarts aux défauts (les coupures) sont écrits.
-    const roleGrants: Partial<Record<Role, Record<string, boolean>>> = {};
-    for (const role of ROLES) {
-      const ecarts = Object.entries(this.roleGrants[role] ?? {}).filter(([k, v]) => isFeatureKey(k) && v !== DEFAULT_ROLE_GRANTS[role][k]);
-      if (ecarts.length > 0) roleGrants[role] = Object.fromEntries(ecarts);
-    }
-    saveDevState("iam", { users: this.users, roleFeatures: this.roleFeatures, roleGrants, roleGrantsVersion: 2 });
+    // Modules et fonctionnalités : seuls les écarts aux défauts sont écrits.
+    saveDevState("iam", {
+      users: this.users,
+      roleFeatures: deviationsOf(this.roleFeatures, DEFAULT_ROLE_FEATURES, isModuleKey),
+      roleFeaturesVersion: DEVIATIONS_VERSION,
+      roleGrants: deviationsOf(this.roleGrants, DEFAULT_ROLE_GRANTS, isFeatureKey),
+      roleGrantsVersion: DEVIATIONS_VERSION,
+    });
   }
 
   // --- lecture -------------------------------------------------------------

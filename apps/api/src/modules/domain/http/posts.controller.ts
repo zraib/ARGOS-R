@@ -20,6 +20,7 @@ import { CreatePostDto, UpdatePostDto } from "@/modules/domain/dto";
 import { DomainService } from "@/modules/domain/domain.service";
 import type { PostKind } from "@/modules/domain/domain.types";
 import { canPlacePost, placeablePostKinds } from "@/modules/domain/edit.rules";
+import { postKindInProfile } from "@/shared/profiles";
 import { DeploymentService } from "@/modules/domain/deployment.service";
 import { VisibilityService } from "@/modules/domain/visibility.service";
 import { RealtimeService } from "@/modules/realtime/realtime.service";
@@ -42,8 +43,8 @@ export class PostsController {
 
   /** Le rôle pose-t-il cette nature de poste ? Sinon 403, qui dit ce qu'il pose. */
   private assertKind(user: AuthUser, kind: PostKind): void {
-    if (canPlacePost(user.role, kind)) return;
-    const allowed = placeablePostKinds(user.role);
+    if (canPlacePost(user.role, kind, user.profile)) return;
+    const allowed = placeablePostKinds(user.role, user.profile);
     throw new ForbiddenException(
       allowed.length ? `Le rôle ${user.role} pose ${allowed.join(", ")} — pas ${kind}.` : `Le rôle ${user.role} ne pose rien sur la carte.`,
     );
@@ -67,7 +68,8 @@ export class PostsController {
   list(@CurrentUser() user: AuthUser) {
     const scope = this.visibility.scopeOfUser(user.role, user.scope, (kind, id) => this.domain.regionOfEntity(kind, id));
     const visibles = this.visibility.filterIncidents(this.domain.listIncidents(), scope, (id) => this.domain.entitiesOnIncident(id));
-    return this.domain.listPosts(visibles.map((i) => i.id));
+    // Les postes de l'autre organisation n'existent pas sous ce mode (ADR 0022).
+    return this.domain.listPosts(visibles.map((i) => i.id)).filter((p) => postKindInProfile(p.kind, user.profile));
   }
 
   @Post("incidents/:id/posts")

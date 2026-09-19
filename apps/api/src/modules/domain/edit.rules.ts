@@ -20,7 +20,7 @@
 
 import type { AppMode } from "@/common/app-mode";
 import type { Role } from "@/shared/permissions";
-import { ROLE_TRAITS } from "@/shared/profiles";
+import { ROLE_TRAITS, postKindInProfile, type ProfileId } from "@/shared/profiles";
 import type { Assignments } from "@/shared/responsibilities";
 import type { PostKind } from "@/modules/domain/domain.types";
 import { PLACEABLE_KINDS, type PlaceableKind, type ResourceOwnerKind } from "@/modules/domain/resources.types";
@@ -28,9 +28,10 @@ import { PLACEABLE_KINDS, type PlaceableKind, type ResourceOwnerKind } from "@/m
 // Qui pose quoi est un trait du profil (ADR 0022) : `placePosts` (les natures
 // de poste) et `placeResources` (équipes, équipements, véhicules).
 
-/** Les natures de postes qu'un rôle pose sur la carte. */
-export function placeablePostKinds(role: Role): readonly PostKind[] {
-  return ROLE_TRAITS[role].placePosts;
+/** Les natures de postes qu'un rôle pose sur la carte — celles de son mode seulement (ADR 0022). */
+export function placeablePostKinds(role: Role, profile?: ProfileId): readonly PostKind[] {
+  const kinds = ROLE_TRAITS[role].placePosts;
+  return profile ? kinds.filter((k) => postKindInProfile(k, profile)) : kinds;
 }
 
 /** Les natures de ressources qu'un rôle pose sur le terrain. */
@@ -40,12 +41,12 @@ export function placeableResourceKinds(role: Role): readonly PlaceableKind[] {
 }
 
 /** Le rôle a-t-il un mode édition — quelque chose à poser ? */
-export function canEditMap(role: Role): boolean {
-  return placeablePostKinds(role).length > 0 || placeableResourceKinds(role).length > 0;
+export function canEditMap(role: Role, profile?: ProfileId): boolean {
+  return placeablePostKinds(role, profile).length > 0 || placeableResourceKinds(role).length > 0;
 }
 
-export function canPlacePost(role: Role, kind: PostKind): boolean {
-  return placeablePostKinds(role).includes(kind);
+export function canPlacePost(role: Role, kind: PostKind, profile?: ProfileId): boolean {
+  return placeablePostKinds(role, profile).includes(kind);
 }
 
 export interface PlaceContext {

@@ -12,11 +12,11 @@ incidents;Incident;*;ALL;ALL;V;ALL;V;ALL;AMV;V;V;V;ALL;AMV;V;V;V;VM;V;V;V;VM;V;V
 subincidents;Sous-incidents;*;ALL;ALL;V;ALL;V;ALL;AMV;V;AMV;V;ALL;AMV;V;AMV;V;ALL;AMV;V;V;ALL;AMV;V;V;;;;
 victims;Bilan des victimes;*;ALL;ALL;V;ALL;V;ALL;AMV;V;V;V;ALL;AMV;V;V;V;ALL;AMV;AMV;V;ALL;AMV;AMV;V;AMV;AMV;;V
 hospinet;Hospinet;*;ALL;V;V;AMV;V;V;V;AMV;V;V;V;V;AMV;V;V;V;V;AMV;V;V;V;AMV;V;;AMV;;
-shelters;Abri;*;ALL;V;V;AMV;AMV;V;V;AMV;V;V;V;V;AMV;V;V;V;;;;V;;;;;;AMV;
-morgue;Morgue;*;ALL;V;V;AMV;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;;V;;AMV
-units;Unité;*;ALL;AMV;V;AMV;V;AMV;AMV;V;V;V;AMV;AMV;V;V;V;V;AMV;AMV;AMV;V;AMV;AMV;AMV;AMV;;;
+shelters;Abri;*;ALL;V;V;FULL;AMV;V;FULL;FULL;V;V;V;FULL;FULL;V;V;V;FULL;FULL;;V;FULL;FULL;;;;AMV;
+morgue;Morgue;*;ALL;V;V;FULL;V;V;FULL;FULL;V;V;V;FULL;FULL;V;V;V;FULL;FULL;V;V;FULL;FULL;V;;V;;AMV
+units;Unité;*;ALL;AMV;V;AMV;V;AMV;AMV;AMV;V;V;AMV;AMV;AMV;V;V;V;AMV;AMV;AMV;V;AMV;AMV;AMV;AMV;;;
 equipment;Gestion Équipement;*;ALL;V;V;AMV;AMV;V;V;AMV;V;V;V;V;AMV;V;V;V;V;AMV;V;V;V;AMV;V;V;;;
-teams;Unités / Équipes;*;ALL;AMV;V;AMV;V;AMV;AMV;V;V;V;AMV;AMV;V;V;V;V;AMV;AMV;AMV;V;AMV;AMV;AMV;V;;;
+teams;Unités / Équipes;*;ALL;AMV;V;AMV;V;AMV;AMV;AMV;V;V;AMV;AMV;AMV;V;V;V;AMV;AMV;AMV;V;AMV;AMV;AMV;V;;;
 comms;Centre de communication;*;ALL;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM
 reports;Rapports d'incidents;*;ALL;ALL;AMV;V;AMV;ALL;AMV;AMV;AMV;ALL;ALL;AMV;AMV;AMV;ALL;VM;V;V;AMV;VM;V;V;AMV;;;;
 analytics;Analytique;*;ALL;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;;;
@@ -24,11 +24,11 @@ assistant;Assistant IA;*;ALL;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;
 users;Gestion des utilisateurs;*;ALL;;;;;;;;;;;;;;;;;;;;;;;;;;
 settings;Paramètres;*;ALL;;;;;;;;;;;;;;;;;;;;;;;;;;
 assign;Affectation des unités;*;ALL;V;V;V;V;AMV;AMV;V;V;V;AMV;AMV;V;V;V;V;V;V;V;V;V;V;V;V;;;
-deploy;Déploiement terrain;*;ALL;V;V;V;V;AMV;AMV;V;V;V;AMV;AMV;V;V;V;AMV;AMV;AMV;AMV;AMV;AMV;AMV;AMV;V;;;
-resources;Ressources (personnes, équipes, véhicules, logistique);*;ALL;V;V;ALL;AMV;V;V;AMV;V;V;V;V;AMV;V;V;V;ALL;ALL;ALL;V;ALL;ALL;ALL;ALL;ALL;ALL;V
+deploy;Déploiement terrain;*;ALL;V;V;AMV;V;AMV;AMV;AMV;V;V;AMV;AMV;AMV;V;V;AMV;AMV;AMV;AMV;AMV;AMV;AMV;AMV;V;;;
+resources;Ressources (personnes, équipes, véhicules, logistique);*;ALL;V;V;ALL;AMV;V;ALL;ALL;V;V;V;ALL;ALL;V;V;V;ALL;ALL;ALL;V;ALL;ALL;ALL;ALL;ALL;ALL;V
 weather;Météo;*;ALL;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V
 plume;Simulation NRBC (panache);*;ALL;AMV;V;AMV;AMV;V;V;;AMV;V;V;V;;AMV;V;V;;;V;V;;;V;;;;
-dispatch;Répartiteur;*;V;V;V;V;AMV;AMV;AMV;AMV;V;V;AMV;AMV;AMV;V;V;AMV;AMV;AMV;;AMV;AMV;AMV;;;;;
+dispatch;Répartiteur;*;V;V;V;AMV;AMV;AMV;AMV;AMV;V;V;AMV;AMV;AMV;V;V;AMV;AMV;AMV;;AMV;AMV;AMV;;;;;
 triage;Triage de masse;*;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;AMV;;V;V;AMV;;V;;;;V
 ics;Formulaires ICS;*;V;V;V;V;V;V;AMV;V;AMV;V;V;AMV;V;AMV;V;V;AMV;;V;V;AMV;;V;;;;
 damage;Évaluation des dommages;*;V;V;V;AMV;V;V;V;V;AMV;V;V;V;V;AMV;V;V;V;;AMV;V;V;;AMV;;;;
@@ -43,4 +43,4 @@ tracking;Traceurs GPS (FMC920);*;ALL;AMV;V;AMV;AMV;AMV;AMV;V;AMV;V;AMV;AMV;V;AMV
 comms_admin;Administration des canaux;*;ALL;AMV;;;AMV;;;;;;;;;;;;;;;;;;AMV;;;;
 map_edit;Édition de la carte (postes d'opération);*;;AMV;;AMV;V;AMV;AMV;;V;;AMV;AMV;;V;;AMV;AMV;AMV;AMV;AMV;AMV;AMV;AMV;;;;
 nrbc;NRBC;*;ALL;AMV;V;AMV;AMV;AMV;V;V;AMV;V;AMV;V;V;AMV;V;AMV;V;V;AMV;AMV;V;V;AMV;;;;
-missions;Missions (boucles opérationnelles);*;ALL;V;V;V;V;AMV;AMV;AMV;V;V;AMV;AMV;AMV;V;V;AMV;AMV;V;V;AMV;AMV;V;V;AMV;AMV;AMV;AMV
+missions;Missions (boucles opérationnelles);*;ALL;V;V;AMV;V;AMV;AMV;AMV;V;V;AMV;AMV;AMV;V;V;AMV;AMV;AMV;V;AMV;AMV;AMV;V;AMV;AMV;AMV;AMV
