@@ -30,9 +30,9 @@ import { APP_MODE } from "@/common/app-mode";
 
 // Les types du domaine vivent dans domain.types.ts ; ré-exportés ici pour les
 // importateurs existants (contrôleurs, autres modules).
-export type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviStatus, DviSample, MortuaryRecord, RecordChange, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind } from "@/modules/domain/domain.types";
+export type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviStatus, DviSample, MortuaryRecord, RecordChange, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind, Drawing, DrawingKind } from "@/modules/domain/domain.types";
 export { DVI_STATUSES, DVI_SAMPLES } from "@/modules/domain/domain.types";
-import type { Incident, SubIncident, Unit, UnitAssignment, UnitCorps, Destination, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviSample, MortuaryRecord, RecordChange, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind, PersonIdentity, MorgueType } from "@/modules/domain/domain.types";
+import type { Incident, SubIncident, Unit, UnitAssignment, UnitCorps, Destination, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviSample, MortuaryRecord, RecordChange, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind, PersonIdentity, MorgueType, Drawing } from "@/modules/domain/domain.types";
 import { checkPost, type PostLookup } from "@/modules/domain/post.rules";
 import type { ResponsibilityKind } from "@/shared/responsibilities";
 
@@ -206,6 +206,8 @@ export class DomainService implements OnApplicationBootstrap {
 
   /** Postes posés sur la carte des opérations (lot #12). */
   private posts: IncidentPost[] = [];
+  /** Croquis dessinés sur la carte (mode dessin) — communs à tous, persistés. */
+  private drawings: Drawing[] = [];
   /** Le bilan nommé des incidents : décédés (identification préliminaire), blessés, disparus. */
   private readonly victims: IncidentVictim[] = [];
 
@@ -242,6 +244,7 @@ export class DomainService implements OnApplicationBootstrap {
       equipment?: EquipItem[];
       feed?: FeedItem[];
       posts?: IncidentPost[];
+      drawings?: Drawing[];
       tombstones?: string[];
       dataProfile?: string;
     }>("domain", {});
@@ -333,6 +336,7 @@ export class DomainService implements OnApplicationBootstrap {
     }
     if (sameSeed && snap.mortuaryRecords) this.mortuaryRecords.splice(0, this.mortuaryRecords.length, ...snap.mortuaryRecords);
     if (snap.posts) this.posts = snap.posts;
+    if (snap.drawings) this.drawings = snap.drawings;
     if (snap.victims) this.victims.splice(0, this.victims.length, ...snap.victims);
     if (sameSeed && snap.equipment) this.equipment.splice(0, this.equipment.length, ...snap.equipment);
     // Retour en démonstration (ADR 0016) : les graines des collections reprises
@@ -408,7 +412,7 @@ export class DomainService implements OnApplicationBootstrap {
     snap: {
       incidents?: Incident[]; units?: Unit[]; hospitals?: Hospital[]; fieldHospitals?: FieldHospital[]; wards?: HospitalWard[];
       shelters?: Shelter[]; morgues?: MorgueSite[]; mortuaryRecords?: MortuaryRecord[]; victims?: IncidentVictim[];
-      equipment?: EquipItem[]; feed?: FeedItem[]; posts?: IncidentPost[];
+      equipment?: EquipItem[]; feed?: FeedItem[]; posts?: IncidentPost[]; drawings?: Drawing[];
     },
     sameSeed: boolean,
   ): void {
@@ -434,6 +438,7 @@ export class DomainService implements OnApplicationBootstrap {
     replace(this.equipment, snap.equipment ?? []);
     replace(this.feed, snap.feed ?? []);
     this.posts = snap.posts ?? [];
+    this.drawings = snap.drawings ?? [];
   }
 
   /** Vue mutable des collections, pour l'élagage. */
@@ -484,6 +489,7 @@ export class DomainService implements OnApplicationBootstrap {
       equipment: this.equipment,
       feed: this.feed,
       posts: this.posts,
+      drawings: this.drawings,
       tombstones: [...this.tombstones],
       dataProfile: DATA_PROFILE,
     });
@@ -610,6 +616,65 @@ export class DomainService implements OnApplicationBootstrap {
     this.pushFeed(`${post.incidentId} — poste ${post.kind.toUpperCase()} retiré de la carte par ${actor}`, "bg-gray-400", post.incidentId);
     this.persist();
     return true;
+  }
+
+  // --- croquis (mode dessin) ------------------------------------------------
+
+  listDrawings(): Drawing[] {
+    return this.drawings;
+  }
+
+  findDrawing(id: string): Drawing | undefined {
+    return this.drawings.find((d) => d.id === id);
+  }
+
+  /** Dessine un croquis. La cohérence nature ↔ géométrie est vérifiée ici (400). */
+  createDrawing(input: Omit<Drawing, "id" | "createdBy" | "createdAt" | "updatedBy" | "updatedAt">, author: string): Drawing {
+    this.assertDrawingShape(input.kind, input.coords, input.radiusM);
+    const n = Math.max(0, ...this.drawings.map((d) => parseInt(d.id.replace(/\D/g, ""), 10) || 0)) + 1;
+    const now = new Date().toISOString();
+    const drawing: Drawing = {
+      ...input,
+      id: `D${n}`,
+      label: input.label.trim(),
+      createdBy: author,
+      createdAt: now,
+      updatedBy: author,
+      updatedAt: now,
+    };
+    this.drawings.push(drawing);
+    this.persist();
+    return drawing;
+  }
+
+  /** Modifie un croquis (nom, géométrie, étiquette, couleur…). `undefined` s'il est inconnu. */
+  updateDrawing(id: string, patch: Partial<Omit<Drawing, "id" | "kind" | "createdBy" | "createdAt" | "updatedBy" | "updatedAt">>, actor: string): Drawing | undefined {
+    const d = this.drawings.find((x) => x.id === id);
+    if (!d) return undefined;
+    if (patch.coords || patch.radiusM !== undefined) this.assertDrawingShape(d.kind, patch.coords ?? d.coords, patch.radiusM ?? d.radiusM);
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) (d as unknown as Record<string, unknown>)[k] = k === "label" && typeof v === "string" ? v.trim() : v;
+    }
+    d.updatedBy = actor;
+    d.updatedAt = new Date().toISOString();
+    this.persist();
+    return d;
+  }
+
+  deleteDrawing(id: string): boolean {
+    const before = this.drawings.length;
+    this.drawings = this.drawings.filter((d) => d.id !== id);
+    if (this.drawings.length === before) return false;
+    this.persist();
+    return true;
+  }
+
+  private assertDrawingShape(kind: Drawing["kind"], coords: [number, number][], radiusM: number | undefined): void {
+    const ok = coords.every((c) => Array.isArray(c) && c.length === 2 && c.every((v) => typeof v === "number" && Number.isFinite(v)));
+    if (!ok) throw new BadRequestException("Coordonnées invalides : chaque sommet est [longitude, latitude].");
+    if (kind === "point" && coords.length !== 1) throw new BadRequestException("Un point a exactement une coordonnée.");
+    if (kind === "circle" && (coords.length !== 1 || !radiusM || radiusM <= 0)) throw new BadRequestException("Un cercle a un centre et un rayon (mètres) positif.");
+    if (kind === "polygon" && coords.length < 3) throw new BadRequestException("Un polygone a au moins trois sommets.");
   }
 
   listIncidents(): Incident[] {

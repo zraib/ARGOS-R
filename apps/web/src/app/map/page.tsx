@@ -25,6 +25,7 @@ import {
 import { MapCanvas } from "@/app/map/_parts/MapCanvas";
 import { Switch } from "@/app/map/_parts/Switch";
 import { PostToolbox, postKindLabel } from "@/components/map/PostToolbox";
+import { DrawToolbox } from "@/components/map/DrawToolbox";
 import { PlacePostModal } from "@/components/map/PlacePostModal";
 import { canEditMap } from "@/lib/roles";
 import { PLACED_FILL, placeablePostKinds, placeableResourceKinds } from "@/lib/edit";
@@ -106,7 +107,11 @@ export default function MapPage() {
    * style des contrôles natifs MapLibre (blanc, 44 px, rayon 12). Le bouton
    * « nrbc » ne rejoint la pile que lorsqu'un panache est actif.
    */
-  const [openPanel, setOpenPanel] = useState<"layers" | "air" | "legend" | "nrbc" | "edit" | "flood" | "fire" | null>(null);
+  const [openPanel, setOpenPanel] = useState<"layers" | "air" | "legend" | "nrbc" | "edit" | "draw" | "flood" | "fire" | null>(null);
+  // Mode dessin (croquis) : ouvert à qui édite la carte (`map_edit:create`), avec le module mode édition.
+  const can = useArgos((s) => s.can);
+  const drawOpen = capOpen("mapEdit") && (role === "superadmin" || can("map_edit:create"));
+  const setDrawTool = useArgos((s) => s.setDrawTool);
   // Le simulateur attend un clic sur la carte : sous lg, la feuille se replie
   // pour la laisser voir — c'est depuis elle qu'on vient d'armer le point.
   const floodArming = useArgos((s) => s.floodArming);
@@ -725,10 +730,16 @@ export default function MapPage() {
     { key: "legend", label: t.legend, body: legendBody },
   ];
   if (editOpen) sheetTabs.push({ key: "edit", label: t.map_edit_mode, body: <PostToolbox /> });
+  if (drawOpen) sheetTabs.push({ key: "draw", label: t.dr_panel, body: <DrawToolbox /> });
   if (capOpen("simFlood")) sheetTabs.push({ key: "flood", label: t.flood_panel, body: <FloodPanel /> });
   if (capOpen("simFire")) sheetTabs.push({ key: "fire", label: t.fire_panel, body: <FirePanel /> });
   if (selInfo) sheetTabs.push({ key: "selection", label: selInfo.titre, body: selectionBody });
   const openTab = sheetTabs.find((x) => x.key === sheet) ?? null;
+  // Sur mobile, l'onglet Dessin arme la sélection ; le quitter range les outils.
+  useEffect(() => {
+    if (sheet === "draw") setDrawTool("select");
+    else if (sheet !== null) setDrawTool(null);
+  }, [sheet, setDrawTool]);
 
   // Les marges négatives annulent exactement le rembourrage de <main>
   // (`p-3 sm:p-4 lg:p-6`) : figées à `-m-6`, elles débordaient de 24 px à
@@ -767,6 +778,8 @@ export default function MapPage() {
                 // Le mode édition n'existe que pour qui a quelque chose à poser
                 // (ADR 0018) : l'API refuserait de toute façon le reste.
                 ...(editOpen ? [{ key: "edit" as const, icon: UI_ICONS.edit, label: t.map_edit_mode }] : []),
+                // Dessin : points, cercles, polygones nommés — pour qui édite la carte.
+                ...(drawOpen ? [{ key: "draw" as const, icon: UI_ICONS.drawPolygon, label: t.dr_panel }] : []),
                 // Le bouton NRBC existe dès qu'un incident chimique est en cours
                 // (ou qu'un panache est déjà affiché) : la capacité se découvre
                 // depuis la carte, sans passer par la fiche incident.
@@ -777,7 +790,14 @@ export default function MapPage() {
             ).map((b) => (
               <button
                 key={b.key}
-                onClick={() => setOpenPanel((o) => (o === b.key ? null : b.key))}
+                onClick={() =>
+                  setOpenPanel((o) => {
+                    const next = o === b.key ? null : b.key;
+                    // Ouvrir le dessin arme la sélection ; le fermer range les outils.
+                    setDrawTool(next === "draw" ? "select" : null);
+                    return next;
+                  })
+                }
                 aria-label={b.label}
                 aria-expanded={openPanel === b.key}
                 title={b.label}
@@ -795,15 +815,18 @@ export default function MapPage() {
             <div key={openPanel} className="anim-bulle panneau-sombre pointer-events-auto w-[300px] overflow-hidden rounded-xl shadow-lg" style={GLASS}>
               <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
                 <Icon
-                  path={openPanel === "layers" ? UI_ICONS.layers : openPanel === "air" ? UI_ICONS.plane : openPanel === "nrbc" ? UI_ICONS.nrbc : openPanel === "edit" ? UI_ICONS.edit : openPanel === "flood" ? TYPE_ICONS.flood : openPanel === "fire" ? TYPE_ICONS.wildfire : UI_ICONS.legend}
+                  path={openPanel === "layers" ? UI_ICONS.layers : openPanel === "air" ? UI_ICONS.plane : openPanel === "nrbc" ? UI_ICONS.nrbc : openPanel === "edit" ? UI_ICONS.edit : openPanel === "draw" ? UI_ICONS.drawPolygon : openPanel === "flood" ? TYPE_ICONS.flood : openPanel === "fire" ? TYPE_ICONS.wildfire : UI_ICONS.legend}
                   size={14}
                   className="shrink-0 text-or-400"
                 />
                 <span className="min-w-0 flex-1 truncate text-[13px] font-bold uppercase tracking-wider text-white/85">
-                  {openPanel === "layers" ? t.layers : openPanel === "air" ? t.acft_panel : openPanel === "nrbc" ? t.nrbc_panel : openPanel === "edit" ? t.map_edit_mode : openPanel === "flood" ? t.flood_panel : openPanel === "fire" ? t.fire_panel : t.legend}
+                  {openPanel === "layers" ? t.layers : openPanel === "air" ? t.acft_panel : openPanel === "nrbc" ? t.nrbc_panel : openPanel === "edit" ? t.map_edit_mode : openPanel === "draw" ? t.dr_panel : openPanel === "flood" ? t.flood_panel : openPanel === "fire" ? t.fire_panel : t.legend}
                 </span>
                 <button
-                  onClick={() => setOpenPanel(null)}
+                  onClick={() => {
+                    setOpenPanel(null);
+                    setDrawTool(null);
+                  }}
                   aria-label={t.flt_clear}
                   className="flex h-8 w-8 items-center justify-center rounded-md text-[16px] leading-none text-white/45 transition-colors hover:text-or-400"
                 >
@@ -811,7 +834,7 @@ export default function MapPage() {
                 </button>
               </div>
               <div className="max-h-[62vh] overflow-y-auto px-3 pb-3 pt-2">
-                {openPanel === "layers" ? layersBody : openPanel === "air" ? <AircraftPanel /> : openPanel === "nrbc" ? nrbcBody : openPanel === "edit" ? <PostToolbox /> : openPanel === "flood" ? <FloodPanel /> : openPanel === "fire" ? <FirePanel /> : legendBody}
+                {openPanel === "layers" ? layersBody : openPanel === "air" ? <AircraftPanel /> : openPanel === "nrbc" ? nrbcBody : openPanel === "edit" ? <PostToolbox /> : openPanel === "draw" ? <DrawToolbox /> : openPanel === "flood" ? <FloodPanel /> : openPanel === "fire" ? <FirePanel /> : legendBody}
               </div>
             </div>
           )}

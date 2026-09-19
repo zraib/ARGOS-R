@@ -22,6 +22,7 @@ import { HospitalsController } from "@/modules/domain/http/hospitals.controller"
 import { DashboardController } from "@/modules/domain/http/dashboard.controller";
 import { EnvironmentController } from "@/modules/domain/http/environment.controller";
 import { PostsController } from "@/modules/domain/http/posts.controller";
+import { DrawingsController } from "@/modules/domain/http/drawings.controller";
 import { AdminController } from "@/modules/domain/http/admin.controller";
 import { ResourcesRegistryController } from "@/modules/domain/http/resources-registry.controller";
 import { ResourcesService } from "@/modules/domain/resources.service";
@@ -32,7 +33,7 @@ import { ResourcesService } from "@/modules/domain/resources.service";
   // domaine), donc pas de cycle et pas de `forwardRef`.
   imports: [IamModule],
   controllers: [
-    PostsController, IncidentsController, CommsController, ResourcesController, HospitalsController, DashboardController, EnvironmentController, AdminController, ResourcesRegistryController],
+    PostsController, DrawingsController, IncidentsController, CommsController, ResourcesController, HospitalsController, DashboardController, EnvironmentController, AdminController, ResourcesRegistryController],
   providers: [
     // Les alertes adressées (`NoticesService`) viennent du module temps réel,
     // global : l'IAM les émet aussi, et il ne peut pas dépendre du domaine.

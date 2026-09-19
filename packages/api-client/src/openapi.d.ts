@@ -573,6 +573,42 @@ export interface paths {
         patch: operations["PostsController_update"];
         trace?: never;
     };
+    "/api/drawings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Les croquis dessinés sur la carte — points, cercles, polygones nommés */
+        get: operations["DrawingsController_list"];
+        put?: never;
+        /** Dessiner un croquis (audité) : un point, un cercle (centre + rayon) ou un polygone, avec son nom */
+        post: operations["DrawingsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/drawings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Retirer un croquis (audité) — son auteur, ou un administrateur */
+        delete: operations["DrawingsController_remove"];
+        options?: never;
+        head?: never;
+        /** Modifier un croquis (audité) : nom, sommets, rayon, emplacement de l'étiquette, couleur, note */
+        patch: operations["DrawingsController_update"];
+        trace?: never;
+    };
     "/api/incident-types": {
         parameters: {
             query?: never;
@@ -3156,6 +3192,35 @@ export interface components {
             ll?: number[];
             label?: string;
         };
+        CreateDrawingDto: {
+            /**
+             * @description Nature : point, cercle ou polygone.
+             * @enum {string}
+             */
+            kind: "point" | "circle" | "polygon";
+            /** @description Le nom (étiquette), affiché sur la carte. */
+            label: string;
+            /** @description Point : [[lng, lat]] ; cercle : [[centre]] ; polygone : ses sommets (≥ 3). */
+            coords: number[][];
+            /** @description Cercle : rayon en mètres. */
+            radiusM?: number;
+            /** @description Emplacement de l'étiquette [lng, lat] (cercle, polygone). */
+            labelLL?: number[];
+            /** @description Couleur hex (#rrggbb). */
+            color?: string;
+            note?: string;
+            /** @description Opération concernée. */
+            incidentId?: string;
+        };
+        UpdateDrawingDto: {
+            label?: string;
+            coords?: number[][];
+            radiusM?: number;
+            labelLL?: number[];
+            color?: string;
+            note?: string;
+            incidentId?: string;
+        };
         IncidentTypeLabelsDto: {
             /** @example Tempête de sable */
             fr: string;
@@ -5130,6 +5195,96 @@ export interface operations {
                 content?: never;
             };
             /** @description Poste inconnu sur cette opération. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DrawingsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DrawingsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDrawingDto"];
+            };
+        };
+        responses: {
+            /** @description Géométrie incohérente avec la nature. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DrawingsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Le croquis est à quelqu'un d'autre. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Croquis inconnu. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DrawingsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDrawingDto"];
+            };
+        };
+        responses: {
+            /** @description Croquis inconnu. */
             404: {
                 headers: {
                     [name: string]: unknown;

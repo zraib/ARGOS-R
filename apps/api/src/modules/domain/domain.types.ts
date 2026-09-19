@@ -538,6 +538,40 @@ export interface Placement {
  * un TACOM, une cellule — plusieurs par opération, déployés à la pose) ou
  * cette entité-ci (un abri, un parc). Une instance n'est posée qu'une fois.
  */
+/** Natures de croquis tactiques dessinés sur la carte (mode dessin). */
+export const DRAWING_KINDS = ["point", "circle", "polygon"] as const;
+export type DrawingKind = (typeof DRAWING_KINDS)[number];
+
+/**
+ * Un croquis dessiné sur la carte : un point, un cercle ou un polygone, avec
+ * son nom. Le nom d'un point s'affiche à côté du point ; celui d'un cercle ou
+ * d'un polygone à l'intérieur de la forme, à un emplacement que l'opérateur
+ * peut déplacer (`labelLL`). Visible de tous ceux qui voient la carte ; dessiné,
+ * modifié et retiré par qui édite la carte (`map_edit`).
+ */
+export interface Drawing {
+  id: string;
+  kind: DrawingKind;
+  /** Le nom (étiquette) — libre. */
+  label: string;
+  /** Point : [le point] ; cercle : [le centre] ; polygone : l'anneau (≥ 3 sommets, non fermé). */
+  coords: [number, number][];
+  /** Cercle : rayon en mètres. */
+  radiusM?: number;
+  /** Emplacement de l'étiquette (cercle, polygone) ; absent : le centre. */
+  labelLL?: [number, number];
+  /** Couleur (hex) parmi les tons de la charte ; absente : l'or. */
+  color?: string;
+  /** Note libre. */
+  note?: string;
+  /** Opération concernée, quand le croquis en sert une. */
+  incidentId?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedBy: string;
+  updatedAt: string;
+}
+
 export interface IncidentPost {
   id: string;
   incidentId: string;

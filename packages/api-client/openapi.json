@@ -1019,6 +1019,123 @@
         ]
       }
     },
+    "/api/drawings": {
+      "get": {
+        "operationId": "DrawingsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Les croquis dessinés sur la carte — points, cercles, polygones nommés",
+        "tags": [
+          "domain"
+        ]
+      },
+      "post": {
+        "operationId": "DrawingsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDrawingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Géométrie incohérente avec la nature."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Dessiner un croquis (audité) : un point, un cercle (centre + rayon) ou un polygone, avec son nom",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/drawings/{id}": {
+      "patch": {
+        "operationId": "DrawingsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDrawingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "404": {
+            "description": "Croquis inconnu."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Modifier un croquis (audité) : nom, sommets, rayon, emplacement de l'étiquette, couleur, note",
+        "tags": [
+          "domain"
+        ]
+      },
+      "delete": {
+        "operationId": "DrawingsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Le croquis est à quelqu'un d'autre."
+          },
+          "404": {
+            "description": "Croquis inconnu."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Retirer un croquis (audité) — son auteur, ou un administrateur",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/incident-types": {
       "get": {
         "operationId": "IncidentsController_incidentTypesList",
@@ -6999,6 +7116,102 @@
             }
           },
           "label": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateDrawingDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "point",
+              "circle",
+              "polygon"
+            ],
+            "description": "Nature : point, cercle ou polygone."
+          },
+          "label": {
+            "type": "string",
+            "description": "Le nom (étiquette), affiché sur la carte.",
+            "maxLength": 80
+          },
+          "coords": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "description": "Point : [[lng, lat]] ; cercle : [[centre]] ; polygone : ses sommets (≥ 3)."
+          },
+          "radiusM": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Cercle : rayon en mètres."
+          },
+          "labelLL": {
+            "description": "Emplacement de l'étiquette [lng, lat] (cercle, polygone).",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "color": {
+            "type": "string",
+            "description": "Couleur hex (#rrggbb)."
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "incidentId": {
+            "type": "string",
+            "description": "Opération concernée."
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "coords"
+        ]
+      },
+      "UpdateDrawingDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "coords": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "radiusM": {
+            "type": "number",
+            "minimum": 1
+          },
+          "labelLL": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "color": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "incidentId": {
             "type": "string"
           }
         }
