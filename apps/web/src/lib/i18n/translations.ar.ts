@@ -248,6 +248,7 @@ export const AR_DICT: Dict = {
     ops_search: "ابحث عن وحدة أو مأوى…",
     ops_add_unit: "إنشاء وحدة", ops_add_shelter: "فتح مأوى", ops_open_shelter: "فتح المأوى",
     ops_shelter_name: "اسم المأوى", ops_shelter_city: "الجماعة",
+    hn_edit_hospital: "تعديل المؤسسة", hn_hospital_updated: "تم تحديث المؤسسة", lbl_location: "الموقع الجغرافي",
     ops_shelter_created: "فُتح المأوى وأُدمج في شبكة OPSnet", ops_edit_unit: "تعديل الوحدة", ops_edit_shelter: "تعديل المأوى", ops_unit_updated: "تم تحديث الوحدة", ops_shelter_updated: "تم تحديث المأوى", ops_organ: "الجهة الأصلية", ops_occupants_now: "الأشخاص المؤوون",
     ops_city_help: "الجماعة هي التي تمنح المأوى موقعه: يستخرج المُوزِّع مركزها.",
     ops_city_known: "جماعة معروفة — سيُرتَّب المأوى بحسب زمن الطريق.",

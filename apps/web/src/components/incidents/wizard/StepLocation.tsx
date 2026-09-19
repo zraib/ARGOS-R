@@ -44,8 +44,9 @@ export function StepLocation({ form, cities, loc }: { form: WizardForm; cities: 
           <label className={labelCls}>{t.f_addr}</label>
           <input list="loc-places" className={fieldCls} value={form.adresse} onChange={(e) => loc.onAddress(e.target.value)} placeholder={t.f_addr} />
           <datalist id="loc-places">
+            {/* Homonymes d'une province à l'autre : la clé porte la province. */}
             {cities.map((c) => (
-              <option key={c.v} value={c.v} />
+              <option key={`${c.province}/${c.v}`} value={c.v} />
             ))}
           </datalist>
         </div>

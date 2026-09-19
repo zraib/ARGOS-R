@@ -572,6 +572,8 @@ export interface City {
   province: string;
   region: string;
   ll: [number, number];
+  /** Commune rurale ; absent : commune urbaine. Des homonymes existent d'une province à l'autre. */
+  kind?: "rural";
 }
 
 /** Statistiques de commandement servies par l'API (/dashboard/stats). */

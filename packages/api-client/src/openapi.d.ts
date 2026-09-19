@@ -3625,6 +3625,15 @@ export interface components {
             adults?: number;
             children?: number;
             elderly?: number;
+            /**
+             * @description Région d'implantation (référentiel).
+             * @enum {string}
+             */
+            region?: "Béni Mellal-Khénifra" | "Casablanca-Settat" | "Dakhla-Oued Ed-Dahab" | "Drâa-Tafilalet" | "Fès-Meknès" | "Guelmim-Oued Noun" | "L'Oriental" | "Laâyoune-Sakia El Hamra" | "Marrakech-Safi" | "Rabat-Salé-Kénitra" | "Souss-Massa" | "Tanger-Tétouan-Al Hoceïma";
+            /** @description Province d'implantation (référentiel). */
+            province?: string;
+            /** @description Position [lng, lat] choisie sur la carte. */
+            ll?: number[];
         };
         CreateEquipDto: {
             /** @example Groupe électrogène 20 kVA */
@@ -3843,6 +3852,26 @@ export interface components {
             ll: number[];
         };
         UpdateHospitalDto: {
+            /** @description Nom de l'établissement */
+            nom?: string;
+            /** @description Commune d'implantation */
+            ville?: string;
+            /**
+             * @description Région d'implantation (référentiel).
+             * @enum {string}
+             */
+            region?: "Béni Mellal-Khénifra" | "Casablanca-Settat" | "Dakhla-Oued Ed-Dahab" | "Drâa-Tafilalet" | "Fès-Meknès" | "Guelmim-Oued Noun" | "L'Oriental" | "Laâyoune-Sakia El Hamra" | "Marrakech-Safi" | "Rabat-Salé-Kénitra" | "Souss-Massa" | "Tanger-Tétouan-Al Hoceïma";
+            /** @description Province d'implantation (référentiel). */
+            province?: string;
+            /** @description Position [lng, lat] — la position SVG (x, y) en est recalculée. */
+            ll?: number[];
+            /**
+             * @description Réseau et échelon — détermine le symbole cartographique
+             * @enum {string}
+             */
+            kind?: "mil" | "mil_field" | "civ" | "civ_reg" | "civ_univ" | "civ_field";
+            /** @description Nature de la structure (libellé) */
+            type?: string;
             /** @description Lits armés */
             lits?: number;
             /** @description Lits occupés */

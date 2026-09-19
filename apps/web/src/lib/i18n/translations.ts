@@ -606,7 +606,7 @@ export interface Dict {
   ops_add_shelter: string; ops_open_shelter: string; ops_shelter_name: string; ops_shelter_city: string;
   ops_shelter_created: string; ops_city_help: string; ops_city_known: string; ops_city_unknown: string;
   /** Modification depuis OPSnet (ADR 0019) et organe d'origine sur les tuiles. */
-  ops_edit_unit: string; ops_edit_shelter: string; ops_unit_updated: string; ops_shelter_updated: string; ops_organ: string; ops_occupants_now: string;
+  ops_edit_unit: string; ops_edit_shelter: string; hn_edit_hospital: string; hn_hospital_updated: string; lbl_location: string; ops_unit_updated: string; ops_shelter_updated: string; ops_organ: string; ops_occupants_now: string;
   ops_position: string; ops_pos_from_city: string; ops_pos_unresolved: string; ops_pos_unknown: string;
   ops_critical_one: string; ops_critical_many: string; ops_affect_title: string; ops_mode_engage: string;
   ops_mode_shelter: string; ops_affect_engage_help: string; ops_affect_shelter_help: string; ops_need_strength: string;

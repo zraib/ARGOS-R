@@ -130,7 +130,8 @@ export interface PlaceChoice {
  */
 export function choosePlace(form: WizardForm, v: PlaceChoice, geo: GeoRef): WizardForm {
   const base: WizardForm = { ...form, region: v.region, prov: v.province, city: v.city };
-  const city = v.city ? geo.cities.find((c) => c.v === v.city) : undefined;
+  // Des communes homonymes existent d'une province à l'autre : celle de la province choisie d'abord.
+  const city = v.city ? (geo.cities.find((c) => c.v === v.city && c.province === v.province) ?? geo.cities.find((c) => c.v === v.city)) : undefined;
   const province = v.province ? geo.provinces.find((x) => x.v === v.province) : undefined;
   const ll = city?.ll ?? (province ? provinceLL(province) : undefined);
   if (!ll) return { ...base, pt: null, lat: "", lng: "", locMode: "none" };
@@ -366,7 +367,7 @@ export function resolvePlace(
   ctx: Pick<WizardContext, "cities" | "provinces">,
 ): { region: string | undefined; place: string | undefined } {
   const province = ctx.provinces.find((p) => p.v === form.prov);
-  const city = ctx.cities.find((c) => c.v === form.city);
+  const city = ctx.cities.find((c) => c.v === form.city && (!form.prov || c.province === form.prov)) ?? ctx.cities.find((c) => c.v === form.city);
   const attached = province ?? (form.pt ? nearestProvince(form.pt, ctx.provinces) : undefined);
   return { region: city?.region ?? attached?.region, place: city?.v ?? attached?.v };
 }

@@ -8224,6 +8224,35 @@
           "elderly": {
             "type": "number",
             "minimum": 0
+          },
+          "region": {
+            "type": "string",
+            "enum": [
+              "Béni Mellal-Khénifra",
+              "Casablanca-Settat",
+              "Dakhla-Oued Ed-Dahab",
+              "Drâa-Tafilalet",
+              "Fès-Meknès",
+              "Guelmim-Oued Noun",
+              "L'Oriental",
+              "Laâyoune-Sakia El Hamra",
+              "Marrakech-Safi",
+              "Rabat-Salé-Kénitra",
+              "Souss-Massa",
+              "Tanger-Tétouan-Al Hoceïma"
+            ],
+            "description": "Région d'implantation (référentiel)."
+          },
+          "province": {
+            "type": "string",
+            "description": "Province d'implantation (référentiel)."
+          },
+          "ll": {
+            "description": "Position [lng, lat] choisie sur la carte.",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
           }
         }
       },
@@ -8753,6 +8782,59 @@
       "UpdateHospitalDto": {
         "type": "object",
         "properties": {
+          "nom": {
+            "type": "string",
+            "description": "Nom de l'établissement"
+          },
+          "ville": {
+            "type": "string",
+            "description": "Commune d'implantation"
+          },
+          "region": {
+            "type": "string",
+            "enum": [
+              "Béni Mellal-Khénifra",
+              "Casablanca-Settat",
+              "Dakhla-Oued Ed-Dahab",
+              "Drâa-Tafilalet",
+              "Fès-Meknès",
+              "Guelmim-Oued Noun",
+              "L'Oriental",
+              "Laâyoune-Sakia El Hamra",
+              "Marrakech-Safi",
+              "Rabat-Salé-Kénitra",
+              "Souss-Massa",
+              "Tanger-Tétouan-Al Hoceïma"
+            ],
+            "description": "Région d'implantation (référentiel)."
+          },
+          "province": {
+            "type": "string",
+            "description": "Province d'implantation (référentiel)."
+          },
+          "ll": {
+            "description": "Position [lng, lat] — la position SVG (x, y) en est recalculée.",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "mil",
+              "mil_field",
+              "civ",
+              "civ_reg",
+              "civ_univ",
+              "civ_field"
+            ],
+            "description": "Réseau et échelon — détermine le symbole cartographique"
+          },
+          "type": {
+            "type": "string",
+            "description": "Nature de la structure (libellé)"
+          },
           "lits": {
             "type": "number",
             "minimum": 1,

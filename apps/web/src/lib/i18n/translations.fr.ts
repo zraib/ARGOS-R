@@ -248,6 +248,7 @@ export const FR_DICT: Dict = {
     ops_search: "Rechercher une unité, un abri…",
     ops_add_unit: "Créer une unité", ops_add_shelter: "Ouvrir un abri", ops_open_shelter: "Ouvrir l'abri",
     ops_shelter_name: "Nom de l'abri", ops_shelter_city: "Commune d'implantation",
+    hn_edit_hospital: "Modifier l'établissement", hn_hospital_updated: "Établissement mis à jour", lbl_location: "Localisation",
     ops_shelter_created: "Abri ouvert et intégré au réseau OPSnet", ops_edit_unit: "Modifier l'unité", ops_edit_shelter: "Modifier l'abri", ops_unit_updated: "Unité mise à jour", ops_shelter_updated: "Abri mis à jour", ops_organ: "Organe d'origine", ops_occupants_now: "Personnes hébergées",
     ops_city_help: "La commune donne sa position à l'abri : l'affecteur y résout le chef-lieu.",
     ops_city_known: "Commune reconnue — l'abri sera classé par temps de route.",

@@ -5,7 +5,6 @@ import { useArgos, useDict, useModules } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { svgToLL } from "@/lib/helpers";
-import { resolvePoint } from "@/lib/geo";
 import { HOSPITAL_KINDS, kindDef } from "@/lib/hospitals";
 import { HealthGlyph } from "@/components/health/HealthGlyph";
 import { WardsEditor, autosumServices, type WardsEditorValue } from "@/components/health/WardsEditor";
@@ -13,17 +12,15 @@ import { ARGOS_WARD_REFERENCE } from "@/lib/types";
 import { UNIT_CORPS, type HospitalKind, type UnitCorps, type UnitReadiness } from "@/lib/types";
 import { corpsLabel } from "@/lib/corps";
 import { SHELTER_ORGANS, type ShelterBuilding, type ShelterKind, type ShelterOrgan } from "@/lib/data/modules";
-import dynamic from "next/dynamic";
-import { EMPTY_LOCATION, LocationCascade, locationLL, locationProvince, type LocationValue } from "@/components/org/LocationCascade";
-
-// La carte d'aperçu est chargée à la demande (MapLibre n'a pas de rendu serveur).
-const LocationPreviewMap = dynamic(() => import("@/components/incidents/LocationPreviewMap").then((x) => x.LocationPreviewMap), { ssr: false });
+import { locationProvince } from "@/components/org/LocationCascade";
+import { LocationPicker, useLocationPicker } from "@/components/org/LocationPicker";
 
 // ============================================================================
 // ARGOS — modales de création d'entités organisationnelles (unité, hôpital, abri)
 // Création via l'API (RBAC org:*:manage appliqué serveur, mutation auditée),
-// puis rechargement du domaine. La position vient d'une province de référence
-// (coordonnées SVG → géographiques, comme le wizard incident).
+// puis rechargement du domaine. La position se choisit comme à la déclaration
+// d'un incident (`LocationPicker`) : la cascade du référentiel, puis un point
+// posé sur la carte, qui prime.
 // ============================================================================
 
 const labelCls = "mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200";
@@ -45,9 +42,7 @@ type Created = (id: string) => void;
  */
 export function AddUnitModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated?: Created }) {
   const t = useDict();
-  const m = useModules();
   const provinces = useArgos((s) => s.provinces);
-  const cities = useArgos((s) => s.cities);
   const loadDomain = useArgos((s) => s.loadDomain);
   const showToast = useArgos((s) => s.showToast);
 
@@ -57,34 +52,18 @@ export function AddUnitModal({ open, onClose, onCreated }: { open: boolean; onCl
   const [corps, setCorps] = useState<UnitCorps>("far");
   const [dispo, setDispo] = useState<UnitReadiness>("ready");
   const [readiness, setReadiness] = useState(85);
-  const [loc, setLoc] = useState<LocationValue>(EMPTY_LOCATION);
-  // Un point posé sur la carte, comme à la déclaration d'un incident : il
-  // prime sur la cascade et en déduit région, province et ville.
-  const [pin, setPin] = useState<[number, number] | null>(null);
-  const [busy, setBusy] = useState(false);
-  const onPin = (ll: [number, number]) => {
-    setPin(ll);
-    const r = resolvePoint(ll, { provinces, cities });
-    if (r.region || r.province) setLoc({ region: r.region ?? "", province: r.province ?? "", city: r.city ?? "" });
-    if (r.city) setVille(r.city);
-  };
-  const apercu = pin ?? locationLL(loc, provinces, cities) ?? null;
-
-  // Choisir une ville dans la cascade remplit le champ ville ; il reste
+  // La commune déduite (point posé ou cascade) remplit le champ ; il reste
   // modifiable pour une localité absente du référentiel.
-  const onLoc = (next: LocationValue) => {
-    setLoc(next);
-    setPin(null);
-    if (next.city) setVille(next.city);
-  };
-  const canSubmit = !!(nom.trim() && ville.trim() && (loc.province || pin) && eff > 0);
+  const picker = useLocationPicker({}, setVille);
+  const [busy, setBusy] = useState(false);
+  const canSubmit = !!(nom.trim() && ville.trim() && picker.ready && eff > 0);
 
   const submit = async () => {
     if (!canSubmit || busy) return;
     setBusy(true);
     try {
-      const p = locationProvince(loc, provinces);
-      const ll = pin ?? locationLL(loc, provinces, cities) ?? (p ? svgToLL(p.x, p.y) : undefined);
+      const p = locationProvince(picker.loc, provinces);
+      const ll = picker.ll ?? (p ? svgToLL(p.x, p.y) : undefined);
       if (!ll) return;
       const res = await api.createUnit({
         nom: nom.trim(),
@@ -101,7 +80,7 @@ export function AddUnitModal({ open, onClose, onCreated }: { open: boolean; onCl
       const created = res.data as { id?: string } | undefined;
       await loadDomain();
       showToast(t.toast_unit);
-      setNom(""); setVille(""); setLoc(EMPTY_LOCATION); setPin(null);
+      setNom(""); setVille(""); picker.reset();
       if (created?.id) onCreated?.(created.id);
       onClose();
     } finally {
@@ -127,12 +106,8 @@ export function AddUnitModal({ open, onClose, onCreated }: { open: boolean; onCl
             ))}
           </select>
         </div>
-        <LocationCascade value={loc} onChange={onLoc} />
         {/* La localisation, comme à la déclaration d'un incident : la cascade, puis un point sur la carte. */}
-        <div className="h-56 overflow-hidden rounded-lg border border-gray-200 dark:border-rdia-600">
-          <LocationPreviewMap value={apercu} onPick={onPin} labels={{ hint: m.morgue.a_map_hint, full: m.morgue.a_map_full, exit: m.morgue.a_map_exit }} />
-        </div>
-        {pin && <p className="-mt-2 font-mono text-[11px] text-gray-500 dark:text-rdia-300">{pin[1].toFixed(4)}, {pin[0].toFixed(4)}</p>}
+        <LocationPicker picker={picker} />
         <div>
           <label className={labelCls}>{t.lbl_city}</label>
           <input className={inputCls} value={ville} onChange={(e) => setVille(e.target.value)} />
@@ -170,7 +145,6 @@ export function AddUnitModal({ open, onClose, onCreated }: { open: boolean; onCl
 export function AddHospitalModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated?: Created }) {
   const t = useDict();
   const provinces = useArgos((s) => s.provinces);
-  const cities = useArgos((s) => s.cities);
   const loadDomain = useArgos((s) => s.loadDomain);
   const showToast = useArgos((s) => s.showToast);
 
@@ -180,12 +154,9 @@ export function AddHospitalModal({ open, onClose, onCreated }: { open: boolean; 
   const [staff, setStaff] = useState(250);
   const [amb, setAmb] = useState(10);
   const [heli, setHeli] = useState(1);
-  const [loc, setLoc] = useState<LocationValue>(EMPTY_LOCATION);
+  // La position de l'établissement : la cascade, puis un point sur la carte.
+  const picker = useLocationPicker({}, setVille);
   const [busy, setBusy] = useState(false);
-  const onLoc = (next: LocationValue) => {
-    setLoc(next);
-    if (next.city) setVille(next.city);
-  };
 
   // Valeurs par défaut = les 5 services flagués `default` du référentiel ARGOS (~50% part marché hospitalier).
   const defaultSvcs = (): WardsEditorValue[] =>
@@ -206,13 +177,13 @@ export function AddHospitalModal({ open, onClose, onCreated }: { open: boolean; 
   const [svcs, setSvcs] = useState<WardsEditorValue[]>(defaultSvcs());
 
   const { lits, rea } = useMemo(() => autosumServices(svcs), [svcs]);
-  const canSubmit = !!(nom.trim() && ville.trim() && loc.province && lits > 0 && svcs.every((s) => s.occ <= s.total));
+  const canSubmit = !!(nom.trim() && ville.trim() && picker.loc.province && lits > 0 && svcs.every((s) => s.occ <= s.total));
 
   const submit = async () => {
     if (!canSubmit || busy) return;
     setBusy(true);
     try {
-      const p = locationProvince(loc, provinces);
+      const p = locationProvince(picker.loc, provinces);
       if (!p) return;
       const res = await api.createHospital({
         nom: nom.trim(),
@@ -228,7 +199,7 @@ export function AddHospitalModal({ open, onClose, onCreated }: { open: boolean; 
         heli,
         x: p.x,
         y: p.y,
-        ll: locationLL(loc, provinces, cities) ?? svgToLL(p.x, p.y),
+        ll: picker.ll ?? svgToLL(p.x, p.y),
       });
       if (res.error) return;
       // Services de soins et taux d'occupation ne font PAS partie du contrat de
@@ -243,7 +214,7 @@ export function AddHospitalModal({ open, onClose, onCreated }: { open: boolean; 
       }
       await loadDomain();
       showToast(t.toast_hosp);
-      setNom(""); setVille(""); setSvcs(defaultSvcs()); setLoc(EMPTY_LOCATION);
+      setNom(""); setVille(""); setSvcs(defaultSvcs()); picker.reset();
       if (created?.id) onCreated?.(created.id);
       onClose();
     } finally {
@@ -284,7 +255,7 @@ export function AddHospitalModal({ open, onClose, onCreated }: { open: boolean; 
             <label className={labelCls}>{t.lbl_city}</label>
             <input className={inputCls} value={ville} onChange={(e) => setVille(e.target.value)} />
           </div>
-          <div className="sm:col-span-2"><LocationCascade value={loc} onChange={onLoc} /></div>
+          <div className="sm:col-span-2 space-y-3"><LocationPicker picker={picker} /></div>
         </div>
 
         <WardsEditor value={svcs} onChange={setSvcs} />
@@ -335,16 +306,9 @@ export function AddShelterModal({ open, onClose, onCreated }: { open: boolean; o
 
   const [nom, setNom] = useState("");
   const [ville, setVille] = useState("");
-  const [loc, setLoc] = useState<LocationValue>(EMPTY_LOCATION);
   // Un point posé sur la carte prime sur la cascade : un abri doit apparaître
   // LÀ où il est ouvert (ADR 0015), pas au chef-lieu de sa province.
-  const [pin, setPin] = useState<[number, number] | null>(null);
-  const provinces = useArgos((s) => s.provinces);
-  const onLoc = (next: LocationValue) => {
-    setLoc(next);
-    setPin(null);
-    if (next.city) setVille(next.city);
-  };
+  const picker = useLocationPicker({}, setVille);
   // Typologie : un camp de tentes DÉDUIT sa capacité (tentes × personnes par
   // tente) ; un bâtiment en dur la saisit et dit sa nature. Deux chiffres pour
   // la même chose se contrediraient au premier ravitaillement.
@@ -366,16 +330,20 @@ export function AddShelterModal({ open, onClose, onCreated }: { open: boolean; o
     [cities, ville],
   );
   const canSubmit = !!(nom.trim() && ville.trim() && (kind === "tentes" ? tents > 0 && perTent > 0 : capacity > 0));
-  // La position : le point posé, sinon la ville de la cascade ou de la saisie
-  // libre si le référentiel la connaît, sinon le chef-lieu de la province.
-  const villeConnue = cities.find((c) => c.v.trim().toLocaleLowerCase("fr") === ville.trim().toLocaleLowerCase("fr"));
-  const apercu = pin ?? locationLL(loc, provinces, cities) ?? villeConnue?.ll ?? null;
+  // La position : le point posé, sinon la commune de la cascade, sinon celle de
+  // la saisie libre si le référentiel la connaît (dans la province choisie d'abord).
+  const villeConnue = useMemo(() => {
+    const k = ville.trim().toLocaleLowerCase("fr");
+    const hits = cities.filter((c) => c.v.trim().toLocaleLowerCase("fr") === k);
+    return hits.find((c) => c.province === picker.loc.province) ?? hits[0];
+  }, [cities, ville, picker.loc.province]);
 
   const submit = async () => {
     if (!canSubmit || busy) return;
     setBusy(true);
     try {
-      const ll = apercu ?? undefined;
+      const ll = picker.ll ?? villeConnue?.ll;
+      const loc = picker.loc;
       const res = await api.createShelter({
         nom: nom.trim(),
         ville: ville.trim(),
@@ -393,8 +361,7 @@ export function AddShelterModal({ open, onClose, onCreated }: { open: boolean; o
       const created = res.data as { id?: string } | undefined;
       await loadDomain();
       showToast(t.ops_shelter_created);
-      setLoc(EMPTY_LOCATION);
-      setPin(null);
+      picker.reset();
       if (created?.id) onCreated?.(created.id);
       onClose();
     } finally {
@@ -409,7 +376,7 @@ export function AddShelterModal({ open, onClose, onCreated }: { open: boolean; o
           <label className={labelCls}>{t.ops_shelter_name}</label>
           <input className={inputCls + " w-full"} value={nom} onChange={(e) => setNom(e.target.value)} maxLength={80} />
         </div>
-        <LocationCascade value={loc} onChange={onLoc} />
+        <LocationPicker picker={picker} height="h-48" />
         <div>
           <label className={labelCls}>{t.ops_shelter_city}</label>
           {/* Saisie libre AVEC liste de suggestions : le référentiel aide sans
@@ -422,19 +389,15 @@ export function AddShelterModal({ open, onClose, onCreated }: { open: boolean; o
             maxLength={60}
           />
           <datalist id="ops-villes">
+            {/* Homonymes d'une province à l'autre : la clé porte la province. */}
             {cities.map((c) => (
-              <option key={c.v} value={c.v} />
+              <option key={`${c.province}/${c.v}`} value={c.v} />
             ))}
           </datalist>
           <p className="mt-1 text-[11px] leading-snug text-gray-500 dark:text-rdia-300">
             {ville.trim() === "" ? t.ops_city_help : connue ? t.ops_city_known : t.ops_city_unknown}
           </p>
         </div>
-        {/* La position exacte, comme pour un site mortuaire : un point sur la carte. */}
-        <div className="h-48 overflow-hidden rounded-lg border border-gray-200 dark:border-rdia-600">
-          <LocationPreviewMap value={apercu} onPick={setPin} labels={{ hint: m.morgue.a_map_hint, full: m.morgue.a_map_full, exit: m.morgue.a_map_exit }} />
-        </div>
-        {pin && <p className="-mt-2 font-mono text-[11px] text-gray-500 dark:text-rdia-300">{pin[1].toFixed(4)}, {pin[0].toFixed(4)}</p>}
         <div>
           <label className={labelCls}>{m.shelters.kind}</label>
           <div className="flex gap-2">

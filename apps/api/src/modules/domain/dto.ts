@@ -635,6 +635,36 @@ export class UpdateSeismicAlertConfigDto {
  * (réservées à l'administration du réseau).
  */
 export class UpdateHospitalDto {
+  // Identité et implantation (modifiables depuis la fiche, ADR 0019) : le nom, la
+  // commune, le rattachement au référentiel et la position choisie sur la carte.
+  @ApiPropertyOptional({ description: "Nom de l'établissement" })
+  @IsOptional() @IsString() @Length(2, 120)
+  nom?: string;
+
+  @ApiPropertyOptional({ description: "Commune d'implantation" })
+  @IsOptional() @IsString() @Length(2, 60)
+  ville?: string;
+
+  @ApiPropertyOptional({ enum: REGIONS_MA, description: "Région d'implantation (référentiel)." })
+  @IsOptional() @IsIn(REGIONS_MA)
+  region?: string;
+
+  @ApiPropertyOptional({ description: "Province d'implantation (référentiel)." })
+  @IsOptional() @IsString() @Length(1, 60)
+  province?: string;
+
+  @ApiPropertyOptional({ type: [Number], description: "Position [lng, lat] — la position SVG (x, y) en est recalculée." })
+  @IsOptional() @IsArray() @ArrayMinSize(2) @ArrayMaxSize(2) @IsNumber({}, { each: true })
+  ll?: [number, number];
+
+  @ApiPropertyOptional({ enum: HOSP_KIND, description: "Réseau et échelon — détermine le symbole cartographique" })
+  @IsOptional() @IsIn(HOSP_KIND)
+  kind?: (typeof HOSP_KIND)[number];
+
+  @ApiPropertyOptional({ description: "Nature de la structure (libellé)" })
+  @IsOptional() @IsString() @Length(1, 120)
+  type?: string;
+
   @ApiPropertyOptional({ minimum: 1, description: "Lits armés" })
   @IsOptional() @IsInt() @Min(1)
   lits?: number;
@@ -879,6 +909,18 @@ export class UpdateShelterDto {
 
   @ApiPropertyOptional({ minimum: 0 }) @IsOptional() @IsInt() @Min(0)
   elderly?: number;
+
+  @ApiPropertyOptional({ enum: REGIONS_MA, description: "Région d'implantation (référentiel)." })
+  @IsOptional() @IsIn(REGIONS_MA)
+  region?: string;
+
+  @ApiPropertyOptional({ description: "Province d'implantation (référentiel)." })
+  @IsOptional() @IsString() @Length(1, 60)
+  province?: string;
+
+  @ApiPropertyOptional({ type: [Number], description: "Position [lng, lat] choisie sur la carte." })
+  @IsOptional() @IsArray() @ArrayMinSize(2) @ArrayMaxSize(2) @IsNumber({}, { each: true })
+  ll?: [number, number];
 }
 
 // --- Morgue / registre DVI --------------------------------------------------

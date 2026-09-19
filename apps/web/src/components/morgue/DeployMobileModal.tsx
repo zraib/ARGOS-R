@@ -4,31 +4,33 @@ import { useState } from "react";
 import { useArgos, useModules } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
+import { LocationPicker, useLocationPicker } from "@/components/org/LocationPicker";
 
 /**
  * Déployer une morgue mobile : un conteneur réfrigéré posé sur le terrain, à
- * l'emplacement d'un incident (le cas ordinaire) ou près d'une ville.
+ * l'emplacement d'un incident (le cas ordinaire) ou à un point choisi sur la
+ * carte (cascade région → province → commune, puis un clic), comme les autres
+ * entités.
  */
 export function DeployMobileModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const m = useModules();
   const showToast = useArgos((s) => s.showToast);
   const incidents = useArgos((s) => s.incidents);
-  const cities = useArgos((s) => s.cities);
   const actifs = incidents.filter((i) => !i.archived);
   const [nom, setNom] = useState("");
   const [type, setType] = useState<"truck" | "field" | "temporary">("truck");
   const [capacity, setCapacity] = useState(24);
   const [staff, setStaff] = useState(4);
   const [incidentId, setIncidentId] = useState(actifs[0]?.id ?? "");
-  const [cityName, setCityName] = useState(cities[0]?.v ?? "");
+  // Sans incident : la position se choisit comme pour un site fixe.
+  const picker = useLocationPicker();
   const [site, setSite] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const labelCls = "mb-1 block text-xs font-semibold text-gray-600 dark:text-rdia-200";
 
   const incident = actifs.find((i) => i.id === incidentId);
-  const city = cities.find((c) => c.v === cityName);
-  const ll: [number, number] | undefined = incident?.ll ?? city?.ll;
+  const ll: [number, number] | undefined = incident?.ll ?? picker.ll;
 
   const submit = async () => {
     if (!nom.trim() || !site.trim() || !ll) {
@@ -77,7 +79,7 @@ export function DeployMobileModal({ onClose, onDone }: { onClose: () => void; on
             <label className={labelCls}>{m.morgue.d_staff}</label>
             <input className="input-champ font-mono text-base md:text-sm" type="number" min={0} value={staff} onChange={(e) => setStaff(Math.max(0, parseInt(e.target.value, 10) || 0))} />
           </div>
-          <div>
+          <div className="sm:col-span-2">
             <label className={labelCls}>{m.morgue.d_incident}</label>
             <select className="input-champ text-base md:text-sm" value={incidentId} onChange={(e) => setIncidentId(e.target.value)}>
               <option value="">{m.morgue.d_incident_none}</option>
@@ -85,16 +87,13 @@ export function DeployMobileModal({ onClose, onDone }: { onClose: () => void; on
                 <option key={i.id} value={i.id}>{i.id} — {i.titre}</option>
               ))}
             </select>
-          </div>
-          <div>
-            <label className={labelCls}>{m.morgue.d_city}</label>
-            <select className="input-champ text-base md:text-sm" value={cityName} onChange={(e) => setCityName(e.target.value)} disabled={!!incident}>
-              {cities.map((c) => (
-                <option key={c.v} value={c.v}>{c.v}</option>
-              ))}
-            </select>
             {incident && <p className="mt-1 text-[11px] text-gray-400 dark:text-rdia-400">{m.morgue.d_position_incident}</p>}
           </div>
+          {!incident && (
+            <div className="space-y-3 sm:col-span-2">
+              <LocationPicker picker={picker} height="h-48" />
+            </div>
+          )}
           <div className="sm:col-span-2">
             <label className={labelCls}>{m.morgue.d_site}</label>
             <input className="input-champ text-base md:text-sm" placeholder={m.morgue.d_site_ph} value={site} onChange={(e) => { setSite(e.target.value); setError(null); }} />

@@ -99,6 +99,7 @@ export const EN_MODULES: ModulesDict = {
     custody: { recovered: "Recovered in the field", hospital: "Death in hospital", transferred: "Transfer", received: "Receipt confirmed", released: "Release" },
     types: { field: "Field mortuary", temporary: "Temporary morgue", hospital: "Hospital morgue", truck: "Refrigerated truck" },
     f_type: "Type", f_capacity: "Total capacity", f_present: "present", f_location: "Location", f_position: "Position", f_code: "Reference code", full_hint: "Capacity reached: the site is declared full — deploy a mobile morgue or transfer.", bodies: "Bodies present and expected", open_detail: "Open the sheet",
+    edit_site: "Edit site", edit_site_title: "Edit the mortuary site", site_updated: "Mortuary site updated.",
     a_type: "Site type", a_map_hint: "Click the map to set the exact position", a_map_full: "Full screen", a_map_exit: "Exit full screen",
     identify: "Identify", id_prelim: "Preliminary identification received", id_to_confirm: "To confirm:", id_method: "Identification method", id_methods: { dna: "DNA", fingerprint: "Fingerprint", dental: "Dental", body_mark: "Body mark" },
     id_death_at: "Time of death (corrected)", id_at: "Identification date", id_by: "Identified by", id_confirm: "Confirm identity", id_done: "Identity confirmed.", id_none: "Not identified", id_err_required: "Surname or first name, sex, identification method and identifier are required to confirm.", id_sex_hint: "At the morgue the sex is observed: female or male.",

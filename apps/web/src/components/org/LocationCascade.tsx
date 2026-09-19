@@ -11,8 +11,16 @@ import type { City, Province } from "@/lib/types";
 // Chaque modale à localisation (unité, hôpital, abri, rattachement d'un compte)
 // l'emploie ; aucune ne refait ses listes. Changer la région vide la province
 // si elle n'en est plus, changer la province vide la ville si elle n'en est
-// plus : on ne peut pas afficher Safi sous Chichaoua.
+// plus : on ne peut pas afficher Safi sous Chichaoua. Le référentiel des
+// communes est COMPLET (urbaines et rurales) : une commune se cherche d'abord
+// dans la province choisie — des homonymes existent d'une province à l'autre.
 // ============================================================================
+
+/** La commune nommée, dans la province donnée d'abord ; sinon la première de ce nom. */
+export function findCity(cities: readonly City[], name: string, province?: string): City | undefined {
+  if (!name) return undefined;
+  return (province ? cities.find((c) => c.v === name && c.province === province) : undefined) ?? cities.find((c) => c.v === name);
+}
 
 export interface LocationValue {
   region: string;
@@ -53,13 +61,13 @@ export function LocationCascade({
   const setRegion = (region: string) => {
     const p = provinces.find((x) => x.v === value.province);
     const province = p && p.region === region ? value.province : "";
-    const c = cities.find((x) => x.v === value.city);
+    const c = findCity(cities, value.city, value.province);
     const city = c && c.region === region && (!province || c.province === province) ? value.city : "";
     onChange({ region, province, city });
   };
   const setProvince = (province: string) => {
     const p = provinces.find((x) => x.v === province);
-    const c = cities.find((x) => x.v === value.city);
+    const c = findCity(cities, value.city, province);
     onChange({
       region: p?.region ?? value.region,
       province,
@@ -67,7 +75,7 @@ export function LocationCascade({
     });
   };
   const setCity = (city: string) => {
-    const c = cities.find((x) => x.v === city);
+    const c = findCity(cities, city, value.province);
     onChange({ region: c?.region ?? value.region, province: c?.province ?? value.province, city });
   };
 
@@ -97,7 +105,7 @@ export function LocationCascade({
           <select className={inputCls} value={value.city} onChange={(e) => setCity(e.target.value)} disabled={disabled}>
             <option value="">—</option>
             {villes.map((c) => (
-              <option key={c.v} value={c.v}>{c.v}</option>
+              <option key={`${c.province}/${c.v}`} value={c.v}>{c.v}</option>
             ))}
           </select>
         </div>
@@ -113,7 +121,7 @@ export function locationProvince(value: LocationValue, provinces: readonly Provi
 
 /** Coordonnées du lieu : la ville si elle est nommée, sinon le chef-lieu de la province. */
 export function locationLL(value: LocationValue, provinces: readonly Province[], cities: readonly City[]): [number, number] | undefined {
-  const c = value.city ? cities.find((x) => x.v === value.city) : undefined;
+  const c = findCity(cities, value.city, value.province);
   if (c) return c.ll;
   const p = locationProvince(value, provinces);
   return p ? provinceLL(p) : undefined;

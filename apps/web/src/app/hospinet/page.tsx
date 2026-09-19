@@ -18,6 +18,7 @@ import { occBarClass } from "@/lib/helpers";
 import { hospitalDetail } from "@/lib/derive";
 import { DeleteEntityButton } from "@/components/org/DeleteEntityModal";
 import { AddHospitalModal } from "@/components/org/AddEntityModals";
+import { EditHospitalModal } from "@/components/org/EditEntityModals";
 import { ResponsibleCard } from "@/components/responsibility/ResponsibleCard";
 import { Modal } from "@/components/ui/Modal";
 import { HealthGlyph } from "@/components/health/HealthGlyph";
@@ -62,6 +63,10 @@ export default function HospinetPage() {
   // les établissements.
   const [vue, setVue] = useState<"apercu" | "etabs">("apercu");
   const [adding, setAdding] = useState(false);
+  // Modifier l'établissement (identité, implantation, capacités) : à qui l'API l'accorde ; le directeur sur le sien.
+  const [editing, setEditing] = useState(false);
+  const sessionUser = useArgos((s) => s.sessionUser);
+  const canEditHospital = (id: string) => role === "superadmin" || (can("hospinet:update") && (role !== "resp_hospital" || sessionUser?.assignments?.hospital === id));
   const [affecteurOpen, setAffecteurOpen] = useState(false);
   // Filtres de la vue liste : le référentiel compte plus de cent
   // établissements — catégorie et recherche libre les rendent exploitables.
@@ -326,6 +331,17 @@ export default function HospinetPage() {
               {hosp.region ? ` · ${hosp.region}` : ""}
             </div>
           </div>
+          {canEditHospital(hosp.id) && (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              title={t.hn_edit_hospital}
+              aria-label={`${t.hn_edit_hospital} — ${hosp.nom}`}
+              className="cible-tactile inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-[12px] font-semibold text-gray-600 transition-colors hover:border-or-400 hover:text-or-600 dark:border-rdia-600 dark:text-rdia-200"
+            >
+              <Icon path={UI_ICONS.edit} size={14} />
+            </button>
+          )}
           <DeleteEntityButton kind="hospital" id={hosp.id} name={hosp.nom} compact onDeleted={() => setSelHosp(null)} />
           <div className="-mx-4 flex w-[calc(100%_+_2rem)] gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:w-auto sm:flex-wrap sm:overflow-x-visible sm:px-0 sm:pb-0">
             {tabs.map(([k, label]) => (
@@ -551,6 +567,8 @@ export default function HospinetPage() {
           )}
         </div>
       )}
+      {/* Modifier l'établissement : identité, implantation (carte) et capacités. */}
+      {editing && <EditHospitalModal hospital={hosp} onClose={() => setEditing(false)} />}
     </section>
   );
 }

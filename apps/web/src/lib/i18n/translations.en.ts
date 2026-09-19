@@ -248,6 +248,7 @@ export const EN_DICT: Dict = {
     ops_search: "Search a unit, a shelter…",
     ops_add_unit: "Create a unit", ops_add_shelter: "Open a shelter", ops_open_shelter: "Open the shelter",
     ops_shelter_name: "Shelter name", ops_shelter_city: "Municipality",
+    hn_edit_hospital: "Edit facility", hn_hospital_updated: "Facility updated", lbl_location: "Location",
     ops_shelter_created: "Shelter opened and added to the OPSnet network", ops_edit_unit: "Edit unit", ops_edit_shelter: "Edit shelter", ops_unit_updated: "Unit updated", ops_shelter_updated: "Shelter updated", ops_organ: "Originating organ", ops_occupants_now: "People sheltered",
     ops_city_help: "The municipality gives the shelter its position: the allocator resolves its main town.",
     ops_city_known: "Municipality recognised — the shelter will be ranked by travel time.",

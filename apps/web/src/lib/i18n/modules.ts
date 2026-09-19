@@ -423,6 +423,7 @@ export interface ModulesDict {
     types: Record<"field" | "temporary" | "hospital" | "truck", string>;
     f_type: string; f_capacity: string; f_present: string; f_location: string; f_position: string; f_code: string; full_hint: string; bodies: string; open_detail: string;
     a_type: string; a_map_hint: string; a_map_full: string; a_map_exit: string;
+    edit_site: string; edit_site_title: string; site_updated: string;
     identify: string; id_prelim: string; id_to_confirm: string; id_method: string; id_methods: Record<"dna" | "fingerprint" | "dental" | "body_mark", string>;
     id_death_at: string; id_at: string; id_by: string; id_confirm: string; id_done: string; id_none: string; id_err_required: string; id_sex_hint: string;
     // identification progressive, signée, tracée ; onglets et recherche du service

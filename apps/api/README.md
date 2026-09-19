@@ -114,6 +114,24 @@ Après toute modification d'un endpoint ou d'un DTO, régénérer le client, sin
 le typecheck du frontend échoue :
 [procédure](../../docs/06-developpement.md#4-régénérer-le-client-api).
 
+## Référentiel géographique
+
+Les 12 régions et 75 provinces (`src/modules/domain/provinces.data.ts`) sont
+tenues à la main. Les **communes** (`cities.data.ts`, ~1 500 communes urbaines
+et rurales rattachées à leur province, avec leurs coordonnées) sont **générées**
+par `scripts/communes.mjs` depuis Wikidata — sur le poste de développement,
+jamais sur la station, qui ne lit que le fichier du dépôt. Les localités
+vérifiées à la main (`scripts/communes.curated.json`) priment sur Wikidata et
+s'y corrigent ; puis :
+
+```bash
+node scripts/communes.mjs            # interroge Wikidata (2 à 3 min)
+node scripts/communes.mjs --cache d  # relit les réponses gardées dans d/
+```
+
+Des communes homonymes existent d'une province à l'autre : la cascade
+région → province → commune du web cherche toujours dans la province choisie.
+
 ## Variables d'environnement
 
 Gabarit : `.env.example`. Table complète :

@@ -23,6 +23,7 @@ import { SearchBox, type Suggestion } from "@/components/ui/SearchBox";
 import { personName } from "@/lib/victims";
 import { DVI_STATUSES, type DviStatus, type MorgueSite, type MortuaryRecord } from "@/lib/types";
 import { DeleteEntityButton } from "@/components/org/DeleteEntityModal";
+import { EditMorgueModal } from "@/components/org/EditEntityModals";
 
 // ============================================================================
 // Service morgue — la vue d'ensemble de l'état-major sur la gestion des corps
@@ -67,6 +68,10 @@ export function MorgueService() {
   const [siteQuery, setSiteQuery] = useState("");
   const [adding, setAdding] = useState(false);
   const [deploying, setDeploying] = useState(false);
+  // Modifier un site (désignation, implantation, capacité) : à qui l'API l'accorde ; le directeur sur le sien.
+  const [editingSite, setEditingSite] = useState<MorgueSite | null>(null);
+  const sessionUser = useArgos((s) => s.sessionUser);
+  const canEditSite = (id: string) => role === "superadmin" || (can("morgue:update") && (role !== "resp_morgue" || sessionUser?.assignments?.morgue === id));
   const [detail, setDetail] = useState<MortuaryRecord | null>(null);
   const [transferring, setTransferring] = useState<MortuaryRecord | null>(null);
   // La fiche d'un site : ouverte par un clic sur sa carte, ou par `?site=` (depuis la carte de la situation).
@@ -353,6 +358,11 @@ export function MorgueService() {
                               {m.morgue.open_site}
                             </Link>
                           )}
+                          {canEditSite(site.id) && (
+                            <button type="button" onClick={() => setEditingSite(site)} title={m.morgue.edit_site} aria-label={`${m.morgue.edit_site} — ${site.nom}`} className="cible-tactile text-[11px] font-semibold text-gray-500 hover:text-or-500 dark:text-rdia-300">
+                              {m.morgue.edit_site}
+                            </button>
+                          )}
                           <DeleteEntityButton kind="morgue" id={site.id} name={site.nom} compact className="!py-0.5" onDeleted={refresh} />
                         </span>
                       </div>
@@ -469,6 +479,7 @@ export function MorgueService() {
 
       {siteOuvert && <MorgueDetailModal site={siteOuvert} records={records} onClose={() => setOpenSite(null)} onChanged={refresh} />}
       {adding && <AddMorgueModal onClose={() => setAdding(false)} onDone={() => { setAdding(false); refresh(); }} />}
+      {editingSite && <EditMorgueModal site={editingSite} onClose={() => setEditingSite(null)} onSaved={refresh} />}
       {deploying && <DeployMobileModal onClose={() => setDeploying(false)} onDone={() => { setDeploying(false); refresh(); }} />}
       {detail && <RecordDetailModal record={detail} sites={morgues} onClose={() => setDetail(null)} />}
       {identifying && <IdentifyModal record={identifying} onClose={() => setIdentifying(null)} onDone={() => { setIdentifying(null); refresh(); }} />}

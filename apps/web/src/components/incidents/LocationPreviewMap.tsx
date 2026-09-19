@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MAP_CENTER, MAP_STYLE, MAP_ZOOM } from "@/lib/map/style";
+import { TILES_MODE } from "@/lib/map/tiles";
+import { installPlanStyle, loadPlanStyle, planGroupOf } from "@/lib/map/plan";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 
@@ -22,7 +24,10 @@ const key = (ll: [number, number]) => `${ll[0].toFixed(5)},${ll[1].toFixed(5)}`;
  * Aperçu cartographique réel (MapLibre GL) pour l'étape de localisation.
  * Un seul marqueur reflète en direct la position résolue (adresse / province /
  * ville / coordonnées) ; un clic sur la carte pose le point. Bouton plein écran
- * en haut à droite, croix pour en sortir. Fond raster sans jeton (voir map/style).
+ * en haut à droite, croix pour en sortir. Fond raster sans jeton (voir map/style),
+ * et les NOMS DES LIEUX par-dessus, comme sur la carte opérationnelle : en mode
+ * externe les toponymes et frontières du fond vectoriel (`lib/map/plan.ts`, sans
+ * frontière contestée), en mode souverain la couche de repères de la station.
  */
 export function LocationPreviewMap({ value, onPick, labels }: Props) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -73,6 +78,28 @@ export function LocationPreviewMap({ value, onPick, labels }: Props) {
     if (init) {
       appliedRef.current = key(init);
       placeMarker(init);
+    }
+
+    // Les noms des villes et communes (mode externe) : le fond vectoriel s'insère
+    // sous le marqueur, seules ses couches de repères (lieux, eaux, frontières)
+    // restent visibles — le plan entier masquerait l'imagerie.
+    if (TILES_MODE === "external") {
+      if (maplibregl.getRTLTextPluginStatus() === "unavailable") {
+        void maplibregl.setRTLTextPlugin("/vendor/mapbox-gl-rtl-text.js", true).catch(() => undefined);
+      }
+      void loadPlanStyle().then((plan) => {
+        if (!plan || mapRef.current !== map) return;
+        const poser = () => {
+          if (!map.getStyle()) return false;
+          installPlanStyle(map, plan);
+          for (const layer of map.getStyle().layers ?? []) {
+            const group = planGroupOf(layer);
+            if (group) map.setLayoutProperty(layer.id, "visibility", group === "labels" ? "visible" : "none");
+          }
+          return true;
+        };
+        if (!poser()) map.once("styledata", () => void poser());
+      });
     }
 
     // Le conteneur peut être mesuré à 0 au montage (modale, chargement dynamique) :

@@ -325,9 +325,16 @@ cd C:\iris\deploy
   (*OPSnet*) et des sites mortuaires (*Service morgue*) ; les boutons
   apparaissent chez qui l'API l'accorde. Les rôles classiques gardent la
   règle d'avant (en opérationnel, les unités sont au Super Administrateur).
-- **Créer une unité** et **créer un site mortuaire** se font avec le sélecteur
-  de position de l'incident : un clic sur la carte pose la position et remplit
-  région, province et ville.
+- **La position se choisit partout comme pour un incident** : créer **et
+  modifier** une unité, un abri, un établissement de santé (bouton « Modifier »
+  sur sa fiche Hospinet) ou un site mortuaire (« Modifier le site » dans le
+  Service morgue) ouvre la cascade région → province → commune et une carte où
+  un clic pose la position exacte, qui remplit région, province et commune. La
+  carte de choix porte désormais les **noms des villes et communes**, comme la
+  carte opérationnelle.
+- **Toutes les communes du Royaume** (près de 1 500, urbaines et rurales,
+  rattachées à leur province) sont proposées dans les listes déroulantes et
+  reconnues quand on pose un point — plus seulement les 80 villes principales.
 - Les bascules d'un rôle (fonctionnalités **et modules du menu**) sont
   persistées comme écarts aux défauts ; celles enregistrées par les paquets
   antérieurs au 19 septembre au soir sont reprises à leurs défauts à la mise à

@@ -1095,6 +1095,7 @@ export class DomainService implements OnApplicationBootstrap {
     for (const [k, v] of Object.entries(patch)) {
       if (v !== undefined) (h as unknown as Record<string, unknown>)[k] = v;
     }
+    if (patch.ll) Object.assign(h, llToSvg(patch.ll));
     this.persist();
     return h;
   }
@@ -1207,6 +1208,8 @@ export class DomainService implements OnApplicationBootstrap {
     for (const [k, v] of Object.entries(patch)) {
       if (v !== undefined) (u as unknown as Record<string, unknown>)[k] = v;
     }
+    // Une position choisie sur la carte : la position SVG (mini-carte) suit.
+    if (patch.ll) Object.assign(u, llToSvg(patch.ll));
     this.persist();
     return u;
   }

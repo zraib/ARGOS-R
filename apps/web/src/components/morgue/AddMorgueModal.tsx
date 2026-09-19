@@ -1,21 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import dynamic from "next/dynamic";
 import { useArgos, useModules } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
-import { EMPTY_LOCATION, LocationCascade, locationLL, locationProvince, type LocationValue } from "@/components/org/LocationCascade";
+import { locationProvince } from "@/components/org/LocationCascade";
+import { LocationPicker, useLocationPicker } from "@/components/org/LocationPicker";
 import { MORGUE_TYPES, type MorgueLevel, type MorgueType } from "@/lib/types";
-
-// La carte (MapLibre) a besoin de `window` : chargée côté client seulement, comme au wizard.
-const LocationPreviewMap = dynamic(() => import("@/components/incidents/LocationPreviewMap").then((x) => x.LocationPreviewMap), { ssr: false });
 
 /**
  * Un site mortuaire fixe de plus — même logique que l'ajout d'un hôpital :
- * la cascade région → province → ville, l'échelon (régional ou de ville),
- * l'établissement de rattachement, la capacité réfrigérée. La position est
- * celle de l'établissement, sinon celle de la ville.
+ * la cascade région → province → commune puis un point sur la carte (qui prime
+ * et déduit le rattachement), l'échelon (régional ou de ville), l'établissement
+ * de rattachement, la capacité réfrigérée. Sans point ni commune, la position
+ * est celle de l'établissement, sinon celle du chef-lieu.
  */
 export function AddMorgueModal({ onClose, onDone, onCreated }: { onClose: () => void; onDone: () => void; onCreated?: (id: string) => void }) {
   const m = useModules();
@@ -23,13 +21,12 @@ export function AddMorgueModal({ onClose, onDone, onCreated }: { onClose: () => 
   const reloadMorgues = useArgos((s) => s.reloadMorgues);
   const hospitals = useArgos((s) => s.hospitals);
   const provinces = useArgos((s) => s.provinces);
-  const cities = useArgos((s) => s.cities);
   const [nom, setNom] = useState("");
   const [level, setLevel] = useState<MorgueLevel>("city");
   const [type, setType] = useState<MorgueType>("hospital");
-  /** Un point posé sur la carte prime sur l'établissement et la ville. */
-  const [pin, setPin] = useState<[number, number] | null>(null);
-  const [loc, setLoc] = useState<LocationValue>(EMPTY_LOCATION);
+  /** Un point posé sur la carte prime sur l'établissement et la commune. */
+  const picker = useLocationPicker();
+  const loc = picker.loc;
   const [hospitalId, setHospitalId] = useState("");
   const [capacity, setCapacity] = useState(30);
   const [staff, setStaff] = useState(6);
@@ -40,9 +37,10 @@ export function AddMorgueModal({ onClose, onDone, onCreated }: { onClose: () => 
   // Les établissements de la région choisie d'abord ; tous si aucune région.
   const candidats = [...hospitals].sort((a, b) => Number((b.region ?? "") === loc.region) - Number((a.region ?? "") === loc.region) || a.nom.localeCompare(b.nom, "fr"));
   const p = locationProvince(loc, provinces);
-  const canSubmit = !!(nom.trim() && loc.region && (loc.city || hospitalId || pin) && capacity > 0);
+  const canSubmit = !!(nom.trim() && loc.region && (loc.city || hospitalId || picker.pin) && capacity > 0);
   const hospSel = hospitals.find((h) => h.id === hospitalId);
-  const apercu = pin ?? hospSel?.ll ?? locationLL(loc, provinces, cities) ?? null;
+  // Le point posé, sinon la commune choisie, sinon l'établissement, sinon le chef-lieu.
+  const position = picker.pin ?? (loc.city ? picker.ll : undefined) ?? hospSel?.ll ?? picker.ll;
 
   const submit = async () => {
     if (!canSubmit || busy) return;
@@ -59,7 +57,7 @@ export function AddMorgueModal({ onClose, onDone, onCreated }: { onClose: () => 
         hospitalId: hospitalId || undefined,
         capacity,
         staff,
-        ll: pin ?? hosp?.ll ?? locationLL(loc, provinces, cities),
+        ll: position,
       });
       const code = res.response?.status;
       if (res.error || (code !== undefined && code >= 400)) {
@@ -114,11 +112,7 @@ export function AddMorgueModal({ onClose, onDone, onCreated }: { onClose: () => 
           </div>
         </div>
         {/* La localisation, comme à la déclaration d'un incident : la cascade, puis un point sur la carte. */}
-        <LocationCascade value={loc} onChange={(next) => { setLoc(next); setPin(null); }} />
-        <div className="h-56 overflow-hidden rounded-lg border border-gray-200 dark:border-rdia-600">
-          <LocationPreviewMap value={apercu} onPick={setPin} labels={{ hint: m.morgue.a_map_hint, full: m.morgue.a_map_full, exit: m.morgue.a_map_exit }} />
-        </div>
-        {pin && <p className="-mt-2 font-mono text-[11px] text-gray-500 dark:text-rdia-300">{pin[1].toFixed(4)}, {pin[0].toFixed(4)}</p>}
+        <LocationPicker picker={picker} value={position ?? null} />
         <div>
           <label className={labelCls}>{m.morgue.a_hospital}</label>
           <select className="input-champ text-base md:text-sm" value={hospitalId} onChange={(e) => setHospitalId(e.target.value)}>

@@ -30,8 +30,13 @@ describe("référentiel géographique — cohérence des trois niveaux", () => {
     expect(incoherentes).toEqual([]);
   });
 
-  it("aucun nom de ville en double", () => {
-    const noms = CITIES_MA.map((c) => c.v);
-    expect(new Set(noms).size).toBe(noms.length);
+  it("aucune commune en double dans sa province — les homonymes d'une province à l'autre existent (Oulad Aissa…)", () => {
+    const cles = CITIES_MA.map((c) => `${c.province}\u0000${c.v}`);
+    expect(new Set(cles).size).toBe(cles.length);
+    // Le référentiel est COMPLET : toutes les provinces ont leurs communes, urbaines et rurales.
+    expect(CITIES_MA.length).toBeGreaterThan(1400);
+    expect(new Set(CITIES_MA.map((c) => c.province)).size).toBe(75);
+    expect(CITIES_MA.filter((c) => c.kind === "rural").length).toBeGreaterThan(1000);
+    for (const nom of ["Casablanca", "Talat N'Yaaqoub", "Zaouïat Cheikh", "Imlili", "Aït Ourir"]) expect(CITIES_MA.some((c) => c.v === nom)).toBe(true);
   });
 });

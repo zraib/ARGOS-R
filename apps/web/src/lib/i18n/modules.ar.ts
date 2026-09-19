@@ -99,6 +99,7 @@ export const AR_MODULES: ModulesDict = {
     custody: { recovered: "انتُشل في الميدان", hospital: "وفاة في المؤسسة", transferred: "نقل", received: "تأكيد الاستلام", released: "تسليم" },
     types: { field: "ميدان جنائزي", temporary: "مشرحة مؤقتة", hospital: "مشرحة استشفائية", truck: "شاحنة مبردة" },
     f_type: "النوع", f_capacity: "السعة الإجمالية", f_present: "حاضرة", f_location: "الموقع", f_position: "الموضع", f_code: "رمز المراجع", full_hint: "بلغت السعة حدها: الموقع مُعلن ممتلئًا — انشر مشرحة متنقلة أو انقل.", bodies: "الجثامين الحاضرة والمنتظرة", open_detail: "فتح البطاقة",
+    edit_site: "تعديل الموقع", edit_site_title: "تعديل الموقع الجنائزي", site_updated: "تم تحديث الموقع الجنائزي.",
     a_type: "نوع الموقع", a_map_hint: "انقر على الخريطة لتحديد الموضع الدقيق", a_map_full: "ملء الشاشة", a_map_exit: "الخروج من ملء الشاشة",
     identify: "تحديد الهوية", id_prelim: "تحديد أولي مستلَم", id_to_confirm: "للتأكيد:", id_method: "طريقة تحديد الهوية", id_methods: { dna: "الحمض النووي", fingerprint: "البصمة", dental: "الأسنان", body_mark: "علامة جسدية" },
     id_death_at: "ساعة الوفاة (مصححة)", id_at: "تاريخ تحديد الهوية", id_by: "حُددت بواسطة", id_confirm: "تأكيد الهوية", id_done: "تم تأكيد الهوية.", id_none: "غير محدد", id_err_required: "الاسم أو اللقب والجنس وطريقة التحديد والمحدِّد مطلوبة للتأكيد.", id_sex_hint: "في المشرحة يُعاين الجنس: أنثى أو ذكر.",
