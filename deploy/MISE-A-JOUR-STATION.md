@@ -321,9 +321,10 @@ cd C:\iris\deploy
   de l'autre mode ne se pose pas et ne se liste pas.
 - **LOG et OPS des PC (PCO, PCT, PC FAR, PCF) et Anim / DIREX** répartissent
   les unités (*Répartition*, ordres), créent, modifient et **suppriment** des
-  unités (hors mode opérationnel), des abris (*OPSnet*) et des sites
-  mortuaires (*Service morgue*) ; les boutons apparaissent chez qui l'API
-  l'accorde.
+  unités (en tout mode de la station, opérationnel compris), des abris
+  (*OPSnet*) et des sites mortuaires (*Service morgue*) ; les boutons
+  apparaissent chez qui l'API l'accorde. Les rôles classiques gardent la
+  règle d'avant (en opérationnel, les unités sont au Super Administrateur).
 - **Créer une unité** et **créer un site mortuaire** se font avec le sélecteur
   de position de l'incident : un clic sur la carte pose la position et remplit
   région, province et ville.

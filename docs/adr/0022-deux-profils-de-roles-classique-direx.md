@@ -295,7 +295,9 @@ Avant le premier lot : étiquette git `v1-roles-classiques` sur `1ee4239`, paque
    (`POST_HOLDERS` : un PC FAR par son chef, un PCT ou un PCO par le chef de l'un ou l'autre
    profil). **LOG et OPS des PC (PCO, PCT, PC FAR, PCF) et Anim / DIREX** répartissent (dispatch,
    missions, deploy : AMV) et créent, modifient, retirent des unités (traits `unitMaker` +
-   `unitRemover`, règle de mode ADR 0016), des abris et des morgues : la grille gagne le code
+   `unitRemover` — **en tout mode de la station** : le profil direx est une direction d'exercice,
+   la règle « opérationnel = Super Administrateur seul » de l'ADR 0016 ne resserre que les rôles
+   classiques), des abris et des morgues : la grille gagne le code
    **`FULL` = `AMRVD`** — `D` = `delete`, jusqu'ici réservé au joker du Super Administrateur.
    Les boutons du web suivent la permission servie (`can("shelters:delete")`,
    `can("morgue:create")`, `canCreateUnit`/`canDeleteUnit` miroirs) et `can()` est refait quand

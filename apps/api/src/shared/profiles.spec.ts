@@ -164,9 +164,10 @@ describe("profil direx — la conduite par les mêmes règles", () => {
     expect(rolesHoldingPost("pcf")).toEqual(["pcf_chef"]);
   });
 
-  it("la DIREX anime hors opérationnel : unités, ressources — et la matrice lui donne l'incident", () => {
+  it("la DIREX anime en tout mode : unités ; ressources hors opérationnel — et la matrice lui donne l'incident", () => {
     expect(canCreateUnit("direx_anim", "exercise")).toBe(true);
-    expect(canCreateUnit("direx_anim", "operational")).toBe(false);
+    // Direction d'exercice : en tout mode, même opérationnel (lot 6).
+    expect(canCreateUnit("direx_anim", "operational")).toBe(true);
     expect(canDeleteUnit("direx_chef", "demo")).toBe(true);
     const unit = { kind: "unit" as const, id: "U1" };
     expect(canManageResource({ role: "direx_anim", mode: "exercise", owner: unit, kind: "teams" })).toBe(true);
@@ -203,5 +204,16 @@ describe("profil direx — la conduite par les mêmes règles", () => {
     expect(placeablePostKinds("direx_chef", "direx")).toEqual(["pcfar", "pcf"]);
     expect(placeablePostKinds("opcom", "classique")).toEqual(["tacom", "pco", "pct", "bluecell", "greencell", "orangecell"]);
     expect(canPlacePost("opcom", "tacom", "direx")).toBe(false);
+  });
+
+  it("le profil direx tient ses unités en tout mode : LOG / OPS des PC et Anim créent et retirent aussi en opérationnel ; l'OPCOM classique non", () => {
+    for (const r of ["pcfar_log", "pcfar_ops", "pcf_log", "pcf_ops", "pct_log", "pct_ops", "pco_log", "pco_ops", "direx_anim", "direx_chef"] as const) {
+      expect(canCreateUnit(r, "operational")).toBe(true);
+      expect(canEditUnit(r, "operational", false)).toBe(true);
+      expect(canDeleteUnit(r, "operational")).toBe(true);
+    }
+    expect(canCreateUnit("pcfar_synth", "operational")).toBe(false);
+    expect(canCreateUnit("opcom", "operational")).toBe(false);
+    expect(canDeleteUnit("bluecell", "operational")).toBe(false);
   });
 });

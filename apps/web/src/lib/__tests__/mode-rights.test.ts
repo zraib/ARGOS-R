@@ -33,9 +33,13 @@ describe("les boutons suivent les permissions servies", () => {
     for (const r of ["pcfar_log", "pcfar_ops", "pcf_log", "pcf_ops", "pct_log", "pct_ops", "pco_log", "pco_ops", "direx_anim"] as const) {
       expect(canCreateUnit(r, "exercise", oui)).toBe(true);
       expect(canDeleteUnit(r, "demo", oui)).toBe(true);
-      expect(canCreateUnit(r, "operational", oui)).toBe(false);
+      // Direction d'exercice : en tout mode, même opérationnel (la station de démonstration y tourne).
+      expect(canCreateUnit(r, "operational", oui)).toBe(true);
+      expect(canDeleteUnit(r, "operational", oui)).toBe(true);
       expect(canDeleteUnit(r, "exercise", non)).toBe(false);
     }
+    expect(canCreateUnit("opcom", "operational", oui)).toBe(false);
+    expect(canDeleteUnit("bluecell", "operational", oui)).toBe(false);
     expect(canCreateUnit("pcfar_synth", "exercise", oui)).toBe(false);
     expect(canDeleteUnit("admin", "exercise", oui)).toBe(false);
     expect(canCreateUnit("superadmin", "operational", non)).toBe(true);

@@ -345,7 +345,8 @@ matrice n'est jamais masquée par un « non » hérité d'un instantané d'avant
 mode** : chaque profil a ses natures de poste (`PROFILE_POST_KINDS`), la pose et la liste des postes
 refusent celles de l'autre mode (403), Super Administrateur compris. **Conduite des PC opératifs** :
 LOG et OPS des PC (PCO, PCT, PC FAR, PCF) et Anim / DIREX répartissent et créent, modifient, retirent
-unités (règle de mode, ADR 0016), abris et morgues — cellule `FULL` (`AMRVD`) de la grille, `D` =
+unités (en tout mode de la station — la règle « opérationnel = Super Administrateur seul » de
+l'ADR 0016 ne resserre que les rôles classiques, `mode.rules.ts`), abris et morgues — cellule `FULL` (`AMRVD`) de la grille, `D` =
 `delete`, première ouverture de cette action hors du joker du Super Administrateur. Tests :
 `shared/profiles.spec.ts`, `modules/iam/login-mode.spec.ts`, `modules/iam/role-grants.spec.ts`,
 `modules/iam/snapshot.rules.spec.ts`, `modules/domain/mode-rights.spec.ts`.
