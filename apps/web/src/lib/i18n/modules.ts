@@ -460,6 +460,7 @@ export interface ModulesDict {
     subtitle: string;
     tab_users: string;
     tab_roles: string;
+    assignment_optional: string;
     tab_classique: string; tab_direx: string; profile_of_account: string;
     modules_title: string; modules_hint: string; features_title: string; features_hint: string; feature_locked: string;
     new_user: string;

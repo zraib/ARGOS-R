@@ -317,10 +317,9 @@ describe("Rattachement — validation à la création et à la modification", ()
     await app.close();
   });
 
-  it("refuse un rôle « responsable » sans entité affectée", () => {
-    expect(() =>
-      users.create("superadmin", "test", { matricule: "v.sans", nom: "Sans", roles: ["resp_shelter"] }),
-    ).toThrow(/exige d'affecter une entité/);
+  it("accepte un rôle « responsable » sans entité affectée — l'entité s'affecte plus tard (ADR 0022)", () => {
+    const { user } = users.create("superadmin", "test", { matricule: "v.sans", nom: "Sans", roles: ["resp_shelter"] });
+    expect(user.assignments?.shelter).toBeUndefined();
   });
 
   it("refuse une affectation qu'aucun rôle du compte ne couvre", () => {
@@ -397,14 +396,14 @@ describe("Rattachement — validation à la création et à la modification", ()
     expect(() => users.update("superadmin", user.id, { grade: "Général" })).toThrow(/autorité civile/);
   });
 
-  it("exige une entité quand un rôle « responsable » est AJOUTÉ à un compte existant", () => {
+  it("un rôle « responsable » AJOUTÉ à un compte existant se passe d'entité, jusqu'à l'affectation", () => {
     const { user } = users.create("superadmin", "test", {
       matricule: "v.promu",
       nom: "Promu",
       roles: ["bluecell"],
     });
-    expect(() => users.update("superadmin", user.id, { roles: ["resp_hospital"] })).toThrow(
-      /exige d'affecter une entité/,
-    );
+    const promu = users.update("superadmin", user.id, { roles: ["resp_hospital"] });
+    expect(promu.roles).toEqual(["resp_hospital"]);
+    expect(promu.assignments?.hospital).toBeUndefined();
   });
 });

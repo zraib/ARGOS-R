@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { Assignments, ResponsibilityKind } from "@/shared/responsibilities";
 import type { Role } from "@/shared/permissions";
-import { ROLE_TRAITS } from "@/shared/profiles";
+import { ROLE_TRAITS, type ProfileId } from "@/shared/profiles";
 import type { AppMode } from "@/common/app-mode";
 import type { Incident, Unit, FieldHospital } from "@/modules/domain/domain.service";
 import type { ResourceOwner } from "@/modules/domain/resources.types";
@@ -42,6 +42,16 @@ import type { ResourceOwner } from "@/modules/domain/resources.types";
 // ============================================================================
 
 /** Portée effective d'un compte. */
+/**
+ * L'unité existe-t-elle sous ce mode de l'application (ADR 0022) ? Une unité
+ * porte le mode où elle a été créée et ne se montre que sous lui ; celles
+ * d'avant (sans mode) et les graines se voient des deux côtés. Les hôpitaux,
+ * abris et morgues sont communs aux deux modes.
+ */
+export function unitFitsMode(unit: Pick<Unit, "profile">, profile: ProfileId): boolean {
+  return !unit.profile || unit.profile === profile;
+}
+
 export type VisibilityScope =
   | { kind: "global" }
   | { kind: "region"; region: string }

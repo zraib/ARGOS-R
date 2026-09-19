@@ -149,16 +149,17 @@ export function UserForm({
   const submit = async () => {
     if (!matricule.trim() || !nom.trim()) { setError(m.users.need_fields); return; }
     if (roles.length === 0) { setError(m.users.need_role); return; }
-    // Un rôle « responsable » sans entité, un wali sans région : refusés par
-    // l'API ; on le signale ici pour éviter un aller-retour, sans que ce soit
-    // le contrôle.
-    const missing = neededKinds.filter((k) => !assignments[k]?.trim());
-    if (missing.length > 0) { setError(m.users.need_assignment); return; }
+    // Un wali sans région : refusé par l'API ; on le signale ici pour éviter un
+    // aller-retour, sans que ce soit le contrôle. L'entité d'un responsable,
+    // elle, est optionnelle : elle s'affecte à la création ou plus tard.
     if (regionNeeded && !region) { setError(m.users.region_hint); return; }
-    // N'envoyer que ce que les rôles retenus exigent : une clé de trop est
+    // N'envoyer que ce que les rôles retenus portent : une clé de trop est
     // refusée comme portée orpheline.
     const payload: AssignmentsBody = {};
-    for (const k of neededKinds) payload[k] = assignments[k]!.trim();
+    for (const k of neededKinds) {
+      const id = assignments[k]?.trim();
+      if (id) payload[k] = id;
+    }
     if (regionNeeded) payload.region = region as AssignmentsBody["region"];
     // Une autorité civile n'a pas de grade : on n'en envoie pas, et on efface
     // celui qu'un compte aurait pu porter avant de devenir civil.
@@ -291,14 +292,14 @@ export function UserForm({
         </div>
       )}
 
-      {/* Rattachement : chaque rôle « responsable » exige l'entité dont il répond.
-          L'API refuse la création sans, et cantonne ensuite toutes ses actions. */}
+      {/* Rattachement : l'entité dont un rôle « responsable » répond — optionnelle
+          à la création, affectable plus tard ; sans elle, le compte ne voit rien. */}
       {neededKinds.length > 0 && (
         <div className="rounded-lg border border-or-500/30 bg-or-500/5 p-3 sm:p-4">
           <div className="mb-1 flex items-center gap-2">
             <Icon path={UI_ICONS.shield} size={14} />
             <span className="text-[10px] font-semibold uppercase tracking-wider text-or-600 dark:text-or-400">
-              {m.users.assignment}
+              {m.users.assignment} <span className="font-normal normal-case tracking-normal text-gray-400 dark:text-rdia-400">· {m.users.assignment_optional}</span>
             </span>
           </div>
           <p className="mb-3 text-[11px] text-gray-500 dark:text-rdia-300">{m.users.assignment_hint}</p>

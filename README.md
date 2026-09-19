@@ -88,7 +88,8 @@ communs aux deux modes. Sous un mode, les comptes de l'autre profil ne se connec
 est activé sur cette station — contactez l'administrateur » — et leurs rôles ne s'attribuent pas.
 La grille de départ du profil Direx est `docs/matrice-roles-direx.xlsx` (reportée dans le code par
 `apps/api/scripts/direx-matrix.mjs`). Sous un mode, la gestion des utilisateurs et le centre de
-communication ne connaissent que les comptes de ce mode ; l'administration règle, rôle par rôle, les
+communication ne connaissent que les comptes de ce mode, et les unités créées sous un mode ne se
+montrent que sous lui (hôpitaux, abris et morgues restent communs) ; l'administration règle, rôle par rôle, les
 modules du menu et les **43 fonctionnalités de l'API** (dont les sous-incidents) dans « Rôles &
 fonctionnalités ».
 

@@ -291,6 +291,15 @@ cd C:\iris\deploy
   menu et les **43 fonctionnalités de l'API** commutables par rôle — dont
   « Sous-incidents (ajouter, modifier, supprimer) ». Pour préparer les comptes
   Direx, basculer en Mode Direx, les créer, puis revenir.
+- **Les unités créées sous un mode ne se montrent que sous lui** (carte,
+  répartition, affectation, mode édition, registre des ressources) ; les
+  unités déjà en place avant la mise à jour restent visibles des deux côtés ;
+  hôpitaux, abris et morgues sont communs. Rien n'est migré ni supprimé :
+  comptes, unités et réglages existants sont intacts.
+- **Créer un chef d'entité sans son entité** est désormais possible
+  (commandant d'unité, directeur d'hôpital, chef d'abri, directeur de
+  morgue) : l'entité s'affecte plus tard depuis la fiche du compte ; sans
+  elle, le compte ne voit rien.
 - Le mode et les bascules sont persistés dans le volume de l'API
   (`settings.json`, instantané IAM) : la sauvegarde d'`upgrade.ps1` les
   emporte, la remise en arrière (§ 8) les rend.

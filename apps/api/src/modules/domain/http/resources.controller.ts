@@ -19,7 +19,7 @@ import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
 import { DomainService } from "@/modules/domain/domain.service";
 import { assignableCorps } from "@/modules/domain/assignment.rules";
-import { VisibilityService } from "@/modules/domain/visibility.service";
+import { VisibilityService, unitFitsMode } from "@/modules/domain/visibility.service";
 import { UsersService } from "@/modules/iam/users.service";
 
 @ApiTags("domain")
@@ -59,7 +59,7 @@ export class ResourcesController {
     // L'unité porte son auteur (ADR 0020) : il la verra toujours. Inscrite par
     // un compte déployé (cellule, OPCOM, TACOM en exercice), elle rejoint son
     // opération aussitôt — l'OPCOM et le TACOM de l'opération la voient.
-    const unit = this.domain.createUnit(dto, user.username);
+    const unit = this.domain.createUnit(dto, user.username, user.profile);
     if (user.scope?.incident) this.domain.attachUnitToOperation(unit.id, user.scope.incident, user.username);
     return this.domain.findUnit(unit.id) ?? unit;
   }
@@ -335,7 +335,9 @@ export class ResourcesController {
 
   /** Les unités que ce compte voit (ADR 0020). */
   private visibleUnits(user: AuthUser) {
-    return this.visibility.filterUnits(this.domain.listUnits(), this.scopeFor(user), {
+    // Les unités de l'autre mode de l'application n'existent pas ici (ADR 0022).
+    const duMode = this.domain.listUnits().filter((u) => unitFitsMode(u, user.profile));
+    return this.visibility.filterUnits(duMode, this.scopeFor(user), {
       matricule: user.username,
       assignments: user.scope,
       regionOf: (id) => this.domain.regionOfEntity("unit", id),

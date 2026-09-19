@@ -927,14 +927,16 @@ export class DomainService implements OnApplicationBootstrap {
   }
 
   /** Crée une unité (id séquentiel U<n>) et trace l'événement dans le fil. */
-  createUnit(input: Omit<Unit, "id" | "cmdt"> & { cmdt?: string }, createdBy?: string): Unit {
+  createUnit(input: Omit<Unit, "id" | "cmdt"> & { cmdt?: string }, createdBy?: string, profile?: Unit["profile"]): Unit {
     const n = Math.max(0, ...this.units.map((u) => parseInt(u.id.replace(/\D/g, ""), 10) || 0)) + 1;
     // Le commandant n'est plus saisi à la création : c'est le compte
     // « responsable d'unité » affecté à l'unité qui le désigne. Un tiret tant
     // qu'aucun n'est affecté — jamais un nom inventé.
     // Le corps par défaut est celui des FAR : le champ est apparu avec l'ADR
     // 0016 et les unités d'avant sont des unités militaires.
-    const unit: Unit = { ...input, corps: input.corps ?? "far", cmdt: input.cmdt?.trim() || "—", id: `U${n}`, ...(createdBy ? { createdBy } : {}) };
+    // L'unité porte le mode de l'application où elle naît (ADR 0022) : elle ne
+    // se montrera que sous ce mode — l'autre organisation ne la voit pas.
+    const unit: Unit = { ...input, corps: input.corps ?? "far", cmdt: input.cmdt?.trim() || "—", id: `U${n}`, ...(createdBy ? { createdBy } : {}), ...(profile ? { profile } : {}) };
     this.units.push(unit);
     const d = new Date();
     const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;

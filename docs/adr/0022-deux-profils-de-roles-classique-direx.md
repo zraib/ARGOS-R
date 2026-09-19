@@ -216,6 +216,14 @@ restent verrouillés.
   que les comptes du mode. Tout passe par un seul point de l'API (`UsersService.fitsMode`). Les
   comptes communs (administration, chefs d'entité) existent dans les deux modes.
 - Un compte porte des rôles d'un seul profil ; `/iam/me` dit le mode en service.
+- **Les unités portent le mode** où elles ont été créées (`Unit.profile`, posé par `POST units`) et ne
+  se montrent que sous lui : liste des unités (carte, répartition, affectation, OPSnet), détenteurs du
+  registre, terrain et boîte à outils du mode édition (`unitFitsMode`, un seul point par écran). Les
+  unités d'avant (sans mode) et les graines se voient des deux côtés ; hôpitaux, abris et morgues sont
+  communs.
+- **L'entité d'un responsable est optionnelle** à la création du compte (commandant d'unité,
+  directeur d'hôpital, chef d'abri, directeur de morgue) : elle s'affecte plus tard ; sans elle, le
+  compte ne voit rien (default-deny). La région d'une autorité reste exigée.
 - Les **graines de démonstration** (mode démo, ADR 0015) reçoivent des comptes du profil `direx`
   (Chef Direx, Anim, Eval, RLS, chefs et cellules de PC FAR, PCF, PCT, PCO) à côté des comptes
   actuels, déployés sur les mêmes opérations : le jeu se joue sous l'un ou l'autre profil, ou les
@@ -250,8 +258,9 @@ Avant le premier lot : étiquette git `v1-roles-classiques` sur `1ee4239`, paque
    `iam/login-mode.spec.ts`.
 2. **Fonctionnalités et comptes (livré)** — les 43 fonctionnalités de l'API commutables par rôle
    (§ 4) ; sous un mode, la gestion des utilisateurs et le centre de communication ne connaissent
-   que les comptes du mode ; la grille `docs/matrice-roles-direx.xlsx` reste telle quelle (décision
-   du propriétaire), le script la reporte quand elle changera.
+   que les comptes du mode ; les unités créées sous un mode ne se montrent que sous lui ; l'entité
+   d'un responsable est optionnelle ; la grille `docs/matrice-roles-direx.xlsx` reste telle quelle
+   (décision du propriétaire), le script la reporte quand elle changera.
 3. **Web** — annuaire et canaux du centre de communication groupés par échelon ; comptes de
    démonstration déployés sur les opérations du jeu.
 4. **Livraison** — tableau des rôles par profil dans `README.md`, guides, paquet ; fusion de

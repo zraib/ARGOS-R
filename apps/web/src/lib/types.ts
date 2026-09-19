@@ -229,6 +229,8 @@ export interface Unit {
   /** Opération à laquelle l'unité est affectée, et sa destination. */
   assignment?: { incidentId: string; destination: Destination; deployed: boolean   /** Compte qui a inscrit l'unité (ADR 0020) : il la voit toujours. */
   createdBy?: string;
+  /** Mode de l'application où l'unité a été créée (ADR 0022) ; absent : visible sous les deux. */
+  profile?: "classique" | "direx";
 };
 }
 

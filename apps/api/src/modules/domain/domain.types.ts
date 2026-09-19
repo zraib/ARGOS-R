@@ -143,6 +143,12 @@ export interface Unit {
    * d'avant et sur les graines.
    */
   createdBy?: string;
+  /**
+   * Mode de l'application où l'unité a été créée (ADR 0022) : « classique »
+   * ou « direx ». Une unité ne se montre que sous son mode ; celles d'avant
+   * (sans mode) et les graines se voient des deux côtés.
+   */
+  profile?: "classique" | "direx";
 }
 
 /**

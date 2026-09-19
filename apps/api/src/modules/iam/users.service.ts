@@ -408,14 +408,14 @@ export class UsersService implements ScopeResolver {
     }
 
     const out: Assignments = {};
+    // L'entité d'un responsable est OPTIONNELLE à la création : on ouvre le
+    // compte d'un commandant d'unité, d'un directeur d'hôpital, d'un chef
+    // d'abri ou de morgue avant de savoir ce qu'il tiendra, et on l'affecte
+    // ensuite. Sans entité, le compte ne voit rien (default-deny) — l'oubli
+    // reste visible, pas dangereux.
     for (const kind of needed) {
       const id = provided[kind]?.trim();
-      if (!id) {
-        throw new BadRequestException(
-          `Le rôle « responsable ${RESPONSIBILITY_LABELS[kind].toLowerCase()} » exige d'affecter une entité.`,
-        );
-      }
-      out[kind] = id;
+      if (id) out[kind] = id;
     }
 
     // Les périmètres sont reportés au même titre que les entités : les omettre

@@ -20,7 +20,7 @@ import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
 import { DomainService } from "@/modules/domain/domain.service";
 import { ResourcesService } from "@/modules/domain/resources.service";
-import { VisibilityService } from "@/modules/domain/visibility.service";
+import { VisibilityService, unitFitsMode } from "@/modules/domain/visibility.service";
 import { ModeService } from "@/modules/mode/mode.service";
 import { canManageResource, refusalReason } from "@/modules/domain/resources.rules";
 import { canPlaceResource, placeRefusal, placeableResourceKinds, type PlaceContext } from "@/modules/domain/edit.rules";
@@ -43,8 +43,16 @@ export class ResourcesRegistryController {
     private readonly visibility: VisibilityService,
   ) {}
 
+  /** Une unité de l'autre mode de l'application n'existe pas ici (ADR 0022) ; hôpitaux et abris sont communs. */
+  private ownerFitsMode(user: AuthUser, owner: ResourceOwner): boolean {
+    if (owner.kind !== "unit") return true;
+    const unit = this.domain.findUnit(owner.id);
+    return !unit || unitFitsMode(unit, user.profile);
+  }
+
   /** Le compte voit-il ce détenteur (ADR 0019) ? */
   private sees(user: AuthUser, owner: ResourceOwner): boolean {
+    if (!this.ownerFitsMode(user, owner)) return false;
     const scope = this.visibility.scopeOfUser(user.role, user.scope, (kind, id) => this.domain.regionOfEntity(kind, id));
     return this.visibility.canSeeResourceOwner(scope, owner, {
       mode: this.mode.current(),
@@ -136,7 +144,7 @@ export class ResourcesRegistryController {
   })
   placeable(@CurrentUser() user: AuthUser) {
     const kinds = placeableResourceKinds(user.role);
-    return this.resources.listPlaceable(kinds, (owner) => canPlaceResource(this.placeContext(user, kinds[0] ?? "teams", owner)));
+    return this.resources.listPlaceable(kinds, (owner) => this.ownerFitsMode(user, owner) && canPlaceResource(this.placeContext(user, kinds[0] ?? "teams", owner)));
   }
 
   @Put(":kind/:id/position")
