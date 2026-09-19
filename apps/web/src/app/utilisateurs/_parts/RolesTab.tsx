@@ -7,8 +7,8 @@ import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import { MODULE_KEYS, isCoreModule, moduleLabel, type ModuleKey } from "@/lib/nav";
 import {
-  ROLES,
   ROLE_ICONS,
+  rolesOfProfile,
   type Role,
 } from "@/lib/roles";
 import { DEFAULT_ROLE_FEATURES } from "@/lib/data/users";
@@ -24,7 +24,11 @@ function RolesTab() {
   const roleFeatures = useArgos((s) => s.roleFeatures);
   const setRoleFeatures = useArgos((s) => s.setRoleFeatures);
 
-  const [selected, setSelected] = useState<Role>("strategic");
+  // Les rôles du mode de l'application en service (ADR 0022) : l'autre profil
+  // n'est pas servi — ni ici, ni à la connexion.
+  const profile = useArgos((s) => s.profile);
+  const roles = rolesOfProfile(profile);
+  const [selected, setSelected] = useState<Role>(profile === "direx" ? "direx_chef" : "strategic");
   // Les défauts font foi côté API (dérivés de la matrice RBAC) ; la table
   // locale n'est que le repli hors connexion.
   const [defaults, setDefaults] = useState<Record<Role, Record<string, boolean>>>(DEFAULT_ROLE_FEATURES);
@@ -63,11 +67,14 @@ function RolesTab() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
       <div className="carte flex shrink-0 flex-col gap-1 p-3 lg:w-64 lg:overflow-auto">
-        <p className="px-2 py-1 text-[11px] uppercase tracking-wide text-gray-400 dark:text-rdia-400">{m.users.select_role}</p>
+        <p className="px-2 py-1 text-[11px] uppercase tracking-wide text-gray-400 dark:text-rdia-400">
+          {m.users.select_role}
+          <span className="ms-1 font-bold text-or-500">· {profile === "direx" ? t.lg_mode_direx : t.lg_mode_classique}</span>
+        </p>
         {/* Sous `lg` : bandeau défilable horizontalement — quinze rôles empilés
             repousseraient la matrice des fonctionnalités hors de l'écran. */}
         <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 lg:mx-0 lg:flex-col lg:gap-1 lg:overflow-x-visible lg:px-0 lg:pb-0">
-          {ROLES.map((r) => {
+          {roles.map((r) => {
             const on = r === selected;
             const count = MODULE_KEYS.filter((k) => isOn(r, k)).length;
             return (

@@ -1,10 +1,6 @@
-import {
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from "@nestjs/common";
+import { roleInProfile, rolesShareProfile } from "@/shared/profiles";
+import { ProfileService } from "@/modules/mode/profile.service";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   assignableRoles,
   canAssignMultipleRoles,
@@ -181,11 +177,28 @@ export class UsersService implements ScopeResolver {
     // compte non déployé ne voit rien — c'est la première chose à démontrer.
     { id: "u-opcom-demo", matricule: "o.chraibi", nom: "Chraibi", prenom: "Nabil", grade: "Colonel", roles: ["opcom"], passwordChanged: false, tempPassword: "OPCOM-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-08-01T08:00:00Z", lastLogin: null },
     { id: "u-resp-h2", matricule: "s.moutaouakil", nom: "Moutaouakil", prenom: "Salma", grade: "Médecin-Cdt", roles: ["resp_hospital"], assignments: { hospital: "H2" }, passwordChanged: false, tempPassword: "HOSP-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-08-01T08:00:00Z", lastLogin: null },
+
+    // --- comptes de DÉMONSTRATION du profil « direx » (ADR 0022) ------------
+    // La direction d'exercice et ses postes de commandement, prêts à jouer le
+    // même jeu de démonstration que les comptes classiques. Codes provisoires,
+    // changement obligatoire au premier login, comme pour tout compte.
+    { id: "u-direx-chef", matricule: "a.direx", nom: "Benali", prenom: "Ahmed", grade: "Colonel-major", roles: ["direx_chef"], passwordChanged: false, tempPassword: "DIREX-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-09-19T08:00:00Z", lastLogin: null },
+    { id: "u-direx-eval", matricule: "e.direx", nom: "Ouazzani", prenom: "Leila", grade: "Lieutenant-colonel", roles: ["direx_eval"], passwordChanged: false, tempPassword: "EVAL-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-09-19T08:00:00Z", lastLogin: null },
+    { id: "u-direx-anim", matricule: "n.direx", nom: "Tahiri", prenom: "Youssef", grade: "Commandant", roles: ["direx_anim"], passwordChanged: false, tempPassword: "ANIM-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-09-19T08:00:00Z", lastLogin: null },
+    { id: "u-direx-rls", matricule: "r.direx", nom: "Kettani", prenom: "Samir", grade: "Commandant", roles: ["direx_rls"], passwordChanged: false, tempPassword: "RLS-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-09-19T08:00:00Z", lastLogin: null },
+    { id: "u-pcfar-chef", matricule: "c.pcfar", nom: "El Amrani", prenom: "Driss", grade: "Colonel", roles: ["pcfar_chef"], passwordChanged: false, tempPassword: "PCFAR-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-09-19T08:00:00Z", lastLogin: null },
+    { id: "u-pcfar-ops", matricule: "o.pcfar", nom: "Mansouri", prenom: "Hicham", grade: "Commandant", roles: ["pcfar_ops"], passwordChanged: false, tempPassword: "OPSF-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-09-19T08:00:00Z", lastLogin: null },
+    { id: "u-pcf-chef", matricule: "c.pcf", nom: "Lahlou", prenom: "Mounir", grade: "Contrôleur général", roles: ["pcf_chef"], passwordChanged: false, tempPassword: "PCF-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-09-19T08:00:00Z", lastLogin: null },
+    { id: "u-pcf-ops", matricule: "o.pcf", nom: "Berrada", prenom: "Nadia", grade: "Commissaire", roles: ["pcf_ops"], passwordChanged: false, tempPassword: "OPSP-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-09-19T08:00:00Z", lastLogin: null },
+    { id: "u-pct-chef", matricule: "c.pct", nom: "Sbai", prenom: "Karim", grade: "Lieutenant-colonel", roles: ["pct_chef"], passwordChanged: false, tempPassword: "PCT-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-09-19T08:00:00Z", lastLogin: null },
+    { id: "u-pct-ops", matricule: "o.pct", nom: "Zouhri", prenom: "Omar", grade: "Capitaine", roles: ["pct_ops"], passwordChanged: false, tempPassword: "OPST-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-09-19T08:00:00Z", lastLogin: null },
+    { id: "u-pco-chef", matricule: "c.pco", nom: "Haddad", prenom: "Salma", grade: "Colonel", roles: ["pco_chef"], passwordChanged: false, tempPassword: "PCO-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-09-19T08:00:00Z", lastLogin: null },
+    { id: "u-pco-ops", matricule: "o.pco", nom: "Rahmouni", prenom: "Ilias", grade: "Capitaine", roles: ["pco_ops"], passwordChanged: false, tempPassword: "OPSO-2026", activatedByAdmin: true, disabled: false, online: false, createdBy: "système", createdAt: "2026-09-19T08:00:00Z", lastLogin: null },
   ];
 
   private roleFeatures = defaultRoleFeatures();
 
-  constructor() {
+  constructor(@Optional() private readonly profiles?: ProfileService) {
     // Persistance dev : restaure le registre depuis l'instantané disque afin que
     // le mot de passe fondateur (et tous les comptes) SURVIVE aux redémarrages —
     // plus de « 1er login » à chaque lancement. Voir common/dev-store.
@@ -229,8 +242,12 @@ export class UsersService implements ScopeResolver {
     // La matrice persistée peut porter d'anciens rôles ou l'ancien vocabulaire
     // (fonctionnalités RBAC au lieu de modules, avant l'ADR 0015) : on ne reprend
     // que les clés connues, les défauts complètent le reste.
-    if (snap.roleFeatures && ROLES.every((r) => r in snap.roleFeatures!)) {
+    // Un instantané d'avant l'ADR 0022 ne connaît pas les rôles du profil
+    // « direx » : on reprend les bascules des rôles qu'il connaît, les autres
+    // gardent leurs défauts.
+    if (snap.roleFeatures) {
       for (const role of ROLES) {
+        if (!snap.roleFeatures[role]) continue;
         for (const [k, v] of Object.entries(snap.roleFeatures[role])) {
           if (isModuleKey(k) && typeof v === "boolean") this.roleFeatures[role][k] = v;
         }
@@ -287,6 +304,18 @@ export class UsersService implements ScopeResolver {
     }
     if (!canAssignMultipleRoles(creator) && roles.length > 1) {
       throw new BadRequestException("Un seul rôle peut être attribué par un Administrateur.");
+    }
+    // Deux organisations ne se mêlent pas sur un compte (ADR 0022) : ses rôles
+    // sont ceux d'un seul mode — les rôles techniques et les chefs d'entité,
+    // communs aux deux, se cumulent avec l'un ou l'autre.
+    if (!rolesShareProfile(roles)) {
+      throw new BadRequestException("Un compte porte les rôles d'un seul mode : classique ou Direx, pas les deux.");
+    }
+    // Sous un mode, l'autre profil n'est pas servi : ses rôles ne s'attribuent pas.
+    const active = this.profiles?.current() ?? "classique";
+    const horsMode = roles.filter((r) => !roleInProfile(r, active));
+    if (horsMode.length > 0) {
+      throw new BadRequestException(`${this.profiles?.refusal() ?? "Mode en service."} Rôle(s) hors mode : ${horsMode.join(", ")}.`);
     }
   }
 
@@ -584,13 +613,19 @@ export class UsersService implements ScopeResolver {
 
   // --- matrice rôle → fonctionnalités --------------------------------------
 
+  /** Ne garde que les rôles du mode en service (ADR 0022) : l'autre profil n'est pas servi. */
+  private onlyActive<T>(table: Record<Role, T>): Record<Role, T> {
+    const active = this.profiles?.current() ?? "classique";
+    return Object.fromEntries(Object.entries(table).filter(([r]) => roleInProfile(r as Role, active))) as Record<Role, T>;
+  }
+
   getRoleFeatures(): Record<Role, Record<string, boolean>> {
-    return this.roleFeatures;
+    return this.onlyActive(this.roleFeatures);
   }
 
   /** Les défauts (dérivés de la matrice RBAC) : ce que « réinitialiser » restaure, ce que le point « modifié » compare. */
   getDefaultRoleFeatures(): Record<Role, Record<string, boolean>> {
-    return DEFAULT_ROLE_FEATURES;
+    return this.onlyActive(DEFAULT_ROLE_FEATURES);
   }
 
   setRoleFeature(role: Role, feature: string, enabled: boolean): Record<string, boolean> {

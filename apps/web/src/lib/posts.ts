@@ -6,11 +6,26 @@ import { distKm } from "@/lib/geo";
 import type { Dict } from "@/lib/i18n/translations";
 import type { Shelter } from "@/lib/data/modules";
 import type { DeployableAccount, Incident, IncidentPost, PostKind, Responsible, Unit } from "@/lib/types";
+import type { Role } from "@/lib/roles";
 
-export const POST_KINDS: readonly PostKind[] = ["opcom", "tacom", "pco", "pct", "bluecell", "greencell", "orangecell", "shelter", "equipment"];
+export const POST_KINDS: readonly PostKind[] = ["opcom", "tacom", "pco", "pct", "bluecell", "greencell", "orangecell", "shelter", "equipment", "pcfar", "pcf"];
 
-/** Les natures tenues par un compte déployable ; les deux autres représentent une entité. */
-export const ROLE_POST_KINDS: readonly PostKind[] = ["opcom", "tacom", "pco", "pct", "bluecell", "greencell", "orangecell"];
+/** Les natures tenues par un compte déployable (PC et cellules des deux profils, ADR 0022) ; les deux autres représentent une entité. */
+export const ROLE_POST_KINDS: readonly PostKind[] = ["opcom", "tacom", "pco", "pct", "bluecell", "greencell", "orangecell", "pcfar", "pcf"];
+
+/**
+ * Le rôle qui tient d'ordinaire un poste de cette nature. Sous le profil
+ * classique, la nature EST le rôle (un poste OPCOM est tenu par un `opcom`) ;
+ * les PC du profil « direx » sont tenus par leur chef (ADR 0022). Un poste PCT
+ * ou PCO peut aussi être tenu par un chef de PC direx : on préfère toujours le
+ * rôle du compte déployé quand on le connaît.
+ */
+export function postHolderRole(kind: PostKind): Role | undefined {
+  if (kind === "pcfar") return "pcfar_chef";
+  if (kind === "pcf") return "pcf_chef";
+  if (kind === "shelter" || kind === "equipment") return undefined;
+  return kind;
+}
 
 /** Type MIME du glisser-déposer d'un chip de la boîte à outils vers la carte. */
 export const POST_DRAG_MIME = "application/x-argos-post";
@@ -107,6 +122,9 @@ export const POST_FILL: Record<PostKind, string> = {
   orangecell: "#F97316",
   shelter: "#14B8A6",
   equipment: "#6B7280",
+  // Les PC opératifs du profil « direx » : l'or du commandement, le PCF en variante sombre.
+  pcfar: "#D4AF37",
+  pcf: "#7C6A2E",
 };
 
 /** Le code court écrit sur le marqueur. */
@@ -121,6 +139,8 @@ export function postCode(kind: PostKind, d: Dict): string {
     orangecell: d.post_code_orangecell,
     shelter: d.post_code_shelter,
     equipment: d.post_code_equipment,
+    pcfar: d.post_code_pcfar,
+    pcf: d.post_code_pcf,
   }[kind];
 }
 

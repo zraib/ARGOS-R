@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useArgos, useModules } from "@/lib/store";
+import { useArgos, useDict, useModules } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
@@ -25,7 +25,6 @@ import { AddHospitalModal, AddShelterModal, AddUnitModal } from "@/components/or
 import { AddMorgueModal } from "@/components/morgue/AddMorgueModal";
 import { ApiUser } from "@/app/utilisateurs/_parts/shared";
 import { SWITCHABLE_KEYS, moduleLabel, type ModuleKey } from "@/lib/nav";
-import { useDict } from "@/lib/store";
 
 // ===========================================================================
 // Formulaire création / édition d'un compte (via l'API)
@@ -83,7 +82,10 @@ export function UserForm({
     setUserModules((s) => { const next = { ...s }; if (enabled === null) delete next[module]; else next[module] = enabled; return next; });
   };
   const superAdmin = isSuperAdmin(creatorRole);
-  const options = assignableRoles(creatorRole);
+  // Les rôles proposés sont ceux du mode de l'application en service (ADR 0022) :
+  // l'autre profil n'est pas servi, l'API refuserait de toute façon.
+  const profile = useArgos((s) => s.profile);
+  const options = assignableRoles(creatorRole, profile);
   const multiple = canAssignMultipleRoles(creatorRole);
 
   const [matricule, setMatricule] = useState(user?.matricule ?? "");

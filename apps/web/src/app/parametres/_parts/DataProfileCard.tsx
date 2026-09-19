@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useArgos, useDict, useModules } from "@/lib/store";
-import { api, apiBase } from "@/lib/api";
+import { api, apiBase, loadSessionContext } from "@/lib/api";
+import { PROFILE_IDS, type ProfileId } from "@/lib/roles";
 import { Icon } from "@/components/ui/Icon";
 import { Pill } from "@/components/ui/Pill";
 import { UI_ICONS } from "@/lib/icons";
@@ -45,6 +46,34 @@ export function DataProfileCard() {
     mortuaryRecords: m.morgue.bodies, victims: t.wz_casualties, equipment: t.equipment, posts: t.lg_posts,
   };
   const loadDomain = useArgos((s) => s.loadDomain);
+  // --- mode de l'application (ADR 0022) : classique ou direx, Super Administrateur, signé ---
+  const profile = useArgos((s) => s.profile);
+  const applySessionContext = useArgos((s) => s.applySessionContext);
+  const [profilePick, setProfilePick] = useState<ProfileId | null>(null);
+  const [profilePassword, setProfilePassword] = useState("");
+  const [profileBusy, setProfileBusy] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const profileLabel = (p: ProfileId) => (p === "direx" ? t.lg_mode_direx : t.lg_mode_classique);
+  const profileHint = (p: ProfileId) => (p === "direx" ? t.lg_mode_direx_hint : t.lg_mode_classique_hint);
+  const applyProfile = async () => {
+    if (!profilePick || !profilePassword || profileBusy) return;
+    setProfileBusy(true);
+    setProfileError(null);
+    const res = await api.setProfile(profilePick, profilePassword);
+    if (res.error) {
+      const msg = (res.error as { message?: string | string[] }).message;
+      setProfileError(Array.isArray(msg) ? msg.join(" · ") : (msg ?? t.pf_failed));
+      setProfileBusy(false);
+      return;
+    }
+    // Le mode s'applique aussitôt : la session relit son contexte (`/iam/me`
+    // dit le mode en service) ; les comptes de l'autre profil tombent d'eux-mêmes.
+    applySessionContext(await loadSessionContext());
+    setProfilePick(null);
+    setProfilePassword("");
+    setProfileBusy(false);
+    showToast(t.pf_done);
+  };
   const [vol, setVol] = useState<Volume | null>(null);
   const [password, setPassword] = useState("");
   const [arming, setArming] = useState(false);
@@ -191,6 +220,45 @@ export function DataProfileCard() {
         )}
         {modeNotice && <p role="status" className="mt-2 rounded-lg border border-or-500/30 bg-or-500/10 px-3 py-2 text-[12px] font-semibold text-or-600 dark:text-or-400">{modeNotice}</p>}
         {modeError && <p role="alert" className="mt-2 rounded-lg border border-danger-500/30 bg-danger-500/10 px-3 py-2 text-[12px] font-semibold text-danger-500">{modeError}</p>}
+      </div>
+
+      {/* --- mode de l'application (ADR 0022) -------------------------------- */}
+      <div className="rounded-lg border border-rdia-400/40 bg-rdia-500/5 p-3 dark:border-rdia-500/50">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[13px] font-semibold text-rdia-600 dark:text-rdia-50">{t.pf_title}</p>
+            <p className="mt-0.5 text-[11px] leading-snug text-gray-500 dark:text-rdia-300">{t.pf_hint}</p>
+          </div>
+          <Pill tone="amber" label={`${t.pf_current} : ${profileLabel(profile)}`} />
+        </div>
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {PROFILE_IDS.map((p) => {
+            const on = (profilePick ?? profile) === p;
+            return (
+              <button key={p} type="button" onClick={() => setProfilePick(p)} aria-pressed={on} disabled={profileBusy}
+                className={`cible-tactile rounded-lg border p-3 text-start transition-colors ${on ? "border-or-500 bg-or-500/15" : "border-gray-200 hover:border-or-400 dark:border-rdia-600"}`}>
+                <div className="text-sm font-semibold text-gray-800 dark:text-rdia-50">{profileLabel(p)}</div>
+                <div className="mt-1 text-[11px] leading-snug text-gray-500 dark:text-rdia-300">{profileHint(p)}</div>
+              </button>
+            );
+          })}
+        </div>
+        {profilePick && profilePick !== profile && (
+          <form className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end" onSubmit={(e) => { e.preventDefault(); void applyProfile(); }}>
+            <label className="flex min-w-0 flex-1 flex-col gap-1 text-[11px] font-semibold text-gray-600 dark:text-rdia-200">
+              {t.pf_password}
+              <input type="password" autoComplete="current-password" value={profilePassword} onChange={(e) => setProfilePassword(e.target.value)} disabled={profileBusy} className="input-champ text-base md:text-sm" />
+            </label>
+            <div className="flex gap-2">
+              <button type="button" className="btn-secondaire cible-tactile text-xs" onClick={() => { setProfilePick(null); setProfilePassword(""); setProfileError(null); }} disabled={profileBusy}>{t.cancel}</button>
+              <button type="submit" disabled={!profilePassword || profileBusy} className="btn-primaire cible-tactile inline-flex items-center gap-2 text-xs disabled:cursor-not-allowed disabled:opacity-40">
+                {profileBusy && <span aria-hidden="true" className="h-3 w-3 animate-spin rounded-full border-2 border-rdia-600/30 border-t-rdia-600 motion-reduce:animate-none" />}
+                {t.pf_confirm}
+              </button>
+            </div>
+          </form>
+        )}
+        {profileError && <p role="alert" className="mt-2 rounded-lg border border-danger-500/30 bg-danger-500/10 px-3 py-2 text-[12px] font-semibold text-danger-500">{profileError}</p>}
       </div>
 
       {/* --- remise à zéro : armée, puis signée ------------------------------ */}

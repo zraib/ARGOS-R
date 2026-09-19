@@ -294,6 +294,8 @@ export function createArgosClient(opts: ArgosClientOptions) {
     getDataProfile: () => client.GET("/api/domain/profile"),
     /** Changer le mode de la station (ADR 0016) — signé ; l'API redémarre d'elle-même en production. */
     setMode: (mode: AppMode, password: string) => client.PATCH("/api/domain/mode", { body: { mode, password } }),
+    /** Mode de l'application (ADR 0022) : classique ou direx — Super Administrateur, signé. */
+    setProfile: (profile: "classique" | "direx", password: string) => client.PATCH("/api/domain/profile", { body: { profile, password } }),
     // --- chaîne de commandement (ADR 0016) : affectation et déploiement des unités ---
     getAssignments: (id: string) => client.GET("/api/incidents/{id}/assignments", { params: { path: { id } } }),
     assignUnit: (id: string, body: AssignUnitBody) => client.POST("/api/incidents/{id}/assignments", { params: { path: { id } }, body }),

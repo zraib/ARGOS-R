@@ -1,4 +1,5 @@
 import type { Permission, Role } from "@/shared/permissions";
+import type { ProfileId } from "@/shared/profiles";
 import type { Assignments } from "@/shared/responsibilities";
 
 /** Identité authentifiée résolue depuis le jeton (claims Keycloak ou dev). */
@@ -6,6 +7,8 @@ export interface AuthUser {
   sub: string;
   username: string;
   role: Role;
+  /** Mode de l'application en service (ADR 0022) : « classique » ou « direx ». */
+  profile: ProfileId;
   /** Permissions effectives, résolues côté serveur depuis le rôle (RBAC). */
   permissions: Permission[] | "*";
   /**

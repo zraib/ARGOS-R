@@ -72,6 +72,23 @@ de bord.
 
 L'API refuse toute action hors de ce périmètre — voir *Sécurité* ci-dessous.
 
+### Deux modes de l'application
+
+Depuis l'ADR 0022, la plateforme connaît deux **profils de rôles** et n'en sert qu'un à la fois — le
+**mode de l'application**, réglé par le Super Administrateur dans les Paramètres (mot de passe exigé,
+sans redémarrage) et annoncé sur l'écran de connexion :
+
+| Mode | Organisation | Rôles |
+| --- | --- | --- |
+| **Classique** | l'organisation d'origine, inchangée | Utilisateur Stratégique, Place d'Armes, Wali, OPCOM et ses représentants (Gendarmerie, État-Major, Intérieur), TACOM, PCO, PCT, cellules bleue / verte / orange, Responsable Équipement |
+| **Direx** | direction d'exercice et postes de commandement par fonctions | DIREX (Chef, Eval, Anim, RLS) · PC FAR et PCF (Chef, OPS, LOG, Planif & Rens, SYNTH — le PC FAR affecte les unités des FAR, le PCF celles de la DGSN, de la DGPC, des FA et de la Gendarmerie) · PCT et PCO (Chef, Ops, LOG, Rens — Rens & Com au PCO) |
+
+Le Super Administrateur, l'Administrateur et les chefs d'entité (unité, hôpital, abri, morgue) sont
+communs aux deux modes. Sous un mode, les comptes de l'autre profil ne se connectent pas — « Le Mode X
+est activé sur cette station — contactez l'administrateur » — et leurs rôles ne s'attribuent pas.
+La grille de départ du profil Direx est `docs/matrice-roles-direx.xlsx` (reportée dans le code par
+`apps/api/scripts/direx-matrix.mjs`).
+
 ---
 
 ## Architecture

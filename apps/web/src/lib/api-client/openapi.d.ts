@@ -175,6 +175,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/iam/profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Les deux profils de rôles (ADR 0022) : « classique » et « direx », avec leurs rôles, libellés et échelons */
+        get: operations["IamController_profiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/iam/roles": {
         parameters: {
             query?: never;
@@ -1945,7 +1962,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Changer le mode de l'application — SUPERADMIN, mot de passe exigé (ADR 0022).
+         * @description classique : l'organisation actuelle ; direx : la direction d'exercice et ses PC (PC FAR, PCF, PCT, PCO). Sous un mode, l'autre profil de rôles n'est pas servi : ses comptes ne se connectent pas et ses sessions tombent. Sans redémarrage.
+         */
+        patch: operations["AdminController_setProfile"];
         trace?: never;
     };
     "/api/domain/mode": {
@@ -2883,7 +2904,7 @@ export interface components {
              * @example superadmin
              * @enum {string}
              */
-            role: "superadmin" | "admin" | "strategic" | "place_arme" | "wali" | "opcom" | "gendarmerie" | "etat_major" | "interieur" | "tacom" | "pco" | "pct" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment";
+            role: "superadmin" | "admin" | "strategic" | "place_arme" | "wali" | "opcom" | "gendarmerie" | "etat_major" | "interieur" | "tacom" | "pco" | "pct" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment" | "direx_chef" | "direx_eval" | "direx_anim" | "direx_rls" | "pcfar_chef" | "pcfar_ops" | "pcfar_log" | "pcfar_planif_rens" | "pcfar_synth" | "pcf_chef" | "pcf_ops" | "pcf_log" | "pcf_planif_rens" | "pcf_synth" | "pct_chef" | "pct_ops" | "pct_log" | "pct_rens" | "pco_chef" | "pco_ops" | "pco_log" | "pco_rens_com";
         };
         LoginDto: {
             /** @example n.fassi */
@@ -2906,7 +2927,7 @@ export interface components {
         };
         SelectRoleDto: {
             /** @enum {string} */
-            role: "superadmin" | "admin" | "strategic" | "place_arme" | "wali" | "opcom" | "gendarmerie" | "etat_major" | "interieur" | "tacom" | "pco" | "pct" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment";
+            role: "superadmin" | "admin" | "strategic" | "place_arme" | "wali" | "opcom" | "gendarmerie" | "etat_major" | "interieur" | "tacom" | "pco" | "pct" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment" | "direx_chef" | "direx_eval" | "direx_anim" | "direx_rls" | "pcfar_chef" | "pcfar_ops" | "pcfar_log" | "pcfar_planif_rens" | "pcfar_synth" | "pcf_chef" | "pcf_ops" | "pcf_log" | "pcf_planif_rens" | "pcf_synth" | "pct_chef" | "pct_ops" | "pct_log" | "pct_rens" | "pco_chef" | "pco_ops" | "pco_log" | "pco_rens_com";
         };
         ChangePasswordDto: {
             newPassword: string;
@@ -2975,7 +2996,7 @@ export interface components {
              *       "bluecell"
              *     ]
              */
-            roles: ("superadmin" | "admin" | "strategic" | "place_arme" | "wali" | "opcom" | "gendarmerie" | "etat_major" | "interieur" | "tacom" | "pco" | "pct" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment")[];
+            roles: ("superadmin" | "admin" | "strategic" | "place_arme" | "wali" | "opcom" | "gendarmerie" | "etat_major" | "interieur" | "tacom" | "pco" | "pct" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment" | "direx_chef" | "direx_eval" | "direx_anim" | "direx_rls" | "pcfar_chef" | "pcfar_ops" | "pcfar_log" | "pcfar_planif_rens" | "pcfar_synth" | "pcf_chef" | "pcf_ops" | "pcf_log" | "pcf_planif_rens" | "pcf_synth" | "pct_chef" | "pct_ops" | "pct_log" | "pct_rens" | "pco_chef" | "pco_ops" | "pco_log" | "pco_rens_com")[];
             /** @description Entité affectée par nature de responsabilité (portée ABAC). Obligatoire pour tout rôle « resp_* ». */
             assignments?: components["schemas"]["AssignmentsDto"];
         };
@@ -2993,7 +3014,7 @@ export interface components {
             phone?: string;
             /** @example Capitaine */
             grade?: string;
-            roles?: ("superadmin" | "admin" | "strategic" | "place_arme" | "wali" | "opcom" | "gendarmerie" | "etat_major" | "interieur" | "tacom" | "pco" | "pct" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment")[];
+            roles?: ("superadmin" | "admin" | "strategic" | "place_arme" | "wali" | "opcom" | "gendarmerie" | "etat_major" | "interieur" | "tacom" | "pco" | "pct" | "bluecell" | "greencell" | "orangecell" | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment" | "direx_chef" | "direx_eval" | "direx_anim" | "direx_rls" | "pcfar_chef" | "pcfar_ops" | "pcfar_log" | "pcfar_planif_rens" | "pcfar_synth" | "pcf_chef" | "pcf_ops" | "pcf_log" | "pcf_planif_rens" | "pcf_synth" | "pct_chef" | "pct_ops" | "pct_log" | "pct_rens" | "pco_chef" | "pco_ops" | "pco_log" | "pco_rens_com")[];
             /** @description Entité affectée par nature de responsabilité (portée ABAC). */
             assignments?: components["schemas"]["AssignmentsDto"];
         };
@@ -3026,7 +3047,7 @@ export interface components {
              * @description Nature du poste : PC (opcom, tacom), cellule, abri ou parc d'équipement.
              * @enum {string}
              */
-            kind: "opcom" | "tacom" | "pco" | "pct" | "bluecell" | "greencell" | "orangecell" | "shelter" | "equipment";
+            kind: "opcom" | "tacom" | "pco" | "pct" | "bluecell" | "greencell" | "orangecell" | "shelter" | "equipment" | "pcfar" | "pcf";
             /**
              * @description Point du poste [lng, lat].
              * @example [
@@ -3826,6 +3847,15 @@ export interface components {
             /** @description Mot de passe du compte qui agit */
             password: string;
         };
+        SetProfileDto: {
+            /**
+             * @description classique (l'organisation actuelle) ou direx (DIREX, PC FAR, PCF, PCT, PCO)
+             * @enum {string}
+             */
+            profile: "classique" | "direx";
+            /** @description Mot de passe du compte qui agit */
+            password: string;
+        };
         PurgeDomainDto: {
             /** @description Mot de passe du compte qui agit — la remise à zéro est un geste signé, pas un clic */
             password: string;
@@ -4431,6 +4461,23 @@ export interface operations {
         };
     };
     IamController_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IamController_profiles: {
         parameters: {
             query?: never;
             header?: never;
@@ -7029,6 +7076,28 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminController_setProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetProfileDto"];
+            };
+        };
+        responses: {
+            /** @description Réservé au Super Administrateur, ou mot de passe incorrect. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

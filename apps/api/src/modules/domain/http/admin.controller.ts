@@ -13,8 +13,9 @@ import { RequirePermission } from "@/common/decorators/require-permission.decora
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
 import { DATA_PROFILE } from "@/common/data-profile";
-import { PurgeDomainDto, SetModeDto } from "@/modules/domain/dto";
+import { PurgeDomainDto, SetModeDto, SetProfileDto } from "@/modules/domain/dto";
 import { ModeService } from "@/modules/mode/mode.service";
+import { ProfileService } from "@/modules/mode/profile.service";
 import { isAppMode } from "@/common/app-mode";
 import { DomainService } from "@/modules/domain/domain.service";
 import { UsersService } from "@/modules/iam/users.service";
@@ -27,6 +28,7 @@ export class AdminController {
     private readonly domain: DomainService,
     private readonly users: UsersService,
     private readonly mode: ModeService,
+    private readonly profiles: ProfileService,
   ) {}
 
   @ApiOperation({
@@ -55,6 +57,21 @@ export class AdminController {
     if (!isAppMode(dto.mode)) throw new BadRequestException(`Mode inconnu : ${dto.mode}`);
     if (!this.users.verifyPassword(user.username, dto.password)) throw new ForbiddenException("Mot de passe incorrect : le changement de mode n'est pas signé.");
     return this.mode.set(dto.mode, user.username);
+  }
+
+  @ApiOperation({
+    summary: "Changer le mode de l'application — SUPERADMIN, mot de passe exigé (ADR 0022).",
+    description:
+      "classique : l'organisation actuelle ; direx : la direction d'exercice et ses PC (PC FAR, PCF, PCT, PCO). " +
+      "Sous un mode, l'autre profil de rôles n'est pas servi : ses comptes ne se connectent pas et ses sessions tombent. Sans redémarrage.",
+  })
+  @Patch("profile")
+  @RequirePermission("settings:update")
+  @ApiResponse({ status: 403, description: "Réservé au Super Administrateur, ou mot de passe incorrect." })
+  setProfile(@Body() dto: SetProfileDto, @CurrentUser() user: AuthUser) {
+    if (user.role !== "superadmin") throw new ForbiddenException("Le mode de l'application se change au niveau Super Administrateur.");
+    if (!this.users.verifyPassword(user.username, dto.password)) throw new ForbiddenException("Mot de passe incorrect : le changement de mode n'est pas signé.");
+    return this.profiles.set(dto.profile, user.username);
   }
 
   @ApiOperation({

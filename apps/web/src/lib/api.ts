@@ -4,7 +4,7 @@
 // (posé à la connexion). Base réglable via NEXT_PUBLIC_API_URL.
 // Client généré depuis l'OpenAPI ; source canonique dans packages/api-client,
 // embarquée ici (copie) pour la compilation du bundle Next.
-import type { Assignments } from "@/lib/roles";
+import { isProfileId, type Assignments, type ProfileId } from "@/lib/roles";
 import { createArgosClient } from "@/lib/api-client";
 
 /**
@@ -39,7 +39,7 @@ let unauthorizedHandled = false;
 function handleUnauthorized() {
   if (typeof window === "undefined" || unauthorizedHandled) return;
   unauthorizedHandled = true;
-  for (const k of ["argos_auth", TOKEN_KEY, "argos_session_user", "argos_session_role"]) {
+  for (const k of ["argos_auth", TOKEN_KEY, "argos_session_user", "argos_session_role", "argos_session_profile"]) {
     sessionStorage.removeItem(k);
   }
   window.location.assign("/");
@@ -54,6 +54,8 @@ export const api = createArgosClient({
 /** Réponse de POST /auth/login (compte géré) — jeton + état du cycle de vie. */
 export interface LoginResult {
   access_token: string;
+  /** Mode de la session (ADR 0022). */
+  profile: string;
   role: string;
   roles: string[];
   nom: string;
@@ -78,6 +80,10 @@ export interface SessionContext {
   roleFeatures?: RoleFeaturesMap;
   /** Modules effectifs de CE compte (drapeaux ∧ rôle ∧ compte), servis par `/iam/me` (ADR 0016). */
   myModules?: Record<string, boolean>;
+  /** Permissions effectives du compte (`fonctionnalité:action`), servies par `/iam/me`. */
+  permissions?: string[];
+  /** Mode de la session (ADR 0022), servi par `/iam/me`. */
+  profile?: ProfileId;
   /** Mode de la station en service (ADR 0016). */
   appMode?: "demo" | "exercise" | "operational";
 }
@@ -86,9 +92,11 @@ export async function loadSessionContext(): Promise<SessionContext> {
   const out: SessionContext = {};
   try {
     const me = await api.me();
-    const d = me.data as { modules?: Record<string, boolean>; appMode?: SessionContext["appMode"] } | undefined;
+    const d = me.data as { modules?: Record<string, boolean>; appMode?: SessionContext["appMode"]; permissions?: unknown; profile?: unknown } | undefined;
     if (d?.modules) out.myModules = d.modules;
     if (d?.appMode) out.appMode = d.appMode;
+    if (Array.isArray(d?.permissions)) out.permissions = d.permissions.filter((p): p is string => typeof p === "string");
+    if (isProfileId(d?.profile)) out.profile = d.profile;
   } catch {
     /* sans réponse, le rôle et les drapeaux décident */
   }

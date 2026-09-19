@@ -171,6 +171,7 @@ export interface Dict {
   post_kind_shelter: string;
   post_kind_equipment: string;
   post_code_opcom: string; post_code_pco: string; post_code_pct: string;
+  post_code_pcfar: string; post_code_pcf: string; post_kind_pcfar: string; post_kind_pcf: string;
   post_code_tacom: string;
   post_code_bluecell: string;
   post_code_greencell: string;
@@ -269,6 +270,10 @@ export interface Dict {
   lg_user: string;
   lg_pass: string;
   lg_btn: string;
+  // Choix du mode à la connexion (ADR 0022)
+  lg_mode_active: string; lg_mode_classique: string; lg_mode_direx: string; lg_mode_classique_hint: string; lg_mode_direx_hint: string; lg_mode_refused: string;
+  // Bascule du mode de l'application (Paramètres, Super Administrateur)
+  pf_title: string; pf_hint: string; pf_current: string; pf_switch: string; pf_password: string; pf_confirm: string; pf_done: string; pf_failed: string;
   lg_restricted: string;
   lg_footer: string;
   lg_toast: string;
@@ -709,6 +714,7 @@ export interface Dict {
   // Chaîne de commandement, modes, ressources (ADR 0016)
   nav_resources: string;
   mode_demo: string; mode_exercise: string; mode_operational: string;
+  profile_classique: string; profile_direx: string; profile_title: string;
   md_title: string; md_hint: string; md_hint_demo: string; md_hint_exercise: string; md_hint_operational: string; md_current: string; md_pending: string;
   md_switch: string; md_password: string; md_confirm: string; md_restarting: string; md_manual: string; md_failed: string;
   corps_far: string; corps_gendarmerie: string; corps_dgsn: string; corps_dgpc: string; corps_fa: string; corps_civil: string; f_corps: string;

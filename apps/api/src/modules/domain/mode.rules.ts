@@ -10,20 +10,23 @@
 
 import type { AppMode } from "@/common/app-mode";
 import type { Role } from "@/shared/permissions";
+import { ROLE_TRAITS } from "@/shared/profiles";
 
-const EXERCISE_UNIT_MAKERS: readonly Role[] = ["admin", "opcom", "bluecell", "greencell", "orangecell"];
+// Les listes de rôles sont devenues des traits du profil (ADR 0022) :
+// `unitMaker` (crée et modifie hors opérationnel), `unitRemover` (retire hors
+// opérationnel), `responsibility: "unit"` (le commandant, sur la sienne).
 
 /** Créer une unité. */
 export function canCreateUnit(role: Role, mode: AppMode): boolean {
   if (role === "superadmin") return true;
-  return mode !== "operational" && EXERCISE_UNIT_MAKERS.includes(role);
+  return mode !== "operational" && ROLE_TRAITS[role].unitMaker;
 }
 
 /** Modifier une unité ; `own` : le compte en est le responsable (portée déjà vérifiée par la garde). */
 export function canEditUnit(role: Role, mode: AppMode, own: boolean): boolean {
   if (role === "superadmin" || role === "admin") return true;
-  if (role === "resp_unit") return own;
-  return mode !== "operational" && EXERCISE_UNIT_MAKERS.includes(role);
+  if (ROLE_TRAITS[role].responsibility === "unit") return own;
+  return mode !== "operational" && ROLE_TRAITS[role].unitMaker;
 }
 
 /**
@@ -34,5 +37,5 @@ export function canEditUnit(role: Role, mode: AppMode, own: boolean): boolean {
  */
 export function canDeleteUnit(role: Role, mode: AppMode): boolean {
   if (role === "superadmin") return true;
-  return mode !== "operational" && ["opcom", "bluecell", "greencell", "orangecell"].includes(role);
+  return mode !== "operational" && ROLE_TRAITS[role].unitRemover;
 }

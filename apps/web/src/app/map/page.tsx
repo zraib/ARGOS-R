@@ -29,7 +29,7 @@ import { PlacePostModal } from "@/components/map/PlacePostModal";
 import { canEditMap } from "@/lib/roles";
 import { PLACED_FILL, placeablePostKinds, placeableResourceKinds } from "@/lib/edit";
 import { moduleKeyOpen } from "@/lib/nav";
-import { POST_FILL, postCaption } from "@/lib/posts";
+import { POST_FILL, postCaption, postHolderRole } from "@/lib/posts";
 import { corpsLabel, corpsShort } from "@/lib/corps";
 import { Panel } from "@/app/map/_parts/Panel";
 import { FloodPanel } from "@/app/map/_parts/FloodPanel";
@@ -372,10 +372,15 @@ export default function MapPage() {
         const caption = postCaption(p, { shelters, units, responsables });
         // Qui tient le poste : le déploiement pour un PC ou une cellule
         // (incident + rôle + compte), l'affectation pour un abri ou un parc.
+        // Le rôle du compte déployé prime : un poste PCT peut être tenu par le
+        // chef de PCT de l'un ou l'autre profil (ADR 0022).
+        const holder = p.matricule
+          ? responsables.find((x) => x.kind === "incident" && x.entityId === p.incidentId && x.matricule.toLowerCase() === p.matricule?.toLowerCase())
+          : undefined;
         const responsible =
           p.kind === "shelter" || p.kind === "equipment"
             ? { kind: p.kind, entityId: p.entityId ?? "", incidentId: p.incidentId }
-            : { kind: "incident" as const, entityId: p.incidentId, role: p.kind, matricule: p.matricule };
+            : { kind: "incident" as const, entityId: p.incidentId, role: holder?.role ?? postHolderRole(p.kind), matricule: p.matricule };
         selInfo = {
           titre: caption ? `${postKindLabel(p.kind, t, m)} · ${caption}` : postKindLabel(p.kind, t, m),
           sub: inc ? `${inc.id} · ${inc.titre}` : p.incidentId,

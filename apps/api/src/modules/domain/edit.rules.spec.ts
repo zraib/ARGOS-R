@@ -1,8 +1,10 @@
+import { POST_KINDS } from "@/modules/domain/domain.types";
 import { canEditMap, canPlacePost, canPlaceResource, placeablePostKinds, placeableResourceKinds } from "@/modules/domain/edit.rules";
 
 describe("mode édition par rôle (ADR 0018) — règles pures", () => {
   it("chaque rôle pose ce que la doctrine lui donne, et rien d'autre", () => {
-    expect(placeablePostKinds("superadmin")).toHaveLength(9);
+    // Toutes les natures — y compris les PC du profil « direx » (ADR 0022).
+    expect(placeablePostKinds("superadmin")).toHaveLength(POST_KINDS.length);
     expect(placeablePostKinds("strategic")).toEqual(["opcom"]);
     expect(placeablePostKinds("opcom")).toEqual(["tacom", "pco", "pct", "bluecell", "greencell", "orangecell"]);
     expect(placeablePostKinds("tacom")).toEqual([]);

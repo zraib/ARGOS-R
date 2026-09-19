@@ -441,7 +441,13 @@ export interface ModulesDict {
     | "superadmin" | "admin" | "strategic" | "tacom" | "bluecell" | "greencell" | "orangecell"
     | "place_arme" | "wali" | "opcom"
     | "gendarmerie" | "etat_major" | "interieur" | "pco" | "pct"
-    | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment",
+    | "resp_hospital" | "resp_shelter" | "resp_morgue" | "resp_unit" | "resp_equipment"
+    // Profil « direx » (ADR 0022)
+    | "direx_chef" | "direx_eval" | "direx_anim" | "direx_rls"
+    | "pcfar_chef" | "pcfar_ops" | "pcfar_log" | "pcfar_planif_rens" | "pcfar_synth"
+    | "pcf_chef" | "pcf_ops" | "pcf_log" | "pcf_planif_rens" | "pcf_synth"
+    | "pct_chef" | "pct_ops" | "pct_log" | "pct_rens"
+    | "pco_chef" | "pco_ops" | "pco_log" | "pco_rens_com",
     string
   >;
   users: {

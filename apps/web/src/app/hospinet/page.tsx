@@ -32,6 +32,8 @@ export default function HospinetPage() {
   const t = useDict();
   const hospitals = useArgos((s) => s.hospitals);
   const role = useArgos((s) => s.role);
+  // La permission servie par l'API (ADR 0022) vaut pour les deux profils de rôles.
+  const can = useArgos((s) => s.can);
   const selHosp = useArgos((s) => s.selHosp);
   const setSelHosp = useArgos((s) => s.setSelHosp);
   const dataProfile = useArgos((s) => s.dataProfile);
@@ -61,7 +63,7 @@ export default function HospinetPage() {
   const morgues = useArgos((s) => s.morgues);
   const [deathOpen, setDeathOpen] = useState(false);
   const [registry, setRegistry] = useState<MortuaryRecord[]>([]);
-  const canDeclare = role === "superadmin" || role === "admin" || role === "greencell" || role === "resp_hospital";
+  const canDeclare = can("hospinet:create") || role === "superadmin";
   const hospId = hosp?.id ?? null;
   const nbSites = morgues.length;
   useEffect(() => {

@@ -271,6 +271,26 @@
         ]
       }
     },
+    "/api/iam/profiles": {
+      "get": {
+        "operationId": "IamController_profiles",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Les deux profils de rôles (ADR 0022) : « classique » et « direx », avec leurs rôles, libellés et échelons",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
     "/api/iam/roles": {
       "get": {
         "operationId": "IamController_roles",
@@ -4019,6 +4039,35 @@
         "tags": [
           "domain"
         ]
+      },
+      "patch": {
+        "description": "classique : l'organisation actuelle ; direx : la direction d'exercice et ses PC (PC FAR, PCF, PCT, PCO). Sous un mode, l'autre profil de rôles n'est pas servi : ses comptes ne se connectent pas et ses sessions tombent. Sans redémarrage.",
+        "operationId": "AdminController_setProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Réservé au Super Administrateur, ou mot de passe incorrect."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Changer le mode de l'application — SUPERADMIN, mot de passe exigé (ADR 0022).",
+        "tags": [
+          "domain"
+        ]
       }
     },
     "/api/domain/mode": {
@@ -6183,7 +6232,29 @@
               "resp_shelter",
               "resp_morgue",
               "resp_unit",
-              "resp_equipment"
+              "resp_equipment",
+              "direx_chef",
+              "direx_eval",
+              "direx_anim",
+              "direx_rls",
+              "pcfar_chef",
+              "pcfar_ops",
+              "pcfar_log",
+              "pcfar_planif_rens",
+              "pcfar_synth",
+              "pcf_chef",
+              "pcf_ops",
+              "pcf_log",
+              "pcf_planif_rens",
+              "pcf_synth",
+              "pct_chef",
+              "pct_ops",
+              "pct_log",
+              "pct_rens",
+              "pco_chef",
+              "pco_ops",
+              "pco_log",
+              "pco_rens_com"
             ],
             "example": "superadmin"
           }
@@ -6262,7 +6333,29 @@
               "resp_shelter",
               "resp_morgue",
               "resp_unit",
-              "resp_equipment"
+              "resp_equipment",
+              "direx_chef",
+              "direx_eval",
+              "direx_anim",
+              "direx_rls",
+              "pcfar_chef",
+              "pcfar_ops",
+              "pcfar_log",
+              "pcfar_planif_rens",
+              "pcfar_synth",
+              "pcf_chef",
+              "pcf_ops",
+              "pcf_log",
+              "pcf_planif_rens",
+              "pcf_synth",
+              "pct_chef",
+              "pct_ops",
+              "pct_log",
+              "pct_rens",
+              "pco_chef",
+              "pco_ops",
+              "pco_log",
+              "pco_rens_com"
             ]
           }
         },
@@ -6390,7 +6483,29 @@
                 "resp_shelter",
                 "resp_morgue",
                 "resp_unit",
-                "resp_equipment"
+                "resp_equipment",
+                "direx_chef",
+                "direx_eval",
+                "direx_anim",
+                "direx_rls",
+                "pcfar_chef",
+                "pcfar_ops",
+                "pcfar_log",
+                "pcfar_planif_rens",
+                "pcfar_synth",
+                "pcf_chef",
+                "pcf_ops",
+                "pcf_log",
+                "pcf_planif_rens",
+                "pcf_synth",
+                "pct_chef",
+                "pct_ops",
+                "pct_log",
+                "pct_rens",
+                "pco_chef",
+                "pco_ops",
+                "pco_log",
+                "pco_rens_com"
               ]
             }
           },
@@ -6457,7 +6572,29 @@
                 "resp_shelter",
                 "resp_morgue",
                 "resp_unit",
-                "resp_equipment"
+                "resp_equipment",
+                "direx_chef",
+                "direx_eval",
+                "direx_anim",
+                "direx_rls",
+                "pcfar_chef",
+                "pcfar_ops",
+                "pcfar_log",
+                "pcfar_planif_rens",
+                "pcfar_synth",
+                "pcf_chef",
+                "pcf_ops",
+                "pcf_log",
+                "pcf_planif_rens",
+                "pcf_synth",
+                "pct_chef",
+                "pct_ops",
+                "pct_log",
+                "pct_rens",
+                "pco_chef",
+                "pco_ops",
+                "pco_log",
+                "pco_rens_com"
               ]
             }
           },
@@ -6614,7 +6751,9 @@
               "greencell",
               "orangecell",
               "shelter",
-              "equipment"
+              "equipment",
+              "pcfar",
+              "pcf"
             ],
             "description": "Nature du poste : PC (opcom, tacom), cellule, abri ou parc d'équipement."
           },
@@ -8648,6 +8787,28 @@
         },
         "required": [
           "mode",
+          "password"
+        ]
+      },
+      "SetProfileDto": {
+        "type": "object",
+        "properties": {
+          "profile": {
+            "type": "string",
+            "enum": [
+              "classique",
+              "direx"
+            ],
+            "description": "classique (l'organisation actuelle) ou direx (DIREX, PC FAR, PCF, PCT, PCO)"
+          },
+          "password": {
+            "type": "string",
+            "description": "Mot de passe du compte qui agit",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "profile",
           "password"
         ]
       },

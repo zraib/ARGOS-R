@@ -5,9 +5,11 @@ import { IamService } from "@/modules/iam/iam.service";
 import { UsersService } from "@/modules/iam/users.service";
 import { FlagsService } from "@/modules/flags/flags.service";
 import { ModeService } from "@/modules/mode/mode.service";
+import { ProfileService } from "@/modules/mode/profile.service";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
+import { describeProfiles } from "@/shared/profiles";
 
 @ApiTags("iam")
 @ApiBearerAuth()
@@ -18,6 +20,7 @@ export class IamController {
     private readonly users: UsersService,
     private readonly flags: FlagsService,
     private readonly mode: ModeService,
+    private readonly appProfile: ProfileService,
   ) {}
 
   @Get("me")
@@ -26,6 +29,13 @@ export class IamController {
   async me(@CurrentUser() user: AuthUser) {
     const flags = await this.flags.all();
     return { ...user, modules: this.users.effectiveModules(user.username, user.role, flags), appMode: this.mode.current() };
+  }
+
+  @Get("profiles")
+  @SelfService()
+  @ApiOperation({ summary: "Les deux profils de rôles (ADR 0022) : « classique » et « direx », avec leurs rôles, libellés et échelons" })
+  profiles() {
+    return { active: this.appProfile.current(), label: this.appProfile.label(), profiles: describeProfiles() };
   }
 
   @Get("roles")

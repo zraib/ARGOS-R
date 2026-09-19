@@ -45,6 +45,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | --- | --- | --- | --- |
 | `GET` | `/api/iam/me` | authentifié (soi-même) | Profil de l'utilisateur courant + permissions résolues + modules effectifs (drapeaux ∧ rôle ∧ compte, ADR 0016) + mode de la station |
 | `GET` | `/api/iam/permissions` | `users:view` | Catalogue des permissions |
+| `GET` | `/api/iam/profiles` | authentifié (soi-même) | Les deux profils de rôles (ADR 0022) : « classique » et « direx », avec leurs rôles, libellés et échelons |
 | `GET` | `/api/iam/role-features` | authentifié (soi-même) | Matrice rôle → modules. |
 | `PATCH` | `/api/iam/role-features/{role}` | `users:update` | Ouvrir/couper un module pour un rôle (Super Admin) — effectif côté API dès la requête suivante |
 | `POST` | `/api/iam/role-features/{role}/reset` | `users:update` | Remettre un rôle à ses modules par défaut (Super Admin) |
@@ -107,6 +108,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `GET` | `/api/dispatch/queue` | `dispatch:view` | File de dispatching (besoins entrants) |
 | `PATCH` | `/api/domain/mode` | `settings:update` | Changer le mode de la station — SUPERADMIN, mot de passe exigé (ADR 0016). |
 | `GET` | `/api/domain/profile` | `settings:view` | Profil de données de la station et volume du domaine opérationnel. |
+| `PATCH` | `/api/domain/profile` | `settings:update` | Changer le mode de l'application — SUPERADMIN, mot de passe exigé (ADR 0022). |
 | `POST` | `/api/domain/purge` | `settings:delete` | Remettre le domaine à zéro — SUPERADMIN uniquement, mot de passe exigé (step-up). |
 | `GET` | `/api/equipment-parks/{id}/items` | `equipment:view` | Parc d'équipement d'une unité |
 | `POST` | `/api/equipment-parks/{id}/items` | `equipment:create` | Ajouter un article — dans SON parc uniquement |
@@ -302,7 +304,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 ## Chiffres
 
-156 chemins · 198 opérations · 14 groupes.
+157 chemins · 200 opérations · 14 groupes.
 
 ## Modifier le contrat
 

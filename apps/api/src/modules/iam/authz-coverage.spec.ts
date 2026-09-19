@@ -53,6 +53,9 @@ describe("couverture des gardes", () => {
     const admises = new Set([
       "iam/iam.controller.ts : GET me → me",
       "iam/auth.controller.ts : GET profile → profile",
+      // Les deux profils de rôles (ADR 0022) : un catalogue de référence, lu par
+      // tout compte pour nommer les rôles et les échelons.
+      "iam/iam.controller.ts : GET profiles → profiles",
       "iam/auth.controller.ts : PATCH profile → updateProfile",
       "iam/auth.controller.ts : POST select-role → selectRole",
       "iam/auth.controller.ts : POST change-password → changePassword",

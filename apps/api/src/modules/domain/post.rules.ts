@@ -10,8 +10,8 @@ import type { PostKind } from "@/modules/domain/domain.types";
 // retirer le poste existant — jamais un doublon silencieux.
 // ============================================================================
 
-/** Les natures tenues par un compte déployable. */
-export const ROLE_POST_KINDS: readonly PostKind[] = ["opcom", "tacom", "pco", "pct", "bluecell", "greencell", "orangecell"];
+/** Les natures tenues par un compte déployable — un PC ou une cellule, de l'un ou l'autre profil (ADR 0022). */
+export const ROLE_POST_KINDS: readonly PostKind[] = ["opcom", "tacom", "pco", "pct", "bluecell", "greencell", "orangecell", "pcfar", "pcf"];
 
 /** Les natures qui représentent une entité existante, et l'entité qu'elles exigent. */
 export const ENTITY_POST_KINDS: Partial<Record<PostKind, "shelter" | "unit">> = {
@@ -51,6 +51,8 @@ const KIND_LABEL: Record<PostKind, string> = {
   orangecell: "cellule orange",
   shelter: "abri",
   equipment: "parc",
+  pcfar: "PC FAR",
+  pcf: "PCF",
 };
 
 /** Valide la nature et l'instance d'un poste ; rend les identifiants normalisés à garder. */

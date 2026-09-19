@@ -15,6 +15,9 @@
 // qu'via le joker `*` du superadmin. Voir docs/04-securite.md.
 // ============================================================================
 
+import { ALL_ROLES, ROLE_TRAITS, type Role as ProfileRole } from "@/shared/profiles";
+import { DIREX_MATRIX } from "@/shared/direx.matrix";
+
 /** Actions possibles sur une fonctionnalité. */
 export const ACTIONS = ["view", "create", "update", "archive", "delete"] as const;
 export type Action = (typeof ACTIONS)[number];
@@ -150,32 +153,13 @@ export const PERMISSIONS: Permission[] = FEATURES.flatMap((f) =>
 // Rôles
 // ---------------------------------------------------------------------------
 
-export const ROLES = [
-  "superadmin",
-  "admin",
-  "strategic",
-  "place_arme",
-  "wali",
-  "opcom",
-  // Membres de l'OPCOM (ADR 0016) : chacun affecte les unités de SON corps.
-  "gendarmerie",
-  "etat_major",
-  "interieur",
-  "tacom",
-  // Postes de commandement du TACOM (ADR 0016).
-  "pco",
-  "pct",
-  "bluecell",
-  "greencell",
-  "orangecell",
-  "resp_hospital",
-  "resp_shelter",
-  "resp_morgue",
-  "resp_unit",
-  "resp_equipment",
-] as const;
-
-export type Role = (typeof ROLES)[number];
+/**
+ * Les rôles des DEUX profils (ADR 0022) : les vingt rôles classiques dans leur
+ * ordre historique, puis ceux du profil « direx ». Le catalogue, les libellés
+ * et les traits vivent dans `profiles.ts` ; ce module en tire la matrice.
+ */
+export const ROLES = ALL_ROLES;
+export type Role = ProfileRole;
 
 /** Anciens rôles → rôle de reprise, pour migrer les comptes déjà persistés. */
 export const LEGACY_ROLE_MAP: Record<string, Role> = {
@@ -187,28 +171,8 @@ export const LEGACY_ROLE_MAP: Record<string, Role> = {
 };
 
 /** Libellés français des rôles (colonnes de la matrice). */
-export const ROLE_LABELS: Record<Role, string> = {
-  superadmin: "Super Administrateur",
-  admin: "Administrateur",
-  strategic: "Utilisateur Stratégique",
-  place_arme: "Place d'Armes",
-  wali: "Wali / Gouverneur",
-  opcom: "OPCOM — PC état-major incident",
-  gendarmerie: "Représentant Gendarmerie Royale (OPCOM)",
-  etat_major: "Représentant État-Major des FAR (OPCOM)",
-  interieur: "Représentant Ministère de l'Intérieur (OPCOM)",
-  tacom: "TACOM — PC tactique",
-  pco: "Chef du PC Opérationnel (PCO)",
-  pct: "Chef du PC Tactique (PCT)",
-  bluecell: "Cellule Bleue — Opérations",
-  greencell: "Cellule Verte — Logistique",
-  orangecell: "Cellule Orange — Sécurité",
-  resp_hospital: "Responsable Hôpital",
-  resp_shelter: "Responsable Abri",
-  resp_morgue: "Responsable Morgue",
-  resp_unit: "Commandant d'unité",
-  resp_equipment: "Responsable Équipement",
-};
+export const ROLE_LABELS: Record<Role, string> = Object.fromEntries(ROLES.map((r) => [r, ROLE_TRAITS[r].label])) as Record<Role, string>;
+
 
 // ---------------------------------------------------------------------------
 // Transcription de la matrice
@@ -539,6 +503,10 @@ function buildRolePermissions(): Record<Role, Permission[] | "*"> {
   applyDerivedRoles(LEGACY);
   apply(MATRIX);
   apply(LEGACY);
+  // Profil « direx » (ADR 0022) : sa matrice, générée depuis la grille, ne
+  // nomme que ses propres rôles — les rôles techniques et les chefs d'entité
+  // gardent leurs cellules classiques.
+  apply(DIREX_MATRIX);
   return out;
 }
 
@@ -715,7 +683,7 @@ export const MODULE_FEATURES = MODULE_KEYS;
 export type ModuleFeature = ModuleKey;
 
 /** Rôles rattachés à une entité (miroir local de `ROLE_RESPONSIBILITY`, qui importe ce fichier). */
-const RESPONSIBLE_ROLES: readonly Role[] = ["resp_hospital", "resp_unit", "resp_shelter", "resp_morgue", "resp_equipment"];
+const RESPONSIBLE_ROLES: readonly Role[] = ROLES.filter((r) => ROLE_TRAITS[r].responsibility !== undefined);
 
 /**
  * Ouverture par défaut des modules SANS fonctionnalité RBAC propre : ce que
@@ -733,7 +701,7 @@ const responsibleOrAdmin = (role: Role) => RESPONSIBLE_ROLES.includes(role) || r
  * d'entité. Les simulateurs de crue et de feu n'ont pas de route : la règle
  * tient lieu de ligne de matrice.
  */
-const SIM_ROLES: readonly Role[] = ["superadmin", "admin", "strategic", "opcom", "gendarmerie", "etat_major", "interieur", "tacom", "pco", "pct"];
+const SIM_ROLES: readonly Role[] = ROLES.filter((r) => ROLE_TRAITS[r].simulate);
 const MODULE_DEFAULT_RULE: Partial<Record<ModuleKey, (role: Role) => boolean>> = {
   myresp: responsibleOrAdmin,
   myrespManage: responsibleOrAdmin,

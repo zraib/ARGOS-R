@@ -13,7 +13,7 @@ import type {
 import { api, loadSessionContext, type SessionContext } from "@/lib/api";
 import { AI_DEFAULT_SETTINGS } from "@/lib/ai/config";
 import { DEFAULT_FLAGS } from "@/lib/nav";
-import type { Role } from "@/lib/roles";
+import { isProfileId, type ProfileId, type Role } from "@/lib/roles";
 import { defaultRoleFeatures } from "@/lib/data/users";
 import {
   THEME_KEY,
@@ -24,6 +24,7 @@ import {
   TOKEN_KEY,
   SESSION_USER_KEY,
   SESSION_ROLE_KEY,
+  SESSION_PROFILE_KEY,
   SOUNDS_KEY,
   DEFAULT_SOUNDS,
   loadAiLogFor,
@@ -43,6 +44,12 @@ export interface SessionSlice {
   mustChangePassword: boolean;
   /** compte multi-rôles : l'utilisateur doit choisir un rôle pour la session */
   mustChooseRole: boolean;
+  /** Mode choisi à la connexion (ADR 0022) : décide du catalogue de rôles et des libellés. */
+  profile: ProfileId;
+  /** Permissions effectives du compte, servies par `/iam/me` — pour masquer ce que l'API refuse. */
+  permissions: string[];
+  /** Le compte détient-il cette permission (`fonctionnalité:action`) ? Sans réponse de l'API : non. */
+  can: (perm: string) => boolean;
   /** JWT courant (mode API) ; null en mode démo hors-ligne */
   token: string | null;
   /** true si la session provient de l'API (JWT réel), false en démo */
@@ -86,6 +93,9 @@ export const createSessionSlice: StateCreator<ArgosState, [], [], SessionSlice> 
   sessionUser: null,
   mustChangePassword: false,
   mustChooseRole: false,
+  profile: "classique",
+  permissions: [],
+  can: (perm) => get().permissions.includes(perm),
   token: null,
   apiConnected: false,
   flags: DEFAULT_FLAGS,
@@ -98,12 +108,14 @@ export const createSessionSlice: StateCreator<ArgosState, [], [], SessionSlice> 
       sessionStorage.setItem(TOKEN_KEY, init.token);
       sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(init.sessionUser));
       sessionStorage.setItem(SESSION_ROLE_KEY, init.role);
+      sessionStorage.setItem(SESSION_PROFILE_KEY, init.profile);
     }
     set({
       authed: true,
       apiConnected: true,
       token: init.token,
       role: init.role,
+      profile: init.profile,
       sessionUser: init.sessionUser,
       mustChangePassword: init.mustChangePassword,
       mustChooseRole: init.mustChooseRole,
@@ -140,6 +152,8 @@ export const createSessionSlice: StateCreator<ArgosState, [], [], SessionSlice> 
       flags: ctx.flags ?? s.flags,
       roleFeatures: (ctx.roleFeatures as Record<Role, Record<string, boolean>> | undefined) ?? s.roleFeatures,
       myModules: ctx.myModules ?? s.myModules,
+      permissions: ctx.permissions ?? s.permissions,
+      profile: ctx.profile ?? s.profile,
       appMode: ctx.appMode ?? s.appMode,
     })),
   setProfile: (patch) =>
@@ -237,6 +251,7 @@ export const createSessionSlice: StateCreator<ArgosState, [], [], SessionSlice> 
     // Les fonctionnalités par rôle et les flags sont rechargés depuis l'API par
     // AppFrame ; ici on ne fait que réhydrater l'identité pour l'affichage.
     const storedRole = sessionStorage.getItem(SESSION_ROLE_KEY) as Role | null;
+    const storedProfile = sessionStorage.getItem(SESSION_PROFILE_KEY);
     let sessionUser: SessionUser | null = null;
     try {
       const raw = sessionStorage.getItem(SESSION_USER_KEY);
@@ -255,6 +270,7 @@ export const createSessionSlice: StateCreator<ArgosState, [], [], SessionSlice> 
       sounds,
       sessionUser,
       role: storedRole ?? s.role,
+      profile: isProfileId(storedProfile) ? storedProfile : s.profile,
       aiLog,
     }));
   },

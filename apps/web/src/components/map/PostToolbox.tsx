@@ -29,7 +29,12 @@ import type { PostKind } from "@/lib/types";
 // ============================================================================
 
 export function postKindLabel(kind: PostKind, t: ReturnType<typeof useDict>, m: ReturnType<typeof useModules>): string {
-  return kind === "shelter" ? t.post_kind_shelter : kind === "equipment" ? t.post_kind_equipment : m.roles[kind];
+  if (kind === "shelter") return t.post_kind_shelter;
+  if (kind === "equipment") return t.post_kind_equipment;
+  // Les PC du profil « direx » (ADR 0022) sont tenus par leur chef ; le poste porte le nom du PC.
+  if (kind === "pcfar") return t.post_kind_pcfar;
+  if (kind === "pcf") return t.post_kind_pcf;
+  return m.roles[kind];
 }
 
 export function PostToolbox() {

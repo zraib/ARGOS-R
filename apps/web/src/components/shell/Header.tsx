@@ -187,6 +187,9 @@ export function Header() {
   // ou un exercice ne doit jamais passer pour la situation réelle.
   const appMode = useArgos((s) => s.appMode);
   const modeBadge = appMode === "demo" ? t.mode_demo : appMode === "exercise" ? t.mode_exercise : null;
+  // Le mode de l'application (ADR 0022) se lit aussi à tout instant : deux
+  // organisations se partagent la station, et l'on doit savoir laquelle parle.
+  const profile = useArgos((s) => s.profile);
   const pathname = usePathname();
   const dark = useArgos((s) => s.dark);
   const toggleTheme = useArgos((s) => s.toggleTheme);
@@ -241,6 +244,12 @@ export function Header() {
             {modeBadge}
           </span>
         )}
+        <span
+          className="hidden whitespace-nowrap rounded-md border border-rdia-400/50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 sm:inline dark:border-rdia-500 dark:text-rdia-200"
+          title={t.profile_title}
+        >
+          {profile === "direx" ? t.profile_direx : t.profile_classique}
+        </span>
         <span className={`whitespace-nowrap rounded-md px-2.5 py-1 text-[10px] font-bold ${ALERT_STYLES[alertLevel]}`}>
           {alertLabel(t, alertLevel)}
         </span>

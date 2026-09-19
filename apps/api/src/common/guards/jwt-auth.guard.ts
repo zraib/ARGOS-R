@@ -1,3 +1,5 @@
+import { roleInProfile } from "@/shared/profiles";
+import { ProfileService } from "@/modules/mode/profile.service";
 import { CanActivate, ExecutionContext, Inject, Injectable, Optional, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Reflector } from "@nestjs/core";
@@ -34,6 +36,8 @@ export class JwtAuthGuard implements CanActivate {
     // Optionnel : la garde reste fonctionnelle si aucun résolveur n'est fourni
     // (la portée est alors absente, donc le ScopeGuard refuse — default-deny).
     @Optional() @Inject(SCOPE_RESOLVER) private readonly scopes?: ScopeResolver,
+    // Le mode de l'application (ADR 0022) : un rôle de l'autre profil n'entre pas.
+    @Optional() private readonly profiles?: ProfileService,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -50,10 +54,13 @@ export class JwtAuthGuard implements CanActivate {
     if (!role) throw new UnauthorizedException("Aucun rôle IRIS dans le jeton");
 
     const username = claims.preferred_username ?? String(claims.sub ?? "inconnu");
+    const active = this.profiles?.current() ?? "classique";
+    if (!roleInProfile(role, active)) throw new UnauthorizedException(this.profiles?.refusal() ?? "Ce rôle n'est pas servi dans le mode en service.");
     req.user = {
       sub: String(claims.sub ?? ""),
       username,
       role,
+      profile: active,
       permissions: permissionsForRole(role),
       // Portée ABAC relue à chaque requête depuis le registre des comptes —
       // jamais depuis le jeton : une réaffectation prend effet immédiatement et

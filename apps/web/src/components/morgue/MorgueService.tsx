@@ -46,6 +46,8 @@ export function MorgueService() {
   const m = useModules();
   const router = useRouter();
   const role = useArgos((s) => s.role);
+  // La permission servie par l'API (ADR 0022) vaut pour les deux profils de rôles.
+  const can = useArgos((s) => s.can);
   const morgues = useArgos((s) => s.morgues);
   const hospitals = useArgos((s) => s.hospitals);
   const incidents = useArgos((s) => s.incidents);
@@ -73,7 +75,7 @@ export function MorgueService() {
   const siteOuvert = openSite ? morgues.find((s) => s.id === openSite) ?? null : null;
 
   // Qui agit : le service (admin) et les responsables de site ; les autres lisent.
-  const canWrite = role === "superadmin" || role === "admin" || role === "resp_morgue";
+  const canWrite = can("morgue:update") || role === "superadmin";
   const canCreate = role === "superadmin" || role === "admin";
 
   const load = useCallback(async () => {

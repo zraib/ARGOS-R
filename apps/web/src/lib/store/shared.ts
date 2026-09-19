@@ -13,7 +13,7 @@ import type {
 import type { AiIncidentRow, AiHospitalRow, AiTopEquip, AiAnswerStats, AiCrossBlock, AiSuggestion } from "@/lib/ai/assistant";
 import { api } from "@/lib/api";
 import type { AiUnitResult } from "@/lib/ai/assistant";
-import type { Assignments, Role } from "@/lib/roles";
+import type { Assignments, Role, ProfileId } from "@/lib/roles";
 import type { RiskPrediction } from "@/lib/ai/risk/types";
 
 
@@ -41,6 +41,9 @@ export const TOKEN_KEY = "argos_token";
 export const SESSION_USER_KEY = "argos_session_user";
 
 export const SESSION_ROLE_KEY = "argos_session_role";
+
+/** Mode choisi à la connexion (ADR 0022) : « classique » ou « direx ». */
+export const SESSION_PROFILE_KEY = "argos_session_profile";
 
 /** Préférences sonores de CE poste (localStorage) : un opérateur en salle de veille coupe ce qu'il veut. */
 export const SOUNDS_KEY = "argos_sounds";
@@ -140,6 +143,8 @@ export interface SessionUser {
 export interface SessionInit {
   token: string;
   role: Role;
+  /** Mode choisi à la connexion (ADR 0022). */
+  profile: ProfileId;
   sessionUser: SessionUser;
   mustChangePassword: boolean;
   mustChooseRole: boolean;

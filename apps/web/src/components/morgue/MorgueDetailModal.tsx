@@ -42,6 +42,8 @@ export function MorgueDetailModal({
   const m = useModules();
   const router = useRouter();
   const role = useArgos((s) => s.role);
+  // La permission servie par l'API (ADR 0022) vaut pour les deux profils de rôles.
+  const can = useArgos((s) => s.can);
   const hospitals = useArgos((s) => s.hospitals);
   const morgues = useArgos((s) => s.morgues);
   const setMapCenter = useArgos((s) => s.setMapCenter);
@@ -50,7 +52,7 @@ export function MorgueDetailModal({
   const [identifying, setIdentifying] = useState<MortuaryRecord | null>(null);
   const [transferring, setTransferring] = useState<MortuaryRecord | null>(null);
 
-  const canWrite = role === "superadmin" || role === "admin" || role === "resp_morgue";
+  const canWrite = can("morgue:update") || role === "superadmin";
   const corps = sortRegistry(records.filter((r) => r.mid === site.id));
   const presents = presentBodies(site, records);
   const pct = site.capacity > 0 ? Math.round((presents / site.capacity) * 100) : 0;

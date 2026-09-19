@@ -1,3 +1,4 @@
+import { ProfileService } from "@/modules/mode/profile.service";
 import { Controller, Get } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { ConfigService } from "@nestjs/config";
@@ -23,7 +24,9 @@ export function persistenceReport(driver: DbDriver) {
 @ApiTags("health")
 @Controller("health")
 export class HealthController {
-  constructor(private readonly config: ConfigService<AppConfig, true>) {}
+  constructor(private readonly config: ConfigService<AppConfig, true>,
+    private readonly profiles: ProfileService,
+  ) {}
 
   @Public()
   @Get()
@@ -38,6 +41,8 @@ export class HealthController {
       // Profil de données (ADR 0015) : une station en service répond `empty`.
       dataProfile: this.config.get("dataProfile", { infer: true }),
       appMode: this.config.get("appMode", { infer: true }),
+      // Mode de l'application (ADR 0022) : l'écran de connexion l'annonce avant toute session.
+      roleProfile: this.profiles.current(),
     };
   }
 }

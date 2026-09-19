@@ -20,26 +20,23 @@
 
 import type { AppMode } from "@/common/app-mode";
 import type { Role } from "@/shared/permissions";
+import { ROLE_TRAITS } from "@/shared/profiles";
 import type { Assignments } from "@/shared/responsibilities";
-import { POST_KINDS, type PostKind } from "@/modules/domain/domain.types";
+import type { PostKind } from "@/modules/domain/domain.types";
 import { PLACEABLE_KINDS, type PlaceableKind, type ResourceOwnerKind } from "@/modules/domain/resources.types";
 
-const TACOM_ROLES: readonly Role[] = ["tacom", "pco", "pct"];
-const CELL_ROLES: readonly Role[] = ["bluecell", "greencell", "orangecell"];
+// Qui pose quoi est un trait du profil (ADR 0022) : `placePosts` (les natures
+// de poste) et `placeResources` (équipes, équipements, véhicules).
 
 /** Les natures de postes qu'un rôle pose sur la carte. */
 export function placeablePostKinds(role: Role): readonly PostKind[] {
-  if (role === "superadmin") return POST_KINDS;
-  if (role === "strategic") return ["opcom"];
-  if (role === "opcom") return ["tacom", "pco", "pct", "bluecell", "greencell", "orangecell"];
-  return [];
+  return ROLE_TRAITS[role].placePosts;
 }
 
 /** Les natures de ressources qu'un rôle pose sur le terrain. */
 export function placeableResourceKinds(role: Role): readonly PlaceableKind[] {
   if (role === "superadmin") return PLACEABLE_KINDS;
-  if (TACOM_ROLES.includes(role) || CELL_ROLES.includes(role)) return ["teams", "equipment", "vehicles"];
-  return [];
+  return ROLE_TRAITS[role].placeResources ? ["teams", "equipment", "vehicles"] : [];
 }
 
 /** Le rôle a-t-il un mode édition — quelque chose à poser ? */

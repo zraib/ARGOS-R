@@ -12,6 +12,8 @@ import { RateWindow } from "@/modules/iam/rate-window";
 import { NoticesService } from "@/modules/realtime/notices.service";
 import type { AuthUser } from "@/common/types/auth-user";
 import type { Role } from "@/shared/permissions";
+import { accountFitsProfile } from "@/shared/profiles";
+import { ProfileService } from "@/modules/mode/profile.service";
 import type { AppConfig } from "@/config/configuration";
 
 @ApiTags("auth")
@@ -42,6 +44,7 @@ export class AuthController {
     private readonly config: ConfigService<AppConfig, true>,
     private readonly users: UsersService,
     private readonly notices: NoticesService,
+    private readonly profiles: ProfileService,
   ) {}
 
   /** Signe un jeton HS256 local (mode dev). Interdit hors mode développement. */
@@ -77,7 +80,7 @@ export class AuthController {
       throw new ForbiddenException("Jeton de développement désactivé en production");
     }
     const token = await this.signDevToken(dto.username, dto.role);
-    return { access_token: token, token_type: "Bearer", expires_in: 28800, role: dto.role };
+    return { access_token: token, token_type: "Bearer", expires_in: 28800, role: dto.role, profile: this.profiles.current() };
   }
 
   /**
@@ -102,12 +105,18 @@ export class AuthController {
       this.loginByAddress.allow(addr);
       throw new UnauthorizedException("Matricule ou mot de passe incorrect.");
     }
+    // Le mode de l'application en service (ADR 0022) : un compte de l'autre
+    // profil n'entre pas. Le mot de passe est déjà vérifié — dire pourquoi on
+    // refuse n'apprend rien à un tiers, et dit à l'opérateur à qui s'adresser.
+    const mode = this.profiles.current();
+    if (!accountFitsProfile(res.user.roles, mode)) throw new ForbiddenException(this.profiles.refusal());
     const activeRole = res.user.roles[0];
     const token = await this.signDevToken(res.user.matricule, activeRole);
     return {
       access_token: token,
       token_type: "Bearer",
       expires_in: 28800,
+      profile: mode,
       role: activeRole,
       roles: res.user.roles,
       // Entités affectées : permettent au frontend d'orienter le responsable
@@ -179,7 +188,7 @@ export class AuthController {
       throw new ForbiddenException("Rôle non attribué à ce compte.");
     }
     const token = await this.signDevToken(user.username, dto.role);
-    return { access_token: token, token_type: "Bearer", expires_in: 28800, role: dto.role };
+    return { access_token: token, token_type: "Bearer", expires_in: 28800, role: dto.role, profile: user.profile };
   }
 
   /** 1er login : l'utilisateur pose son mot de passe → compte activé. */

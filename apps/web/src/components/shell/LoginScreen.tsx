@@ -1,8 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useArgos, useDict, type Role } from "@/lib/store";
+import { isProfileId, type ProfileId } from "@/lib/roles";
+import { tpl } from "@/lib/i18n/format";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import { LanguageSwitch } from "@/components/shell/LanguageSwitch";
@@ -21,6 +23,26 @@ export function LoginScreen() {
   const beginSession = useArgos((s) => s.beginSession);
   const applySessionContext = useArgos((s) => s.applySessionContext);
   const showToast = useArgos((s) => s.showToast);
+  // Le mode de l'application en service (ADR 0022) : « classique » ou « direx »,
+  // réglé par le Super Administrateur. L'écran de connexion l'annonce (sonde
+  // publique `/health`) : un compte de l'autre profil n'entrera pas.
+  const [mode, setMode] = useState<ProfileId | null>(null);
+  useEffect(() => {
+    let vivant = true;
+    api
+      .health()
+      .then((h) => {
+        const p = (h.data as { roleProfile?: unknown } | undefined)?.roleProfile;
+        if (vivant && isProfileId(p)) setMode(p);
+      })
+      .catch(() => {
+        /* sonde muette : le mode reste inconnu, la connexion se tente quand même */
+      });
+    return () => {
+      vivant = false;
+    };
+  }, []);
+  const modeLabel = (m: ProfileId) => (m === "direx" ? t.lg_mode_direx : t.lg_mode_classique);
   const [user, setUser] = useState("m.zraib");
   const [pass, setPass] = useState("");
   const [busy, setBusy] = useState(false);
@@ -54,13 +76,21 @@ export function LoginScreen() {
       const res = await api.login({ matricule: u, password: p });
       if (res.error || !res.data) {
         // 429 : la borne des échecs de l'API (dix par compte et par quart d'heure) — dire d'attendre, pas « incorrect ».
-        setError(res.response?.status === 429 ? t.lg_too_many : t.lg_badpass);
+        // 403 : le mot de passe est bon, mais le compte appartient à l'autre mode — s'adresser à l'administrateur.
+        setError(
+          res.response?.status === 429
+            ? t.lg_too_many
+            : res.response?.status === 403
+              ? tpl(t.lg_mode_refused, { mode: modeLabel(mode ?? "classique") })
+              : t.lg_badpass,
+        );
         return;
       }
       const d = res.data as LoginResult;
       // Pose le jeton avant de charger le contexte (flags + fonctionnalités).
       beginSession({
         token: d.access_token,
+        profile: isProfileId(d.profile) ? d.profile : (mode ?? "classique"),
         role: d.role as Role,
         sessionUser: { matricule: d.matricule, nom: d.nom, roles: d.roles as Role[], photo: d.photo, assignments: d.assignments },
         mustChangePassword: d.mustChangePassword,
@@ -171,6 +201,13 @@ export function LoginScreen() {
             <span className="min-w-0 text-[11px] font-semibold text-or-500">{t.lg_restricted}</span>
           </div>
           <div className="flex w-full flex-col gap-3">
+            {/* Le mode de l'application en service (ADR 0022) — annoncé, pas choisi : le Super Administrateur le règle. */}
+            {mode && (
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 px-3 py-2 dark:border-rdia-600" role="status">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-rdia-400">{t.lg_mode_active}</span>
+                <span className="text-sm font-bold text-or-600 dark:text-or-400" title={mode === "classique" ? t.lg_mode_classique_hint : t.lg_mode_direx_hint}>{modeLabel(mode)}</span>
+              </div>
+            )}
             <div>
               <label className={labelCls}>{t.lg_user}</label>
               <input ref={userRef} className={champCls} value={user} onChange={(e) => { setUser(e.target.value); setError(null); }} onKeyDown={onKey} autoComplete="username" />

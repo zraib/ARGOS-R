@@ -14,6 +14,7 @@
 // ============================================================================
 
 import type { Role } from "@/shared/permissions";
+import { ALL_ROLES, ROLE_TRAITS } from "@/shared/profiles";
 
 /** Natures d'entité qu'un responsable peut piloter. */
 export const RESPONSIBILITY_KINDS = ["hospital", "unit", "shelter", "morgue", "equipment"] as const;
@@ -34,13 +35,9 @@ export const RESPONSIBILITY_LABELS: Record<ResponsibilityKind, string> = {
  * table (superadmin, admin, TACOM, cellules…) n'est rattaché à rien : son accès
  * est gouverné par le seul RBAC, sans restriction de périmètre.
  */
-export const ROLE_RESPONSIBILITY: Partial<Record<Role, ResponsibilityKind>> = {
-  resp_hospital: "hospital",
-  resp_unit: "unit",
-  resp_shelter: "shelter",
-  resp_morgue: "morgue",
-  resp_equipment: "equipment",
-};
+export const ROLE_RESPONSIBILITY: Partial<Record<Role, ResponsibilityKind>> = Object.fromEntries(
+  ALL_ROLES.flatMap((r) => (ROLE_TRAITS[r].responsibility ? [[r, ROLE_TRAITS[r].responsibility]] : [])),
+) as Partial<Record<Role, ResponsibilityKind>>;
 
 /**
  * Entités affectées à un compte, une par nature au plus.
@@ -79,14 +76,14 @@ export type Assignments = Partial<Record<ResponsibilityKind, string>> & {
  * Les autorités d'une région : le wali et le commandant de place d'armes.
  * Prévenues à la déclaration de tout incident sur leur territoire.
  */
-export const REGIONAL_AUTHORITY_ROLES: readonly Role[] = ["wali", "place_arme"];
+export const REGIONAL_AUTHORITY_ROLES: readonly Role[] = ALL_ROLES.filter((r) => ROLE_TRAITS[r].regionalAuthority);
 export const UNIQUE_PER_REGION_ROLES: readonly Role[] = REGIONAL_AUTHORITY_ROLES;
 
 /**
  * Autorités CIVILES : elles n'ont pas de grade militaire. Un grade saisi pour
  * un wali est une erreur ; le compte le refuse plutôt que de l'afficher.
  */
-export const CIVIL_ROLES: readonly Role[] = ["wali"];
+export const CIVIL_ROLES: readonly Role[] = ALL_ROLES.filter((r) => ROLE_TRAITS[r].civil);
 
 // --- RATTACHEMENTS DE PORTÉE (lot V-1) --------------------------------------
 // Une entité se commande ; un territoire ou une opération se COUVRE. Ces deux
@@ -117,24 +114,12 @@ export const SCOPE_LABELS: Record<ScopeKey, string> = {
  * le parc sont armés pour une opération donnée. Ils cumulent donc les deux
  * rattachements — leur entité ET leur déploiement.
  */
-export const ROLE_SCOPE_KEY: Partial<Record<Role, ScopeKey>> = {
-  wali: "region",
-  place_arme: "region",
-  opcom: "incident",
-  // Membres de l'OPCOM et postes du TACOM (ADR 0016) : déployés sur UNE
-  // opération, comme la conduite qu'ils composent.
-  gendarmerie: "incident",
-  etat_major: "incident",
-  interieur: "incident",
-  tacom: "incident",
-  pco: "incident",
-  pct: "incident",
-  bluecell: "incident",
-  greencell: "incident",
-  orangecell: "incident",
-  resp_shelter: "incident",
-  resp_equipment: "incident",
-};
+export const ROLE_SCOPE_KEY: Partial<Record<Role, ScopeKey>> = Object.fromEntries(
+  // Le trait `scopeKey` du profil (ADR 0022) : les autorités portent une
+  // région ; les postes déployés — membres de l'OPCOM, TACOM et ses PC,
+  // cellules, chefs d'abri et de parc, et les PC du profil « direx » — une opération.
+  ALL_ROLES.flatMap((r) => (ROLE_TRAITS[r].scopeKey ? [[r, ROLE_TRAITS[r].scopeKey]] : [])),
+) as Partial<Record<Role, ScopeKey>>;
 
 /**
  * Périmètres EXIGÉS dès la création du compte.

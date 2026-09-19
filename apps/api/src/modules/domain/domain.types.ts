@@ -494,7 +494,7 @@ export interface TransportMovement {
 
 /** Natures de poste posables sur la carte d'une opération. */
 // `pco` et `pct` : les deux postes de commandement du TACOM (ADR 0016).
-export const POST_KINDS = ["opcom", "tacom", "pco", "pct", "bluecell", "greencell", "orangecell", "shelter", "equipment"] as const;
+export const POST_KINDS = ["opcom", "tacom", "pco", "pct", "bluecell", "greencell", "orangecell", "shelter", "equipment", "pcfar", "pcf"] as const;
 export type PostKind = (typeof POST_KINDS)[number];
 
 /**

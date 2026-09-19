@@ -7,7 +7,12 @@
 import type { Role } from "@/lib/roles";
 import type { AppMode } from "@/lib/api-client";
 
-const EXERCISE_UNIT_MAKERS: readonly Role[] = ["admin", "opcom", "bluecell", "greencell", "orangecell"];
+// Miroir du trait `unitMaker` des profils (ADR 0022) : l'OPCOM et les cellules classiques,
+// la DIREX (Chef, Anim) et les cellules des PC tactiques du profil « direx ».
+const EXERCISE_UNIT_MAKERS: readonly Role[] = [
+  "admin", "opcom", "bluecell", "greencell", "orangecell",
+  "direx_chef", "direx_anim", "pct_ops", "pct_log", "pct_rens", "pco_ops", "pco_log", "pco_rens_com",
+];
 
 /** Modifier une unité ; `own` : le compte en est le commandant. */
 export function canEditUnit(role: Role, mode: AppMode | null, own: boolean): boolean {

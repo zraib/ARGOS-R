@@ -13,26 +13,18 @@
 // ============================================================================
 
 import type { Role } from "@/shared/permissions";
+import { ROLE_TRAITS } from "@/shared/profiles";
 import { CIVIL_CORPS, type Destination, type UnitCorps } from "@/modules/domain/domain.types";
 
-/** Corps qu'un rôle peut affecter ; `"*"` : tous (chef de l'OPCOM, administration). */
+/**
+ * Corps qu'un rôle peut affecter ; `"*"` : tous (chef de l'OPCOM, administration).
+ * Le trait `assignCorps` du profil (ADR 0022) : l'OPCOM tout, le wali et
+ * l'Intérieur les corps civils, la gendarmerie la sienne, l'état-major et la
+ * place d'armes les FAR — et, sous « direx », le PC FAR les FAR, le PCF les
+ * autres intervenants.
+ */
 export function assignableCorps(role: Role): readonly UnitCorps[] | "*" {
-  switch (role) {
-    case "superadmin":
-    case "admin":
-    case "opcom":
-      return "*";
-    case "wali":
-    case "interieur":
-      return CIVIL_CORPS;
-    case "gendarmerie":
-      return ["gendarmerie"];
-    case "etat_major":
-    case "place_arme":
-      return ["far"];
-    default:
-      return [];
-  }
+  return ROLE_TRAITS[role].assignCorps;
 }
 
 export function canAssignCorps(role: Role, corps: UnitCorps): boolean {
@@ -50,9 +42,9 @@ export function destinationFor(corps: UnitCorps, requested?: Destination): Desti
   return "pco";
 }
 
-/** Qui déploie et retire sur le terrain : le TACOM, ses PC, et les cellules. */
+/** Qui déploie et retire sur le terrain : le TACOM, ses PC, et les cellules (trait `deploy`). */
 export function canDeploy(role: Role): boolean {
-  return ["superadmin", "admin", "tacom", "pco", "pct", "bluecell", "greencell", "orangecell"].includes(role);
+  return ROLE_TRAITS[role].deploy;
 }
 
 /** Libellés français des corps (journal, fil d'événements). */

@@ -469,7 +469,7 @@ export type Notice = IncidentNotice | PasswordResetNotice;
 
 /** Natures de poste posables sur la carte d'une opération (miroir de l'API). */
 /** `pco` et `pct` : les deux postes de commandement du TACOM (ADR 0016). */
-export type PostKind = "opcom" | "tacom" | "pco" | "pct" | "bluecell" | "greencell" | "orangecell" | "shelter" | "equipment";
+export type PostKind = "opcom" | "tacom" | "pco" | "pct" | "bluecell" | "greencell" | "orangecell" | "shelter" | "equipment" | "pcfar" | "pcf";
 
 /**
  * Un poste posé sur la carte d'une opération : un PC, une cellule, un abri ou

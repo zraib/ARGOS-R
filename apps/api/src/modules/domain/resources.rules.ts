@@ -18,6 +18,7 @@
 
 import type { AppMode } from "@/common/app-mode";
 import type { Role } from "@/shared/permissions";
+import { ROLE_TRAITS } from "@/shared/profiles";
 import type { Assignments } from "@/shared/responsibilities";
 import type { UnitCorps } from "@/modules/domain/domain.types";
 import type { ResourceKind, ResourceOwner } from "@/modules/domain/resources.types";
@@ -35,37 +36,45 @@ export interface ResourceContext {
   kind: ResourceKind;
 }
 
-/** Le compte tient-il cette ressource sur cette entité ? */
+/**
+ * Le compte tient-il cette ressource sur cette entité ? Le trait `resources`
+ * du profil (ADR 0022) dit ce que le rôle tient ; la règle dit sur quoi et
+ * dans quel mode.
+ */
 export function canManageResource(c: ResourceContext): boolean {
-  const { role, mode, scope, owner, kind } = c;
-  if (role === "superadmin" || role === "admin") return true;
-  switch (role) {
-    case "resp_unit":
+  const { mode, scope, owner, kind } = c;
+  switch (ROLE_TRAITS[c.role].resources) {
+    case "all":
+      return true;
+    case "animation":
+      return mode !== "operational";
+    case "own_unit":
       return owner.kind === "unit" && scope?.unit === owner.id;
-    case "resp_hospital":
+    case "own_hospital":
       return owner.kind === "hospital" && scope?.hospital === owner.id;
-    case "resp_shelter":
+    case "own_shelter":
       return owner.kind === "shelter" && scope?.shelter === owner.id;
-    case "resp_equipment":
+    case "park":
       return owner.kind === "unit" && scope?.equipment === owner.id && (kind === "equipment" || kind === "vehicles" || kind === "supplies");
-    case "greencell":
+    case "logistics":
       // La logistique est sa fonction en tout mode ; le reste hors opérationnel.
       return kind === "supplies" || mode !== "operational";
-    case "bluecell":
+    case "ops":
       return mode !== "operational" && kind !== "supplies";
-    case "orangecell":
+    case "security":
       return mode !== "operational" && kind !== "supplies" && owner.kind === "unit" && !!c.ownerCorps && SECURITY_CORPS.includes(c.ownerCorps);
-    default:
+    case "none":
       return false;
   }
 }
 
 /** Libellé de refus, pour que l'opérateur sache pourquoi. */
 export function refusalReason(c: ResourceContext): string {
-  if (c.mode === "operational" && ["bluecell", "orangecell"].includes(c.role)) {
+  const holding = ROLE_TRAITS[c.role].resources;
+  if (c.mode === "operational" && (holding === "ops" || holding === "security" || holding === "animation")) {
     return "Mode opérationnel : les ressources sont tenues par les chefs d'entité ; les cellules déploient.";
   }
-  if (c.role === "orangecell") return "La cellule orange tient les ressources des forces de l'ordre (FAR, DGSN, Gendarmerie, FA).";
-  if (c.role.startsWith("resp_")) return "Un responsable ne tient que les ressources de sa propre entité.";
+  if (holding === "security") return "La cellule sécurité tient les ressources des forces de l'ordre (FAR, DGSN, Gendarmerie, FA).";
+  if (holding.startsWith("own_") || holding === "park") return "Un responsable ne tient que les ressources de sa propre entité.";
   return `Le rôle ${c.role} ne tient pas les ressources.`;
 }

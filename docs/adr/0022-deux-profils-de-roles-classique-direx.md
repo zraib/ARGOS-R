@@ -1,7 +1,8 @@
 # ADR 0022 — Deux profils de rôles dans une même application : « classique » (l'organisation actuelle) et « direx » (DIREX / PC FAR / PCF / PCT / PCO)
 
-- **Statut :** proposé — rien n'est construit ; ce document est la proposition à arbitrer
-- **Date :** 2026-09-19 (révisée le même jour : un seul port, une seule base, deux profils ; PCF ajouté)
+- **Statut :** accepté — lot 1 livré (socle, profil `direx`, mode de l'application) ; la grille reste à corriger
+- **Date :** 2026-09-19 (révisée le même jour : un seul port, une seule base, deux profils ; PCF ajouté ; le
+  mode est un réglage de station changé par le Super Administrateur seul)
 - **Branche :** `fusion-V2` (ouverte depuis `fusion`, qui reste la version livrée)
 - **Portée envisagée :** `apps/api/src/shared/permissions.ts` (catalogue des rôles, matrice, rôles
   dérivés), `shared/responsibilities.ts`, `modules/domain/{assignment,mode,post,resources,edit}.rules.ts`,
@@ -16,8 +17,9 @@
 
 Le propriétaire du produit veut **rebâtir les rôles** de l'application autour d'une organisation de
 poste de commandement par fonctions, **sans perdre l'organisation actuelle** : la même application,
-sur le même port et les mêmes données, propose deux **profils de rôles** — `classique` donne accès à
-la version actuelle, `direx` aux nouveaux rôles.
+sur le même port et les mêmes données, connaît deux **profils de rôles** — `classique` donne accès à
+la version actuelle, `direx` aux nouveaux rôles — et n'en sert qu'un à la fois : le **mode de
+l'application**, réglé par le Super Administrateur.
 
 | Échelon (profil `direx`) | Fonctions |
 | --- | --- |
@@ -34,7 +36,9 @@ n'est pas repris, la logistique des PC en hérite) ; l'incident est déclaré pa
 la DIREX ; le PC FAR affecte les unités des FAR, le PCF celles des autres intervenants ; les
 sous-incidents (déclarer, modifier, supprimer) sont une fonctionnalité à part ; les deux profils
 vivent dans **une seule instance** (même port, mêmes données, mêmes modes) et le jeu de
-démonstration sert les deux.
+démonstration sert les deux ; **seul le Super Administrateur change le mode** ; sous un mode, les
+comptes de l'autre profil ne se connectent pas et reçoivent « Le Mode X est activé sur cette station
+— contactez l'administrateur ».
 
 Ce que le code sait des rôles aujourd'hui :
 
@@ -65,14 +69,16 @@ qui divergent au premier correctif, deux paquets à maintenir : écarté.
 **B. Remplacement** — les nouveaux rôles remplacent les anciens avec une table de reprise des
 comptes : la version actuelle disparaît, contraire à la demande.
 
-**C. Deux profils dans une seule application (retenu)** — le catalogue des rôles devient une
-**donnée versionnée** ; l'application en charge deux, **en même temps** : `classique` (les 20 rôles
+**C. Deux profils dans une seule application, un mode en service (retenu)** — le catalogue des
+rôles devient une **donnée versionnée** ; l'application en connaît deux : `classique` (les 20 rôles
 d'aujourd'hui, comportement inchangé) et `direx` (26 rôles : 4 DIREX, 5 PC FAR, 5 PCF, 4 PCT, 4 PCO,
 4 chefs d'entité). Même port, même base, mêmes modes de la station (démo / exercice / opérationnel).
-Chaque **rôle** appartient à un profil ; chaque **compte** porte des rôles d'un seul profil ; les
-deux organisations peuvent agir sur les mêmes opérations, parce que les règles ne testent plus des
-noms de rôles mais des **capacités**. Le développement se fait sur la branche `fusion-V2` ;
-`fusion` reste la version livrée tant que la V2 n'est pas prête.
+Chaque **rôle** appartient à un profil ; chaque **compte** porte des rôles d'un seul profil. Le
+**mode de l'application** (`classique` ou `direx`) est un réglage de la station, comme le mode
+démo / exercice / opérationnel : le Super Administrateur seul le change, signé de son mot de passe ;
+sous un mode, l'autre profil n'est pas servi. Les règles ne testent plus des noms de rôles mais des
+**traits** portés par chaque rôle. Le développement se fait sur la branche `fusion-V2` ; `fusion`
+reste la version livrée tant que la V2 n'est pas prête.
 
 Pourquoi pas une seconde instance sur un autre port : elle aurait dupliqué base, comptes, volumes,
 sauvegardes et procédures d'installation pour séparer ce qui n'a pas besoin de l'être — les deux
@@ -189,11 +195,20 @@ Proposition : module `subincidents` (« Sous-incidents ») inséré après `inci
 `MODULE_KEYS`, défaut = ce que la matrice RBAC accorde, garde `assertModuleOpen` sur les routes
 `incidents/:id/sub-incidents*`.
 
-### 5. Une instance, deux profils, les mêmes données
+### 5. Une instance, deux profils, un mode en service, les mêmes données
 
-- Les deux profils sont toujours chargés ; aucun réglage `.env`, aucun redémarrage. Un compte porte
-  des rôles d'un seul profil (le formulaire de compte choisit le profil, puis ses rôles) ;
-  `/iam/me` dit lequel.
+- Le **mode de l'application** (`ProfileService`, réglage `profile` de `settings.json`, défaut
+  `classique`) se change par `PATCH domain/profile` — Super Administrateur seul, mot de passe exigé,
+  sans redémarrage. La sonde publique `/health` l'annonce (`roleProfile`), `/iam/me` et
+  `GET /iam/profiles` (`active`) aussi ; l'écran de connexion l'affiche (« Mode en service »), l'en-tête
+  le rappelle, les Paramètres le basculent.
+- **Sous un mode, l'autre profil n'est pas servi** : la connexion d'un compte de l'autre profil est
+  refusée (403 « Le Mode X est activé sur cette station — contactez l'administrateur ») ; une session
+  déjà ouverte de l'autre profil tombe à sa requête suivante (401, la garde JWT compare le rôle au mode
+  en service) ; ses rôles ne s'attribuent pas (400) ; la matrice servie (`/iam/role-features*`) et le
+  sélecteur de rôle ne montrent que le profil en service. L'administration et les chefs d'entité,
+  communs, passent dans les deux modes.
+- Un compte porte des rôles d'un seul profil ; `/iam/me` dit le mode en service.
 - Les **graines de démonstration** (mode démo, ADR 0015) reçoivent des comptes du profil `direx`
   (Chef Direx, Anim, Eval, RLS, chefs et cellules de PC FAR, PCF, PCT, PCO) à côté des comptes
   actuels, déployés sur les mêmes opérations : le jeu se joue sous l'un ou l'autre profil, ou les
@@ -216,15 +231,20 @@ Avant le premier lot : étiquette git `v1-roles-classiques` sur `1ee4239`, paque
 
 ## Lots (branche `fusion-V2`)
 
-1. **Socle** — `Profile`/`RoleDef`, profil `classique` extrait à l'identique, capacités, règles et
-   web réécrits sur les capacités, `GET /iam/profiles`, `/iam/me` enrichi, module `subincidents`.
-   **Aucun changement de comportement** : les gates existantes (56 suites / 518 tests, 202 web) en
-   sont la preuve. C'est le lot le plus lourd — c'est le prix de garder les deux organisations.
-2. **Profil `direx`** — 26 rôles, libellés FR/EN/AR, matrice de défauts (la grille corrigée),
-   règles d'affectation PC FAR / PCF, postes de carte `pcfar` et `pcf`, comptes de démonstration,
-   suites de tests sous `direx` et croisées (les deux profils sur une même opération).
-3. **Web** — sélecteur de rôle et matrice à deux onglets, formulaire de compte par profil,
-   navigation et libellés, boîte à outils d'édition, annuaire et canaux groupés par échelon.
+1. **Socle (livré)** — `shared/profiles.ts` (catalogue des deux profils, `ROLE_TRAITS`), profil
+   `classique` extrait à l'identique, règles (`assignment`, `mode`, `resources`, `edit`, `post`),
+   visibilité et rattachements réécrits sur les traits ; profil `direx` (26 rôles, libellés FR/EN/AR,
+   matrice générée depuis la grille — `scripts/direx-matrix.mjs` → `shared/direx.matrix.ts`), postes
+   de carte `pcfar` et `pcf`, douze comptes de démonstration ; mode de l'application (`ProfileService`,
+   `PATCH domain/profile`, `/health.roleProfile`, `GET /iam/profiles`) ; web : mode annoncé à la
+   connexion, bascule dans les Paramètres, badge d'en-tête, sélecteur et matrice sur le profil en
+   service, écritures gardées par la permission servie (`can()`), miroirs des traits. Les gates
+   existantes passent inchangées (profil classique) ; suites ajoutées : `shared/profiles.spec.ts`,
+   `iam/login-mode.spec.ts`.
+2. **Grille** — corrections cellule par cellule de `docs/matrice-roles-direx.xlsx`, reportées par le
+   script ; module `subincidents` du menu.
+3. **Web** — annuaire et canaux du centre de communication groupés par échelon ; comptes de
+   démonstration déployés sur les opérations du jeu.
 4. **Livraison** — tableau des rôles par profil dans `README.md`, guides, paquet ; fusion de
    `fusion-V2` dans `fusion` quand les deux profils sont vérifiés.
 

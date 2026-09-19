@@ -29,6 +29,8 @@ const EMPTY_DRAFT: Draft = { ...EMPTY_IDENTITY, kind: "dead", note: "", deathAt:
 export function VictimsModal({ incident, onClose }: { incident: Incident; onClose: () => void }) {
   const m = useModules();
   const role = useArgos((s) => s.role);
+  // La permission servie par l'API (ADR 0022) vaut pour les deux profils de rôles.
+  const can = useArgos((s) => s.can);
   const hospitals = useArgos((s) => s.hospitals);
   const morgues = useArgos((s) => s.morgues);
   const loadDomain = useArgos((s) => s.loadDomain);
@@ -45,7 +47,7 @@ export function VictimsModal({ incident, onClose }: { incident: Incident; onClos
   const [error, setError] = useState<string | null>(null);
 
   // Qui affine : l'API le dit (matrice `victims`) ; l'écran masque ce qu'elle refuserait.
-  const canWrite = ["superadmin", "admin", "opcom", "tacom", "bluecell", "greencell", "resp_unit", "resp_hospital"].includes(role);
+  const canWrite = can("victims:create") || role === "superadmin";
 
   const load = useCallback(async () => {
     const [v, r] = await Promise.all([api.getVictims(incident.id), api.getMortuaryRegistry(incident.id)]);

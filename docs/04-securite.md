@@ -309,6 +309,22 @@ déjà repris du même export est sauté. Le fichier d'export n'est pas chiffré
 il se garde comme un document opérationnel. Tests :
 `modules/realtime/comms-archive.spec.ts`, `modules/domain/comms.spec.ts`.
 
+**Deux profils de rôles, un mode en service (ADR 0022).** Le catalogue
+(`shared/profiles.ts`) porte deux profils — `classique` (les vingt rôles
+d'origine, inchangés) et `direx` (DIREX, PC FAR, PCF, PCT, PCO par fonctions,
+avec les mêmes chefs d'entité) — et chaque rôle ses **traits** (corps qu'il
+affecte, déploiement, ressources tenues, postes posés, portée…), que les règles
+du domaine lisent à la place de noms de rôles. Le **mode de l'application**
+(`ProfileService`, `settings.json`) décide du profil servi : le Super
+Administrateur seul le change (`PATCH domain/profile`, mot de passe exigé,
+sans redémarrage). Sous un mode, l'autre profil n'existe pas pour la station :
+connexion refusée (403 « Le Mode X est activé sur cette station — contactez
+l'administrateur »), session déjà ouverte refusée à sa requête suivante (401 —
+la garde JWT compare le rôle du jeton au mode en service), rôles non
+attribuables (400), matrice et sélecteur limités au profil en service. Les
+rôles techniques et les chefs d'entité passent dans les deux modes. Tests :
+`shared/profiles.spec.ts`, `modules/iam/login-mode.spec.ts`.
+
 ## 6. Matrice rôle → modules, drapeaux globaux
 
 Second niveau, distinct du RBAC : quels **modules** (écrans) un rôle voit, et

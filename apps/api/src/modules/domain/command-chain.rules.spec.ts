@@ -1,7 +1,10 @@
 import { assignableCorps, canAssignCorps, canDeploy, destinationFor } from "@/modules/domain/assignment.rules";
 import { canCreateUnit, canDeleteUnit, canEditUnit } from "@/modules/domain/mode.rules";
 import { canManageResource } from "@/modules/domain/resources.rules";
-import { ROLES } from "@/shared/permissions";
+import { CLASSIC_ROLES } from "@/shared/profiles";
+
+// Les attentes ci-dessous décrivent le profil « classique » ; le profil « direx » a les siennes (profiles.spec.ts).
+const ROLES = CLASSIC_ROLES;
 
 // ============================================================================
 // Chaîne de commandement (ADR 0016) — les règles pures, épinglées.

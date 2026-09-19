@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
-import { DEPLOYABLE_ROLES, type Assignments, type ResponsibilityKind } from "@/shared/responsibilities";
+import type { Assignments, ResponsibilityKind } from "@/shared/responsibilities";
 import type { Role } from "@/shared/permissions";
+import { ROLE_TRAITS } from "@/shared/profiles";
 import type { AppMode } from "@/common/app-mode";
 import type { Incident, Unit, FieldHospital } from "@/modules/domain/domain.service";
 import type { ResourceOwner } from "@/modules/domain/resources.types";
@@ -57,8 +58,6 @@ export type VisibilityScope =
 /** Résout la région d'une entité affectée — fourni par le domaine, que la doctrine ne connaît pas. */
 export type RegionOfEntity = (kind: ResponsibilityKind, id: string) => string | undefined;
 
-/** Rôles qui voient tout — leur fonction l'exige. */
-const GLOBAL_ROLES: readonly Role[] = ["superadmin", "admin", "strategic"];
 
 /**
  * Rôles de conduite cantonnés à l'incident sur lequel ils sont déployés.
@@ -70,7 +69,8 @@ const GLOBAL_ROLES: readonly Role[] = ["superadmin", "admin", "strategic"];
  * déploiement (V-2). Deux listes parallèles auraient fini par diverger, et un
  * rôle déployable oublié ici aurait vu TOUS les incidents.
  */
-const DEPLOYED_ROLES = DEPLOYABLE_ROLES;
+// Depuis l'ADR 0022, cette table est le trait `visibility` de chaque rôle
+// (`profiles.ts`) : « incident » pour tout poste déployé, des deux profils.
 
 /** Les régions (dédoublonnées) de ces entités, si un résolveur est fourni. */
 function regionsOf(kind: ResponsibilityKind, ids: readonly string[], regionOf?: RegionOfEntity): string[] {
@@ -78,8 +78,6 @@ function regionsOf(kind: ResponsibilityKind, ids: readonly string[], regionOf?: 
   return [...new Set(ids.map((id) => regionOf(kind, id)).filter((r): r is string => !!r))];
 }
 
-/** Rôles dont le périmètre est l'ensemble des incidents où leur entité sert. */
-const MULTI_INCIDENT_ROLES: readonly Role[] = ["resp_hospital", "resp_unit", "resp_morgue"];
 
 @Injectable()
 export class VisibilityService {
@@ -92,12 +90,13 @@ export class VisibilityService {
    * administratif visible plutôt que dangereux.
    */
   scopeOf(role: Role, assignments: Assignments | undefined, regionOf?: RegionOfEntity): VisibilityScope {
-    if (GLOBAL_ROLES.includes(role)) return { kind: "global" };
+    const visibility = ROLE_TRAITS[role].visibility;
+    if (visibility === "global") return { kind: "global" };
 
     // Le responsable d'abri : SON abri, la région de son abri, et l'opération
     // où il est déployé — avant la règle générale des postes déployables, qui
     // l'aveuglerait sur tout le reste tant qu'on ne l'a pas déployé.
-    if (role === "resp_shelter") {
+    if (visibility === "entity") {
       const entities = assignments?.shelter ? [assignments.shelter] : [];
       return { kind: "entity", entities, regions: regionsOf("shelter", entities, regionOf), incidentId: assignments?.incident ?? null };
     }
@@ -105,15 +104,15 @@ export class VisibilityService {
     // Wali et commandant de place d'armes : LEUR région, rien d'autre. La
     // place d'armes couvrait un rayon de 40 km autour d'une ville ; elle suit
     // désormais le découpage administratif, comme le wali.
-    if (role === "wali" || role === "place_arme") {
+    if (visibility === "region") {
       return { kind: "region", region: assignments?.region ?? "" };
     }
 
-    if (DEPLOYED_ROLES.includes(role)) {
+    if (visibility === "incident") {
       return { kind: "incident", incidentId: assignments?.incident ?? null };
     }
 
-    if (MULTI_INCIDENT_ROLES.includes(role)) {
+    if (visibility === "entity_multi") {
       const parKind: [ResponsibilityKind, string | undefined][] = [
         ["hospital", assignments?.hospital],
         ["unit", assignments?.unit],

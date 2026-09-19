@@ -8,7 +8,14 @@
 
 import { NAV_ICONS, FLUX_ICONS, KPI_ICONS, UI_ICONS } from "@/lib/icons";
 
-/** Rôle de session (identique à ROLE_PERMISSIONS côté API — organisation cible). */
+/** Les deux profils de rôles (ADR 0022) : le mode se choisit à la connexion. */
+export const PROFILE_IDS = ["classique", "direx"] as const;
+export type ProfileId = (typeof PROFILE_IDS)[number];
+export function isProfileId(v: unknown): v is ProfileId {
+  return typeof v === "string" && (PROFILE_IDS as readonly string[]).includes(v);
+}
+
+/** Rôle de session (identique à ROLE_PERMISSIONS côté API — les deux profils, ADR 0022). */
 export type Role =
   | "superadmin"
   | "admin"
@@ -29,7 +36,30 @@ export type Role =
   | "resp_shelter"
   | "resp_morgue"
   | "resp_unit"
-  | "resp_equipment";
+  | "resp_equipment"
+  // Profil « direx » (ADR 0022) : direction d'exercice et PC par fonctions.
+  | "direx_chef"
+  | "direx_eval"
+  | "direx_anim"
+  | "direx_rls"
+  | "pcfar_chef"
+  | "pcfar_ops"
+  | "pcfar_log"
+  | "pcfar_planif_rens"
+  | "pcfar_synth"
+  | "pcf_chef"
+  | "pcf_ops"
+  | "pcf_log"
+  | "pcf_planif_rens"
+  | "pcf_synth"
+  | "pct_chef"
+  | "pct_ops"
+  | "pct_log"
+  | "pct_rens"
+  | "pco_chef"
+  | "pco_ops"
+  | "pco_log"
+  | "pco_rens_com";
 
 /** Ordre hiérarchique d'affichage (du plus privilégié au moins privilégié). */
 export const ROLES: Role[] = [
@@ -55,7 +85,112 @@ export const ROLES: Role[] = [
   "resp_morgue",
   "resp_unit",
   "resp_equipment",
+  "direx_chef",
+  "direx_eval",
+  "direx_anim",
+  "direx_rls",
+  "pcfar_chef",
+  "pcfar_ops",
+  "pcfar_log",
+  "pcfar_planif_rens",
+  "pcfar_synth",
+  "pcf_chef",
+  "pcf_ops",
+  "pcf_log",
+  "pcf_planif_rens",
+  "pcf_synth",
+  "pct_chef",
+  "pct_ops",
+  "pct_log",
+  "pct_rens",
+  "pco_chef",
+  "pco_ops",
+  "pco_log",
+  "pco_rens_com",
 ];
+
+/**
+ * À quel profil chaque rôle appartient (miroir de `ROLE_TRAITS[].profile` de
+ * l'API) : `core` (technique, dans les deux modes), `both` (les chefs d'entité,
+ * communs), ou l'un des deux profils.
+ */
+export const ROLE_PROFILE: Record<Role, "core" | "both" | ProfileId> = {
+  superadmin: "core",
+  admin: "core",
+  strategic: "classique",
+  place_arme: "classique",
+  wali: "classique",
+  opcom: "classique",
+  gendarmerie: "classique",
+  etat_major: "classique",
+  interieur: "classique",
+  tacom: "classique",
+  pco: "classique",
+  pct: "classique",
+  bluecell: "classique",
+  greencell: "classique",
+  orangecell: "classique",
+  resp_hospital: "both",
+  resp_shelter: "both",
+  resp_morgue: "both",
+  resp_unit: "both",
+  resp_equipment: "classique",
+  direx_chef: "direx",
+  direx_eval: "direx",
+  direx_anim: "direx",
+  direx_rls: "direx",
+  pcfar_chef: "direx",
+  pcfar_ops: "direx",
+  pcfar_log: "direx",
+  pcfar_planif_rens: "direx",
+  pcfar_synth: "direx",
+  pcf_chef: "direx",
+  pcf_ops: "direx",
+  pcf_log: "direx",
+  pcf_planif_rens: "direx",
+  pcf_synth: "direx",
+  pct_chef: "direx",
+  pct_ops: "direx",
+  pct_log: "direx",
+  pct_rens: "direx",
+  pco_chef: "direx",
+  pco_ops: "direx",
+  pco_log: "direx",
+  pco_rens_com: "direx",
+};
+
+/** Le rôle est-il utilisable dans ce mode ? */
+export function roleInProfile(role: Role, profile: ProfileId): boolean {
+  const p = ROLE_PROFILE[role];
+  return p === "core" || p === "both" || p === profile;
+}
+
+/** Les rôles d'un mode, dans l'ordre du catalogue. */
+export function rolesOfProfile(profile: ProfileId): Role[] {
+  return ROLES.filter((r) => roleInProfile(r, profile));
+}
+
+/** Le profil propre d'un jeu de rôles ; `null` s'il n'a que des rôles techniques ou communs. */
+export function profileOfRoles(roles: readonly Role[]): ProfileId | null {
+  for (const r of roles) {
+    const p = ROLE_PROFILE[r];
+    if (p === "classique" || p === "direx") return p;
+  }
+  return null;
+}
+
+/** Échelon d'un rôle — sert à grouper le sélecteur (DIREX, PC FAR, PCF, PCT, PCO, entités). */
+export type Echelon = "admin" | "direx" | "pcfar" | "pcf" | "pct" | "pco" | "entity" | "classique";
+export function echelonOf(role: Role): Echelon {
+  if (role === "superadmin" || role === "admin") return "admin";
+  if (role.startsWith("direx_")) return "direx";
+  if (role.startsWith("pcfar_")) return "pcfar";
+  if (role.startsWith("pcf_")) return "pcf";
+  if (role.startsWith("pct_")) return "pct";
+  if (role.startsWith("pco_")) return "pco";
+  if (role.startsWith("resp_")) return "entity";
+  return "classique";
+}
 
 /** Icône (tracé SVG) associée à chaque rôle — sert au sélecteur en tuiles. */
 export const ROLE_ICONS: Record<Role, string> = {
@@ -79,6 +214,28 @@ export const ROLE_ICONS: Record<Role, string> = {
   resp_morgue: KPI_ICONS.beds,
   resp_unit: NAV_ICONS.units,
   resp_equipment: NAV_ICONS.dis,
+  direx_chef: NAV_ICONS.cmd,
+  direx_eval: UI_ICONS.eye,
+  direx_anim: FLUX_ICONS.activity,
+  direx_rls: UI_ICONS.key,
+  pcfar_chef: KPI_ICONS.units,
+  pcfar_ops: FLUX_ICONS.activity,
+  pcfar_log: NAV_ICONS.res,
+  pcfar_planif_rens: NAV_ICONS.plans,
+  pcfar_synth: NAV_ICONS.reports,
+  pcf_chef: UI_ICONS.users,
+  pcf_ops: FLUX_ICONS.activity,
+  pcf_log: NAV_ICONS.res,
+  pcf_planif_rens: NAV_ICONS.plans,
+  pcf_synth: NAV_ICONS.reports,
+  pct_chef: NAV_ICONS.dispatch,
+  pct_ops: FLUX_ICONS.activity,
+  pct_log: NAV_ICONS.res,
+  pct_rens: UI_ICONS.key,
+  pco_chef: NAV_ICONS.dispatch,
+  pco_ops: FLUX_ICONS.activity,
+  pco_log: NAV_ICONS.res,
+  pco_rens_com: UI_ICONS.key,
 };
 
 /**
@@ -87,9 +244,11 @@ export const ROLE_ICONS: Record<Role, string> = {
  * - l'Administrateur peut créer tous les rôles SAUF superadmin et admin.
  * Tout autre rôle ne peut créer personne.
  */
-export function assignableRoles(creator: Role): Role[] {
-  if (creator === "superadmin") return ROLES;
-  if (creator === "admin") return ROLES.filter((r) => r !== "superadmin" && r !== "admin");
+/** Les rôles qu'un créateur peut attribuer — dans le mode demandé, s'il est donné (ADR 0022). */
+export function assignableRoles(creator: Role, profile?: ProfileId): Role[] {
+  const pool = profile ? rolesOfProfile(profile) : ROLES;
+  if (creator === "superadmin") return pool;
+  if (creator === "admin") return pool.filter((r) => r !== "superadmin" && r !== "admin");
   return [];
 }
 
@@ -116,7 +275,11 @@ export function isSuperAdmin(role: Role): boolean {
  * `incidents:create` (l'API reste l'autorité ; ceci ne fait que masquer l'UI).
  */
 export function canReportIncident(role: Role): boolean {
-  return role === "superadmin" || role === "tacom" || role === "pco" || role === "pct" || role === "bluecell";
+  return (
+    role === "superadmin" || role === "tacom" || role === "pco" || role === "pct" || role === "bluecell" ||
+    // Profil « direx » : la DIREX déclare (Chef, Anim), les chefs de PC tactiques et leurs cellules Ops rendent compte.
+    role === "direx_chef" || role === "direx_anim" || role === "pct_chef" || role === "pco_chef" || role === "pct_ops" || role === "pco_ops"
+  );
 }
 
 /**
@@ -126,7 +289,10 @@ export function canReportIncident(role: Role): boolean {
  * masquer un geste qui serait de toute façon refusé.
  */
 export function canDeployPosts(role: Role): boolean {
-  return role === "superadmin" || role === "admin" || role === "opcom" || role === "tacom" || role === "pco" || role === "pct";
+  return (
+    role === "superadmin" || role === "admin" || role === "opcom" || role === "tacom" || role === "pco" || role === "pct" ||
+    role === "direx_chef" || role === "direx_anim" || role === "pcfar_chef" || role === "pcfar_ops" || role === "pcf_chef" || role === "pcf_ops" || role === "pct_chef" || role === "pco_chef"
+  );
 }
 
 /**
@@ -186,6 +352,25 @@ export const ROLE_SCOPE_KEY: Partial<Record<Role, ScopeKey>> = {
   orangecell: "incident",
   resp_shelter: "incident",
   resp_equipment: "incident",
+  // Profil « direx » : les PC et leurs cellules sont déployés sur une opération ; la DIREX est globale.
+  pcfar_chef: "incident",
+  pcfar_ops: "incident",
+  pcfar_log: "incident",
+  pcfar_planif_rens: "incident",
+  pcfar_synth: "incident",
+  pcf_chef: "incident",
+  pcf_ops: "incident",
+  pcf_log: "incident",
+  pcf_planif_rens: "incident",
+  pcf_synth: "incident",
+  pct_chef: "incident",
+  pct_ops: "incident",
+  pct_log: "incident",
+  pct_rens: "incident",
+  pco_chef: "incident",
+  pco_ops: "incident",
+  pco_log: "incident",
+  pco_rens_com: "incident",
 };
 
 /**

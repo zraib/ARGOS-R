@@ -1,3 +1,4 @@
+import { rolesHoldingPost } from "@/shared/profiles";
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, type OnApplicationBootstrap } from "@nestjs/common";
 import { resolveShelterTypology, type ShelterTypologyInput } from "@/modules/domain/shelter.rules";
 import { computeAnalyticsOf, computeStats, type DomainSnapshot } from "@/modules/domain/domain.analytics";
@@ -528,12 +529,14 @@ export class DomainService implements OnApplicationBootstrap {
   }
 
   /** Ce que les règles d'un poste ont besoin de savoir de la plateforme. */
-  private postLookup(accountHasRole: (matricule: string, role: PostKind) => boolean): PostLookup {
+  private postLookup(accountHasRole: (matricule: string, role: Role) => boolean): PostLookup {
     const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
     return {
       shelter: (id) => this.shelters.some((x) => x.id === id),
       unit: (id) => this.units.some((u) => u.id === id),
-      account: accountHasRole,
+      // Une nature de poste se tient par plusieurs rôles depuis l'ADR 0022 (le
+      // PCT par `pct` ou `pct_chef`) : le compte convient s'il en tient un.
+      account: (m, kind) => rolesHoldingPost(kind).some((r) => accountHasRole(m, r)),
       placedAccount: (m) => this.posts.find((p) => !!p.matricule && same(p.matricule, m))?.incidentId,
       placedEntity: (kind, id) => this.posts.find((p) => p.kind === kind && p.entityId === id)?.incidentId,
     };
@@ -546,7 +549,7 @@ export class DomainService implements OnApplicationBootstrap {
    */
   assertPostAllowed(
     input: { incidentId: string; kind: PostKind; entityId?: string; matricule?: string },
-    accountHasRole: (matricule: string, role: PostKind) => boolean,
+    accountHasRole: (matricule: string, role: Role) => boolean,
   ): { entityId?: string; matricule?: string } {
     if (!this.incidents.some((i) => i.id === input.incidentId)) throw new NotFoundException(`Incident inconnu : ${input.incidentId}`);
     const check = checkPost(input, this.postLookup(accountHasRole));
@@ -561,7 +564,7 @@ export class DomainService implements OnApplicationBootstrap {
   createPost(
     input: { incidentId: string; kind: PostKind; ll: [number, number]; label?: string; entityId?: string; matricule?: string },
     author: string,
-    accountHasRole: (matricule: string, role: PostKind) => boolean,
+    accountHasRole: (matricule: string, role: Role) => boolean,
   ): IncidentPost {
     const ids = this.assertPostAllowed(input, accountHasRole);
     const n = Math.max(0, ...this.posts.map((p) => parseInt(p.id.replace(/\D/g, ""), 10) || 0)) + 1;

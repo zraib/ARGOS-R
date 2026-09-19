@@ -112,7 +112,7 @@ export const NAV: NavEntry[] = [
     key: "chemlib",
     href: HREF.chemlib,
     icon: NAV_ICONS.chemlib,
-    roles: ["superadmin", "admin", "strategic", "place_arme", "wali", "opcom", "tacom", "bluecell", "greencell", "orangecell"],
+    roles: ["superadmin", "admin", "strategic", "place_arme", "wali", "opcom", "tacom", "bluecell", "greencell", "orangecell", "direx_chef", "direx_eval", "direx_anim", "direx_rls", "pcfar_chef", "pcfar_ops", "pcfar_log", "pcfar_planif_rens", "pcfar_synth", "pcf_chef", "pcf_ops", "pcf_log", "pcf_planif_rens", "pcf_synth", "pct_chef", "pct_ops", "pct_log", "pct_rens", "pco_chef", "pco_ops", "pco_log", "pco_rens_com"],
   },
   {
     kind: "group",
@@ -131,7 +131,7 @@ export const NAV: NavEntry[] = [
     key: "morgue",
     href: HREF.morgue,
     icon: NAV_ICONS.morgue,
-    roles: ["superadmin", "admin", "strategic", "place_arme", "wali", "opcom", "tacom", "bluecell", "greencell", "orangecell", "resp_morgue", "resp_hospital"],
+    roles: ["superadmin", "admin", "strategic", "place_arme", "wali", "opcom", "tacom", "bluecell", "greencell", "orangecell", "resp_morgue", "resp_hospital", "direx_chef", "direx_eval", "direx_anim", "direx_rls", "pcfar_chef", "pcfar_ops", "pcfar_log", "pcfar_planif_rens", "pcfar_synth", "pcf_chef", "pcf_ops", "pcf_log", "pcf_planif_rens", "pcf_synth", "pct_chef", "pct_ops", "pct_log", "pct_rens", "pco_chef", "pco_ops", "pco_log", "pco_rens_com"],
   },
   { kind: "group", key: "dis", icon: NAV_ICONS.dis, children: [item("ics", HREF.ics)] },
   item("damage", HREF.damage),
@@ -141,7 +141,7 @@ export const NAV: NavEntry[] = [
   item("comms", HREF.comms),
   item("reports", HREF.reports),
   item("analytics", HREF.analytics),
-  { kind: "item", key: "simulation", href: HREF.simulation, icon: NAV_ICONS.seismic, roles: ["superadmin", "admin", "strategic", "tacom"] },
+  { kind: "item", key: "simulation", href: HREF.simulation, icon: NAV_ICONS.seismic, roles: ["superadmin", "admin", "strategic", "tacom", "direx_chef", "direx_eval", "direx_anim", "direx_rls", "pcfar_chef", "pcf_chef", "pct_chef", "pco_chef"] },
   // Gestion des utilisateurs — Super Administrateur et Administrateur.
   { kind: "item", key: "users", href: HREF.users, icon: UI_ICONS.users, roles: ["superadmin", "admin"] },
   // Paramètres — réservé au Super Administrateur (filtré dans la Sidebar).

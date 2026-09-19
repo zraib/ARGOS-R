@@ -1199,6 +1199,17 @@ export class AssignUnitDto {
 }
 
 /** Changement du mode de la station (ADR 0016), signé par le mot de passe du Super Administrateur. */
+/** Bascule du mode de l'application (ADR 0022) — Super Administrateur, signée. */
+export class SetProfileDto {
+  @ApiProperty({ enum: ["classique", "direx"], description: "classique (l'organisation actuelle) ou direx (DIREX, PC FAR, PCF, PCT, PCO)" })
+  @IsIn(["classique", "direx"])
+  profile!: "classique" | "direx";
+
+  @ApiProperty({ description: "Mot de passe du compte qui agit", maxLength: 200 })
+  @IsString() @MinLength(1) @MaxLength(200)
+  password!: string;
+}
+
 export class SetModeDto {
   @ApiProperty({ enum: APP_MODES, description: "demo, exercise ou operational" })
   @IsIn(APP_MODES as unknown as string[])

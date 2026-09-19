@@ -38,6 +38,8 @@ export const MODE_LABELS: Record<AppMode, string> = {
 /** Le fichier de réglages de la station (instantané `settings`). */
 export interface StationSettings {
   mode?: string;
+  /** Mode de l'application (ADR 0022) : « classique » ou « direx ». */
+  profile?: string;
 }
 
 export function resolveAppMode(env: NodeJS.ProcessEnv = process.env, persisted?: string): AppMode {

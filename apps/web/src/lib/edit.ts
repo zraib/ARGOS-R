@@ -17,19 +17,28 @@ import { POST_KINDS } from "@/lib/posts";
 
 const TACOM_ROLES: readonly Role[] = ["tacom", "pco", "pct"];
 const CELL_ROLES: readonly Role[] = ["bluecell", "greencell", "orangecell"];
+// Profil « direx » (ADR 0022) : qui pose des moyens sur le terrain — l'animation,
+// les OPS des PC opératifs, les chefs et les cellules des PC tactiques.
+const DIREX_FIELD_ROLES: readonly Role[] = [
+  "direx_anim", "pcfar_ops", "pcf_ops",
+  "pct_chef", "pct_ops", "pct_log", "pct_rens", "pco_chef", "pco_ops", "pco_log", "pco_rens_com",
+];
 
-/** Les natures de postes que le rôle pose sur la carte. */
+/** Les natures de postes que le rôle pose sur la carte (miroir du trait `placePosts`). */
 export function placeablePostKinds(role: Role): readonly PostKind[] {
   if (role === "superadmin") return POST_KINDS;
   if (role === "strategic") return ["opcom"];
   if (role === "opcom") return ["tacom", "pco", "pct", "bluecell", "greencell", "orangecell"];
+  if (role === "direx_chef") return ["pcfar", "pcf"];
+  if (role === "direx_anim") return ["pcfar", "pcf", "pct", "pco"];
+  if (role === "pcfar_chef" || role === "pcfar_ops" || role === "pcf_chef" || role === "pcf_ops") return ["pct", "pco"];
   return [];
 }
 
-/** Les natures de ressources que le rôle pose sur le terrain. */
+/** Les natures de ressources que le rôle pose sur le terrain (miroir du trait `placeResources`). */
 export function placeableResourceKinds(role: Role): readonly PlaceableKind[] {
   if (role === "superadmin") return ["teams", "vehicles", "equipment"];
-  if (TACOM_ROLES.includes(role) || CELL_ROLES.includes(role)) return ["teams", "equipment", "vehicles"];
+  if (TACOM_ROLES.includes(role) || CELL_ROLES.includes(role) || DIREX_FIELD_ROLES.includes(role)) return ["teams", "equipment", "vehicles"];
   return [];
 }
 
