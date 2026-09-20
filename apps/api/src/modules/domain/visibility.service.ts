@@ -78,12 +78,13 @@ export function unitsVisibleToAll(): boolean {
 }
 
 /**
- * L'unité se montre-t-elle à CE compte dans le mode en service ? Le Super
- * Administrateur voit tout — les unités des deux modes (ADR 0027) ; les autres
- * ne voient que celles du mode où ils sont connectés (ADR 0022).
+ * L'unité se montre-t-elle à CE compte ? Une unité créée sous un mode de
+ * l'application ne se montre que sous lui (ADR 0022) — pour TOUS les rôles, le
+ * Super Administrateur compris (décision du 20 septembre 2026, ADR 0027 rév.) :
+ * ce qu'il « voit tout », c'est tout le mode en service.
  */
 export function unitVisibleTo(unit: Pick<Unit, "profile" | "seeded">, user: Pick<AuthUser, "role" | "profile">): boolean {
-  return user.role === "superadmin" || unitFitsMode(unit, user.profile);
+  return unitFitsMode(unit, user.profile);
 }
 
 export type VisibilityScope =

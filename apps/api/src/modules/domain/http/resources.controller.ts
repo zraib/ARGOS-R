@@ -42,7 +42,21 @@ export class ResourcesController {
       "celles affectées ou intervenantes sur son opération (conduite déployée). L'administration et le stratégique voient tout.",
   })
   units(@CurrentUser() user: AuthUser) {
-    return this.visibleUnits(user);
+    return this.visibleUnits(user).map((u) => this.withCommander(u));
+  }
+
+  /**
+   * Le commandant d'une unité est le compte qui la tient (ADR 0027 rév.) : dès
+   * qu'un « Commandant d'unité » est rattaché à l'unité, son nom — grade
+   * compris — remplace le nom saisi à la création dans `cmdt`, partout où
+   * l'unité s'affiche (tuiles, fiche, carte, répartiteur). Sans compte
+   * rattaché, le nom saisi reste. Plusieurs comptes : le premier servi, comme
+   * la légende de la fiche.
+   */
+  private withCommander<T extends { id: string; cmdt: string }>(unit: T): T {
+    const holder = this.users.listResponsibles().find((r) => r.kind === "unit" && r.entityId === unit.id);
+    if (!holder) return unit;
+    return { ...unit, cmdt: holder.grade ? `${holder.grade} ${holder.nom}` : holder.nom };
   }
 
   @Post("units")
@@ -61,7 +75,7 @@ export class ResourcesController {
     // opération aussitôt — l'OPCOM et le TACOM de l'opération la voient.
     const unit = this.domain.createUnit(dto, user.username, user.profile);
     if (user.scope?.incident) this.domain.attachUnitToOperation(unit.id, user.scope.incident, user.username);
-    return this.domain.findUnit(unit.id) ?? unit;
+    return this.withCommander(this.domain.findUnit(unit.id) ?? unit);
   }
 
   @Patch("units/:id")
@@ -74,7 +88,7 @@ export class ResourcesController {
     if (!canEditUnit(user.role, this.mode.current(), user.scope?.unit === id)) throw new ForbiddenException(`Mode ${this.mode.current()} : la modification d'unités n'est pas ouverte au rôle ${user.role}.`);
     const u = this.domain.updateUnit(id, dto);
     if (!u) throw new NotFoundException(`Unité introuvable : ${id}`);
-    return u;
+    return this.withCommander(u);
   }
 
   @ApiOperation({

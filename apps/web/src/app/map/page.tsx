@@ -354,6 +354,8 @@ export default function MapPage() {
           badgeLabel: t.pl_placed,
           lines: [
             { k: t.pl_owner, v: p.ownerLabel },
+            // Le chef de l'équipe posée, quand elle en a un (ADR 0027 rév.).
+            ...(p.leader ? [{ k: t.rs_leader, v: p.leader }] : []),
             ...(inc ? [{ k: t.post_incident, v: `${inc.id} · ${inc.titre}` }] : []),
             { k: t.pl_by, v: `${p.position.by} · ${p.position.at.slice(0, 16).replace("T", " ")}` },
             { k: t.post_coords, v: `${p.position.ll[1].toFixed(4)}, ${p.position.ll[0].toFixed(4)}` },

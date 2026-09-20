@@ -36,7 +36,7 @@ describe("Unités par mode de l'application", () => {
 
   afterAll(async () => app.close());
 
-  it("une unité créée sous un mode ne se montre que sous lui ; celles d'avant se voient des deux côtés ; le Super Administrateur voit tout (ADR 0027)", async () => {
+  it("une unité créée sous un mode ne se montre que sous lui — pour le Super Administrateur aussi (ADR 0027 rév.) ; celles d'avant se voient des deux côtés", async () => {
     const avant = await unitIds();
     expect(avant.length).toBeGreaterThan(0);
     const body = { nom: "Unité du mode", corps: "far", ville: "Rabat", eff: 30, dispo: "ready", readiness: 80, x: 300, y: 150, ll: [-6.84, 34.02] };
@@ -47,36 +47,25 @@ describe("Unités par mode de l'application", () => {
     await setMode("direx");
     const direx = (await base().post("/api/units").set(bearer(root)).send({ ...body, nom: "Unité Direx" }).expect(201)).body as { id: string; profile?: string };
     expect(direx.profile).toBe("direx");
-    // Le Super Administrateur voit les unités des DEUX modes — et les tient.
-    const sousDirexRoot = await unitIds();
-    expect(sousDirexRoot).toContain(direx.id);
-    expect(sousDirexRoot).toContain(classique.id);
-    await base().patch(`/api/units/${classique.id}`).set(bearer(root)).send({ readiness: 50 }).expect(200);
-    // Un rôle du mode Direx (l'Anim, portée globale) ne voit que les unités du mode — et celles d'avant.
-    const anim = await jeton("n.direx", "direx_anim");
-    const sousDirex = ((await base().get("/api/units").set(bearer(anim)).expect(200)).body as { id: string }[]).map((u) => u.id);
+    const sousDirex = await unitIds();
     expect(sousDirex).toContain(direx.id);
     expect(sousDirex).not.toContain(classique.id);
     for (const id of avant) expect(sousDirex).toContain(id);
     // Le registre, le terrain et la boîte à outils suivent : les détenteurs sont ceux du mode.
-    const detenteurs = ((await base().get("/api/resources/owners").set(bearer(anim)).expect(200)).body as { kind: string; id: string }[]).filter((o) => o.kind === "unit").map((o) => o.id);
+    const detenteurs = await ownerIds();
     expect(detenteurs).toContain(direx.id);
     expect(detenteurs).not.toContain(classique.id);
-    await base().get(`/api/resources?ownerKind=unit&ownerId=${classique.id}`).set(bearer(anim)).expect(404);
-    await base().get(`/api/resources?ownerKind=unit&ownerId=${direx.id}`).set(bearer(anim)).expect(200);
+    await base().get(`/api/resources?ownerKind=unit&ownerId=${classique.id}`).set(bearer(root)).expect(404);
+    await base().get(`/api/resources?ownerKind=unit&ownerId=${direx.id}`).set(bearer(root)).expect(200);
     // L'unité de l'autre mode ne se modifie pas non plus : elle n'existe pas ici.
-    await base().patch(`/api/units/${classique.id}`).set(bearer(anim)).send({ readiness: 50 }).expect(404);
+    await base().patch(`/api/units/${classique.id}`).set(bearer(root)).send({ readiness: 50 }).expect(404);
     // Les hôpitaux restent communs.
-    expect(((await base().get("/api/hospitals").set(bearer(anim)).expect(200)).body as unknown[]).length).toBeGreaterThan(0);
+    expect(((await base().get("/api/hospitals").set(bearer(root)).expect(200)).body as unknown[]).length).toBeGreaterThan(0);
 
     await setMode("classique");
-    const strat = await jeton("t.strat", "strategic");
-    const sousClassique = ((await base().get("/api/units").set(bearer(strat)).expect(200)).body as { id: string }[]).map((u) => u.id);
+    const sousClassique = await unitIds();
     expect(sousClassique).toContain(classique.id);
     expect(sousClassique).not.toContain(direx.id);
-    expect(((await base().get("/api/resources/owners").set(bearer(strat)).expect(200)).body as { kind: string; id: string }[]).map((o) => o.id)).not.toContain(direx.id);
-    // Le Super Administrateur, lui, voit toujours les deux.
-    expect(await unitIds()).toEqual(expect.arrayContaining([classique.id, direx.id]));
-    expect(await ownerIds()).toEqual(expect.arrayContaining([classique.id, direx.id]));
+    expect(await ownerIds()).not.toContain(direx.id);
   });
 });

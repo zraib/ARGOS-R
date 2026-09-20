@@ -5,6 +5,13 @@
 - **Révise :** ADR 0020 (unités par auteur et concernement), ADR 0022 (corps affectés par
   les PC du mode Direx), ADR 0016 (ressources d'une entité), ADR 0015/0016 (reprise du
   registre et du parc entre deux démarrages).
+- **Révisé le 2026-09-20 (soir) :** le Super Administrateur voit tout **dans le mode en service** —
+  une unité créée en classique ne se montre qu'en classique, une unité Direx qu'en Direx, pour lui
+  comme pour les autres (point 2 ci-dessous, corrigé) ; le **commandant d'une unité est le compte
+  qui la tient** : dès qu'un « Commandant d'unité » est rattaché, son nom (grade compris) est servi
+  dans `cmdt` partout où l'unité s'affiche — tuiles, fiche, répartiteur, et sur la carte sous le nom
+  de l'unité ; une équipe posée sur le terrain porte son chef (`leader`) sur son marqueur et dans
+  le panneau.
 - **Portée :** `apps/api/src/modules/domain/visibility.service.ts`, `http/resources*.controller.ts`,
   `shared/profiles.ts`, `shared/direx.matrix.ts` (+ `docs/matrice-roles-direx.csv/.xlsx`),
   `modules/iam/users.service.ts`, `modules/domain/domain.service.ts`, `dto.ts`,
@@ -37,9 +44,10 @@ pouvait.
    écrit et éprouvé : `UNITS_VISIBILITY=scoped` le rétablit (suites `units-visibility.spec`,
    `resources-visibility.spec` tournent sous ce réglage). Les incidents suivent déjà la même
    règle (`INCIDENTS_VISIBILITY`).
-2. **Le Super Administrateur voit tout** : les unités des deux modes de l'application
-   (`unitVisibleTo`), qu'il tient aussi (modification, ressources, terrain). Les autres rôles
-   restent dans leur mode.
+2. **Le Super Administrateur voit tout — dans le mode en service.** Une unité porte le mode où
+   elle a été créée et ne se montre que sous lui (ADR 0022), pour tous les rôles ; le tableau de
+   bord compte de même (`unitVisibleTo`). *(Version du matin : les deux modes pour le Super
+   Administrateur — retirée le soir même, à la demande de l'état-major.)*
 3. **Les PC affectent, tous corps confondus** : la ligne `assign` de la matrice Direx passe à
    AMV pour les chefs, OPS et LOG des quatre PC (PC FAR, PCF, PCT, PCO) et pour l'Anim / DIREX ;
    leur trait `assignCorps` vaut `"*"`. La synthèse, la planification, le renseignement, le
@@ -59,6 +67,12 @@ pouvait.
    rejoignent la liste sans toucher aux autres. `teamId` est facultatif : les articles d'avant
    n'ont pas d'équipe et restent tels quels.
 
+7. **Le commandant d'une unité est le compte qui la tient** (`withCommander`, `GET/POST/PATCH
+   units`) : son nom remplace le nom saisi dans `cmdt` ; sans compte rattaché, le nom saisi reste ;
+   plusieurs comptes : le premier servi, comme la légende de la fiche. Sur la carte, le marqueur
+   de l'unité écrit le commandant sous le nom ; une équipe posée écrit son chef (`leader`, le
+   chef d'équipe des ressources) sur son marqueur et dans le panneau.
+
 ## Conséquences
 
 - Un Chef / PCT non déployé ouvre la carte et voit les douze unités du réseau, engage l'une
@@ -69,10 +83,15 @@ pouvait.
   terrain compris ; affectation par un chef de PCT, un LOG de PC FAR, l'Anim ; synthèse 403 ;
   article ↔ équipe : 409 hors détenteur, sortie, dissolution, articles d'avant intacts),
   `registry-update.spec.ts` (registre existant sans injection ; fondateur rétabli seul ; parc
-  repris tel quel après montée de version), `units-mode.spec.ts` (Super Administrateur : les
-  deux modes ; l'Anim : le sien), `profiles.spec.ts` (corps et `assign`).
+  repris tel quel après montée de version), `units-mode.spec.ts` (une unité d'un mode ne se
+  montre que sous lui, Super Administrateur compris), `profiles.spec.ts` (corps et `assign`) ;
+  commandant servi depuis le compte rattaché (création, liste, modification) et chef d'une
+  équipe posée (`everyone-sees-the-map.spec.ts`).
 - Vérifié navigateur (dev, mode Direx) : Chef / PCT — 12 unités et 3 croquis sur la carte,
-  engagement de U1 sur INC-2623 au répartiteur (ordre M-0010) ; Super Administrateur sous Direx
-  voit l'unité créée en classique (l'Anim non) ; fiche OPSnet — article « Groupe électrogène »
+  engagement de U1 sur INC-2623 au répartiteur (ordre M-0010) ; Super Administrateur : sous Direx
+  12 unités sans l'unité créée en classique, en classique 14 avec elle ; marqueur de U1 « FAR ·
+  1er Groupement d'Intervention » avec « Capitaine Khalid Idrissi » dessous, même nom dans le
+  panneau ; « Groupe Alpha » posé → « ÉQU · Groupe Alpha · Sergent Karim Ouazzani » et ligne
+  « Chef d'équipe » ; fiche OPSnet — article « Groupe électrogène »
   affecté à « Groupe Alpha » (liste : « Équipe : Groupe Alpha », équipe : « 1 membres ·
   1 équipements »), l'autre article inchangé.

@@ -164,7 +164,10 @@ export class ResourcesService {
     const ownerLabel = this.domain.resourceOwner(r.owner)?.label ?? r.owner.id;
     if (kind === "teams") {
       const t = this.teams.find((x) => x.id === r.id);
-      return { kind, id: r.id, owner: r.owner, ownerLabel, label: t?.nom ?? r.id, sub: t?.mission, position };
+      // Le chef de l'équipe s'écrit sur le marqueur, comme le commandant sur l'unité (ADR 0027 rév.).
+      const chef = t?.leaderId ? this.persons.find((p) => p.id === t.leaderId) : undefined;
+      const leader = chef ? [chef.grade, chef.prenom, chef.nom].filter(Boolean).join(" ") : undefined;
+      return { kind, id: r.id, owner: r.owner, ownerLabel, label: t?.nom ?? r.id, sub: t?.mission, ...(leader ? { leader } : {}), position };
     }
     if (kind === "vehicles") {
       const v = this.vehicles.find((x) => x.id === r.id);

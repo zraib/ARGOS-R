@@ -102,7 +102,8 @@ export function syncMarkers(rt: MarkersRuntime, map: maplibregl.Map | null) {
     state.placed.forEach((p) => {
       const key = `${p.kind}:${p.id}`;
       const draggable = edit && mine.includes(p.kind);
-      const el = mkEl(placedMarkerHTML(code(p.kind), PLACED_FILL[p.kind], isSel("placed", key), p.label), "placed", key);
+      // Une équipe posée écrit son chef à côté de son nom — comme l'unité son commandant.
+      const el = mkEl(placedMarkerHTML(code(p.kind), PLACED_FILL[p.kind], isSel("placed", key), p.leader ? `${p.label} · ${p.leader}` : p.label), "placed", key);
       el.style.cursor = draggable ? "grab" : "pointer";
       const mk = new maplibregl.Marker({ element: el, draggable }).setLngLat(p.position.ll).addTo(map);
       if (draggable) {

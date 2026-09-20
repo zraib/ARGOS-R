@@ -380,8 +380,15 @@ cd C:\iris\deploy
   posé sur le terrain se voient de tous les rôles (dans le mode en service) ;
   les PC (chefs, OPS, LOG des PC FAR, PCF, PCT, PCO) et l'Anim / DIREX voient
   les unités au répartiteur et sur la carte, les engagent et les affectent à
-  l'opération, tous corps confondus. Le Super Administrateur voit les unités
-  des deux modes. Pour revenir au cantonnement par portée :
+  l'opération, tous corps confondus. Une unité créée en classique ne se montre
+  qu'en classique, une unité Direx qu'en Direx — pour tous, Super
+  Administrateur compris. Pour revenir au cantonnement par portée :
   `UNITS_VISIBILITY=scoped` dans `deploy\.env`, puis redémarrer l'API.
 - **Un article du parc s'affecte à une équipe** de son détenteur, depuis le
   formulaire de l'article (écran Ressources ou fiche de l'unité dans OPSnet).
+- **Le commandant d'une unité est le compte qui la tient** : dès qu'un
+  « Commandant d'unité » est rattaché à l'unité (Gestion des utilisateurs), son
+  nom — grade compris — s'affiche comme Commandant de l'unité partout : tuiles
+  et fiche OPSnet, répartiteur, et sur la carte sous le nom de l'unité. Sans
+  compte rattaché, le nom saisi à la création reste. Une équipe posée sur le
+  terrain écrit son chef d'équipe sur son marqueur.
