@@ -48,3 +48,14 @@ describe("croquis — géométrie", () => {
     expect(draftToGeoJSON(null, [], null).features).toHaveLength(0);
   });
 });
+
+describe("croquis — qui modifie", () => {
+  it("l'auteur (matricule, sans tenir compte de la casse) et le Super Administrateur ; personne d'autre, l'administrateur compris", async () => {
+    const { canEditDrawing } = await import("@/lib/map/drawings");
+    expect(canEditDrawing({ createdBy: "o.chraibi" }, "opcom", "O.Chraibi")).toBe(true);
+    expect(canEditDrawing({ createdBy: "o.chraibi" }, "superadmin", "m.zraib")).toBe(true);
+    expect(canEditDrawing({ createdBy: "o.chraibi" }, "admin", "h.alami")).toBe(false);
+    expect(canEditDrawing({ createdBy: "o.chraibi" }, "tacom", "t.chef")).toBe(false);
+    expect(canEditDrawing({ createdBy: "o.chraibi" }, "wali", undefined)).toBe(false);
+  });
+});

@@ -361,7 +361,7 @@ export interface Dict {
   si_optional: string;
   si_loc_hint: string;
   map_measure: string;
-  dr_panel: string; dr_hint: string; dr_tool_select: string; dr_tool_point: string; dr_tool_circle: string; dr_tool_polygon: string; dr_list: string; dr_none: string; dr_name: string; dr_note: string; dr_color: string; dr_radius: string; dr_delete: string; dr_deleted: string; dr_created: string; dr_label_hint: string; dr_by: string; dr_new_point: string; dr_new_circle: string; dr_new_polygon: string; dr_cancel: string; dr_kind_point: string; dr_kind_circle: string; dr_kind_polygon: string; dr_drawing_hint: string;
+  dr_panel: string; dr_hint: string; dr_tool_select: string; dr_tool_point: string; dr_tool_circle: string; dr_tool_polygon: string; dr_list: string; dr_none: string; dr_name: string; dr_note: string; dr_color: string; dr_radius: string; dr_delete: string; dr_deleted: string; dr_created: string; dr_label_hint: string; dr_by: string; dr_new_point: string; dr_new_circle: string; dr_new_polygon: string; dr_cancel: string; dr_kind_point: string; dr_kind_circle: string; dr_kind_polygon: string; dr_drawing_hint: string; dr_readonly: string;
   map_alt: string;
   map_distance: string;
   fam_forces: string;

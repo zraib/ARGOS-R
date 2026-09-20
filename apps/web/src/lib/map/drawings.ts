@@ -5,6 +5,11 @@
 
 import type { Drawing } from "@/lib/types";
 
+/** Qui modifie ou retire un croquis : son auteur, ou le Super Administrateur — ce que l'API applique. */
+export function canEditDrawing(d: Pick<Drawing, "createdBy">, role: string, matricule: string | undefined): boolean {
+  return role === "superadmin" || (!!matricule && d.createdBy.toLowerCase() === matricule.toLowerCase());
+}
+
 /** Couleurs proposées pour un croquis — les tons de la charte (or, danger, bleu, vert, orange, blanc). */
 export const DRAWING_COLORS = ["#C9A84C", "#EF4444", "#3B82F6", "#22C55E", "#F97316", "#F8FAFC"] as const;
 export const DEFAULT_DRAWING_COLOR = DRAWING_COLORS[0];

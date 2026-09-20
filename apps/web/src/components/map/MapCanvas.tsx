@@ -32,7 +32,7 @@ import {
   DRAW_FILL, DRAW_HANDLE, DRAW_LINE, DRAW_POINT,
   applyDraft, applyDrawings, clearDrawingLabels, createDrawingLabelsRuntime, setupDrawingLayers, syncDrawingLabels,
 } from "@/components/map/layers/drawings";
-import { distanceM } from "@/lib/map/drawings";
+import { canEditDrawing, distanceM } from "@/lib/map/drawings";
 import type { Drawing } from "@/lib/types";
 import { PlumeRuntime, applyPlume, playPlume, setupPlumeLayers } from "@/components/map/layers/plume";
 import {
@@ -118,7 +118,9 @@ export function MapCanvas() {
   const drawings = useArgos((s) => s.drawings);
   const drawTool = useArgos((s) => s.drawTool);
   const drawSelected = useArgos((s) => s.drawSelected);
-  const drawEditable = drawTool !== null && can("map_edit:update");
+  const sessionMatricule = useArgos((s) => s.sessionUser?.matricule);
+  // Un croquis se modifie sur la carte quand le mode dessin est ouvert ET qu'il est à ce compte (ou au Super Administrateur).
+  const drawEditable = (d: Drawing) => drawTool !== null && canEditDrawing(d, role, sessionMatricule);
   const drawRt = useRef(createDrawingLabelsRuntime());
   const draftRef = useRef<[number, number][]>([]);
   // Une poignée en cours de glissement : quel croquis, quel rôle, quel sommet ; la copie qui suit la souris.
@@ -271,7 +273,7 @@ export function MapCanvas() {
       const id = f?.properties?.id;
       const st = useArgos.getState();
       const d = typeof id === "string" ? st.drawings.find((x) => x.id === id) : undefined;
-      if (!f || !d || !st.drawTool || !st.can("map_edit:update")) return;
+      if (!f || !d || !st.drawTool || !canEditDrawing(d, st.role, st.sessionUser?.matricule)) return;
       e.preventDefault();
       map.dragPan.disable();
       dragRef.current = { id: d.id, role: String(f.properties?.role), index: Number(f.properties?.index ?? 0), draft: structuredClone(d) };
@@ -299,7 +301,7 @@ export function MapCanvas() {
         else if (drag.role === "center") drag.draft.coords = [ll];
         else drag.draft.coords = drag.draft.coords.map((c, i) => (i === drag.index ? ll : c));
         const st = useArgos.getState();
-        applyDrawings(map, st.drawings.map((d) => (d.id === drag.id ? drag.draft : d)), drag.id, true);
+        applyDrawings(map, st.drawings.map((d) => (d.id === drag.id ? drag.draft : d)), drag.id, () => true);
         return;
       }
       const tool = useArgos.getState().drawTool;
@@ -483,7 +485,7 @@ export function MapCanvas() {
       const st = useArgos.getState();
       applyAircraftTrails(map, st.aircraft, st.layers.aircraft);
       applyMorgues(map, st.morgues, st.layers.morgues);
-      applyDrawings(map, st.drawings, st.drawSelected, st.drawTool !== null && st.can("map_edit:update"));
+      applyDrawings(map, st.drawings, st.drawSelected, (d) => st.drawTool !== null && canEditDrawing(d, st.role, st.sessionUser?.matricule));
       applyShelters(map, st.shelters, st.layers.shelters);
       applyTrackers(map, st.trackers, st.layers.trackers);
       applyFireSeed(map, st.fireSeed);
@@ -590,7 +592,8 @@ export function MapCanvas() {
         void useArgos.getState().updateDrawing(d.id, d.kind === "point" ? { coords: [ll] } : { labelLL: ll });
       },
     );
-  }, [drawings, drawSelected, drawEditable, mapSat, map3d]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawings, drawSelected, drawTool, role, sessionMatricule, mapSat, map3d]);
   useEffect(() => {
     const map = mapRef.current;
     if (map && !drawTool) {
