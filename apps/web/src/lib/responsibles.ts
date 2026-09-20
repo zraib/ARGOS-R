@@ -12,9 +12,25 @@ export type ResponsibleKind = Responsible["kind"];
 /** Les natures d'entité qui ont un titulaire (tout sauf le poste déployé). */
 export type EntityKind = Exclude<ResponsibleKind, "incident">;
 
-/** Le titulaire d'une entité, s'il en est un. */
+/** Le premier titulaire d'une entité, s'il en est un — pour une légende ; la fiche, elle, les montre TOUS (`responsiblesOf`). */
 export function responsibleOf(list: readonly Responsible[], kind: EntityKind, entityId: string): Responsible | undefined {
   return list.find((r) => r.kind === kind && r.entityId === entityId);
+}
+
+/**
+ * TOUS les titulaires d'une entité (ADR 0026) : une unité peut avoir deux
+ * commandants rattachés, un hôpital un directeur et son adjoint — chacun se
+ * joint depuis la fiche et depuis la carte. Un même compte n'apparaît qu'une
+ * fois par rôle, dans l'ordre où l'API les sert.
+ */
+export function responsiblesOf(list: readonly Responsible[], kind: EntityKind, entityId: string): Responsible[] {
+  const out: Responsible[] = [];
+  for (const r of list) {
+    if (r.kind !== kind || r.entityId !== entityId) continue;
+    if (out.some((x) => x.matricule.toLowerCase() === r.matricule.toLowerCase() && x.role === r.role)) continue;
+    out.push(r);
+  }
+  return out;
 }
 
 /** Les postes déployés sur un incident. */

@@ -82,7 +82,6 @@ export default function MapPage() {
   const wxLayers = useArgos((s) => s.wxLayers);
   const toggleWxLayer = useArgos((s) => s.toggleWxLayer);
   const fx = FLUX[lang];
-  const setSelUnit = useArgos((s) => s.setSelUnit);
   const setSelHosp = useArgos((s) => s.setSelHosp);
   // La carte montre TOUS les incidents actifs (ADR 0020) ; `incidents` reste
   // la liste cantonnée du compte, pour ce qui renvoie à un écran gardé.
@@ -298,7 +297,8 @@ export default function MapPage() {
           titre: `${corpsShort(u.corps)} · ${u.nom}`, sub: `${corpsLabel(u.corps ?? "far", t)} · ${u.ville}`, badgeType: b[u.dispo].type, badgeLabel: b[u.dispo].label,
           lines: [{ k: t.commander, v: u.cmdt }, { k: t.effectif, v: String(u.eff) }, { k: t.readiness, v: `${u.readiness} %` }],
           responsible: { kind: "unit", entityId: u.id, incidentId: incidents.find((i) => i.responders?.units?.includes(u.id))?.id },
-          action: () => { setSelUnit(u.id); clearSelection(); router.push("/equipes"); },
+          // « Détails » entre dans l'unité sur OPSnet — la porte des moyens (ADR 0026).
+          action: () => { clearSelection(); router.push(`/opsnet?unit=${encodeURIComponent(u.id)}`); },
         };
       }
     } else if (kind === "morgue") {
@@ -422,7 +422,7 @@ export default function MapPage() {
             { k: t.staff, v: String(s.staff) },
           ],
           responsible: { kind: "shelter", entityId: s.id, incidentId: posts.find((p) => p.kind === "shelter" && p.entityId === s.id)?.incidentId },
-          action: () => { clearSelection(); router.push("/opsnet"); },
+          action: () => { clearSelection(); router.push(`/opsnet?shelter=${encodeURIComponent(s.id)}`); },
         };
       }
     } else if (kind === "trk") {

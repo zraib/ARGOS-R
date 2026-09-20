@@ -36,7 +36,12 @@ type VisibleOwner = { kind: ResourceOwnerKind; id: string; label: string; corps?
 const STATUS_TONE: Record<Person["status"], Tone> = { present: "green", deployed: "amber", rest: "gray", absent: "red" };
 const STATE_TONE: Record<Vehicle["state"], Tone> = { ok: "green", repair: "amber", oos: "red" };
 
-export function ResourcesScreen({ fixedOwner }: { fixedOwner?: ResourceOwner }) {
+/**
+ * `embedded` : l'écran vit DANS la fiche d'une entité (OPSnet, ADR 0026) —
+ * l'entité est imposée, l'en-tête se réduit aux onglets, l'URL n'est pas
+ * touchée (la fiche tient déjà la sienne).
+ */
+export function ResourcesScreen({ fixedOwner, embedded = false }: { fixedOwner?: ResourceOwner; embedded?: boolean }) {
   const t = useDict();
   const m = useModules();
   const router = useRouter();
@@ -76,7 +81,7 @@ export function ResourcesScreen({ fixedOwner }: { fixedOwner?: ResourceOwner }) 
     if (!visible) setOwner(visibleOwners[0] ? { kind: visibleOwners[0].kind, id: visibleOwners[0].id } : null);
   }, [own, owner, ownersLoaded, visibleOwners]);
 
-  const [tab, setTab] = useState<ResourceKind>((params.get("tab") as ResourceKind | null) ?? "persons");
+  const [tab, setTab] = useState<ResourceKind>(embedded ? "persons" : ((params.get("tab") as ResourceKind | null) ?? "persons"));
   const [data, setData] = useState<OwnerResources | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -97,13 +102,13 @@ export function ResourcesScreen({ fixedOwner }: { fixedOwner?: ResourceOwner }) 
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
-    if (!owner || locked) return;
+    if (!owner || locked || embedded) return;
     const q = new URLSearchParams(params.toString());
     q.set("owner", ownerParam(owner));
     q.set("tab", tab);
     router.replace(`?${q.toString()}`, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [owner, tab, locked]);
+  }, [owner, tab, locked, embedded]);
 
   const rows: Row[] = data ? (data[tab] as Row[]) : [];
   const can = data?.canManage[tab] ?? false;
@@ -176,17 +181,18 @@ export function ResourcesScreen({ fixedOwner }: { fixedOwner?: ResourceOwner }) 
   ).filter((k) => k.items.length > 0);
 
   return (
-    <section className="flex flex-col gap-4 animate-fade-in">
+    <section className={`flex flex-col gap-4 ${embedded ? "" : "animate-fade-in"}`}>
       <div className="carte flex flex-col gap-3 p-4 sm:p-5">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-or-500/15 text-or-500"><Icon path={NAV_ICONS.resources} size={20} /></span>
+          <span className={`flex shrink-0 items-center justify-center rounded-lg bg-or-500/15 text-or-500 ${embedded ? "h-8 w-8" : "h-10 w-10"}`}><Icon path={NAV_ICONS.resources} size={embedded ? 16 : 20} /></span>
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-bold leading-tight text-rdia-600 dark:text-rdia-50">{t.rs_title}{ownerLabel ? ` — ${ownerLabel}` : ""}</h2>
-            <p className="text-xs text-gray-500 dark:text-rdia-300">{t.rs_hint}</p>
+            {/* Embarqué dans une fiche : le titre dit « les moyens de cette entité », sans redire son nom. */}
+            <h2 className={`font-bold leading-tight text-rdia-600 dark:text-rdia-50 ${embedded ? "text-sm" : "text-base"}`}>{embedded ? t.rs_embedded_title : `${t.rs_title}${ownerLabel ? ` — ${ownerLabel}` : ""}`}</h2>
+            <p className="text-xs text-gray-500 dark:text-rdia-300">{embedded ? t.rs_embedded_hint : t.rs_hint}</p>
           </div>
           {data && <Pill tone={data.mode === "operational" ? "green" : "amber"} label={data.mode === "demo" ? t.mode_demo : data.mode === "exercise" ? t.mode_exercise : t.mode_operational} />}
         </div>
-        {!locked && (
+        {!locked && !embedded && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-[11px] font-semibold text-gray-600 dark:text-rdia-200">{t.rs_owner}</label>

@@ -7,6 +7,7 @@ import { RequirePermission } from "@/common/decorators/require-permission.decora
 import { SelfService } from "@/common/decorators/self-service.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
 import { isRole, type Role } from "@/shared/permissions";
+import { RealtimeService } from "@/modules/realtime/realtime.service";
 
 /**
  * Gestion des utilisateurs (Phase 2). Toutes les routes sont protégées par le
@@ -18,7 +19,19 @@ import { isRole, type Role } from "@/shared/permissions";
 @ApiBearerAuth()
 @Controller("iam")
 export class UsersController {
-  constructor(private readonly users: UsersService) {}
+  constructor(
+    private readonly users: UsersService,
+    private readonly realtime: RealtimeService,
+  ) {}
+
+  /**
+   * Qui tient quoi a pu changer : un compte créé, modifié (rôles, rattachement),
+   * suspendu ou supprimé. Les fiches d'entité et le panneau de la carte relisent
+   * les titulaires sans attendre un rechargement (ADR 0026).
+   */
+  private holdersChanged(): void {
+    this.realtime.emit({ kind: "responsables" });
+  }
 
   @Get("users")
   @RequirePermission("users:view")
@@ -32,14 +45,18 @@ export class UsersController {
   @RequirePermission("users:create")
   @ApiOperation({ summary: "Créer un utilisateur (règles d'attribution appliquées côté serveur)" })
   create(@CurrentUser() actor: AuthUser, @Body() dto: CreateUserDto) {
-    return this.users.create(actor.role, actor.username, dto);
+    const created = this.users.create(actor.role, actor.username, dto);
+    this.holdersChanged();
+    return created;
   }
 
   @Patch("users/:id")
   @RequirePermission("users:update")
   @ApiOperation({ summary: "Modifier un utilisateur (nom, grade, rôles)" })
   update(@CurrentUser() actor: AuthUser, @Param("id") id: string, @Body() dto: UpdateUserDto) {
-    return this.users.update(actor.role, id, dto);
+    const updated = this.users.update(actor.role, id, dto);
+    this.holdersChanged();
+    return updated;
   }
 
   @Delete("users/:id")
@@ -47,6 +64,7 @@ export class UsersController {
   @ApiOperation({ summary: "Supprimer un utilisateur" })
   remove(@CurrentUser() actor: AuthUser, @Param("id") id: string) {
     this.users.remove(actor.role, actor.username, id);
+    this.holdersChanged();
     return { deleted: true };
   }
 
@@ -54,7 +72,9 @@ export class UsersController {
   @RequirePermission("users:update")
   @ApiOperation({ summary: "Activer/suspendre un compte (Super Admin) — activation forcée possible" })
   setActive(@CurrentUser() actor: AuthUser, @Param("id") id: string, @Body() dto: SetActiveDto) {
-    return this.users.setActive(actor.role, id, dto.active);
+    const result = this.users.setActive(actor.role, id, dto.active);
+    this.holdersChanged();
+    return result;
   }
 
   @Post("users/:id/reset-code")

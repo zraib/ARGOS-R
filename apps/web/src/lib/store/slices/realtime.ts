@@ -183,6 +183,14 @@ export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice
           void get().loadDrawings();
           return;
         }
+        if (e.kind === "responsables") {
+          // Un compte a changé de rôle ou de rattachement (ADR 0026) : les
+          // titulaires des entités et les comptes déployables se relisent —
+          // la fiche d'une unité et le panneau de la carte suivent sans recharger.
+          void get().loadResponsables();
+          void get().loadDeployable();
+          return;
+        }
         if (e.kind === "channel") {
           // La structure a changé sous nos pieds : on la recharge plutôt que de
           // la rejouer à la main, une reconstitution partielle valant pire

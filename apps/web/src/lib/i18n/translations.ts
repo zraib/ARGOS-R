@@ -258,7 +258,7 @@ export interface Dict {
   resp_none: string;
   resp_contact: string;
   resp_incident_channel: string;
-  resp_opening: string;
+  resp_opening: string; resp_holders: string;
   resp_kind_unit: string;
   resp_kind_hospital: string;
   resp_kind_shelter: string;
@@ -608,7 +608,7 @@ export interface Dict {
   ops_shelter_created: string; ops_city_help: string; ops_city_known: string; ops_city_unknown: string;
   /** Modification depuis OPSnet (ADR 0019) et organe d'origine sur les tuiles. */
   ops_edit_unit: string; ops_edit_shelter: string; hn_edit_hospital: string; hn_hospital_updated: string; lbl_location: string; ops_unit_updated: string; ops_shelter_updated: string; ops_organ: string; ops_occupants_now: string;
-  ops_position: string; ops_pos_from_city: string; ops_pos_unresolved: string; ops_pos_unknown: string;
+  ops_position: string; ops_pos_from_city: string; ops_pos_unresolved: string; ops_pos_unknown: string; ops_enter: string;
   ops_critical_one: string; ops_critical_many: string; ops_affect_title: string; ops_mode_engage: string;
   ops_mode_shelter: string; ops_affect_engage_help: string; ops_affect_shelter_help: string; ops_need_strength: string;
   ops_need_people: string; ops_radius: string; ops_from_incident: string; ops_include_deployed: string;
@@ -726,7 +726,7 @@ export interface Dict {
   as_title: string; as_hint: string; as_add: string; as_unit: string; as_destination: string; as_pco: string; as_pct: string;
   as_deploy: string; as_withdraw: string; as_remove: string; as_deployed: string; as_waiting: string; as_none: string; as_by: string;
   as_assigned_toast: string; as_deployed_toast: string; as_withdrawn_toast: string; as_removed_toast: string; as_no_unit: string; as_search: string; as_corps_hint: string; as_failed: string;
-  rs_title: string; rs_hint: string; rs_owner: string; rs_owner_unit: string; rs_owner_hospital: string; rs_owner_shelter: string; rs_pick_owner: string;
+  rs_title: string; rs_hint: string; rs_embedded_title: string; rs_embedded_hint: string; rs_owner: string; rs_owner_unit: string; rs_owner_hospital: string; rs_owner_shelter: string; rs_pick_owner: string;
   rs_tab_persons: string; rs_tab_teams: string; rs_tab_vehicles: string; rs_tab_supplies: string; rs_tab_equipment: string;
   rs_add_person: string; rs_add_team: string; rs_add_vehicle: string; rs_add_supply: string; rs_add_equip: string; rs_empty: string;
   /** Aucun détenteur visible du compte (ADR 0019). */

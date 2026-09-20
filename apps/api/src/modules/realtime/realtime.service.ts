@@ -38,6 +38,8 @@ export type RealtimeEvent =
   | { kind: "domain"; what: "units" | "hospitals" | "incidents" }
   /** Un croquis a été dessiné, modifié ou retiré (mode dessin) : la carte relit. */
   | { kind: "drawings" }
+  /** Un compte a été créé, modifié, suspendu ou supprimé : qui tient quoi a pu changer — la fiche d'une entité et le panneau de la carte relisent les titulaires (ADR 0026). */
+  | { kind: "responsables" }
   /** Accusé d'une conversation directe : le correspondant a reçu (« remis ») ou lu les messages jusqu'à `upToId`. */
   | { kind: "receipt"; channelId: string; by: string; state: "delivered" | "read"; upToId: number }
   /** Le correspondant écrit — transitoire, jamais gardé. */
