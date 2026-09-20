@@ -53,7 +53,13 @@ apps/web/src/
 │   │                         IncidentDraftAssist (hook + boutons)
 │   ├── dashboard/            tableau de bord + situational/ (conscience situationnelle)
 │   ├── health/               Hospinet : HospinetIAPanel + parts/, affecteur IA
-│   ├── opsnet/               OPSnet (unités et abris), pendant d'Hospinet
+│   ├── opsnet/               OPSnet (unités et abris), pendant d'Hospinet ;
+│   │                         OpsnetSheets = la fiche d'une unité / d'un abri
+│   │                         avec ses moyens embarqués (ADR 0026)
+│   ├── resources/            ResourcesScreen (écran « Ressources », aussi
+│   │                         embarqué dans les fiches OPSnet) + ResourceForm
+│   ├── responsibility/       ResponsibleCard (tous les titulaires d'une
+│   │                         entité, joignables) + vues « Ma responsabilité »
 │   ├── whatif/               WhatIfPageShell + parts/ (simulation « et si ? »)
 │   ├── map/layers/spread.ts  socle des simulations sur la carte (canevas,
 │   │                         lecture) ; fire.ts, floods.ts = feu, inondation
@@ -109,6 +115,7 @@ Deux règles de rangement, vérifiées par le typecheck et les tests :
 | `/personnel` | roster, filtres de disponibilité |
 | `/bons-de-travail` | bons de travail : tableau kanban de workflow |
 | `/hospinet` | hôpitaux : cartes + détail (personnel, lits, véhicules, hôpitaux de campagne) |
+| `/opsnet` | OPSnet : unités et abris — vue d'ensemble, tuiles, affecteur ; **entrer** dans une unité ou un abri (`?unit=`, `?shelter=`) ouvre sa fiche avec tous ses titulaires joignables et ses moyens tenus sur place (personnes, équipes, véhicules, logistique, équipements — ADR 0026) |
 | `/ics` | formulaires ICS 201–214 |
 | `/dommages` | évaluation des dommages : histogramme par grade, table EMS-98 |
 | `/abris` | abris : occupation, démographie, besoins |

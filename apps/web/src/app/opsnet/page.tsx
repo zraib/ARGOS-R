@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useArgos, useDict, useModules } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
@@ -12,7 +13,9 @@ import { AddUnitModal, AddShelterModal } from "@/components/org/AddEntityModals"
 import { EditUnitModal, EditShelterModal } from "@/components/org/EditEntityModals";
 import { canCreateUnit, canEditShelter, canEditUnit } from "@/lib/mode";
 import { corpsLabel } from "@/lib/corps";
-import { ResponsibleCard } from "@/components/responsibility/ResponsibleCard";
+import { Loading } from "@/components/responsibility/Shared";
+import { EtatAppro, EtatUnite } from "@/components/opsnet/OpsnetBits";
+import { ShelterSheet, UnitSheet } from "@/components/opsnet/OpsnetSheets";
 import {
   Anneau,
   Approvisionnement,
@@ -22,7 +25,6 @@ import {
   SaturationAbris,
 } from "@/components/opsnet/OpsnetCharts";
 import { OpsnetAffecteurIA } from "@/components/opsnet/OpsnetAffecteurIA";
-import { shelterPosition } from "@/lib/ai/opsnetAffecteur";
 import type { Shelter } from "@/lib/data/modules";
 import type { Unit } from "@/lib/types";
 import { DeleteEntityButton } from "@/components/org/DeleteEntityModal";
@@ -42,6 +44,12 @@ import { DeleteEntityButton } from "@/components/org/DeleteEntityModal";
 // CE QUE L'ÉCRAN NE FAIT PAS. Il n'affecte rien tout seul. L'affecteur CLASSE
 // et montre pourquoi ; l'engagement reste un acte de commandement, tracé par le
 // module de déploiement (lot V-2).
+//
+// LA PORTE DES MOYENS (ADR 0026). Cliquer une unité ou un abri, c'est y
+// ENTRER : l'écran devient sa fiche (`?unit=` / `?shelter=`, pour que la
+// carte et un lien y mènent) — ce qu'elle est, tous ses titulaires joignables,
+// et ses moyens tenus sur place : personnes, équipes, véhicules, logistique,
+// équipements. Un état-major ne gère plus une unité depuis trois écrans.
 // ============================================================================
 
 // L'affecteur n'est plus un onglet : c'est un OUTIL qu'on ouvre par-dessus
@@ -51,12 +59,21 @@ import { DeleteEntityButton } from "@/components/org/DeleteEntityModal";
 type Onglet = "vue" | "units" | "shelters";
 
 
+/** Les paramètres d'URL (`?unit=`, `?shelter=`) exigent une frontière Suspense. */
 export default function OpsnetPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <OpsnetScreen />
+    </Suspense>
+  );
+}
+
+function OpsnetScreen() {
   const t = useDict();
   const m = useModules();
+  const router = useRouter();
+  const params = useSearchParams();
   const units = useArgos((s) => s.units);
-  const incidents = useArgos((s) => s.incidents);
-  const cities = useArgos((s) => s.cities);
   const shelters = useArgos((s) => s.catalog.shelters);
   // Modifier (ADR 0019) : proposé à qui l'API l'accorde — l'administration,
   // l'OPCOM et les cellules hors opérationnel, chaque responsable sur le sien.
@@ -73,8 +90,12 @@ export default function OpsnetPage() {
   const [onglet, setOnglet] = useState<Onglet>("vue");
   const [ajoutUnite, setAjoutUnite] = useState(false);
   const [ajoutAbri, setAjoutAbri] = useState(false);
-  const [detailU, setDetailU] = useState<Unit | null>(null);
-  const [detailA, setDetailA] = useState<Shelter | null>(null);
+  // La fiche ouverte vit dans l'URL : la carte y mène (« Détails »), un lien se partage, « retour » la referme.
+  const sheetUnit = params.get("unit");
+  const sheetShelter = params.get("shelter");
+  const openUnit = useCallback((id: string) => router.replace(`/opsnet?unit=${encodeURIComponent(id)}`, { scroll: false }), [router]);
+  const openShelter = useCallback((id: string) => router.replace(`/opsnet?shelter=${encodeURIComponent(id)}`, { scroll: false }), [router]);
+  const closeSheet = useCallback(() => router.replace("/opsnet", { scroll: false }), [router]);
   const [editU, setEditU] = useState<Unit | null>(null);
   const [editA, setEditA] = useState<Shelter | null>(null);
   const [affecteurOpen, setAffecteurOpen] = useState(false);
@@ -117,6 +138,12 @@ export default function OpsnetPage() {
     { k: "units", label: `${t.ops_tab_units} (${units.length})` },
     { k: "shelters", label: `${t.ops_tab_shelters} (${shelters.length})` },
   ];
+
+  // --- la fiche d'une unité ou d'un abri prend tout l'écran ---------------
+  const unitOpen = sheetUnit ? units.find((u) => u.id === sheetUnit) : undefined;
+  const shelterOpen = sheetShelter ? shelters.find((a) => a.id === sheetShelter) : undefined;
+  if (unitOpen) return <UnitSheet key={unitOpen.id} unit={unitOpen} onBack={closeSheet} />;
+  if (shelterOpen) return <ShelterSheet key={shelterOpen.id} shelter={shelterOpen} onBack={closeSheet} />;
 
   return (
     <section className="flex flex-col gap-4 animate-fade-in">
@@ -237,7 +264,10 @@ export default function OpsnetPage() {
                     <Icon path={NAV_ICONS.units} size={20} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <h3 className="break-words text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{u.nom}</h3>
+                    {/* Le nom est une porte : cliquer, c'est entrer dans l'unité. */}
+                    <h3 className="break-words text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">
+                      <button type="button" className="text-start hover:text-or-500 hover:underline" onClick={() => openUnit(u.id)}>{u.nom}</button>
+                    </h3>
                     <div className="mt-0.5 text-xs text-gray-500 dark:text-rdia-300">{u.ville}</div>
                     {/* L'organe d'origine (ADR 0019) : le corps de l'unité — FAR, Gendarmerie, DGSN, DGPC, FA. */}
                     <div className="mt-0.5 text-[11px] font-semibold text-or-600 dark:text-or-400">{corpsLabel(u.corps ?? "far", t)}</div>
@@ -262,8 +292,8 @@ export default function OpsnetPage() {
                   <span className="min-w-0 truncate font-semibold text-gray-800 dark:text-rdia-50">{u.cmdt}</span>
                 </div>
                 <div className="flex gap-2">
-                  <button className="btn-secondaire min-h-[44px] flex-1 text-xs lg:min-h-0" onClick={() => setDetailU(u)}>
-                    {t.act_view}
+                  <button className="btn-primaire min-h-[44px] flex-1 text-xs lg:min-h-0" onClick={() => openUnit(u.id)}>
+                    {t.ops_enter}
                   </button>
                   {editUnit(u) && (
                     <button className="btn-secondaire min-h-[44px] flex-1 text-xs lg:min-h-0" onClick={() => setEditU(u)}>
@@ -293,7 +323,9 @@ export default function OpsnetPage() {
                       <Icon path={NAV_ICONS.shelters} size={20} />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <h3 className="break-words text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{a.nom}</h3>
+                      <h3 className="break-words text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">
+                        <button type="button" className="text-start hover:text-or-500 hover:underline" onClick={() => openShelter(a.id)}>{a.nom}</button>
+                      </h3>
                       <div className="mt-0.5 text-xs text-gray-500 dark:text-rdia-300">
                         {a.ville}
                         {a.kind === "tentes" && a.tents ? ` · ${a.tents} × ${a.perTent ?? "—"}` : a.building ? ` · ${m.shelters[`b_${a.building}` as const]}` : ""}
@@ -321,8 +353,8 @@ export default function OpsnetPage() {
                     <span className="font-semibold tabular-nums text-gray-800 dark:text-rdia-50">{a.staff}</span>
                   </div>
                   <div className="flex gap-2">
-                    <button className="btn-secondaire min-h-[44px] flex-1 text-xs lg:min-h-0" onClick={() => setDetailA(a)}>
-                      {t.act_view}
+                    <button className="btn-primaire min-h-[44px] flex-1 text-xs lg:min-h-0" onClick={() => openShelter(a.id)}>
+                      {t.ops_enter}
                     </button>
                     {editShelter(a) && (
                       <button className="btn-secondaire min-h-[44px] flex-1 text-xs lg:min-h-0" onClick={() => setEditA(a)}>
@@ -348,97 +380,6 @@ export default function OpsnetPage() {
         <OpsnetAffecteurIA />
       </Modal>
 
-      {detailU && (
-        <Modal open title={detailU.nom} onClose={() => setDetailU(null)} size="md">
-          <dl className="grid grid-cols-2 gap-3">
-            <Champ label={t.lbl_city} value={detailU.ville} />
-            <Champ label={t.ops_organ} value={corpsLabel(detailU.corps ?? "far", t)} />
-            <Champ label={t.ops_commander} value={detailU.cmdt} />
-            <Champ label={t.ops_strength} value={String(detailU.eff)} />
-            <Champ label={t.ops_readiness} value={`${detailU.readiness}%`} />
-            <Champ label={t.ops_status} value={t[`ops_${detailU.dispo}` as const]} />
-            <Champ label={t.wz_lat} value={`${detailU.ll[1].toFixed(4)}, ${detailU.ll[0].toFixed(4)}`} mono />
-          </dl>
-          {/* Le commandant, son état de connexion, et de quoi lui parler —
-              en direct, ou sur le canal de l'opération où l'unité est engagée. */}
-          <ResponsibleCard
-            kind="unit"
-            entityId={detailU.id}
-            incidentId={incidents.find((i) => i.responders?.units?.includes(detailU.id))?.id}
-            className="mt-4"
-            afterContact={() => setDetailU(null)}
-          />
-        </Modal>
-      )}
-
-      {detailA && (
-        <Modal open title={detailA.nom} onClose={() => setDetailA(null)} size="md">
-          <dl className="grid grid-cols-2 gap-3">
-            <Champ label={t.lbl_city} value={detailA.ville} />
-            <Champ label={t.ops_organ} value={detailA.organ ? m.shelters[`o_${detailA.organ}` as const] : "—"} />
-            <Champ label={t.ops_capacity} value={String(detailA.capacity)} />
-            <Champ label={t.ops_occupants} value={String(detailA.occupants)} />
-            <Champ label={t.ops_staff} value={String(detailA.staff)} />
-            <Champ label={t.ops_adults} value={String(detailA.adults)} />
-            <Champ label={t.ops_children} value={String(detailA.children)} />
-            <Champ label={t.ops_elderly} value={String(detailA.elderly)} />
-            <Champ label={t.ops_needs} value={detailA.needs} />
-            {/* La position vient de la COMMUNE, pas de l'abri : le dire évite
-                qu'un point sur une carte passe pour une adresse. */}
-            <div className="col-span-2">
-              <dt className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">
-                {t.ops_position}
-              </dt>
-              <dd className="text-xs leading-relaxed text-gray-700 dark:text-rdia-100">
-                {(() => {
-                  const ll = shelterPosition(detailA, cities);
-                  return ll ? `${t.ops_pos_from_city} ${ll[1].toFixed(3)}, ${ll[0].toFixed(3)}` : t.ops_pos_unresolved;
-                })()}
-              </dd>
-            </div>
-          </dl>
-          <ResponsibleCard kind="shelter" entityId={detailA.id} className="mt-4" afterContact={() => setDetailA(null)} />
-        </Modal>
-      )}
     </section>
-  );
-}
-
-// --- petits rendus -----------------------------------------------------------
-
-function EtatUnite({ dispo }: { dispo: Unit["dispo"] }) {
-  const t = useDict();
-  // La couleur ne porte jamais seule : l'état est écrit.
-  const style: Record<Unit["dispo"], string> = {
-    ready: "bg-green-500/12 text-green-600",
-    standby: "bg-or-500/15 text-or-600 dark:text-or-400",
-    deployed: "bg-blue-500/12 text-blue-500",
-  };
-  return (
-    <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${style[dispo]}`}>
-      {t[`ops_${dispo}` as const]}
-    </span>
-  );
-}
-
-function EtatAppro({ niveau }: { niveau: Shelter["supplies"] }) {
-  const m = useModules();
-  const style: Record<Shelter["supplies"], string> = {
-    ok: "bg-green-500/12 text-green-600",
-    low: "bg-or-500/15 text-or-600 dark:text-or-400",
-    critical: "bg-danger-500/15 text-danger-500",
-  };
-  const label: Record<Shelter["supplies"], string> = { ok: m.shelters.sup_ok, low: m.shelters.sup_low, critical: m.shelters.sup_critical };
-  return <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${style[niveau]}`}>{label[niveau]}</span>;
-}
-
-function Champ({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div>
-      <dt className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-rdia-400">
-        {label}
-      </dt>
-      <dd className={`text-xs text-gray-700 dark:text-rdia-100 ${mono ? "font-mono tabular-nums" : ""}`}>{value}</dd>
-    </div>
   );
 }

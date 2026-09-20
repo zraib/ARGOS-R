@@ -258,4 +258,25 @@ describe("IAM users — RBAC + règles d'attribution (Phase 2)", () => {
     expect(res.body.user.assignments).toMatchObject({ shelter: "AB-04", incident: "INC-2607" });
   });
 
+  it("ADR 0026 : TOUS les titulaires d'une entité sont servis — deux commandants rattachés à la même unité, deux lignes", async () => {
+    const t = await token("m.zraib", "superadmin");
+    const stamp = Date.now();
+    for (const n of [1, 2]) {
+      await base()
+        .post("/api/iam/users")
+        .set(auth(t))
+        .send({ matricule: `c.u2.${stamp}.${n}`, nom: `Commandant ${n}`, roles: ["resp_unit"], assignments: { unit: "U2" } })
+        .expect(201);
+    }
+    const res = await base().get("/api/comms/responsables").set(auth(t)).expect(200);
+    const holders = (res.body as { kind: string; entityId: string; matricule: string }[]).filter((r) => r.kind === "unit" && r.entityId === "U2").map((r) => r.matricule);
+    expect(holders).toEqual(expect.arrayContaining([`c.u2.${stamp}.1`, `c.u2.${stamp}.2`]));
+    // Un compte suspendu n'est plus titulaire : la ligne disparaît.
+    const list = await base().get("/api/iam/users").set(auth(t)).expect(200);
+    const id = (list.body as { id: string; matricule: string }[]).find((u) => u.matricule === `c.u2.${stamp}.2`)?.id as string;
+    await base().post(`/api/iam/users/${id}/active`).set(auth(t)).send({ active: false }).expect(201);
+    const after = await base().get("/api/comms/responsables").set(auth(t)).expect(200);
+    expect((after.body as { kind: string; entityId: string; matricule: string }[]).some((r) => r.matricule === `c.u2.${stamp}.2`)).toBe(false);
+  });
+
 });
