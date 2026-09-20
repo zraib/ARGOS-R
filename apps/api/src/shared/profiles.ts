@@ -205,22 +205,30 @@ const none = {
   civil: false,
 };
 
-/** Une cellule de PC (profil direx) : ce que faisait la cellule de même couleur, plus le déploiement. */
+/**
+ * Une cellule de PC (profil direx) : ce que faisait la cellule de même couleur,
+ * plus le déploiement. Les OPS et LOG affectent aussi les unités à l'opération,
+ * tous corps confondus (ADR 0027 — « pour le moment, tout le monde voit tout »).
+ */
 function cell(echelon: "pct" | "pco", fonction: "ops" | "log" | "rens" | "rens_com", label: string, resources: ResourceHolding): RoleTraits {
-  return { ...none, profile: "direx", echelon, fonction, label, visibility: "incident", scopeKey: "incident", deploy: true, unitMaker: true, unitRemover: true, resources, placeResources: true };
+  const assignCorps = fonction === "ops" || fonction === "log" ? "*" : none.assignCorps;
+  return { ...none, profile: "direx", echelon, fonction, label, visibility: "incident", scopeKey: "incident", assignCorps, deploy: true, unitMaker: true, unitRemover: true, resources, placeResources: true };
 }
 
 /** Un poste de commandement de niveau opératif (profil direx) : PC FAR ou PCF. */
-function pc(echelon: "pcfar" | "pcf", fonction: Fonction, label: string, corps: readonly UnitCorps[]): RoleTraits {
+function pc(echelon: "pcfar" | "pcf", fonction: Fonction, label: string, _corps: readonly UnitCorps[]): RoleTraits {
   const base: RoleTraits = { ...none, profile: "direx", echelon, fonction, label, visibility: "incident", scopeKey: "incident" };
+  // ADR 0027 : le chef, les OPS et le LOG affectent les unités de TOUS les corps —
+  // « pour le moment, tout le monde voit tout ». Le corps propre du PC (`_corps`)
+  // reste documenté ici pour le jour où la doctrine se resserre.
   switch (fonction) {
     case "chef":
-      return { ...base, assignCorps: corps, deploy: true, placePosts: ["pct", "pco"], simulate: true, postKind: echelon };
+      return { ...base, assignCorps: "*", deploy: true, placePosts: ["pct", "pco"], simulate: true, postKind: echelon };
     case "ops":
-      return { ...base, assignCorps: corps, deploy: true, unitMaker: true, unitRemover: true, resources: "ops", placePosts: ["pct", "pco"], placeResources: true, simulate: true };
+      return { ...base, assignCorps: "*", deploy: true, unitMaker: true, unitRemover: true, resources: "ops", placePosts: ["pct", "pco"], placeResources: true, simulate: true };
     case "log":
-      // Les LOG des PC opératifs déploient et tiennent aussi les unités (décision du 19 septembre 2026).
-      return { ...base, resources: "logistics", deploy: true, unitMaker: true, unitRemover: true, placeResources: true };
+      // Les LOG des PC opératifs déploient, tiennent aussi les unités (décision du 19 septembre 2026) et les affectent (ADR 0027).
+      return { ...base, assignCorps: "*", resources: "logistics", deploy: true, unitMaker: true, unitRemover: true, placeResources: true };
     case "planif_rens":
       return { ...base, simulate: true };
     default:
@@ -258,7 +266,7 @@ export const ROLE_TRAITS: Record<Role, RoleTraits> = {
   // --- profil direx : la direction d'exercice ---------------------------------
   direx_chef: { ...none, profile: "direx", echelon: "direx", fonction: "chef", label: "Chef / DIREX", visibility: "global", unitMaker: true, unitRemover: true, placePosts: ["pcfar", "pcf"], simulate: true },
   direx_eval: { ...none, profile: "direx", echelon: "direx", fonction: "eval", label: "Eval / DIREX", visibility: "global", simulate: true },
-  direx_anim: { ...none, profile: "direx", echelon: "direx", fonction: "anim", label: "Anim / DIREX", visibility: "global", unitMaker: true, unitRemover: true, resources: "animation", placePosts: ["pcfar", "pcf", "pct", "pco"], placeResources: true, simulate: true },
+  direx_anim: { ...none, profile: "direx", echelon: "direx", fonction: "anim", label: "Anim / DIREX", visibility: "global", assignCorps: "*", unitMaker: true, unitRemover: true, resources: "animation", placePosts: ["pcfar", "pcf", "pct", "pco"], placeResources: true, simulate: true },
   direx_rls: { ...none, profile: "direx", echelon: "direx", fonction: "rls", label: "RLS / DIREX", visibility: "global", resources: "logistics", simulate: true },
 
   // --- profil direx : les postes de commandement ------------------------------
@@ -272,11 +280,11 @@ export const ROLE_TRAITS: Record<Role, RoleTraits> = {
   pcf_log: pc("pcf", "log", "LOG / PCF", NON_FAR),
   pcf_planif_rens: pc("pcf", "planif_rens", "Planif & Rens / PCF", NON_FAR),
   pcf_synth: pc("pcf", "synth", "SYNTH / PCF", NON_FAR),
-  pct_chef: { ...none, profile: "direx", echelon: "pct", fonction: "chef", label: "Chef / PCT", visibility: "incident", scopeKey: "incident", deploy: true, placeResources: true, simulate: true, postKind: "pct" },
+  pct_chef: { ...none, profile: "direx", echelon: "pct", fonction: "chef", label: "Chef / PCT", visibility: "incident", scopeKey: "incident", assignCorps: "*", deploy: true, placeResources: true, simulate: true, postKind: "pct" },
   pct_ops: cell("pct", "ops", "Ops / PCT", "ops"),
   pct_log: cell("pct", "log", "LOG / PCT", "logistics"),
   pct_rens: cell("pct", "rens", "Rens / PCT", "security"),
-  pco_chef: { ...none, profile: "direx", echelon: "pco", fonction: "chef", label: "Chef / PCO", visibility: "incident", scopeKey: "incident", deploy: true, placeResources: true, simulate: true, postKind: "pco" },
+  pco_chef: { ...none, profile: "direx", echelon: "pco", fonction: "chef", label: "Chef / PCO", visibility: "incident", scopeKey: "incident", assignCorps: "*", deploy: true, placeResources: true, simulate: true, postKind: "pco" },
   pco_ops: cell("pco", "ops", "Ops / PCO", "ops"),
   pco_log: cell("pco", "log", "LOG / PCO", "logistics"),
   pco_rens_com: cell("pco", "rens_com", "Rens & Com / PCO", "security"),

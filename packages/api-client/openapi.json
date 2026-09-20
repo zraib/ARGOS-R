@@ -9793,6 +9793,11 @@
             "type": "string",
             "maxLength": 60,
             "description": "Numéro d'inventaire / série"
+          },
+          "teamId": {
+            "type": "string",
+            "maxLength": 40,
+            "description": "Équipe du détenteur à laquelle l'article est affecté (ADR 0027)"
           }
         },
         "required": [
@@ -9838,6 +9843,11 @@
           "serial": {
             "type": "string",
             "maxLength": 60
+          },
+          "teamId": {
+            "type": "string",
+            "maxLength": 40,
+            "description": "Équipe du détenteur ; chaîne vide pour retirer l'article de son équipe"
           }
         }
       },

@@ -230,17 +230,20 @@ export class UsersService implements ScopeResolver {
       const seeded = [...this.users];
       this.users.splice(0, this.users.length, ...snap.users.map((u) => ({ ...u, roles: migrate(u.roles), online: false })));
 
-      // Comptes du seed ABSENTS du disque : ajoutés, jamais substitués.
-      //
-      // Le registre disque fait autorité — un compte modifié, désactivé ou
-      // supprimé le reste. Mais un compte AJOUTÉ au seed (les comptes de
-      // démonstration des portées, lot V-4) n'apparaîtrait jamais sur une
-      // installation existante, et il faudrait le recréer à la main sur chaque
-      // poste. L'ajout est purement additif : rien n'est écrasé, rien n'est
-      // ressuscité — un matricule déjà connu du disque est laissé tel quel.
-      const known = new Set(this.users.map((u) => u.matricule.toLowerCase()));
-      for (const u of seeded) {
-        if (!known.has(u.matricule.toLowerCase())) this.users.push({ ...u });
+      // LE REGISTRE DISQUE FAIT AUTORITÉ, ET LUI SEUL (décision du 20 septembre
+      // 2026, ADR 0027) : une mise à jour de la station ne réinjecte AUCUN
+      // compte du jeu d'amorçage — ni les comptes de démonstration, ni ceux
+      // ajoutés au seed depuis l'installation. Seuls restent les comptes que la
+      // station connaît déjà ; ce que l'administrateur a modifié, désactivé ou
+      // supprimé le reste. (Jusqu'ici les comptes du seed absents du disque
+      // étaient ajoutés à chaque démarrage.) Une seule exception, de survie :
+      // un registre sans AUCUN Super Administrateur actif est un poste
+      // verrouillé — le compte fondateur y est rétabli, avec son code de
+      // départ, pour qu'une station reste administrable.
+      const hasActiveRoot = this.users.some((u) => !u.disabled && u.roles.includes("superadmin"));
+      if (!hasActiveRoot) {
+        const founder = seeded.find((u) => u.id === "u-benjelloun") ?? seeded.find((u) => u.roles.includes("superadmin"));
+        if (founder && !this.users.some((u) => u.matricule.toLowerCase() === founder.matricule.toLowerCase())) this.users.push({ ...founder });
       }
       // Le compte fondateur reprend l'identité par défaut si elle n'a jamais été
       // renseignée (registre créé avant l'ajout prénom/téléphone). Le mot de

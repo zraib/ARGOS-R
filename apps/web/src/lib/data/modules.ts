@@ -17,6 +17,8 @@ export interface EquipItem {
   /** Type et numéro d'inventaire (ADR 0016), facultatifs. */
   type?: string;
   serial?: string;
+  /** Équipe du détenteur à laquelle l'article est affecté (ADR 0027), facultatif. */
+  teamId?: string;
   unit: string;
   stock: number;
   threshold: number;

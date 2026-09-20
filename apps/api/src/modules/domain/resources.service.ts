@@ -273,6 +273,8 @@ export class ResourcesService {
     if (i < 0) return false;
     this.teams.splice(i, 1);
     for (const p of this.persons) if (p.teamId === id) delete p.teamId;
+    // Les articles du parc affectés à l'équipe (ADR 0027) reviennent au détenteur.
+    this.domain.releaseEquipmentOfTeam(id);
     this.persist();
     return true;
   }

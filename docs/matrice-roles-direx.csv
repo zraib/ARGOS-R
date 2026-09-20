@@ -23,7 +23,7 @@ analytics;Analytique;*;ALL;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;;;
 assistant;Assistant IA;*;ALL;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM;VM
 users;Gestion des utilisateurs;*;ALL;;;;;;;;;;;;;;;;;;;;;;;;;;
 settings;Paramètres;*;ALL;;;;;;;;;;;;;;;;;;;;;;;;;;
-assign;Affectation des unités;*;ALL;V;V;V;V;AMV;AMV;V;V;V;AMV;AMV;V;V;V;V;V;V;V;V;V;V;V;V;;;
+assign;Affectation des unités;*;ALL;V;V;AMV;V;AMV;AMV;AMV;V;V;AMV;AMV;AMV;V;V;AMV;AMV;AMV;V;AMV;AMV;AMV;V;V;;;
 deploy;Déploiement terrain;*;ALL;V;V;AMV;V;AMV;AMV;AMV;V;V;AMV;AMV;AMV;V;V;AMV;AMV;AMV;AMV;AMV;AMV;AMV;AMV;V;;;
 resources;Ressources (personnes, équipes, véhicules, logistique);*;ALL;V;V;ALL;AMV;V;ALL;ALL;V;V;V;ALL;ALL;V;V;V;ALL;ALL;ALL;V;ALL;ALL;ALL;ALL;ALL;ALL;V
 weather;Météo;*;ALL;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V;V

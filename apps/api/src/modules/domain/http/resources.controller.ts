@@ -19,7 +19,7 @@ import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
 import { DomainService } from "@/modules/domain/domain.service";
 import { assignableCorps } from "@/modules/domain/assignment.rules";
-import { VisibilityService, unitFitsMode } from "@/modules/domain/visibility.service";
+import { VisibilityService, unitVisibleTo } from "@/modules/domain/visibility.service";
 import { UsersService } from "@/modules/iam/users.service";
 
 @ApiTags("domain")
@@ -335,8 +335,8 @@ export class ResourcesController {
 
   /** Les unités que ce compte voit (ADR 0020). */
   private visibleUnits(user: AuthUser) {
-    // Les unités de l'autre mode de l'application n'existent pas ici (ADR 0022).
-    const duMode = this.domain.listUnits().filter((u) => unitFitsMode(u, user.profile));
+    // Les unités de l'autre mode de l'application n'existent pas ici (ADR 0022) — sauf pour le Super Administrateur, qui voit tout (ADR 0027).
+    const duMode = this.domain.listUnits().filter((u) => unitVisibleTo(u, user));
     return this.visibility.filterUnits(duMode, this.scopeFor(user), {
       matricule: user.username,
       assignments: user.scope,

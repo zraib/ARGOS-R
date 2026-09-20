@@ -299,6 +299,13 @@ bord d'incident servent tout incident à tout rôle (`incidentsVisibleToAll()`),
 gouvernant plus que les unités, les ressources et les comptes ; `INCIDENTS_VISIBILITY=scoped`
 rétablit la doctrine V-1 (suites `visibility.spec`, `deployment.spec`, `posts.spec`,
 `incident-dashboard.spec`, `units-visibility.spec`, `engagement.spec` tournent sous ce réglage).
+**Unités et terrain visibles de tous (20 septembre 2026, ADR 0027).** `GET units` et
+`GET resources/placed` servent à tout rôle les unités et ce qui est posé sur le terrain dans
+le mode en service (`unitsVisibleToAll()`) ; `UNITS_VISIBILITY=scoped` rétablit la portée de
+l'ADR 0020 (suites `units-visibility.spec`, `resources-visibility.spec`). Le Super
+Administrateur voit les unités des deux modes (`unitVisibleTo`). Les chefs, OPS et LOG des
+quatre PC du mode Direx et l'Anim affectent les unités de tous les corps (`assign` AMV,
+`assignCorps: "*"`) — suite `everyone-sees-the-map.spec`.
 La ligne `incidents` s'ouvre en lecture aux quatre chefs d'entité. Un ordre de la répartition
 engage l'unité sur l'opération (`engagement.spec`) ; rattacher un incident à un autre exige
 `incidents:create` **et** la fonctionnalité « Sous-incidents » ; déployer un hôpital de campagne
