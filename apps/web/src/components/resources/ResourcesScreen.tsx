@@ -149,7 +149,8 @@ export function ResourcesScreen({ fixedOwner, embedded = false }: { fixedOwner?:
   const submitEquip = async (v: EquipValues) => {
     if (!owner) return;
     const body = { ...v, type: v.type || undefined, serial: v.serial || undefined };
-    const res = editing ? await api.updateOwnedEquip(editing.id, body) : await api.addOwnedEquip({ ...body, owner });
+    // À la modification, une équipe vide (« — ») sort l'article de son équipe ; à la création, elle est simplement absente.
+    const res = editing ? await api.updateOwnedEquip(editing.id, { ...body, teamId: v.teamId ?? "" }) : await api.addOwnedEquip({ ...body, teamId: v.teamId || undefined, owner });
     if (!fail(res)) await done(t.rs_saved);
   };
   const remove = async () => {
@@ -244,7 +245,7 @@ export function ResourcesScreen({ fixedOwner, embedded = false }: { fixedOwner?:
                   ); })()}
                   {tab === "teams" && (() => { const tm = r as Team; return (
                     <>
-                      <div className="text-sm font-semibold text-gray-800 dark:text-rdia-50">{tm.nom} <span className="text-xs font-normal text-gray-400 dark:text-rdia-400">· {tm.memberIds.length} {t.rs_members.toLowerCase()}</span></div>
+                      <div className="text-sm font-semibold text-gray-800 dark:text-rdia-50">{tm.nom} <span className="text-xs font-normal text-gray-400 dark:text-rdia-400">· {tm.memberIds.length} {t.rs_members.toLowerCase()}{(() => { const n = data?.equipment.filter((e) => e.teamId === tm.id).length ?? 0; return n > 0 ? ` · ${n} ${t.rs_tab_equipment.toLowerCase()}` : ""; })()}</span></div>
                       <div className="text-xs text-gray-500 dark:text-rdia-300">{tm.mission ?? "—"}{tm.leaderId ? ` · ${t.rs_leader} : ${personName(data?.persons.find((p) => p.id === tm.leaderId) ?? { nom: tm.leaderId, prenom: "" })}` : ""}</div>
                     </>
                   ); })()}
@@ -263,7 +264,7 @@ export function ResourcesScreen({ fixedOwner, embedded = false }: { fixedOwner?:
                   {tab === "equipment" && (() => { const e = r as EquipItem; return (
                     <>
                       <div className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-rdia-50">{e.desig} <Pill tone={STATE_TONE[e.cond]} label={{ ok: m.equip.cond_ok, repair: m.equip.cond_repair, oos: m.equip.cond_oos }[e.cond]} size="sm" /></div>
-                      <div className="text-xs text-gray-500 dark:text-rdia-300">{e.cat}{e.type ? ` · ${e.type}` : ""}{e.serial ? ` · ${e.serial}` : ""} · <span className="font-mono tabular-nums">{e.stock}</span>{e.stock < e.threshold ? ` (${m.equip.low_stock})` : ""}</div>
+                      <div className="text-xs text-gray-500 dark:text-rdia-300">{e.cat}{e.type ? ` · ${e.type}` : ""}{e.serial ? ` · ${e.serial}` : ""}{e.teamId ? ` · ${t.rs_team} : ${data?.teams.find((x) => x.id === e.teamId)?.nom ?? e.teamId}` : ""} · <span className="font-mono tabular-nums">{e.stock}</span>{e.stock < e.threshold ? ` (${m.equip.low_stock})` : ""}</div>
                     </>
                   ); })()}
                 </div>
@@ -283,7 +284,7 @@ export function ResourcesScreen({ fixedOwner, embedded = false }: { fixedOwner?:
       {(adding || editing) && data && tab === "teams" && <ResourceForm kind="teams" initial={editing as Team | undefined} persons={data.persons} onSubmit={submitTeam} onClose={() => { setAdding(false); setEditing(null); }} />}
       {(adding || editing) && data && tab === "vehicles" && <ResourceForm kind="vehicles" initial={editing as Vehicle | undefined} onSubmit={submitVehicle} onClose={() => { setAdding(false); setEditing(null); }} />}
       {(adding || editing) && data && tab === "supplies" && <ResourceForm kind="supplies" initial={editing as Supply | undefined} onSubmit={submitSupply} onClose={() => { setAdding(false); setEditing(null); }} />}
-      {(adding || editing) && data && tab === "equipment" && <ResourceForm kind="equipment" initial={editing as EquipItem | undefined} onSubmit={submitEquip} onClose={() => { setAdding(false); setEditing(null); }} />}
+      {(adding || editing) && data && tab === "equipment" && <ResourceForm kind="equipment" initial={editing as EquipItem | undefined} teams={data.teams} onSubmit={submitEquip} onClose={() => { setAdding(false); setEditing(null); }} />}
 
       {removing && (
         <Modal open title={t.act_delete} onClose={() => setRemoving(null)} size="sm">

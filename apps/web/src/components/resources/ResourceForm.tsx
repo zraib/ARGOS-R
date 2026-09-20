@@ -28,14 +28,14 @@ export type PersonValues = { corps: PersonCorps; grade?: string; nom: string; pr
 export type TeamValues = { nom: string; mission?: string; leaderId?: string; memberIds: string[] };
 export type VehicleValues = { type: string; plate?: string; qty: number; state: VehicleState; assignment?: string; note?: string };
 export type SupplyValues = { kind: SupplyKind; label: string; qty: number; unit: string; threshold?: number; note?: string };
-export type EquipValues = { desig: string; cat: string; type?: string; serial?: string; stock: number; threshold: number; cond: EquipItem["cond"] };
+export type EquipValues = { desig: string; cat: string; type?: string; serial?: string; teamId?: string; stock: number; threshold: number; cond: EquipItem["cond"] };
 
 type Props =
   | { kind: "persons"; initial?: Person; teams: Team[]; onSubmit: (v: PersonValues) => Promise<void>; onClose: () => void }
   | { kind: "teams"; initial?: Team; persons: Person[]; onSubmit: (v: TeamValues) => Promise<void>; onClose: () => void }
   | { kind: "vehicles"; initial?: Vehicle; onSubmit: (v: VehicleValues) => Promise<void>; onClose: () => void }
   | { kind: "supplies"; initial?: Supply; onSubmit: (v: SupplyValues) => Promise<void>; onClose: () => void }
-  | { kind: "equipment"; initial?: EquipItem; onSubmit: (v: EquipValues) => Promise<void>; onClose: () => void };
+  | { kind: "equipment"; initial?: EquipItem; teams: Team[]; onSubmit: (v: EquipValues) => Promise<void>; onClose: () => void };
 
 const SUPPLY_UNITS: Record<SupplyKind, string> = { fuel: "L", food: "rations", bedding: "places", camp: "tentes", other: "u." };
 
@@ -203,9 +203,9 @@ function SupplyFields({ initial, onSubmit, busy, run, inputCls, labelCls, onClos
   );
 }
 
-function EquipFields({ initial, onSubmit, busy, run, inputCls, labelCls, onClose, condLabels }: Extract<Props, { kind: "equipment" }> & Common & { condLabels: Record<EquipItem["cond"], string> }) {
+function EquipFields({ initial, teams, onSubmit, busy, run, inputCls, labelCls, onClose, condLabels }: Extract<Props, { kind: "equipment" }> & Common & { condLabels: Record<EquipItem["cond"], string> }) {
   const t = useDict();
-  const [v, setV] = useState<EquipValues>({ desig: initial?.desig ?? "", cat: initial?.cat ?? "", type: initial?.type ?? "", serial: initial?.serial ?? "", stock: initial?.stock ?? 1, threshold: initial?.threshold ?? 0, cond: initial?.cond ?? "ok" });
+  const [v, setV] = useState<EquipValues>({ desig: initial?.desig ?? "", cat: initial?.cat ?? "", type: initial?.type ?? "", serial: initial?.serial ?? "", teamId: initial?.teamId ?? "", stock: initial?.stock ?? 1, threshold: initial?.threshold ?? 0, cond: initial?.cond ?? "ok" });
   return (
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -213,6 +213,14 @@ function EquipFields({ initial, onSubmit, busy, run, inputCls, labelCls, onClose
         <div><label className={labelCls}>{t.h_cat}</label><input className={inputCls} value={v.cat} onChange={(e) => setV((s) => ({ ...s, cat: e.target.value }))} maxLength={60} /></div>
         <div><label className={labelCls}>{t.rs_equip_type}</label><input className={inputCls} value={v.type} onChange={(e) => setV((s) => ({ ...s, type: e.target.value }))} maxLength={80} /></div>
         <div><label className={labelCls}>{t.rs_equip_serial}</label><input className={inputCls} value={v.serial} onChange={(e) => setV((s) => ({ ...s, serial: e.target.value }))} maxLength={60} /></div>
+        {/* L'équipe du détenteur à laquelle l'article est affecté (ADR 0027) — la même liste que pour une personne. */}
+        <div>
+          <label className={labelCls}>{t.rs_team}</label>
+          <select className={inputCls} value={v.teamId ?? ""} onChange={(e) => setV((s) => ({ ...s, teamId: e.target.value }))}>
+            <option value="">{t.rs_no_team}</option>
+            {teams.map((tm) => <option key={tm.id} value={tm.id}>{tm.nom}</option>)}
+          </select>
+        </div>
         <div><label className={labelCls}>{t.h_qty}</label><input type="number" min={0} className={inputCls} value={v.stock} onChange={(e) => setV((s) => ({ ...s, stock: Math.max(0, Number(e.target.value) || 0) }))} /></div>
         <div><label className={labelCls}>{t.rs_threshold}</label><input type="number" min={0} className={inputCls} value={v.threshold} onChange={(e) => setV((s) => ({ ...s, threshold: Math.max(0, Number(e.target.value) || 0) }))} /></div>
         <div>

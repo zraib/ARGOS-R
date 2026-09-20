@@ -7,6 +7,10 @@ import { AppModule } from "@/app.module";
 // Cette suite éprouve le CANTONNEMENT des incidents par portée (doctrine V-1) ;
 // par défaut, tout incident se voit de tous (décision du 19 septembre 2026).
 process.env.INCIDENTS_VISIBILITY = "scoped";
+// De même pour les unités et le terrain : par défaut, tout le monde voit ce qui
+// se passe sur la carte (décision du 20 septembre 2026, ADR 0027) ; cette
+// suite éprouve le cantonnement par portée (ADR 0020), qui reste disponible.
+process.env.UNITS_VISIBILITY = "scoped";
 
 // ============================================================================
 // Unités visibles par qui les a inscrites ou qu'elles concernent, la carte de

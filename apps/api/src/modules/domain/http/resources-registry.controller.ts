@@ -20,7 +20,7 @@ import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
 import { DomainService } from "@/modules/domain/domain.service";
 import { ResourcesService } from "@/modules/domain/resources.service";
-import { VisibilityService, unitFitsMode } from "@/modules/domain/visibility.service";
+import { VisibilityService, unitVisibleTo, unitsVisibleToAll } from "@/modules/domain/visibility.service";
 import { ModeService } from "@/modules/mode/mode.service";
 import { canManageResource, refusalReason } from "@/modules/domain/resources.rules";
 import { canPlaceResource, placeRefusal, placeableResourceKinds, type PlaceContext } from "@/modules/domain/edit.rules";
@@ -43,11 +43,11 @@ export class ResourcesRegistryController {
     private readonly visibility: VisibilityService,
   ) {}
 
-  /** Une unité de l'autre mode de l'application n'existe pas ici (ADR 0022) ; hôpitaux et abris sont communs. */
+  /** Une unité de l'autre mode de l'application n'existe pas ici (ADR 0022) — sauf pour le Super Administrateur (ADR 0027) ; hôpitaux et abris sont communs. */
   private ownerFitsMode(user: AuthUser, owner: ResourceOwner): boolean {
     if (owner.kind !== "unit") return true;
     const unit = this.domain.findUnit(owner.id);
-    return !unit || unitFitsMode(unit, user.profile);
+    return !unit || unitVisibleTo(unit, user);
   }
 
   /** Le compte voit-il ce détenteur (ADR 0019) ? */
@@ -131,7 +131,10 @@ export class ResourcesRegistryController {
   @RequirePermission("resources:view")
   @ApiOperation({ summary: "Équipes, véhicules et équipements posés sur le terrain — ce que la carte dessine, parmi les détenteurs que le compte voit" })
   placed(@CurrentUser() user: AuthUser) {
-    return this.resources.listPlaced().filter((p) => this.sees(user, p.owner));
+    // « Tout le monde doit voir ce qui se passe sur la carte » (ADR 0027) : ce
+    // qui est posé sur le terrain se voit de tous, dans le mode en service ;
+    // en cantonnement (`UNITS_VISIBILITY=scoped`), seuls les détenteurs vus.
+    return this.resources.listPlaced().filter((p) => (unitsVisibleToAll() ? this.ownerFitsMode(user, p.owner) : this.sees(user, p.owner)));
   }
 
   @Get("placeable")
@@ -328,8 +331,9 @@ export class ResourcesRegistryController {
   addEquipment(@Body() dto: CreateOwnedEquipDto, @CurrentUser() user: AuthUser) {
     const owner = this.assertOwner(dto.owner, user, "equipment");
     const label = this.domain.resourceOwner(owner)?.label ?? owner.id;
-    const { owner: _o, ...input } = dto;
-    return this.domain.addEquipmentFor(owner, label, input);
+    const { owner: _o, teamId, ...input } = dto;
+    const team = this.teamOf(owner, teamId);
+    return this.domain.addEquipmentFor(owner, label, team ? { ...input, teamId: team } : input);
   }
 
   @Patch("equipment/:id")
@@ -338,9 +342,22 @@ export class ResourcesRegistryController {
   updateEquipment(@Param("id") id: string, @Body() dto: UpdateOwnedEquipDto, @CurrentUser() user: AuthUser) {
     const owner = this.equipmentOwner(id);
     this.assertOwner(owner, user, "equipment");
-    const e = this.domain.updateEquipmentOf(owner, id, dto);
+    const { teamId, ...patch } = dto;
+    // `""` sort l'article de son équipe (`null` retire le champ) ; absent : inchangé.
+    const withTeam = teamId === undefined ? patch : { ...patch, teamId: teamId === "" ? null : this.teamOf(owner, teamId) };
+    const e = this.domain.updateEquipmentOf(owner, id, withTeam as Parameters<DomainService["updateEquipmentOf"]>[2]);
     if (!e) throw new NotFoundException(`Article introuvable : ${id}`);
     return e;
+  }
+
+  /** L'équipe à laquelle un article s'affecte doit être une équipe DU détenteur (ADR 0027) — sinon 409. */
+  private teamOf(owner: ResourceOwner, teamId: string | undefined): string | undefined {
+    if (!teamId) return undefined;
+    const team = this.resources.findTeam(teamId);
+    if (!team || team.owner.kind !== owner.kind || team.owner.id !== owner.id) {
+      throw new ConflictException(`Équipe inconnue pour ce détenteur : ${teamId}`);
+    }
+    return team.id;
   }
 
   @Delete("equipment/:id")

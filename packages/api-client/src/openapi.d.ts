@@ -4208,6 +4208,8 @@ export interface components {
             type?: string;
             /** @description Numéro d'inventaire / série */
             serial?: string;
+            /** @description Équipe du détenteur à laquelle l'article est affecté (ADR 0027) */
+            teamId?: string;
         };
         UpdateOwnedEquipDto: {
             desig?: string;
@@ -4218,6 +4220,8 @@ export interface components {
             cond?: "ok" | "repair" | "oos";
             type?: string;
             serial?: string;
+            /** @description Équipe du détenteur ; chaîne vide pour retirer l'article de son équipe */
+            teamId?: string;
         };
         CreateOrderDto: {
             /** @example Rétablir l'accès RP2010 (déblaiement) */

@@ -338,12 +338,22 @@ export class DomainService implements OnApplicationBootstrap {
     if (snap.posts) this.posts = snap.posts;
     if (snap.drawings) this.drawings = snap.drawings;
     if (snap.victims) this.victims.splice(0, this.victims.length, ...snap.victims);
-    if (sameSeed && snap.equipment) this.equipment.splice(0, this.equipment.length, ...snap.equipment);
+    // LE PARC EST REPRIS TEL QUEL, quelle que soit la version du seed (décision
+    // du 20 septembre 2026, ADR 0027) : les équipements introduits sur la
+    // plateforme ne sont ni écrasés ni retouchés par une mise à jour — le
+    // détenteur, l'équipe, la position, le numéro d'inventaire restent ceux
+    // que l'opérateur a saisis. (Jusqu'ici une montée de version du seed
+    // rendait le parc de démonstration du code et perdait le reste.) Sur une
+    // montée de version en démonstration, les articles de démonstration
+    // absents rejoignent la liste, sans toucher aux autres.
+    if (snap.equipment) this.equipment.splice(0, this.equipment.length, ...snap.equipment);
+    if (rebuild && DEMO_DATA && snap.equipment) {
+      for (const g of EQUIPMENT as EquipItem[]) if (!this.equipment.some((x) => x.id === g.id)) this.equipment.push(structuredClone(g));
+    }
     // Retour en démonstration (ADR 0016) : les graines des collections reprises
     // telles quelles (abris, parc, dossiers) reviennent, sans doublon.
     if (rebuild && DEMO_DATA && snap.dataProfile === "empty") {
       for (const g of SHELTERS as Shelter[]) if (!this.shelters.some((x) => x.id === g.id)) this.shelters.push(structuredClone(g));
-      for (const g of EQUIPMENT as EquipItem[]) if (!this.equipment.some((x) => x.id === g.id)) this.equipment.push(structuredClone(g));
       for (const g of DVI_SEEDS) if (!this.mortuaryRecords.some((x) => x.id === g.id)) this.mortuaryRecords.push(structuredClone(g));
       for (const g of MORGUE_SEEDS) if (!this.morgues.some((x) => x.id === g.id)) this.morgues.push(structuredClone(g as MorgueSite));
       for (const g of FIELD_HOSPITAL_SEEDS) if (!this.fieldHospitals.some((x) => x.nom === g.nom)) this.fieldHospitals.push(structuredClone(g));
@@ -1747,6 +1757,17 @@ export class DomainService implements OnApplicationBootstrap {
     }
     this.persist();
     return e;
+  }
+
+  /** Une équipe dissoute : ses articles reviennent au détenteur (ADR 0027). */
+  releaseEquipmentOfTeam(teamId: string): void {
+    let touched = false;
+    for (const e of this.equipment) {
+      if (e.teamId !== teamId) continue;
+      delete e.teamId;
+      touched = true;
+    }
+    if (touched) this.persist();
   }
 
   removeEquipmentOf(owner: { kind: "unit" | "hospital" | "shelter"; id: string }, eid: string): boolean {

@@ -29,6 +29,8 @@ export interface EquipItem {
   serial?: string;
   /** Posé sur le terrain par le TACOM (ADR 0018). */
   position?: Placement;
+  /** Équipe du détenteur à laquelle l'article est affecté (ADR 0027), facultatif. */
+  teamId?: string;
   stock: number;
   threshold: number;
   cond: EquipCondition;

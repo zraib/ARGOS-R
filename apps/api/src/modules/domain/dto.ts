@@ -1518,6 +1518,9 @@ export class CreateOwnedEquipDto extends CreateEquipDto {
 
   @ApiPropertyOptional({ maxLength: 60, description: "Numéro d'inventaire / série" }) @IsOptional() @IsString() @MaxLength(60)
   serial?: string;
+
+  @ApiPropertyOptional({ maxLength: 40, description: "Équipe du détenteur à laquelle l'article est affecté (ADR 0027)" }) @IsOptional() @IsString() @MaxLength(40)
+  teamId?: string;
 }
 
 export class UpdateOwnedEquipDto extends UpdateEquipDto {
@@ -1525,4 +1528,6 @@ export class UpdateOwnedEquipDto extends UpdateEquipDto {
   type?: string;
   @ApiPropertyOptional({ maxLength: 60 }) @IsOptional() @IsString() @MaxLength(60)
   serial?: string;
+  @ApiPropertyOptional({ maxLength: 40, description: "Équipe du détenteur ; chaîne vide pour retirer l'article de son équipe" }) @IsOptional() @IsString() @MaxLength(40)
+  teamId?: string;
 }

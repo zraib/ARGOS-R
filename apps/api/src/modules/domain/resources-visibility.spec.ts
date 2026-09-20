@@ -4,6 +4,11 @@ import { Test } from "@nestjs/testing";
 import request from "supertest";
 import type { CommsService as CommsServiceType } from "@/modules/domain/comms.service";
 
+// Par défaut, tout le monde voit ce qui se passe sur la carte (décision du 20
+// septembre 2026, ADR 0027) ; cette suite éprouve le cantonnement par portée
+// (ADR 0019/0020), qui reste disponible sur une station qui le choisit.
+process.env.UNITS_VISIBILITY = "scoped";
+
 // ============================================================================
 // Ce qu'un compte VOIT des ressources, et à qui un message est poussé
 // (ADR 0019) — de bout en bout, en mode OPÉRATIONNEL

@@ -4,6 +4,7 @@ import type { Role } from "@/shared/permissions";
 import { ROLE_TRAITS, type ProfileId } from "@/shared/profiles";
 import type { AppMode } from "@/common/app-mode";
 import type { Incident, Unit, FieldHospital } from "@/modules/domain/domain.service";
+import type { AuthUser } from "@/common/types/auth-user";
 import type { ResourceOwner } from "@/modules/domain/resources.types";
 
 // ============================================================================
@@ -62,6 +63,27 @@ export function unitFitsMode(unit: Pick<Unit, "profile" | "seeded">, profile: Pr
  */
 export function incidentsVisibleToAll(): boolean {
   return (process.env.INCIDENTS_VISIBILITY ?? "all").trim().toLowerCase() !== "scoped";
+}
+
+/**
+ * « Tout le monde doit voir ce qui se passe sur la carte » (décision du 20
+ * septembre 2026, ADR 0027) : les unités — et ce qui est posé sur le terrain —
+ * se voient de tous les rôles, dans le mode de l'application en service. C'est
+ * le défaut ; `UNITS_VISIBILITY=scoped` rend le cantonnement par portée (ADR
+ * 0020 : ce qu'on a inscrit, sa région, son opération, son entité) — la règle
+ * reste écrite et éprouvée, une station peut la choisir.
+ */
+export function unitsVisibleToAll(): boolean {
+  return (process.env.UNITS_VISIBILITY ?? "all").trim().toLowerCase() !== "scoped";
+}
+
+/**
+ * L'unité se montre-t-elle à CE compte dans le mode en service ? Le Super
+ * Administrateur voit tout — les unités des deux modes (ADR 0027) ; les autres
+ * ne voient que celles du mode où ils sont connectés (ADR 0022).
+ */
+export function unitVisibleTo(unit: Pick<Unit, "profile" | "seeded">, user: Pick<AuthUser, "role" | "profile">): boolean {
+  return user.role === "superadmin" || unitFitsMode(unit, user.profile);
 }
 
 export type VisibilityScope =
@@ -287,6 +309,8 @@ export class VisibilityService {
       regionOfIncident?: (incidentId: string) => string | undefined;
     },
   ): Unit[] {
+    // Décision du 20 septembre 2026 (ADR 0027) : les unités se voient de tous.
+    if (unitsVisibleToAll()) return units;
     if (scope.kind === "global" || !ctx) return units;
     const me = ctx.matricule.toLowerCase();
     const mine = new Set([ctx.assignments?.unit, ctx.assignments?.equipment].filter((x): x is string => !!x));

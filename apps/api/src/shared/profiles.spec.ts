@@ -136,12 +136,11 @@ describe("profil classique — les traits reproduisent les listes d'avant", () =
 });
 
 describe("profil direx — la conduite par les mêmes règles", () => {
-  it("le PC FAR affecte les FAR, le PCF les autres intervenants ; les chefs et les OPS seulement", () => {
-    expect(assignableCorps("pcfar_chef")).toEqual(["far"]);
-    expect(assignableCorps("pcfar_ops")).toEqual(["far"]);
-    expect(assignableCorps("pcf_chef")).toEqual(["dgsn", "dgpc", "fa", "gendarmerie"]);
-    expect(assignableCorps("pcf_ops")).toEqual(["dgsn", "dgpc", "fa", "gendarmerie"]);
-    for (const r of ["pcfar_log", "pcf_synth", "direx_chef", "direx_anim", "pct_chef", "pco_ops"] as const) expect(assignableCorps(r)).toEqual([]);
+  it("ADR 0027 : les PC (chef, OPS, LOG des quatre PC) et l'Anim affectent les unités de TOUS les corps ; synthèse, planif, rens et DIREX n'affectent pas", () => {
+    for (const r of ["pcfar_chef", "pcfar_ops", "pcfar_log", "pcf_chef", "pcf_ops", "pcf_log", "pct_chef", "pct_ops", "pct_log", "pco_chef", "pco_ops", "pco_log", "direx_anim"] as const) {
+      expect(assignableCorps(r)).toBe("*");
+    }
+    for (const r of ["pcf_synth", "pcfar_planif_rens", "pct_rens", "pco_rens_com", "direx_chef", "direx_eval", "direx_rls"] as const) expect(assignableCorps(r)).toEqual([]);
   });
 
   it("les PC opératifs (chef, OPS, LOG) et les PC tactiques déploient ; la DIREX ne déploie pas", () => {
@@ -178,7 +177,9 @@ describe("profil direx — la conduite par les mêmes règles", () => {
     expect(roleHasPermission("direx_eval", "incidents:create")).toBe(false);
     expect(roleHasPermission("direx_eval", "audit:view")).toBe(true);
     expect(roleHasPermission("pcfar_chef", "assign:create")).toBe(true);
-    expect(roleHasPermission("pcfar_log", "assign:create")).toBe(false);
+    // ADR 0027 : le LOG affecte aussi ; la synthèse observe.
+    expect(roleHasPermission("pcfar_log", "assign:create")).toBe(true);
+    expect(roleHasPermission("pcfar_synth", "assign:create")).toBe(false);
     expect(roleHasPermission("pcf_ops", "deploy:create")).toBe(true);
   });
 

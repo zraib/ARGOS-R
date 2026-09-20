@@ -385,3 +385,26 @@ cd C:\iris\deploy
   emporte, la remise en arrière (§ 8) les rend.
 - **Carte** : l'arabe des étiquettes est de nouveau mis en forme (greffon RTL
   corrigé) ; chaque jour des prévisions météo se consulte.
+
+## 14. Ce que la mise à jour ne touche plus, et la carte de tous (paquets du 20 septembre 2026, soir)
+
+- **Aucun compte n'est réinjecté à la mise à jour** : le registre de la station
+  fait autorité, et lui seul. Les comptes du jeu d'amorçage absents du registre
+  (comptes de démonstration, comptes ajoutés au seed depuis l'installation) ne
+  sont plus ajoutés au démarrage — seuls restent les comptes que la station
+  connaît. Ceux que des paquets antérieurs avaient ajoutés restent en place :
+  les retirer, si on le souhaite, se fait dans *Gestion des utilisateurs*. Seule
+  exception : un registre sans aucun Super Administrateur actif retrouve le
+  compte fondateur, pour rester administrable.
+- **Le parc d'équipement est repris tel quel** : les articles saisis sur la
+  plateforme (détenteur, équipe, numéro, position) ne sont ni écrasés ni
+  retouchés par une mise à jour, quelle que soit la version du jeu de données.
+- **Tout le monde voit ce qui se passe sur la carte** : les unités et ce qui est
+  posé sur le terrain se voient de tous les rôles (dans le mode en service) ;
+  les PC (chefs, OPS, LOG des PC FAR, PCF, PCT, PCO) et l'Anim / DIREX voient
+  les unités au répartiteur et sur la carte, les engagent et les affectent à
+  l'opération, tous corps confondus. Le Super Administrateur voit les unités
+  des deux modes. Pour revenir au cantonnement par portée :
+  `UNITS_VISIBILITY=scoped` dans `deploy\.env`, puis redémarrer l'API.
+- **Un article du parc s'affecte à une équipe** de son détenteur, depuis le
+  formulaire de l'article (écran Ressources ou fiche de l'unité dans OPSnet).
