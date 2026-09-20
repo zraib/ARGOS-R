@@ -386,7 +386,8 @@ stratégique, le dispositif tactique pour l'OPCOM, leurs équipes, équipements 
 véhicules **sur le terrain** pour le TACOM et les cellules (en opérationnel :
 ceux des unités affectées à leur opération). Le panache NRBC relève de
 `plume:view` (conduite) ; les simulateurs de crue et de feu, calculés dans le
-navigateur, sont coupés par leurs modules. Depuis l'ADR 0022 (lot 6), les natures posables sont
+navigateur, sont coupés par leurs modules (`simFlood`, `simFire` — trait
+`simulate` des rôles, voir [11-simulateurs-feu-et-inondation.md](11-simulateurs-feu-et-inondation.md) § 2). Depuis l'ADR 0022 (lot 6), les natures posables sont
 bornées par le **mode de l'application** (`placeablePostKinds(role, profile)`) : sous Direx, le Chef /
 DIREX pose PC FAR et PCF, l'Anim / DIREX et les OPS des PC opératifs y ajoutent PCT et PCO. Tests :
 `modules/domain/map-edit.spec.ts`, `modules/domain/mode-rights.spec.ts`.

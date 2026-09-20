@@ -54,13 +54,16 @@ apps/web/src/
 │   ├── dashboard/            tableau de bord + situational/ (conscience situationnelle)
 │   ├── health/               Hospinet : HospinetIAPanel + parts/, affecteur IA
 │   ├── opsnet/               OPSnet (unités et abris), pendant d'Hospinet
-│   ├── whatif/               WhatIfPageShell + parts/ (simulation)
+│   ├── whatif/               WhatIfPageShell + parts/ (simulation « et si ? »)
+│   ├── map/layers/spread.ts  socle des simulations sur la carte (canevas,
+│   │                         lecture) ; fire.ts, floods.ts = feu, inondation
 │   ├── missions/ · org/ · responsibility/ · substances/
 └── lib/
     ├── store.ts              le magasin Zustand : réunion des tranches
     ├── store/shared.ts       types de session/UI, clés de persistance, garde IA
     ├── store/slices/         session · ui · domain · seismic · map · missions
-    │                         · nrbc · realtime · ai · aviation
+    │                         · nrbc · realtime · ai · aviation · chat
+    │                         · tracking · drawings · fire · flood
     ├── api.ts · config.ts    accès API (jeton, base) et configuration
     ├── api-client/           types générés depuis l'OpenAPI — NE PAS ÉDITER
     ├── i18n/                 translations.{fr,en,ar} (cœur), modules.{fr,en,ar},
@@ -72,6 +75,9 @@ apps/web/src/
     ├── map/                  style, marqueurs, villes, Maroc, routage, vent ;
     │                         canvas/ = aides pures du rendu (MNT, météo,
     │                         séismes, panache)
+    ├── fire/ · flood/ · sim/ simulateurs de feu (Rothermel) et d'inondation
+    │                         (onde inertielle, SCS, Froehlich) et leur socle
+    │                         commun — voir docs/11-simulateurs-feu-et-inondation.md
     ├── realtime/stream.ts    lecture du flux SSE (fetch + en-tête, reconnexion)
     ├── incidents/wizard.ts   ce que l'assistant de déclaration décide (testé)
     ├── tracking/ · nrbc/ · hazard/   logique métier des lots N-2, N-3, N-5
@@ -118,7 +124,7 @@ Deux règles de rangement, vérifiées par le typecheck et les tests :
 
 ## 4. Store
 
-Un seul magasin **Zustand** (`useArgos`), mais assemblé à partir de **dix
+Un seul magasin **Zustand** (`useArgos`), mais assemblé à partir de **quinze
 tranches** typées (`lib/store/slices/*.ts`), chacune exportant son interface et
 son `StateCreator` ; `ArgosState` est leur réunion. Une tranche voit tout l'état
 par `set`/`get` mais **n'importe jamais une autre tranche** — elles ne
@@ -136,6 +142,11 @@ partagent que `lib/store/shared.ts` et le type `ArgosState`.
 | `realtime` | liaison SSE, présence, non-lus (lot COMMS) |
 | `ai` | journal du Copilot, réglages, priorité opérateur, prédictions de risque, conscience situationnelle |
 | `aviation` | aéronefs inscrits et positions |
+| `chat` | conversations flottantes (têtes et fenêtres) |
+| `tracking` | traceurs GPS et positions partagées |
+| `drawings` | croquis de la carte (points, cercles, polygones — ADR 0024), outil en cours, sélection |
+| `fire` | simulateur de feu de forêt : point d'allumage, réglages, météo du point, course et lecture (ADR 0011, 0025) |
+| `flood` | prévisions de crue (jauges GloFAS / Flood Hub) et simulateur d'inondation : point, scénario, course et lecture (ADR 0010, 0025) |
 
 Les données du domaine sont chargées depuis l'API au montage, via le client
 généré. En développement, `window.__argos` expose le magasin pour inspection.
@@ -179,6 +190,16 @@ Trois règles tenues par les tests et le typecheck :
   par zoom.
 - **Interactions** : `Maj + clic droit` ouvre le point météo (titré par la ville
   la plus proche) et permet de déclarer un incident à cet endroit.
+- **Simulateurs** : feu de forêt (Rothermel 1972 sur les modèles d'Anderson,
+  temps minimal de parcours) et inondation (onde inertielle de Bates 2010,
+  hydrogramme du SCS, rupture de barrage selon Froehlich 2008 sur le
+  référentiel des grands barrages) — calculés dans le navigateur sur les tuiles
+  d'altitude, lus en animation sur un canevas, points atteints listés. Réservés
+  aux rôles de conduite (modules `simFire` / `simFlood`). Tout est dans
+  [11-simulateurs-feu-et-inondation.md](11-simulateurs-feu-et-inondation.md).
+- **Dessin** : points, cercles et polygones nommés, dessinés à la souris,
+  partagés en temps réel, modifiables par leur auteur ou le Super
+  Administrateur (ADR 0024).
 
 Pièges MapLibre documentés dans le code : la bibliothèque **mute l'objet de
 style** (d'où `structuredClone`), `isStyleLoaded()` peut rester faux sous
@@ -227,11 +248,15 @@ Variable d'environnement : `NEXT_PUBLIC_API_URL` (défaut
 
 ## 10. Tests
 
-`npm run test:web` (vitest, environnement Node, alias `@`) — **70 tests** dans
-`src/lib/**/__tests__/`. Ils fixent ce qui casse en silence : parité des clés
-i18n FR/EN/AR, résolution des routes de navigation, matrice des rôles,
-affecteurs Hospinet/OPSnet, découpage SSE, décodage des traceurs, aides pures
-de la carte, moteur de brouillon (reproductibilité, aucun chiffre inventé),
-orchestration du Copilot (budget d'historique, blocs, délais). Un test se
+`npm run test:web` (vitest, environnement Node, alias `@`) — **223 tests** dans
+`src/lib/**/__tests__/` et `components/map/layers/__tests__/`. Ils fixent ce
+qui casse en silence : parité des clés i18n FR/EN/AR, résolution des routes de
+navigation, matrice des rôles et droits par mode, affecteurs Hospinet/OPSnet,
+découpage SSE, décodage des traceurs, aides pures de la carte, moteur de
+brouillon (reproductibilité, aucun chiffre inventé), orchestration du Copilot
+(budget d'historique, blocs, délais), simulateurs (`fire.test` : tableau
+d'Anderson, vent, pente, humidité, extinction ; `hydro.test` : Froehlich 2008,
+conservation du volume, SCS, référentiel des barrages), croquis, cascade
+région → province → commune, style souverain et repli des tuiles. Un test se
 place à côté de la logique qu'il protège ; il n'y a pas de test de rendu.
 

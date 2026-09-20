@@ -17,6 +17,7 @@ Index de la documentation technique. Point d'entrée du dépôt :
 | 8 | [Workflow opérationnel](08-workflow-operationnel.md) | **la boucle fermée** : comment le travail circule entre l'état-major et le terrain |
 | 9 | [Carte du code](09-carte-du-code.md) | où se trouve quoi, règles de dépendance, où mettre une nouveauté |
 | 10 | [Qualité, gate et registre d'audit](10-qualite-et-audit.md) | **pour l'auditeur** : la gate, ce qui a été nettoyé et refondu, le registre des risques |
+| 11 | [Simulateurs de feu et d'inondation](11-simulateurs-feu-et-inondation.md) | **ce que calculent les simulateurs de la carte** : Rothermel sur les modèles d'Anderson, onde inertielle, SCS et Froehlich sur les barrages du Royaume — réglages, vérifications, limites, où est le code |
 
 ## Décisions d'architecture
 
@@ -52,5 +53,6 @@ conséquences et alternatives écartées.
 | un écran, une route web | [05-frontend.md](05-frontend.md) |
 | une commande, une variable d'environnement | [06-developpement.md](06-developpement.md) |
 | une frontière ou un composant | [01-architecture.md](01-architecture.md) |
+| un modèle de simulation (feu, inondation), un barrage ou une végétation du référentiel | [11-simulateurs-feu-et-inondation.md](11-simulateurs-feu-et-inondation.md) — et un ADR si le modèle change |
 | une décision qui dévie du MASTER_PLAN | un nouvel [ADR](adr/README.md) |
 | n'importe quoi, en fin de session | [`../CONTEXT.md`](../CONTEXT.md) |

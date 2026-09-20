@@ -7,6 +7,8 @@
   restent ; ce qui change, c'est la PHYSIQUE qui les alimente.
 - **Portée :** `apps/web/src/lib/fire/{rothermel,spread}.ts`, `lib/flood/{hydro,dams}.ts`,
   `app/map/_parts/{FirePanel,FloodPanel}.tsx`, tranches `fire` et `flood`, tests.
+- **Documentation :** [docs/11-simulateurs-feu-et-inondation.md](../11-simulateurs-feu-et-inondation.md)
+  — les modèles, les réglages, les vérifications, les limites, où est le code.
 
 ## Contexte
 
