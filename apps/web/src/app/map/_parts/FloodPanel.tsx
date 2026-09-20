@@ -7,7 +7,8 @@ import { UI_ICONS } from "@/lib/icons";
 import { tpl } from "@/lib/i18n/format";
 import { FLOOD_SEVERITY_COLOR } from "@/components/map/layers/floods";
 import { FLOOD_COLOR_REF_M, FLOOD_DEEP_RGB, FLOOD_SHALLOW_RGB } from "@/lib/flood/frames";
-import { scenarioOf, type FloodSource } from "@/lib/flood/hydro";
+import { MANNING_PRESETS, scenarioOf, type FloodSource, type ManningPreset } from "@/lib/flood/hydro";
+import { DAMS_MA, RIVERS_MA, damById } from "@/lib/flood/dams";
 import { frameAt } from "@/lib/sim/spread";
 import { FLOOD_DEFAULT_PARAMS } from "@/lib/store/slices/flood";
 import type { FloodGauge, FloodSeverity, FloodTrend, FloodUnit } from "@/lib/types";
@@ -320,8 +321,18 @@ export function FloodPanel() {
 
         {params.source === "river" && (
           <>
-            <Reglage label={t.flood_peak_q} value={params.peakQ} unit="m³/s" min={50} max={30000} step={50} onChange={(v) => setFloodParams({ peakQ: v })} />
-            <Reglage label={t.flood_duration} value={params.durationH} unit="h" min={1} max={48} step={1} onChange={(v) => setFloodParams({ durationH: v })} />
+            {/* Les grands oueds et leurs crues marquantes : un ordre de grandeur à corriger. */}
+            <label className="flex flex-col gap-1">
+              <span className={lbl}>{t.flood_river_ref}</span>
+              <select className={champ} value="" onChange={(e) => { const r = RIVERS_MA.find((x) => x.id === e.target.value); if (r) setFloodParams({ peakQ: r.peakQ, durationH: r.durationH }); }}>
+                <option value="">{t.flood_ref_none}</option>
+                {RIVERS_MA.map((r) => (
+                  <option key={r.id} value={r.id}>{r.nom} · ≈ {r.peakQ.toLocaleString("fr-FR")} m³/s ({r.event})</option>
+                ))}
+              </select>
+            </label>
+            <Reglage label={t.flood_peak_q} value={params.peakQ} unit="m³/s" min={50} max={50000} step={50} onChange={(v) => setFloodParams({ peakQ: v })} />
+            <Reglage label={t.flood_duration} value={params.durationH} unit="h" min={1} max={96} step={1} onChange={(v) => setFloodParams({ durationH: v })} />
           </>
         )}
         {params.source === "lake" && (
@@ -332,18 +343,63 @@ export function FloodPanel() {
         )}
         {params.source === "dam" && (
           <>
-            <Reglage label={t.flood_dam_volume} value={params.volumeHm3} unit="hm³" min={1} max={3000} step={1} onChange={(v) => setFloodParams({ volumeHm3: v })} />
-            <Reglage label={t.flood_dam_height} value={params.damHeightM} unit="m" min={5} max={150} step={1} onChange={(v) => setFloodParams({ damHeightM: v })} />
+            {/* Les grands barrages du Royaume : retenue normale, hauteur, position (point de rupture au barrage). */}
+            <label className="flex flex-col gap-1">
+              <span className={lbl}>{t.flood_dam_ref}</span>
+              <select
+                className={champ}
+                value={params.damId ?? ""}
+                onChange={(e) => {
+                  const d = damById(e.target.value);
+                  if (!d) {
+                    setFloodParams({ damId: undefined });
+                    return;
+                  }
+                  setFloodParams({ damId: d.id, volumeHm3: d.capacityHm3, damHeightM: d.heightM });
+                  setFloodSeed(d.ll);
+                }}
+              >
+                <option value="">{t.flood_ref_none}</option>
+                {DAMS_MA.map((d) => (
+                  <option key={d.id} value={d.id}>{d.nom} · {d.oued} · {d.capacityHm3.toLocaleString("fr-FR")} hm³ · {d.heightM} m</option>
+                ))}
+              </select>
+              {params.damId && damById(params.damId)?.note && <span className="text-[10.5px] text-white/50">{damById(params.damId)?.note}</span>}
+            </label>
+            <Reglage label={t.flood_dam_volume} value={params.volumeHm3} unit="hm³" min={1} max={5000} step={1} onChange={(v) => setFloodParams({ volumeHm3: v, damId: undefined })} />
+            <Reglage label={t.flood_dam_height} value={params.damHeightM} unit="m" min={5} max={200} step={1} onChange={(v) => setFloodParams({ damHeightM: v, damId: undefined })} />
+            <label className="flex flex-col gap-1">
+              <span className={lbl}>{t.flood_breach}</span>
+              <select className={champ} value={params.breach ?? "overtopping"} onChange={(e) => setFloodParams({ breach: e.target.value === "piping" ? "piping" : "overtopping" })}>
+                <option value="overtopping">{t.flood_breach_overtopping}</option>
+                <option value="piping">{t.flood_breach_piping}</option>
+              </select>
+            </label>
           </>
         )}
+        <label className="flex flex-col gap-1">
+          <span className={lbl}>{t.flood_roughness}</span>
+          <select className={champ} value={params.roughness ?? "floodplain"} onChange={(e) => setFloodParams({ roughness: e.target.value as ManningPreset })}>
+            {(Object.keys(MANNING_PRESETS) as ManningPreset[]).map((k) => (
+              <option key={k} value={k}>{t[`flood_rough_${k}` as const]} · n = {MANNING_PRESETS[k]}</option>
+            ))}
+          </select>
+        </label>
         <p className="text-[11px] font-semibold text-or-300">{derive}</p>
+        {params.source === "dam" && scenario.failureTimeS !== undefined && (
+          <p className="text-[11px] leading-snug text-white/60">
+            {tpl(t.flood_breach_line, { tf: (scenario.failureTimeS / 60).toFixed(0), b: Math.round(scenario.breachWidthM ?? 0).toString() })}
+          </p>
+        )}
         <Reglage label={t.sim_horizon} value={params.horizonH} unit="h" min={1} max={24} step={1} onChange={(v) => setFloodParams({ horizonH: v })} />
 
         <label className="flex flex-col gap-1">
           <span className={lbl}>{t.sim_extent}</span>
-          <select className={champ} value={params.extentKm} onChange={(e) => setFloodParams({ extentKm: Number(e.target.value) === 50 ? 50 : 25 })}>
+          <select className={champ} value={params.extentKm} onChange={(e) => setFloodParams({ extentKm: ([25, 50, 100, 200] as const).find((k) => k === Number(e.target.value)) ?? 25 })}>
             <option value={25}>{t.sim_extent_25}</option>
             <option value={50}>{t.sim_extent_50}</option>
+            <option value={100}>{t.sim_extent_100}</option>
+            <option value={200}>{t.sim_extent_200}</option>
           </select>
         </label>
 

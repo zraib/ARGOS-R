@@ -12,6 +12,8 @@
   propagation hydraulique pas à pas (onde inertielle), pilotée par débit et
   volume, animée en temps simulé ; la carte se cadre d'elle-même.
 
+- **Révisé le 2026-09-20 (ADR 0025) :** rupture de barrage selon Froehlich 2008, crue selon l'hydrogramme du SCS, rugosité de Manning réglable, référentiel des grands barrages et des grands oueds, étendues 100 et 200 km.
+
 ## Contexte
 
 L'état-major veut deux choses que la carte ne donnait pas : des **prévisions

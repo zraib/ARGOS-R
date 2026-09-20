@@ -62,14 +62,95 @@ export function hydrographVolume(h: Hydrograph, durationS: number, dt = 60): num
   return v;
 }
 
-/** Débit de pointe d'une rupture de barrage (Froehlich 1995) : `V` en m³, `H` hauteur d'eau au barrage (m) → m³/s. */
+/**
+ * Crue de rivière : l'hydrogramme unitaire adimensionnel du SCS (NRCS, National
+ * Engineering Handbook), approché par une loi gamma (Nash) — la forme de
+ * référence en hydrologie de projet : q(t) = Qp (t/tp)^m e^{m(1 − t/tp)},
+ * m = 3,7, temps de montée tp = 0,375 × durée (base ≈ 2,67 tp).
+ */
+export function scsHydrograph(peakQ: number, durationS: number, m = 3.7): Hydrograph {
+  const tp = Math.max(1, 0.375 * durationS);
+  return (t) => (t <= 0 ? 0 : peakQ * Math.pow(t / tp, m) * Math.exp(m * (1 - t / tp)));
+}
+
+/** ∫₀^∞ (t/tp)^m e^{m(1 − t/tp)} dt / tp — le facteur de volume de la loi gamma (Γ(m+1) e^m / m^{m+1}). */
+export function gammaVolumeFactor(m: number): number {
+  return (gammaFn(m + 1) * Math.exp(m)) / Math.pow(m, m + 1);
+}
+
+/** Γ(x) (Lanczos), x > 0. */
+function gammaFn(x: number): number {
+  const g = 7;
+  const c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+  if (x < 0.5) return Math.PI / (Math.sin(Math.PI * x) * gammaFn(1 - x));
+  x -= 1;
+  let a = c[0];
+  const t = x + g + 0.5;
+  for (let i = 1; i < g + 2; i++) a += c[i] / (x + i);
+  return Math.sqrt(2 * Math.PI) * Math.pow(t, x + 0.5) * Math.exp(-t) * a;
+}
+
+/**
+ * Rupture de barrage — Froehlich (2008, « Embankment Dam Breach Parameters and
+ * Their Uncertainties », J. Hydraul. Eng.), la référence des études de rupture
+ * (HEC-RAS, FERC) : débit de pointe Qp = 0,0443 √g V^0,367 H^1,25, temps de
+ * formation de la brèche tf = 63,2 √(V / (g H²)), largeur moyenne de brèche
+ * B = 0,27 ko V^0,32 H^0,04 (ko = 1,3 par surverse, 1,0 par renard). `V` : volume
+ * de la retenue (m³) ; `H` : hauteur d'eau au-dessus du fond de brèche (m).
+ */
+export function froehlich2008(volumeM3: number, heightM: number, overtopping = true): { peakQ: number; failureTimeS: number; breachWidthM: number } {
+  const V = Math.max(0, volumeM3);
+  const H = Math.max(0.1, heightM);
+  return {
+    peakQ: 0.0443 * Math.sqrt(G) * Math.pow(V, 0.367) * Math.pow(H, 1.25),
+    failureTimeS: 63.2 * Math.sqrt(V / (G * H * H)),
+    breachWidthM: 0.27 * (overtopping ? 1.3 : 1.0) * Math.pow(V, 0.32) * Math.pow(H, 0.04),
+  };
+}
+
+/** Débit de pointe d'une rupture de barrage (Froehlich 1995) : `V` en m³, `H` hauteur d'eau au barrage (m) → m³/s — gardé pour comparaison. */
 export function froehlichPeak(volumeM3: number, heightM: number): number {
   return 0.607 * Math.pow(Math.max(0, volumeM3), 0.295) * Math.pow(Math.max(0, heightM), 1.24);
+}
+
+/**
+ * Hydrogramme de rupture : montée en le temps de formation de la brèche, puis
+ * décrue de la vidange — une loi gamma dont le paramètre est choisi pour que
+ * le volume écoulé soit EXACTEMENT celui de la retenue (∫ q dt = V).
+ */
+export function breachHydrograph(volumeM3: number, peakQ: number, failureTimeS: number): { hydrograph: Hydrograph; durationS: number; m: number } {
+  const tp = Math.max(60, failureTimeS);
+  const k = volumeM3 / (peakQ * tp); // facteur de volume voulu
+  // K(m) décroît avec m : on encadre m dans [0,3 ; 8] par dichotomie.
+  let lo = 0.3;
+  let hi = 8;
+  if (k >= gammaVolumeFactor(lo)) lo = hi = 0.3;
+  else if (k <= gammaVolumeFactor(hi)) lo = hi = 8;
+  else for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (gammaVolumeFactor(mid) > k) lo = mid;
+    else hi = mid;
+  }
+  const m = (lo + hi) / 2;
+  const hydrograph: Hydrograph = (t) => (t <= 0 ? 0 : peakQ * Math.pow(t / tp, m) * Math.exp(m * (1 - t / tp)));
+  // Durée utile : quand il reste moins de 1 % du débit de pointe après la pointe.
+  let durationS = tp;
+  while (hydrograph(durationS) > 0.01 * peakQ && durationS < 30 * 86400) durationS += Math.max(60, tp / 20);
+  return { hydrograph, durationS, m };
 }
 
 // --- scénarios --------------------------------------------------------------------
 
 export type FloodSource = "river" | "lake" | "dam";
+
+/** Rugosité de Manning (Chow 1959) : le lit et la plaine que l'eau va rencontrer. */
+export const MANNING_PRESETS = {
+  channel: 0.035,
+  floodplain: 0.05,
+  vegetation: 0.08,
+  urban: 0.12,
+} as const;
+export type ManningPreset = keyof typeof MANNING_PRESETS;
 
 /** Ce que l'opérateur règle : la source, ses chiffres, l'horizon et l'étendue du relief. */
 export interface FloodScenarioParams {
@@ -83,8 +164,13 @@ export interface FloodScenarioParams {
   damHeightM: number;
   /** Horizon simulé (h). */
   horizonH: number;
-  /** Étendue du relief chargé (km de côté) : 25 → cellules d'environ 30 m, 50 → environ 60 m. */
-  extentKm: 25 | 50;
+  /** Étendue du relief chargé (km de côté) : 25 → cellules d'environ 30 m, 50 → 60 m, 100 → 120 m, 200 → 240 m. */
+  extentKm: 25 | 50 | 100 | 200;
+  /** Rugosité de Manning du terrain (préréglage de Chow) ; absent : plaine d'inondation. */
+  roughness?: ManningPreset;
+  /** Barrage du référentiel choisi (préremplit volume, hauteur et position) ; brèche par surverse ou par renard. */
+  damId?: string;
+  breach?: "overtopping" | "piping";
 }
 
 export interface FloodScenario {
@@ -93,13 +179,18 @@ export interface FloodScenario {
   peakQ: number;
   durationS: number;
   volumeM3: number;
+  /** Rupture : temps de formation de la brèche (s) et largeur moyenne (m) — Froehlich 2008. */
+  failureTimeS?: number;
+  breachWidthM?: number;
 }
 
 /** L'hydrogramme d'un scénario et ses chiffres dérivés — les mêmes pour le calcul et pour l'écran. */
 export function scenarioOf(p: FloodScenarioParams): FloodScenario {
   if (p.source === "river") {
+    // Crue de rivière : l'hydrogramme du SCS (montée à 37,5 % de la durée) ; le volume est celui de la loi gamma.
     const durationS = p.durationH * 3600;
-    return { hydrograph: triangularHydrograph(p.peakQ, durationS), peakQ: p.peakQ, durationS, volumeM3: (p.peakQ * durationS) / 2 };
+    const tp = 0.375 * durationS;
+    return { hydrograph: scsHydrograph(p.peakQ, durationS), peakQ: p.peakQ, durationS, volumeM3: p.peakQ * tp * gammaVolumeFactor(3.7) };
   }
   const volumeM3 = p.volumeHm3 * 1e6;
   if (p.source === "lake") {
@@ -107,11 +198,17 @@ export function scenarioOf(p: FloodScenarioParams): FloodScenario {
     const q = volumeM3 / durationS;
     return { hydrograph: plateauHydrograph(q, durationS), peakQ: q, durationS, volumeM3 };
   }
-  // Barrage : la pointe vient de la retenue et de sa hauteur (Froehlich), la
-  // vidange dure le temps de passer ce volume sous un triangle raide.
-  const peakQ = Math.max(1, froehlichPeak(volumeM3, p.damHeightM));
-  const durationS = (2 * volumeM3) / peakQ;
-  return { hydrograph: triangularHydrograph(peakQ, durationS, 1 / 4), peakQ, durationS, volumeM3 };
+  // Barrage : Froehlich 2008 — pointe, temps de formation de la brèche, largeur ;
+  // l'hydrogramme monte pendant la formation de la brèche et vide EXACTEMENT la retenue.
+  const f = froehlich2008(volumeM3, p.damHeightM, p.breach !== "piping");
+  const peakQ = Math.max(1, f.peakQ);
+  const b = breachHydrograph(volumeM3, peakQ, f.failureTimeS);
+  return { hydrograph: b.hydrograph, peakQ, durationS: b.durationS, volumeM3, failureTimeS: f.failureTimeS, breachWidthM: f.breachWidthM };
+}
+
+/** La rugosité de Manning du scénario. */
+export function manningOf(p: Pick<FloodScenarioParams, "roughness">): number {
+  return MANNING_PRESETS[p.roughness ?? "floodplain"];
 }
 
 // --- la simulation ----------------------------------------------------------------

@@ -1,78 +1,99 @@
 // ============================================================================
-// ARGOS — modèle de propagation d'un feu de forêt sur le relief (simulateur)
+// ARGOS — propagation d'un feu de forêt sur le relief (simulateur)
 //
 // Ce que ce module calcule : l'HEURE D'ARRIVÉE du front de flammes en chaque
 // cellule de la grille d'altitude, depuis un point de départ, par la méthode
-// du temps minimal de parcours (Huygens / Dijkstra) : de chaque cellule
+// du temps minimal de parcours (Finney 2002, FlamMap) : de chaque cellule
 // atteinte, le feu gagne ses huit voisines à une vitesse qui dépend de la
-// direction — une ellipse allongée dans le sens du vent (Alexander 1985,
-// Richards 1990), déformée par la pente (la vitesse double tous les 10° de
-// montée, règle de McArthur) — et du combustible, de l'humidité de l'air et
-// de la température (facteurs des abaques de Rothermel 1972).
+// direction. La vitesse vient du modèle de Rothermel (1972) sur les modèles de
+// combustible d'Anderson (1982) — `lib/fire/rothermel.ts` — avec l'humidité
+// du combustible déduite de la température et de l'humidité de l'air (Simard
+// 1968), le vent à 10 m ramené à mi-flamme (facteur d'ajustement par modèle,
+// Andrews 2012). En chaque cellule, le vent et la pente locale (lue sur le
+// relief) se combinent en un VENT EFFECTIF unique (Finney 1998, Andrews 2018) :
+// il donne la vitesse de tête et l'allongement de l'ellipse (Anderson 1983),
+// et l'ellipse donne la vitesse dans chaque direction (Richards 1990).
 //
-// Ce que ce module NE fait PAS : ni sautes de feu (brandons), ni couronnement,
-// ni combustible réel (pas de carte d'occupation du sol : l'opérateur choisit
-// le type dominant), ni humidité du combustible mesurée, ni action des
-// secours. Un ORDRE DE GRANDEUR de propagation — où le feu va, en combien de
-// temps — pour cadrer une évacuation et des coupures, pas une prévision. Pur.
+// Ce que ce module NE fait PAS : ni sautes de feu (brandons), ni feu de cime
+// (la longueur de flamme dit quand il devient probable), ni carte de
+// combustible (l'opérateur choisit la végétation dominante), ni humidité
+// mesurée sur le terrain, ni action des secours. Un cadrage aux normes du
+// domaine — où le feu va, en combien de temps, avec quelles flammes — pour
+// dimensionner une évacuation et des coupures, pas une prévision. Pur.
 // ============================================================================
 
 import type { DemGrid } from "@/lib/flood/grid";
 import type { PixelBox } from "@/lib/sim/spread";
+import { equivalentWind, fuelModel, lengthToBreadthFromWind, midflameWind, moistureScenario, rothermel, slopePhi, type FuelModel, type RothermelResult } from "@/lib/fire/rothermel";
 
-export type FuelKind = "grass" | "shrub" | "conifer" | "broadleaf" | "sparse";
-export const FUEL_KINDS: readonly FuelKind[] = ["grass", "shrub", "conifer", "broadleaf", "sparse"];
+/** La végétation dominante, telle qu'on la nomme au Maroc, rapportée à un modèle d'Anderson. */
+export type FuelKind = "grass" | "tallgrass" | "shrub" | "chaparral" | "dormant" | "conifer" | "broadleaf" | "litter" | "slash" | "sparse";
+export const FUEL_KINDS: readonly FuelKind[] = ["grass", "tallgrass", "shrub", "chaparral", "dormant", "conifer", "broadleaf", "litter", "slash", "sparse"];
 
-/** Vitesse de base du front (m/min) sans vent, à plat, par temps sec — ordres de grandeur des abaques. */
-export const FUEL_BASE_ROS: Record<FuelKind, number> = { grass: 9, shrub: 4.5, conifer: 2.5, broadleaf: 1.2, sparse: 0.5 };
-/** Temps de résidence des flammes (min) : au-delà, la cellule n'est plus que braises. */
-export const FUEL_RESIDENCE_MIN: Record<FuelKind, number> = { grass: 6, shrub: 15, conifer: 35, broadleaf: 40, sparse: 8 };
+/**
+ * Le modèle de combustible de chaque végétation : herbe rase et steppe (FM1),
+ * herbe haute et céréales sur pied (FM3), matorral bas — thym, doum, lentisque
+ * clairsemé (FM5), maquis dense et arganeraie embroussaillée (FM4),
+ * broussaille sèche et rémanents feuillus (FM6), pinède et cédraie avec
+ * sous-bois (FM10), chênaie et subéraie — litière de feuillus (FM9), litière
+ * fermée de résineux sans sous-bois (FM8), rémanents de coupe (FM11), sol nu
+ * ou très clairsemé (FM1 avec charge réduite : voir `SPARSE_LOAD`).
+ */
+export const FUEL_KIND_MODEL: Record<FuelKind, number> = {
+  grass: 1, tallgrass: 3, shrub: 5, chaparral: 4, dormant: 6, conifer: 10, broadleaf: 9, litter: 8, slash: 11, sparse: 1,
+};
+/** Sol clairsemé : l'herbe rase à un quart de sa charge. */
+const SPARSE_LOAD = 0.25;
+
+export function fuelModelOf(kind: FuelKind): FuelModel {
+  const fm = fuelModel(FUEL_KIND_MODEL[kind]);
+  return kind === "sparse" ? { ...fm, code: "FM1/4", name: "Sparse grass", w1h: fm.w1h * SPARSE_LOAD } : fm;
+}
 
 export interface FireParams {
   fuel: FuelKind;
   /** Vent à 10 m (km/h) et direction D'OÙ il vient (degrés, convention météo). */
   windKmh: number;
   windFromDeg: number;
-  /** Humidité relative de l'air (%) et température (°C). */
+  /** Humidité relative de l'air (%) et température (°C) → humidité du combustible mort (Simard 1968). */
   humidityPct: number;
   tempC: number;
+  /** Humidité du combustible vif (%) — 60 en été sec, 120 au printemps ; absent : 80. */
+  liveMoisturePct?: number;
 }
 
-/** Facteur du vent sur la vitesse de tête — il croît plus vite que le vent lui-même. */
-export function windFactor(windKmh: number): number {
-  return 1 + 0.06 * Math.pow(Math.max(0, windKmh), 1.2);
+/** Le comportement du feu à plat, sous le vent de tête : ce que le panneau affiche et ce que la grille étire. */
+export function fireBehaviour(p: FireParams): RothermelResult & { fm: FuelModel; midflameMps: number } {
+  const fm = fuelModelOf(p.fuel);
+  const moisture = moistureScenario(p.tempC, p.humidityPct, (p.liveMoisturePct ?? 80) / 100);
+  const midflameMps = midflameWind(p.windKmh, fm);
+  return { ...rothermel(fm, moisture, midflameMps, 0), fm, midflameMps };
 }
 
-/** Facteur de l'humidité de l'air : sec, ça court ; saturé, ça peine. */
-export function moistureFactor(humidityPct: number): number {
-  return Math.min(1.6, Math.max(0.25, 1.6 - humidityPct / 80));
-}
-
-/** Facteur de la température, autour de 25 °C. */
-export function temperatureFactor(tempC: number): number {
-  return Math.min(1.3, Math.max(0.6, 1 + (tempC - 25) / 60));
-}
-
-/** Vitesse de tête (m/min) : la base du combustible, poussée par le vent, modulée par l'air. */
+/** Vitesse de tête (m/min) à plat : Rothermel avec le vent à mi-flamme. */
 export function headRos(p: FireParams): number {
-  return FUEL_BASE_ROS[p.fuel] * windFactor(p.windKmh) * moistureFactor(p.humidityPct) * temperatureFactor(p.tempC);
+  return fireBehaviour(p).ros;
 }
 
-/** Allongement de l'ellipse de propagation selon le vent (Alexander 1985), borné. */
-export function lengthToBreadth(windKmh: number): number {
-  return Math.min(8, 1 + 0.0012 * Math.pow(Math.max(0, windKmh), 2.154));
+/** Allongement de l'ellipse de propagation selon le vent à 10 m (Anderson 1983, sur le vent à mi-flamme du combustible), borné à 8. */
+export function lengthToBreadth(windKmh: number, fuel: FuelKind = "shrub"): number {
+  return lengthToBreadthFromWind(midflameWind(windKmh, fuelModelOf(fuel)));
 }
 
-/** Vitesse dans une direction faisant l'angle `theta` (rad) avec le vent — l'ellipse vue depuis son foyer arrière. */
+/** Vitesse dans une direction faisant l'angle `theta` (rad) avec le vent — l'ellipse vue depuis son foyer arrière (Richards 1990). */
 export function rosTowards(head: number, lb: number, theta: number): number {
   const e = Math.sqrt(Math.max(0, 1 - 1 / (lb * lb)));
   return (head * (1 - e)) / (1 - e * Math.cos(theta));
 }
 
-/** La pente : la vitesse double tous les 10° de montée, se divise par deux tous les 10° de descente (borné à ±30°). */
-export function slopeFactor(dzMeters: number, distMeters: number): number {
-  const deg = Math.max(-30, Math.min(30, (Math.atan2(dzMeters, Math.max(1, distMeters)) * 180) / Math.PI));
-  return Math.pow(2, deg / 10);
+/**
+ * La pente, à la manière de Rothermel : le facteur φs = 5,275 β^-0,3 tan²φ ne
+ * joue qu'à la montée (1 + φs sur la vitesse à plat sans vent) ; sur la grille,
+ * il est converti en vent équivalent et ajouté au vent (`effectiveWind`).
+ * `beta` : le tassement du lit — 0,03 vaut pour un maquis.
+ */
+export function slopeFactor(dzMeters: number, distMeters: number, beta = 0.03): number {
+  return 1 + slopePhi(beta, dzMeters / Math.max(1, distMeters));
 }
 
 /** Les huit voisines : décalage de colonne, de ligne, et facteur de distance. */
@@ -96,9 +117,13 @@ const VOISINES: readonly { ox: number; oy: number; d: number }[] = [
 export class FireSpread {
   /** Heure d'arrivée du front (min) par cellule ; Infinity = jamais atteinte avant l'horizon. */
   readonly arrival: Float32Array;
+  /** Vitesse de tête à plat (m/min), allongement de l'ellipse à plat, comportement complet (Rothermel). */
   readonly head: number;
   readonly lb: number;
-  private readonly rosDir: number[];
+  readonly behaviour: ReturnType<typeof fireBehaviour>;
+  /** Vent à mi-flamme (m/s) en composantes est/nord — vers où il souffle. */
+  private readonly windE: number;
+  private readonly windN: number;
   private readonly settled: Uint8Array;
   private readonly heapT: number[] = [];
   private readonly heapI: number[] = [];
@@ -127,17 +152,51 @@ export class FireSpread {
     const n = grid.width * grid.height;
     this.arrival = new Float32Array(n).fill(Infinity);
     this.settled = new Uint8Array(n);
-    this.head = headRos(params);
-    this.lb = lengthToBreadth(params.windKmh);
+    this.behaviour = fireBehaviour(params);
+    this.head = this.behaviour.ros;
+    this.lb = lengthToBreadthFromWind(this.behaviour.midflameMps);
     // Vers où souffle le vent, en angle mathématique (est = 0, nord = π/2).
     const versDeg = (params.windFromDeg + 180) % 360;
     const vent = Math.PI / 2 - (versDeg * Math.PI) / 180;
-    this.rosDir = VOISINES.map((v) => rosTowards(this.head, this.lb, Math.atan2(-v.oy, v.ox) - vent));
+    this.windE = this.behaviour.midflameMps * Math.cos(vent);
+    this.windN = this.behaviour.midflameMps * Math.sin(vent);
     const seed = seedPy * grid.width + seedPx;
     if (seedPx >= 0 && seedPy >= 0 && seedPx < grid.width && seedPy < grid.height && Number.isFinite(this.elev[seed])) {
       this.arrival[seed] = 0;
       this.push(0, seed);
     } else this.done = true;
+  }
+
+  /**
+   * Vent effectif en une cellule (m/s, composantes est/nord), vitesse de tête
+   * et allongement qui en découlent. La pente vient du gradient du relief
+   * (différences centrées) ; son facteur φs devient un vent équivalent
+   * (Andrews 2018) ajouté vectoriellement au vent — face au vent, la montée
+   * peut donc se retrouver freinée, comme dans FARSITE.
+   */
+  private effectiveWind(c: number, cx: number, cy: number): { eE: number; eN: number; headEff: number; lbEff: number } {
+    const { elev, width: w, height: h, dx } = this;
+    const z = elev[c];
+    const zE = cx < w - 1 && Number.isFinite(elev[c + 1]) ? elev[c + 1] : z;
+    const zW = cx > 0 && Number.isFinite(elev[c - 1]) ? elev[c - 1] : z;
+    const zS = cy < h - 1 && Number.isFinite(elev[c + w]) ? elev[c + w] : z;
+    const zN = cy > 0 && Number.isFinite(elev[c - w]) ? elev[c - w] : z;
+    // Gradient (montée) : est et nord (les lignes de la grille descendent vers le sud).
+    const gE = (zE - zW) / (2 * dx);
+    const gN = (zN - zS) / (2 * dx);
+    const tan = Math.min(Math.tan((60 * Math.PI) / 180), Math.hypot(gE, gN));
+    const b = this.behaviour;
+    let eE = this.windE;
+    let eN = this.windN;
+    if (tan > 0 && b.ros0 > 0) {
+      const uS = equivalentWind(slopePhi(b.beta, tan), b.windCoef);
+      const norm = Math.hypot(gE, gN) || 1;
+      eE += (uS * gE) / norm;
+      eN += (uS * gN) / norm;
+    }
+    const uEff = Math.hypot(eE, eN);
+    const phi = uEff > 0 ? b.windCoef.C * Math.pow(uEff * 196.85, b.windCoef.B) * Math.pow(b.windCoef.ratio, -b.windCoef.E) : 0;
+    return { eE, eN, headEff: b.ros0 * (1 + phi), lbEff: lengthToBreadthFromWind(uEff) };
   }
 
   private push(t: number, i: number): void {
@@ -200,6 +259,10 @@ export class FireSpread {
       const cx = c % w;
       const cy = (c - cx) / w;
       if (cx === 0 || cy === 0 || cx === w - 1 || cy === h - 1) this.truncated = true;
+      // Le vent effectif de la cellule : le vent à mi-flamme plus le vent
+      // équivalent à la pente locale, dirigé vers la montée (Finney 1998).
+      const { eE, eN, headEff, lbEff } = this.effectiveWind(c, cx, cy);
+      const dirEff = Math.atan2(eN, eE);
       for (let k = 0; k < 8; k++) {
         const v = VOISINES[k];
         const nx = cx + v.ox;
@@ -210,7 +273,7 @@ export class FireSpread {
         const zn = elev[nIdx];
         if (zn !== zn) continue; // tuile absente : ne brûle pas
         const dist = v.d * this.dx;
-        const ros = this.rosDir[k] * slopeFactor(zn - elev[c], dist);
+        const ros = rosTowards(headEff, lbEff, Math.atan2(-v.oy, v.ox) - dirEff);
         const nt = t + dist / Math.max(1e-3, ros);
         if (nt < arrival[nIdx]) {
           arrival[nIdx] = nt;

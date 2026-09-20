@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { pixelLngLat, type DemGrid } from "@/lib/flood/grid";
-import { FireSpread, headRos, lengthToBreadth, moistureFactor, rosTowards, slopeFactor, windFactor, type FireParams } from "@/lib/fire/spread";
+import { FireSpread, fireBehaviour, headRos, lengthToBreadth, rosTowards, slopeFactor, type FireParams } from "@/lib/fire/spread";
+import { FUEL_MODELS, equilibriumMoisture, rothermel, tacticalClass } from "@/lib/fire/rothermel";
 import { FIRE_BURNT, FireRun, driveFireRun, fireState } from "@/lib/fire/run";
 import { frameValue, paintSpread } from "@/lib/sim/spread";
 import { firePalette } from "@/components/map/layers/fire";
@@ -13,37 +14,82 @@ function grille(w: number, h: number, f: (x: number, y: number) => number): DemG
 
 const CALME: FireParams = { fuel: "shrub", windKmh: 0, windFromDeg: 0, humidityPct: 30, tempC: 25 };
 
+describe("Rothermel (1972) sur les modèles d'Anderson (1982)", () => {
+  it("retrouve le tableau d'Anderson : vitesse à 5 mi/h de vent à mi-flamme et 8 % d'humidité, à ±35 % (±0,5 ch/h) — la plupart à quelques pour cent", () => {
+    const attendu: Record<number, number> = { 1: 78, 2: 35, 3: 104, 4: 75, 5: 18, 6: 32, 7: 20, 8: 1.6, 9: 7.5, 10: 7.9, 11: 6, 12: 13, 13: 13.5 };
+    const u = (5 * 5280) / 60 / 196.85; // 5 mi/h → m/s
+    for (const fm of FUEL_MODELS) {
+      const r = rothermel(fm, { d1h: 0.08, d10h: 0.08, d100h: 0.08, herb: 1.0, woody: 1.0 }, u, 0);
+      const chh = r.ros / 0.3048 / 1.1;
+      expect(Math.abs(chh - attendu[fm.id])).toBeLessThanOrEqual(Math.max(0.5, 0.35 * attendu[fm.id]));
+    }
+    // Les modèles sans combustible vif (l'humidité du vif n'y entre pas) se retrouvent à 10 % près.
+    for (const id of [1, 3, 8, 9, 11, 13]) {
+      const fm = FUEL_MODELS[id - 1];
+      const chh = rothermel(fm, { d1h: 0.08, d10h: 0.08, d100h: 0.08, herb: 1.0, woody: 1.0 }, u, 0).ros / 0.3048 / 1.1;
+      expect(Math.abs(chh - attendu[id]) / attendu[id]).toBeLessThan(0.12);
+    }
+  });
+  it("le vent et la pente accélèrent, l'humidité freine ; les flammes suivent l'intensité (Byram) ; l'extinction arrête tout", () => {
+    const fm = FUEL_MODELS[3]; // chaparral
+    const sec = { d1h: 0.06, d10h: 0.08, d100h: 0.1, herb: 0.7, woody: 0.9 };
+    const calme = rothermel(fm, sec, 0, 0);
+    const vent = rothermel(fm, sec, 3, 0);
+    const pente = rothermel(fm, sec, 0, Math.tan((25 * Math.PI) / 180));
+    expect(vent.ros).toBeGreaterThan(calme.ros * 3);
+    expect(pente.ros).toBeGreaterThan(calme.ros * 1.5);
+    expect(vent.phiW).toBeGreaterThan(0);
+    expect(calme.phiW).toBe(0);
+    expect(vent.flameLength).toBeGreaterThan(calme.flameLength);
+    expect(vent.firelineIntensity).toBeGreaterThan(calme.firelineIntensity);
+    expect(rothermel(fm, { ...sec, d1h: 0.15, d10h: 0.17, d100h: 0.19 }, 3, 0).ros).toBeLessThan(vent.ros);
+    // Au-delà de l'humidité d'extinction du mort, le lit ne porte plus le feu.
+    expect(rothermel(FUEL_MODELS[0], { d1h: 0.13, d10h: 0.15, d100h: 0.17, herb: 1, woody: 1 }, 3, 0).ros).toBeLessThan(1e-6);
+    expect(calme.residenceTime).toBeCloseTo(384 / 1739, 0);
+  });
+  it("l'humidité d'équilibre (Simard) : l'air sec et chaud dessèche, l'air humide sature ; la lecture tactique suit la flamme", () => {
+    expect(equilibriumMoisture(35, 15)).toBeLessThan(0.05);
+    expect(equilibriumMoisture(20, 60)).toBeGreaterThan(0.09);
+    expect(equilibriumMoisture(10, 95)).toBeGreaterThan(0.2);
+    expect(tacticalClass(0.8)).toBe("direct");
+    expect(tacticalClass(2)).toBe("engins");
+    expect(tacticalClass(3)).toBe("indirect");
+    expect(tacticalClass(5)).toBe("hors");
+  });
+});
+
 describe("vitesses du front de flammes", () => {
-  it("le vent, l'air sec et la chaleur accélèrent ; l'ellipse s'allonge avec le vent", () => {
-    expect(windFactor(0)).toBe(1);
-    expect(windFactor(40)).toBeGreaterThan(windFactor(20));
-    expect(moistureFactor(20)).toBeGreaterThan(moistureFactor(80));
+  it("le vent, l'air sec et la chaleur accélèrent ; l'ellipse s'allonge avec le vent ; l'herbe court, la litière rampe", () => {
+    expect(headRos({ ...CALME, windKmh: 40 })).toBeGreaterThan(headRos({ ...CALME, windKmh: 20 }));
     expect(headRos({ ...CALME, humidityPct: 20, tempC: 35 })).toBeGreaterThan(headRos({ ...CALME, humidityPct: 80, tempC: 10 }));
+    expect(headRos({ ...CALME, fuel: "tallgrass", windKmh: 30 })).toBeGreaterThan(headRos({ ...CALME, fuel: "litter", windKmh: 30 }) * 5);
     expect(lengthToBreadth(0)).toBe(1);
-    expect(lengthToBreadth(40)).toBeGreaterThan(3);
-    expect(lengthToBreadth(200)).toBe(8);
+    expect(lengthToBreadth(40)).toBeGreaterThan(1.5);
+    expect(lengthToBreadth(400)).toBe(8);
+    const b = fireBehaviour({ ...CALME, fuel: "chaparral", windKmh: 40, humidityPct: 15, tempC: 38 });
+    expect(b.flameLength).toBeGreaterThan(3);
   });
 
   it("sans vent, la vitesse est la même dans toutes les directions ; avec, la tête va plus vite que le dos", () => {
     expect(rosTowards(5, 1, Math.PI / 2)).toBeCloseTo(5, 9);
     const lb = lengthToBreadth(40);
     expect(rosTowards(5, lb, 0)).toBeCloseTo(5, 9);
-    expect(rosTowards(5, lb, Math.PI)).toBeLessThan(0.5);
+    expect(rosTowards(5, lb, Math.PI)).toBeLessThan(rosTowards(5, lb, 0) / 2);
     expect(rosTowards(5, lb, Math.PI / 2)).toBeLessThan(rosTowards(5, lb, 0));
   });
 
-  it("la pente : le double tous les 10° de montée, la moitié en descente, bornée à 30°", () => {
+  it("la pente (Rothermel) : rien en descente, un doublement vers 25–30° de montée sur un maquis", () => {
     expect(slopeFactor(0, 30)).toBe(1);
-    expect(slopeFactor(Math.tan((10 * Math.PI) / 180) * 30, 30)).toBeCloseTo(2, 6);
-    expect(slopeFactor(-Math.tan((10 * Math.PI) / 180) * 30, 30)).toBeCloseTo(0.5, 6);
-    expect(slopeFactor(1000, 30)).toBeCloseTo(8, 6);
+    expect(slopeFactor(-10, 30)).toBe(1);
+    expect(slopeFactor(Math.tan((25 * Math.PI) / 180) * 30, 30)).toBeGreaterThan(1.6);
+    expect(slopeFactor(Math.tan((30 * Math.PI) / 180) * 30, 30)).toBeGreaterThan(slopeFactor(Math.tan((25 * Math.PI) / 180) * 30, 30));
   });
 });
 
 describe("temps minimal de parcours sur la grille", () => {
   it("à plat et sans vent, le front est rond et avance à la vitesse de base", () => {
     const g = grille(101, 101, () => 100);
-    const sim = new FireSpread(g, 30, 50, 50, CALME, 240);
+    const sim = new FireSpread(g, 30, 50, 50, CALME, 100_000);
     while (!sim.run(1000)) {
       /* jusqu'au bout */
     }
@@ -52,7 +98,13 @@ describe("temps minimal de parcours sur la grille", () => {
     expect(sim.arrival[50 * 101 + 70]).toBeCloseTo(600 / ros, 0);
     expect(sim.arrival[30 * 101 + 50]).toBeCloseTo(600 / ros, 0);
     expect(sim.cells).toBeGreaterThan(1000);
-    expect(sim.truncated).toBe(false);
+    // Sans horizon, le front finit par toucher les bords : l'emprise est dite tronquée.
+    expect(sim.truncated).toBe(true);
+    const borne = new FireSpread(g, 30, 50, 50, CALME, (600 / ros) * 1.2);
+    while (!borne.run(1000)) {
+      /* jusqu'au bout */
+    }
+    expect(borne.truncated).toBe(false);
   });
 
   it("le vent d'ouest pousse le front vers l'est : l'est brûle bien avant l'ouest", () => {

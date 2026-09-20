@@ -3,7 +3,11 @@
 import { useArgos, useDict } from "@/lib/store";
 import { tpl } from "@/lib/i18n/format";
 import { FIRE_EMBER_RGB, FIRE_NEW_RGB, FIRE_OLD_RGB } from "@/components/map/layers/fire";
-import { FUEL_KINDS, headRos, lengthToBreadth, type FuelKind } from "@/lib/fire/spread";
+import { FUEL_KINDS, FUEL_KIND_MODEL, fireBehaviour, lengthToBreadth, type FuelKind } from "@/lib/fire/spread";
+import { equilibriumMoisture, tacticalClass } from "@/lib/fire/rothermel";
+
+/** Humidité du combustible fin mort (fraction) pour l'air du scénario — celle que le modèle emploie. */
+const moisture1h = (p: { tempC: number; humidityPct: number }) => equilibriumMoisture(p.tempC, p.humidityPct);
 import { frameAt } from "@/lib/sim/spread";
 import { Impacts, Lecteur, Reglage, lbl, nombre } from "@/app/map/_parts/simui";
 
@@ -52,16 +56,25 @@ export function FirePanel() {
 
   const fuelLabel: Record<FuelKind, string> = {
     grass: t.fire_fuel_grass,
+    tallgrass: t.fire_fuel_tallgrass,
     shrub: t.fire_fuel_shrub,
+    chaparral: t.fire_fuel_chaparral,
+    dormant: t.fire_fuel_dormant,
     conifer: t.fire_fuel_conifer,
     broadleaf: t.fire_fuel_broadleaf,
+    litter: t.fire_fuel_litter,
+    slash: t.fire_fuel_slash,
     sparse: t.fire_fuel_sparse,
   };
   // « d'ouest » se lit mieux que « 270° » : les huit points cardinaux, selon la langue.
   const points = t.fire_compass.split(",");
   const cardinal = points[Math.round((((params.windFromDeg % 360) + 360) % 360) / 45) % 8] ?? "";
-  const tete = headRos(params);
-  const lb = lengthToBreadth(params.windKmh);
+  // Le comportement de Rothermel à plat : vitesse de tête, flammes, intensité — et ce que les flammes permettent.
+  const comportement = fireBehaviour(params);
+  const tete = comportement.ros;
+  const lb = lengthToBreadth(params.windKmh, params.fuel);
+  const tactique = tacticalClass(comportement.flameLength);
+  const tactiqueLabel = tactique === "direct" ? t.fire_tac_direct : tactique === "engins" ? t.fire_tac_engins : tactique === "indirect" ? t.fire_tac_indirect : t.fire_tac_hors;
   const image = run ? run.frames[frameAt(run, progress).k] : null;
   const tSim = run ? progress * run.horizonS : 0;
 
@@ -92,7 +105,7 @@ export function FirePanel() {
         <select className={champ} value={params.fuel} onChange={(e) => setFireParams({ fuel: e.target.value as FuelKind })}>
           {FUEL_KINDS.map((f) => (
             <option key={f} value={f}>
-              {fuelLabel[f]}
+              {fuelLabel[f]} · FM{FUEL_KIND_MODEL[f]}
             </option>
           ))}
         </select>
@@ -111,8 +124,18 @@ export function FirePanel() {
       <Reglage label={`${t.fire_wind_from} · ${cardinal}`} value={params.windFromDeg} unit="°" min={0} max={359} step={1} onChange={(v) => setFireParams({ windFromDeg: v })} />
       <Reglage label={t.fire_humidity} value={params.humidityPct} unit="%" min={5} max={100} step={1} onChange={(v) => setFireParams({ humidityPct: v })} />
       <Reglage label={t.fire_temp} value={params.tempC} unit="°C" min={0} max={50} step={1} onChange={(v) => setFireParams({ tempC: v })} />
+      <Reglage label={t.fire_live_moisture} value={params.liveMoisturePct ?? 80} unit="%" min={30} max={200} step={5} onChange={(v) => setFireParams({ liveMoisturePct: v })} />
       <p className="text-[11px] font-semibold text-or-300">
         {t.fire_head_ros} ≈ {nombre(tete)} m/min · {t.fire_lb} {lb.toFixed(1)}
+      </p>
+      {/* Rothermel : humidité du 1 h, flammes (Byram), intensité du front, et la lecture tactique (Andrews & Rothermel 1982). */}
+      <p className="text-[11px] leading-snug text-white/60">
+        {t.fire_model_line
+          .replace("{fm}", `FM${FUEL_KIND_MODEL[params.fuel]}`)
+          .replace("{m1h}", `${Math.round(100 * moisture1h(params))}`)
+          .replace("{flame}", comportement.flameLength.toFixed(1))
+          .replace("{ib}", Math.round(comportement.firelineIntensity).toLocaleString("fr-FR"))}{" "}
+        — {tactiqueLabel}
       </p>
       <Reglage label={t.sim_horizon} value={params.horizonH} unit="h" min={1} max={24} step={1} onChange={(v) => setFireParams({ horizonH: v })} />
 
