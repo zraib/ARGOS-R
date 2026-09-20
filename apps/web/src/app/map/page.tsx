@@ -108,9 +108,8 @@ export default function MapPage() {
    * « nrbc » ne rejoint la pile que lorsqu'un panache est actif.
    */
   const [openPanel, setOpenPanel] = useState<"layers" | "air" | "legend" | "nrbc" | "edit" | "draw" | "flood" | "fire" | null>(null);
-  // Mode dessin (croquis) : ouvert à qui édite la carte (`map_edit:create`), avec le module mode édition.
-  const can = useArgos((s) => s.can);
-  const drawOpen = capOpen("mapEdit") && (role === "superadmin" || can("map_edit:create"));
+  // Mode dessin (croquis) : ouvert à tout le monde — qui voit la carte dessine ; un croquis ne se modifie que par son auteur ou le Super Administrateur.
+  const drawOpen = true;
   const setDrawTool = useArgos((s) => s.setDrawTool);
   // Le simulateur attend un clic sur la carte : sous lg, la feuille se replie
   // pour la laisser voir — c'est depuis elle qu'on vient d'armer le point.

@@ -1061,7 +1061,7 @@
             "bearer": []
           }
         ],
-        "summary": "Dessiner un croquis (audité) : un point, un cercle (centre + rayon) ou un polygone, avec son nom",
+        "summary": "Dessiner un croquis (audité) : un point, un cercle (centre + rayon) ou un polygone, avec son nom — ouvert à qui voit la carte",
         "tags": [
           "domain"
         ]
@@ -1091,6 +1091,9 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Le croquis est à quelqu'un d'autre."
+          },
           "404": {
             "description": "Croquis inconnu."
           }
@@ -1100,7 +1103,7 @@
             "bearer": []
           }
         ],
-        "summary": "Modifier un croquis (audité) : nom, sommets, rayon, emplacement de l'étiquette, couleur, note",
+        "summary": "Modifier un croquis (audité) : nom, sommets, rayon, emplacement de l'étiquette, couleur, note — son auteur ou le Super Administrateur",
         "tags": [
           "domain"
         ]
@@ -1130,7 +1133,7 @@
             "bearer": []
           }
         ],
-        "summary": "Retirer un croquis (audité) — son auteur, ou un administrateur",
+        "summary": "Retirer un croquis (audité) — son auteur, ou le Super Administrateur",
         "tags": [
           "domain"
         ]

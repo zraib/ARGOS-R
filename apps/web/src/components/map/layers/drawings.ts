@@ -92,13 +92,14 @@ export function setupDrawingLayers(map: maplibregl.Map): void {
   });
 }
 
-/** Les formes et les poignées du croquis sélectionné. */
-export function applyDrawings(map: maplibregl.Map | null, drawings: readonly Drawing[], selectedId: string | null, editable: boolean): void {
+/** Les formes et les poignées du croquis sélectionné — des poignées seulement si ce compte peut le modifier. */
+export function applyDrawings(map: maplibregl.Map | null, drawings: readonly Drawing[], selectedId: string | null, editable: (d: Drawing) => boolean): void {
   const src = map?.getSource(DRAW_SRC) as maplibregl.GeoJSONSource | undefined;
   if (!map || !src) return;
   src.setData(drawingsToGeoJSON(drawings, selectedId));
   const handles = map.getSource(DRAW_HANDLES_SRC) as maplibregl.GeoJSONSource | undefined;
-  handles?.setData(editable ? handlesOf(drawings.find((d) => d.id === selectedId) ?? null) : EMPTY);
+  const sel = drawings.find((d) => d.id === selectedId) ?? null;
+  handles?.setData(sel && editable(sel) ? handlesOf(sel) : EMPTY);
 }
 
 /** Le brouillon en cours de tracé (vide pour l'effacer). */
@@ -137,7 +138,7 @@ export function syncDrawingLabels(
   map: maplibregl.Map | null,
   drawings: readonly Drawing[],
   selectedId: string | null,
-  editable: boolean,
+  editable: (d: Drawing) => boolean,
   onSelect: (id: string) => void,
   onMove: (d: Drawing, ll: [number, number]) => void,
 ): void {
@@ -147,7 +148,7 @@ export function syncDrawingLabels(
     seen.add(d.id);
     const pos = labelPosition(d);
     const selected = d.id === selectedId;
-    const draggable = editable && selected;
+    const draggable = selected && editable(d);
     let entry = rt.markers.get(d.id);
     if (!entry) {
       const el = document.createElement("div");

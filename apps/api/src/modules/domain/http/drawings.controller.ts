@@ -1,8 +1,9 @@
 // ============================================================================
 // ARGOS — croquis dessinés sur la carte (mode dessin) : points, cercles,
-// polygones nommés. Vus par qui voit la carte (`map:view`) ; dessinés,
-// modifiés et retirés par qui édite la carte (`map_edit:*`, ADR 0018) — un
-// croquis se retire par qui l'a dessiné, ou par un administrateur.
+// polygones nommés. Tout le monde voit et DESSINE (`map:view` — les deux
+// profils de rôles) ; un croquis ne se modifie et ne se retire que par son
+// auteur ou par le Super Administrateur (décision du 20 septembre 2026,
+// ADR 0024).
 // ============================================================================
 import { Body, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
@@ -31,8 +32,8 @@ export class DrawingsController {
   }
 
   @Post("drawings")
-  @RequirePermission("map_edit:create")
-  @ApiOperation({ summary: "Dessiner un croquis (audité) : un point, un cercle (centre + rayon) ou un polygone, avec son nom" })
+  @RequirePermission("map:view")
+  @ApiOperation({ summary: "Dessiner un croquis (audité) : un point, un cercle (centre + rayon) ou un polygone, avec son nom — ouvert à qui voit la carte" })
   @ApiResponse({ status: 400, description: "Géométrie incohérente avec la nature." })
   create(@Body() dto: CreateDrawingDto, @CurrentUser() user: AuthUser, @AuditMeta() audit: AuditMetaSetter) {
     const d = this.domain.createDrawing(dto, user.username);
@@ -41,11 +42,23 @@ export class DrawingsController {
     return d;
   }
 
+  /** Le croquis existe et le compte peut y toucher : son auteur, ou le Super Administrateur. */
+  private assertOwner(id: string, user: AuthUser) {
+    const d = this.domain.findDrawing(id);
+    if (!d) throw new NotFoundException(`Croquis inconnu : ${id}`);
+    if (d.createdBy !== user.username && user.role !== "superadmin") {
+      throw new ForbiddenException(`Ce croquis a été dessiné par ${d.createdBy} : seul lui ou le Super Administrateur le modifie ou le retire.`);
+    }
+    return d;
+  }
+
   @Patch("drawings/:id")
-  @RequirePermission("map_edit:update")
-  @ApiOperation({ summary: "Modifier un croquis (audité) : nom, sommets, rayon, emplacement de l'étiquette, couleur, note" })
+  @RequirePermission("map:view")
+  @ApiOperation({ summary: "Modifier un croquis (audité) : nom, sommets, rayon, emplacement de l'étiquette, couleur, note — son auteur ou le Super Administrateur" })
+  @ApiResponse({ status: 403, description: "Le croquis est à quelqu'un d'autre." })
   @ApiResponse({ status: 404, description: "Croquis inconnu." })
   update(@Param("id") id: string, @Body() dto: UpdateDrawingDto, @CurrentUser() user: AuthUser, @AuditMeta() audit: AuditMetaSetter) {
+    this.assertOwner(id, user);
     const d = this.domain.updateDrawing(id, dto, user.username);
     if (!d) throw new NotFoundException(`Croquis inconnu : ${id}`);
     audit({ drawing: id, fields: Object.keys(dto) });
@@ -54,18 +67,12 @@ export class DrawingsController {
   }
 
   @Delete("drawings/:id")
-  @RequirePermission("map_edit:update")
-  @ApiOperation({ summary: "Retirer un croquis (audité) — son auteur, ou un administrateur" })
+  @RequirePermission("map:view")
+  @ApiOperation({ summary: "Retirer un croquis (audité) — son auteur, ou le Super Administrateur" })
   @ApiResponse({ status: 403, description: "Le croquis est à quelqu'un d'autre." })
   @ApiResponse({ status: 404, description: "Croquis inconnu." })
   remove(@Param("id") id: string, @CurrentUser() user: AuthUser, @AuditMeta() audit: AuditMetaSetter) {
-    const d = this.domain.findDrawing(id);
-    if (!d) throw new NotFoundException(`Croquis inconnu : ${id}`);
-    // La matrice n'accorde `delete` sur la carte à personne : l'auteur retire le
-    // sien, l'administration retire tout.
-    if (d.createdBy !== user.username && user.role !== "superadmin" && user.role !== "admin") {
-      throw new ForbiddenException(`Ce croquis a été dessiné par ${d.createdBy} : seul lui ou un administrateur le retire.`);
-    }
+    const d = this.assertOwner(id, user);
     this.domain.deleteDrawing(id);
     audit({ drawing: id, kind: d.kind, label: d.label });
     this.realtime.emit({ kind: "drawings" });

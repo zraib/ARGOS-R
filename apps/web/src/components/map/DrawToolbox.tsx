@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useArgos, useDict } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
-import { DRAWING_COLORS, DEFAULT_DRAWING_COLOR, formatDistance } from "@/lib/map/drawings";
+import { DRAWING_COLORS, DEFAULT_DRAWING_COLOR, canEditDrawing, formatDistance } from "@/lib/map/drawings";
 import type { DrawTool } from "@/lib/store/slices/drawings";
 import type { Drawing } from "@/lib/types";
 
@@ -38,8 +38,8 @@ export function DrawToolbox() {
   const selected = drawings.find((d) => d.id === selectedId) ?? null;
   const toolLabel = (k: DrawTool) => (k === "select" ? t.dr_tool_select : k === "point" ? t.dr_tool_point : k === "circle" ? t.dr_tool_circle : t.dr_tool_polygon);
   const kindLabel = (k: Drawing["kind"]) => (k === "point" ? t.dr_kind_point : k === "circle" ? t.dr_kind_circle : t.dr_kind_polygon);
-  // Retirer : l'auteur, ou l'administration — ce que l'API applique.
-  const canRemove = (d: Drawing) => role === "superadmin" || role === "admin" || d.createdBy === sessionUser?.matricule;
+  // Modifier et retirer : l'auteur, ou le Super Administrateur — ce que l'API applique ; les autres lisent.
+  const canEdit = (d: Drawing) => canEditDrawing(d, role, sessionUser?.matricule);
 
   const remove = async (d: Drawing) => {
     if (await deleteDrawing(d.id)) showToast(t.dr_deleted);
@@ -77,18 +77,20 @@ export function DrawToolbox() {
           <label className="text-[11px] font-semibold text-white/60">
             {t.dr_name}
             <input
-              className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-[13px] text-white focus:border-or-400 focus:outline-none"
+              className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-[13px] text-white focus:border-or-400 focus:outline-none disabled:opacity-60"
               value={selected.label}
               maxLength={80}
+              disabled={!canEdit(selected)}
               onChange={(e) => void updateDrawing(selected.id, { label: e.target.value })}
             />
           </label>
           <label className="text-[11px] font-semibold text-white/60">
             {t.dr_note}
             <input
-              className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-[13px] text-white focus:border-or-400 focus:outline-none"
+              className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-[13px] text-white focus:border-or-400 focus:outline-none disabled:opacity-60"
               value={selected.note ?? ""}
               maxLength={500}
+              disabled={!canEdit(selected)}
               onChange={(e) => void updateDrawing(selected.id, { note: e.target.value })}
             />
           </label>
@@ -100,6 +102,7 @@ export function DrawToolbox() {
                 type="button"
                 aria-label={c}
                 aria-pressed={(selected.color ?? DEFAULT_DRAWING_COLOR) === c}
+                disabled={!canEdit(selected)}
                 onClick={() => void updateDrawing(selected.id, { color: c })}
                 className={`h-6 w-6 rounded-full border-2 ${(selected.color ?? DEFAULT_DRAWING_COLOR) === c ? "border-white" : "border-transparent"}`}
                 style={{ background: c }}
@@ -114,6 +117,7 @@ export function DrawToolbox() {
                 min={1}
                 className="w-28 rounded-lg border border-white/15 bg-white/5 px-2 py-1 font-mono text-[12px] text-white focus:border-or-400 focus:outline-none"
                 value={Math.round(selected.radiusM)}
+                disabled={!canEdit(selected)}
                 onChange={(e) => {
                   const r = Math.max(1, Number(e.target.value) || 1);
                   void updateDrawing(selected.id, { radiusM: r });
@@ -122,8 +126,8 @@ export function DrawToolbox() {
               <span className="text-white/50">m · {formatDistance(selected.radiusM)}</span>
             </div>
           )}
-          <p className="text-[11px] leading-snug text-white/50">{t.dr_label_hint}</p>
-          {canRemove(selected) &&
+          <p className="text-[11px] leading-snug text-white/50">{canEdit(selected) ? t.dr_label_hint : t.dr_readonly}</p>
+          {canEdit(selected) &&
             (confirm === selected.id ? (
               <div className="flex gap-2">
                 <button type="button" className="btn-secondaire flex-1 text-xs" onClick={() => setConfirm(null)}>{t.cancel}</button>

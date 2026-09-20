@@ -583,7 +583,7 @@ export interface paths {
         /** Les croquis dessinés sur la carte — points, cercles, polygones nommés */
         get: operations["DrawingsController_list"];
         put?: never;
-        /** Dessiner un croquis (audité) : un point, un cercle (centre + rayon) ou un polygone, avec son nom */
+        /** Dessiner un croquis (audité) : un point, un cercle (centre + rayon) ou un polygone, avec son nom — ouvert à qui voit la carte */
         post: operations["DrawingsController_create"];
         delete?: never;
         options?: never;
@@ -601,11 +601,11 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Retirer un croquis (audité) — son auteur, ou un administrateur */
+        /** Retirer un croquis (audité) — son auteur, ou le Super Administrateur */
         delete: operations["DrawingsController_remove"];
         options?: never;
         head?: never;
-        /** Modifier un croquis (audité) : nom, sommets, rayon, emplacement de l'étiquette, couleur, note */
+        /** Modifier un croquis (audité) : nom, sommets, rayon, emplacement de l'étiquette, couleur, note — son auteur ou le Super Administrateur */
         patch: operations["DrawingsController_update"];
         trace?: never;
     };
@@ -5284,6 +5284,13 @@ export interface operations {
             };
         };
         responses: {
+            /** @description Le croquis est à quelqu'un d'autre. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Croquis inconnu. */
             404: {
                 headers: {

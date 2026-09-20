@@ -115,9 +115,9 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `PATCH` | `/api/domain/profile` | `settings:update` | Changer le mode de l'application — SUPERADMIN, mot de passe exigé (ADR 0022). |
 | `POST` | `/api/domain/purge` | `settings:delete` | Remettre le domaine à zéro — SUPERADMIN uniquement, mot de passe exigé (step-up). |
 | `GET` | `/api/drawings` | `map:view` | Les croquis dessinés sur la carte — points, cercles, polygones nommés |
-| `POST` | `/api/drawings` | `map_edit:create` | Dessiner un croquis (audité) : un point, un cercle (centre + rayon) ou un polygone, avec son nom |
-| `DELETE` | `/api/drawings/{id}` | `map_edit:update` | Retirer un croquis (audité) — son auteur, ou un administrateur |
-| `PATCH` | `/api/drawings/{id}` | `map_edit:update` | Modifier un croquis (audité) : nom, sommets, rayon, emplacement de l'étiquette, couleur, note |
+| `POST` | `/api/drawings` | `map:view` | Dessiner un croquis (audité) : un point, un cercle (centre + rayon) ou un polygone, avec son nom — ouvert à qui voit la carte |
+| `DELETE` | `/api/drawings/{id}` | `map:view` | Retirer un croquis (audité) — son auteur, ou le Super Administrateur |
+| `PATCH` | `/api/drawings/{id}` | `map:view` | Modifier un croquis (audité) : nom, sommets, rayon, emplacement de l'étiquette, couleur, note — son auteur ou le Super Administrateur |
 | `GET` | `/api/equipment-parks/{id}/items` | `equipment:view` | Parc d'équipement d'une unité |
 | `POST` | `/api/equipment-parks/{id}/items` | `equipment:create` | Ajouter un article — dans SON parc uniquement |
 | `DELETE` | `/api/equipment-parks/{id}/items/{eid}` | `equipment:archive` | Sortir un article du parc — dans SON parc uniquement |
