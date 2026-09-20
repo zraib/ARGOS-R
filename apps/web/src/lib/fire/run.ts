@@ -9,7 +9,7 @@
 // ============================================================================
 
 import { gridPixel, type DemGrid } from "@/lib/flood/grid";
-import { FUEL_RESIDENCE_MIN, FireSpread, type FireParams } from "@/lib/fire/spread";
+import { FireSpread, type FireParams } from "@/lib/fire/spread";
 import { now, poiCells, souffle, type SpreadFrame, type SpreadImpact, type SpreadPoi, type SpreadRun } from "@/lib/sim/spread";
 
 /** Valeur d'une cellule en braises (les flammes sont passées). */
@@ -62,8 +62,9 @@ export class FireRun implements SpreadRun<FireFrame> {
     this.horizonS = init.horizonS;
     this.frameEveryS = init.frameEveryS;
     this.nFrames = Math.floor(init.horizonS / init.frameEveryS + 1e-6) + 1;
-    this.residenceMin = FUEL_RESIDENCE_MIN[init.params.fuel];
     this.spread = new FireSpread(init.grid, init.cellMeters, init.seedPx, init.seedPy, init.params, init.horizonS / 60);
+    // Temps de résidence des flammes : 384/σ (Anderson 1969), celui du combustible choisi.
+    this.residenceMin = Math.max(1, this.spread.behaviour.residenceTime);
     this.pois = poiCells(init.grid, init.pois, gridPixel);
     this.frames.push({ t: 0, x0: 0, y0: 0, w: 0, h: 0, data: new Uint8Array(0), area: 0, burningKm2: 0 });
   }

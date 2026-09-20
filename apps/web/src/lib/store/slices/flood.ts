@@ -18,7 +18,7 @@ import type { FloodFeedStatus, FloodForecast, FloodGauge, FloodInundationMap, Fl
 import { api } from "@/lib/api";
 import { loadDemGrid } from "@/lib/flood/dem";
 import { cellSizeMeters, gridPixel } from "@/lib/flood/grid";
-import { scenarioOf, type FloodScenarioParams, type FloodSource } from "@/lib/flood/hydro";
+import { HYDRO_DEFAULTS, manningOf, scenarioOf, type FloodScenarioParams, type FloodSource } from "@/lib/flood/hydro";
 import { FloodRun, driveFloodRun, type FloodPoi } from "@/lib/flood/run";
 import { shelterPosition } from "@/lib/ai/opsnetAffecteur";
 
@@ -31,7 +31,7 @@ export const FLOOD_DEFAULT_PARAMS: FloodSimParams = { source: "river", peakQ: 15
 /** Images gardées sur l'horizon : assez pour un curseur fin, peu pour la mémoire. */
 const FLOOD_FRAMES = 120;
 /** Zoom des tuiles d'altitude par étendue : 3 × 3 tuiles font ≈ 25 km à z12 et ≈ 50 km à z11 sous la latitude du Maroc. */
-const FLOOD_ZOOM: Record<FloodSimParams["extentKm"], number> = { 25: 12, 50: 11 };
+const FLOOD_ZOOM: Record<FloodSimParams["extentKm"], number> = { 25: 12, 50: 11, 100: 10, 200: 9 };
 
 export interface FloodSlice {
   floodStatus: FloodFeedStatus | null;
@@ -219,6 +219,8 @@ export const createFloodSlice: StateCreator<ArgosState, [], [], FloodSlice> = (s
         horizonS,
         frameEveryS: horizonS / FLOOD_FRAMES,
         pois,
+        // La rugosité du terrain (Chow 1959) ; le reste des réglages numériques est celui du schéma.
+        params: { ...HYDRO_DEFAULTS, manning: manningOf(params) },
       });
       set({ floodSim: run, floodFrames: 1, floodDone: false, floodPartial: inconnues, floodProgress: 0, floodPlaying: true });
     } catch {

@@ -7,6 +7,8 @@
   tranche `fire`, panneau « Feux de forêt » de la carte ; aucune route API
   nouvelle (la météo du point passe par `GET weather/forecast`, ADR 0002).
 
+- **Révisé le 2026-09-20 (ADR 0025) :** la vitesse vient du modèle de Rothermel (1972) sur les modèles de combustible d'Anderson (1982), l'humidité de Simard, le vent effectif (pente + vent) de FARSITE, les flammes de Byram.
+
 ## Contexte
 
 Après les crues (ADR 0010), l'état-major veut la même chose pour les feux de

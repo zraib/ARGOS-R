@@ -662,14 +662,14 @@ export interface Dict {
   flood_sim: string; flood_sim_hint: string; flood_src: string; flood_src_river: string; flood_src_lake: string; flood_src_dam: string;
   sim_seed: string; sim_pick: string; sim_picking: string; sim_seed_none: string;
   flood_peak_q: string; flood_duration: string; flood_volume: string; flood_dam_volume: string; flood_dam_height: string; sim_horizon: string;
-  flood_derived_volume: string; flood_derived_q: string; flood_derived_dam: string; sim_extent: string; sim_extent_25: string; sim_extent_50: string;
+  flood_derived_volume: string; flood_derived_q: string; flood_derived_dam: string; sim_extent: string; sim_extent_25: string; sim_extent_50: string; flood_river_ref: string; flood_dam_ref: string; flood_ref_none: string; flood_breach: string; flood_breach_overtopping: string; flood_breach_piping: string; flood_roughness: string; flood_rough_channel: string; flood_rough_floodplain: string; flood_rough_vegetation: string; flood_rough_urban: string; flood_breach_line: string; sim_extent_100: string; sim_extent_200: string;
   sim_run: string; sim_running: string; sim_clear: string;
   flood_area: string; flood_depth: string; flood_seed_elev: string; sim_cells: string; sim_partial: string;
   sim_clock: string; sim_computing: string; flood_volume_ground: string; flood_volume_in: string; flood_volume_out: string; sim_reached_at: string;
   sim_impacts: string; sim_none_hit: string; sim_hospitals: string; sim_units: string; sim_shelters: string; sim_cities: string;
   sim_err_seed: string; sim_err_dem: string; sim_err_elevation: string;
   sim_play: string; sim_pause: string; sim_replay: string; sim_progress: string; flood_legend: string; flood_shallow: string; flood_deep: string;
-  fire_panel: string; fire_sim: string; fire_sim_hint: string; fire_fuel: string; fire_fuel_grass: string; fire_fuel_shrub: string; fire_fuel_conifer: string; fire_fuel_broadleaf: string; fire_fuel_sparse: string;
+  fire_panel: string; fire_sim: string; fire_sim_hint: string; fire_fuel: string; fire_fuel_grass: string; fire_fuel_shrub: string; fire_fuel_conifer: string; fire_fuel_broadleaf: string; fire_fuel_sparse: string; fire_fuel_tallgrass: string; fire_fuel_chaparral: string; fire_fuel_dormant: string; fire_fuel_litter: string; fire_fuel_slash: string; fire_live_moisture: string; fire_model_line: string; fire_tac_direct: string; fire_tac_engins: string; fire_tac_indirect: string; fire_tac_hors: string;
   fire_wind: string; fire_wind_from: string; fire_compass: string; fire_humidity: string; fire_temp: string; fire_weather_btn: string; fire_weather_at: string; fire_weather_fail: string;
   fire_head_ros: string; fire_lb: string; fire_area: string; fire_burning: string; fire_legend: string; fire_legend_new: string; fire_legend_old: string; fire_truncated: string;
   // Profil : notifications sonores

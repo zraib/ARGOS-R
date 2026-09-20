@@ -45,15 +45,18 @@ describe("hydrogrammes et scénarios", () => {
   });
 
   it("chaque source donne son hydrogramme et ses chiffres dérivés", () => {
+    // Rivière : l'hydrogramme du SCS — pointe à 37,5 % de la durée, volume de la loi gamma.
     const riviere = scenarioOf({ source: "river", peakQ: 2000, durationH: 6, volumeHm3: 0, damHeightM: 0, horizonH: 6, extentKm: 25 });
-    expect(riviere.volumeM3).toBe((2000 * 6 * 3600) / 2);
-    expect(riviere.hydrograph(2 * 3600)).toBeCloseTo(2000, 6); // le pic, au tiers
+    expect(riviere.hydrograph(0.375 * 6 * 3600)).toBeCloseTo(2000, 6);
+    expect(Math.abs(hydrographVolume(riviere.hydrograph, 48 * 3600, 30) - riviere.volumeM3) / riviere.volumeM3).toBeLessThan(0.01);
     const lac = scenarioOf({ source: "lake", peakQ: 0, durationH: 10, volumeHm3: 36, damHeightM: 0, horizonH: 12, extentKm: 25 });
     expect(lac.peakQ).toBeCloseTo(1000, 6);
     expect(lac.hydrograph(3600)).toBeCloseTo(1000, 6);
+    // Barrage : Froehlich 2008 — la retenue se vide entièrement, la pointe est de l'ordre de 10⁴ m³/s pour 100 hm³ sous 40 m.
     const barrage = scenarioOf({ source: "dam", peakQ: 0, durationH: 0, volumeHm3: 100, damHeightM: 40, horizonH: 6, extentKm: 50 });
-    expect(barrage.durationS).toBeCloseTo((2 * 1e8) / barrage.peakQ, 6);
-    expect(hydrographVolume(barrage.hydrograph, barrage.durationS, 10)).toBeCloseTo(1e8, -5);
+    expect(barrage.peakQ).toBeGreaterThan(5_000);
+    expect(barrage.peakQ).toBeLessThan(30_000);
+    expect(Math.abs(hydrographVolume(barrage.hydrograph, barrage.durationS, 10) - 1e8) / 1e8).toBeLessThan(0.03);
   });
 });
 
@@ -158,5 +161,60 @@ describe("images et course d'une simulation", () => {
     expect(stop.aborted).toBe(true);
     expect(stop.done).toBe(false);
     expect(stop.frames).toHaveLength(1);
+  });
+});
+
+describe("hydrologie de référence (SCS, Froehlich 2008) et référentiel des barrages", async () => {
+  const { breachHydrograph, froehlich2008, gammaVolumeFactor, hydrographVolume, manningOf, scenarioOf, scsHydrograph } = await import("@/lib/flood/hydro");
+  const { DAMS_MA, RIVERS_MA, damById } = await import("@/lib/flood/dams");
+  it("Al Wahda (3 522 hm³, 88 m) : une pointe de rupture de l'ordre de 10⁵ m³/s, une brèche de plusieurs heures et de plusieurs centaines de mètres", () => {
+    const f = froehlich2008(3522e6, 88);
+    expect(f.peakQ).toBeGreaterThan(80_000);
+    expect(f.peakQ).toBeLessThan(200_000);
+    expect(f.failureTimeS / 3600).toBeGreaterThan(2);
+    expect(f.failureTimeS / 3600).toBeLessThan(6);
+    expect(f.breachWidthM).toBeGreaterThan(300);
+    // Le renard forme une brèche plus étroite que la surverse.
+    expect(froehlich2008(3522e6, 88, false).breachWidthM).toBeLessThan(f.breachWidthM);
+    // Un petit barrage : une pointe bien moindre, une brèche rapide.
+    const petit = froehlich2008(35e6, 46);
+    expect(petit.peakQ).toBeLessThan(f.peakQ / 5);
+    expect(petit.failureTimeS).toBeLessThan(f.failureTimeS);
+  });
+  it("l'hydrogramme de rupture vide exactement la retenue, monte en le temps de formation de la brèche et culmine à la pointe", () => {
+    const V = 3522e6;
+    const f = froehlich2008(V, 88);
+    const b = breachHydrograph(V, f.peakQ, f.failureTimeS);
+    const vol = hydrographVolume(b.hydrograph, b.durationS, 30);
+    expect(Math.abs(vol - V) / V).toBeLessThan(0.03);
+    expect(b.hydrograph(f.failureTimeS)).toBeCloseTo(f.peakQ, 3);
+    expect(b.hydrograph(f.failureTimeS / 2)).toBeLessThan(f.peakQ);
+    expect(b.hydrograph(b.durationS)).toBeLessThan(0.02 * f.peakQ);
+    expect(gammaVolumeFactor(3.7)).toBeCloseTo(1.38, 1);
+  });
+  it("la crue de rivière suit l'hydrogramme du SCS : pointe à 37,5 % de la durée, décrue plus longue que la montée", () => {
+    const h = scsHydrograph(1000, 24 * 3600);
+    const tp = 0.375 * 24 * 3600;
+    expect(h(tp)).toBeCloseTo(1000, 6);
+    expect(h(tp / 2)).toBeLessThan(1000);
+    expect(h(tp * 2)).toBeLessThan(1000);
+    // La décrue est plus lente que la montée : à mi-chemin après la pointe, il reste plus d'eau qu'à mi-chemin avant.
+    expect(h(tp * 1.5)).toBeGreaterThan(h(tp / 2));
+    const s = scenarioOf({ source: "river", peakQ: 1000, durationH: 24, volumeHm3: 0, damHeightM: 0, horizonH: 6, extentKm: 25 });
+    expect(Math.abs(hydrographVolume(s.hydrograph, 5 * 24 * 3600, 60) - s.volumeM3) / s.volumeM3).toBeLessThan(0.02);
+  });
+  it("le scénario de barrage porte la brèche ; la rugosité suit le préréglage ; le référentiel couvre les plus grands barrages", () => {
+    const s = scenarioOf({ source: "dam", peakQ: 0, durationH: 0, volumeHm3: 2760, damHeightM: 80, horizonH: 12, extentKm: 100, breach: "piping" });
+    expect(s.failureTimeS).toBeGreaterThan(0);
+    expect(s.breachWidthM).toBeGreaterThan(0);
+    expect(Math.abs(hydrographVolume(s.hydrograph, s.durationS, 30) - 2760e6) / 2760e6).toBeLessThan(0.03);
+    expect(manningOf({})).toBe(0.05);
+    expect(manningOf({ roughness: "urban" })).toBe(0.12);
+    expect(DAMS_MA.length).toBeGreaterThan(25);
+    expect(damById("al-wahda")?.capacityHm3).toBe(3522);
+    expect(Math.max(...DAMS_MA.map((d) => d.capacityHm3))).toBe(3522);
+    expect(new Set(DAMS_MA.map((d) => d.id)).size).toBe(DAMS_MA.length);
+    for (const d of DAMS_MA) expect(d.ll[0] > -17.5 && d.ll[0] < -1 && d.ll[1] > 21 && d.ll[1] < 36).toBe(true);
+    expect(RIVERS_MA.find((r) => r.id === "ourika")?.peakQ).toBe(1030);
   });
 });
