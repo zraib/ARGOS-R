@@ -100,12 +100,15 @@ lib/i18n/     trois langues, fichiers séparés, parité vérifiée par test
 
 | Dossier de `lib/` | Contenu | Tests |
 | --- | --- | --- |
-| `store/` | `shared.ts` + `slices/{session,ui,domain,seismic,map,missions,nrbc,realtime,ai,aviation}.ts` | — (comportement couvert par les écrans) |
+| `store/` | `shared.ts` + `slices/{session,ui,domain,seismic,map,missions,nrbc,realtime,ai,aviation,chat,tracking,drawings,fire,flood}.ts` | — (comportement couvert par les écrans) |
 | `ai/assistant/` | Couche 1 : `router.ts` (`interpret`), `intents/*`, `prompt.ts`, `enrich.ts`, `temporal.ts`, `labels.ts` | — |
 | `ai/copilot/` | `history.ts` · `blocks.ts` · `turn.ts` | copilot.test |
 | `ai/draft/` | `lexicon.ts` · `semantic.ts` · `pools.ts` · `proposal.ts` | draft.test |
 | `ai/risk/` · `ai/situational/` · `ai/whatif/` | moteurs de prédiction et de simulation | — |
 | `map/` | `canvas/{dem,weather-raster,weather-grid,weather-render,quakes,plume}.ts`, `wind.ts`, style, marqueurs | canvas.test, wind.test |
+| `fire/` | `rothermel.ts` (13 modèles d'Anderson, Simard, Rothermel 1972, Byram, vent équivalent), `spread.ts` (végétation → FM, vent effectif, ellipse, Dijkstra), `run.ts` — [doc 11](11-simulateurs-feu-et-inondation.md) | fire.test |
+| `flood/` | `hydro.ts` (onde inertielle, SCS, Froehlich 2008, Manning), `dams.ts` (33 barrages, 14 oueds), `grid.ts`, `dem.ts`, `frames.ts`, `run.ts` — [doc 11](11-simulateurs-feu-et-inondation.md) | hydro.test |
+| `sim/` | `spread.ts` : socle des simulations (images, interpolation, points d'intérêt) | — |
 | `incidents/` | `wizard.ts` : formulaire de déclaration — validation par étape, appariement d'adresse, rattachement région, charge envoyée, pré-remplissage | wizard.test |
 | `realtime/` | `stream.ts` (SSE par `fetch`, reconnexion, arrêt sur 401/403) | realtime-stream.test |
 | `tracking/` · `nrbc/` · `hazard/` | traceurs, substances, pictogrammes | tracking, substance, pictograms |
@@ -135,6 +138,7 @@ l'API que par le client généré.
 | une permission | `shared/permissions.ts` (une ligne, 15 rôles) et `04-securite.md` |
 | un écran | `app/<route>/page.tsx` + `lib/nav.ts` + trois fichiers i18n ; sous-composants dans `_parts/` |
 | un calcul pour l'écran | `lib/<domaine>/` avec un test dans `__tests__/` — pas dans le composant |
+| un modèle de simulation | `lib/fire/` ou `lib/flood/` (pur, testé contre les valeurs publiées), réglages dans la tranche, chaînes i18n — [doc 11](11-simulateurs-feu-et-inondation.md) ; un ADR si le modèle change |
 | de l'état client | la tranche existante de `lib/store/slices/`, ou une nouvelle tranche déclarée dans `lib/store.ts` |
 | une chaîne affichée | `lib/i18n/translations.{fr,en,ar}.ts` (cœur) ou `modules.{fr,en,ar}.ts` — les trois, ou `i18n.test` échoue |
 | une dépendance runtime | un ADR d'abord (`docs/adr/`) |

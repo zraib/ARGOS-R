@@ -99,6 +99,12 @@ complet en arabe (police Amiri auto-hébergée), simulation temps réel (fil
 d'événements et convois), toasts, changement de rôle en session pour les
 comptes multi-rôles.
 
+Sur la carte : simulateurs de **feu de forêt** (Rothermel 1972, modèles
+d'Anderson) et d'**inondation** (onde inertielle, SCS, Froehlich 2008 sur les
+grands barrages du Royaume), calculés dans le navigateur sur le relief —
+[docs/11-simulateurs-feu-et-inondation.md](../../docs/11-simulateurs-feu-et-inondation.md) ;
+mode dessin partagé (ADR 0024).
+
 ## Ajouter un écran
 
 1. `src/app/<route>/page.tsx`
