@@ -502,6 +502,8 @@ export interface PlacedResource {
   ownerLabel: string;
   label: string;
   sub?: string;
+  /** Équipe : son chef (grade, prénom, nom), écrit sur le marqueur (ADR 0027 rév.). */
+  leader?: string;
   position: Placement;
 }
 

@@ -53,9 +53,15 @@ export function placedMarkerHTML(code: string, fill: string, sel: boolean, capti
  * « FAR · 3e Bataillon du Génie » — plutôt que son seul identifiant.
  */
 export function unitMarkerHTML(u: Unit, sel: boolean): string {
+  // Le commandant s'écrit sous le nom (ADR 0027 rév.) — le nom du compte qui
+  // tient l'unité quand il y en a un, sinon celui saisi ; rien quand il n'y a personne (« — »).
+  const cmdt = u.cmdt && u.cmdt !== "—" ? u.cmdt : "";
   return (
     '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">' +
     `<div style="width:16px;height:16px;background:#C9A84C;border:2px solid #0f1f14;${selRing(sel)}"></div>` +
+    (cmdt
+      ? `<span style="font:600 8px Inter,sans-serif;color:#f3e7c3;text-shadow:0 1px 2px #000;background:rgba(15,31,20,.7);padding:0 4px;border-radius:4px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;order:2;">${esc(cmdt)}</span>`
+      : "") +
     `<span style="font:700 9px Inter,sans-serif;color:#fff;text-shadow:0 1px 2px #000;background:rgba(15,31,20,.7);padding:0 4px;border-radius:4px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(`${corpsShort(u.corps)} · ${u.nom}`)}</span></div>`
   );
 }

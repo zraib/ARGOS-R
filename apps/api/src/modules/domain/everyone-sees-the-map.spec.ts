@@ -71,6 +71,36 @@ describe("ADR 0027 — la carte de tous, l'affectation par les PC, l'équipement
     await base().post(`/api/incidents/${inc}/assignments`).set(bearer(await jeton("s.pcfar", "pcfar_synth"))).send({ unitId: u1.id }).expect(403);
   });
 
+  it("le commandant d'une unité est le compte qui la tient : son nom remplace le nom saisi, partout où l'unité est servie", async () => {
+    const stamp = Date.now();
+    const unit = (
+      await base().post("/api/units").set(bearer(root))
+        .send({ nom: `Unité commandée ${stamp}`, corps: "far", ville: "Rabat", cmdt: "Nom saisi à la création", eff: 30, dispo: "ready", readiness: 80, x: 300, y: 150, ll: [-6.84, 34.02] })
+        .expect(201)
+    ).body as { id: string; cmdt: string };
+    expect(unit.cmdt).toBe("Nom saisi à la création");
+    await base().post("/api/iam/users").set(bearer(root))
+      .send({ matricule: `c.cmd.${stamp}`, nom: "Tahiri", prenom: "Rachid", grade: "Colonel", roles: ["resp_unit"], assignments: { unit: unit.id } })
+      .expect(201);
+    const servie = ((await base().get("/api/units").set(bearer(root)).expect(200)).body as { id: string; cmdt: string }[]).find((u) => u.id === unit.id);
+    expect(servie?.cmdt).toBe("Colonel Rachid Tahiri");
+    // La modification de l'unité rend aussi le commandant rattaché.
+    const patched = (await base().patch(`/api/units/${unit.id}`).set(bearer(root)).send({ readiness: 70 }).expect(200)).body as { cmdt: string };
+    expect(patched.cmdt).toBe("Colonel Rachid Tahiri");
+  });
+
+  it("une équipe posée sur le terrain porte le nom de son chef", async () => {
+    const unitId = ((await base().get("/api/units").set(bearer(root)).expect(200)).body as { id: string }[])[0].id;
+    const owner = { kind: "unit", id: unitId };
+    const chef = (await base().post("/api/resources/persons").set(bearer(root)).send({ owner, corps: "far", grade: "Sergent", nom: "Ouazzani", prenom: "Karim", matricule: `FAR-${Date.now()}`, fonction: "Chef de groupe" }).expect(201)).body as { id: string };
+    const team = (await base().post("/api/resources/teams").set(bearer(root)).send({ owner, nom: "Groupe posé", memberIds: [chef.id], leaderId: chef.id }).expect(201)).body as { id: string };
+    await base().put(`/api/resources/teams/${team.id}/position`).set(bearer(root)).send({ ll: [-6.85, 34.03] }).expect(200);
+    const placed = ((await base().get("/api/resources/placed").set(bearer(root)).expect(200)).body as { kind: string; id: string; leader?: string }[]).find((p) => p.kind === "teams" && p.id === team.id);
+    expect(placed?.leader).toBe("Sergent Karim Ouazzani");
+    await base().delete(`/api/resources/teams/${team.id}/position`).set(bearer(root)).expect(200);
+    await base().delete(`/api/resources/teams/${team.id}`).set(bearer(root)).expect(200);
+  });
+
   it("un article du parc s'affecte à une équipe du détenteur — et à elle seule ; l'équipe dissoute le libère", async () => {
     const [unitA, unitB] = ((await base().get("/api/units").set(bearer(root)).expect(200)).body as { id: string }[]).slice(0, 2);
     const teamA = (await base().post("/api/resources/teams").set(bearer(root)).send({ owner: { kind: "unit", id: unitA.id }, nom: "Groupe radio", memberIds: [] }).expect(201)).body as { id: string };

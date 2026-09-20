@@ -17,7 +17,7 @@ import { RiskService } from "@/modules/domain/risk.service";
 import { DomainService } from "@/modules/domain/domain.service";
 import { assignableCorps } from "@/modules/domain/assignment.rules";
 import { CatalogService } from "@/modules/domain/catalog.service";
-import { VisibilityService } from "@/modules/domain/visibility.service";
+import { VisibilityService, unitVisibleTo } from "@/modules/domain/visibility.service";
 
 @ApiTags("domain")
 @ApiBearerAuth()
@@ -34,7 +34,8 @@ export class DashboardController {
   private view(user: AuthUser) {
     const scope = this.visibility.scopeOfUser(user.role, user.scope, (kind, id) => this.domain.regionOfEntity(kind, id));
     const incidents = this.visibility.filterIncidents(this.domain.listIncidents(), scope, (id) => this.domain.entitiesOnIncident(id));
-    const units = this.visibility.filterUnits(this.domain.listUnits(), scope, {
+    // Les unités de l'autre mode de l'application n'existent pas ici (ADR 0022).
+    const units = this.visibility.filterUnits(this.domain.listUnits().filter((u) => unitVisibleTo(u, user)), scope, {
       matricule: user.username,
       assignments: user.scope,
       regionOf: (id) => this.domain.regionOfEntity("unit", id),
