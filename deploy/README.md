@@ -173,7 +173,7 @@ calcule sur les tuiles d'altitude de la station et reste disponible.
 | Mettre à jour après un `git pull` | `docker compose up -d --build` |
 | Mettre à jour depuis un nouveau paquet **en gardant les comptes** | [MISE-A-JOUR-STATION.md](MISE-A-JOUR-STATION.md) — `scripts\upgrade.ps1 -Current C:\iris\deploy` (sauvegarde, `.env` repris, volumes intacts, contrôle, retour en arrière) |
 | Changer le mode de la station (opérationnel, exercice, démonstration) | *Paramètres › Profil de données* (l'API redémarre seule) ou `.env` : `APP_MODE=…` puis `docker compose up -d api` (§ 6 bis, ADR 0016) |
-| Montrer la station à distance, le temps d'une démonstration | `.\scripts\tunnel.ps1` (§ 10, ADR 0013) |
+| Rendre la station accessible depuis Internet, sans toucher au routeur | `.\scripts\expose.ps1` (§ 10, ADR 0028) |
 | Joindre la station depuis le réseau ou Internet, en HTTPS | `.env` : `COMPOSE_FILE=…compose.https.yml` ou `…compose.letsencrypt.yml`, puis `docker compose up -d` (§ 11) |
 | Journaux | `docker compose logs -f api` (ou `web`, `tiles`, `routing`, `proxy`) |
 | Sauvegarder (base + instantané + pièces jointes) | `.\scripts\backup.ps1 -Dest D:\sauvegardes\iris` |
@@ -304,46 +304,56 @@ que `docker-compose.yml` attend, variable `IRIS_TAG`), écrit `.env` depuis
 attend l'API. Relançable : un `.env` existant n'est jamais touché. Le fond de
 carte (§ 4) se prépare ensuite, comme après une construction locale.
 
-## 10. Exposer la station sur Internet le temps d'une démonstration
+## 10. Rendre la station accessible depuis Internet — sans toucher au routeur
 
-Pour montrer IRIS à distance sans ouvrir de port ni toucher au pare-feu,
-`scripts\tunnel.ps1` ouvre un tunnel [tunnelto.dev](https://tunnelto.dev) vers
-le port HTTP de la station : l'application est alors joignable à
-`https://<sous-domaine>.tunnelto.dev` depuis n'importe quel navigateur, et tout
-fonctionne sans réglage — une seule origine, des chemins relatifs, une CSP en
-`'self'` qui suit l'origine de la page.
+Un tunnel **sortant** fait partie de la pile ([ADR 0028](../docs/adr/0028-acces-public-par-tunnel-integre-a-la-pile.md)) :
+la station ouvre elle-même une connexion vers le réseau Cloudflare, qui lui
+attribue une adresse `https://` et lui renvoie le trafic. Aucun port à ouvrir,
+rien à régler sur le routeur ni le pare-feu, aucun certificat à gérer. Le tunnel
+est un conteneur (`restart: unless-stopped`) : une fois ouvert, il redémarre
+avec Docker Desktop et survit aux mises à jour.
 
 ```powershell
 cd C:\iris\deploy
-.\scripts\tunnel.ps1 -Key <clé du compte tunnelto.dev>   # la clé est mémorisée : ensuite .\scripts\tunnel.ps1 suffit
-.\scripts\tunnel.ps1 -Subdomain iris-demo                # sous-domaine fixe (compte payant), sinon un nom aléatoire
+.\scripts\expose.ps1            # tunnel RAPIDE : affiche https://<quatre-mots>.trycloudflare.com — sans compte
+.\scripts\expose.ps1 -Status    # l'adresse publique en service
+.\scripts\expose.ps1 -Off       # ferme l'accès public
 ```
 
-Le client est celui du paquet (`deploy\tools\tunnelto-windows.exe`, version
-0.1.18) ; absent, le script le télécharge depuis les versions publiées du
-projet et **vérifie son empreinte SHA-256** avant de l'exécuter. Un compte
-tunnelto.dev (clé API, gratuite pour un sous-domaine aléatoire) est requis.
-`Ctrl+C` ferme le tunnel ; il n'y a rien à défaire.
+**Adresse fixe** (recommandé dès que l'accès sert plus d'une fois) : un compte
+Cloudflare gratuit et un nom de domaine chez eux → *Zero Trust › Networks ›
+Tunnels › Create a tunnel* (type Cloudflared), un **Public Hostname**
+(`iris.votre-domaine`) dont le service est `http://proxy:80`, puis :
 
-**Ce que cela implique — et pourquoi c'est réservé aux démonstrations
-([ADR 0013](../docs/adr/0013-exposition-temporaire-tunnel.md)) :**
+```powershell
+.\scripts\expose.ps1 -Token <jeton du tunnel>    # tunnel NOMMÉ : votre adresse, la même après chaque redémarrage
+```
 
-- le trafic passe par un **relais tiers** qui termine le TLS public : il voit
-  les échanges en clair. Aucune donnée réelle, aucun compte réel pendant la
-  démonstration ; des données fictives, des comptes de démonstration ;
-- **tout Internet** atteint l'écran de connexion. La connexion reste la seule
-  porte (l'API refuse tout sans jeton), les mots de passe doivent être forts,
-  et l'API borne les échecs de connexion (dix par compte et par quart d'heure,
-  réponse 429 « trop de tentatives ») ; la documentation `/api/docs` est
-  lisible, elle ne contient aucune donnée ;
-- le tunnel se ferme **dès la fin** ; changer ensuite les mots de passe
-  utilisés pendant la démonstration ;
-- le client tunnelto contacte `api.github.com` au démarrage pour vérifier s'il
-  existe une version plus récente : c'est le seul appel sortant en plus du
-  relais.
+Le jeton s'écrit dans `deploy\.env` (`CLOUDFLARE_TUNNEL_TOKEN`) — ne le partagez
+pas. Le même tableau de bord permet ensuite de poser une porte d'identité
+(*Cloudflare Access*, gratuit jusqu'à 50 utilisateurs) devant l'adresse, sans
+rien changer à la station.
 
-Ce n'est pas un mode d'exploitation : en service, la station vit sur le réseau
-de l'organisme, et un accès distant passe par le VPN de celui-ci.
+**Ce que cela implique :**
+
+- le trafic passe par un **relais tiers** (Cloudflare) qui termine le TLS
+  public : il voit les échanges en clair entre son bord et la station ;
+- **tout Internet** atteint l'écran de connexion. Seule la connexion protège :
+  mots de passe forts, comptes de démonstration désactivés (*Gestion des
+  utilisateurs*), et l'API borne les échecs de connexion (dix par compte et par
+  quart d'heure, réponse 429) ; `/api/docs` est lisible, sans donnée ;
+- l'adresse d'un tunnel rapide **change** à chaque redémarrage du tunnel et
+  Cloudflare ne garantit rien sur ces tunnels — pour un accès durable, le
+  tunnel nommé ;
+- fermez l'accès (`-Off`) quand il ne sert plus, et changez ensuite les mots de
+  passe utilisés pendant l'exposition.
+
+Rien ne change dans l'application : une seule origine, des chemins relatifs,
+une CSP en `'self'` ; le fond de carte souverain se sert aussi par le tunnel.
+L'ancien chemin (`scripts\tunnel.ps1`, client tunnelto.dev avec compte,
+[ADR 0013](../docs/adr/0013-exposition-temporaire-tunnel.md)) reste utilisable.
+En service sur le réseau de l'organisme, l'accès distant passe par son VPN
+(§ 11 pour une exposition sans relais tiers).
 
 ## 11. Exposer la station sans relais tiers : réseau local, Internet, HTTPS
 

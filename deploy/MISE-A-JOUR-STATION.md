@@ -392,3 +392,15 @@ cd C:\iris\deploy
   et fiche OPSnet, répartiteur, et sur la carte sous le nom de l'unité. Sans
   compte rattaché, le nom saisi à la création reste. Une équipe posée sur le
   terrain écrit son chef d'équipe sur son marqueur.
+
+## 15. Accès depuis Internet sans toucher au routeur (paquets du 21 septembre 2026)
+
+- `.\scripts\expose.ps1` ouvre un tunnel sortant vers Cloudflare et affiche
+  l'adresse `https://<quatre-mots>.trycloudflare.com` de la station — sans
+  compte, sans port à ouvrir. Le tunnel est un conteneur de la pile : il
+  redémarre avec Docker Desktop. `-Status` donne l'adresse, `-Off` ferme.
+- Pour une adresse fixe : un tunnel nommé Cloudflare (compte gratuit + nom de
+  domaine), puis `.\scripts\expose.ps1 -Token <jeton>` (README § 10).
+- À savoir : le relais voit le trafic en clair, tout Internet atteint l'écran
+  de connexion — mots de passe forts, comptes de démonstration désactivés,
+  fermer quand l'accès ne sert plus.

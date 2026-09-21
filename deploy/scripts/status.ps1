@@ -23,6 +23,16 @@ function Get-StationUrl([string]$file) {
 }
 $envFile = Join-Path $deploy ".env"
 $url = Get-StationUrl $envFile
+# Accès public par tunnel sortant (ADR 0028), s'il est ouvert : l'adresse se lit dans le journal du tunnel rapide.
+$quick = docker compose --project-directory $deploy ps -q tunnel-quick 2>$null
+$named = docker compose --project-directory $deploy ps -q tunnel 2>$null
+if ($quick) {
+  $log = docker compose --project-directory $deploy logs --no-color --no-log-prefix tunnel-quick 2>$null
+  $m = [regex]::Matches(($log -join "`n"), "https://[a-z0-9-]+\.trycloudflare\.com") | Select-Object -Last 1
+  Write-Host "`nAccès public (tunnel rapide) : $(if ($m) { $m.Value } else { 'en cours de démarrage' })   — fermer : .\scripts\expose.ps1 -Off"
+} elseif ($named) {
+  Write-Host "`nAccès public (tunnel nommé) actif — adresse : votre tableau de bord Cloudflare Zero Trust   — fermer : .\scripts\expose.ps1 -Off"
+}
 Write-Host "`nSanté de l'API ($url) :"
 try { (Invoke-WebRequest -UseBasicParsing "$url/api/health").Content } catch { Write-Host "  injoignable : $_" }
 # Tuiles : seulement en fond de carte souverain (MAP_TILES dans .env) ; en

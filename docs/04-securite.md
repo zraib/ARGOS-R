@@ -486,12 +486,15 @@ Exigences du `MASTER_PLAN.md` §4.3 :
   compte ne dit que sa propre position, jamais celle d'un moyen.
 - Les flux externes (EMSC, Open-Meteo) sont **proxifiés par l'API**, avec cache
   et dégradation gracieuse. Le navigateur ne contacte jamais une source tierce.
-- **Exposition temporaire par tunnel** (ADR 0013, `deploy/scripts/tunnel.ps1`) :
-  déviation assumée pour les **démonstrations seulement** — un relais tiers
-  (tunnelto.dev) voit le trafic en clair et tout Internet atteint l'écran de
-  connexion. Données fictives, tunnel fermé dès la fin, client épinglé par son
-  empreinte. L'API borne les échecs de connexion (dix par compte et par quart
-  d'heure → `429`), tunnel ou pas.
+- **Accès public par tunnel sortant** (ADR 0028, `deploy/scripts/expose.ps1`,
+  conteneur `cloudflared` épinglé par version et empreinte ; l'ancien chemin
+  tunnelto.dev de l'ADR 0013 reste) : déviation de souveraineté **assumée et
+  annoncée** — le relais voit le trafic en clair entre son bord et la station,
+  tout Internet atteint l'écran de connexion ; mots de passe forts, comptes de
+  démonstration désactivés, accès fermé quand il ne sert plus. L'API borne les
+  échecs de connexion (dix par compte et par quart d'heure → `429`), tunnel ou
+  pas. Une porte d'identité (Cloudflare Access) peut se poser devant un tunnel
+  nommé sans toucher à la station.
 - **Aucun secret dans le dépôt.** `.env.example` sert de gabarit ; le secret de
   développement (`AUTH_DEV_SECRET`) doit être remplacé en production.
 - Aucune nouvelle dépendance runtime sans [ADR](adr/README.md).

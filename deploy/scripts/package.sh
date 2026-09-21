@@ -101,7 +101,7 @@ export MAP_TILES="$MAP_MODE"
 export DOCKER_DEFAULT_PLATFORM="linux/amd64"
 # Tous les profils : le paquet embarque aussi le serveur de tuiles (profil
 # `sovereign`), pour qu'une station puisse passer au fond hors ligne sans Internet.
-compose() { docker compose --project-directory "$DEPLOY" -f "$COMPOSE" --profile tiles-build --profile sovereign "$@"; }
+compose() { docker compose --project-directory "$DEPLOY" -f "$COMPOSE" --profile tiles-build --profile sovereign --profile public --profile public-quick "$@"; }
 
 say "Paquet ${NAME} → ${OUT}"
 echo "    plateforme cible : linux/amd64 · fond de carte : ${MAP_MODE} · images de base : $([ "$WITH_BASE" = 1 ] && echo oui || echo non) · planetiler : $([ "$WITH_TILES_BUILD" = 1 ] && echo oui || echo non)"

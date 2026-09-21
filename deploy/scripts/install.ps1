@@ -189,6 +189,6 @@ Write-Host @"
   État de la station    :  .\scripts\status.ps1
   Fond de carte         :  $mapHint
   Mode de la station    :  $profileHint   (README § 6 bis ; se change aussi dans Paramètres)
-  Démonstration à distance (tunnel, ADR 0013) :  .\scripts\tunnel.ps1
+  Accès depuis Internet (sans toucher au routeur, ADR 0028) :  .\scripts\expose.ps1   (README § 10)
 
 "@
