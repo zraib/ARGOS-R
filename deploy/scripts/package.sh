@@ -209,7 +209,7 @@ ARGOS / IRIS — station Windows, paquet ${VERSION}
 4. Ouvrir http://localhost — compte fondateur m.zraib, code ARGOS-2026 (à changer).
 5. Fond de carte : ${MAP_MODE} — $([ "$MAP_MODE" = external ] && echo "Esri/Maxar, OpenStreetMap et relief en ligne, rien à préparer (Internet requis sur les postes)." || echo "tuiles hors ligne à préparer une fois : deploy\\GUIDE-DEBUTANT-WINDOWS.md, étape 6.")
    Comptes, exploitation : deploy\\GUIDE-DEBUTANT-WINDOWS.md (étapes 7 à 11).
-   Démonstration à distance (tunnel) : deploy\\README.md § 10, .\\scripts\\tunnel.ps1.
+   Accès depuis Internet sans toucher au routeur : deploy\\README.md § 10, .\\scripts\\expose.ps1.
 
 STATION DÉJÀ INSTALLÉE (mise à jour, comptes conservés) : ne pas décompresser
 par-dessus l'ancienne installation. Décompresser ce paquet dans un dossier à

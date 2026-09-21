@@ -404,3 +404,18 @@ cd C:\iris\deploy
 - À savoir : le relais voit le trafic en clair, tout Internet atteint l'écran
   de connexion — mots de passe forts, comptes de démonstration désactivés,
   fermer quand l'accès ne sert plus.
+
+## 16. Passer d'une station en ligne à la version hors ligne (ou l'inverse) : le même geste
+
+`upgrade.ps1` aligne désormais le fond de carte du `.env` repris sur celui du
+paquet installé : avec un paquet `-souv`, il pose `MAP_TILES=sovereign`, ajoute
+le profil `sovereign` et vide `VALHALLA_TILE_URLS`, puis `install.ps1` vérifie
+et importe les tuiles embarquées (`deploy\tiles-data`, ~11 Go, quelques
+minutes) ; avec un paquet en ligne, il repasse en `external`. Secrets, port,
+HTTPS, comptes, données et autres profils (accès public) sont conservés — la
+commande reste :
+
+```powershell
+cd C:\iris-nouveau\deploy
+.\scripts\upgrade.ps1 -Current C:\iris\deploy -Backups D:\sauvegardes\iris
+```
