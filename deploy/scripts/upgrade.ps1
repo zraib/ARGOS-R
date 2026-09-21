@@ -25,6 +25,9 @@ param(
   [switch]$SkipBackup
 )
 $ErrorActionPreference = "Stop"
+# Les scripts du paquet ont pu arriver marqués « vient d'Internet » (zip téléchargé) :
+# on retire la marque des voisins pour que les scripts appelés ensuite passent.
+Get-ChildItem -Path $PSScriptRoot -Filter *.ps1 | Unblock-File -ErrorAction SilentlyContinue
 $new = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $newEnv = Join-Path $new ".env"
 $newVersionFile = Join-Path $new "VERSION"

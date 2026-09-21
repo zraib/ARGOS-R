@@ -10,3 +10,5 @@
 *.woff2 binary
 *.pbf binary
 *.mbtiles binary
+*.cmd text eol=crlf
+*.bat text eol=crlf

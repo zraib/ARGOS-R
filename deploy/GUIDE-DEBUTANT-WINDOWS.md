@@ -388,7 +388,7 @@ et de feu, eux, calculent sur le relief de la station.
 | `docker compose up` échoue sur « port 80 already in use » | un autre logiciel (IIS, Skype…) occupe le port | `HTTP_PORT=8080` dans `.env`, `PUBLIC_URL=http://localhost:8080`, puis `docker compose up -d` et ouvrez `http://localhost:8080` |
 | Un autre poste n'atteint pas la station | pare-feu Windows | autorisez Docker Desktop (réseaux privés) ou ouvrez le port 80 en entrée |
 | Le copilote ne répond pas | Ollama non joignable depuis Docker | § 7 : `OLLAMA_HOST=0.0.0.0`, redémarrer Ollama |
-| Les scripts `.ps1` refusent de s'exécuter | politique d'exécution PowerShell | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` (une fois), puis relancez |
+| Les scripts `.ps1` refusent de s'exécuter (« n'est pas signé numériquement ») | fichiers marqués « vient d'Internet » (zip téléchargé) ou politique d'exécution | lancer le `.cmd` du même nom (`.\install.cmd`, `.\upgrade.cmd`…) — il retire la marque et contourne la politique ; sinon `Unblock-File .\scripts\*.ps1` puis `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` |
 | Erreurs « \r » ou « bad interpreter » dans les journaux | fins de ligne converties par Git | `git config core.autocrlf false` puis `git checkout -- .` et reconstruire |
 | Tout est lent, la machine « rame » | mémoire insuffisante pour Docker + tuiles | augmentez `memory=` dans `.wslconfig` (§ 1) ou fermez d'autres logiciels |
 

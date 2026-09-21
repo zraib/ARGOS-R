@@ -229,7 +229,7 @@ cd C:\iris\deploy
 | Symptôme | Cause | Remède |
 | --- | --- | --- |
 | `Docker ne répond pas` | Docker Desktop n'est pas lancé | Ouvrir Docker Desktop, attendre « Engine running », relancer |
-| PowerShell refuse d'exécuter le script | politique d'exécution | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` puis relancer |
+| PowerShell refuse le script — « n'est pas signé numériquement » | le paquet vient d'un zip **téléchargé** : Windows marque ses fichiers « vient d'Internet » et la politique `RemoteSigned` exige alors une signature | lancer par le `.cmd` (`.\upgrade.cmd …`, qui retire la marque et contourne la politique), ou `Unblock-File .\scripts\*.ps1` puis relancer, ou `Unblock-File` sur le zip avant de l'extraire |
 | Les empreintes du § 2 diffèrent | copie abîmée | recopier le zip depuis le poste de développement |
 | `Un .env DIFFÉRENT de l'actuel existe déjà` | un `.env` a été créé dans le nouveau dossier (par exemple par un `install.ps1` lancé trop tôt) | le supprimer, relancer `upgrade.ps1` : il reprend celui de l'installation actuelle |
 | Après la mise à jour, tout le monde est déconnecté | `AUTH_DEV_SECRET` a changé (nouveau `.env` généré au lieu d'être repris) | remettre le `.env` de l'ancienne installation, `docker compose up -d` |
