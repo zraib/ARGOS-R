@@ -23,8 +23,10 @@ adresse aléatoire sauf abonnement, et l'usage borné aux démonstrations.
 ## Décision
 
 1. **Le tunnel est un conteneur de la pile**, pas un programme à côté : `cloudflared`
-   (image officielle, **épinglée par version et par empreinte** — `2026.9.1`,
-   `sha256:b269e8ab…`, embarquée dans le paquet comme les autres images) tourne dans deux
+   (image officielle `2026.9.1`, **épinglée par version dans Compose et par empreinte
+   dans `package.sh`** — `sha256:b269e8ab…`, vérifiée au moment d'embarquer l'image dans le
+   paquet ; une référence par empreinte dans Compose aurait forcé la station à retélécharger
+   l'image, `docker load` ne conservant pas les empreintes) tourne dans deux
    profils Compose exclusifs, `restart: unless-stopped` : il redémarre avec Docker Desktop
    et survit aux mises à jour (`docker compose up -d` le relance avec le reste). Il ne cible
    que le proxy interne (`http://proxy:80`) : rien d'autre n'est exposé.
