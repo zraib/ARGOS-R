@@ -192,6 +192,7 @@ calcule sur les tuiles d'altitude de la station et reste disponible.
 | Mettre à jour depuis un nouveau paquet **en gardant les comptes** | [MISE-A-JOUR-STATION.md](MISE-A-JOUR-STATION.md) — `scripts\upgrade.ps1 -Current C:\iris\deploy` (sauvegarde, `.env` repris, volumes intacts, contrôle, retour en arrière) |
 | Changer le mode de la station (opérationnel, exercice, démonstration) | *Paramètres › Profil de données* (l'API redémarre seule) ou `.env` : `APP_MODE=…` puis `docker compose up -d api` (§ 6 bis, ADR 0016) |
 | Rendre la station accessible depuis Internet, sans toucher au routeur | `.\scripts\expose.ps1` (§ 10, ADR 0028) |
+| PowerShell refuse un script (« n'est pas signé numériquement ») | lancer le `.cmd` du même nom à la racine de `deploy\` (`install.cmd`, `upgrade.cmd`, `status.cmd`, `expose.cmd`, `backup.cmd`, `restore.cmd`) : il retire la marque « vient d'Internet » et contourne la politique d'exécution |
 | Joindre la station depuis le réseau ou Internet, en HTTPS | `.env` : `COMPOSE_FILE=…compose.https.yml` ou `…compose.letsencrypt.yml`, puis `docker compose up -d` (§ 11) |
 | Journaux | `docker compose logs -f api` (ou `web`, `tiles`, `routing`, `proxy`) |
 | Sauvegarder (base + instantané + pièces jointes) | `.\scripts\backup.ps1 -Dest D:\sauvegardes\iris` |

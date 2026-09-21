@@ -221,7 +221,9 @@ ARGOS / IRIS — station Windows, paquet ${VERSION}
 
 1. Installer Docker Desktop (WSL 2) : deploy\\GUIDE-DEBUTANT-WINDOWS.md, étapes 1 et 2.
 2. Copier ce dossier sur la station (par exemple C:\\iris).
-3. Dans PowerShell :   cd C:\\iris\\deploy   puis   .\\scripts\\install.ps1
+3. Dans PowerShell (ou l'invite de commandes) :   cd C:\\iris\\deploy   puis   .\\install.cmd
+   (le lanceur .cmd retire la marque « vient d'Internet » des scripts et contourne la
+   politique d'exécution PowerShell — « n'est pas signé numériquement » ; .\\scripts\\install.ps1 reste possible)
    Le script charge les images (deploy\\images), écrit .env avec des secrets
    générés, démarre la pile et attend que l'API réponde. Aucun accès Internet requis.
 4. Ouvrir http://localhost — compte fondateur m.zraib, code ARGOS-2026 (à changer).
@@ -232,7 +234,7 @@ ARGOS / IRIS — station Windows, paquet ${VERSION}
 STATION DÉJÀ INSTALLÉE (mise à jour, comptes conservés) : ne pas décompresser
 par-dessus l'ancienne installation. Décompresser ce paquet dans un dossier à
 part, puis, depuis son dossier deploy\\ :
-   .\\scripts\\upgrade.ps1 -Current C:\\iris\\deploy -Backups D:\\sauvegardes\\iris
+   .\\upgrade.cmd -Current C:\\iris\\deploy -Backups D:\\sauvegardes\\iris
 Le script sauvegarde, reprend votre .env, arrête l'ancienne pile sans toucher
 aux volumes, installe et contrôle. Pas à pas : deploy\\MISE-A-JOUR-STATION.md.
 

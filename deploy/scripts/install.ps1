@@ -36,6 +36,9 @@ param(
 if ($Domain -and -not $AcmeEmail) { throw "-Domain demande -AcmeEmail (adresse de contact du certificat Let's Encrypt)." }
 
 $ErrorActionPreference = "Stop"
+# Les scripts du paquet ont pu arriver marqués « vient d'Internet » (zip téléchargé) :
+# on retire la marque des voisins pour que les scripts appelés ensuite passent.
+Get-ChildItem -Path $PSScriptRoot -Filter *.ps1 | Unblock-File -ErrorAction SilentlyContinue
 $deploy = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $envFile = Join-Path $deploy ".env"
 $imagesDir = Join-Path $deploy "images"
