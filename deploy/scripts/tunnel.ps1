@@ -1,6 +1,9 @@
 ﻿# ============================================================================
 # ARGOS / IRIS — exposer la station sur Internet le temps d'une démonstration
 #
+# ANCIEN CHEMIN (ADR 0013) — l'accès public intégré à la pile est désormais
+# .\scripts\expose.ps1 (tunnel Cloudflare en conteneur, ADR 0028) ; ce script
+# reste utilisable avec un compte tunnelto.dev.
 # Ouvre un tunnel tunnelto.dev vers le port HTTP de la station : l'application
 # devient joignable à https://<sous-domaine>.tunnelto.dev, sans ouvrir de port
 # ni toucher au pare-feu, depuis n'importe quel navigateur. Une seule origine

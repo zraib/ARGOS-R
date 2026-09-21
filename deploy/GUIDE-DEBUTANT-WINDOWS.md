@@ -397,37 +397,47 @@ remet tout d'aplomb sans toucher aux données.
 
 ---
 
-## 12. Montrer la station à distance (démonstration uniquement)
+## 12. Rendre la station accessible depuis Internet — sans toucher au routeur
 
-Pour une démonstration à des personnes qui ne sont pas sur le réseau de la
-station, un **tunnel** rend l'application joignable depuis Internet à une
-adresse `https://….tunnelto.dev`, sans rien ouvrir sur le pare-feu.
+Un **tunnel sortant** fait partie de la station : elle ouvre elle-même une
+connexion vers le réseau Cloudflare, qui lui donne une adresse `https://…` et
+lui renvoie le trafic. Rien à ouvrir sur le routeur ni le pare-feu, aucun
+certificat, aucun compte pour commencer.
 
-> **Lisez d'abord** — le trafic passe par un service tiers (tunnelto.dev) qui
-> peut le lire. C'est acceptable pour une démonstration sur des données
-> fictives, jamais pour de vraies opérations. Pendant le tunnel, tout Internet
-> voit l'écran de connexion : utilisez des mots de passe forts, fermez le
-> tunnel dès la fin, changez ensuite les mots de passe utilisés.
+> **Lisez d'abord** — le trafic passe par un service tiers (Cloudflare) qui
+> peut le lire entre son bord et la station, et tout Internet voit l'écran de
+> connexion : utilisez des mots de passe forts, désactivez les comptes de
+> démonstration (*Gestion des utilisateurs*), fermez l'accès quand il ne sert
+> plus, changez ensuite les mots de passe utilisés.
 
-1. Créez un compte sur [tunnelto.dev](https://tunnelto.dev) et copiez la clé
-   API affichée dans son tableau de bord (une fois).
-2. La station tournant (§ 5), dans PowerShell :
+1. La station tournant (§ 5), dans PowerShell :
 
    ```powershell
    cd C:\iris\deploy
-   .\scripts\tunnel.ps1 -Key <votre clé>
+   .\scripts\expose.ps1
    ```
 
-   La clé est mémorisée : les fois suivantes, `.\scripts\tunnel.ps1` suffit.
-   Le script vérifie que la station répond, affiche l'avertissement ci-dessus,
-   puis l'adresse publique (`https://xxxx.tunnelto.dev`) : donnez-la aux
-   participants. Avec un compte payant, `-Subdomain iris-demo` fixe le nom.
+   Après quelques secondes, le script affiche l'adresse publique
+   (`https://quatre-mots.trycloudflare.com`) : donnez-la aux participants.
+   L'accès reste ouvert, même après un redémarrage du PC (le tunnel repart
+   avec Docker Desktop) — mais avec une **nouvelle adresse** à chaque
+   redémarrage du tunnel. `.\scripts\expose.ps1 -Status` la redonne à tout moment.
 
-3. À la fin, revenez dans la fenêtre PowerShell et appuyez sur **Ctrl+C** :
-   le tunnel se ferme, la station n'est plus joignable depuis Internet.
+2. Pour une **adresse fixe** (la même chaque jour) : créez un compte gratuit
+   sur Cloudflare, ajoutez-y un nom de domaine, puis dans *Zero Trust ›
+   Networks › Tunnels* créez un tunnel (type Cloudflared) avec un *Public
+   Hostname* (par exemple `iris.votre-domaine`) dont le service est
+   `http://proxy:80`. Copiez le jeton du tunnel, puis :
+
+   ```powershell
+   .\scripts\expose.ps1 -Token <jeton>
+   ```
+
+3. Pour fermer l'accès : `.\scripts\expose.ps1 -Off` — la station n'est plus
+   joignable que sur son réseau.
 
 > **Vérifiez** — depuis un téléphone en 4G, l'adresse publique affiche l'écran
-> de connexion IRIS ; après Ctrl+C, elle ne répond plus.
+> de connexion IRIS ; après `-Off`, elle ne répond plus.
 
 ---
 
