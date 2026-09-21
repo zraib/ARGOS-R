@@ -80,8 +80,41 @@ if (Test-Path $newEnv) {
   Copy-Item $curEnv $newEnv
   Ok ".env repris depuis l'installation actuelle (AUTH_DEV_SECRET, POSTGRES_PASSWORD, port, HTTPS, fond de carte)"
 }
-# Les nouveaux réglages ont des défauts ; on signale seulement ceux qui manquent.
+# --- 3 bis. Le fond de carte est celui du PAQUET, pas de l'ancien .env --------
+# Le mode carte est figé dans l'image web du paquet (en ligne : MAP_TILES=external ;
+# hors ligne « -souv » : sovereign). Un .env repris d'une station en ligne dirait
+# encore « external » : le profil des tuiles ne partirait pas et install.ps1
+# n'importerait pas les tuiles embarquées. On aligne donc MAP_TILES, le profil
+# Compose `sovereign` et l'URL Valhalla sur le paquet, en gardant tout le reste
+# (secrets, port, HTTPS, autres profils comme public-quick). Ainsi passer d'une
+# station en ligne à la version hors ligne — ou l'inverse — est le même geste.
 $example = Join-Path $new ".env.example"
+function Get-KeyValue([string]$file, [string]$key) {
+  $line = Get-Content $file | Where-Object { $_ -match "^\s*$key=(.*)$" } | Select-Object -Last 1
+  if ($line -and $line -match "^\s*$key=(.*)$") { return $Matches[1].Trim() }
+  return $null
+}
+if (Test-Path $example) {
+  $packageMap = Get-KeyValue $example "MAP_TILES"
+  $currentMap = Get-KeyValue $newEnv "MAP_TILES"
+  if ($packageMap -and $currentMap -ne $packageMap) {
+    $utf8 = New-Object System.Text.UTF8Encoding($false)
+    $content = [System.IO.File]::ReadAllText($newEnv, $utf8)
+    function Set-Key([string]$key, [string]$value) {
+      if ($script:content -match "(?m)^\s*$key=.*$") { $script:content = $script:content -replace "(?m)^\s*$key=.*$", "$key=$value" }
+      else { $script:content = $script:content.TrimEnd() + "`r`n$key=$value`r`n" }
+    }
+    Set-Key "MAP_TILES" $packageMap
+    $profiles = @(((Get-KeyValue $newEnv "COMPOSE_PROFILES") -split ",") | ForEach-Object { $_.Trim() } | Where-Object { $_ -and $_ -ne "sovereign" })
+    if ($packageMap -eq "sovereign") { $profiles += "sovereign" }
+    Set-Key "COMPOSE_PROFILES" ($profiles -join ",")
+    if ($packageMap -eq "sovereign") { Set-Key "VALHALLA_TILE_URLS" "" }
+    elseif (-not (Get-KeyValue $newEnv "VALHALLA_TILE_URLS")) { Set-Key "VALHALLA_TILE_URLS" (Get-KeyValue $example "VALHALLA_TILE_URLS") }
+    [System.IO.File]::WriteAllText($newEnv, $content, $utf8)
+    Ok "fond de carte aligné sur le paquet : MAP_TILES=$packageMap (COMPOSE_PROFILES=$($profiles -join ','))$(if ($packageMap -eq 'sovereign') { ' — les tuiles embarquées seront importées par install.ps1' })"
+  }
+}
+# Les nouveaux réglages ont des défauts ; on signale seulement ceux qui manquent.
 if (Test-Path $example) {
   $known = @(Get-Content $newEnv | Where-Object { $_ -match "^\s*([A-Z_]+)=" } | ForEach-Object { ($_ -split "=", 2)[0].Trim() })
   $missing = @(Get-Content $example | Where-Object { $_ -match "^\s*([A-Z_]+)=" } | ForEach-Object { ($_ -split "=", 2)[0].Trim() } | Where-Object { $known -notcontains $_ })
