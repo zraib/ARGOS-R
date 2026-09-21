@@ -139,6 +139,19 @@ if [ "$WITH_BASE" = 1 ]; then
     echo "    tirage $img"
     docker pull --quiet --platform linux/amd64 "$img" >/dev/null
   done
+  # Le client du tunnel (ADR 0028) est épinglé par son empreinte : l'image tirée
+  # doit être exactement celle-là, sinon le paquet ne se fait pas.
+  CLOUDFLARED_DIGEST="sha256:b269e8abd07a5bf6f3f4be65d5050b2174eca89c56a0241a8ff32a16aec454e4"
+  for img in "${BASE_IMAGES[@]}"; do
+    case "$img" in
+      cloudflare/cloudflared:*)
+        digests=$(docker image inspect --format '{{join .RepoDigests " "}}' "$img")
+        case " $digests " in
+          *"@${CLOUDFLARED_DIGEST} "*) echo "    empreinte vérifiée : $img" ;;
+          *) die "empreinte inattendue pour $img ($digests) — attendu $CLOUDFLARED_DIGEST" ;;
+        esac ;;
+    esac
+  done
 fi
 
 # --- 3. l'arbre du dépôt ------------------------------------------------------

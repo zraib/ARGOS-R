@@ -257,9 +257,13 @@ services:
   # Le relais termine le TLS public et voit le trafic en clair entre son bord
   # et la station (déviation de souveraineté assumée, README § 10).
   # =========================================================================
+  # L'image est épinglée par sa version ; son empreinte (sha256:b269e8ab…) est
+  # vérifiée par scripts/package.sh au moment d'embarquer l'image dans le paquet
+  # — un `docker load` ne conserve pas les empreintes, une référence par
+  # empreinte forcerait la station à retélécharger l'image.
   tunnel-quick:
     profiles: ["public-quick"]
-    image: cloudflare/cloudflared:2026.9.1@sha256:b269e8abd07a5bf6f3f4be65d5050b2174eca89c56a0241a8ff32a16aec454e4
+    image: cloudflare/cloudflared:2026.9.1
     command: ["tunnel", "--no-autoupdate", "--url", "http://proxy:80"]
     depends_on:
       - proxy
@@ -267,7 +271,7 @@ services:
 
   tunnel:
     profiles: ["public"]
-    image: cloudflare/cloudflared:2026.9.1@sha256:b269e8abd07a5bf6f3f4be65d5050b2174eca89c56a0241a8ff32a16aec454e4
+    image: cloudflare/cloudflared:2026.9.1
     # Le jeton porte l'identité du tunnel ; l'adresse publique et sa cible
     # (http://proxy:80) se règlent dans le tableau de bord Cloudflare Zero Trust.
     command: ["tunnel", "--no-autoupdate", "run", "--token", "${CLOUDFLARE_TUNNEL_TOKEN:-}"]
