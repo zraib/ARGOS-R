@@ -69,7 +69,7 @@ apps/web/src/
     ├── store/shared.ts       types de session/UI, clés de persistance, garde IA
     ├── store/slices/         session · ui · domain · seismic · map · missions
     │                         · nrbc · realtime · ai · aviation · chat
-    │                         · tracking · drawings · fire · flood
+    │                         · tracking · drawings · fire · flood · simulations
     ├── api.ts · config.ts    accès API (jeton, base) et configuration
     ├── api-client/           types générés depuis l'OpenAPI — NE PAS ÉDITER
     ├── i18n/                 translations.{fr,en,ar} (cœur), modules.{fr,en,ar},
@@ -131,7 +131,7 @@ Deux règles de rangement, vérifiées par le typecheck et les tests :
 
 ## 4. Store
 
-Un seul magasin **Zustand** (`useArgos`), mais assemblé à partir de **quinze
+Un seul magasin **Zustand** (`useArgos`), mais assemblé à partir de **seize
 tranches** typées (`lib/store/slices/*.ts`), chacune exportant son interface et
 son `StateCreator` ; `ArgosState` est leur réunion. Une tranche voit tout l'état
 par `set`/`get` mais **n'importe jamais une autre tranche** — elles ne
@@ -154,6 +154,7 @@ partagent que `lib/store/shared.ts` et le type `ArgosState`.
 | `drawings` | croquis de la carte (points, cercles, polygones — ADR 0024), outil en cours, sélection |
 | `fire` | simulateur de feu de forêt : point d'allumage, réglages, météo du point, course et lecture (ADR 0011, 0025) |
 | `flood` | prévisions de crue (jauges GloFAS / Flood Hub) et simulateur d'inondation : point, scénario, course et lecture (ADR 0010, 0025) |
+| `simulations` | simulations PARTAGÉES (ADR 0029) : le scénario publié par un poste, rejoué par les autres ; adoption, retrait |
 
 Les données du domaine sont chargées depuis l'API au montage, via le client
 généré. En développement, `window.__argos` expose le magasin pour inspection.
@@ -207,6 +208,13 @@ Trois règles tenues par les tests et le typecheck :
 - **Dessin** : points, cercles et polygones nommés, dessinés à la souris,
   partagés en temps réel, modifiables par leur auteur ou le Super
   Administrateur (ADR 0024).
+- **Glyphes** (ADR 0029) : chaque famille porte son symbole — bouclier de
+  l'unité (teinté par son corps), tente de l'abri, plaque du site mortuaire,
+  plaque sur roues de la morgue mobile déployée ; marqueurs DOM, aucun serveur
+  de glyphes requis.
+- **Temps réel** : toute écriture du domaine (incident, sous-incident, incident
+  rattaché, victime, unité, abri, morgue mobile) est poussée à tous les postes
+  par un intercepteur d'API ; une simulation publiée est rejouée par chacun.
 
 Pièges MapLibre documentés dans le code : la bibliothèque **mute l'objet de
 style** (d'où `structuredClone`), `isStyleLoaded()` peut rester faux sous

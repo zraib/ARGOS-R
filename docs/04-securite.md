@@ -299,6 +299,14 @@ bord d'incident servent tout incident à tout rôle (`incidentsVisibleToAll()`),
 gouvernant plus que les unités, les ressources et les comptes ; `INCIDENTS_VISIBILITY=scoped`
 rétablit la doctrine V-1 (suites `visibility.spec`, `deployment.spec`, `posts.spec`,
 `incident-dashboard.spec`, `units-visibility.spec`, `engagement.spec` tournent sous ce réglage).
+**Ouvrir un abri (23 septembre 2026, ADR 0029).** La ligne `shelters` s'ouvre aux chefs, aux
+OPS, aux LOG et aux Rens des PC (profil direx : `AMV` pour les chefs et les Rens, `FULL`
+conservé pour OPS, LOG et Anim) et, en classique, à l'OPCOM, au TACOM, aux chefs de PCO et de
+PCT et aux trois cellules — la **fermeture définitive** restant au Super Administrateur. Toute
+écriture du domaine qui réussit est POUSSÉE aux autres postes (`DomainChangeInterceptor`) ; un
+refus ne pousse rien. Les simulations partagées (`/simulations`) se lisent avec `map:view` et
+se retirent par leur auteur ou le Super Administrateur. Suite : `everyone-sees-changes.spec`.
+
 **Unités et terrain visibles de tous (20 septembre 2026, ADR 0027).** `GET units` et
 `GET resources/placed` servent à tout rôle les unités et ce qui est posé sur le terrain dans
 le mode en service (`unitsVisibleToAll()`) ; `UNITS_VISIBILITY=scoped` rétablit la portée de

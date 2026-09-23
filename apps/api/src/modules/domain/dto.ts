@@ -13,15 +13,16 @@ import {
   IsIn,
   IsInt,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   Length,
+  Matches,
   Max,
   MaxLength,
   Min,
   MinLength,
   ValidateNested,
-  Matches,
 } from "class-validator";
 import { Type } from "class-transformer";
 
@@ -229,6 +230,43 @@ export class RegisterIncidentTypeDto {
   @ValidateNested()
   @Type(() => IncidentTypeLabelsDto)
   labels!: IncidentTypeLabelsDto;
+
+  @ApiPropertyOptional({ description: "Tracé SVG 24×24 (icône en trait)" })
+  @IsOptional()
+  @IsString()
+  icon?: string;
+}
+
+/** Partage d'une simulation (ADR 0029) : le scénario, que chaque poste rejoue. */
+export class PublishSimulationDto {
+  @ApiProperty({ enum: ["fire", "flood"], example: "flood" })
+  @IsIn(["fire", "flood"])
+  kind!: "fire" | "flood";
+
+  @ApiProperty({ maxLength: 120, example: "Rupture Al Wahda — cadrage" })
+  @IsString() @MinLength(1) @MaxLength(120)
+  label!: string;
+
+  @ApiProperty({ type: [Number], example: [-5.36, 34.6], description: "Point de départ [lng, lat] : allumage ou rupture." })
+  @IsArray() @ArrayMinSize(2) @ArrayMaxSize(2) @IsNumber({}, { each: true })
+  seed!: [number, number];
+
+  @ApiProperty({ type: Object, description: "Réglages du simulateur, tels que le panneau les tient." })
+  @IsObject()
+  params!: Record<string, unknown>;
+
+  @ApiPropertyOptional({ description: "Opération concernée." })
+  @IsOptional() @IsString() @MaxLength(40)
+  incidentId?: string;
+}
+
+/** Modification d'un type d'incident ajouté (libellés, icône) — l'identifiant ne change pas. */
+export class UpdateIncidentTypeDto {
+  @ApiPropertyOptional({ type: IncidentTypeLabelsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => IncidentTypeLabelsDto)
+  labels?: IncidentTypeLabelsDto;
 
   @ApiPropertyOptional({ description: "Tracé SVG 24×24 (icône en trait)" })
   @IsOptional()

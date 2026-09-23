@@ -284,7 +284,10 @@ const MATRIX: Record<(typeof MATRIX_FEATURES)[number], Partial<Record<Role, Cell
   },
   // V-1 : « situation et déploiement des abris » relève de la vue d'ensemble
   // demandée au rôle stratégique.
-  shelters: { admin: ALL, opcom: V, tacom: V, resp_shelter: AMV, strategic: V },
+  // Ouvrir un abri revient aussi aux chefs du profil classique et aux cellules
+  // qui tiennent le terrain (ADR 0029) : un abri s'ouvre dans l'urgence, là où
+  // le commandement est ; le stratégique observe.
+  shelters: { admin: ALL, opcom: AMV, tacom: AMV, pco: AMV, pct: AMV, bluecell: AMV, greencell: AMV, orangecell: AMV, resp_shelter: AMV, strategic: V },
   // Service morgue : la vue d'ensemble revient au stratégique et aux autorités
   // de région ; le responsable d'hôpital voit les sites pour y adresser un
   // décès (l'annonce elle-même passe par SA route hospinet).

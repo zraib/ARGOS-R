@@ -1139,6 +1139,88 @@
         ]
       }
     },
+    "/api/simulations": {
+      "get": {
+        "description": "Nature (feu, crue), point de départ, réglages, auteur et date. Les images ne transitent pas : chaque poste recalcule.",
+        "operationId": "SimulationsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Les simulations partagées — le scénario de chacune, à rejouer sur le poste",
+        "tags": [
+          "domain"
+        ]
+      },
+      "post": {
+        "description": "Une même nature ne garde qu'une simulation par auteur : republier remplace la sienne.",
+        "operationId": "SimulationsController_publish",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishSimulationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Partager une simulation (audité) — tous les postes la rejouent",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/simulations/{id}": {
+      "delete": {
+        "operationId": "SimulationsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Simulation d'un autre compte."
+          },
+          "404": {
+            "description": "Simulation inconnue."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Retirer une simulation partagée (audité) — son auteur ou le Super Administrateur",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/incident-types": {
       "get": {
         "operationId": "IncidentsController_incidentTypesList",
@@ -1182,6 +1264,49 @@
           }
         ],
         "summary": "Enregistrer un nouveau type d'incident (Super Admin, audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/incident-types/{id}": {
+      "patch": {
+        "description": "Les types fournis d'origine ne se modifient pas : ils sont le socle commun de toutes les stations. L'identifiant ne change jamais — des incidents le portent déjà.",
+        "operationId": "IncidentsController_updateIncidentType",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateIncidentTypeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "404": {
+            "description": "Type inconnu."
+          },
+          "409": {
+            "description": "Type fourni d'origine : non modifiable."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Modifier un type d'incident AJOUTÉ (libellés, icône — Super Admin, audité)",
         "tags": [
           "domain"
         ]
@@ -7219,6 +7344,49 @@
           }
         }
       },
+      "PublishSimulationDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "fire",
+              "flood"
+            ],
+            "example": "flood"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 120,
+            "example": "Rupture Al Wahda — cadrage"
+          },
+          "seed": {
+            "example": [
+              -5.36,
+              34.6
+            ],
+            "description": "Point de départ [lng, lat] : allumage ou rupture.",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "params": {
+            "type": "object",
+            "description": "Réglages du simulateur, tels que le panneau les tient."
+          },
+          "incidentId": {
+            "type": "string",
+            "description": "Opération concernée."
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "seed",
+          "params"
+        ]
+      },
       "IncidentTypeLabelsDto": {
         "type": "object",
         "properties": {
@@ -7261,6 +7429,18 @@
           "id",
           "labels"
         ]
+      },
+      "UpdateIncidentTypeDto": {
+        "type": "object",
+        "properties": {
+          "labels": {
+            "$ref": "#/components/schemas/IncidentTypeLabelsDto"
+          },
+          "icon": {
+            "type": "string",
+            "description": "Tracé SVG 24×24 (icône en trait)"
+          }
+        }
       },
       "PublishSitrepDto": {
         "type": "object",

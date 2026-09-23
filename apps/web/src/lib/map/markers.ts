@@ -58,7 +58,7 @@ export function unitMarkerHTML(u: Unit, sel: boolean): string {
   const cmdt = u.cmdt && u.cmdt !== "—" ? u.cmdt : "";
   return (
     '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">' +
-    `<div style="width:16px;height:16px;background:#C9A84C;border:2px solid #0f1f14;${selRing(sel)}"></div>` +
+    unitGlyph(u, sel) +
     (cmdt
       ? `<span style="font:600 8px Inter,sans-serif;color:#f3e7c3;text-shadow:0 1px 2px #000;background:rgba(15,31,20,.7);padding:0 4px;border-radius:4px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;order:2;">${esc(cmdt)}</span>`
       : "") +
@@ -118,6 +118,86 @@ export function healthMarkerHTML(kind: HospitalKind, title: string, sel: boolean
   // rouge CHP/local) ; bordure pointillée pour les structures de campagne.
   return (
     `<div title="${esc(title)}" style="width:${size}px;height:${size}px;background:${bg};border-radius:9999px;border:2.5px ${dash} ${d.color};` +
+    `box-sizing:border-box;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.55);${selRing(sel)}">${glyph}</div>`
+  );
+}
+
+// --- Unités, abris, sites mortuaires : un glyphe par famille ----------------
+// Trois familles qui se ressemblaient sur la carte (un carré, deux pastilles)
+// se lisent désormais d'un coup d'œil (ADR 0029) : le BOUCLIER de l'unité, la
+// TENTE de l'abri, la PLAQUE du site mortuaire — la même grammaire que les
+// établissements de santé (forme = famille, couleur = état).
+
+/** Couleur d'une unité selon son corps — la même que dans les listes. */
+const CORPS_FILL: Record<string, string> = {
+  far: "#C9A84C", gendarmerie: "#1E3A8A", dgsn: "#2563EB", dgpc: "#EA580C", fa: "#15803D",
+};
+
+/** Bouclier : la silhouette du menu « Unités », en plein. */
+function shieldSVG(fill: string, w = 17): string {
+  return (
+    `<svg width="${w}" height="${w}" viewBox="0 0 24 24" aria-hidden="true">` +
+    `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="${fill}" stroke="#0f1f14" stroke-width="1.6" stroke-linejoin="round"/></svg>`
+  );
+}
+
+/** Tente : deux pans et une porte — l'abri d'hébergement. */
+function shelterSVG(fill: string, w = 15): string {
+  return (
+    `<svg width="${w}" height="${w}" viewBox="0 0 24 24" aria-hidden="true">` +
+    `<path d="M12 3L2 21h20L12 3z" fill="${fill}" stroke="#0f1f14" stroke-width="1.6" stroke-linejoin="round"/>` +
+    `<path d="M12 12l4 9H8z" fill="#0f1f14" opacity=".55"/></svg>`
+  );
+}
+
+/** Plaque mortuaire : le fronton du service, colonnes comprises. */
+function morgueSVG(color: string, w = 15): string {
+  return (
+    `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.9" stroke-linecap="round" aria-hidden="true">` +
+    `<path d="M3 21h18 M5 21V11h14v10 M12 3v6 M9 6h6 M9 15h2v6h-2z M13 15h2v6h-2z"/></svg>`
+  );
+}
+
+/** Morgue mobile : la même plaque, sur des roues. */
+function morgueMobileSVG(color: string, w = 16): string {
+  return (
+    `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.9" stroke-linecap="round" aria-hidden="true">` +
+    `<path d="M2 15V7h11v8 M13 10h4l3 3v2 M6 8h3 M7.5 6.5v3"/>` +
+    `<circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/><path d="M9 18h6"/></svg>`
+  );
+}
+
+/**
+ * Unité : un bouclier de la couleur de son corps, cerclé de sombre, avec son
+ * organe et son nom dessous et — quand un compte la tient — son commandant
+ * (ADR 0027 rév.).
+ */
+export function unitGlyph(u: Unit, sel: boolean): string {
+  return `<div style="display:flex;align-items:center;justify-content:center;${selRing(sel)}">${shieldSVG(CORPS_FILL[u.corps ?? "far"] ?? CORPS_FILL.far, 19)}</div>`;
+}
+
+/**
+ * Abri : une tente sur pastille claire, teintée par son remplissage — vert
+ * tant qu'il reste de la place, ambre au-delà de 80 %, rouge plein.
+ */
+export function shelterMarkerHTML(nom: string, ville: string, color: string, sel: boolean): string {
+  return (
+    `<div title="${esc(`${nom} · ${ville}`)}" style="width:22px;height:22px;background:#ffffff;border-radius:6px;border:2.5px solid ${color};` +
+    `box-sizing:border-box;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.55);${selRing(sel)}">${shelterSVG(color)}</div>`
+  );
+}
+
+/**
+ * Site mortuaire : une plaque ardoise pour un site fixe, une plaque AMBRE sur
+ * roues pour une morgue mobile déployée — elle se lit sur la carte comme une
+ * morgue, sans se confondre avec elle (ADR 0029). Rouge sombre quand le site
+ * est plein.
+ */
+export function morgueMarkerHTML(nom: string, mobile: boolean, color: string, sel: boolean): string {
+  const glyph = mobile ? morgueMobileSVG("#ffffff", 16) : morgueSVG("#ffffff", 15);
+  const forme = mobile ? "border-radius:9999px" : "border-radius:4px";
+  return (
+    `<div title="${esc(nom)}" style="width:${mobile ? 24 : 22}px;height:22px;background:${color};${forme};border:2px solid #0f1f14;` +
     `box-sizing:border-box;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.55);${selRing(sel)}">${glyph}</div>`
   );
 }

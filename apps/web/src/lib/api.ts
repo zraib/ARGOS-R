@@ -114,3 +114,17 @@ export async function loadSessionContext(): Promise<SessionContext> {
   }
   return out;
 }
+
+/**
+ * Le message qu'une écriture refusée renvoie — « Mode operational : la création
+ * d'unités n'est pas ouverte au rôle … », « Type déjà enregistré », etc.
+ * Les écrans le MONTRENT (ADR 0029) : un refus silencieux se lit comme un bogue.
+ */
+export function apiErrorMessage(err: unknown, fallback = "Refus de l'API"): string {
+  if (err && typeof err === "object" && "message" in err) {
+    const m = (err as { message: unknown }).message;
+    const txt = Array.isArray(m) ? m.join(" · ") : String(m ?? "");
+    if (txt.trim()) return txt;
+  }
+  return fallback;
+}

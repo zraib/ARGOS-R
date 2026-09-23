@@ -9,7 +9,7 @@ import { UI_ICONS, NAV_ICONS, INCIDENT_ICON_CHOICES } from "@/lib/icons";
 import { FLAGGABLE_KEYS, moduleLabel } from "@/lib/nav";
 import { AI_PROVIDERS, AI_DEFAULT_SETTINGS, resolveProvider, type LlmProviderId } from "@/lib/ai/config";
 import { probeProvider, listModels } from "@/lib/ai/provider";
-import { api } from "@/lib/api";
+import { api, apiErrorMessage } from "@/lib/api";
 import type { AuthorityContact, SeismicAlertConfig, SeismicNotification } from "@/lib/types";
 import { DataProfileCard } from "@/app/parametres/_parts/DataProfileCard";
 
@@ -538,6 +538,9 @@ function IncidentTypesPanel() {
   const apiConnected = useArgos((s) => s.apiConnected);
 
   const [open, setOpen] = useState(false);
+  // Le type en cours de MODIFICATION (ADR 0029) : son identifiant est figé —
+  // des incidents le portent déjà —, ses libellés et son icône se corrigent.
+  const [editing, setEditing] = useState<string | null>(null);
   const [id, setId] = useState("");
   const [fr, setFr] = useState("");
   const [ar, setAr] = useState("");
@@ -555,18 +558,28 @@ function IncidentTypesPanel() {
   const slug = id.trim().toLowerCase().replace(/\s+/g, "_");
   const exists = incidentTypes.some((x) => x.id === slug);
   const canAdd = !!slug && !!fr.trim() && !!en.trim() && !exists && !busy;
+  // En modification, l'identifiant ne bouge pas : seuls les libellés et l'icône comptent.
+  const canSubmit = editing ? !!fr.trim() && !!en.trim() && !busy : canAdd;
 
-  const reset = () => { setId(""); setFr(""); setAr(""); setEn(""); setIcon(INCIDENT_ICON_CHOICES[0].path); setErr(null); };
+  const reset = () => { setEditing(null); setId(""); setFr(""); setAr(""); setEn(""); setIcon(INCIDENT_ICON_CHOICES[0].path); setErr(null); };
+
+  /** Ouvre la modale sur un type ajouté, champs remplis. */
+  const openEdit = (def: { id: string; labels: { fr: string; ar: string; en: string }; icon: string }) => {
+    setEditing(def.id); setId(def.id); setFr(def.labels.fr); setAr(def.labels.ar); setEn(def.labels.en); setIcon(def.icon); setErr(null); setOpen(true);
+  };
 
   const submit = async () => {
-    if (!canAdd) return;
+    if (!canSubmit) return;
     setBusy(true);
     setErr(null);
     try {
-      const res = await api.registerIncidentType({ id: slug, labels: { fr: fr.trim(), ar: ar.trim() || fr.trim(), en: en.trim() }, icon });
-      if (res.error) { setErr(m.settings.type_exists); return; }
+      const labels = { fr: fr.trim(), ar: ar.trim() || fr.trim(), en: en.trim() };
+      const res = editing
+        ? ((await api.updateIncidentType(editing, { labels, icon })) as { error?: unknown })
+        : ((await api.registerIncidentType({ id: slug, labels, icon })) as { error?: unknown });
+      if (res.error) { setErr(editing ? apiErrorMessage(res.error, m.settings.type_exists) : m.settings.type_exists); return; }
       await loadDomain(); // rafraîchit le catalogue → visible aussitôt dans l'assistant
-      showToast(m.settings.type_added);
+      showToast(editing ? m.settings.type_updated : m.settings.type_added);
       reset();
       setOpen(false);
     } finally {
@@ -604,8 +617,10 @@ function IncidentTypesPanel() {
         ) : (
           filtered.map((def) => (
             <div key={def.id} className="flex items-center gap-2.5 border-b border-gray-100 px-3 py-2 last:border-0 sm:gap-3 dark:border-rdia-700/50">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-or-500/10 text-or-500">
-                <Icon path={def.icon} size={17} strokeWidth={1.6} />
+              {/* Icônes agrandies (ADR 0029) : un pictogramme de type d'incident se
+                  reconnaît de loin sur une console de commandement. */}
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-or-500/10 text-or-500">
+                <Icon path={def.icon} size={26} strokeWidth={1.6} />
               </span>
               {/* Sous `sm`, l'identifiant passe sous le libellé au lieu d'être
                   masqué : aucune donnée ne disparaît sur téléphone. */}
@@ -617,20 +632,33 @@ function IncidentTypesPanel() {
               {def.builtin && (
                 <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-gray-400 dark:bg-rdia-600 dark:text-rdia-300">{m.settings.type_builtin}</span>
               )}
+              {!def.builtin && (
+                <button
+                  type="button"
+                  onClick={() => openEdit(def)}
+                  title={m.settings.type_edit}
+                  aria-label={`${m.settings.type_edit} — ${def.labels[lang]}`}
+                  className="cible-tactile flex shrink-0 items-center justify-center rounded-lg border border-gray-200 px-2 py-1.5 text-gray-500 transition-colors hover:border-or-400 hover:text-or-500 disabled:opacity-50 dark:border-rdia-600 dark:text-rdia-300"
+                  disabled={!apiConnected}
+                >
+                  <Icon path={UI_ICONS.edit} size={15} />
+                </button>
+              )}
             </div>
           ))
         )}
       </div>
 
       {/* Formulaire d'ajout : modale dédiée */}
-      <Modal open={open} title={m.settings.type_add} onClose={() => { reset(); setOpen(false); }} size="lg">
+      <Modal open={open} title={editing ? m.settings.type_edit : m.settings.type_add} onClose={() => { reset(); setOpen(false); }} size="lg">
         <div className="flex flex-col gap-4">
           {/* Champs à 16 px sur mobile (`text-base`) : sous ce seuil, iOS zoome
               au focus et la modale part hors de l'écran. */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className={labelCls}>{m.settings.type_id}</label>
-              <input className="input-champ font-mono text-base md:text-sm" value={id} onChange={(e) => setId(e.target.value)} placeholder={m.settings.type_id_ph} spellCheck={false} />
+              {/* L'identifiant ne se modifie pas : des incidents le portent déjà. */}
+              <input className="input-champ font-mono text-base md:text-sm disabled:opacity-60" value={id} onChange={(e) => setId(e.target.value)} placeholder={m.settings.type_id_ph} spellCheck={false} disabled={!!editing} />
             </div>
             <div>
               <label className={labelCls}>{m.settings.label_fr}</label>
@@ -649,7 +677,8 @@ function IncidentTypesPanel() {
           <div>
             <label className={labelCls}>{m.settings.type_icon}</label>
             {/* 6 colonnes sur téléphone : à 8, chaque case tomberait sous 40 px. */}
-            <div className="grid max-h-48 grid-cols-6 gap-1.5 overflow-y-auto rounded-lg border border-gray-100 p-2 sm:max-h-56 sm:grid-cols-8 md:grid-cols-10 dark:border-rdia-700/50">
+            {/* Grille plus aérée : des cases plus grandes, donc des pictogrammes lisibles (ADR 0029). */}
+            <div className="grid max-h-56 grid-cols-5 gap-2 overflow-y-auto rounded-lg border border-gray-100 p-2 sm:max-h-64 sm:grid-cols-6 md:grid-cols-8 dark:border-rdia-700/50">
               {INCIDENT_ICON_CHOICES.map((c) => (
                 <button
                   key={c.key}
@@ -663,13 +692,13 @@ function IncidentTypesPanel() {
                       : "border-transparent text-gray-500 hover:border-or-500/40 hover:text-or-500 dark:text-rdia-300"
                   }`}
                 >
-                  <Icon path={c.path} size={20} strokeWidth={1.6} />
+                  <Icon path={c.path} size={28} strokeWidth={1.6} />
                 </button>
               ))}
             </div>
           </div>
 
-          {exists && <p className="text-xs text-danger-500">{m.settings.type_exists}</p>}
+          {exists && !editing && <p className="text-xs text-danger-500">{m.settings.type_exists}</p>}
           {err && <p className="text-xs text-danger-500">{err}</p>}
 
           {/* Pied de modale : aperçu au-dessus des actions sur mobile, les deux
@@ -677,12 +706,12 @@ function IncidentTypesPanel() {
           <div className="flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between sm:gap-2 dark:border-rdia-700/50">
             {/* Aperçu de la tuile telle qu'elle apparaîtra dans l'assistant */}
             <div className="flex min-w-0 items-center gap-2 self-start rounded-lg border-2 border-or-500/40 px-3 py-1.5">
-              <Icon path={icon} size={20} strokeWidth={1.6} className="shrink-0 text-or-500" />
+              <Icon path={icon} size={26} strokeWidth={1.6} className="shrink-0 text-or-500" />
               <span className="min-w-0 truncate text-xs font-semibold text-gray-700 dark:text-rdia-100">{fr.trim() || m.settings.label_fr}</span>
             </div>
             <div className="flex items-center gap-2">
               <button className="btn-secondaire cible-tactile flex-1 text-xs sm:flex-none" onClick={() => { reset(); setOpen(false); }}>{m.settings.reset}</button>
-              <button className="btn-primaire cible-tactile flex-1 text-xs disabled:opacity-50 sm:flex-none" onClick={submit} disabled={!canAdd}>{m.settings.type_add}</button>
+              <button className="btn-primaire cible-tactile flex-1 text-xs disabled:opacity-50 sm:flex-none" onClick={submit} disabled={!canSubmit}>{editing ? m.settings.type_save : m.settings.type_add}</button>
             </div>
           </div>
         </div>

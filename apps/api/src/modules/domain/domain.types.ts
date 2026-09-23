@@ -549,6 +549,30 @@ export type DrawingKind = (typeof DRAWING_KINDS)[number];
  * peut déplacer (`labelLL`). Visible de tous ceux qui voient la carte ; dessiné,
  * modifié et retiré par qui édite la carte (`map_edit`).
  */
+/**
+ * Une simulation PARTAGÉE (ADR 0029) : le scénario, pas le résultat.
+ *
+ * Un calcul de feu ou de crue pèse des dizaines de mégaoctets d'images ; ce
+ * qui se partage entre postes, c'est ce qui le DÉTERMINE — la nature, le point
+ * de départ et les réglages. Chaque poste le rejoue chez lui sur le même
+ * relief et obtient la même chose : rien ne transite que quelques centaines
+ * d'octets, et une station hors ligne s'en accommode.
+ */
+export interface SharedSimulation {
+  id: string;
+  kind: "fire" | "flood";
+  /** Nom lisible — celui que la carte affiche dans la liste des simulations en cours. */
+  label: string;
+  /** Point de départ [lng, lat] : allumage (feu) ou rupture / injection (crue). */
+  seed: [number, number];
+  /** Réglages du simulateur, tels que le panneau les tient (FireSimParams | FloodSimParams). */
+  params: Record<string, unknown>;
+  /** Opération concernée, quand la simulation en sert une. */
+  incidentId?: string;
+  createdBy: string;
+  createdAt: string;
+}
+
 export interface Drawing {
   id: string;
   kind: DrawingKind;

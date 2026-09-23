@@ -62,6 +62,21 @@ export class IncidentTypesService {
     return this.types.some((t) => t.id === id);
   }
 
+  /**
+   * Modifie un type AJOUTÉ (libellés, icône) — les types fournis d'origine ne
+   * se modifient pas : ils sont le socle commun de toutes les stations (ADR 0029).
+   * L'identifiant ne change jamais : des incidents le portent déjà.
+   */
+  update(id: string, patch: { labels?: { fr: string; ar: string; en: string }; icon?: string }): IncidentTypeDef | undefined {
+    const def = this.types.find((t) => t.id === id);
+    if (!def) return undefined;
+    if (def.builtin) throw new ConflictException(`Type fourni d'origine : ${id} ne se modifie pas.`);
+    if (patch.labels) def.labels = { ...patch.labels };
+    if (patch.icon !== undefined) def.icon = patch.icon;
+    this.persist();
+    return def;
+  }
+
   /** Enregistre un nouveau type (Super Admin) — id en slug, libellés trilingues. */
   register(input: { id: string; labels: { fr: string; ar: string; en: string }; icon?: string }): IncidentTypeDef {
     const id = input.id.trim().toLowerCase().replace(/\s+/g, "_");

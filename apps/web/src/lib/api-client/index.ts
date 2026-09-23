@@ -45,6 +45,8 @@ export type ResourceOwner = CreatePersonBody["owner"];
 /** Pose d'une ressource sur le terrain (ADR 0018). */
 export type PlaceResourceBody = Json<NonNullable<paths["/api/resources/{kind}/{id}/position"]["put"]["requestBody"]>>;
 export type CreateDrawingBody = Json<NonNullable<paths["/api/drawings"]["post"]["requestBody"]>>;
+export type UpdateIncidentTypeBody = Json<NonNullable<paths["/api/incident-types/{id}"]["patch"]["requestBody"]>>;
+export type PublishSimulationBody = Json<NonNullable<paths["/api/simulations"]["post"]["requestBody"]>>;
 export type UpdateDrawingBody = Json<NonNullable<paths["/api/drawings/{id}"]["patch"]["requestBody"]>>;
 export type AppMode = Json<NonNullable<paths["/api/domain/mode"]["patch"]["requestBody"]>>["mode"];
 /** Postes d'opération sur la carte (lot #12). */
@@ -162,6 +164,8 @@ export function createArgosClient(opts: ArgosClientOptions) {
     getIncidentTypes: () => client.GET("/api/incident-types"),
     getSubIncidentTypes: () => client.GET("/api/sub-incident-types"),
     registerIncidentType: (body: RegisterIncidentTypeBody) => client.POST("/api/incident-types", { body }),
+    /** Modifier un type d'incident AJOUTÉ (libellés, icône) — ADR 0029. */
+    updateIncidentType: (id: string, body: UpdateIncidentTypeBody) => client.PATCH("/api/incident-types/{id}", { params: { path: { id } }, body }),
     addSubIncident: (id: string, body: CreateSubIncidentBody) =>
       client.POST("/api/incidents/{id}/sub-incidents", { params: { path: { id } }, body }),
     removeSubIncident: (id: string, subId: string) =>
@@ -187,6 +191,10 @@ export function createArgosClient(opts: ArgosClientOptions) {
     getNotices: () => client.GET("/api/comms/notices"),
     /** Postes posés sur la carte des opérations visibles (permission `map:view`). */
     getPosts: () => client.GET("/api/posts"),
+    // Simulations partagées : le scénario, rejoué par chaque poste (ADR 0029).
+    getSimulations: () => client.GET("/api/simulations"),
+    publishSimulation: (body: PublishSimulationBody) => client.POST("/api/simulations", { body }),
+    deleteSimulation: (id: string) => client.DELETE("/api/simulations/{id}", { params: { path: { id } } }),
     // Croquis dessinés sur la carte (mode dessin).
     getDrawings: () => client.GET("/api/drawings"),
     createDrawing: (body: CreateDrawingBody) => client.POST("/api/drawings", { body }),

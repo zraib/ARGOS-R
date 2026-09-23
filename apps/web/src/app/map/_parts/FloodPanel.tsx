@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { SharedSims } from "@/app/map/_parts/SharedSims";
 import { useArgos, useDict } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
@@ -413,6 +414,9 @@ export function FloodPanel() {
             </button>
           )}
         </div>
+
+      {/* Partage de la simulation et simulations partagées par les autres postes (ADR 0029). */}
+      <SharedSims kind="flood" canShare={!!run && !simBusy} />
         {simError && (
           <p role="alert" className="rounded-lg bg-danger-500/15 px-2.5 py-1.5 text-[11.5px] leading-snug text-danger-300">
             {simError === "seed" ? t.sim_err_seed : simError === "elevation" ? t.sim_err_elevation : t.sim_err_dem}

@@ -7,7 +7,7 @@
 // et `authz-coverage.spec.ts` en font foi.
 // ============================================================================
 
-import { Body, ConflictException, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
+import { Body, ConflictException, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Query, UseInterceptors } from "@nestjs/common";
 import { entityDeleteConflict, isForced } from "@/modules/domain/http/entity-delete";
 import { canCreateUnit, canDeleteUnit, canEditUnit } from "@/modules/domain/mode.rules";
 import { ModeService } from "@/modules/mode/mode.service";
@@ -15,6 +15,7 @@ import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from "@ne
 import { AdmitBodyDto, CreateEquipDto, CreateMorgueDto, CreateUnitDto, DeployMobileMorgueDto, TransferBodyDto, UpdateEquipDto, UpdateMorgueDto, UpdateMortuaryRecordDto, CreateShelterDto, UpdateShelterDto, UpdateUnitDto } from "@/modules/domain/dto";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
 import { RequireScope } from "@/common/decorators/require-scope.decorator";
+import { DomainChangeInterceptor } from "@/modules/domain/http/domain-change.interceptor";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
 import { DomainService } from "@/modules/domain/domain.service";
@@ -25,6 +26,8 @@ import { UsersService } from "@/modules/iam/users.service";
 @ApiTags("domain")
 @ApiBearerAuth()
 @Controller()
+// Toute écriture qui réussit pousse un événement `domain` : les autres postes relisent (ADR 0029).
+@UseInterceptors(DomainChangeInterceptor)
 export class ResourcesController {
   constructor(
     private readonly domain: DomainService,

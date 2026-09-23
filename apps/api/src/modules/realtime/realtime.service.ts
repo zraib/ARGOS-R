@@ -35,9 +35,11 @@ export type RealtimeEvent =
   /** Une équipe, un véhicule ou un équipement a été posé, déplacé ou retiré du terrain (ADR 0018) : la carte relit. */
   | { kind: "placed" }
   /** Le domaine a changé (engagement d'une unité, hôpital de campagne déployé…) : chaque poste relit ce qu'il voit. */
-  | { kind: "domain"; what: "units" | "hospitals" | "incidents" }
+  | { kind: "domain"; what: "units" | "hospitals" | "incidents" | "shelters" | "morgues" | "types" }
   /** Un croquis a été dessiné, modifié ou retiré (mode dessin) : la carte relit. */
   | { kind: "drawings" }
+  /** Une simulation partagée a été publiée ou retirée (ADR 0029) : chaque poste la rejoue ou l'efface. */
+  | { kind: "simulations" }
   /** Un compte a été créé, modifié, suspendu ou supprimé : qui tient quoi a pu changer — la fiche d'une entité et le panneau de la carte relisent les titulaires (ADR 0026). */
   | { kind: "responsables" }
   /** Accusé d'une conversation directe : le correspondant a reçu (« remis ») ou lu les messages jusqu'à `upToId`. */
