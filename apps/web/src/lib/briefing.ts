@@ -1,8 +1,8 @@
 // ============================================================================
 // ARGOS — briefing opérationnel d'un incident (ADR 0032)
 //
-// Situation · Anticipation · Objectifs · Concept d'opération · Actions à
-// entreprendre (ADR 0034), établis en un
+// Situation · Actions entreprises · Anticipation · Objectifs · Concept
+// d'opération · Actions à entreprendre (ADR 0034), établis en un
 // instant sur les DONNÉES de la station : l'incident principal, ses incidents
 // rattachés et leurs sous-incidents, les moyens engagés, les postes déployés,
 // le journal des actions entreprises, la prédiction d'évolution et la météo.
@@ -20,6 +20,8 @@ export interface Briefing {
   generatedAt: string;
   scope: { children: number; subIncidents: number };
   situation: string[];
+  /** Actions entreprises : tout le journal de l'incident et de ses rattachés, en ordre chronologique (ADR 0034). */
+  taken: string[];
   anticipation: string[];
   objectives: string[];
   concept: string[];
@@ -149,15 +151,19 @@ export function buildBriefing(input: BriefingInput): Briefing {
   } else {
     situation.push("Moyens engagés : aucun moyen rattaché à ce stade.");
   }
-  const log = family.flatMap((i) => (i.actionsLog ?? []).map((e) => ({ e, of: i }))).sort((a, b) => b.e.at.localeCompare(a.e.at));
-  if (log.length) {
-    situation.push(
-      `Dernières actions entreprises : ${log
-        .slice(0, 3)
-        .map(({ e }) => `${fmtDate(e.at) ?? ""} — ${bare(e.action || e.event)}`)
-        .join(" ; ")}.`,
-    );
-  }
+
+  // --- ACTIONS ENTREPRISES (ADR 0034) ---------------------------------------
+  // Tout le journal de conduite de la famille, dans l'ordre où les choses se
+  // sont faites : la date et l'heure, l'événement, l'action, qui l'a saisie ;
+  // l'incident rattaché est nommé quand la ligne vient de lui.
+  const taken = family
+    .flatMap((i) => (i.actionsLog ?? []).map((e) => ({ e, of: i })))
+    .sort((a, b) => a.e.at.localeCompare(b.e.at) || a.e.createdAt.localeCompare(b.e.createdAt))
+    .map(({ e, of }) => {
+      const quoi = e.event && e.action ? `${bare(e.event)} → ${bare(e.action)}` : bare(e.action || e.event);
+      return `${fmtDate(e.at) ?? ""}${of.id !== root.id ? ` [${of.id}]` : ""} — ${quoi} (${e.by}).`;
+    });
+  if (!taken.length) taken.push("Aucune action consignée au journal de l'incident à ce stade.");
 
   // --- ANTICIPATION -----------------------------------------------------------
   const anticipation: string[] = [];
@@ -246,6 +252,7 @@ export function buildBriefing(input: BriefingInput): Briefing {
     generatedAt: now.toISOString(),
     scope: { children: children.length, subIncidents: subs.length },
     situation,
+    taken,
     anticipation,
     objectives,
     concept,
@@ -256,12 +263,13 @@ export function buildBriefing(input: BriefingInput): Briefing {
 /** Le briefing en texte brut, rubrique par rubrique (copie, IA). */
 export function briefingText(
   b: Briefing,
-  labels: { situation: string; anticipation: string; objectives: string; concept: string; actions: string },
+  labels: { situation: string; taken: string; anticipation: string; objectives: string; concept: string; actions: string },
 ): string {
   const bloc = (title: string, lines: string[]) => `${title.toUpperCase()}\n${lines.map((l) => `- ${l}`).join("\n")}`;
   return [
     `BRIEFING — ${b.incidentId} « ${b.titre} »`,
     bloc(labels.situation, b.situation),
+    bloc(labels.taken, b.taken),
     bloc(labels.anticipation, b.anticipation),
     bloc(labels.objectives, b.objectives),
     bloc(labels.concept, b.concept),

@@ -1,4 +1,4 @@
-# ADR 0034 — Personnes impliquées, actions à entreprendre dans le briefing, fenêtre au thème de l'application
+# ADR 0034 — Personnes impliquées, actions entreprises et à entreprendre dans le briefing, fenêtre au thème de l'application
 
 - **Statut :** accepté — livré sur `fusion-V2` et `fusion-RIF`
 - **Date :** 2026-09-23
@@ -43,6 +43,20 @@ Demandes du 23 septembre 2026 (soir) :
    La rédaction par l'IA garde les cinq rubriques et la liste numérotée.
 3. **La fenêtre suit le thème** : palette de la modale — fond blanc et texte sombre en clair,
    `rdia` en sombre —, titres de rubrique et numéros en or de la marque.
+
+## Révision du même soir — les actions entreprises dans le briefing
+
+4. **Actions entreprises** — une rubrique à part, juste après la Situation : tout le journal de
+   conduite de l'incident et de ses rattachés (ADR 0032), dans l'ordre chronologique — date et
+   heure, événement → action, auteur ; une ligne venue d'un rattaché le nomme. La Situation ne
+   résume plus les trois dernières. Le briefing se lit désormais : Situation · Actions entreprises
+   · Anticipation · Objectifs · Concept d'opération · Actions à entreprendre ; la rédaction par
+   l'IA garde les six rubriques.
+5. **L'IA du briefing passe devant les calculs de fond** — comme le copilote et l'assistant de
+   déclaration (`setAiOperatorBusy`) : le modèle local sert une requête à la fois, et le briefing
+   attendait derrière l'analyse de situation et les prédictions jusqu'à dépasser son délai
+   (« IA indisponible », constaté). Ces calculs sont annulés le temps du briefing et reprennent
+   ensuite. Mesuré : briefing rédigé en 26 s, six rubriques.
 
 ## Conséquences
 

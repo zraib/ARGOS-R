@@ -58,6 +58,7 @@ export default function BriefingWindow() {
   const mapFull = useArgos((s) => s.mapFull);
   const showToast = useArgos((s) => s.showToast);
   const aiSettings = useArgos((s) => s.aiSettings);
+  const setOperatorBusy = useArgos((s) => s.setAiOperatorBusy);
   const scoped = useArgos((s) => s.incidents);
   const mapIncidents = useArgos((s) => s.mapIncidents);
   const units = useArgos((s) => s.units);
@@ -146,7 +147,7 @@ export default function BriefingWindow() {
     // `nonce` : « Actualiser » recalcule sur les données du moment.
   }, [root, incidents, units, hospitals, fieldHosps, posts, subCatalog, weather, incidentTypes, lang, dashStats, quakes, m.evolution, nonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const labels = { situation: t.bf_situation, anticipation: t.bf_anticipation, objectives: t.bf_objectives, concept: t.bf_concept, actions: t.bf_actions };
+  const labels = { situation: t.bf_situation, taken: t.al_title, anticipation: t.bf_anticipation, objectives: t.bf_objectives, concept: t.bf_concept, actions: t.bf_actions };
 
   // --- rédaction par l'IA -----------------------------------------------------
   const [ai, setAi] = useState<{ state: "idle" | "busy" | "done" | "fail"; text: string }>({ state: "idle", text: "" });
@@ -168,12 +169,21 @@ export default function BriefingWindow() {
     const ctrl = new AbortController();
     abort.current = ctrl;
     setAi({ state: "busy", text: "" });
-    const res = await refineBriefing(briefingText(briefing, labels), aiSettings, {
-      signal: ctrl.signal,
-      onToken: (acc) => setAi({ state: "busy", text: acc }),
-    });
-    if (res.aborted) return;
-    setAi(res.ok ? { state: "done", text: res.text } : { state: "fail", text: "" });
+    // Priorité à l'opérateur, comme le copilote : le modèle local sert une
+    // requête à la fois — les calculs IA de fond (analyse de situation,
+    // prédictions) sont annulés et reprendront ensuite ; sans cela le briefing
+    // attendait derrière eux et dépassait son délai.
+    setOperatorBusy(true);
+    try {
+      const res = await refineBriefing(briefingText(briefing, labels), aiSettings, {
+        signal: ctrl.signal,
+        onToken: (acc) => setAi({ state: "busy", text: acc }),
+      });
+      if (res.aborted) return;
+      setAi(res.ok ? { state: "done", text: res.text } : { state: "fail", text: "" });
+    } finally {
+      setOperatorBusy(false);
+    }
   };
 
   const copy = async () => {
@@ -193,6 +203,8 @@ export default function BriefingWindow() {
   const sections: { title: string; lines: string[]; numbered?: boolean }[] = briefing
     ? [
         { title: t.bf_situation, lines: briefing.situation },
+        // Actions entreprises (ADR 0034) : le journal de l'incident et de ses rattachés, dans l'ordre.
+        { title: t.al_title, lines: briefing.taken },
         { title: t.bf_anticipation, lines: briefing.anticipation },
         { title: t.bf_objectives, lines: briefing.objectives },
         { title: t.bf_concept, lines: briefing.concept },
