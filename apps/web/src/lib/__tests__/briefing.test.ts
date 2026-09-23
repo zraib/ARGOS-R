@@ -23,6 +23,9 @@ const root = {
 const child = {
   id: "INC-2", parentId: "INC-1", type: "landslide", titre: "Glissement de Talat N'Yaaqoub", region: "Marrakech-Safi", sev: "medium", st: "open", time: "07:30",
   x: 0, y: 0, ll: [-8.18, 30.98], casualties: { dead: 1, injured: 0, missing: 0 }, responders: { units: ["U2"], hospitals: [] },
+  actionsLog: [
+    { id: "INC-2-A1", at: "2026-09-23T07:40:00Z", event: "Glissement sur la piste", action: "", by: "o.pct", createdAt: "2026-09-23T07:41:00Z" },
+  ],
 } as unknown as Incident;
 
 const other = { id: "INC-9", type: "flood", titre: "Crue hors famille", region: "Rabat", sev: "low", st: "open", time: "", x: 0, y: 0, ll: [0, 0], casualties: { dead: 50, injured: 0, missing: 0 } } as unknown as Incident;
@@ -60,9 +63,20 @@ describe("briefing opérationnel (ADR 0032)", () => {
     expect(b.situation.join("\n")).toContain("Fuite de gaz — Conduite rompue");
     expect(b.situation.join("\n")).toContain("2 unité(s), 160 personnel(s)");
     expect(b.situation.join("\n")).not.toContain("Crue hors famille");
-    // Les dernières actions entreprises, de la plus récente à la plus ancienne.
-    const derniere = b.situation.find((l) => l.startsWith("Dernières actions entreprises"))!;
-    expect(derniere.indexOf("Déviation par Amizmiz")).toBeLessThan(derniere.indexOf("Section de sauvetage-déblaiement engagée"));
+    // Le journal a désormais sa propre rubrique : la situation ne le résume plus.
+    expect(b.situation.some((l) => l.includes("actions entreprises"))).toBe(false);
+  });
+
+  it("les actions entreprises reprennent tout le journal de la famille, dans l'ordre chronologique (ADR 0034)", () => {
+    const b = brief();
+    expect(b.taken).toHaveLength(3);
+    expect(b.taken[0]).toContain("Effondrement d'une école → Section de sauvetage-déblaiement engagée (c.pct).");
+    // La ligne d'un incident rattaché le nomme ; une ligne sans action garde l'événement.
+    expect(b.taken[1]).toContain("[INC-2] — Glissement sur la piste (o.pct).");
+    expect(b.taken[2]).toContain("Route RP2010 coupée → Déviation par Amizmiz (l.pct).");
+    // Sans journal, la rubrique le dit.
+    const vide = buildBriefing({ root: { ...root, actionsLog: [] } as unknown as Incident, incidents: [], units, hospitals, fieldHosps: [], posts, subCatalog, typeLabel: (t) => t });
+    expect(vide.taken).toEqual(["Aucune action consignée au journal de l'incident à ce stade."]);
   });
 
   it("l'anticipation nomme les aléas possibles non déclarés, les disparus et la capacité hospitalière", () => {
@@ -113,9 +127,9 @@ describe("briefing opérationnel (ADR 0032)", () => {
     expect(nu).toContain("Affecter un site mortuaire aux 3 décès et ouvrir les dossiers d'identification.");
   });
 
-  it("le texte suit les cinq rubriques ; un rattaché renvoie à son incident principal", () => {
-    const txt = briefingText(brief(), { situation: "Situation", anticipation: "Anticipation", objectives: "Objectifs", concept: "Concept d'opération", actions: "Actions à entreprendre" });
-    expect(txt.split("\n\n").map((b) => b.split("\n")[0])).toEqual(["BRIEFING — INC-1 « Séisme d'Al Haouz »", "SITUATION", "ANTICIPATION", "OBJECTIFS", "CONCEPT D'OPÉRATION", "ACTIONS À ENTREPRENDRE"]);
+  it("le texte suit les six rubriques ; un rattaché renvoie à son incident principal", () => {
+    const txt = briefingText(brief(), { situation: "Situation", taken: "Actions entreprises", anticipation: "Anticipation", objectives: "Objectifs", concept: "Concept d'opération", actions: "Actions à entreprendre" });
+    expect(txt.split("\n\n").map((b) => b.split("\n")[0])).toEqual(["BRIEFING — INC-1 « Séisme d'Al Haouz »", "SITUATION", "ACTIONS ENTREPRISES", "ANTICIPATION", "OBJECTIFS", "CONCEPT D'OPÉRATION", "ACTIONS À ENTREPRENDRE"]);
     expect(txt).toContain("\n1. ");
     expect(briefingRoot([root, child], "INC-2")?.id).toBe("INC-1");
     expect(briefingRoot([root, child], "INC-1")?.id).toBe("INC-1");
