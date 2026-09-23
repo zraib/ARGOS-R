@@ -91,15 +91,19 @@ if ($trusted["Root"] -and $trusted["TrustedPublisher"]) {
       }
     }
     if (-not $trusted["TrustedPublisher"]) { Add-ToStore "TrustedPublisher" $where }
-    if (-not $trusted["Root"]) {
+    $rootOk = $trusted["Root"]
+    if (-not $rootOk) {
       if (-not $admin -and ($NoPrompt -or -not [Environment]::UserInteractive)) {
         Warn "racine de confiance non ajoutée (session sans dialogue) : lancer trust.cmd en administrateur."
       } else {
         if (-not $admin) { Info "Windows va demander de confirmer l'installation du certificat (empreinte $thumb) : répondre Oui." }
         Add-ToStore "Root" $where
+        $rootOk = $true
       }
     }
-    Ok ("éditeur IRIS approuvé — " + $(if ($admin) { "pour toute la machine" } else { "pour l'utilisateur courant" }))
+    if ($rootOk) {
+      Ok ("éditeur IRIS approuvé — " + $(if ($admin) { "pour toute la machine" } else { "pour l'utilisateur courant" }))
+    }
   } catch {
     Warn "approbation non faite : $($_.Exception.Message)"
     Warn "les lanceurs .cmd exécutent quand même les scripts ; relancer trust.cmd (en administrateur : sans question)."
