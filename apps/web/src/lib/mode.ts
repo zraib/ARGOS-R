@@ -7,15 +7,19 @@
 import { ROLE_PROFILE, type Role } from "@/lib/roles";
 import type { AppMode } from "@/lib/api-client";
 
-// Miroir du trait `unitMaker` des profils (ADR 0022) : l'OPCOM et les cellules classiques,
-// la DIREX (Chef, Anim) et les cellules des PC du profil « direx ».
-const EXERCISE_UNIT_MAKERS: readonly Role[] = [
-  "admin", "opcom", "bluecell", "greencell", "orangecell",
+// Miroir du trait `unitRemover` (ADR 0022) : l'OPCOM et les cellules classiques, la DIREX
+// (Chef, Anim) et les OPS, LOG et Rens des PC du profil « direx ».
+const EXERCISE_UNIT_REMOVERS: readonly Role[] = [
+  "opcom", "bluecell", "greencell", "orangecell",
   "direx_chef", "direx_anim", "pcfar_ops", "pcfar_log", "pcf_ops", "pcf_log",
   "pct_ops", "pct_log", "pct_rens", "pco_ops", "pco_log", "pco_rens_com",
 ];
-// Miroir du trait `unitRemover` : les mêmes, sans l'Administrateur.
-const EXERCISE_UNIT_REMOVERS: readonly Role[] = EXERCISE_UNIT_MAKERS.filter((r) => r !== "admin");
+// Miroir du trait `unitMaker` : les mêmes, plus l'Administrateur et — depuis l'ADR 0030 — les
+// chefs des PC, la Planif & Rens des PC opératifs et le RLS, qui CRÉENT sans retirer.
+const EXERCISE_UNIT_MAKERS: readonly Role[] = [
+  "admin", ...EXERCISE_UNIT_REMOVERS,
+  "pcfar_chef", "pcf_chef", "pct_chef", "pco_chef", "pcfar_planif_rens", "pcf_planif_rens", "direx_rls",
+];
 // Le profil direx tient ses unités en tout mode (direction d'exercice, ADR 0022 lot 6) ;
 // le mode opérationnel ne resserre que les rôles classiques (ADR 0016).
 const modeAllows = (role: Role, mode: AppMode | null): boolean => mode !== "operational" || ROLE_PROFILE[role] === "direx";
