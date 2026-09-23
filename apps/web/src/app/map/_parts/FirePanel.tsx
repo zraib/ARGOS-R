@@ -1,5 +1,6 @@
 "use client";
 
+import { SharedSims } from "@/app/map/_parts/SharedSims";
 import { useArgos, useDict } from "@/lib/store";
 import { tpl } from "@/lib/i18n/format";
 import { FIRE_EMBER_RGB, FIRE_NEW_RGB, FIRE_OLD_RGB } from "@/components/map/layers/fire";
@@ -157,6 +158,9 @@ export function FirePanel() {
           </button>
         )}
       </div>
+
+      {/* Partage de la simulation et simulations partagées par les autres postes (ADR 0029). */}
+      <SharedSims kind="fire" canShare={!!run && !simBusy} />
       {simError && (
         <p role="alert" className="rounded-lg bg-danger-500/15 px-2.5 py-1.5 text-[11.5px] leading-snug text-danger-300">
           {simError === "seed" ? t.sim_err_seed : simError === "elevation" ? t.sim_err_elevation : t.sim_err_dem}

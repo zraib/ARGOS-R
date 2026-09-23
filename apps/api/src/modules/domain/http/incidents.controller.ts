@@ -7,12 +7,13 @@
 // et `authz-coverage.spec.ts` en font foi.
 // ============================================================================
 
-import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query, UseInterceptors } from "@nestjs/common";
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
-import { AlertLevelDto, AssignMorgueDto, AssignUnitDto, CreateVictimDto, PublishSitrepDto, CreateIncidentDto, CreateSubIncidentDto, RegisterIncidentTypeDto, UpdateIncidentDto, UpdateVictimDto, DeployPostDto } from "@/modules/domain/dto";
+import { AlertLevelDto, AssignMorgueDto, AssignUnitDto, CreateVictimDto, PublishSitrepDto, CreateIncidentDto, CreateSubIncidentDto, RegisterIncidentTypeDto, UpdateIncidentDto, UpdateVictimDto, DeployPostDto, UpdateIncidentTypeDto } from "@/modules/domain/dto";
 import { ForbiddenException } from "@nestjs/common";
 import { assignableCorps, canDeploy } from "@/modules/domain/assignment.rules";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
+import { DomainChangeInterceptor } from "@/modules/domain/http/domain-change.interceptor";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
 import { AuditMeta, type AuditMetaSetter } from "@/common/decorators/audit-meta.decorator";
@@ -30,6 +31,8 @@ import { REGIONAL_AUTHORITY_ROLES } from "@/shared/responsibilities";
 @ApiTags("domain")
 @ApiBearerAuth()
 @Controller()
+// Toute écriture qui réussit pousse un événement `domain` : les autres postes relisent (ADR 0029).
+@UseInterceptors(DomainChangeInterceptor)
 export class IncidentsController {
   constructor(
     private readonly domain: DomainService,
@@ -55,6 +58,22 @@ export class IncidentsController {
   @ApiOperation({ summary: "Enregistrer un nouveau type d'incident (Super Admin, audité)" })
   registerIncidentType(@Body() dto: RegisterIncidentTypeDto) {
     return this.incidentTypes.register(dto);
+  }
+
+  @Patch("incident-types/:id")
+  @RequirePermission("settings:update")
+  @ApiOperation({
+    summary: "Modifier un type d'incident AJOUTÉ (libellés, icône — Super Admin, audité)",
+    description:
+      "Les types fournis d'origine ne se modifient pas : ils sont le socle commun de toutes les stations. " +
+      "L'identifiant ne change jamais — des incidents le portent déjà.",
+  })
+  @ApiResponse({ status: 404, description: "Type inconnu." })
+  @ApiResponse({ status: 409, description: "Type fourni d'origine : non modifiable." })
+  updateIncidentType(@Param("id") id: string, @Body() dto: UpdateIncidentTypeDto) {
+    const def = this.incidentTypes.update(id, dto);
+    if (!def) throw new NotFoundException(`Type d'incident inconnu : ${id}`);
+    return def;
   }
 
   @Get("incidents/map")

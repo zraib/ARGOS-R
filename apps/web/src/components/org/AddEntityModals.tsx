@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useArgos, useDict, useModules } from "@/lib/store";
-import { api } from "@/lib/api";
+import { api, apiErrorMessage } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { svgToLL } from "@/lib/helpers";
 import { HOSPITAL_KINDS, kindDef } from "@/lib/hospitals";
@@ -76,7 +76,8 @@ export function AddUnitModal({ open, onClose, onCreated }: { open: boolean; onCl
         y: p?.y ?? 0,
         ll,
       });
-      if (res.error) return;
+      // Un refus se DIT : sans cela, le bouton semble ne rien faire (ADR 0029).
+      if (res.error) { showToast(`${t.toast_fail} — ${apiErrorMessage(res.error)}`); return; }
       const created = res.data as { id?: string } | undefined;
       await loadDomain();
       showToast(t.toast_unit);
@@ -185,7 +186,7 @@ export function AddHospitalModal({ open, onClose, onCreated }: { open: boolean; 
     try {
       const p = locationProvince(picker.loc, provinces);
       if (!p) return;
-      const res = await api.createHospital({
+      const res = (await api.createHospital({
         nom: nom.trim(),
         ville: ville.trim(),
         kind,
@@ -200,8 +201,9 @@ export function AddHospitalModal({ open, onClose, onCreated }: { open: boolean; 
         x: p.x,
         y: p.y,
         ll: picker.ll ?? svgToLL(p.x, p.y),
-      });
-      if (res.error) return;
+      })) as { error?: unknown; data?: unknown };
+      // Un refus se DIT : sans cela, le bouton semble ne rien faire (ADR 0029).
+      if (res.error) { showToast(`${t.toast_fail} — ${apiErrorMessage(res.error)}`); return; }
       // Services de soins et taux d'occupation ne font PAS partie du contrat de
       // CRÉATION d'un établissement : l'API valide en `forbidNonWhitelisted`, les
       // envoyer ici faisait échouer la requête en 400. Les services ont leur
@@ -344,7 +346,7 @@ export function AddShelterModal({ open, onClose, onCreated }: { open: boolean; o
     try {
       const ll = picker.ll ?? villeConnue?.ll;
       const loc = picker.loc;
-      const res = await api.createShelter({
+      const res = (await api.createShelter({
         nom: nom.trim(),
         ville: ville.trim(),
         kind,
@@ -356,8 +358,9 @@ export function AddShelterModal({ open, onClose, onCreated }: { open: boolean; o
         staff,
         supplies,
         ...(needs.trim() ? { needs: needs.trim() } : {}),
-      });
-      if (res.error) return;
+      })) as { error?: unknown; data?: unknown };
+      // Un refus se DIT : sans cela, le bouton semble ne rien faire (ADR 0029).
+      if (res.error) { showToast(`${t.toast_fail} — ${apiErrorMessage(res.error)}`); return; }
       const created = res.data as { id?: string } | undefined;
       await loadDomain();
       showToast(t.ops_shelter_created);

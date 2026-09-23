@@ -255,7 +255,7 @@ export const FR_DICT: Dict = {
     ops_city_unknown: "Commune absente du référentiel : l'abri sera ouvrable, mais classé sans temps de route.",
     ops_position: "Position", ops_pos_from_city: "Chef-lieu de la commune —",
     ops_pos_unresolved: "Commune absente du référentiel : aucune position n'est déduite, et aucune n'est inventée.",
-    ops_pos_unknown: "position inconnue", ops_enter: "Entrer",
+    ops_pos_unknown: "position inconnue", ops_enter: "Entrer", sim_share: "Partager sur toutes les cartes", sim_shared: "Simulation partagée — tous les postes la rejouent", sim_share_failed: "partage refusé", sim_remove_denied: "cette simulation a été lancée par un autre compte", sim_removed: "Simulation retirée de toutes les cartes", sim_shared_by: "partagée par {who}", sim_shared_list: "Simulations partagées", sim_shared_none: "Aucune simulation partagée.", sim_adopt: "Rejouer ici", sim_running_shared: "Simulation partagée en cours sur ce poste.",
     ops_critical_one: "abri en rupture d'approvisionnement.", ops_critical_many: "abris en rupture d'approvisionnement.",
     ops_affect_title: "Affecteur", ops_mode_engage: "Engager", ops_mode_shelter: "Héberger",
     ops_affect_engage_help: "Classe les unités face à un point d'intervention : temps de route, effectif, préparation. Le classement est calculé, pas deviné — les sous-scores sont affichés pour qu'il puisse être contredit.",

@@ -609,6 +609,47 @@ export interface paths {
         patch: operations["DrawingsController_update"];
         trace?: never;
     };
+    "/api/simulations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Les simulations partagées — le scénario de chacune, à rejouer sur le poste
+         * @description Nature (feu, crue), point de départ, réglages, auteur et date. Les images ne transitent pas : chaque poste recalcule.
+         */
+        get: operations["SimulationsController_list"];
+        put?: never;
+        /**
+         * Partager une simulation (audité) — tous les postes la rejouent
+         * @description Une même nature ne garde qu'une simulation par auteur : republier remplace la sienne.
+         */
+        post: operations["SimulationsController_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/simulations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Retirer une simulation partagée (audité) — son auteur ou le Super Administrateur */
+        delete: operations["SimulationsController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/incident-types": {
         parameters: {
             query?: never;
@@ -625,6 +666,26 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/incident-types/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Modifier un type d'incident AJOUTÉ (libellés, icône — Super Admin, audité)
+         * @description Les types fournis d'origine ne se modifient pas : ils sont le socle commun de toutes les stations. L'identifiant ne change jamais — des incidents le portent déjà.
+         */
+        patch: operations["IncidentsController_updateIncidentType"];
         trace?: never;
     };
     "/api/incidents/map": {
@@ -3221,6 +3282,27 @@ export interface components {
             note?: string;
             incidentId?: string;
         };
+        PublishSimulationDto: {
+            /**
+             * @example flood
+             * @enum {string}
+             */
+            kind: "fire" | "flood";
+            /** @example Rupture Al Wahda — cadrage */
+            label: string;
+            /**
+             * @description Point de départ [lng, lat] : allumage ou rupture.
+             * @example [
+             *       -5.36,
+             *       34.6
+             *     ]
+             */
+            seed: number[];
+            /** @description Réglages du simulateur, tels que le panneau les tient. */
+            params: Record<string, never>;
+            /** @description Opération concernée. */
+            incidentId?: string;
+        };
         IncidentTypeLabelsDto: {
             /** @example Tempête de sable */
             fr: string;
@@ -3236,6 +3318,11 @@ export interface components {
              */
             id: string;
             labels: components["schemas"]["IncidentTypeLabelsDto"];
+            /** @description Tracé SVG 24×24 (icône en trait) */
+            icon?: string;
+        };
+        UpdateIncidentTypeDto: {
+            labels?: components["schemas"]["IncidentTypeLabelsDto"];
             /** @description Tracé SVG 24×24 (icône en trait) */
             icon?: string;
         };
@@ -5304,6 +5391,71 @@ export interface operations {
             };
         };
     };
+    SimulationsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SimulationsController_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishSimulationDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SimulationsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Simulation d'un autre compte. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Simulation inconnue. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     IncidentsController_incidentTypesList: {
         parameters: {
             query?: never;
@@ -5335,6 +5487,37 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IncidentsController_updateIncidentType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateIncidentTypeDto"];
+            };
+        };
+        responses: {
+            /** @description Type inconnu. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Type fourni d'origine : non modifiable. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -30,9 +30,9 @@ import { APP_MODE } from "@/common/app-mode";
 
 // Les types du domaine vivent dans domain.types.ts ; ré-exportés ici pour les
 // importateurs existants (contrôleurs, autres modules).
-export type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviStatus, DviSample, MortuaryRecord, RecordChange, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind, Drawing, DrawingKind } from "@/modules/domain/domain.types";
+export type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviStatus, DviSample, MortuaryRecord, RecordChange, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind, Drawing, DrawingKind, SharedSimulation } from "@/modules/domain/domain.types";
 export { DVI_STATUSES, DVI_SAMPLES } from "@/modules/domain/domain.types";
-import type { Incident, SubIncident, Unit, UnitAssignment, UnitCorps, Destination, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviSample, MortuaryRecord, RecordChange, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind, PersonIdentity, MorgueType, Drawing } from "@/modules/domain/domain.types";
+import type { Incident, SubIncident, Unit, UnitAssignment, UnitCorps, Destination, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviSample, MortuaryRecord, RecordChange, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind, PersonIdentity, MorgueType, Drawing, SharedSimulation } from "@/modules/domain/domain.types";
 import { checkPost, type PostLookup } from "@/modules/domain/post.rules";
 import type { ResponsibilityKind } from "@/shared/responsibilities";
 
@@ -208,6 +208,10 @@ export class DomainService implements OnApplicationBootstrap {
   private posts: IncidentPost[] = [];
   /** Croquis dessinés sur la carte (mode dessin) — communs à tous, persistés. */
   private drawings: Drawing[] = [];
+  /** Simulations partagées : le scénario, rejoué par chaque poste (ADR 0029). */
+  private simulations: SharedSimulation[] = [];
+  /** Compteur monotone des simulations : republier ne recycle pas un identifiant qu'un poste garde en mémoire. */
+  private simSeq = 0;
   /** Le bilan nommé des incidents : décédés (identification préliminaire), blessés, disparus. */
   private readonly victims: IncidentVictim[] = [];
 
@@ -245,6 +249,7 @@ export class DomainService implements OnApplicationBootstrap {
       feed?: FeedItem[];
       posts?: IncidentPost[];
       drawings?: Drawing[];
+      simulations?: SharedSimulation[];
       tombstones?: string[];
       dataProfile?: string;
     }>("domain", {});
@@ -337,6 +342,7 @@ export class DomainService implements OnApplicationBootstrap {
     if (sameSeed && snap.mortuaryRecords) this.mortuaryRecords.splice(0, this.mortuaryRecords.length, ...snap.mortuaryRecords);
     if (snap.posts) this.posts = snap.posts;
     if (snap.drawings) this.drawings = snap.drawings;
+    if (snap.simulations) this.simulations = snap.simulations;
     if (snap.victims) this.victims.splice(0, this.victims.length, ...snap.victims);
     // LE PARC EST REPRIS TEL QUEL, quelle que soit la version du seed (décision
     // du 20 septembre 2026, ADR 0027) : les équipements introduits sur la
@@ -422,7 +428,7 @@ export class DomainService implements OnApplicationBootstrap {
     snap: {
       incidents?: Incident[]; units?: Unit[]; hospitals?: Hospital[]; fieldHospitals?: FieldHospital[]; wards?: HospitalWard[];
       shelters?: Shelter[]; morgues?: MorgueSite[]; mortuaryRecords?: MortuaryRecord[]; victims?: IncidentVictim[];
-      equipment?: EquipItem[]; feed?: FeedItem[]; posts?: IncidentPost[]; drawings?: Drawing[];
+      equipment?: EquipItem[]; feed?: FeedItem[]; posts?: IncidentPost[]; drawings?: Drawing[]; simulations?: SharedSimulation[];
     },
     sameSeed: boolean,
   ): void {
@@ -449,6 +455,7 @@ export class DomainService implements OnApplicationBootstrap {
     replace(this.feed, snap.feed ?? []);
     this.posts = snap.posts ?? [];
     this.drawings = snap.drawings ?? [];
+    this.simulations = snap.simulations ?? [];
   }
 
   /** Vue mutable des collections, pour l'élagage. */
@@ -500,6 +507,7 @@ export class DomainService implements OnApplicationBootstrap {
       feed: this.feed,
       posts: this.posts,
       drawings: this.drawings,
+      simulations: this.simulations,
       tombstones: [...this.tombstones],
       dataProfile: DATA_PROFILE,
     });
@@ -629,6 +637,39 @@ export class DomainService implements OnApplicationBootstrap {
   }
 
   // --- croquis (mode dessin) ------------------------------------------------
+
+  // --- simulations partagées (ADR 0029) ---------------------------------------
+  listSimulations(): SharedSimulation[] {
+    return this.simulations;
+  }
+
+  findSimulation(id: string): SharedSimulation | undefined {
+    return this.simulations.find((s) => s.id === id);
+  }
+
+  /**
+   * Publie une simulation : son scénario rejoint le domaine et tous les postes
+   * la rejouent. Une même nature n'en garde qu'une par auteur — republier
+   * remplace la sienne, plutôt que d'empiler des calculs sur chaque poste.
+   */
+  publishSimulation(input: Omit<SharedSimulation, "id" | "createdBy" | "createdAt">, author: string): SharedSimulation {
+    const mienne = this.simulations.findIndex((s) => s.kind === input.kind && s.createdBy.toLowerCase() === author.toLowerCase());
+    if (mienne >= 0) this.simulations.splice(mienne, 1);
+    this.simSeq = Math.max(this.simSeq, ...this.simulations.map((s) => parseInt(s.id.replace(/\D/g, ""), 10) || 0)) + 1;
+    const sim: SharedSimulation = { ...input, id: `SIM-${this.simSeq}`, label: input.label.trim(), createdBy: author, createdAt: new Date().toISOString() };
+    this.simulations.push(sim);
+    this.persist();
+    return sim;
+  }
+
+  /** Retire une simulation partagée : elle disparaît de toutes les cartes. */
+  removeSimulation(id: string): boolean {
+    const i = this.simulations.findIndex((s) => s.id === id);
+    if (i < 0) return false;
+    this.simulations.splice(i, 1);
+    this.persist();
+    return true;
+  }
 
   listDrawings(): Drawing[] {
     return this.drawings;

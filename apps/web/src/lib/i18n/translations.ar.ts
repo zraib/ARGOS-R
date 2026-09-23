@@ -255,7 +255,7 @@ export const AR_DICT: Dict = {
     ops_city_unknown: "الجماعة غير واردة في المرجع: يمكن فتح المأوى، لكنه يُرتَّب دون زمن طريق.",
     ops_position: "الموقع", ops_pos_from_city: "مركز الجماعة —",
     ops_pos_unresolved: "الجماعة غير واردة في المرجع: لا يُستنتج أي موقع، ولا يُختلق أي موقع.",
-    ops_pos_unknown: "الموقع غير معروف", ops_enter: "دخول",
+    ops_pos_unknown: "الموقع غير معروف", ops_enter: "دخول", sim_share: "مشاركة على كل الخرائط", sim_shared: "تمت مشاركة المحاكاة — كل المحطات تعيد تشغيلها", sim_share_failed: "رُفضت المشاركة", sim_remove_denied: "هذه المحاكاة أطلقها حساب آخر", sim_removed: "أُزيلت المحاكاة من كل الخرائط", sim_shared_by: "شاركها {who}", sim_shared_list: "المحاكاة المشتركة", sim_shared_none: "لا توجد محاكاة مشتركة.", sim_adopt: "إعادة التشغيل هنا", sim_running_shared: "محاكاة مشتركة قيد التشغيل على هذه المحطة.",
     ops_critical_one: "مأوى نفدت مؤونته.", ops_critical_many: "مآوٍ نفدت مؤونتها.",
     ops_affect_title: "المُوزِّع", ops_mode_engage: "الانخراط", ops_mode_shelter: "الإيواء",
     ops_affect_engage_help: "يرتّب الوحدات أمام نقطة تدخّل: زمن الطريق، القوة، الاستعداد. الترتيب محسوب لا مُخمَّن — وتُعرض المكوّنات الجزئية كي يمكن الاعتراض عليه.",

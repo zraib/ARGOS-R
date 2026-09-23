@@ -333,7 +333,7 @@ export interface ModulesDict {
     label_ar: string;
     label_en: string;
     type_add: string;
-    type_added: string;
+    type_added: string; type_edit: string; type_save: string; type_updated: string;
     type_exists: string;
     type_builtin: string;
     types_search: string;

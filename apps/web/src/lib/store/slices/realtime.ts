@@ -183,6 +183,12 @@ export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice
           void get().loadDrawings();
           return;
         }
+        if (e.kind === "simulations") {
+          // Une simulation a été publiée ou retirée (ADR 0029) : ce poste relit
+          // la liste et rejoue ce qui vient d'arriver, ou efface ce qui part.
+          void get().loadSimulations();
+          return;
+        }
         if (e.kind === "responsables") {
           // Un compte a changé de rôle ou de rattachement (ADR 0026) : les
           // titulaires des entités et les comptes déployables se relisent —

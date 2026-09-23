@@ -3,6 +3,7 @@ import { NOTIFICATION_GATEWAY } from "@/common/ports/notification-gateway.port";
 import { LogNotificationGateway } from "@/common/notifications/log-notification.gateway";
 import { SmtpNotificationGateway, smtpConfigFromEnv } from "@/common/notifications/smtp-notification.gateway";
 import { IamModule } from "@/modules/iam/iam.module";
+import { DomainChangeInterceptor } from "@/modules/domain/http/domain-change.interceptor";
 import { DomainService } from "@/modules/domain/domain.service";
 import { VisibilityService } from "@/modules/domain/visibility.service";
 import { RiskService } from "@/modules/domain/risk.service";
@@ -22,6 +23,7 @@ import { HospitalsController } from "@/modules/domain/http/hospitals.controller"
 import { DashboardController } from "@/modules/domain/http/dashboard.controller";
 import { EnvironmentController } from "@/modules/domain/http/environment.controller";
 import { PostsController } from "@/modules/domain/http/posts.controller";
+import { SimulationsController } from "@/modules/domain/http/simulations.controller";
 import { DrawingsController } from "@/modules/domain/http/drawings.controller";
 import { AdminController } from "@/modules/domain/http/admin.controller";
 import { ResourcesRegistryController } from "@/modules/domain/http/resources-registry.controller";
@@ -33,8 +35,10 @@ import { ResourcesService } from "@/modules/domain/resources.service";
   // domaine), donc pas de cycle et pas de `forwardRef`.
   imports: [IamModule],
   controllers: [
-    PostsController, DrawingsController, IncidentsController, CommsController, ResourcesController, HospitalsController, DashboardController, EnvironmentController, AdminController, ResourcesRegistryController],
+    PostsController, DrawingsController, SimulationsController, IncidentsController, CommsController, ResourcesController, HospitalsController, DashboardController, EnvironmentController, AdminController, ResourcesRegistryController],
   providers: [
+    // Intercepteur des écritures du domaine (ADR 0029) : il pousse l'événement temps réel.
+    DomainChangeInterceptor,
     // Les alertes adressées (`NoticesService`) viennent du module temps réel,
     // global : l'IAM les émet aussi, et il ne peut pas dépendre du domaine.
     // La passerelle de notification : SMTP dès que `SMTP_HOST` est défini

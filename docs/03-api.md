@@ -140,6 +140,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `PATCH` | `/api/hospitals/{id}/wards/{wid}` | `hospinet:update` | Modifier un service de soins — dans SON établissement uniquement |
 | `GET` | `/api/incident-types` | `incidents:view` | Catalogue paramétrable des types d'incident (libellés FR/AR/EN + icônes) |
 | `POST` | `/api/incident-types` | `settings:update` | Enregistrer un nouveau type d'incident (Super Admin, audité) |
+| `PATCH` | `/api/incident-types/{id}` | `settings:update` | Modifier un type d'incident AJOUTÉ (libellés, icône — Super Admin, audité) |
 | `GET` | `/api/incidents` | `incidents:view` | Liste des incidents VISIBLES par le compte. |
 | `POST` | `/api/incidents` | `incidents:create` | Déclarer un incident (audité) — type validé contre le catalogue |
 | `DELETE` | `/api/incidents/{id}` | `incidents:delete` | Supprimer définitivement un incident — SUPERADMIN uniquement. |
@@ -185,6 +186,9 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `POST` | `/api/shelters` | `shelters:create` | Ouvrir un abri (audité). |
 | `DELETE` | `/api/shelters/{id}` | `shelters:delete` | Fermer définitivement un abri — SUPERADMIN uniquement. |
 | `PATCH` | `/api/shelters/{id}` | `shelters:update` | Mettre à jour un abri — un responsable ne peut agir que sur le sien |
+| `GET` | `/api/simulations` | `map:view` | Les simulations partagées — le scénario de chacune, à rejouer sur le poste |
+| `POST` | `/api/simulations` | `map:view` | Partager une simulation (audité) — tous les postes la rejouent |
+| `DELETE` | `/api/simulations/{id}` | `map:view` | Retirer une simulation partagée (audité) — son auteur ou le Super Administrateur |
 | `GET` | `/api/sitreps` | `missions:view` | Comptes rendus de situation, du plus récent au plus ancien. |
 | `POST` | `/api/sitreps` | `missions:create` | Publier un compte rendu — IMMUABLE et numéroté une fois publié. |
 | `GET` | `/api/sitreps/missing` | `missions:view` | Entités EN RETARD de compte rendu. |
@@ -313,7 +317,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 ## Chiffres
 
-163 chemins · 209 opérations · 14 groupes.
+166 chemins · 213 opérations · 14 groupes.
 
 ## Modifier le contrat
 

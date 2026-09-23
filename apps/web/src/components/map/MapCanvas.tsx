@@ -484,9 +484,9 @@ export function MapCanvas() {
       setupAircraftTrailLayer(map);
       const st = useArgos.getState();
       applyAircraftTrails(map, st.aircraft, st.layers.aircraft);
-      applyMorgues(map, st.morgues, st.layers.morgues);
+      applyMorgues(map, st.morgues, st.layers.morgues, st.selMarker?.kind === "morgue" ? st.selMarker.id : null);
       applyDrawings(map, st.drawings, st.drawSelected, (d) => st.drawTool !== null && canEditDrawing(d, st.role, st.sessionUser?.matricule));
-      applyShelters(map, st.shelters, st.layers.shelters);
+      applyShelters(map, st.shelters, st.layers.shelters, st.selMarker?.kind === "shelter" ? st.selMarker.id : null);
       applyTrackers(map, st.trackers, st.layers.trackers);
       applyFireSeed(map, st.fireSeed);
       applyFireSim(fireRt.current, map, st.fireSim, st.fireProgress, st.firePlaying);
@@ -571,6 +571,8 @@ export function MapCanvas() {
   // --- croquis : formes, poignées et étiquettes suivent l'état ; Échap annule un tracé ---
   useEffect(() => {
     void useArgos.getState().loadDrawings();
+    // Les simulations partagées : ce poste les rejoue (ADR 0029).
+    void useArgos.getState().loadSimulations();
   }, []);
   useEffect(() => {
     const map = mapRef.current;
@@ -736,8 +738,8 @@ export function MapCanvas() {
 
   // --- sites mortuaires : une couche, un interrupteur ---
   useEffect(() => {
-    if (readyRef.current) applyMorgues(mapRef.current, morgues, layers.morgues);
-  }, [morgues, layers.morgues]);
+    if (readyRef.current) applyMorgues(mapRef.current, morgues, layers.morgues, selMarker?.kind === "morgue" ? selMarker.id : null);
+  }, [morgues, layers.morgues, selMarker]);
 
   // --- trajectoires des aéronefs (ADR 0016) : redessinées à chaque relevé ---
   const aircraftStates = useArgos((s) => s.aircraft);
@@ -747,8 +749,8 @@ export function MapCanvas() {
 
   // --- abris d'hébergement : même mécanique (ADR 0015) ---
   useEffect(() => {
-    if (readyRef.current) applyShelters(mapRef.current, shelters, layers.shelters);
-  }, [shelters, layers.shelters]);
+    if (readyRef.current) applyShelters(mapRef.current, shelters, layers.shelters, selMarker?.kind === "shelter" ? selMarker.id : null);
+  }, [shelters, layers.shelters, selMarker]);
 
   // --- traceurs et positions partagées : relus tant que la couche est visible ---
   useEffect(() => {

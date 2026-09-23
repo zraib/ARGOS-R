@@ -102,6 +102,8 @@ export function createArgosClient(opts: ArgosClientOptions) {
     getIncidentTypes: () => client.GET("/api/incident-types"),
     getSubIncidentTypes: () => client.GET("/api/sub-incident-types"),
     registerIncidentType: (body: RegisterIncidentTypeBody) => client.POST("/api/incident-types", { body }),
+    /** Modifier un type d'incident AJOUTÉ (libellés, icône) — ADR 0029. */
+    updateIncidentType: (id: string, body: UpdateIncidentTypeBody) => client.PATCH("/api/incident-types/{id}", { params: { path: { id } }, body }),
     addSubIncident: (id: string, body: CreateSubIncidentBody) =>
       client.POST("/api/incidents/{id}/sub-incidents", { params: { path: { id } }, body }),
     removeSubIncident: (id: string, subId: string) =>

@@ -36,7 +36,7 @@ import type {
   VehRoute,
 } from "@/lib/types";
 import { FEED_POOL } from "@/lib/data/seed";
-import { api } from "@/lib/api";
+import { api, apiErrorMessage } from "@/lib/api";
 import type { QueueItem, TransportMovement } from "@/lib/data/dispatch";
 import { EMPTY_CATALOG, type Catalog, Shelter } from "@/lib/data/modules";
 import {
@@ -592,10 +592,4 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
 });
 
 /** Le message d'un refus de l'API, tel que l'opérateur doit le lire ; sinon une phrase neutre. */
-function apiErrorMessage(err: unknown): string {
-  if (err && typeof err === "object" && "message" in err) {
-    const m = (err as { message: unknown }).message;
-    return Array.isArray(m) ? m.join(" · ") : String(m);
-  }
-  return "Refus de l'API";
-}
+// `apiErrorMessage` vit dans `lib/api.ts` : les écrans l'emploient aussi (ADR 0029).
