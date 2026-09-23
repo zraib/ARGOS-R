@@ -608,7 +608,7 @@ export interface Dict {
   ops_shelter_created: string; ops_city_help: string; ops_city_known: string; ops_city_unknown: string;
   /** Modification depuis OPSnet (ADR 0019) et organe d'origine sur les tuiles. */
   ops_edit_unit: string; ops_edit_shelter: string; hn_edit_hospital: string; hn_hospital_updated: string; lbl_location: string; ops_unit_updated: string; ops_shelter_updated: string; ops_organ: string; ops_occupants_now: string;
-  ops_position: string; ops_pos_from_city: string; ops_pos_unresolved: string; ops_pos_unknown: string; ops_enter: string; sim_share: string; sim_shared: string; sim_share_failed: string; sim_remove_denied: string; sim_removed: string; sim_shared_by: string; sim_shared_list: string; sim_shared_none: string; sim_adopt: string; sim_running_shared: string;
+  ops_position: string; ops_pos_from_city: string; ops_pos_unresolved: string; ops_pos_unknown: string; ops_enter: string; sim_share: string; sim_shared: string; sim_share_failed: string; sim_remove_denied: string; sim_removed: string; sim_shared_by: string; sim_shared_list: string; sim_shared_none: string; sim_adopt: string; sim_running_shared: string; loc_lat: string; loc_lng: string; loc_coords_hint: string; loc_coords_invalid: string;
   ops_critical_one: string; ops_critical_many: string; ops_affect_title: string; ops_mode_engage: string;
   ops_mode_shelter: string; ops_affect_engage_help: string; ops_affect_shelter_help: string; ops_need_strength: string;
   ops_need_people: string; ops_radius: string; ops_from_incident: string; ops_include_deployed: string;

@@ -299,6 +299,12 @@ bord d'incident servent tout incident à tout rôle (`incidentsVisibleToAll()`),
 gouvernant plus que les unités, les ressources et les comptes ; `INCIDENTS_VISIBILITY=scoped`
 rétablit la doctrine V-1 (suites `visibility.spec`, `deployment.spec`, `posts.spec`,
 `incident-dashboard.spec`, `units-visibility.spec`, `engagement.spec` tournent sous ce réglage).
+**Créer sur la carte (23 septembre 2026, ADR 0030).** Profil direx : unité (`teams`/`units`),
+hôpital et hôpital de campagne (`hospinet`), site mortuaire et morgue mobile (`morgue`) au
+moins `AMV` pour les chefs, les Rens (dont RLS / DIREX), les OPS, les LOG et l'Anim ; trait
+`unitMaker` pour les chefs, la Planif & Rens et le RLS — **sans** `unitRemover` : créer n'est pas
+retirer. Suite : `creators.spec`.
+
 **Ouvrir un abri (23 septembre 2026, ADR 0029).** La ligne `shelters` s'ouvre aux chefs, aux
 OPS, aux LOG et aux Rens des PC (profil direx : `AMV` pour les chefs et les Rens, `FULL`
 conservé pour OPS, LOG et Anim) et, en classique, à l'OPCOM, au TACOM, aux chefs de PCO et de

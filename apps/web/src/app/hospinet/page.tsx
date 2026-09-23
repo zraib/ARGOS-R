@@ -1,13 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import dynamic from "next/dynamic";
-// La carte de choix du point (MapLibre) ne se rend qu'au client.
-const LocationPreviewMap = dynamic(
-  () => import("@/components/incidents/LocationPreviewMap").then((m) => m.LocationPreviewMap),
-  { ssr: false },
-);
 import Link from "next/link";
+import { LocationPicker, useLocationPicker } from "@/components/org/LocationPicker";
 import { useArgos, useDict, useModules } from "@/lib/store";
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
@@ -47,10 +42,12 @@ export default function HospinetPage() {
   const fieldHosps = useArgos((s) => s.fieldHosps);
   const deployField = useArgos((s) => s.deployFieldHospital);
   const activeIncidents = useArgos((s) => s.incidents);
-  // Déploiement d'un hôpital de campagne : le point se CHOISIT sur la carte,
-  // comme pour un incident, puis l'API le pose — il se dessine chez tous.
+  // Déploiement d'un hôpital de campagne : le MÊME geste que pour une unité
+  // (ADR 0030) — région, province, commune, point posé sur la carte ou
+  // coordonnées tapées —, puis l'API le pose et il se dessine chez tous.
   const [fieldOpen, setFieldOpen] = useState(false);
-  const [fieldPt, setFieldPt] = useState<[number, number] | null>(null);
+  const fieldPicker = useLocationPicker();
+  const fieldPt = fieldPicker.pin ?? fieldPicker.ll ?? null;
   const [fieldCap, setFieldCap] = useState(40);
   const [fieldInc, setFieldInc] = useState("");
   const [fieldBusy, setFieldBusy] = useState(false);
@@ -76,7 +73,9 @@ export default function HospinetPage() {
   const [kindFilter, setKindFilter] = useState<HospitalKind | "all">("all");
   const [query, setQuery] = useState("");
 
-  const canManage = role === "superadmin" || role === "admin";
+  // Ajouter un hôpital, déployer un hôpital de campagne (ADR 0030) : à qui l'API
+  // l'accorde — Super Administrateur, chefs, Rens, OPS, LOG, Anim (\`hospinet:create\`).
+  const canCreateHospital = role === "superadmin" || can("hospinet:create");
   const hosp = selHosp ? hospitals.find((h) => h.id === selHosp) : null;
   // Décès en établissement → site mortuaire : qui peut écrire sur Hospinet
   // le déclare ; les transferts annoncés par cet établissement s'affichent
@@ -205,7 +204,7 @@ export default function HospinetPage() {
                 {shown.length} / {hospitals.length} {t.hn_count}
               </span>
             )}
-            {canManage && (
+            {canCreateHospital && (
               <button className="btn-primaire cible-tactile flex items-center gap-1.5 text-sm" onClick={() => setAdding(true)}>
                 <Icon path={UI_ICONS.plus} size={15} />
                 {t.add_hosp}
@@ -502,9 +501,7 @@ export default function HospinetPage() {
       <Modal open={fieldOpen} size="lg" title={t.fh_title} onClose={() => setFieldOpen(false)}>
         <div className="flex flex-col gap-4">
           <p className="text-[12px] text-gray-500 dark:text-rdia-300">{t.fh_hint}</p>
-          <div className="flex min-h-[320px] flex-col">
-            <LocationPreviewMap value={fieldPt} onPick={setFieldPt} labels={{ hint: t.wz_map_hint, full: t.wz_fullscreen, exit: t.wz_exit_full }} />
-          </div>
+          <LocationPicker picker={fieldPicker} height="h-64" />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1 text-[11px] font-semibold text-gray-600 dark:text-rdia-200">
               {t.fh_cap}
@@ -520,7 +517,6 @@ export default function HospinetPage() {
               </select>
             </label>
           </div>
-          {fieldPt && <p className="font-mono text-[11px] text-gray-500 dark:text-rdia-300">{fieldPt[1].toFixed(4)}, {fieldPt[0].toFixed(4)}</p>}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button className="btn-secondaire text-sm" onClick={() => setFieldOpen(false)} disabled={fieldBusy}>{t.cancel}</button>
             <button
@@ -544,7 +540,9 @@ export default function HospinetPage() {
       {tab === "field" && (
         <div className="flex flex-col gap-4">
           <div className="flex justify-end">
-            <button className="btn-primaire w-full text-sm sm:w-auto" onClick={() => { setFieldPt(null); setFieldCap(40); setFieldOpen(true); }}>{t.deploy_field}</button>
+            {canCreateHospital && (
+              <button className="btn-primaire w-full text-sm sm:w-auto" onClick={() => { fieldPicker.reset(); setFieldCap(40); setFieldOpen(true); }}>{t.deploy_field}</button>
+            )}
           </div>
           {fields.length > 0 && (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
