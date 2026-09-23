@@ -7,7 +7,7 @@
 // et `authz-coverage.spec.ts` en font foi.
 // ============================================================================
 
-import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query, UseInterceptors } from "@nestjs/common";
 import { entityDeleteConflict, isForced } from "@/modules/domain/http/entity-delete";
 import { UsersService } from "@/modules/iam/users.service";
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
@@ -17,18 +17,19 @@ import { RequireScope } from "@/common/decorators/require-scope.decorator";
 import { CurrentUser } from "@/common/decorators/current-user.decorator";
 import type { AuthUser } from "@/common/types/auth-user";
 import { DomainService } from "@/modules/domain/domain.service";
-import { RealtimeService } from "@/modules/realtime/realtime.service";
 import { VisibilityService } from "@/modules/domain/visibility.service";
+import { DomainChangeInterceptor } from "@/modules/domain/http/domain-change.interceptor";
 
 @ApiTags("domain")
 @ApiBearerAuth()
+// Toute écriture réussie sur le réseau (établissement, service, hôpital de campagne) est poussée à tous les postes (ADR 0029).
+@UseInterceptors(DomainChangeInterceptor)
 @Controller()
 export class HospitalsController {
   constructor(
     private readonly domain: DomainService,
     private readonly visibility: VisibilityService,
     private readonly users: UsersService,
-    private readonly realtime: RealtimeService,
   ) {}
 
   @Get("hospitals")
@@ -56,17 +57,17 @@ export class HospitalsController {
   }
 
   @ApiOperation({
-    summary: "Retirer définitivement un établissement du réseau — SUPERADMIN uniquement.",
+    summary: "Retirer définitivement un établissement du réseau (audité).",
     description:
-      "La matrice n'accorde `hospinet:delete` à personne : seul le joker du Super Administrateur la détient. " +
-      "Refusé (409) tant que l'établissement est engagé sur une opération active, porte des morgues rattachées ou des " +
+      "`hospinet:delete` : le Super Administrateur et, au profil direx, ceux qui créent les établissements — chefs, Rens, " +
+      "OPS, LOG et Anim (ADR 0030, révision). Refusé (409) tant que l'établissement est engagé sur une opération active, porte des morgues rattachées ou des " +
       "hôpitaux de campagne, ou qu'un compte en a la responsabilité ; `?force=true` passe outre — ses services et ses " +
       "hôpitaux de campagne partent alors avec lui, les morgues rattachées sont détachées.",
   })
   @Delete("hospitals/:id")
   @RequirePermission("hospinet:delete")
   @ApiQuery({ name: "force", required: false, description: "Passer outre les garde-fous (engagements, rattachements, responsables)." })
-  @ApiResponse({ status: 403, description: "Réservé au Super Administrateur." })
+  @ApiResponse({ status: 403, description: "Le rôle ne détient pas `hospinet:delete`." })
   @ApiResponse({ status: 404, description: "Établissement inconnu." })
   @ApiResponse({ status: 409, description: "L'établissement est encore engagé, rattaché ou tenu par un compte." })
   deleteHospital(@Param("id") id: string, @Query("force") force: string | undefined, @CurrentUser() user: AuthUser) {
@@ -149,8 +150,26 @@ export class HospitalsController {
   deployFieldHospital(@Body() dto: DeployFieldHospitalDto, @CurrentUser() user: AuthUser) {
     const res = this.domain.deployFieldHospital(dto, user.username);
     if (res.error) throw new BadRequestException(res.error);
-    this.realtime.emit({ kind: "domain", what: "hospitals" });
     return res.field;
+  }
+
+  @Delete("field-hospitals/:id")
+  @RequirePermission("hospinet:delete")
+  @ApiOperation({
+    summary: "Retirer un hôpital de campagne (audité).",
+    description:
+      "Qui déploie retire (ADR 0030, révision) : `hospinet:delete`. Refusé (409) tant que le détachement soigne des " +
+      "patients ou sert une opération active ; `?force=true` passe outre. L'établissement de rattachement reste engagé.",
+  })
+  @ApiQuery({ name: "force", required: false, description: "Passer outre les garde-fous (patients, opération servie)." })
+  @ApiResponse({ status: 403, description: "Le rôle ne détient pas `hospinet:delete`." })
+  @ApiResponse({ status: 404, description: "Hôpital de campagne inconnu." })
+  @ApiResponse({ status: 409, description: "Le détachement soigne encore ou sert une opération active." })
+  deleteFieldHospital(@Param("id") id: string, @Query("force") force: string | undefined, @CurrentUser() user: AuthUser) {
+    const res = this.domain.deleteFieldHospital(id, user.username, isForced(force));
+    if (res.missing) throw new NotFoundException(`Hôpital de campagne introuvable : ${id}`);
+    if (res.blockers) throw entityDeleteConflict(res.blockers);
+    return { deleted: id, removed: 1 };
   }
 
   /**

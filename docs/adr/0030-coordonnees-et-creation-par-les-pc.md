@@ -1,4 +1,4 @@
-# ADR 0030 — Coordonnées tapées dans chaque formulaire de création ; créer unités, hôpitaux, hôpitaux de campagne et morgues : chefs, Rens, OPS, LOG, Anim
+# ADR 0030 — Coordonnées tapées dans chaque formulaire de création ; créer — et supprimer — unités, hôpitaux, hôpitaux de campagne, morgues et abris : chefs, Rens, OPS, LOG, Anim
 
 - **Statut :** accepté — livré sur `fusion-V2` et `fusion-RIF`
 - **Date :** 2026-09-23
@@ -35,19 +35,56 @@ fermée aux chefs des PC et aux Rens.
    morgue mobile), `units` et `teams` au moins à `AMV` pour les chefs (DIREX, PC FAR, PCF, PCT,
    PCO), les Rens (Planif & Rens des PC opératifs, Rens / PCT, Rens & Com / PCO, RLS / DIREX),
    les OPS, les LOG et l'Anim ; trait `unitMaker` ajouté aux chefs, à la Planif & Rens et au RLS.
-   **Créer n'est pas retirer** : la suppression d'une unité reste aux OPS, aux LOG, à l'Anim et
-   au Super Administrateur (trait `unitRemover` inchangé). « Ajouter un hôpital » et « Déployer
-   un hôpital de campagne » s'affichent à qui détient `hospinet:create`.
+   ~~Créer n'est pas retirer~~ — **remplacé par la révision ci-dessous : qui crée supprime.**
+   « Ajouter un hôpital » et « Déployer un hôpital de campagne » s'affichent à qui détient
+   `hospinet:create`.
 4. Le profil **classique** n'est pas modifié par cette décision (ses rôles ne portent pas ces
    noms) ; l'étendre est un réglage de la matrice.
+
+## Révision du 23 septembre 2026 — qui crée supprime
+
+Décision de l'utilisateur, le jour même : « donne-leur la possibilité de suppression ».
+
+5. **Le même groupe retire ce qu'il crée** (profil direx) : chefs (DIREX, PC FAR, PCF, PCT,
+   PCO), Rens (Planif & Rens des PC opératifs, Rens / PCT, Rens & Com / PCO, RLS / DIREX), OPS,
+   LOG et Anim passent à `FULL` (AMRVD) sur les lignes `shelters`, `morgue` et `hospinet` —
+   fermer un abri, retirer un site mortuaire ou une morgue mobile, retirer un établissement ou
+   un hôpital de campagne ; le trait `unitRemover` rejoint les chefs, la Planif & Rens et le RLS
+   (retrait d'une unité, en tout mode comme le reste du profil direx). La synthèse, l'évaluation
+   et les chefs d'entité ne suppriment rien ; le profil classique est inchangé.
+6. **L'hôpital de campagne reçoit un identifiant** (`HDC-01`, `HDC-02`…) — il n'en avait pas, on
+   ne pouvait donc pas le désigner pour le retirer. Les instantanés antérieurs sont complétés à
+   la reprise (une graine retrouve le sien par son nom, un détachement d'opérateur en reçoit un
+   neuf) ; un numéro de détachement libéré se réemploie, jamais deux détachements du même nom.
+   `DELETE /field-hospitals/:id` (`hospinet:delete`) refuse (409) un détachement qui soigne des
+   patients ou sert une opération active — `?force=true` passe outre, comme pour les autres
+   entités ; l'établissement de rattachement reste engagé. La purge « empty » ne retire plus que
+   les détachements de démonstration : ceux qu'un opérateur a déployés restent.
+7. **Le réseau hospitalier est poussé à tous les postes** : le contrôleur Hospinet porte
+   désormais l'intercepteur de l'ADR 0029 — créer, modifier, retirer un établissement, un
+   service ou un hôpital de campagne réveille chaque poste (`what: "hospitals"`).
+8. Côté web : le bouton de suppression (modale à identifiant recopié) apparaît sur chaque carte
+   de détachement de l'onglet « Hôpitaux de campagne » et suit `hospinet:delete` ; le miroir
+   `EXERCISE_UNIT_REMOVERS` suit le trait.
 
 ## Conséquences
 
 - Tests : web `coordinates.test.ts` (décimal, virgule, DMS, hémisphère, paire collée, refus) ;
   API `creators.spec.ts` (neuf rôles — chefs de PC opératif et tactique, Rens des deux niveaux,
   RLS, OPS, LOG, Anim — créent chacun unité, hôpital, hôpital de campagne, morgue et morgue
-  mobile, coordonnées rendues à l'identique ; synthèse et évaluation 403 ; un chef de PCT ne
-  supprime pas l'unité qu'il crée).
+  mobile, coordonnées rendues à l'identique ; synthèse et évaluation 403). Révision : chacun
+  des neuf retire l'unité, l'hôpital, l'hôpital de campagne, la morgue, la morgue mobile et
+  l'abri qu'il a créés ; synthèse et évaluation 403 sur chaque suppression ; détachement engagé
+  retenu (409) puis forcé, inconnu 404, numéro réemployé sans doublon de nom
+  (`creators.spec.ts`) ; `profiles.spec.ts` (19 rôles créateurs : `*:delete` et `unitRemover` en
+  tout mode) ; `mode-rights.spec.ts` (le Chef / PC FAR ferme l'abri qu'il a ouvert) ;
+  `everyone-sees-changes.spec.ts` (hôpital créé, détachement déployé puis retiré : `hospitals`
+  poussé) ; web `mode-rights.test.ts`.
+- Vérifié navigateur, révision (dev, mode Direx, Chef / PCT) : « Retirer l'établissement » sur
+  les hôpitaux, « Supprimer l'unité » sur les 12 unités d'OPSnet ; dans « Hôpitaux de
+  campagne », le détachement HDC-08 qu'il avait déployé se retire (identifiant recopié) et
+  disparaît ; HMC Amizmiz (HDC-01, 48 patients) est retenu — « Suppression refusée · 48
+  patient(s) hospitalisé(s) », case « passer outre » proposée.
 - Vérifié navigateur (dev, mode Direx, Chef / PCT) : « Ajouter un hôpital » visible ; la paire
   DMS « 31°21'29"N 7°44'54"W » tapée pose le point (31.35806, −7.74833) et déduit Marrakech-Safi
   › Al Haouz › Ourika ; hôpital H107 créé à cette position ; hôpital de campagne déployé depuis

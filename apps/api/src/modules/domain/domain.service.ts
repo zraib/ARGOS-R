@@ -132,13 +132,13 @@ const MORGUE_SEEDS: readonly MorgueSite[] = [
  */
 /** Hôpitaux de campagne du jeu de démonstration. */
 const FIELD_HOSPITAL_SEEDS: FieldHospital[] = [
-    { hid: "H4", nom: "HMC Amizmiz", cap: 60, occ: 48, statut: "op", depuis: "J+2", kind: "mil_field" },
-    { hid: "H4", nom: "HMC Talat N'Yaaqoub", cap: 40, occ: 37, statut: "op", depuis: "J+1", kind: "mil_field" },
-    { hid: "H5", nom: "HMC Taroudant", cap: 40, occ: 22, statut: "partial", depuis: "J+1", kind: "mil_field" },
+    { id: "HDC-01", hid: "H4", nom: "HMC Amizmiz", cap: 60, occ: 48, statut: "op", depuis: "J+2", kind: "mil_field" },
+    { id: "HDC-02", hid: "H4", nom: "HMC Talat N'Yaaqoub", cap: 40, occ: 37, statut: "op", depuis: "J+1", kind: "mil_field" },
+    { id: "HDC-03", hid: "H5", nom: "HMC Taroudant", cap: 40, occ: 22, statut: "partial", depuis: "J+1", kind: "mil_field" },
     // Structures de campagne civiles déployées par le ministère de la Santé
     // en appui du CHU Mohammed VI (Marrakech) et du CHP d'Al Haouz.
-    { hid: "HC072", nom: "HCC Asni", cap: 50, occ: 41, statut: "op", depuis: "J+2", kind: "civ_field" },
-    { hid: "HC076", nom: "HCC Ouirgane", cap: 30, occ: 14, statut: "partial", depuis: "J+1", kind: "civ_field" },
+    { id: "HDC-04", hid: "HC072", nom: "HCC Asni", cap: 50, occ: 41, statut: "op", depuis: "J+2", kind: "civ_field" },
+    { id: "HDC-05", hid: "HC076", nom: "HCC Ouirgane", cap: 30, occ: 14, statut: "partial", depuis: "J+1", kind: "civ_field" },
 ];
 
 /** Dossiers d'identification du jeu de démonstration. */
@@ -314,6 +314,7 @@ export class DomainService implements OnApplicationBootstrap {
     // l'ancienne liste — les incidents et unités, eux, sont conservés.
     if (sameSeed && snap.hospitals) this.hospitals.splice(0, this.hospitals.length, ...snap.hospitals);
     if (sameSeed && snap.fieldHospitals) this.fieldHospitals.splice(0, this.fieldHospitals.length, ...snap.fieldHospitals);
+    this.ensureFieldHospitalIds();
     if (sameSeed && snap.wards) this.wards.splice(0, this.wards.length, ...snap.wards);
     if (sameSeed && snap.shelters) this.shelters.splice(0, this.shelters.length, ...snap.shelters);
     if (sameSeed && snap.morgues) {
@@ -362,7 +363,7 @@ export class DomainService implements OnApplicationBootstrap {
       for (const g of SHELTERS as Shelter[]) if (!this.shelters.some((x) => x.id === g.id)) this.shelters.push(structuredClone(g));
       for (const g of DVI_SEEDS) if (!this.mortuaryRecords.some((x) => x.id === g.id)) this.mortuaryRecords.push(structuredClone(g));
       for (const g of MORGUE_SEEDS) if (!this.morgues.some((x) => x.id === g.id)) this.morgues.push(structuredClone(g as MorgueSite));
-      for (const g of FIELD_HOSPITAL_SEEDS) if (!this.fieldHospitals.some((x) => x.nom === g.nom)) this.fieldHospitals.push(structuredClone(g));
+      for (const g of FIELD_HOSPITAL_SEEDS) if (!this.fieldHospitals.some((x) => x.id === g.id || x.nom === g.nom)) this.fieldHospitals.push(structuredClone(g));
     }
     if (snap.feed) this.feed.splice(0, this.feed.length, ...snap.feed);
 
@@ -446,6 +447,7 @@ export class DomainService implements OnApplicationBootstrap {
     this.incidents = (snap.incidents ?? []).map(canonicalizeRegion);
     replace(this.units, snap.units ?? []);
     replace(this.fieldHospitals, snap.fieldHospitals ?? []);
+    this.ensureFieldHospitalIds();
     replace(this.shelters, snap.shelters ?? []);
     replace(this.morgues, snap.morgues ?? []);
     for (const m of this.morgues) m.type ??= defaultMorgueType(m);
@@ -1073,10 +1075,15 @@ export class DomainService implements OnApplicationBootstrap {
     if (!h) return { error: `Établissement introuvable : ${input.hospitalId}.` };
     if (input.incidentId && !this.incidents.some((i) => i.id === input.incidentId)) return { error: `Incident inconnu : ${input.incidentId}.` };
     const mil = (h.kind ?? "mil") === "mil";
-    const n = this.fieldHospitals.filter((f) => f.hid === h.id).length + 1;
+    // Le premier numéro de détachement libre : un détachement retiré ne fait pas porter son nom à un autre.
+    const taken = new Set(this.fieldHospitals.map((f) => f.nom));
+    const auto = (k: number): string => `${mil ? "HMC" : "HCC"} ${h.ville} — Détachement ${k}`;
+    let n = 1;
+    while (taken.has(auto(n))) n += 1;
     const field: FieldHospital = {
+      id: this.nextFieldHospitalId(),
       hid: h.id,
-      nom: input.nom?.trim() || `${mil ? "HMC" : "HCC"} ${h.ville} — Détachement ${n}`,
+      nom: input.nom?.trim() || auto(n),
       cap: input.cap ?? 40,
       occ: 0,
       statut: "partial",
@@ -1231,6 +1238,50 @@ export class DomainService implements OnApplicationBootstrap {
 
   listFieldHospitals(): FieldHospital[] {
     return this.fieldHospitals;
+  }
+
+  /** Prochain identifiant de détachement : `HDC-01`, `HDC-02`… jamais celui d'un détachement présent. */
+  private nextFieldHospitalId(): string {
+    const max = this.fieldHospitals.reduce((m, f) => {
+      const k = /^HDC-(\d+)$/.exec(f.id ?? "");
+      return k ? Math.max(m, Number(k[1])) : m;
+    }, 0);
+    return `HDC-${String(max + 1).padStart(2, "0")}`;
+  }
+
+  /**
+   * Les instantanés antérieurs à l'ADR 0030 (révision) ignorent l'identifiant
+   * des hôpitaux de campagne : une graine reprend le sien (par son nom), un
+   * détachement d'opérateur en reçoit un neuf. Idempotent.
+   */
+  private ensureFieldHospitalIds(): void {
+    // Les graines d'abord : elles retrouvent leur identifiant canonique avant que les autres n'en reçoivent un.
+    for (const f of this.fieldHospitals) {
+      if (f.id) continue;
+      const graine = FIELD_HOSPITAL_SEEDS.find((g) => g.nom === f.nom && g.hid === f.hid);
+      if (graine && !this.fieldHospitals.some((x) => x.id === graine.id)) f.id = graine.id;
+    }
+    for (const f of this.fieldHospitals) if (!f.id) f.id = this.nextFieldHospitalId();
+  }
+
+  /**
+   * Retire un hôpital de campagne (ADR 0030, révision : qui déploie retire).
+   * Retenu tant qu'il soigne des patients ou sert une opération active ;
+   * `force` passe outre. L'établissement de rattachement reste engagé sur
+   * l'opération : c'est lui l'intervenant, le détachement n'en est qu'un moyen.
+   */
+  deleteFieldHospital(id: string, actor: string, force = false): { ok?: true; missing?: boolean; blockers?: string[]; field?: FieldHospital } {
+    const f = this.fieldHospitals.find((x) => x.id === id);
+    if (!f) return { missing: true };
+    const blockers: string[] = [];
+    if (f.occ > 0) blockers.push(`${f.occ} patient(s) hospitalisé(s)`);
+    const inc = f.incidentId ? this.incidents.find((i) => i.id === f.incidentId && !i.archived && i.st !== "closed") : undefined;
+    if (inc) blockers.push(`engagé sur ${inc.id}`);
+    if (blockers.length && !force) return { blockers };
+    this.fieldHospitals.splice(this.fieldHospitals.indexOf(f), 1);
+    this.pushFeed(`Hôpital de campagne ${f.nom} — SUPPRIMÉ par ${actor}`, "bg-danger-500");
+    this.persist();
+    return { ok: true, field: f };
   }
 
   // --- services de soins (wards) -------------------------------------------

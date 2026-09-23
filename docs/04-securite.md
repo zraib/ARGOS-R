@@ -106,6 +106,11 @@ Format **`fonctionnalité:action`**, défini dans `apps/api/src/shared/permissio
 > Le domaine refuse (409) ce qui laisserait une opération sans ses moyens, un
 > registre sans son site ou un compte sans son entité, et dit ce qui retient ;
 > `?force=true` passe outre en connaissance de cause.
+>
+> **Exception du profil direx** : une cellule `FULL` (AMRVD) de la matrice direx
+> accorde `delete` — aux OPS, aux LOG et à l'Anim depuis le 19 septembre 2026,
+> aux chefs et aux Rens depuis l'ADR 0030 (révision), sur `shelters`, `morgue`
+> et `hospinet` ; le retrait d'une unité suit le trait `unitRemover`.
 
 **26 fonctionnalités de la matrice** — `dashboard`, `dash_incident`,
 `dash_hospital`, `dash_shelter`, `dash_morgue`, `dash_unit`, `map`, `incidents`,
@@ -302,8 +307,11 @@ rétablit la doctrine V-1 (suites `visibility.spec`, `deployment.spec`, `posts.s
 **Créer sur la carte (23 septembre 2026, ADR 0030).** Profil direx : unité (`teams`/`units`),
 hôpital et hôpital de campagne (`hospinet`), site mortuaire et morgue mobile (`morgue`) au
 moins `AMV` pour les chefs, les Rens (dont RLS / DIREX), les OPS, les LOG et l'Anim ; trait
-`unitMaker` pour les chefs, la Planif & Rens et le RLS — **sans** `unitRemover` : créer n'est pas
-retirer. Suite : `creators.spec`.
+`unitMaker` pour les chefs, la Planif & Rens et le RLS. **Révision du même jour — qui crée
+supprime** : ce groupe passe à `FULL` sur `shelters`, `morgue` et `hospinet` (fermer un abri,
+retirer un site mortuaire, une morgue mobile, un établissement, un hôpital de campagne —
+`DELETE /field-hospitals/:id`) et porte `unitRemover` ; synthèse, évaluation et chefs d'entité
+ne suppriment rien. Suites : `creators.spec`, `profiles.spec`, `mode-rights.spec`.
 
 **Ouvrir un abri (23 septembre 2026, ADR 0029).** La ligne `shelters` s'ouvre aux chefs, aux
 OPS, aux LOG et aux Rens des PC (profil direx : `AMV` pour les chefs et les Rens, `FULL`

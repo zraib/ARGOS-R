@@ -371,7 +371,7 @@ export const AR_DICT: Dict = {
     // محطة فارغة (ADR 0015)
     fam_shelter: "الإيواء", lg_shelters: "ملاجئ الإيواء", lg_trackers: "أجهزة التتبع والمواقع المشتركة",
     trk_map_device: "جهاز GPS", trk_map_app: "موقع مشترك", trk_map_stale: "صامت", trk_map_live: "يبث", trk_map_panic: "إنذار", trk_speed: "السرعة", trk_heading: "الاتجاه",
-    del_unit: "حذف الوحدة", del_shelter: "حذف الملجأ", del_morgue: "حذف الموقع", del_hospital: "سحب المؤسسة",
+    del_unit: "حذف الوحدة", del_shelter: "حذف الملجأ", del_morgue: "حذف الموقع", del_hospital: "سحب المؤسسة", del_field_hospital: "سحب المستشفى الميداني",
     del_confirm_title: "حذف نهائي", del_confirm_body: "لا يمكن التراجع عن هذا الحذف: سيختفي {name} مع كل ما يتبعه (المعدات، المراكز، الملفات). تأكيد؟",
     del_confirm_force: "الكيان محجوز: {blockers}. تجاوز ذلك والحذف على أي حال؟", del_blocked: "رُفض الحذف", del_entity_done: "تم حذف {name}", del_forbidden: "مخصص للمشرف الأعلى فقط.", del_code_help_entity: "للتأكيد، أعد كتابة المعرّف:", del_code_bad_entity: "الرمز لا يطابق المعرّف.",
     // سلسلة القيادة، الأوضاع، الموارد (ADR 0016)

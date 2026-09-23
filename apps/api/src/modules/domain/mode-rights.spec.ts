@@ -92,13 +92,13 @@ describe("Mode édition par mode de l'application et droits des PC opératifs", 
       const morgue = (await base().post("/api/morgues").set(bearer(t)).send({ nom: `Morgue ${role}`, type: "temporary", region: "Rabat-Salé-Kénitra", ville: "Rabat", capacity: 10, ll: [-6.84, 34.02] }).expect(201)).body as { id: string };
       await base().delete(`/api/morgues/${morgue.id}`).set(bearer(t)).expect(200);
     }
-    // SYNTH / PC FAR lit et n'agit pas ; le Chef / PC FAR ne retire pas d'abri.
+    // SYNTH / PC FAR lit et n'agit pas ; le Chef / PC FAR retire l'abri qu'il a ouvert (ADR 0030, révision).
     const synth = await jeton("s.pcfar", "pcfar_synth");
     await base().post("/api/shelters").set(bearer(synth)).send({ nom: "Abri refusé", ville: "Rabat", kind: "tentes", tents: 5 }).expect(403);
     const chef = await jeton("c.pcfar", "pcfar_chef");
-    const abri = (await base().post("/api/shelters").set(bearer(root)).send({ nom: "Abri du chef", ville: "Rabat", kind: "tentes", tents: 5 }).expect(201)).body as { id: string };
-    await base().delete(`/api/shelters/${abri.id}`).set(bearer(chef)).expect(403);
-    await base().delete(`/api/shelters/${abri.id}`).set(bearer(root)).expect(200);
+    const abri = (await base().post("/api/shelters").set(bearer(chef)).send({ nom: "Abri du chef", ville: "Rabat", kind: "tentes", tents: 5 }).expect(201)).body as { id: string };
+    await base().delete(`/api/shelters/${abri.id}`).set(bearer(synth)).expect(403);
+    await base().delete(`/api/shelters/${abri.id}`).set(bearer(chef)).expect(200);
     await setMode("classique");
   });
 });

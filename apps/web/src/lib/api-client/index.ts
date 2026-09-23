@@ -316,6 +316,9 @@ export function createArgosClient(opts: ArgosClientOptions) {
       client.DELETE("/api/morgues/{id}", { params: { path: { id }, query: force ? { force: "true" } : {} } }),
     deleteHospital: (id: string, force = false) =>
       client.DELETE("/api/hospitals/{id}", { params: { path: { id }, query: force ? { force: "true" } : {} } }),
+    /** Retirer un hôpital de campagne — qui déploie retire (ADR 0030) ; 409 s'il soigne ou sert une opération active. */
+    deleteFieldHospital: (id: string, force = false) =>
+      client.DELETE("/api/field-hospitals/{id}", { params: { path: { id }, query: force ? { force: "true" } : {} } }),
     /** Profil de données de la station, mode en service et volume du domaine (écran Paramètres). */
     getDataProfile: () => client.GET("/api/domain/profile"),
     /** Changer le mode de la station (ADR 0016) — signé ; l'API redémarre d'elle-même en production. */

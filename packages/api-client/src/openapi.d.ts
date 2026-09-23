@@ -1421,7 +1421,7 @@ export interface paths {
         put?: never;
         /**
          * Créer une unité (audité).
-         * @description Le MODE de la station resserre la matrice (ADR 0016) : en démonstration et en exercice, l'OPCOM et les cellules créent des unités pour le scénario ; en opérationnel, le Super Administrateur seul.
+         * @description Le MODE de la station resserre la matrice (ADR 0016) : en démonstration et en exercice, l'OPCOM et les cellules créent des unités pour le scénario ; en opérationnel, le Super Administrateur seul. Le profil direx tient ses unités en tout mode : la DIREX (Chef, Anim, RLS) et, dans chaque PC, le chef, les OPS, les LOG et les Rens (ADR 0030).
          */
         post: operations["ResourcesController_createUnit"];
         delete?: never;
@@ -1441,8 +1441,8 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Supprimer définitivement une unité — Super Administrateur ; OPCOM et cellules hors mode opérationnel (ADR 0016).
-         * @description La matrice n'accorde `teams:delete` à personne : seul le joker du Super Administrateur la détient. Refusé (409) tant que l'unité est engagée sur une opération active ou qu'un compte en a la responsabilité ; `?force=true` passe outre. Son parc et ses postes partent avec elle ; une graine supprimée ne revient pas au redémarrage.
+         * Supprimer définitivement une unité — qui la crée la retire (ADR 0016, ADR 0030).
+         * @description Route gardée par `teams:update`, puis par la règle de mode : le Super Administrateur toujours ; hors mode opérationnel l'OPCOM et les cellules du profil classique ; au profil direx, en tout mode, la DIREX (Chef, Anim, RLS) et, dans chaque PC, le chef, les OPS, les LOG et les Rens. Refusé (409) tant que l'unité est engagée sur une opération active ou qu'un compte en a la responsabilité ; `?force=true` passe outre. Son parc et ses postes partent avec elle ; une graine supprimée ne revient pas au redémarrage.
          */
         delete: operations["ResourcesController_deleteUnit"];
         options?: never;
@@ -1483,7 +1483,7 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Fermer définitivement un abri — SUPERADMIN uniquement.
+         * Fermer définitivement un abri (audité) — `shelters:delete`.
          * @description Refusé (409) tant que l'abri héberge des occupants ou qu'un compte en a la responsabilité ; `?force=true` passe outre. Ses postes sur la carte partent avec lui.
          */
         delete: operations["ResourcesController_deleteShelter"];
@@ -1558,7 +1558,7 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Supprimer définitivement un site mortuaire — SUPERADMIN uniquement.
+         * Supprimer définitivement un site mortuaire ou une morgue mobile (audité) — `morgue:delete`.
          * @description Refusé (409) tant que des corps figurent au registre du site, qu'il est affecté à une opération active ou qu'un compte en a la responsabilité ; `?force=true` passe outre — les dossiers du site partent alors avec lui.
          */
         delete: operations["ResourcesController_deleteMorgue"];
@@ -1717,8 +1717,8 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Retirer définitivement un établissement du réseau — SUPERADMIN uniquement.
-         * @description La matrice n'accorde `hospinet:delete` à personne : seul le joker du Super Administrateur la détient. Refusé (409) tant que l'établissement est engagé sur une opération active, porte des morgues rattachées ou des hôpitaux de campagne, ou qu'un compte en a la responsabilité ; `?force=true` passe outre — ses services et ses hôpitaux de campagne partent alors avec lui, les morgues rattachées sont détachées.
+         * Retirer définitivement un établissement du réseau (audité).
+         * @description `hospinet:delete` : le Super Administrateur et, au profil direx, ceux qui créent les établissements — chefs, Rens, OPS, LOG et Anim (ADR 0030, révision). Refusé (409) tant que l'établissement est engagé sur une opération active, porte des morgues rattachées ou des hôpitaux de campagne, ou qu'un compte en a la responsabilité ; `?force=true` passe outre — ses services et ses hôpitaux de campagne partent alors avec lui, les morgues rattachées sont détachées.
          */
         delete: operations["HospitalsController_deleteHospital"];
         options?: never;
@@ -1799,6 +1799,26 @@ export interface paths {
          */
         post: operations["HospitalsController_deployFieldHospital"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/field-hospitals/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Retirer un hôpital de campagne (audité).
+         * @description Qui déploie retire (ADR 0030, révision) : `hospinet:delete`. Refusé (409) tant que le détachement soigne des patients ou sert une opération active ; `?force=true` passe outre. L'établissement de rattachement reste engagé.
+         */
+        delete: operations["HospitalsController_deleteFieldHospital"];
         options?: never;
         head?: never;
         patch?: never;
@@ -6564,7 +6584,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Réservé au Super Administrateur. */
+            /** @description Le rôle ne retire pas d'unité dans ce mode. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -6662,7 +6682,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Réservé au Super Administrateur. */
+            /** @description Le rôle ne détient pas la permission de suppression. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -6846,7 +6866,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Réservé au Super Administrateur. */
+            /** @description Le rôle ne détient pas la permission de suppression. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -7114,7 +7134,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Réservé au Super Administrateur. */
+            /** @description Le rôle ne détient pas `hospinet:delete`. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -7301,6 +7321,43 @@ export interface operations {
         responses: {
             /** @description Établissement ou opération inconnus. */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HospitalsController_deleteFieldHospital: {
+        parameters: {
+            query?: {
+                /** @description Passer outre les garde-fous (patients, opération servie). */
+                force?: unknown;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Le rôle ne détient pas `hospinet:delete`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Hôpital de campagne inconnu. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Le détachement soigne encore ou sert une opération active. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -42,8 +42,9 @@ export interface PruneOptions {
   /** Retirer aussi tout incident ou unité marqué `seeded`, quel que soit son identifiant (profil « empty »). */
   seeded?: boolean;
   /**
-   * Retirer les hôpitaux de campagne : ils n'ont ni identifiant ni chemin de
-   * création — tous sont des graines (profil « empty », purge).
+   * Retirer les hôpitaux de campagne de démonstration — ceux qu'aucun opérateur
+   * n'a déployés (profil « empty ») ; un détachement déployé depuis la carte
+   * (ADR 0030) reste. La purge (`all`) les retire tous.
    */
   fieldHospitals?: boolean;
   /** Retirer les lignes du fil qui ne parlent d'aucun incident (les graines du fil, profil « empty »). */
@@ -83,7 +84,7 @@ export function pruneDemo(c: DomainCollections, opt: PruneOptions): PruneResult 
   const shelterIds = new Set(shelters.map((s) => s.id));
   const morgues = c.morgues.filter((m) => !gone(m.id));
   const morgueIds = new Set(morgues.map((m) => m.id));
-  const fieldHospitals = all || opt.fieldHospitals ? [] : c.fieldHospitals;
+  const fieldHospitals = c.fieldHospitals.filter((f) => !gone(f.id) && !(opt.fieldHospitals && !f.deployedBy));
   // Un dossier sans site, ou dont l'incident est parti, est un orphelin : la
   // référence n'a plus de registre pour la porter.
   const mortuaryRecords = c.mortuaryRecords.filter(

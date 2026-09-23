@@ -10,8 +10,8 @@ import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 
 // ============================================================================
-// Suppression définitive d'une entité — unité, abri, site mortuaire, hôpital
-// (ADR 0015)
+// Suppression définitive d'une entité — unité, abri, site mortuaire, hôpital,
+// hôpital de campagne (ADR 0015, ADR 0030)
 //
 // Même barrière que pour un incident : recopier l'identifiant prouve qu'on a
 // lu ce qu'on supprime. S'y ajoute ce que l'API dit : quand l'entité est
@@ -19,18 +19,28 @@ import { UI_ICONS } from "@/lib/icons";
 // le serveur répond 409 avec la liste des garde-fous ; l'opérateur les lit,
 // et choisit — en cochant qu'il passe outre — de forcer ou de renoncer.
 //
-// L'API reste l'autorité : `*:delete` n'est accordé à personne dans la
-// matrice, seul le joker du Super Administrateur la détient. Le bouton n'est
-// rendu qu'à lui ; ce n'est qu'un masque sur un refus de toute façon servi.
+// L'API reste l'autorité : le bouton n'est rendu qu'à qui détient la
+// permission servie (`<entité>:delete` — le Super Administrateur et, au profil
+// direx, ceux qui créent : ADR 0030) ou, pour une unité, la règle de mode ;
+// ce n'est qu'un masque sur un refus de toute façon servi.
 // ============================================================================
 
-export type DeletableKind = "unit" | "shelter" | "morgue" | "hospital";
+export type DeletableKind = "unit" | "shelter" | "morgue" | "hospital" | "field_hospital";
 
 const REMOVE: Record<DeletableKind, (id: string, force: boolean) => ReturnType<typeof api.deleteUnit>> = {
   unit: (id, force) => api.deleteUnit(id, force),
   shelter: (id, force) => api.deleteShelter(id, force),
   morgue: (id, force) => api.deleteMorgue(id, force),
   hospital: (id, force) => api.deleteHospital(id, force),
+  field_hospital: (id, force) => api.deleteFieldHospital(id, force),
+};
+/** Libellé du geste, par nature d'entité. */
+const DEL_LABEL = (t: ReturnType<typeof useDict>): Record<DeletableKind, string> => ({
+  unit: t.del_unit, shelter: t.del_shelter, morgue: t.del_morgue, hospital: t.del_hospital, field_hospital: t.del_field_hospital,
+});
+/** Permission servie qui ouvre le geste — l'unité suit, elle, la règle de mode (ADR 0016). */
+const DEL_PERMISSION: Record<Exclude<DeletableKind, "unit">, string> = {
+  shelter: "shelters:delete", morgue: "morgue:delete", hospital: "hospinet:delete", field_hospital: "hospinet:delete",
 };
 
 interface DeleteEntityModalProps {
@@ -62,7 +72,7 @@ export function DeleteEntityModal({ kind, id, name, onCancel, onDeleted }: Delet
 
   const exact = code === id;
   const invalide = touched && code.length > 0 && !exact;
-  const titre = { unit: t.del_unit, shelter: t.del_shelter, morgue: t.del_morgue, hospital: t.del_hospital }[kind];
+  const titre = DEL_LABEL(t)[kind];
 
   const supprimer = async () => {
     if (!exact || busy || (blockers && !force)) return;
@@ -194,12 +204,9 @@ export function DeleteEntityButton({ kind, id, name, onDeleted, className = "", 
   const appMode = useArgos((s) => s.appMode);
   const [open, setOpen] = useState(false);
   // Une unité se retire selon la règle de mode (ADR 0016) ; les autres entités, selon `<entité>:delete`.
-  const allowed =
-    kind === "unit"
-      ? canDeleteUnit(role, appMode, can)
-      : isSuperAdmin(role) || can({ shelter: "shelters:delete", morgue: "morgue:delete", hospital: "hospinet:delete" }[kind]);
+  const allowed = kind === "unit" ? canDeleteUnit(role, appMode, can) : isSuperAdmin(role) || can(DEL_PERMISSION[kind]);
   if (!allowed) return null;
-  const label = { unit: t.del_unit, shelter: t.del_shelter, morgue: t.del_morgue, hospital: t.del_hospital }[kind];
+  const label = DEL_LABEL(t)[kind];
   return (
     <>
       <button

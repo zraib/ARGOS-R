@@ -6,14 +6,16 @@ import { AppModule } from "@/app.module";
 
 // ============================================================================
 // ADR 0030 — qui CRÉE sur la carte (profil direx) : unité, abri, hôpital,
-// hôpital de campagne, morgue, morgue mobile.
+// hôpital de campagne, morgue, morgue mobile — et, depuis la révision du même
+// jour, qui crée SUPPRIME.
 //
 // Décision du 23 septembre 2026 : le Super Administrateur, les chefs, les Rens,
 // les OPS, les LOG et l'Anim. Chaque création porte ses coordonnées et
-// ressort avec elles ; la synthèse et l'évaluation observent (403).
+// ressort avec elles ; chacun retire ce qu'il a créé ; la synthèse et
+// l'évaluation observent (403).
 // ============================================================================
 
-describe("ADR 0030 — créer une entité : chefs, Rens, OPS, LOG, Anim (profil direx)", () => {
+describe("ADR 0030 — créer et supprimer une entité : chefs, Rens, OPS, LOG, Anim (profil direx)", () => {
   let app: INestApplication;
   const base = () => request(app.getHttpServer());
   const bearer = (t: string) => ({ Authorization: `Bearer ${t}` });
@@ -90,12 +92,83 @@ describe("ADR 0030 — créer une entité : chefs, Rens, OPS, LOG, Anim (profil 
     }
   });
 
-  it("créer n'est pas retirer : un chef de PCT ne supprime pas l'unité qu'il vient de créer", async () => {
+  it("qui crée supprime : chacun retire l'unité, l'hôpital, l'hôpital de campagne, la morgue, la morgue mobile et l'abri qu'il a créés", async () => {
+    let k = 0;
+    for (const [u, r] of CREATEURS) {
+      const t = await jeton(u, r);
+      k += 1;
+      const ll: [number, number] = [-7.2 - k / 100, 33.5 + k / 100];
+      const unite = (await base().post("/api/units").set(bearer(t))
+        .send({ nom: `Unité à retirer ${r}`, corps: "far", ville: "Rabat", eff: 5, dispo: "ready", readiness: 50, x: 1, y: 1, ll })
+        .expect(201)).body as { id: string };
+      await base().delete(`/api/units/${unite.id}`).set(bearer(t)).expect(200);
+
+      const hop = (await base().post("/api/hospitals").set(bearer(t))
+        .send({ nom: `Hôpital à retirer ${r}`, ville: "Rabat", kind: "civ", type: "Hôpital provincial", region: "Rabat-Salé-Kénitra", province: "Rabat", lits: 20, rea: 2, staff: 10, amb: 1, heli: 0, x: 1, y: 1, ll })
+        .expect(201)).body as { id: string };
+      await base().delete(`/api/hospitals/${hop.id}`).set(bearer(t)).expect(200);
+
+      const campagne = (await base().post("/api/field-hospitals").set(bearer(t))
+        .send({ hospitalId: hopital, ll, cap: 20 })
+        .expect(201)).body as { id: string };
+      expect(campagne.id).toMatch(/^HDC-\d{2,}$/);
+      await base().delete(`/api/field-hospitals/${campagne.id}`).set(bearer(t)).expect(200);
+
+      const morgue = (await base().post("/api/morgues").set(bearer(t))
+        .send({ nom: `Morgue à retirer ${r}`, type: "temporary", region: "Rabat-Salé-Kénitra", ville: "Rabat", capacity: 5, ll })
+        .expect(201)).body as { id: string };
+      await base().delete(`/api/morgues/${morgue.id}`).set(bearer(t)).expect(200);
+
+      const mobile = (await base().post("/api/morgues/mobile").set(bearer(t))
+        .send({ nom: `Morgue mobile à retirer ${r}`, site: "Rabat", capacity: 6, ll, type: "truck" })
+        .expect(201)).body as { id: string };
+      await base().delete(`/api/morgues/${mobile.id}`).set(bearer(t)).expect(200);
+
+      const abri = (await base().post("/api/shelters").set(bearer(t))
+        .send({ nom: `Abri à retirer ${r}`, ville: "Rabat", kind: "tentes", tents: 4, perTent: 6, ll })
+        .expect(201)).body as { id: string };
+      await base().delete(`/api/shelters/${abri.id}`).set(bearer(t)).expect(200);
+    }
+  });
+
+  it("la synthèse et l'évaluation ne suppriment rien", async () => {
+    const ll: [number, number] = [-7.4, 33.4];
+    const unite = (await base().post("/api/units").set(bearer(root)).send({ nom: "Unité gardée", corps: "far", ville: "Rabat", eff: 5, dispo: "ready", readiness: 50, x: 1, y: 1, ll }).expect(201)).body as { id: string };
+    const hop = (await base().post("/api/hospitals").set(bearer(root)).send({ nom: "Hôpital gardé", ville: "Rabat", kind: "civ", type: "Hôpital provincial", region: "Rabat-Salé-Kénitra", province: "Rabat", lits: 20, rea: 2, staff: 10, amb: 1, heli: 0, x: 1, y: 1, ll }).expect(201)).body as { id: string };
+    const campagne = (await base().post("/api/field-hospitals").set(bearer(root)).send({ hospitalId: hopital, ll, cap: 20 }).expect(201)).body as { id: string };
+    const morgue = (await base().post("/api/morgues").set(bearer(root)).send({ nom: "Morgue gardée", type: "temporary", region: "Rabat-Salé-Kénitra", ville: "Rabat", capacity: 5, ll }).expect(201)).body as { id: string };
+    const abri = (await base().post("/api/shelters").set(bearer(root)).send({ nom: "Abri gardé", ville: "Rabat", kind: "tentes", tents: 4, perTent: 6, ll }).expect(201)).body as { id: string };
+    for (const [u, r] of [["s.pcfar", "pcfar_synth"], ["e.direx", "direx_eval"]] as const) {
+      const t = await jeton(u, r);
+      await base().delete(`/api/units/${unite.id}`).set(bearer(t)).expect(403);
+      await base().delete(`/api/hospitals/${hop.id}`).set(bearer(t)).expect(403);
+      await base().delete(`/api/field-hospitals/${campagne.id}`).set(bearer(t)).expect(403);
+      await base().delete(`/api/morgues/${morgue.id}`).set(bearer(t)).expect(403);
+      await base().delete(`/api/shelters/${abri.id}`).set(bearer(t)).expect(403);
+    }
+    for (const chemin of [`units/${unite.id}`, `hospitals/${hop.id}`, `field-hospitals/${campagne.id}`, `morgues/${morgue.id}`, `shelters/${abri.id}`]) {
+      await base().delete(`/api/${chemin}`).set(bearer(root)).expect(200);
+    }
+  });
+
+  it("un hôpital de campagne qui sert une opération active est retenu (409) ; forcé, il part — un inconnu répond 404", async () => {
     const t = await jeton("c.pct", "pct_chef");
-    const u = (await base().post("/api/units").set(bearer(t))
-      .send({ nom: "Unité du chef", corps: "far", ville: "Rabat", eff: 5, dispo: "ready", readiness: 50, x: 1, y: 1, ll: [-6.84, 34.02] })
+    const inc = (await base().post("/api/incidents").set(bearer(root))
+      .send({ type: "flood", titre: "Crue — détachement engagé", region: "Rabat-Salé-Kénitra", sev: "high", st: "open", x: 300, y: 150, ll: [-6.82, 34.01] })
       .expect(201)).body as { id: string };
-    await base().delete(`/api/units/${u.id}?force=true`).set(bearer(t)).expect(403);
-    await base().delete(`/api/units/${u.id}?force=true`).set(bearer(root)).expect(200);
+    const campagne = (await base().post("/api/field-hospitals").set(bearer(t))
+      .send({ hospitalId: hopital, ll: [-6.83, 34.02], cap: 30, incidentId: inc.id })
+      .expect(201)).body as { id: string; nom: string };
+    const refus = (await base().delete(`/api/field-hospitals/${campagne.id}`).set(bearer(t)).expect(409)).body as { blockers: string[] };
+    expect(refus.blockers).toContain(`engagé sur ${inc.id}`);
+    await base().delete(`/api/field-hospitals/${campagne.id}?force=true`).set(bearer(t)).expect(200);
+    const reste = (await base().get("/api/field-hospitals").set(bearer(root)).expect(200)).body as { id: string }[];
+    expect(reste.some((f) => f.id === campagne.id)).toBe(false);
+    await base().delete(`/api/field-hospitals/${campagne.id}`).set(bearer(t)).expect(404);
+    // Le numéro libéré se réemploie, jamais deux détachements du même nom.
+    const suivant = (await base().post("/api/field-hospitals").set(bearer(t)).send({ hospitalId: hopital, ll: [-6.83, 34.02] }).expect(201)).body as { id: string; nom: string };
+    const noms = ((await base().get("/api/field-hospitals").set(bearer(root)).expect(200)).body as { nom: string }[]).map((f) => f.nom);
+    expect(new Set(noms).size).toBe(noms.length);
+    await base().delete(`/api/field-hospitals/${suivant.id}`).set(bearer(root)).expect(200);
   });
 });

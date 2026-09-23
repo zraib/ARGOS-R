@@ -57,12 +57,11 @@ export function fieldKind(f: Pick<FieldHospital, "kind" | "nom">): HospitalKind 
 }
 
 /**
- * Identifiant d'un établissement, quel que soit son réseau.
- *
- * Les hôpitaux de campagne portent `hid` là où les établissements fixes
- * portent `id` : sans cet accesseur, tout code manipulant l'union des deux
- * types compile mal ou lit `undefined` sur les structures de campagne.
+ * Identifiant d'un établissement, quel que soit son réseau : l'établissement
+ * fixe porte le sien, l'hôpital de campagne aussi depuis qu'il se retire
+ * (`HDC-01`… — ADR 0030) ; son `hid` désigne l'établissement dont il relève.
+ * Deux détachements d'un même hôpital ont ainsi deux clés distinctes.
  */
 export function hospId(h: Hospital | FieldHospital): string {
-  return "id" in h ? h.id : h.hid;
+  return h.id;
 }

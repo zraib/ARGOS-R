@@ -38,6 +38,14 @@ describe("les boutons suivent les permissions servies", () => {
       expect(canDeleteUnit(r, "operational", oui)).toBe(true);
       expect(canDeleteUnit(r, "exercise", non)).toBe(false);
     }
+    // Qui crée supprime (ADR 0030, révision) : chefs de PC, Rens et RLS retirent aussi.
+    for (const r of ["pcfar_chef", "pcf_chef", "pct_chef", "pco_chef", "pcfar_planif_rens", "pcf_planif_rens", "pct_rens", "pco_rens_com", "direx_rls"] as const) {
+      expect(canCreateUnit(r, "exercise", oui)).toBe(true);
+      expect(canDeleteUnit(r, "exercise", oui)).toBe(true);
+      expect(canDeleteUnit(r, "operational", oui)).toBe(true);
+      expect(canDeleteUnit(r, "exercise", non)).toBe(false);
+    }
+    expect(canDeleteUnit("pcfar_synth", "exercise", oui)).toBe(false);
     expect(canCreateUnit("opcom", "operational", oui)).toBe(false);
     expect(canDeleteUnit("bluecell", "operational", oui)).toBe(false);
     expect(canCreateUnit("pcfar_synth", "exercise", oui)).toBe(false);

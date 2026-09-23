@@ -30,8 +30,9 @@ import { RealtimeService } from "@/modules/realtime/realtime.service";
 const WRITE_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
 
 /** Ce que la route a touché, lu sur son chemin — le mot le plus spécifique gagne. */
-export function domainTopicOf(path: string): "units" | "shelters" | "morgues" | "incidents" {
+export function domainTopicOf(path: string): "units" | "shelters" | "morgues" | "hospitals" | "incidents" {
   if (/\/units\b/.test(path)) return "units";
+  if (/\/(field-)?hospitals\b/.test(path)) return "hospitals";
   if (/\/shelters\b/.test(path)) return "shelters";
   if (/\/morgues\b/.test(path) || /\/mobile-morgues\b/.test(path)) return "morgues";
   return "incidents";

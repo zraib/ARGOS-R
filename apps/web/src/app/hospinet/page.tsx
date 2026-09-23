@@ -546,14 +546,18 @@ export default function HospinetPage() {
           </div>
           {fields.length > 0 && (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {fields.map((f, i) => (
-                <div key={i} className="carte flex flex-col gap-3 p-4 sm:p-5">
+              {fields.map((f) => (
+                <div key={f.id} className="carte flex flex-col gap-3 p-4 sm:p-5">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex min-w-0 items-start gap-2">
                       <HealthGlyph kind={f.kind} size={20} />
                       <h3 className="min-w-0 break-words text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{f.nom}</h3>
                     </div>
-                    <span className="shrink-0"><Badge type={f.badgeType} label={f.badgeLabel} /></span>
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      <Badge type={f.badgeType} label={f.badgeLabel} />
+                      {/* Qui déploie retire (ADR 0030) : rendu à qui détient `hospinet:delete`. */}
+                      <DeleteEntityButton kind="field_hospital" id={f.id} name={f.nom} compact />
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-gray-500 dark:text-rdia-300">{t.capacity}</span>

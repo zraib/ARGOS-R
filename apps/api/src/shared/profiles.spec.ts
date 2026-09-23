@@ -199,6 +199,28 @@ describe("profil direx — la conduite par les mêmes règles", () => {
     expect(roleHasPermission("opcom", "morgue:delete")).toBe(false);
   });
 
+  it("qui crée supprime (ADR 0030, révision) : chefs, Rens, RLS, OPS, LOG et Anim retirent unités, abris, morgues et hôpitaux, en tout mode", () => {
+    const createurs = [
+      "direx_chef", "direx_anim", "direx_rls",
+      "pcfar_chef", "pcfar_ops", "pcfar_log", "pcfar_planif_rens",
+      "pcf_chef", "pcf_ops", "pcf_log", "pcf_planif_rens",
+      "pct_chef", "pct_ops", "pct_log", "pct_rens",
+      "pco_chef", "pco_ops", "pco_log", "pco_rens_com",
+    ] as const;
+    for (const r of createurs) {
+      for (const p of ["shelters:delete", "morgue:delete", "hospinet:delete"] as const) expect(roleHasPermission(r, p)).toBe(true);
+      expect(canCreateUnit(r, "exercise")).toBe(true);
+      expect(canDeleteUnit(r, "demo")).toBe(true);
+      expect(canDeleteUnit(r, "operational")).toBe(true);
+    }
+    // La synthèse et l'évaluation observent ; le directeur d'hôpital tient le sien sans le retirer du réseau.
+    for (const r of ["pcfar_synth", "pcf_synth", "direx_eval"] as const) {
+      for (const p of ["shelters:delete", "morgue:delete", "hospinet:delete"] as const) expect(roleHasPermission(r, p)).toBe(false);
+      expect(canDeleteUnit(r, "demo")).toBe(false);
+    }
+    expect(roleHasPermission("resp_hospital", "hospinet:delete")).toBe(false);
+  });
+
   it("chaque mode ne pose que ses natures de poste : le Super Administrateur suit le mode en service", () => {
     expect(placeablePostKinds("superadmin", "classique")).toEqual(["opcom", "tacom", "pco", "pct", "bluecell", "greencell", "orangecell", "shelter", "equipment"]);
     expect(placeablePostKinds("superadmin", "direx")).toEqual(["pco", "pct", "shelter", "equipment", "pcfar", "pcf"]);

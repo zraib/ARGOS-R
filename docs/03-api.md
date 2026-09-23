@@ -125,13 +125,14 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `GET` | `/api/feed` | `dashboard:view` | Fil des événements — ceux des incidents que le compte voit, et les lignes sans incident |
 | `GET` | `/api/field-hospitals` | `hospinet:view` | Hôpitaux de campagne visibles. |
 | `POST` | `/api/field-hospitals` | `hospinet:create` | Déployer un hôpital de campagne à un point choisi sur la carte (audité). |
+| `DELETE` | `/api/field-hospitals/{id}` | `hospinet:delete` | Retirer un hôpital de campagne (audité). |
 | `GET` | `/api/floods/gauges` | `seismic:view` | Jauges du Maroc et leur dernier statut de crue (Flood Hub, proxy souverain, cache 15 min) |
 | `GET` | `/api/floods/gauges/{id}/forecast` | `seismic:view` | Dernière prévision émise pour une jauge, avec ses seuils d'alerte |
 | `GET` | `/api/floods/polygons/{id}` | `seismic:view` | Polygone d'inondation de Flood Hub (KML converti en GeoJSON) |
 | `GET` | `/api/floods/status` | `seismic:view` | État du flux des crues (clé configurée, dernière relecture, dégradation, attribution) |
 | `GET` | `/api/hospitals` | `hospinet:view` | Liste des hôpitaux |
 | `POST` | `/api/hospitals` | `hospinet:create` | Créer un hôpital (audité) |
-| `DELETE` | `/api/hospitals/{id}` | `hospinet:delete` | Retirer définitivement un établissement du réseau — SUPERADMIN uniquement. |
+| `DELETE` | `/api/hospitals/{id}` | `hospinet:delete` | Retirer définitivement un établissement du réseau (audité). |
 | `PATCH` | `/api/hospitals/{id}` | `hospinet:update` | Mettre à jour un établissement — un responsable ne peut agir que sur le sien |
 | `POST` | `/api/hospitals/{id}/deceased` | `hospinet:update` | Décès en établissement : annoncer le transfert du corps vers un site mortuaire — depuis SON établissement uniquement |
 | `GET` | `/api/hospitals/{id}/wards` | `hospinet:view` | Services de soins d'un établissement |
@@ -166,7 +167,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `GET` | `/api/incidents/map` | `map:view` | Tous les incidents actifs, pour la carte de chacun (ADR 0020). |
 | `GET` | `/api/morgues` | `morgue:view` | Sites mortuaires |
 | `POST` | `/api/morgues` | `morgue:create` | Créer un site mortuaire fixe — de ville ou régional, rattaché à un établissement |
-| `DELETE` | `/api/morgues/{id}` | `morgue:delete` | Supprimer définitivement un site mortuaire — SUPERADMIN uniquement. |
+| `DELETE` | `/api/morgues/{id}` | `morgue:delete` | Supprimer définitivement un site mortuaire ou une morgue mobile (audité) — `morgue:delete`. |
 | `PATCH` | `/api/morgues/{id}` | `morgue:update` | Mettre à jour un site mortuaire — le sien uniquement |
 | `POST` | `/api/morgues/{id}/recall` | `morgue:update` | Replier une morgue mobile — vide de tout corps |
 | `GET` | `/api/morgues/{id}/records` | `morgue:view` | Registre d'identification d'un site mortuaire |
@@ -184,7 +185,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `GET` | `/api/seismic/notifications` | `seismic:view` | Historique des notifications SMS/e-mail envoyées aux autorités |
 | `GET` | `/api/shelters` | `shelters:view` | Liste des abris d'hébergement |
 | `POST` | `/api/shelters` | `shelters:create` | Ouvrir un abri (audité). |
-| `DELETE` | `/api/shelters/{id}` | `shelters:delete` | Fermer définitivement un abri — SUPERADMIN uniquement. |
+| `DELETE` | `/api/shelters/{id}` | `shelters:delete` | Fermer définitivement un abri (audité) — `shelters:delete`. |
 | `PATCH` | `/api/shelters/{id}` | `shelters:update` | Mettre à jour un abri — un responsable ne peut agir que sur le sien |
 | `GET` | `/api/simulations` | `map:view` | Les simulations partagées — le scénario de chacune, à rejouer sur le poste |
 | `POST` | `/api/simulations` | `map:view` | Partager une simulation (audité) — tous les postes la rejouent |
@@ -195,7 +196,7 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `GET` | `/api/sub-incident-types` | `subincidents:view` | Catalogue des sous-types + mapping par type d'incident principal |
 | `GET` | `/api/units` | `teams:view` | Liste des unités visibles (ADR 0020). |
 | `POST` | `/api/units` | `teams:create` | Créer une unité (audité). |
-| `DELETE` | `/api/units/{id}` | `teams:update` | Supprimer définitivement une unité — Super Administrateur ; OPCOM et cellules hors mode opérationnel (ADR 0016). |
+| `DELETE` | `/api/units/{id}` | `teams:update` | Supprimer définitivement une unité — qui la crée la retire (ADR 0016, ADR 0030). |
 | `PATCH` | `/api/units/{id}` | `units:update` | Mettre à jour une unité — un responsable ne peut agir que sur la sienne ; l'OPCOM et les cellules en démonstration et en exercice |
 | `GET` | `/api/weather/cities` | `weather:view` | Villes disponibles pour la météo |
 | `GET` | `/api/weather/forecast` | `weather:view` | Prévisions météo (Open-Meteo, proxy souverain) pour lat/lon |
@@ -317,7 +318,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 ## Chiffres
 
-166 chemins · 213 opérations · 14 groupes.
+167 chemins · 214 opérations · 14 groupes.
 
 ## Modifier le contrat
 
