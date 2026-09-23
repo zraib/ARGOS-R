@@ -517,6 +517,15 @@ Exigences du `MASTER_PLAN.md` §4.3 :
   échecs de connexion (dix par compte et par quart d'heure → `429`), tunnel ou
   pas. Une porte d'identité (Cloudflare Access) peut se poser devant un tunnel
   nommé sans toucher à la station.
+- **Mise à jour sans toucher aux données** (ADR 0033) : les instantanés de la
+  station font foi quelle que soit la version du jeu de départ ; rien n'est
+  retiré ni retouché au démarrage ; écriture atomique avec copie de secours, un
+  fichier illisible est mis de côté, jamais écrasé ; `upgrade.ps1` recense les
+  données avant et après et signale toute perte.
+- **Actions entreprises** (ADR 0032) : ligne `actions_log` de la matrice —
+  direx `FULL` pour l'Anim, les chefs des PC, les OPS, les LOG et les Rens ;
+  classique `AMV` pour l'OPCOM, le TACOM et ses PC, les cellules ; lecture pour
+  les autres. Chaque ligne garde son auteur et son dernier correcteur.
 - **Scripts de station signés** (ADR 0031) : chaque script PowerShell du paquet
   est signé en Authenticode à la fabrication (`deploy/scripts/sign.sh`, clé
   privée hors dépôt dans `~/.iris-signing`) ; la station approuve l'éditeur

@@ -37,6 +37,7 @@ export const MATRIX_FEATURES = [
   "incidents",      // Incident
   "subincidents",   // Sous-incidents
   "victims",        // Bilan des victimes (décédés, blessés, disparus)
+  "actions_log",    // Actions entreprises : le journal de conduite d'un incident (ADR 0032)
   "hospinet",       // Hospinet
   "shelters",       // Abri
   "morgue",         // Morgue
@@ -107,6 +108,7 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   incidents: "Incident",
   subincidents: "Sous-incidents",
   victims: "Bilan des victimes",
+  actions_log: "Actions entreprises",
   hospinet: "Hospinet",
   shelters: "Abri",
   morgue: "Morgue",
@@ -274,6 +276,16 @@ const MATRIX: Record<(typeof MATRIX_FEATURES)[number], Partial<Record<Role, Cell
     resp_unit: AMV, resp_hospital: AMV, resp_morgue: V,
     strategic: V, wali: V, place_arme: V,
   },
+  // Actions entreprises (ADR 0032) : le journal de conduite d'un incident — à
+  // une date et une heure, l'événement et l'action menée. Le tiennent ceux qui
+  // conduisent (OPCOM, TACOM et ses PC par dérivation, les trois cellules) ;
+  // quiconque lit les incidents le lit. Pas de suppression en classique : on
+  // corrige une ligne (M), on ne l'efface pas.
+  actions_log: {
+    admin: ALL, opcom: AMV, tacom: AMV, bluecell: AMV, greencell: AMV, orangecell: AMV,
+    strategic: V, wali: V, place_arme: V,
+    resp_hospital: V, resp_unit: V, resp_shelter: V, resp_morgue: V, resp_equipment: V,
+  },
   hospinet: {
     admin: ALL, opcom: V, tacom: V, bluecell: V, greencell: AMV, orangecell: V,
     resp_hospital: AMV,
@@ -397,9 +409,9 @@ const MATRIX: Record<(typeof MATRIX_FEATURES)[number], Partial<Record<Role, Cell
  * Une cellule `null` retire la ligne au rôle dérivé.
  */
 const DERIVED_ROLES: Partial<Record<Role, { like: Role; except: Partial<Record<Feature, Cell | null>> }>> = {
-  gendarmerie: { like: "opcom", except: { incidents: V, subincidents: V, victims: V, reports: V, dispatch: V, orsec: V, plans: V, aviation: V, nrbc: V, tracking: V, missions: V, map_edit: null } },
-  etat_major: { like: "opcom", except: { incidents: V, subincidents: V, victims: V, reports: V, dispatch: V, orsec: V, plans: V, aviation: V, nrbc: V, tracking: V, missions: V, map_edit: null } },
-  interieur: { like: "opcom", except: { incidents: V, subincidents: V, victims: V, reports: V, dispatch: V, orsec: V, plans: V, aviation: V, nrbc: V, tracking: V, missions: V, map_edit: null } },
+  gendarmerie: { like: "opcom", except: { incidents: V, subincidents: V, victims: V, actions_log: V, reports: V, dispatch: V, orsec: V, plans: V, aviation: V, nrbc: V, tracking: V, missions: V, map_edit: null } },
+  etat_major: { like: "opcom", except: { incidents: V, subincidents: V, victims: V, actions_log: V, reports: V, dispatch: V, orsec: V, plans: V, aviation: V, nrbc: V, tracking: V, missions: V, map_edit: null } },
+  interieur: { like: "opcom", except: { incidents: V, subincidents: V, victims: V, actions_log: V, reports: V, dispatch: V, orsec: V, plans: V, aviation: V, nrbc: V, tracking: V, missions: V, map_edit: null } },
   pco: { like: "tacom", except: {} },
   pct: { like: "tacom", except: {} },
 };
@@ -657,6 +669,7 @@ export const FEATURE_MODULE: Record<Feature, ModuleKey | null> = {
   incidents: "incidents",
   subincidents: "incidents",
   victims: "incidents",
+  actions_log: "incidents",
   hospinet: "hospitals",
   shelters: "shelters",
   morgue: "morgue",

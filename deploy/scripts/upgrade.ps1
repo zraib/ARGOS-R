@@ -12,7 +12,9 @@
 #   4. arrête l'ancienne pile SANS toucher aux volumes (jamais `down -v`) ;
 #   5. vérifie que les volumes iris_api_data et iris_db_data sont bien là ;
 #   6. installe le nouveau paquet (install.ps1 : images, .env conservé, démarrage) ;
-#   7. contrôle la santé de l'API et rappelle quoi vérifier, et comment revenir en arrière.
+#   7. contrôle la santé de l'API et rappelle quoi vérifier, et comment revenir en arrière ;
+#   8. RECENSE les données avant et après (ADR 0033) — incidents, unités, hôpitaux,
+#      abris, morgues, zones, messages, comptes… — et signale tout ce qui manquerait.
 #
 # Les comptes et le domaine vivent dans les volumes Docker, pas dans le dossier
 # du paquet : remplacer le code ne les touche pas. Relançable : chaque étape
@@ -32,7 +34,7 @@ $new = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $newEnv = Join-Path $new ".env"
 $newVersionFile = Join-Path $new "VERSION"
 
-function Step([int]$n, [string]$msg) { Write-Host "`n[$n] $msg" -ForegroundColor Cyan }
+function Step([string]$n, [string]$msg) { Write-Host "`n[$n] $msg" -ForegroundColor Cyan }
 function Ok([string]$msg) { Write-Host "    OK  $msg" -ForegroundColor Green }
 function Warn([string]$msg) { Write-Host "    !   $msg" -ForegroundColor Yellow }
 
@@ -137,6 +139,39 @@ foreach ($v in @("iris_api_data", "iris_db_data")) {
   if ($volumes -contains $v) { Ok "$v présent" } else { throw "Volume $v ABSENT : on n'installe pas par-dessus une station dont les données ont disparu. Restaurez d'abord (restore.ps1) ou vérifiez le nom du projet compose (docker volume ls)." }
 }
 
+# --- 5 bis. Recensement des données, AVANT (ADR 0033) ------------------------
+# La pile est arrêtée : les instantanés du volume sont dans leur état final. Le
+# recensement lit le volume en LECTURE SEULE avec l'image de l'API (Node) — ni
+# compte, ni réseau, ni écriture — et compte chaque collection.
+$censusLabels = [ordered]@{
+  incidents = "incidents"; subIncidents = "sous-incidents"; actionsLog = "actions entreprises"; victims = "victimes"
+  units = "unités"; hospitals = "hôpitaux"; fieldHospitals = "hôpitaux de campagne"; wards = "services"; shelters = "abris"
+  morgues = "sites mortuaires"; mortuaryRecords = "dossiers mortuaires"; equipment = "équipements"; posts = "postes sur la carte"
+  drawings = "zones et croquis"; simulations = "simulations"; channels = "canaux"; messages = "messages"; attachments = "pièces jointes"
+  users = "comptes"; missions = "missions"; orders = "bons de travail"; persons = "personnels"; teams = "équipes"
+  vehicles = "véhicules"; supplies = "logistique"; incidentTypes = "types d'incident ajoutés"; trackers = "traceurs"
+}
+function Get-Census {
+  $census = Join-Path $PSScriptRoot "census.js"
+  if (-not (Test-Path $census)) { return $null }
+  try {
+    $json = Get-Content $census -Raw | & docker run --rm -i -v iris_api_data:/data:ro iris-api:latest node - 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $json) { return $null }
+    return (($json | Out-String) | ConvertFrom-Json)
+  } catch { return $null }
+}
+function Format-Census($c) {
+  return (@($censusLabels.Keys | Where-Object { [int]$c.$_ -gt 0 } | ForEach-Object { "$($censusLabels[$_]) $([int]$c.$_)" }) -join " · ")
+}
+Step "5 bis" "Recensement des données (avant)"
+$before = Get-Census
+if ($before) {
+  Ok ("avant : " + (Format-Census $before))
+  try { ($before | ConvertTo-Json -Compress) | Set-Content -Path (Join-Path $new "census-avant.json") -Encoding UTF8 } catch { }
+} else {
+  Warn "recensement impossible (image iris-api:latest absente ?) — la comparaison de l'étape 8 sera sautée"
+}
+
 # --- 6. Installation du nouveau paquet ----------------------------------------
 Step 6 "Installation du paquet $newVersion (images, .env conservé, démarrage)"
 & (Join-Path $PSScriptRoot "install.ps1")
@@ -161,6 +196,32 @@ if ($health -and $health.status -eq "ok") {
   Ok ("API en ligne — mode " + $health.appMode + ", version " + $newVersion)
 } else {
   Warn "l'API ne répond pas encore : .\scripts\status.ps1 puis docker compose logs api --tail 50"
+}
+
+# --- 8. Rien n'a disparu (ADR 0033) ------------------------------------------
+Step 8 "Données : rien ne doit avoir disparu"
+$lost = @()
+if ($before) {
+  $after = $null
+  # La nouvelle API relit ses instantanés au démarrage : on lui laisse le temps.
+  for ($i = 0; $i -lt 6 -and -not $after; $i++) { Start-Sleep -Seconds 5; $after = Get-Census }
+  if ($after) {
+    foreach ($k in $censusLabels.Keys) {
+      $a = [int]$before.$k; $b = [int]$after.$k
+      if ($b -lt $a) { $lost += "$($censusLabels[$k]) : $a → $b" }
+    }
+    if ($lost.Count -eq 0) {
+      Ok ("données intactes — " + (Format-Census $after))
+    } else {
+      Write-Host "    !!  DES DONNÉES MANQUENT APRÈS LA MISE À JOUR :" -ForegroundColor Red
+      foreach ($l in $lost) { Write-Host "        $l" -ForegroundColor Red }
+      Write-Host "        Ne travaillez pas sur la station : revenez en arrière (ci-dessous) et signalez-le." -ForegroundColor Red
+    }
+  } else {
+    Warn "recensement après mise à jour impossible : comparez à la main avec census-avant.json ($new)"
+  }
+} else {
+  Warn "pas de recensement avant la mise à jour : comparaison sautée"
 }
 
 Write-Host @"

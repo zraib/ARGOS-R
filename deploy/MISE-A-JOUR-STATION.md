@@ -473,3 +473,23 @@ refait à la demande.
 
 À noter aussi : `expose.ps1` (accès public, § 15) ne s'analysait pas sous
 Windows PowerShell 5.1 (encodage) — corrigé dans ce paquet.
+
+## 18. La mise à jour ne touche à rien, et le vérifie (paquets du 23 septembre 2026, soir)
+
+Depuis l'ADR 0033, une mise à jour garde **tout** ce que la station contient —
+messages échangés, incidents et leurs actions entreprises, zones et croquis,
+unités, hôpitaux, abris, morgues et dossiers, comptes, ressources — même quand
+le jeu de départ du code a changé. `upgrade.cmd` le **vérifie** désormais :
+
+- étape **5 bis** : une fois l'ancienne pile arrêtée, il recense les données
+  du volume (lecture seule) — « avant : incidents 16 · unités 14 · hôpitaux 114
+  · messages 120 · comptes 22 … » — et garde ce recensement dans
+  `census-avant.json` du nouveau dossier ;
+- étape **8** : la nouvelle pile démarrée, il recense à nouveau et compare. Tout
+  va bien : « données intactes ». Une collection en baisse s'affiche **en
+  rouge** : ne travaillez pas sur la station, revenez en arrière (fin du
+  compte rendu du script) et signalez-le.
+
+Aucun geste nouveau : la commande reste `.\upgrade.cmd -Current C:\iris\deploy
+-Backups D:\sauvegardes\iris`.
+

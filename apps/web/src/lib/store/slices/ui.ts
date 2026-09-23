@@ -81,6 +81,18 @@ export interface UiSlice {
   openCopilot: () => void;
   closeCopilot: () => void;
   toggleCopilot: () => void;
+  /**
+   * La carte occupe tout l'écran (ADR 0032) : le centre de communication, le
+   * copilote et le briefing passent alors AU-DESSUS d'elle au lieu de
+   * disparaître dessous.
+   */
+  mapFull: boolean;
+  setMapFull: (on: boolean) => void;
+  /** Fenêtre flottante du briefing (ADR 0032) : ouverte ou non, et sur quel incident. */
+  briefingOpen: boolean;
+  briefingIncident: string | null;
+  openBriefing: (incidentId?: string | null) => void;
+  closeBriefing: () => void;
 }
 
 export const createUiSlice: StateCreator<ArgosState, [], [], UiSlice> = (set, get) => ({
@@ -139,4 +151,11 @@ export const createUiSlice: StateCreator<ArgosState, [], [], UiSlice> = (set, ge
   openCopilot: () => set({ copilotOpen: true }),
   closeCopilot: () => set({ copilotOpen: false }),
   toggleCopilot: () => set((s) => ({ copilotOpen: !s.copilotOpen })),
+  mapFull: false,
+  setMapFull: (on) => set({ mapFull: on }),
+  briefingOpen: false,
+  briefingIncident: null,
+  // Sans incident désigné, la fenêtre s'ouvre sur le dernier choisi (ou propose le choix).
+  openBriefing: (incidentId) => set((s) => ({ briefingOpen: true, briefingIncident: incidentId ?? s.briefingIncident })),
+  closeBriefing: () => set({ briefingOpen: false }),
 });

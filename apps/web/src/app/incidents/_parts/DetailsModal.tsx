@@ -23,6 +23,8 @@ import {
 import { Detail } from "@/app/incidents/_parts/Detail";
 import { SubIncidentSection } from "@/app/incidents/_parts/SubIncidentSection";
 import { formatIncidentTime } from "@/lib/derive";
+import { ActionsLog } from "@/components/incidents/ActionsLog";
+import { briefingRoot } from "@/lib/briefing";
 
 /** Modale de détails enrichie (bilan humain, moyens, personnel, véhicules, sous-incidents + IA évolution). */
 export function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddSub, onVictims }: { incident: Incident; onClose: () => void; onMap: (id: string) => void; onEdit: (inc: Incident) => void; onAddSub: (inc: Incident) => void; onVictims?: (inc: Incident) => void }) {
@@ -36,6 +38,7 @@ export function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddS
   const allIncidents = useArgos((s) => s.incidents);
   const quakes = useArgos((s) => s.quakes);
   const dashStats = useArgos((s) => s.dashStats);
+  const openBriefing = useArgos((s) => s.openBriefing);
   // Lecture de la version VIVE de l'incident (mise à jour après ajout/retrait
   // d'un sous-incident) ; repli sur l'instantané passé en prop.
   const incident = useArgos((s) => s.incidents.find((i) => i.id === initial.id)) ?? initial;
@@ -140,6 +143,17 @@ export function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddS
         <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-3 dark:border-rdia-700/50">
           <button className="btn-primaire cible-tactile flex items-center gap-1.5 text-xs" onClick={() => router.push(`/incidents/${incident.id}/dashboard`)}><Icon path={NAV_ICONS.dashboard} size={14} /> {t.idash_open}</button>
           <button className="btn-secondaire cible-tactile flex items-center gap-1.5 text-xs" onClick={() => onMap(incident.id)}><Icon path={UI_ICONS.map} size={14} /> {t.to_map}</button>
+          {/* Briefing de l'incident PRINCIPAL et de sa famille (ADR 0032) : un rattaché ouvre celui de son principal.
+              La modale se referme — la fenêtre flottante prend le relais, déplaçable, au-dessus de la page ou de la carte. */}
+          <button
+            className="btn-secondaire cible-tactile flex items-center gap-1.5 text-xs"
+            onClick={() => {
+              openBriefing(briefingRoot(allIncidents, incident.id)?.id ?? incident.id);
+              onClose();
+            }}
+          >
+            <Icon path={UI_ICONS.sparkles} size={14} /> {t.bf_button}
+          </button>
           {onVictims && (
             <button className="btn-secondaire cible-tactile flex items-center gap-1.5 text-xs" onClick={() => onVictims(incident)}><Icon path={UI_ICONS.users} size={14} /> {m.victims.refine}</button>
           )}
@@ -259,6 +273,9 @@ export function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddS
             </div>
           )}
         </div>
+
+        {/* Actions entreprises : le journal de conduite, sous les actions recommandées (ADR 0032). */}
+        <ActionsLog incident={incident} />
 
         {/* Qui conduit cette opération — et le geste pour l'armer (lot V-2). */}
         <DeployedPosts incidentId={incident.id} />

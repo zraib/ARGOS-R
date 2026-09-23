@@ -245,17 +245,9 @@ export class UsersService implements ScopeResolver {
         const founder = seeded.find((u) => u.id === "u-benjelloun") ?? seeded.find((u) => u.roles.includes("superadmin"));
         if (founder && !this.users.some((u) => u.matricule.toLowerCase() === founder.matricule.toLowerCase())) this.users.push({ ...founder });
       }
-      // Le compte fondateur reprend l'identité par défaut si elle n'a jamais été
-      // renseignée (registre créé avant l'ajout prénom/téléphone). Le mot de
-      // passe et l'historique du compte sont conservés.
-      const founder = this.users.find((u) => u.id === "u-benjelloun");
-      if (founder && !founder.phone) {
-        founder.matricule = "m.zraib";
-        founder.nom = "Zraib";
-        founder.prenom = "Mohammed";
-        founder.grade = "Commandant";
-        founder.phone = "+212663002950";
-      }
+      // (L'identité du compte fondateur n'est plus réécrite au démarrage quand
+      // son téléphone manque — ADR 0033 : un compte que l'administrateur a
+      // modifié reste tel qu'il l'a laissé.)
     }
     // Modules et fonctionnalités par rôle : l'instantané ne porte que les
     // ÉCARTS aux défauts (version 2, voir snapshot.rules) — une table entière

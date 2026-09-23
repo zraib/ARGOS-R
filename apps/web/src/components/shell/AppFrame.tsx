@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { Suspense, lazy, useEffect, type ReactNode } from "react";
 import { warmModel } from "@/lib/ai/provider";
 import { AI_ENABLED, resolveProvider, aiSystemPrompt } from "@/lib/ai/config";
 import { usePathname } from "next/navigation";
@@ -21,6 +21,9 @@ import { ChatDock } from "@/components/shell/chat/ChatDock";
 import { primeAudio } from "@/lib/sound";
 import { IncidentWizard } from "@/components/incidents/IncidentWizard";
 import { QuakeAlert } from "@/components/flux/QuakeAlert";
+
+// La fenêtre du briefing n'est chargée qu'à sa première ouverture (ADR 0032).
+const BriefingWindow = lazy(() => import("@/components/briefing/BriefingWindow"));
 
 /** Écran de blocage quand un module est désactivé par un feature flag. */
 function DisabledNotice() {
@@ -44,6 +47,8 @@ function DisabledNotice() {
  */
 export function AppFrame({ children }: { children: ReactNode }) {
   const authed = useArgos((s) => s.authed);
+  const mapFull = useArgos((s) => s.mapFull);
+  const briefingOpen = useArgos((s) => s.briefingOpen);
   const mustChangePassword = useArgos((s) => s.mustChangePassword);
   const mustChooseRole = useArgos((s) => s.mustChooseRole);
   const lang = useArgos((s) => s.lang);
@@ -224,10 +229,23 @@ export function AppFrame({ children }: { children: ReactNode }) {
         </main>
       </div>
       <IncidentWizard />
-      <QuakeAlert />
-      <Toast />
-      {commsVisible && <ChatDock besideCopilot={aiVisible} />}
-      {aiVisible && <Copilot />}
+      {!mapFull && <Toast />}
+      {/* Couches flottantes : centre de communication, copilote, briefing, avis.
+          Quand la carte occupe tout l'écran (z-9999), elles passent AU-DESSUS
+          d'elle au lieu de disparaître dessous (ADR 0032) — le conteneur ne
+          crée une couche qu'à ce moment-là, sinon rien ne change. */}
+      <div className={mapFull ? "relative z-[10001]" : undefined}>
+        {/* L'alerte sismique aussi : elle ne doit pas se perdre sous la carte. */}
+        <QuakeAlert />
+        {commsVisible && <ChatDock besideCopilot={aiVisible} />}
+        {aiVisible && <Copilot />}
+        {briefingOpen && (
+          <Suspense fallback={null}>
+            <BriefingWindow />
+          </Suspense>
+        )}
+        {mapFull && <Toast />}
+      </div>
     </div>
   );
 }

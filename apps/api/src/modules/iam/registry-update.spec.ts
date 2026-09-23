@@ -63,7 +63,7 @@ describe("mise à jour d'une station — comptes et parc conservés (ADR 0027)",
     expect(users.list().some((u) => u.matricule === "m.zraib" && u.status === "active" && u.roles.includes("superadmin"))).toBe(true);
   });
 
-  it("le parc d'équipement est repris tel quel après une montée de version du seed (démonstration)", () => {
+  it("le parc d'équipement est repris tel quel après une montée de version du seed (démonstration) — rien n'y est ajouté (ADR 0033)", () => {
     const dir = mkdtempSync(join(tmpdir(), "argos-domain-"));
     const mien = { id: "EQ-900", desig: "Groupe électrogène de l'opérateur", cat: "Énergie", unit: "1er GI", unitId: "U1", ownerKind: "unit", stock: 3, threshold: 1, cond: "ok", teamId: "T-1", serial: "GE-2026-01" };
     // Un instantané écrit par une version de seed ANTÉRIEURE, en démonstration.
@@ -71,7 +71,7 @@ describe("mise à jour d'une station — comptes et parc conservés (ADR 0027)",
     const domain = boot<DomainService>("@/modules/domain/domain.service", "DomainService", { DATA_PROFILE: "demo", APP_MODE: "demo", DEV_PERSIST: "on", DEV_DATA_DIR: dir }, (Ctor) => new Ctor());
     const relu = domain.listEquipment().find((e) => e.id === "EQ-900");
     expect(relu).toEqual(mien);
-    // Les articles de démonstration absents rejoignent la liste, sans toucher au sien.
-    expect(domain.listEquipment().length).toBeGreaterThan(1);
+    // Une mise à jour n'injecte plus les articles de démonstration (ADR 0033) : le parc est celui de la station.
+    expect(domain.listEquipment().map((e) => e.id)).toEqual(["EQ-900"]);
   });
 });

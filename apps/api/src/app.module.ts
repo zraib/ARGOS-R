@@ -7,6 +7,7 @@ import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "@/common/guards/permissions.guard";
 import { ScopeGuard } from "@/common/guards/scope.guard";
 import { AuditInterceptor } from "@/common/interceptors/audit.interceptor";
+import { SnapshotFlusher } from "@/common/snapshot-flusher";
 import { DatabaseModule } from "@/db/database.module";
 import { AuditModule } from "@/modules/audit/audit.module";
 import { ModeModule } from "@/modules/mode/mode.module";
@@ -54,6 +55,8 @@ import { IncidentDashboardModule } from "@/modules/incident-dashboard/incident-d
     { provide: APP_GUARD, useClass: ScopeGuard },
     // Journalisation automatique des mutations dans le journal d'audit chaîné.
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
+    // Vide les instantanés différés à l'arrêt (ADR 0033).
+    SnapshotFlusher,
   ],
 })
 export class AppModule {}

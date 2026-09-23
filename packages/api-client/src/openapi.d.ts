@@ -865,6 +865,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/incidents/{id}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ajouter une ligne aux actions entreprises de l'incident : date et heure, événement, action (audité) */
+        post: operations["IncidentsController_addAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/incidents/{id}/actions/{aid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Retirer une ligne des actions entreprises (audité) */
+        delete: operations["IncidentsController_removeAction"];
+        options?: never;
+        head?: never;
+        /** Corriger une ligne des actions entreprises (audité) */
+        patch: operations["IncidentsController_updateAction"];
+        trace?: never;
+    };
     "/api/sub-incident-types": {
         parameters: {
             query?: never;
@@ -3235,7 +3270,7 @@ export interface components {
              * @description Fonctionnalité de la matrice à ouvrir ou couper pour le rôle
              * @enum {string}
              */
-            feature: "dashboard" | "dash_incident" | "dash_hospital" | "dash_shelter" | "dash_morgue" | "dash_unit" | "map" | "incidents" | "subincidents" | "victims" | "hospinet" | "shelters" | "morgue" | "units" | "equipment" | "teams" | "comms" | "reports" | "analytics" | "assistant" | "users" | "settings" | "assign" | "deploy" | "resources" | "weather" | "plume" | "dispatch" | "triage" | "ics" | "damage" | "orsec" | "plans" | "personnel" | "workorders" | "seismic" | "audit" | "aviation" | "nrbc" | "missions" | "tracking" | "comms_admin" | "map_edit";
+            feature: "dashboard" | "dash_incident" | "dash_hospital" | "dash_shelter" | "dash_morgue" | "dash_unit" | "map" | "incidents" | "subincidents" | "victims" | "actions_log" | "hospinet" | "shelters" | "morgue" | "units" | "equipment" | "teams" | "comms" | "reports" | "analytics" | "assistant" | "users" | "settings" | "assign" | "deploy" | "resources" | "weather" | "plume" | "dispatch" | "triage" | "ics" | "damage" | "orsec" | "plans" | "personnel" | "workorders" | "seismic" | "audit" | "aviation" | "nrbc" | "missions" | "tracking" | "comms_admin" | "map_edit";
             enabled: boolean;
         };
         ToggleFlagDto: {
@@ -3509,6 +3544,31 @@ export interface components {
         AssignMorgueDto: {
             /** @example M1 */
             mid: string;
+        };
+        CreateIncidentActionDto: {
+            /**
+             * @description Date et heure de l'événement / de l'action (ISO 8601)
+             * @example 2026-09-23T14:30:00.000Z
+             */
+            at: string;
+            /**
+             * @description Événement constaté
+             * @example Effondrement partiel du pont de l'oued
+             */
+            event: string;
+            /**
+             * @description Action entreprise
+             * @example Trafic dévié par la RN9, section du génie engagée
+             */
+            action: string;
+        };
+        UpdateIncidentActionDto: {
+            /** @description Date et heure (ISO 8601) */
+            at?: string;
+            /** @description Événement constaté */
+            event?: string;
+            /** @description Action entreprise */
+            action?: string;
         };
         CreateSubIncidentDto: {
             /**
@@ -5848,6 +5908,83 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IncidentsController_addAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateIncidentActionDto"];
+            };
+        };
+        responses: {
+            /** @description Ni événement ni action. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Incident inconnu. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IncidentsController_removeAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                aid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Incident ou ligne inconnus. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IncidentsController_updateAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                aid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateIncidentActionDto"];
+            };
+        };
+        responses: {
+            /** @description Incident ou ligne inconnus. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

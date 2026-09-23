@@ -62,6 +62,8 @@ export interface Incident {
   assignments?: UnitAssignment[];
   /** Sous-incidents (aléas secondaires rattachés après la déclaration). */
   subIncidents?: SubIncident[];
+  /** Actions entreprises : le journal de conduite de l'incident, en ordre chronologique (ADR 0032). */
+  actionsLog?: IncidentActionEntry[];
   /** Volet NRBC (famille, substance, ampleur) — incidents de type `nrbc`. */
   nrbc?: NrbcDetails;
   /** Incident archivé (masqué de la liste active). */
@@ -78,6 +80,26 @@ export interface Incident {
 }
 
 /** Aléa secondaire rattaché à un incident principal (mêmes détails qu'un incident). */
+/**
+ * Une ligne du journal « Actions entreprises » d'un incident (ADR 0032) : à
+ * une date et une heure choisies par l'opérateur, l'événement constaté et
+ * l'action menée en réponse. L'auteur et l'heure de saisie sont gardés — la
+ * ligne peut être corrigée, jamais anonyme.
+ */
+export interface IncidentActionEntry {
+  id: string;
+  /** Date et heure de l'événement / de l'action (ISO 8601). */
+  at: string;
+  event: string;
+  action: string;
+  /** Matricule de l'auteur de la ligne, et moment de la saisie. */
+  by: string;
+  createdAt: string;
+  /** Dernière correction : qui, quand. */
+  updatedBy?: string;
+  updatedAt?: string;
+}
+
 export interface SubIncident {
   id: string;
   /** Identifiant d'un sous-type (SubIncidentTypesService). */

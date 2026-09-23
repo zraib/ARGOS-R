@@ -2,6 +2,7 @@ import "reflect-metadata";
 import type { NextFunction, Request, Response } from "express";
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import { flushDevState } from "@/common/dev-store";
 import { ConfigService } from "@nestjs/config";
 import { SwaggerModule } from "@nestjs/swagger";
 import { Logger } from "nestjs-pino";
@@ -49,6 +50,19 @@ async function bootstrap() {
   // client frontend (`packages/api-client`).
   const doc = SwaggerModule.createDocument(app, buildOpenApiConfig());
   SwaggerModule.setup("api/docs", app, doc, { jsonDocumentUrl: "api/openapi.json" });
+
+  // SIGTERM / SIGINT (docker stop, mise à jour, redémarrage du mode watch) : les
+  // instantanés différés sont écrits, puis le processus sort AUSSITÔT (ADR
+  // 0033). Pas d'arrêt « gracieux » de Nest : il attendrait la fin des flux
+  // temps réel ouverts par les navigateurs — qui ne finissent jamais — et le
+  // processus resterait en vie sans plus écouter (constaté : le mode watch ne
+  // redémarrait plus, docker stop attendait ses 10 s).
+  for (const sig of ["SIGTERM", "SIGINT"] as const) {
+    process.once(sig, () => {
+      flushDevState();
+      process.exit(0);
+    });
+  }
 
   const port = config.get<number>("port") ?? 3005;
   await app.listen(port);

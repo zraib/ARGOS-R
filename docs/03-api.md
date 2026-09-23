@@ -146,6 +146,9 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `POST` | `/api/incidents` | `incidents:create` | Déclarer un incident (audité) — type validé contre le catalogue |
 | `DELETE` | `/api/incidents/{id}` | `incidents:delete` | Supprimer définitivement un incident — SUPERADMIN uniquement. |
 | `PATCH` | `/api/incidents/{id}` | `incidents:update` | Modifier ou archiver un incident (audité) |
+| `POST` | `/api/incidents/{id}/actions` | `actions_log:create` | Ajouter une ligne aux actions entreprises de l'incident : date et heure, événement, action (audité) |
+| `DELETE` | `/api/incidents/{id}/actions/{aid}` | `actions_log:delete` | Retirer une ligne des actions entreprises (audité) |
+| `PATCH` | `/api/incidents/{id}/actions/{aid}` | `actions_log:update` | Corriger une ligne des actions entreprises (audité) |
 | `GET` | `/api/incidents/{id}/assignments` | `assign:view` | Unités affectées à l'opération, avec leur destination (PCO / PCT) et leur déploiement. |
 | `POST` | `/api/incidents/{id}/assignments` | `assign:create` | Affecter une unité à l'opération (OPCOM). |
 | `DELETE` | `/api/incidents/{id}/assignments/{unitId}` | `assign:update` | Retirer une unité de l'opération (OPCOM) — retirée du terrain si elle y était |
@@ -318,7 +321,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 ## Chiffres
 
-167 chemins · 214 opérations · 14 groupes.
+169 chemins · 217 opérations · 14 groupes.
 
 ## Modifier le contrat
 
