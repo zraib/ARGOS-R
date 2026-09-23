@@ -170,6 +170,10 @@ export function DetailsModal({ incident: initial, onClose, onMap, onEdit, onAddS
           {incident.casualties && (
             <Detail label={t.wz_casualties} value={`${incident.casualties.dead} ${t.wz_dead.toLowerCase()} · ${incident.casualties.injured} ${t.wz_injured.toLowerCase()} · ${incident.casualties.missing} ${t.wz_missing.toLowerCase()}`} />
           )}
+          {/* Les personnes impliquées (ADR 0034) : à part du bilan des victimes. */}
+          {(incident.casualties?.involved ?? 0) > 0 && (
+            <Detail label={m.wizard.involved} value={String(incident.casualties?.involved)} />
+          )}
           {hasResp && <Detail label={t.det_personnel} value={`${personnel}`} />}
           {hasResp && <Detail label={t.det_vehicles} value={`${amb} amb. · ${heli} héli.`} />}
         </div>

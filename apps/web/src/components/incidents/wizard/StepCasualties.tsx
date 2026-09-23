@@ -25,14 +25,14 @@ export function StepCasualties({
   const t = useDict();
   const m = useModules();
   const secondary = casualtySecondary(form.type);
-  const count = (field: "dead" | "missing" | typeof secondary.field, value: string) => (
+  const count = (field: "dead" | "missing" | "involved" | typeof secondary.field, value: string) => (
     <input type="number" min={0} className="input-champ text-sm" placeholder="0" value={value} onChange={(e) => actions.patch({ [field]: e.target.value })} />
   );
   return (
     <div className="flex flex-col gap-5">
       <div>
         <div className={sectionCls}>{t.wz_casualties}</div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div>
             <label className={labelCls}>{m.wizard.dead}</label>
             {count("dead", form.dead)}
@@ -45,7 +45,13 @@ export function StepCasualties({
             <label className={labelCls}>{m.wizard.missing}</label>
             {count("missing", form.missing)}
           </div>
+          {/* Les personnes impliquées (ADR 0034) : touchées, pas victimes — comptées à part. */}
+          <div>
+            <label className={`${labelCls} text-blue-600 dark:text-blue-300`}>{m.wizard.involved}</label>
+            {count("involved", form.involved)}
+          </div>
         </div>
+        <p className="mt-1.5 text-[11px] text-gray-400 dark:text-rdia-400">{m.wizard.involved_hint}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

@@ -154,6 +154,9 @@ export function IncidentDetailModal({ open, incident, onClose }: Props) {
 
   if (missing > 0) pushKpi("Disparus", missing, "slate");
   if (rescued > 0) pushKpi("Secourus", rescued, "green");
+  // Personnes impliquées (ADR 0034) : affichées, jamais ajoutées au total des victimes.
+  const involved = incident.casualties?.involved ?? 0;
+  if (involved > 0) pushKpi("Impliqués", involved, "blue");
   if (kpis.length < 4) pushKpi("Total", dead + semanticVictim + missing, "rdia");
   // Limiter 4 KPIs (grille md:grid-cols-4)
   const finalKpis = kpis.slice(0, 4);
@@ -255,6 +258,7 @@ export function IncidentDetailModal({ open, incident, onClose }: Props) {
                   k.tint === "green" && "border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-300",
                   k.tint === "slate" && "border-gray-500/30 bg-gray-500/10 text-gray-700 dark:text-gray-300",
                   k.tint === "or" && "border-or-500/30 bg-or-500/10 text-or-600 dark:text-or-300",
+                  k.tint === "blue" && "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300",
                 )}
               >
                 {k.label} · {k.value}

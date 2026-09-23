@@ -7680,6 +7680,11 @@
           "missing": {
             "type": "number",
             "minimum": 0
+          },
+          "involved": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Personnes impliquées : touchées par l'incident sans être victimes (ni blessées, ni disparues, ni décédées) — ADR 0034"
           }
         },
         "required": [
@@ -7986,7 +7991,8 @@
             "enum": [
               "dead",
               "injured",
-              "missing"
+              "missing",
+              "involved"
             ]
           },
           "note": {
@@ -8046,7 +8052,8 @@
             "enum": [
               "dead",
               "injured",
-              "missing"
+              "missing",
+              "involved"
             ]
           },
           "note": {

@@ -146,7 +146,7 @@ export default function BriefingWindow() {
     // `nonce` : « Actualiser » recalcule sur les données du moment.
   }, [root, incidents, units, hospitals, fieldHosps, posts, subCatalog, weather, incidentTypes, lang, dashStats, quakes, m.evolution, nonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const labels = { situation: t.bf_situation, anticipation: t.bf_anticipation, objectives: t.bf_objectives, concept: t.bf_concept };
+  const labels = { situation: t.bf_situation, anticipation: t.bf_anticipation, objectives: t.bf_objectives, concept: t.bf_concept, actions: t.bf_actions };
 
   // --- rédaction par l'IA -----------------------------------------------------
   const [ai, setAi] = useState<{ state: "idle" | "busy" | "done" | "fail"; text: string }>({ state: "idle", text: "" });
@@ -190,27 +190,34 @@ export default function BriefingWindow() {
   if (!open) return null;
 
   const aiSections = ai.text ? splitBriefingSections(ai.text) : null;
-  const sections: { title: string; lines: string[] }[] = briefing
+  const sections: { title: string; lines: string[]; numbered?: boolean }[] = briefing
     ? [
         { title: t.bf_situation, lines: briefing.situation },
         { title: t.bf_anticipation, lines: briefing.anticipation },
         { title: t.bf_objectives, lines: briefing.objectives },
         { title: t.bf_concept, lines: briefing.concept },
+        // Actions à entreprendre (ADR 0034) : numérotées, par ordre de priorité.
+        { title: t.bf_actions, lines: briefing.actions, numbered: true },
       ]
     : [];
-  const iconBtn = "cible-tactile flex h-8 w-8 items-center justify-center rounded-md text-white/80 transition-colors hover:bg-white/10 hover:text-or-300 disabled:opacity-40";
+  // Les couleurs suivent le thème de l'application (ADR 0034) : la palette de
+  // la modale — blanc en clair, rdia en sombre — et l'or de la marque.
+  const iconBtn =
+    "cible-tactile flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-or-600 disabled:opacity-40 dark:text-rdia-200 dark:hover:bg-rdia-600 dark:hover:text-or-300";
+  const rubrique = "mb-1 text-[11px] font-bold uppercase tracking-wider text-or-600 dark:text-or-300";
+  const texte = "text-gray-800 dark:text-rdia-50";
 
   return (
     <div
       role="dialog"
       aria-modal="false"
       aria-labelledby="briefing-titre"
-      className={`fixed flex max-h-[75dvh] min-h-[220px] min-w-[300px] flex-col overflow-hidden rounded-xl border border-white/15 bg-rdia-800/95 text-white shadow-2xl backdrop-blur-md ${mapFull ? "z-[10002]" : "z-[80]"}`}
+      className={`fixed flex max-h-[75dvh] min-h-[220px] min-w-[300px] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white/95 text-gray-900 shadow-2xl backdrop-blur-md dark:border-rdia-600 dark:bg-rdia-700/95 dark:text-rdia-50 ${mapFull ? "z-[10002]" : "z-[80]"}`}
       style={{ left: pos.x, top: pos.y, width: `min(${DEFAULT_W}px, calc(100vw - 16px))`, resize: "both" }}
     >
       {/* Barre de titre : la poignée de déplacement. */}
       <div
-        className="flex cursor-move select-none items-center gap-2 border-b border-white/10 bg-rdia-900/60 px-3 py-2"
+        className="flex cursor-move select-none items-center gap-2 border-b border-gray-200 bg-gray-50 px-3 py-2 dark:border-rdia-600 dark:bg-rdia-800/70"
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
@@ -220,8 +227,8 @@ export default function BriefingWindow() {
         aria-label={t.bf_move}
         title={t.bf_move}
       >
-        <Icon path={UI_ICONS.sparkles} size={15} className="shrink-0 text-or-400" />
-        <h2 id="briefing-titre" className="min-w-0 flex-1 truncate text-[13px] font-bold uppercase tracking-wider">{t.bf_title}</h2>
+        <Icon path={UI_ICONS.sparkles} size={15} className="shrink-0 text-or-500 dark:text-or-400" />
+        <h2 id="briefing-titre" className="min-w-0 flex-1 truncate text-[13px] font-bold uppercase tracking-wider text-rdia-600 dark:text-rdia-50">{t.bf_title}</h2>
         <button className={iconBtn} title={t.bf_refresh} aria-label={t.bf_refresh} onClick={() => setNonce((n) => n + 1)} disabled={!briefing}>
           <Icon path={UI_ICONS.refresh} size={14} />
         </button>
@@ -234,10 +241,10 @@ export default function BriefingWindow() {
       </div>
 
       {/* Choix de l'incident principal. */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 px-3 py-2 dark:border-rdia-600">
         <select
           aria-label={t.bf_pick}
-          className="min-w-0 flex-1 rounded-md border border-white/15 bg-rdia-900/70 px-2 py-1.5 text-[12.5px] text-white"
+          className="input-champ min-w-0 flex-1 py-1.5 text-[12.5px]"
           value={root?.id ?? ""}
           onChange={(e) => openBriefing(e.target.value || null)}
         >
@@ -265,43 +272,54 @@ export default function BriefingWindow() {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 text-[12.5px] leading-relaxed">
         {!briefing ? (
-          <p className="py-6 text-center text-white/60">{mains.length ? t.bf_pick : t.bf_none}</p>
+          <p className="py-6 text-center text-gray-500 dark:text-rdia-300">{mains.length ? t.bf_pick : t.bf_none}</p>
         ) : (
           <>
-            <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/55">
-              <span className="font-semibold text-white/85">{briefing.incidentId} · {briefing.titre}</span>
+            <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500 dark:text-rdia-300">
+              <span className="font-semibold text-gray-800 dark:text-rdia-50">{briefing.incidentId} · {briefing.titre}</span>
               <span>{tpl(t.bf_scope, { c: briefing.scope.children, s: briefing.scope.subIncidents })}</span>
               <span>{tpl(t.bf_generated, { date: new Date(briefing.generatedAt).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) })}</span>
-              <span className={ai.state === "done" ? "text-or-300" : ai.state === "fail" ? "text-danger-300" : ""}>
+              <span className={ai.state === "done" ? "text-or-600 dark:text-or-300" : ai.state === "fail" ? "text-danger-600 dark:text-danger-300" : ""}>
                 {ai.state === "done" ? t.bf_ai_done : ai.state === "fail" ? t.bf_ai_fail : t.bf_data}
               </span>
               {ai.state === "done" && (
-                <button className="underline decoration-dotted hover:text-or-300" onClick={() => setAi({ state: "idle", text: "" })}>{t.bf_back_data}</button>
+                <button className="underline decoration-dotted hover:text-or-600 dark:hover:text-or-300" onClick={() => setAi({ state: "idle", text: "" })}>{t.bf_back_data}</button>
               )}
             </div>
             {ai.text && (ai.state === "busy" || ai.state === "done") ? (
               aiSections ? (
                 aiSections.map((s) => (
                   <section key={s.title} className="mb-3">
-                    <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wider text-or-300">{s.title}</h3>
-                    <p className="whitespace-pre-wrap text-white/90">{s.body}</p>
+                    <h3 className={rubrique}>{s.title}</h3>
+                    <p className={`whitespace-pre-wrap ${texte}`}>{s.body}</p>
                   </section>
                 ))
               ) : (
-                <p className="whitespace-pre-wrap text-white/90">{ai.text}</p>
+                <p className={`whitespace-pre-wrap ${texte}`}>{ai.text}</p>
               )
             ) : (
               sections.map((s) => (
                 <section key={s.title} className="mb-3">
-                  <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wider text-or-300">{s.title}</h3>
-                  <ul className="flex flex-col gap-1">
-                    {s.lines.map((l, k) => (
-                      <li key={k} className="flex gap-1.5 text-white/90">
-                        <span aria-hidden className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-or-400" />
-                        <span>{l}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <h3 className={rubrique}>{s.title}</h3>
+                  {s.numbered ? (
+                    <ol className="flex flex-col gap-1">
+                      {s.lines.map((l, k) => (
+                        <li key={k} className={`flex gap-1.5 ${texte}`}>
+                          <span className="w-5 shrink-0 text-end font-mono text-[11px] font-bold text-or-600 dark:text-or-300">{k + 1}.</span>
+                          <span>{l}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <ul className="flex flex-col gap-1">
+                      {s.lines.map((l, k) => (
+                        <li key={k} className={`flex gap-1.5 ${texte}`}>
+                          <span aria-hidden className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-or-500 dark:bg-or-400" />
+                          <span>{l}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </section>
               ))
             )}

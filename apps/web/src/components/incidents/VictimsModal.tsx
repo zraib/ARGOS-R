@@ -21,7 +21,9 @@ import type { Incident, IncidentVictim, MortuaryRecord, VictimKind } from "@/lib
 // à laquelle on l'affecte : le dossier s'ouvre là-bas, réception à confirmer.
 // ============================================================================
 
-const KIND_TONE: Record<VictimKind, Tone> = { dead: "red", injured: "amber", missing: "gray" };
+const KIND_TONE: Record<VictimKind, Tone> = { dead: "red", injured: "amber", missing: "gray", involved: "blue" };
+/** Les natures, dans l'ordre de l'écran : les victimes, puis les personnes impliquées (ADR 0034). */
+const KINDS: readonly VictimKind[] = ["dead", "injured", "missing", "involved"];
 
 type Draft = IdentityDraft & { kind: VictimKind; note: string; deathAt: string; hospitalId: string; lastSeen: string };
 const EMPTY_DRAFT: Draft = { ...EMPTY_IDENTITY, kind: "dead", note: "", deathAt: "", hospitalId: "", lastSeen: "" };
@@ -38,7 +40,12 @@ export function VictimsModal({ incident, onClose }: { incident: Incident; onClos
   const live = useArgos((s) => s.incidents.find((i) => i.id === incident.id)) ?? incident;
   const [victims, setVictims] = useState<IncidentVictim[]>([]);
   const [records, setRecords] = useState<MortuaryRecord[]>([]);
-  const [counts, setCounts] = useState({ dead: String(live.casualties?.dead ?? 0), injured: String(live.casualties?.injured ?? 0), missing: String(live.casualties?.missing ?? 0) });
+  const [counts, setCounts] = useState({
+    dead: String(live.casualties?.dead ?? 0),
+    injured: String(live.casualties?.injured ?? 0),
+    missing: String(live.casualties?.missing ?? 0),
+    involved: String(live.casualties?.involved ?? 0),
+  });
   const [editing, setEditing] = useState<Draft | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [assigning, setAssigning] = useState<IncidentVictim | null>(null);
@@ -73,7 +80,7 @@ export function VictimsModal({ incident, onClose }: { incident: Incident; onClos
     setError(null);
     try {
       const n = (s: string) => Math.max(0, parseInt(s, 10) || 0);
-      const res = await api.updateIncident(incident.id, { casualties: { dead: n(counts.dead), injured: n(counts.injured), missing: n(counts.missing) } });
+      const res = await api.updateIncident(incident.id, { casualties: { dead: n(counts.dead), injured: n(counts.injured), missing: n(counts.missing), involved: n(counts.involved) } });
       if (refuse(res)) return;
       await loadDomain();
       showToast(m.victims.counts_saved);
@@ -144,7 +151,7 @@ export function VictimsModal({ incident, onClose }: { incident: Incident; onClos
     }
   };
 
-  const kindLabel: Record<VictimKind, string> = { dead: m.wizard.dead, injured: m.wizard.injured, missing: m.wizard.missing };
+  const kindLabel: Record<VictimKind, string> = { dead: m.wizard.dead, injured: m.wizard.injured, missing: m.wizard.missing, involved: m.wizard.involved };
   const siteOf = (id?: string) => morgues.find((s) => s.id === id);
   const recordOf = (v: IncidentVictim) => records.find((r) => r.id === v.recordId);
   const choix = assigning ? nearestSites(live.ll, morgues, records, { region: live.region }) : [];
@@ -214,7 +221,7 @@ export function VictimsModal({ incident, onClose }: { incident: Incident; onClos
 
         {/* --- les compteurs ------------------------------------------------- */}
         <div className="carte flex flex-wrap items-end gap-3 p-3">
-          {(["dead", "injured", "missing"] as VictimKind[]).map((k) => (
+          {KINDS.map((k) => (
             <div key={k} className="min-w-[110px] flex-1">
               <label className={labelCls}>{kindLabel[k]}</label>
               <input type="number" min={0} className={`${inputCls} font-mono`} value={counts[k]} disabled={!canWrite} onChange={(e) => setCounts((c) => ({ ...c, [k]: e.target.value }))} />
@@ -228,7 +235,7 @@ export function VictimsModal({ incident, onClose }: { incident: Incident; onClos
         </div>
 
         {/* --- les personnes, par nature ------------------------------------- */}
-        {(["dead", "injured", "missing"] as VictimKind[]).map((k) => {
+        {KINDS.map((k) => {
           const liste = victimsOf(victims, k);
           return (
             <section key={k} className="flex flex-col gap-2">
@@ -236,6 +243,7 @@ export function VictimsModal({ incident, onClose }: { incident: Incident; onClos
                 <Pill tone={KIND_TONE[k]} label={kindLabel[k]} size="sm" />
                 <span className="font-mono text-[11px] text-gray-400 dark:text-rdia-400">{liste.length} / {counts[k] || 0}</span>
                 {k === "dead" && <span className="text-[11px] text-gray-500 dark:text-rdia-300">{m.victims.dead_hint}</span>}
+                {k === "involved" && <span className="text-[11px] text-gray-500 dark:text-rdia-300">{m.wizard.involved_hint}</span>}
                 {canWrite && (
                   <button type="button" onClick={() => startAdd(k)} className="ms-auto cible-tactile flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-[11px] font-semibold text-gray-600 hover:border-or-500 hover:text-or-500 dark:border-rdia-600 dark:text-rdia-200">
                     <Icon path={UI_ICONS.plus} size={12} />
@@ -261,7 +269,7 @@ export function VictimsModal({ incident, onClose }: { incident: Incident; onClos
           <div className="flex flex-col gap-4">
             {!editingId && (
               <div className="flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-rdia-700">
-                {(["dead", "injured", "missing"] as VictimKind[]).map((k) => (
+                {KINDS.map((k) => (
                   <button key={k} type="button" onClick={() => setEditing({ ...editing, kind: k })} aria-pressed={editing.kind === k} className={`min-h-9 flex-1 rounded-md px-2 text-[12px] font-semibold transition-colors ${editing.kind === k ? "bg-or-500 text-rdia-900" : "text-gray-600 hover:bg-white/60 dark:text-rdia-200"}`}>
                     {kindLabel[k]}
                   </button>

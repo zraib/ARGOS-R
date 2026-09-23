@@ -153,6 +153,8 @@ export interface Incident {
     exposed?: number;
     contaminated?: number;
     rescued?: number;
+    /** Personnes impliquées : touchées sans être victimes — jamais comptées parmi elles (ADR 0034). */
+    involved?: number;
   };
   /** Premiers intervenants rattachés : identifiants d'unités / d'hôpitaux — et de sites mortuaires dès qu'un décès est déclaré. */
   responders?: { units: string[]; hospitals: string[]; morgues?: string[] };
@@ -948,8 +950,9 @@ export interface PersonIdentity {
   age?: number;
 }
 
-export type VictimKind = "dead" | "injured" | "missing";
-export const VICTIM_KINDS: readonly VictimKind[] = ["dead", "injured", "missing"];
+/** `involved` : une personne impliquée, nommée — pas une victime (ADR 0034). */
+export type VictimKind = "dead" | "injured" | "missing" | "involved";
+export const VICTIM_KINDS: readonly VictimKind[] = ["dead", "injured", "missing", "involved"];
 
 /** Une victime nommée d'un incident — le bilan affiné par les intervenants ; un décédé porte sa morgue d'affectation. */
 export interface IncidentVictim extends PersonIdentity {

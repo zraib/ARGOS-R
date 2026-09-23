@@ -54,6 +54,8 @@ export interface WizardForm {
   missing: string;
   infected: string;
   contaminated: string;
+  /** Personnes impliquées : touchées sans être victimes (ADR 0034). */
+  involved: string;
   units: string[];
   hospitals: string[];
   /** Sites mortuaires proposés dès qu'un décès est déclaré, comme les unités et les hôpitaux. */
@@ -84,6 +86,7 @@ export const EMPTY_FORM: WizardForm = {
   missing: "",
   infected: "",
   contaminated: "",
+  involved: "",
   units: [],
   hospitals: [],
   morgues: [],
@@ -198,6 +201,7 @@ export function formFromIncident(inc: Incident, geo?: GeoRef): WizardForm {
     missing: c ? String(c.missing) : "",
     infected: c ? String(c.infected ?? "") : "",
     contaminated: c ? String(c.contaminated ?? "") : "",
+    involved: c?.involved ? String(c.involved) : "",
     units: inc.responders?.units ?? [],
     hospitals: inc.responders?.hospitals ?? [],
     morgues: inc.responders?.morgues ?? [],
@@ -288,24 +292,28 @@ export type CasualtiesBody = {
   missing: number;
   infected?: number;
   contaminated?: number;
+  /** Personnes impliquées — jamais comptées parmi les victimes (ADR 0034). */
+  involved?: number;
 };
 
 /** Le bilan à envoyer — ou rien du tout si aucun compteur n'est renseigné. */
 export function buildCasualties(
-  form: Pick<WizardForm, "dead" | "injured" | "missing" | "infected" | "contaminated">,
+  form: Pick<WizardForm, "dead" | "injured" | "missing" | "infected" | "contaminated" | "involved">,
 ): CasualtiesBody | undefined {
   const dead = parseCount(form.dead);
   const injured = parseCount(form.injured);
   const missing = parseCount(form.missing);
   const infected = parseCount(form.infected);
   const contaminated = parseCount(form.contaminated);
-  if (dead + injured + missing + infected + contaminated === 0) return undefined;
+  const involved = parseCount(form.involved);
+  if (dead + injured + missing + infected + contaminated + involved === 0) return undefined;
   return {
     dead,
     injured,
     missing,
     ...(infected > 0 ? { infected } : {}),
     ...(contaminated > 0 ? { contaminated } : {}),
+    ...(involved > 0 ? { involved } : {}),
   };
 }
 
