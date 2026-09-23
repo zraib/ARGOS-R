@@ -517,6 +517,12 @@ Exigences du `MASTER_PLAN.md` §4.3 :
   échecs de connexion (dix par compte et par quart d'heure → `429`), tunnel ou
   pas. Une porte d'identité (Cloudflare Access) peut se poser devant un tunnel
   nommé sans toucher à la station.
+- **Scripts de station signés** (ADR 0031) : chaque script PowerShell du paquet
+  est signé en Authenticode à la fabrication (`deploy/scripts/sign.sh`, clé
+  privée hors dépôt dans `~/.iris-signing`) ; la station approuve l'éditeur
+  « IRIS Station - Signature des scripts » une fois (`trust.ps1`), retient le
+  premier éditeur approuvé et signale un paquet signé par une autre clé ou un
+  script modifié depuis sa signature.
 - **Aucun secret dans le dépôt.** `.env.example` sert de gabarit ; le secret de
   développement (`AUTH_DEV_SECRET`) doit être remplacé en production.
 - Aucune nouvelle dépendance runtime sans [ADR](adr/README.md).

@@ -12,12 +12,18 @@
 #   iris-station-<version>/                          l'arbre du dépôt (git archive)
 #     deploy/images/iris-images-<version>.tar.gz     toutes les images linux/amd64
 #     deploy/tools/tunnelto-windows.exe (+ .sha256)  le client tunnel, épinglé et vérifié
+#     deploy/certs/iris-signature.cer                le certificat public des scripts signés
 #     deploy/VERSION · MANIFEST.txt · LISEZMOI.txt
 #   iris-station-<version>.zip (+ .sha256)           la même chose, en un seul fichier
 #
-# Sur la station : décompresser, puis deploy\scripts\install.ps1 (charge les
-# images, écrit .env, démarre la pile). Aucun accès Internet, aucun Node, aucune
-# compilation n'y sont nécessaires.
+# Les scripts PowerShell du paquet sont SIGNÉS (Authenticode, ADR 0031) par la
+# clé de $IRIS_SIGNING_DIR (défaut ~/.iris-signing, créée une fois par
+# deploy/scripts/sign.sh init) ; le paquet ne se fait pas sans elle, sauf
+# --no-sign.
+#
+# Sur la station : décompresser, puis deploy\install.cmd (approuve l'éditeur des
+# scripts, charge les images, écrit .env, démarre la pile). Aucun accès
+# Internet, aucun Node, aucune compilation n'y sont nécessaires.
 #
 # Usage : deploy/scripts/package.sh [options]
 #   --no-base            n'embarque que les images de l'application (proxy, base,
@@ -30,6 +36,7 @@
 #                        (tuiles hors ligne de la station ; version suffixée -souv)
 #   --skip-build         réutilise les images iris-*:<version> déjà construites
 #   --no-zip             laisse le dossier tel quel, sans l'archiver
+#   --no-sign            ne signe pas les scripts PowerShell (essai local seulement)
 #   --out <dossier>      destination (défaut : deploy/dist)
 # ============================================================================
 set -euo pipefail
@@ -49,6 +56,7 @@ WITH_BASE=1
 WITH_TILES_BUILD=0
 SKIP_BUILD=0
 DO_ZIP=1
+DO_SIGN=1
 MAP_MODE="external"
 DIST="$DEPLOY/dist"
 while [ $# -gt 0 ]; do
@@ -58,8 +66,9 @@ while [ $# -gt 0 ]; do
     --map) shift; MAP_MODE="$1"; [ "$MAP_MODE" = external ] || [ "$MAP_MODE" = sovereign ] || { echo "--map attend external ou sovereign" >&2; exit 1; } ;;
     --skip-build) SKIP_BUILD=1 ;;
     --no-zip) DO_ZIP=0 ;;
+    --no-sign) DO_SIGN=0 ;;
     --out) shift; DIST="$(mkdir -p "$1" && cd "$1" && pwd)" ;;
-    -h|--help) sed -n '2,36p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,41p' "$0"; exit 0 ;;
     *) echo "option inconnue : $1 (voir --help)" >&2; exit 1 ;;
   esac
   shift
@@ -80,6 +89,13 @@ docker info >/dev/null 2>&1 || die "Docker ne répond pas (Docker Desktop démar
 BUILDX_INFO="$(docker buildx inspect --bootstrap 2>/dev/null || true)"
 grep -q "linux/amd64" <<<"$BUILDX_INFO" || die "le constructeur buildx ne sait pas produire linux/amd64"
 git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "pas un dépôt git : $ROOT"
+# La clé de signature est vérifiée AVANT les longues constructions d'images.
+if [ "$DO_SIGN" = 1 ]; then
+  echo "    certificat de signature des scripts :"
+  "$HERE/sign.sh" check || die "signature des scripts impossible — créer la clé une fois (deploy/scripts/sign.sh init) ou passer --no-sign"
+else
+  warn "--no-sign : scripts PowerShell NON signés — Windows les refusera s'ils sont lancés sans les lanceurs .cmd"
+fi
 
 COMMIT="$(git -C "$ROOT" rev-parse --short HEAD)"
 VERSION="$(date +%Y%m%d)-${COMMIT}"
@@ -155,6 +171,14 @@ mkdir -p "$OUT/deploy/images" "$OUT/deploy/tools"
 git -C "$ROOT" archive --format=tar HEAD | tar -x -C "$OUT"
 printf '%s\n' "$VERSION" > "$OUT/deploy/VERSION"
 
+# --- 3 bis. signature des scripts PowerShell (ADR 0031) -----------------------
+# Après l'extraction (fins de ligne CRLF déjà appliquées par .gitattributes) et
+# avant l'archive : plus rien ne touche aux scripts une fois signés.
+if [ "$DO_SIGN" = 1 ]; then
+  say "Signature des scripts PowerShell (Authenticode)"
+  "$HERE/sign.sh" sign "$OUT"
+fi
+
 # --- 4. export des images -----------------------------------------------------
 IMAGES_TGZ="$OUT/deploy/images/iris-images-${VERSION}.tar.gz"
 say "Export des images → $(basename "$IMAGES_TGZ") (plusieurs Go, quelques minutes)"
@@ -197,15 +221,33 @@ say "Manifeste"
   echo
   echo "Fichiers :"
   (cd "$OUT" && find deploy/images deploy/tools -type f ! -name '*.sha256' -exec shasum -a 256 {} \;)
+  echo
+  if [ "$DO_SIGN" = 1 ]; then
+    echo "Scripts PowerShell signés (Authenticode, ADR 0031) :"
+    sed 's/^/  /' "$OUT/deploy/certs/iris-signature.txt"
+    (cd "$OUT" && find . -type f \( -name '*.ps1' -o -name '*.psm1' -o -name '*.psd1' \) | sort | sed 's|^\./||' | while read -r f; do printf '  %s  %s\n' "$(shasum -a 256 "$f" | cut -c1-64)" "$f"; done)
+  else
+    echo "Scripts PowerShell : NON signés (--no-sign)"
+  fi
 } > "$OUT/MANIFEST.txt"
+if [ "$DO_SIGN" = 1 ]; then
+  SIGN_THUMB="$(grep -m1 'SHA-1' "$OUT/deploy/certs/iris-signature.txt" | sed 's/.*: //')"
+  SIGN_NOTE="   Les scripts sont SIGNÉS (éditeur « IRIS Station - Signature des scripts »,
+   empreinte ${SIGN_THUMB}). Au premier lancement, install.cmd (ou upgrade.cmd)
+   approuve cet éditeur sur la station — Windows demande de confirmer : répondre Oui
+   (en administrateur : aucune question). Ensuite les .ps1 s'exécutent aussi lancés
+   directement, sans « n'est pas signé numériquement » ; trust.cmd le refait à la demande."
+else
+  SIGN_NOTE="   Paquet NON signé (--no-sign) : passer par les lanceurs .cmd, qui contournent la
+   politique d'exécution PowerShell."
+fi
 cat > "$OUT/LISEZMOI.txt" <<EOF
 ARGOS / IRIS — station Windows, paquet ${VERSION}
 
 1. Installer Docker Desktop (WSL 2) : deploy\\GUIDE-DEBUTANT-WINDOWS.md, étapes 1 et 2.
 2. Copier ce dossier sur la station (par exemple C:\\iris).
 3. Dans PowerShell (ou l'invite de commandes) :   cd C:\\iris\\deploy   puis   .\\install.cmd
-   (le lanceur .cmd retire la marque « vient d'Internet » des scripts et contourne la
-   politique d'exécution PowerShell — « n'est pas signé numériquement » ; .\\scripts\\install.ps1 reste possible)
+${SIGN_NOTE}
    Le script charge les images (deploy\\images), écrit .env avec des secrets
    générés, démarre la pile et attend que l'API réponde. Aucun accès Internet requis.
 4. Ouvrir http://localhost — compte fondateur m.zraib, code ARGOS-2026 (à changer).
@@ -233,4 +275,4 @@ fi
 say "Terminé"
 echo "    dossier : $OUT"
 [ "$DO_ZIP" = 1 ] && echo "    archive : $DIST/$NAME.zip  (empreinte : $NAME.zip.sha256)"
-echo "    station : décompresser, puis  cd deploy ; .\\scripts\\install.ps1"
+echo "    station : décompresser, puis  cd deploy ; .\\install.cmd   (mise à jour : .\\upgrade.cmd -Current C:\\iris\\deploy)"

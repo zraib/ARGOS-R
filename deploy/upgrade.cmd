@@ -9,5 +9,7 @@ rem Les arguments sont transmis tels quels :  upgrade.cmd -Current C:\iris\deplo
 setlocal
 set "HERE=%~dp0"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-ChildItem -Path '%HERE%scripts' -Filter *.ps1 | Unblock-File -ErrorAction SilentlyContinue; Get-ChildItem -Path '%HERE%' -File | Unblock-File -ErrorAction SilentlyContinue"
+rem Approuve une fois l'editeur IRIS (certificat du paquet) et verifie les signatures.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%HERE%scripts\trust.ps1"
 powershell -NoProfile -ExecutionPolicy Bypass -File "%HERE%scripts\upgrade.ps1" %*
 exit /b %ERRORLEVEL%
