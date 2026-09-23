@@ -219,6 +219,8 @@ export interface Hospital {
 }
 
 export interface FieldHospital {
+  /** Identifiant propre du détachement (`HDC-01`…) — `hid` désigne l'établissement dont il relève. */
+  id: string;
   hid: string;
   nom: string;
   cap: number;

@@ -329,6 +329,8 @@ export interface HospVehRow {
   maint: boolean;
 }
 export interface FieldCard {
+  /** Identifiant du détachement — la suppression le demande. */
+  id: string;
   nom: string;
   /** Catégorie (campagne militaire / campagne civile) pour le symbole. */
   kind: HospitalKind;
@@ -391,6 +393,7 @@ export function hospitalDetail(h: Hospital, fieldHosps: FieldHospital[], t: Dict
     .map((f) => {
       const pct = Math.round((f.occ / f.cap) * 100);
       return {
+        id: f.id,
         nom: f.nom,
         kind: fieldKind(f),
         cap: String(f.cap),

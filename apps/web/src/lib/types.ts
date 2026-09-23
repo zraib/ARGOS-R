@@ -327,6 +327,8 @@ export interface Hospital {
 export type FieldHospStatus = "op" | "partial";
 
 export interface FieldHospital {
+  /** Identifiant propre du détachement (`HDC-01`…) ; `hid` est l'établissement dont il relève. */
+  id: string;
   hid: string;
   nom: string;
   cap: number;

@@ -103,6 +103,22 @@ describe("ADR 0029 — la carte de tous : changements poussés, simulations part
     expect(domaine()).toEqual([]);
   });
 
+  it("le réseau hospitalier aussi : un établissement créé, un hôpital de campagne déployé puis retiré poussent `hospitals`", async () => {
+    const hop = (await base().post("/api/hospitals").set(bearer(root))
+      .send({ nom: `Hôpital temps réel ${Date.now()}`, ville: "Rabat", kind: "civ", type: "Hôpital provincial", region: "Rabat-Salé-Kénitra", province: "Rabat", lits: 20, rea: 2, staff: 10, amb: 1, heli: 0, x: 1, y: 1, ll: [-6.87, 34.05] })
+      .expect(201)).body as { id: string };
+    expect(domaine()).toContainEqual({ kind: "domain", what: "hospitals" });
+    vus = [];
+    const campagne = (await base().post("/api/field-hospitals").set(bearer(root)).send({ hospitalId: hop.id, ll: [-6.88, 34.06] }).expect(201)).body as { id: string };
+    expect(domaine()).toEqual([{ kind: "domain", what: "hospitals" }]);
+    vus = [];
+    await base().delete(`/api/field-hospitals/${campagne.id}`).set(bearer(root)).expect(200);
+    expect(domaine()).toEqual([{ kind: "domain", what: "hospitals" }]);
+    vus = [];
+    await base().delete(`/api/hospitals/${hop.id}`).set(bearer(root)).expect(200);
+    expect(domaine()).toContainEqual({ kind: "domain", what: "hospitals" });
+  });
+
   it("une simulation partagée se voit de tous ; son auteur ou le Super Administrateur la retire, un tiers non", async () => {
     const wali = await jeton("h.alami", "wali");
     const sim = (await base().post("/api/simulations").set(bearer(wali))

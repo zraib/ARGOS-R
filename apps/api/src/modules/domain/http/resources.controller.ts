@@ -68,7 +68,8 @@ export class ResourcesController {
     summary: "Créer une unité (audité).",
     description:
       "Le MODE de la station resserre la matrice (ADR 0016) : en démonstration et en exercice, l'OPCOM et les cellules " +
-      "créent des unités pour le scénario ; en opérationnel, le Super Administrateur seul.",
+      "créent des unités pour le scénario ; en opérationnel, le Super Administrateur seul. Le profil direx tient ses unités " +
+      "en tout mode : la DIREX (Chef, Anim, RLS) et, dans chaque PC, le chef, les OPS, les LOG et les Rens (ADR 0030).",
   })
   @ApiResponse({ status: 403, description: "Le mode de la station ne le permet pas à ce rôle." })
   createUnit(@Body() dto: CreateUnitDto, @CurrentUser() user: AuthUser) {
@@ -95,24 +96,24 @@ export class ResourcesController {
   }
 
   @ApiOperation({
-    summary: "Supprimer définitivement une unité — Super Administrateur ; OPCOM et cellules hors mode opérationnel (ADR 0016).",
+    summary: "Supprimer définitivement une unité — qui la crée la retire (ADR 0016, ADR 0030).",
     description:
-      "La matrice n'accorde `teams:delete` à personne : seul le joker du Super Administrateur la détient. " +
-      "Refusé (409) tant que l'unité est engagée sur une opération active ou qu'un compte en a la responsabilité ; " +
+      "Route gardée par `teams:update`, puis par la règle de mode : le Super Administrateur toujours ; hors mode " +
+      "opérationnel l'OPCOM et les cellules du profil classique ; au profil direx, en tout mode, la DIREX (Chef, Anim, RLS) " +
+      "et, dans chaque PC, le chef, les OPS, les LOG et les Rens. Refusé (409) tant que l'unité est engagée sur une opération active ou qu'un compte en a la responsabilité ; " +
       "`?force=true` passe outre. Son parc et ses postes partent avec elle ; une graine supprimée ne revient pas au redémarrage.",
   })
   @Delete("units/:id")
   @RequirePermission("teams:update")
   @ApiQuery({ name: "force", required: false, description: "Passer outre les garde-fous (engagements, responsables)." })
-  @ApiResponse({ status: 403, description: "Réservé au Super Administrateur." })
+  @ApiResponse({ status: 403, description: "Le rôle ne retire pas d'unité dans ce mode." })
   @ApiResponse({ status: 404, description: "Unité inconnue." })
   @ApiResponse({ status: 409, description: "L'unité est encore engagée ou tenue par un compte." })
   deleteUnit(@Param("id") id: string, @Query("force") force: string | undefined, @CurrentUser() user: AuthUser) {
-    // Doctrine : `delete` au Super Administrateur seul — sauf, en démonstration
-    // et en exercice, pour l'OPCOM et les cellules qui retirent les unités du
-    // scénario (ADR 0016). La permission de route est `teams:update` ; la
-    // règle de mode fait le tri.
-    if (!canDeleteUnit(user.role, this.mode.current())) throw new ForbiddenException("Réservé au Super Administrateur (et, hors mode opérationnel, à l'OPCOM et aux cellules).");
+    // La permission de route est `teams:update` ; la règle de mode fait le tri
+    // (trait `unitRemover` : ADR 0016 pour le profil classique, ADR 0030 pour
+    // le profil direx — qui crée une unité la retire).
+    if (!canDeleteUnit(user.role, this.mode.current())) throw new ForbiddenException("Ce rôle ne retire pas d'unité dans le mode en service (ADR 0016, ADR 0030).");
     return this.deleteEntity("unit", id, force, user);
   }
 
@@ -149,7 +150,7 @@ export class ResourcesController {
   }
 
   @ApiOperation({
-    summary: "Fermer définitivement un abri — SUPERADMIN uniquement.",
+    summary: "Fermer définitivement un abri (audité) — `shelters:delete`.",
     description:
       "Refusé (409) tant que l'abri héberge des occupants ou qu'un compte en a la responsabilité ; `?force=true` passe outre. " +
       "Ses postes sur la carte partent avec lui.",
@@ -157,7 +158,7 @@ export class ResourcesController {
   @Delete("shelters/:id")
   @RequirePermission("shelters:delete")
   @ApiQuery({ name: "force", required: false, description: "Passer outre les garde-fous (occupants, responsables)." })
-  @ApiResponse({ status: 403, description: "Réservé au Super Administrateur." })
+  @ApiResponse({ status: 403, description: "Le rôle ne détient pas la permission de suppression." })
   @ApiResponse({ status: 404, description: "Abri inconnu." })
   @ApiResponse({ status: 409, description: "L'abri héberge encore ou est tenu par un compte." })
   deleteShelter(@Param("id") id: string, @Query("force") force: string | undefined, @CurrentUser() user: AuthUser) {
@@ -303,7 +304,7 @@ export class ResourcesController {
   }
 
   @ApiOperation({
-    summary: "Supprimer définitivement un site mortuaire — SUPERADMIN uniquement.",
+    summary: "Supprimer définitivement un site mortuaire ou une morgue mobile (audité) — `morgue:delete`.",
     description:
       "Refusé (409) tant que des corps figurent au registre du site, qu'il est affecté à une opération active ou qu'un compte " +
       "en a la responsabilité ; `?force=true` passe outre — les dossiers du site partent alors avec lui.",
@@ -311,7 +312,7 @@ export class ResourcesController {
   @Delete("morgues/:id")
   @RequirePermission("morgue:delete")
   @ApiQuery({ name: "force", required: false, description: "Passer outre les garde-fous (registre, affectations, responsables)." })
-  @ApiResponse({ status: 403, description: "Réservé au Super Administrateur." })
+  @ApiResponse({ status: 403, description: "Le rôle ne détient pas la permission de suppression." })
   @ApiResponse({ status: 404, description: "Site inconnu." })
   @ApiResponse({ status: 409, description: "Le site a encore un registre, une affectation ou un responsable." })
   deleteMorgue(@Param("id") id: string, @Query("force") force: string | undefined, @CurrentUser() user: AuthUser) {

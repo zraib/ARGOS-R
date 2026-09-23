@@ -371,7 +371,7 @@ export const EN_DICT: Dict = {
     // Empty station (ADR 0015)
     fam_shelter: "Sheltering", lg_shelters: "Shelters", lg_trackers: "Trackers and shared positions",
     trk_map_device: "GPS device", trk_map_app: "Shared position", trk_map_stale: "Silent", trk_map_live: "Transmitting", trk_map_panic: "ALERT", trk_speed: "Speed", trk_heading: "Heading",
-    del_unit: "Delete the unit", del_shelter: "Delete the shelter", del_morgue: "Delete the site", del_hospital: "Remove the facility",
+    del_unit: "Delete the unit", del_shelter: "Delete the shelter", del_morgue: "Delete the site", del_hospital: "Remove the facility", del_field_hospital: "Remove the field hospital",
     del_confirm_title: "Permanent deletion", del_confirm_body: "This cannot be undone: {name} will disappear with everything that depends on it (equipment, posts, records). Confirm?",
     del_confirm_force: "The entity is held back: {blockers}. Override and delete anyway?", del_blocked: "Deletion refused", del_entity_done: "{name} deleted", del_forbidden: "Super Administrator only.", del_code_help_entity: "To confirm, retype the identifier:", del_code_bad_entity: "The code does not match the identifier.",
     // Command chain, modes, resources (ADR 0016)

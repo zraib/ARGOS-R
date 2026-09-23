@@ -2797,7 +2797,7 @@
         ]
       },
       "post": {
-        "description": "Le MODE de la station resserre la matrice (ADR 0016) : en démonstration et en exercice, l'OPCOM et les cellules créent des unités pour le scénario ; en opérationnel, le Super Administrateur seul.",
+        "description": "Le MODE de la station resserre la matrice (ADR 0016) : en démonstration et en exercice, l'OPCOM et les cellules créent des unités pour le scénario ; en opérationnel, le Super Administrateur seul. Le profil direx tient ses unités en tout mode : la DIREX (Chef, Anim, RLS) et, dans chaque PC, le chef, les OPS, les LOG et les Rens (ADR 0030).",
         "operationId": "ResourcesController_createUnit",
         "parameters": [],
         "requestBody": {
@@ -2865,7 +2865,7 @@
         ]
       },
       "delete": {
-        "description": "La matrice n'accorde `teams:delete` à personne : seul le joker du Super Administrateur la détient. Refusé (409) tant que l'unité est engagée sur une opération active ou qu'un compte en a la responsabilité ; `?force=true` passe outre. Son parc et ses postes partent avec elle ; une graine supprimée ne revient pas au redémarrage.",
+        "description": "Route gardée par `teams:update`, puis par la règle de mode : le Super Administrateur toujours ; hors mode opérationnel l'OPCOM et les cellules du profil classique ; au profil direx, en tout mode, la DIREX (Chef, Anim, RLS) et, dans chaque PC, le chef, les OPS, les LOG et les Rens. Refusé (409) tant que l'unité est engagée sur une opération active ou qu'un compte en a la responsabilité ; `?force=true` passe outre. Son parc et ses postes partent avec elle ; une graine supprimée ne revient pas au redémarrage.",
         "operationId": "ResourcesController_deleteUnit",
         "parameters": [
           {
@@ -2886,7 +2886,7 @@
         ],
         "responses": {
           "403": {
-            "description": "Réservé au Super Administrateur."
+            "description": "Le rôle ne retire pas d'unité dans ce mode."
           },
           "404": {
             "description": "Unité inconnue."
@@ -2900,7 +2900,7 @@
             "bearer": []
           }
         ],
-        "summary": "Supprimer définitivement une unité — Super Administrateur ; OPCOM et cellules hors mode opérationnel (ADR 0016).",
+        "summary": "Supprimer définitivement une unité — qui la crée la retire (ADR 0016, ADR 0030).",
         "tags": [
           "domain"
         ]
@@ -3015,7 +3015,7 @@
         ],
         "responses": {
           "403": {
-            "description": "Réservé au Super Administrateur."
+            "description": "Le rôle ne détient pas la permission de suppression."
           },
           "404": {
             "description": "Abri inconnu."
@@ -3029,7 +3029,7 @@
             "bearer": []
           }
         ],
-        "summary": "Fermer définitivement un abri — SUPERADMIN uniquement.",
+        "summary": "Fermer définitivement un abri (audité) — `shelters:delete`.",
         "tags": [
           "domain"
         ]
@@ -3291,7 +3291,7 @@
         ],
         "responses": {
           "403": {
-            "description": "Réservé au Super Administrateur."
+            "description": "Le rôle ne détient pas la permission de suppression."
           },
           "404": {
             "description": "Site inconnu."
@@ -3305,7 +3305,7 @@
             "bearer": []
           }
         ],
-        "summary": "Supprimer définitivement un site mortuaire — SUPERADMIN uniquement.",
+        "summary": "Supprimer définitivement un site mortuaire ou une morgue mobile (audité) — `morgue:delete`.",
         "tags": [
           "domain"
         ]
@@ -3683,7 +3683,7 @@
         ]
       },
       "delete": {
-        "description": "La matrice n'accorde `hospinet:delete` à personne : seul le joker du Super Administrateur la détient. Refusé (409) tant que l'établissement est engagé sur une opération active, porte des morgues rattachées ou des hôpitaux de campagne, ou qu'un compte en a la responsabilité ; `?force=true` passe outre — ses services et ses hôpitaux de campagne partent alors avec lui, les morgues rattachées sont détachées.",
+        "description": "`hospinet:delete` : le Super Administrateur et, au profil direx, ceux qui créent les établissements — chefs, Rens, OPS, LOG et Anim (ADR 0030, révision). Refusé (409) tant que l'établissement est engagé sur une opération active, porte des morgues rattachées ou des hôpitaux de campagne, ou qu'un compte en a la responsabilité ; `?force=true` passe outre — ses services et ses hôpitaux de campagne partent alors avec lui, les morgues rattachées sont détachées.",
         "operationId": "HospitalsController_deleteHospital",
         "parameters": [
           {
@@ -3704,7 +3704,7 @@
         ],
         "responses": {
           "403": {
-            "description": "Réservé au Super Administrateur."
+            "description": "Le rôle ne détient pas `hospinet:delete`."
           },
           "404": {
             "description": "Établissement inconnu."
@@ -3718,7 +3718,7 @@
             "bearer": []
           }
         ],
-        "summary": "Retirer définitivement un établissement du réseau — SUPERADMIN uniquement.",
+        "summary": "Retirer définitivement un établissement du réseau (audité).",
         "tags": [
           "domain"
         ]
@@ -3956,6 +3956,49 @@
           }
         ],
         "summary": "Déployer un hôpital de campagne à un point choisi sur la carte (audité).",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
+    "/api/field-hospitals/{id}": {
+      "delete": {
+        "description": "Qui déploie retire (ADR 0030, révision) : `hospinet:delete`. Refusé (409) tant que le détachement soigne des patients ou sert une opération active ; `?force=true` passe outre. L'établissement de rattachement reste engagé.",
+        "operationId": "HospitalsController_deleteFieldHospital",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "force",
+            "required": false,
+            "in": "query",
+            "description": "Passer outre les garde-fous (patients, opération servie).",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Le rôle ne détient pas `hospinet:delete`."
+          },
+          "404": {
+            "description": "Hôpital de campagne inconnu."
+          },
+          "409": {
+            "description": "Le détachement soigne encore ou sert une opération active."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Retirer un hôpital de campagne (audité).",
         "tags": [
           "domain"
         ]

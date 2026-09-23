@@ -373,7 +373,7 @@ export const FR_DICT: Dict = {
     // Station vide (ADR 0015)
     fam_shelter: "Hébergement", lg_shelters: "Abris d'hébergement", lg_trackers: "Traceurs et positions partagées",
     trk_map_device: "Boîtier GPS", trk_map_app: "Position partagée", trk_map_stale: "Muet", trk_map_live: "En émission", trk_map_panic: "ALERTE", trk_speed: "Vitesse", trk_heading: "Cap",
-    del_unit: "Supprimer l'unité", del_shelter: "Supprimer l'abri", del_morgue: "Supprimer le site", del_hospital: "Retirer l'établissement",
+    del_unit: "Supprimer l'unité", del_shelter: "Supprimer l'abri", del_morgue: "Supprimer le site", del_hospital: "Retirer l'établissement", del_field_hospital: "Retirer l'hôpital de campagne",
     del_confirm_title: "Suppression définitive", del_confirm_body: "Cette suppression est irréversible : {name} disparaîtra avec ce qui en dépend (parc, postes, dossiers). Confirmer ?",
     del_confirm_force: "L'entité est retenue : {blockers}. Passer outre et supprimer quand même ?", del_blocked: "Suppression refusée", del_entity_done: "{name} supprimé", del_forbidden: "Réservé au Super Administrateur.", del_code_help_entity: "Pour confirmer, recopiez l'identifiant :", del_code_bad_entity: "Le code ne correspond pas à l'identifiant.",
     // Chaîne de commandement, modes, ressources (ADR 0016)
