@@ -89,6 +89,14 @@ export default function MapPage() {
   const fieldHosps = useArgos((s) => s.fieldHosps);
   const select = useArgos((s) => s.select);
   const [full, setFull] = useState(false);
+  const setMapFull = useArgos((s) => s.setMapFull);
+  const openBriefing = useArgos((s) => s.openBriefing);
+  // Le plein écran se dit au reste de l'application (ADR 0032) : le centre de
+  // communication, le copilote et le briefing passent alors au-dessus de la carte.
+  useEffect(() => {
+    setMapFull(full);
+  }, [full, setMapFull]);
+  useEffect(() => () => setMapFull(false), [setMapFull]);
   /** Onglet ouvert dans la feuille du bas (sous `lg`) ; `null` = feuille fermée. */
   const [sheet, setSheet] = useState<SheetTab | null>(null);
   const chatWindows = useArgos((s) => s.chatOpen.length);
@@ -164,10 +172,17 @@ export default function MapPage() {
     setOpenPanel((o) => (plumeIncidentId ? "nrbc" : o === "nrbc" ? null : o));
   }, [plumeIncidentId]);
 
-  // Échap quitte le plein écran.
+  // Échap quitte le plein écran — sauf si Échap ferme d'abord autre chose : le
+  // copilote ou une modale ouverts par-dessus la carte (ADR 0032).
   useEffect(() => {
     if (!full) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setFull(false); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      // Un panneau modal OUVERT (le tiroir du copilote reste monté, glissé hors
+      // de l'écran et inerte, quand il est fermé).
+      if (document.querySelector('[aria-modal="true"]:not(.pointer-events-none)')) return;
+      setFull(false);
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [full]);
@@ -340,6 +355,8 @@ export default function MapPage() {
         selInfo = {
           titre: i.titre, sub: i.region, badgeType: sb.type, badgeLabel: sb.label,
           lines: [{ k: t.col_id, v: i.id }, { k: t.h_typev, v: typeLabel(i.type, incidentTypes, lang) }, { k: t.col_status, v: stBadge(i.st, t).label }, { k: t.col_time, v: i.time }],
+          // Le briefing couvre l'incident PRINCIPAL et sa famille : un rattaché ouvre celui de son principal.
+          briefing: () => openBriefing(i.parentId ?? i.id),
         };
       }
     } else if (kind === "placed") {
@@ -718,6 +735,11 @@ export default function MapPage() {
           {t.post_remove}
         </button>
       )}
+      {selInfo.briefing && (
+        <button className="btn-primaire flex min-h-11 w-full items-center justify-center gap-1.5 text-[14px] lg:min-h-0" onClick={selInfo.briefing}>
+          <Icon path={UI_ICONS.sparkles} size={14} /> {t.bf_button}
+        </button>
+      )}
       {selInfo.action && <button className="btn-secondaire min-h-11 w-full text-[14px] lg:min-h-0" onClick={selInfo.action}>{t.view}</button>}
     </div>
   );
@@ -890,6 +912,16 @@ export default function MapPage() {
               <button className={seg(mapSat)} onClick={() => setMapSat(true)}>{t.base_sat}</button>
               <button className={seg(!mapSat)} onClick={() => setMapSat(false)}>{t.base_plan}</button>
             </div>
+            {/* Briefing (ADR 0032) : sur l'incident sélectionné, sinon le dernier choisi — la fenêtre propose le choix. */}
+            <button
+              onClick={() => openBriefing(selMarker?.kind === "inc" ? (incidents.find((x) => x.id === selMarker.id)?.parentId ?? selMarker.id) : undefined)}
+              title={t.bf_title}
+              aria-label={t.bf_title}
+              className="flex h-11 items-center gap-1.5 rounded-lg px-3 text-[13px] font-bold text-white/90 shadow-md transition-colors hover:text-or-400 lg:h-[30px] lg:px-2.5 lg:text-[12px]"
+              style={GLASS}
+            >
+              <Icon path={UI_ICONS.sparkles} size={14} strokeWidth={2} /> {t.bf_button}
+            </button>
             <button
               onClick={() => setFull((f) => !f)}
               title={full ? t.wz_exit_full : t.wz_fullscreen}

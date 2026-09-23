@@ -158,6 +158,10 @@ export interface Incident {
   responders?: { units: string[]; hospitals: string[]; morgues?: string[] };
   /** Sous-incidents (aléas secondaires rattachés après la déclaration) */
   subIncidents?: SubIncident[];
+  /** Affectations d'unités par l'OPCOM, leur destination et leur déploiement (ADR 0016) — servies avec l'incident. */
+  assignments?: UnitAssignment[];
+  /** Actions entreprises : le journal de conduite, en ordre chronologique (ADR 0032). */
+  actionsLog?: IncidentActionEntry[];
   /** Volet NRBC (incidents de type nrbc) */
   nrbc?: NrbcDetails;
   /** Incident archivé (masqué de la liste active) */
@@ -168,6 +172,18 @@ export interface Incident {
 }
 
 /** Aléa secondaire rattaché à un incident principal (mêmes détails qu'un incident). */
+/** Une ligne des actions entreprises : date et heure, événement, action — et qui l'a saisie (ADR 0032). */
+export interface IncidentActionEntry {
+  id: string;
+  at: string;
+  event: string;
+  action: string;
+  by: string;
+  createdAt: string;
+  updatedBy?: string;
+  updatedAt?: string;
+}
+
 export interface SubIncident {
   id: string;
   type: string;

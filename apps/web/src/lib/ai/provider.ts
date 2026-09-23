@@ -246,10 +246,24 @@ export async function chatComplete(
 export async function chatStream(
   cfg: LlmProviderConfig,
   messages: LlmMessage[],
-  opts: { onToken: (acc: string) => void },
+  opts: {
+    onToken: (acc: string) => void;
+    /** Délai total (défaut 180 s) — le briefing (ADR 0032) le borne court : une réponse RAPIDE ou rien. */
+    timeoutMs?: number;
+    /** Annulation par l'appelant (fenêtre fermée, briefing relancé). */
+    signal?: AbortSignal;
+    /** Plafond de jetons générés (défaut : celui des options Ollama). */
+    numPredict?: number;
+  },
 ): Promise<LlmResult> {
-  if (cfg.id !== "ollama") return chatComplete(cfg, messages);
-  const { signal, done } = await withTimeout(180000);
+  if (cfg.id !== "ollama") return chatComplete(cfg, messages, { signal: opts.signal });
+  const { signal, done, ctrl } = await withTimeout(opts.timeoutMs ?? 180000);
+  if (opts.signal?.aborted) {
+    done();
+    return { ok: false, text: "", provider: cfg.id, error: "annulé", aborted: true };
+  }
+  const relais = () => ctrl.abort();
+  opts.signal?.addEventListener("abort", relais, { once: true });
   try {
     const r = await fetch(`${cfg.endpoint}/api/chat`, {
       method: "POST",
@@ -264,7 +278,7 @@ export async function chatStream(
         stream: true,
         think: false,
         keep_alive: "30m",
-        options: { ...OLLAMA_OPTIONS, temperature: cfg.temperature ?? OLLAMA_OPTIONS.temperature },
+        options: { ...OLLAMA_OPTIONS, temperature: cfg.temperature ?? OLLAMA_OPTIONS.temperature, num_predict: opts.numPredict ?? OLLAMA_OPTIONS.num_predict },
       }),
       signal,
     });
@@ -304,8 +318,10 @@ export async function chatStream(
     if (!acc.trim()) return { ok: false, text: "", provider: cfg.id, error: `${cfg.model} : réponse vide du modèle`, stats };
     return { ok: true, text: acc, provider: cfg.id, stats };
   } catch (e) {
+    if (opts.signal?.aborted) return { ok: false, text: "", provider: cfg.id, error: "annulé", aborted: true };
     return { ok: false, text: "", provider: cfg.id, error: e instanceof Error ? e.message : "réseau" };
   } finally {
+    opts.signal?.removeEventListener("abort", relais);
     done();
   }
 }

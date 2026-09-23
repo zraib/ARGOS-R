@@ -30,22 +30,30 @@ import { APP_MODE } from "@/common/app-mode";
 
 // Les types du domaine vivent dans domain.types.ts ; ré-exportés ici pour les
 // importateurs existants (contrôleurs, autres modules).
-export type { Incident, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviStatus, DviSample, MortuaryRecord, RecordChange, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind, Drawing, DrawingKind, SharedSimulation } from "@/modules/domain/domain.types";
+export type { Incident, IncidentActionEntry, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviStatus, DviSample, MortuaryRecord, RecordChange, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind, Drawing, DrawingKind, SharedSimulation } from "@/modules/domain/domain.types";
 export { DVI_STATUSES, DVI_SAMPLES } from "@/modules/domain/domain.types";
-import type { Incident, SubIncident, Unit, UnitAssignment, UnitCorps, Destination, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviSample, MortuaryRecord, RecordChange, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind, PersonIdentity, MorgueType, Drawing, SharedSimulation } from "@/modules/domain/domain.types";
+import type { Incident, IncidentActionEntry, SubIncident, Unit, UnitAssignment, UnitCorps, Destination, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviSample, MortuaryRecord, RecordChange, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind, PersonIdentity, MorgueType, Drawing, SharedSimulation } from "@/modules/domain/domain.types";
 import { checkPost, type PostLookup } from "@/modules/domain/post.rules";
 import type { ResponsibilityKind } from "@/shared/responsibilities";
 
 
 /**
- * Version des données de référence embarquées (hôpitaux, hôpitaux de campagne).
- * À INCRÉMENTER à chaque mise à jour du réseau : l'instantané dev écrit avec une
- * version antérieure est alors ignoré pour ces collections.
+ * Version des données de départ embarquées (jeu de démonstration, réseau
+ * hospitalier). Elle ne sert plus qu'à ESTAMPILLER l'instantané : depuis
+ * l'ADR 0033, une station qui a déjà des données les garde TOUTES à la mise à
+ * jour, quelle que soit cette version — les données de départ ne s'appliquent
+ * qu'à une station neuve (sans instantané), ou sur un geste explicite de
+ * l'administrateur (changement de profil de données, remise à zéro).
  * v4 — services de soins par établissement (wards).
  * v3 — ajout du réseau hospitalier public civil (106 établissements) et du
  *      champ `kind` différenciant les symboles cartographiques.
  */
 const DOMAIN_SEED_VERSION = 6;
+
+/** Le journal des actions entreprises, en ordre chronologique (à heure égale, ordre de saisie). */
+function chronological(log: IncidentActionEntry[]): IncidentActionEntry[] {
+  return [...log].sort((a, b) => a.at.localeCompare(b.at) || a.createdAt.localeCompare(b.createdAt));
+}
 
 /**
  * Écarte les doublons d'identifiant, en gardant la PREMIÈRE occurrence.
@@ -264,20 +272,18 @@ export class DomainService implements OnApplicationBootstrap {
     // tout tel quel, sans jamais élaguer par identifiant, et sans reconstruire
     // le jeu de démonstration.
     if (!DEMO_DATA && snap.dataProfile === "empty") {
-      this.restoreEmpty(snap, sameSeed);
+      this.restoreEmpty(snap);
       if (!sameSeed) this.persist();
       return;
     }
 
-    // Incidents et unités : reprise INTÉGRALE tant que le seed n'a pas changé.
-    // Sur une montée de version, on reconstruit le jeu de démonstration et on
-    // CONSERVE ce qu'un utilisateur a créé pendant la séance — écraser les deux
-    // ferait perdre du travail, n'écraser ni l'un ni l'autre rendrait tout
-    // nouveau jeu de données sans effet là où il en faut un.
-    // Retour en démonstration depuis un instantané écrit vide (ADR 0016) : le
-    // jeu est reconstruit comme sur une montée de version — ce que les
-    // opérateurs ont créé reste, les graines reviennent.
-    const rebuild = !sameSeed || (DEMO_DATA && snap.dataProfile === "empty");
+    // Incidents et unités : reprise INTÉGRALE (ADR 0033) — une mise à jour de la
+    // station ne reconstruit plus rien, même quand le jeu de départ du code a
+    // changé : ce que la station contient reste tel quel. Seul un geste
+    // explicite reconstruit : le retour en démonstration depuis un instantané
+    // écrit vide (ADR 0016) — ce que les opérateurs ont créé reste, les
+    // graines reviennent.
+    const rebuild = DEMO_DATA && snap.dataProfile === "empty";
     if (snap.incidents) {
       const restored = snap.incidents.map(canonicalizeRegion);
       const seedIds = new Set(SEED_INCIDENTS.map((i) => i.id));
@@ -308,21 +314,24 @@ export class DomainService implements OnApplicationBootstrap {
           ];
       this.units.splice(0, this.units.length, ...dedupeById(kept));
     }
-    // Référentiel hospitalier : repris du disque UNIQUEMENT si l'instantané a
-    // été écrit avec la version de seed courante. Sinon (mise à jour du réseau
-    // hospitalier officiel), les seeds du code font autorité et écrasent
-    // l'ancienne liste — les incidents et unités, eux, sont conservés.
-    if (sameSeed && snap.hospitals) this.hospitals.splice(0, this.hospitals.length, ...snap.hospitals);
-    if (sameSeed && snap.fieldHospitals) this.fieldHospitals.splice(0, this.fieldHospitals.length, ...snap.fieldHospitals);
+    // Réseau hospitalier, abris, sites mortuaires et registre : repris du disque
+    // TELS QUELS (ADR 0033). Jusqu'ici une montée de version du seed les
+    // remplaçait par ceux du code — les établissements modifiés, les abris
+    // ouverts, les morgues et leurs dossiers d'une station auraient disparu à
+    // la mise à jour. Le référentiel du code ne vaut plus que pour une station
+    // neuve.
+    if (snap.hospitals) this.hospitals.splice(0, this.hospitals.length, ...snap.hospitals);
+    if (snap.fieldHospitals) this.fieldHospitals.splice(0, this.fieldHospitals.length, ...snap.fieldHospitals);
     this.ensureFieldHospitalIds();
-    if (sameSeed && snap.wards) this.wards.splice(0, this.wards.length, ...snap.wards);
-    if (sameSeed && snap.shelters) this.shelters.splice(0, this.shelters.length, ...snap.shelters);
-    if (sameSeed && snap.morgues) {
+    if (snap.wards) this.wards.splice(0, this.wards.length, ...snap.wards);
+    if (snap.shelters) this.shelters.splice(0, this.shelters.length, ...snap.shelters);
+    if (snap.morgues) {
       this.morgues.splice(0, this.morgues.length, ...snap.morgues);
       // Les instantanés antérieurs au service morgue ignorent la nature, le
       // code, la position, l'échelon et le rattachement des sites : on les
-      // complète depuis les graines — et les sites de départ apparus depuis
-      // (morgues régionales) rejoignent la liste.
+      // COMPLÈTE depuis les graines (champs absents seulement — rien de ce qui
+      // est renseigné n'est réécrit). Aucun site n'est plus ajouté à une
+      // station qui a déjà ses données (ADR 0033).
       for (const m of this.morgues) {
         const graine = MORGUE_SEEDS.find((g) => g.id === m.id);
         if (!graine) continue;
@@ -336,11 +345,8 @@ export class DomainService implements OnApplicationBootstrap {
         m.type ??= graine.type;
       }
       for (const m of this.morgues) m.type ??= defaultMorgueType(m);
-      for (const graine of MORGUE_SEEDS) {
-        if (!this.morgues.some((m) => m.id === graine.id)) this.morgues.push(structuredClone(graine));
-      }
     }
-    if (sameSeed && snap.mortuaryRecords) this.mortuaryRecords.splice(0, this.mortuaryRecords.length, ...snap.mortuaryRecords);
+    if (snap.mortuaryRecords) this.mortuaryRecords.splice(0, this.mortuaryRecords.length, ...snap.mortuaryRecords);
     if (snap.posts) this.posts = snap.posts;
     if (snap.drawings) this.drawings = snap.drawings;
     if (snap.simulations) this.simulations = snap.simulations;
@@ -350,9 +356,10 @@ export class DomainService implements OnApplicationBootstrap {
     // plateforme ne sont ni écrasés ni retouchés par une mise à jour — le
     // détenteur, l'équipe, la position, le numéro d'inventaire restent ceux
     // que l'opérateur a saisis. (Jusqu'ici une montée de version du seed
-    // rendait le parc de démonstration du code et perdait le reste.) Sur une
-    // montée de version en démonstration, les articles de démonstration
-    // absents rejoignent la liste, sans toucher aux autres.
+    // rendait le parc de démonstration du code et perdait le reste.) Depuis
+    // l'ADR 0033, une mise à jour n'y AJOUTE rien non plus : les articles de
+    // démonstration ne reviennent que sur le retour explicite en
+    // démonstration (profil de données), jamais à la mise à jour.
     if (snap.equipment) this.equipment.splice(0, this.equipment.length, ...snap.equipment);
     if (rebuild && DEMO_DATA && snap.equipment) {
       for (const g of EQUIPMENT as EquipItem[]) if (!this.equipment.some((x) => x.id === g.id)) this.equipment.push(structuredClone(g));
@@ -421,9 +428,8 @@ export class DomainService implements OnApplicationBootstrap {
   /**
    * Reprise d'un instantané écrit par une station vide : les collections
    * opérationnelles sont reprises telles quelles (elles ne contiennent que ce
-   * que les opérateurs ont créé). Le réseau hospitalier et ses services suivent
-   * la règle habituelle — le code fait autorité sur une montée de version du
-   * référentiel — mais ce qu'un opérateur y a AJOUTÉ est conservé.
+   * que les opérateurs ont créé), le réseau hospitalier et ses services aussi —
+   * même sur une montée de version du référentiel (ADR 0033).
    */
   private restoreEmpty(
     snap: {
@@ -431,19 +437,12 @@ export class DomainService implements OnApplicationBootstrap {
       shelters?: Shelter[]; morgues?: MorgueSite[]; mortuaryRecords?: MortuaryRecord[]; victims?: IncidentVictim[];
       equipment?: EquipItem[]; feed?: FeedItem[]; posts?: IncidentPost[]; drawings?: Drawing[]; simulations?: SharedSimulation[];
     },
-    sameSeed: boolean,
   ): void {
     const replace = <T,>(target: T[], next: readonly T[]): void => { target.splice(0, target.length, ...next); };
-    if (sameSeed && snap.hospitals) replace(this.hospitals, snap.hospitals);
-    else if (snap.hospitals) {
-      const seedIds = new Set(this.hospitals.map((h) => h.id));
-      this.hospitals.push(...snap.hospitals.filter((h) => !seedIds.has(h.id)));
-    }
-    if (sameSeed && snap.wards) replace(this.wards, snap.wards);
-    else if (snap.wards) {
-      const seedIds = new Set(this.wards.map((w) => w.id));
-      this.wards.push(...snap.wards.filter((w) => !seedIds.has(w.id)));
-    }
+    // Le réseau hospitalier et ses services, tels que la station les a — même
+    // sur une montée de version du seed (ADR 0033).
+    if (snap.hospitals) replace(this.hospitals, snap.hospitals);
+    if (snap.wards) replace(this.wards, snap.wards);
     this.incidents = (snap.incidents ?? []).map(canonicalizeRegion);
     replace(this.units, snap.units ?? []);
     replace(this.fieldHospitals, snap.fieldHospitals ?? []);
@@ -777,6 +776,69 @@ export class DomainService implements OnApplicationBootstrap {
     }
     this.persist();
     return inc;
+  }
+
+  // --- Actions entreprises (ADR 0032) --------------------------------------
+  // Le journal de conduite d'un incident : chaque ligne porte la date et
+  // l'heure choisies par l'opérateur, l'événement et l'action ; le journal
+  // reste en ordre chronologique. Le fil d'activité annonce chaque ajout.
+
+  /** Ajoute une ligne au journal des actions entreprises. */
+  addIncidentAction(id: string, input: { at: string; event: string; action: string }, actor: string): { entry?: IncidentActionEntry; missing?: true } {
+    const inc = this.incidents.find((i) => i.id === id);
+    if (!inc) return { missing: true };
+    const log = inc.actionsLog ?? [];
+    const n = log.reduce((m, e) => Math.max(m, Number(/-A(\d+)$/.exec(e.id)?.[1] ?? 0)), 0) + 1;
+    const entry: IncidentActionEntry = {
+      id: `${inc.id}-A${n}`,
+      at: new Date(input.at).toISOString(),
+      event: input.event.trim(),
+      action: input.action.trim(),
+      by: actor,
+      createdAt: new Date().toISOString(),
+    };
+    inc.actionsLog = chronological([...log, entry]);
+    const resume = (entry.action || entry.event).slice(0, 80);
+    this.pushFeed(`${inc.id} — action entreprise : ${resume}`, "bg-rdia-500", inc.id);
+    this.persist();
+    return { entry };
+  }
+
+  /** Corrige une ligne du journal (date et heure, événement, action). */
+  updateIncidentAction(
+    id: string,
+    aid: string,
+    patch: { at?: string; event?: string; action?: string },
+    actor: string,
+  ): { entry?: IncidentActionEntry; missing?: "incident" | "action"; error?: string } {
+    const inc = this.incidents.find((i) => i.id === id);
+    if (!inc) return { missing: "incident" };
+    const entry = inc.actionsLog?.find((e) => e.id === aid);
+    if (!entry) return { missing: "action" };
+    const next = {
+      event: patch.event !== undefined ? patch.event.trim() : entry.event,
+      action: patch.action !== undefined ? patch.action.trim() : entry.action,
+    };
+    if (!next.event && !next.action) return { error: "Une ligne porte au moins un événement ou une action." };
+    if (patch.at !== undefined) entry.at = new Date(patch.at).toISOString();
+    entry.event = next.event;
+    entry.action = next.action;
+    entry.updatedBy = actor;
+    entry.updatedAt = new Date().toISOString();
+    inc.actionsLog = chronological(inc.actionsLog ?? []);
+    this.persist();
+    return { entry };
+  }
+
+  /** Retire une ligne du journal. */
+  removeIncidentAction(id: string, aid: string): { ok?: true; missing?: "incident" | "action" } {
+    const inc = this.incidents.find((i) => i.id === id);
+    if (!inc) return { missing: "incident" };
+    const log = inc.actionsLog ?? [];
+    if (!log.some((e) => e.id === aid)) return { missing: "action" };
+    inc.actionsLog = log.filter((e) => e.id !== aid);
+    this.persist();
+    return { ok: true };
   }
 
   /** Rattache un sous-incident à un incident et trace l'événement. */

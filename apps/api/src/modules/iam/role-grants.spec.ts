@@ -7,7 +7,7 @@ import { AppModule } from "@/app.module";
 // ============================================================================
 // Fonctionnalités de l'API commutables par rôle (ADR 0022, lot 2)
 //
-// Les 43 lignes de la matrice s'ouvrent ou se coupent par rôle depuis
+// Les 44 lignes de la matrice s'ouvrent ou se coupent par rôle depuis
 // « Rôles & fonctionnalités » ; coupée, une fonctionnalité retire TOUTES ses
 // actions au rôle (403) et disparaît des permissions servies par /iam/me,
 // sans toucher à la matrice. Le cœur et les administrateurs sont verrouillés.
@@ -35,9 +35,9 @@ describe("Fonctionnalités par rôle", () => {
 
   afterAll(async () => app.close());
 
-  it("les défauts découlent de la matrice : 43 fonctionnalités par rôle, ouvertes quand le rôle en détient une action", async () => {
+  it("les défauts découlent de la matrice : 44 fonctionnalités par rôle, ouvertes quand le rôle en détient une action", async () => {
     const d = (await base().get("/api/iam/role-grants/defaults").set(bearer(tacom)).expect(200)).body;
-    expect(Object.keys(d.tacom)).toHaveLength(43);
+    expect(Object.keys(d.tacom)).toHaveLength(44);
     expect(d.tacom.subincidents).toBe(true);
     expect(d.tacom.settings).toBe(false);
     expect(d.resp_shelter.assign).toBe(false);

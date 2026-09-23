@@ -26,6 +26,8 @@ export type ApiFeature = RoleGrantBody["feature"];
 export type CreateIncidentBody = Json<NonNullable<paths["/api/incidents"]["post"]["requestBody"]>>;
 export type UpdateIncidentBody = Json<NonNullable<paths["/api/incidents/{id}"]["patch"]["requestBody"]>>;
 export type CreateSubIncidentBody = Json<NonNullable<paths["/api/incidents/{id}/sub-incidents"]["post"]["requestBody"]>>;
+export type CreateIncidentActionBody = Json<NonNullable<paths["/api/incidents/{id}/actions"]["post"]["requestBody"]>>;
+export type UpdateIncidentActionBody = Json<NonNullable<paths["/api/incidents/{id}/actions/{aid}"]["patch"]["requestBody"]>>;
 export type RegisterIncidentTypeBody = Json<NonNullable<paths["/api/incident-types"]["post"]["requestBody"]>>;
 export type CreateUnitBody = Json<NonNullable<paths["/api/units"]["post"]["requestBody"]>>;
 export type CreateShelterBody = Json<NonNullable<paths["/api/shelters"]["post"]["requestBody"]>>;
@@ -170,6 +172,13 @@ export function createArgosClient(opts: ArgosClientOptions) {
       client.POST("/api/incidents/{id}/sub-incidents", { params: { path: { id } }, body }),
     removeSubIncident: (id: string, subId: string) =>
       client.DELETE("/api/incidents/{id}/sub-incidents/{subId}", { params: { path: { id, subId } } }),
+    // Actions entreprises : le journal de conduite de l'incident (ADR 0032).
+    addIncidentAction: (id: string, body: CreateIncidentActionBody) =>
+      client.POST("/api/incidents/{id}/actions", { params: { path: { id } }, body }),
+    updateIncidentAction: (id: string, aid: string, body: UpdateIncidentActionBody) =>
+      client.PATCH("/api/incidents/{id}/actions/{aid}", { params: { path: { id, aid } }, body }),
+    deleteIncidentAction: (id: string, aid: string) =>
+      client.DELETE("/api/incidents/{id}/actions/{aid}", { params: { path: { id, aid } } }),
     getDashboardStats: () => client.GET("/api/dashboard/stats"),
     /** Prédictions risques calculées côté serveur (moteur déterministe, F-04). */
     getDashboardRisk: () => client.GET("/api/dashboard/risk"),

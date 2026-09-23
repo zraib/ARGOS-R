@@ -49,10 +49,11 @@ export class InMemoryOrderRepository implements OrderRepository {
     const snap = loadDevState<OrdersSnapshotFile>("orders", {});
     // Les bons de travail de démonstration ne sont semés qu'en profil « demo »
     // (ADR 0015) : une station vide part sans aucun bon.
-    const source =
-      snap.seedVersion === ORDERS_SEED_VERSION && snap.orders
-        ? snap.orders
-        : DEMO_DATA ? WORK_ORDERS.map((w) => fromCatalog(w, new Date(0).toISOString())) : [];
+    // Un instantané existant fait foi, quelle que soit sa version (ADR 0033) :
+    // les bons d'une station ne sont jamais remplacés par le jeu de départ.
+    const source = snap.orders
+      ? snap.orders
+      : DEMO_DATA ? WORK_ORDERS.map((w) => fromCatalog(w, new Date(0).toISOString())) : [];
     for (const o of source) this.items.set(o.id, o);
     if (snap.seedVersion !== ORDERS_SEED_VERSION) this.persist();
   }

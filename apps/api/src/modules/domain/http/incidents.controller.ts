@@ -9,7 +9,7 @@
 
 import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query, UseInterceptors } from "@nestjs/common";
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
-import { AlertLevelDto, AssignMorgueDto, AssignUnitDto, CreateVictimDto, PublishSitrepDto, CreateIncidentDto, CreateSubIncidentDto, RegisterIncidentTypeDto, UpdateIncidentDto, UpdateVictimDto, DeployPostDto, UpdateIncidentTypeDto } from "@/modules/domain/dto";
+import { AlertLevelDto, AssignMorgueDto, AssignUnitDto, CreateIncidentActionDto, UpdateIncidentActionDto, CreateVictimDto, PublishSitrepDto, CreateIncidentDto, CreateSubIncidentDto, RegisterIncidentTypeDto, UpdateIncidentDto, UpdateVictimDto, DeployPostDto, UpdateIncidentTypeDto } from "@/modules/domain/dto";
 import { ForbiddenException } from "@nestjs/common";
 import { assignableCorps, canDeploy } from "@/modules/domain/assignment.rules";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
@@ -305,6 +305,46 @@ export class IncidentsController {
     if (res.missing) throw new NotFoundException(`Victime introuvable : ${vid}`);
     if (res.error) throw new ConflictException(res.error);
     return res.victim;
+  }
+
+  // --- ACTIONS ENTREPRISES (ADR 0032) ---------------------------------------
+  // Le journal de conduite de l'incident : l'Anim, les chefs des PC, les OPS,
+  // les LOG et les Rens le tiennent (profil direx) ; en classique l'OPCOM, le
+  // TACOM et ses PC, les trois cellules. Ligne `actions_log` de la matrice.
+
+  @Post("incidents/:id/actions")
+  @RequirePermission("actions_log:create")
+  @ApiOperation({ summary: "Ajouter une ligne aux actions entreprises de l'incident : date et heure, événement, action (audité)" })
+  @ApiResponse({ status: 400, description: "Ni événement ni action." })
+  @ApiResponse({ status: 404, description: "Incident inconnu." })
+  addAction(@Param("id") id: string, @Body() dto: CreateIncidentActionDto, @CurrentUser() user: AuthUser) {
+    if (!dto.event.trim() && !dto.action.trim()) throw new BadRequestException("Une ligne porte au moins un événement ou une action.");
+    const res = this.domain.addIncidentAction(id, dto, user.username);
+    if (res.missing) throw new NotFoundException(`Incident inconnu : ${id}`);
+    return res.entry;
+  }
+
+  @Patch("incidents/:id/actions/:aid")
+  @RequirePermission("actions_log:update")
+  @ApiOperation({ summary: "Corriger une ligne des actions entreprises (audité)" })
+  @ApiResponse({ status: 404, description: "Incident ou ligne inconnus." })
+  updateAction(@Param("id") id: string, @Param("aid") aid: string, @Body() dto: UpdateIncidentActionDto, @CurrentUser() user: AuthUser) {
+    const res = this.domain.updateIncidentAction(id, aid, dto, user.username);
+    if (res.missing === "incident") throw new NotFoundException(`Incident inconnu : ${id}`);
+    if (res.missing === "action") throw new NotFoundException(`Ligne inconnue : ${aid}`);
+    if (res.error) throw new BadRequestException(res.error);
+    return res.entry;
+  }
+
+  @Delete("incidents/:id/actions/:aid")
+  @RequirePermission("actions_log:delete")
+  @ApiOperation({ summary: "Retirer une ligne des actions entreprises (audité)" })
+  @ApiResponse({ status: 404, description: "Incident ou ligne inconnus." })
+  removeAction(@Param("id") id: string, @Param("aid") aid: string) {
+    const res = this.domain.removeIncidentAction(id, aid);
+    if (res.missing === "incident") throw new NotFoundException(`Incident inconnu : ${id}`);
+    if (res.missing === "action") throw new NotFoundException(`Ligne inconnue : ${aid}`);
+    return { deleted: aid };
   }
 
   @Get("sub-incident-types")

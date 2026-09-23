@@ -6,6 +6,7 @@ import { SHELTER_BUILDINGS, SHELTER_KINDS, SHELTER_ORGANS } from "@/modules/doma
 import { REGIONS_MA } from "@/modules/domain/provinces.data";
 import { COMMS_EXPORT_FORMAT } from "@/modules/domain/comms.service";
 import {
+  IsISO8601,
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
@@ -184,6 +185,43 @@ export class UpdateIncidentDto {
 }
 
 /** Rattachement d'un sous-incident (aléa secondaire) à un incident. */
+/** Une ligne du journal « Actions entreprises » (ADR 0032). */
+export class CreateIncidentActionDto {
+  @ApiProperty({ example: "2026-09-23T14:30:00.000Z", description: "Date et heure de l'événement / de l'action (ISO 8601)" })
+  @IsISO8601()
+  at!: string;
+
+  @ApiProperty({ example: "Effondrement partiel du pont de l'oued", description: "Événement constaté" })
+  @IsString()
+  @MaxLength(1000)
+  event!: string;
+
+  @ApiProperty({ example: "Trafic dévié par la RN9, section du génie engagée", description: "Action entreprise" })
+  @IsString()
+  @MaxLength(2000)
+  action!: string;
+}
+
+/** Corriger une ligne du journal : date et heure, événement, action. */
+export class UpdateIncidentActionDto {
+  @ApiPropertyOptional({ description: "Date et heure (ISO 8601)" })
+  @IsOptional()
+  @IsISO8601()
+  at?: string;
+
+  @ApiPropertyOptional({ description: "Événement constaté" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  event?: string;
+
+  @ApiPropertyOptional({ description: "Action entreprise" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  action?: string;
+}
+
 export class CreateSubIncidentDto {
   @ApiProperty({ example: "gas_leak", description: "Identifiant d'un sous-type (catalogue /sub-incident-types)" })
   @IsString()

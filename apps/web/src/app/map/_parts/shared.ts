@@ -19,6 +19,8 @@ export interface SelInfo {
   responsible?: { kind: ResponsibleKind; entityId: string; role?: Role; matricule?: string; incidentId?: string };
   /** Retirer l'élément de la carte — un poste, en mode édition. */
   remove?: () => void;
+  /** Ouvrir le briefing de l'incident (et de sa famille) dans la fenêtre flottante — ADR 0032. */
+  briefing?: () => void;
 }
 
 // ---------------------------------------------------------------------------

@@ -29,7 +29,7 @@ import { DEFAULT_ROLE_FEATURES } from "@/lib/data/users";
 /** Les fonctionnalités de l'API, dans l'ordre de la matrice ; le cœur est verrouillé. */
 const FEATURE_KEYS = [
   "dashboard", "dash_incident", "dash_hospital", "dash_shelter", "dash_morgue", "dash_unit",
-  "map", "incidents", "subincidents", "victims", "hospinet", "shelters", "morgue", "units",
+  "map", "incidents", "subincidents", "victims", "actions_log", "hospinet", "shelters", "morgue", "units",
   "equipment", "teams", "comms", "reports", "analytics", "assistant", "users", "settings",
   "assign", "deploy", "resources", "weather", "plume",
   "dispatch", "triage", "ics", "damage", "orsec", "plans", "personnel", "workorders", "seismic",

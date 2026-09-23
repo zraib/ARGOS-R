@@ -55,14 +55,12 @@ export class ResourcesService {
     this.teams = snap.teams ?? [];
     this.vehicles = snap.vehicles ?? [];
     this.supplies = snap.supplies ?? [];
-    // Les orphelins d'un détenteur disparu entre deux démarrages partent.
-    const before = this.total();
-    const alive = (o: ResourceOwner) => this.domain.resourceOwner(o) !== undefined;
-    this.persons = this.persons.filter((p) => alive(p.owner));
-    this.teams = this.teams.filter((t) => alive(t.owner));
-    this.vehicles = this.vehicles.filter((v) => alive(v.owner));
-    this.supplies = this.supplies.filter((s) => alive(s.owner));
-    if (this.total() !== before) this.persist();
+    // Rien n'est retiré au démarrage (ADR 0033) : une ressource dont le
+    // détenteur est introuvable reste au registre — un instantané du domaine
+    // relu de travers ne doit pas emporter, en cascade et pour toujours, les
+    // personnes, équipes, véhicules et vivres de la station. Seule la
+    // suppression EXPLICITE d'une entité retire ses ressources (cascade
+    // ci-dessous).
     this.domain.registerEntityCascade((kind, id) => {
       if (kind === "morgue") return;
       this.dropOwner({ kind, id });

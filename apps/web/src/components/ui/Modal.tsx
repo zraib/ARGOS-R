@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
+import { useArgos } from "@/lib/store";
 
 // Largeurs maximales appliquées seulement à partir de `sm` : sous ce seuil la
 // modale occupe toute la largeur de l'écran (feuille ancrée en bas).
@@ -46,6 +47,7 @@ const PILE: symbol[] = [];
  * ouverte passe au-dessus.
  */
 export function Modal({ open, title, onClose, size = "lg", children }: ModalProps) {
+  const mapFull = useArgos((st) => st.mapFull);
   const panneau = useRef<HTMLDivElement>(null);
   const id = useRef<symbol>(Symbol("modal"));
   // Le portail n'a de cible qu'après le montage : au rendu serveur, rien.
@@ -138,7 +140,9 @@ export function Modal({ open, title, onClose, size = "lg", children }: ModalProp
   if (!open || !monte) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+    // Au-dessus de la carte en plein écran (z-9999) quand elle l'est (ADR 0032) :
+    // une modale ouverte depuis la carte — déclarer un incident, voir une fiche — reste visible.
+    <div className={`fixed inset-0 flex items-end justify-center sm:items-center sm:p-4 ${mapFull ? "z-[10005]" : "z-50"}`}>
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in"
         onClick={onClose}
