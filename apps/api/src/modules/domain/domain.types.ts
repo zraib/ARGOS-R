@@ -48,14 +48,19 @@ export interface Incident {
   x: number;
   y: number;
   ll: [number, number];
-  /** Bilan humain saisi à la déclaration (optionnel). */
-  casualties?: { dead: number; injured: number; missing: number };
+  /**
+   * Bilan humain saisi à la déclaration (optionnel). `involved` : les personnes
+   * IMPLIQUÉES — touchées par l'incident (évacuées, relogées, sinistrées,
+   * témoins…) sans être ni blessées, ni disparues, ni décédées. Elles ne
+   * comptent JAMAIS parmi les victimes (ADR 0034).
+   */
+  casualties?: { dead: number; injured: number; missing: number; involved?: number };
   /**
    * Le bilan tel que l'opérateur l'a DÉCLARÉ ou corrigé. `casualties` en est
    * la lecture : jamais moins que les victimes nommées de chaque nature,
    * recalculée à chaque changement — pas un cliquet qui ne redescend jamais.
    */
-  declaredCasualties?: { dead: number; injured: number; missing: number };
+  declaredCasualties?: { dead: number; injured: number; missing: number; involved?: number };
   /** Premiers intervenants rattachés : unités, hôpitaux — et sites mortuaires dès qu'un décès est déclaré. */
   responders?: { units: string[]; hospitals: string[]; morgues?: string[] };
   /** Affectations d'unités par l'OPCOM, avec leur destination et leur déploiement (ADR 0016). */
@@ -475,7 +480,8 @@ export interface RecordChange {
 // QUI, quand les intervenants le savent : identification préliminaire d'un
 // décédé (à confirmer par la morgue d'affectation), blessé évacué, disparu.
 
-export const VICTIM_KINDS = ["dead", "injured", "missing"] as const;
+/** `involved` : une personne impliquée, nommée — pas une victime (ADR 0034). */
+export const VICTIM_KINDS = ["dead", "injured", "missing", "involved"] as const;
 export type VictimKind = (typeof VICTIM_KINDS)[number];
 
 export interface IncidentVictim extends PersonIdentity {

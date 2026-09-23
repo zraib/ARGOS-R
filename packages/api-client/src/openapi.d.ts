@@ -3404,6 +3404,8 @@ export interface components {
             dead: number;
             injured: number;
             missing: number;
+            /** @description Personnes impliquées : touchées par l'incident sans être victimes (ni blessées, ni disparues, ni décédées) — ADR 0034 */
+            involved?: number;
         };
         RespondersDto: {
             /**
@@ -3517,7 +3519,7 @@ export interface components {
             /** @description Heure du décès (ISO 8601), si connue */
             deathAt?: string;
             /** @enum {string} */
-            kind: "dead" | "injured" | "missing";
+            kind: "dead" | "injured" | "missing" | "involved";
             note?: string;
             /** @description Blessé : établissement d'évacuation */
             hospitalId?: string;
@@ -3536,7 +3538,7 @@ export interface components {
             /** @description Heure du décès (ISO 8601), si connue */
             deathAt?: string;
             /** @enum {string} */
-            kind?: "dead" | "injured" | "missing";
+            kind?: "dead" | "injured" | "missing" | "involved";
             note?: string;
             hospitalId?: string;
             lastSeen?: string;

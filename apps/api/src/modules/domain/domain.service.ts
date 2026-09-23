@@ -771,7 +771,9 @@ export class DomainService implements OnApplicationBootstrap {
     else if (inc.st !== "closed" && wasClosed) delete inc.closedAt;
     // Un bilan corrigé par l'opérateur devient le nouveau chiffre déclaré ; la lecture garde le plancher des victimes nommées.
     if (patch.casualties) {
-      inc.declaredCasualties = { dead: patch.casualties.dead, injured: patch.casualties.injured, missing: patch.casualties.missing };
+      // Les impliqués (ADR 0034) : un client qui ne les envoie pas ne les remet pas à zéro.
+      const involved = patch.casualties.involved ?? inc.declaredCasualties?.involved ?? 0;
+      inc.declaredCasualties = { dead: patch.casualties.dead, injured: patch.casualties.injured, missing: patch.casualties.missing, involved };
       this.reconcileCasualties(inc);
     }
     this.persist();
@@ -1626,9 +1628,16 @@ export class DomainService implements OnApplicationBootstrap {
    */
   private reconcileCasualties(inc: Incident): void {
     const c = inc.casualties ?? { dead: 0, injured: 0, missing: 0 };
-    const base = (inc.declaredCasualties ??= { dead: c.dead, injured: c.injured, missing: c.missing });
+    const base = (inc.declaredCasualties ??= { dead: c.dead, injured: c.injured, missing: c.missing, involved: c.involved ?? 0 });
     const nommes = (k: VictimKind) => this.victims.filter((v) => v.incidentId === inc.id && v.kind === k).length;
-    inc.casualties = { ...c, dead: Math.max(base.dead, nommes("dead")), injured: Math.max(base.injured, nommes("injured")), missing: Math.max(base.missing, nommes("missing")) };
+    inc.casualties = {
+      ...c,
+      dead: Math.max(base.dead, nommes("dead")),
+      injured: Math.max(base.injured, nommes("injured")),
+      missing: Math.max(base.missing, nommes("missing")),
+      // Les personnes impliquées se comptent à part : jamais parmi les victimes (ADR 0034).
+      involved: Math.max(base.involved ?? 0, nommes("involved")),
+    };
   }
 
   addVictim(

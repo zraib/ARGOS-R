@@ -624,6 +624,10 @@ export interface ModulesDict {
     dead: string;
     missing: string;
     injured: string;
+    /** Personnes impliquées (ADR 0034) : touchées sans être victimes. */
+    involved: string;
+    involved_hint: string;
+    involved_one: string;
     infected: string;
     contaminated: string;
     title_ph: string;

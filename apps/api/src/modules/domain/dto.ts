@@ -38,6 +38,8 @@ export class CasualtiesDto {
   @ApiProperty({ minimum: 0 }) @IsInt() @Min(0) dead!: number;
   @ApiProperty({ minimum: 0 }) @IsInt() @Min(0) injured!: number;
   @ApiProperty({ minimum: 0 }) @IsInt() @Min(0) missing!: number;
+  @ApiPropertyOptional({ minimum: 0, description: "Personnes impliquées : touchées par l'incident sans être victimes (ni blessées, ni disparues, ni décédées) — ADR 0034" })
+  @IsOptional() @IsInt() @Min(0) involved?: number;
 }
 
 /** Premiers intervenants rattachés (identifiants d'unités / d'hôpitaux). */
@@ -1005,7 +1007,7 @@ export class UpdateShelterDto {
 export const MORGUE_STATUSES = ["op", "partial", "closed"] as const;
 export const MORGUE_TYPE_VALUES = ["field", "temporary", "hospital", "truck"] as const;
 export const ID_METHOD_VALUES = ["dna", "fingerprint", "dental", "body_mark"] as const;
-export const VICTIM_KIND_VALUES = ["dead", "injured", "missing"] as const;
+export const VICTIM_KIND_VALUES = ["dead", "injured", "missing", "involved"] as const;
 
 export const DVI_STATUS_VALUES = ["unidentified", "in_progress", "identified", "released"] as const;
 export const DVI_SAMPLE_VALUES = ["dna", "dental", "fingerprint"] as const;

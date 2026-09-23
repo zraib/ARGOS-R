@@ -1,7 +1,8 @@
 // ============================================================================
 // ARGOS — briefing opérationnel d'un incident (ADR 0032)
 //
-// Situation · Anticipation · Objectifs · Concept d'opération, établis en un
+// Situation · Anticipation · Objectifs · Concept d'opération · Actions à
+// entreprendre (ADR 0034), établis en un
 // instant sur les DONNÉES de la station : l'incident principal, ses incidents
 // rattachés et leurs sous-incidents, les moyens engagés, les postes déployés,
 // le journal des actions entreprises, la prédiction d'évolution et la météo.
@@ -22,6 +23,8 @@ export interface Briefing {
   anticipation: string[];
   objectives: string[];
   concept: string[];
+  /** Actions à entreprendre, par ordre de priorité (ADR 0034). */
+  actions: string[];
 }
 
 export interface BriefingInput {
@@ -102,6 +105,8 @@ export function buildBriefing(input: BriefingInput): Briefing {
   const dead = sum(family.map((i) => cas(i.casualties).dead)) + sum(subs.map(({ s }) => cas(s.casualties).dead));
   const injured = sum(family.map((i) => cas(i.casualties).injured)) + sum(subs.map(({ s }) => cas(s.casualties).injured));
   const missing = sum(family.map((i) => cas(i.casualties).missing)) + sum(subs.map(({ s }) => cas(s.casualties).missing));
+  // Les personnes impliquées (ADR 0034) : touchées, pas victimes — jamais dans le bilan des victimes.
+  const involved = sum(family.map((i) => i.casualties?.involved ?? 0));
   const unitIds = [...new Set(family.flatMap((i) => i.responders?.units ?? []))];
   const units = unitIds.map((id) => input.units.find((u) => u.id === id)).filter((u): u is Unit => !!u);
   const hospIds = [...new Set(family.flatMap((i) => i.responders?.hospitals ?? []))];
@@ -111,6 +116,9 @@ export function buildBriefing(input: BriefingInput): Briefing {
   const assignments = family.flatMap((i) => i.assignments ?? []);
   const posts = input.posts.filter((p) => family.some((i) => i.id === p.incidentId));
   const effectif = sum(units.map((u) => u.eff));
+  const lits = sum(hospitals.map((h) => h.lits));
+  const occupes = sum(hospitals.map((h) => h.occ));
+  const occPct = lits > 0 ? Math.round((occupes / lits) * 100) : 0;
 
   // --- SITUATION --------------------------------------------------------------
   const situation: string[] = [];
@@ -124,6 +132,7 @@ export function buildBriefing(input: BriefingInput): Briefing {
       ? `Bilan humain${children.length || subs.length ? " (incident, rattachés et aléas secondaires)" : ""} : ${dead} décès, ${injured} blessé(s), ${missing} disparu(s).`
       : "Bilan humain : aucune victime déclarée à ce stade.",
   );
+  if (involved > 0) situation.push(`Personnes impliquées (ni blessées, ni disparues, ni décédées) : ${involved}.`);
   if (children.length) {
     situation.push(`Incidents rattachés (${children.length}) : ${list(children.map((c) => `${typeLabel(c.type)} « ${c.titre} » (gravité ${SEV_TXT[c.sev].toLowerCase()})`), 4)}.`);
   }
@@ -165,10 +174,7 @@ export function buildBriefing(input: BriefingInput): Briefing {
   if (possibles.length) anticipation.push(`Aléas secondaires possibles, non déclarés : ${list(possibles.map(subLabel), 5)}.`);
   if (missing > 0) anticipation.push(`${missing} disparu(s) : le bilan peut s'alourdir.`);
   if (hospitals.length) {
-    const lits = sum(hospitals.map((h) => h.lits));
-    const occ = sum(hospitals.map((h) => h.occ));
-    const pct = lits > 0 ? Math.round((occ / lits) * 100) : 0;
-    anticipation.push(`Capacité hospitalière engagée : ${Math.max(0, lits - occ)} lit(s) libre(s) sur ${lits} (${pct} % occupés)${pct >= 85 ? " — saturation proche" : ""}.`);
+    anticipation.push(`Capacité hospitalière engagée : ${Math.max(0, lits - occupes)} lit(s) libre(s) sur ${lits} (${occPct} % occupés)${occPct >= 85 ? " — saturation proche" : ""}.`);
   }
   const wx = input.weather?.current;
   if (wx) {
@@ -186,6 +192,7 @@ export function buildBriefing(input: BriefingInput): Briefing {
   for (const c of children) for (const o of TYPE_OBJECTIVES[c.type] ?? []) if (!objectives.includes(o)) objectives.push(o);
   if (injured > 0) objectives.push(`Assurer la prise en charge médicale et l'évacuation des blessés${hospitals.length ? ` vers ${list(hospitals.map((h) => h.nom), 2)}` : ""}.`);
   if (dead > 0) objectives.push("Traiter les défunts avec dignité : acheminement vers les sites mortuaires et identification.");
+  if (involved > 0) objectives.push(`Prendre en charge les ${involved} personne(s) impliquée(s) : recensement, mise à l'abri, soutien.`);
   objectives.push("Informer et protéger la population ; tenir l'autorité informée de l'évolution.");
 
   // --- CONCEPT D'OPÉRATION -----------------------------------------------------
@@ -208,8 +215,30 @@ export function buildBriefing(input: BriefingInput): Briefing {
   if (hospitals.length || fields.length) {
     concept.push(`Soutien santé : ${[hospitals.length ? `${hospitals.length} établissement(s)` : "", fields.length ? `${fields.length} hôpital(aux) de campagne` : ""].filter(Boolean).join(" et ")} ; évacuations coordonnées par le PC.`);
   }
-  if (ev?.actions?.length) concept.push(`Actions recommandées : ${ev.actions.map(bare).join(" ; ")}.`);
   concept.push(`Coordination : centre de communication, canal de l'opération « ${root.titre} » ; point de situation à chaque évolution notable.`);
+
+  // --- ACTIONS À ENTREPRENDRE (ADR 0034) ----------------------------------------
+  // Ce qui manque au dispositif, d'abord, puis les actions recommandées par la
+  // prédiction d'évolution ; chaque ligne se déduit des données — aucune
+  // n'est inventée.
+  const actions: string[] = [];
+  const add = (a: string) => {
+    const k = bare(a).toLowerCase();
+    if (!actions.some((x) => bare(x).toLowerCase() === k)) actions.push(a);
+  };
+  if (!posts.length) add("Armer un poste de commandement (PCT ou PCO) sur la carte et en désigner le chef.");
+  if (!units.length) add("Engager des unités sur l'opération : aucune n'y est rattachée.");
+  const aDeployer = assignments.filter((a) => !a.deployedAt).length;
+  if (aDeployer) add(`Déployer sur le terrain ${aDeployer} unité(s) affectée(s) qui ne le sont pas encore.`);
+  if (missing > 0) add(`Lancer la recherche des ${missing} disparu(s) ; recouper avec les hôpitaux et les abris.`);
+  if (injured > 0 && !hospitals.length) add(`Désigner les établissements d'évacuation des ${injured} blessé(s).`);
+  if (injured > 0 && hospitals.length && occPct >= 85) add("Anticiper la saturation hospitalière : hôpital de campagne ou report vers d'autres établissements.");
+  if (dead > 0 && !morgueCount) add(`Affecter un site mortuaire aux ${dead} décès et ouvrir les dossiers d'identification.`);
+  if (involved > 0) add(`Recenser les ${involved} personne(s) impliquée(s), les mettre à l'abri et organiser leur soutien.`);
+  if (possibles.length) add(`Surveiller les aléas possibles : ${list(possibles.slice(0, 3).map(subLabel), 3)}.`);
+  if (root.type === "nrbc" || root.nrbc) add("Tenir le périmètre d'isolement et la chaîne de décontamination.");
+  for (const a of ev?.actions ?? []) add(`${bare(a)}.`);
+  add("Consigner chaque action entreprise au journal de l'incident et diffuser un point de situation.");
 
   return {
     incidentId: root.id,
@@ -220,11 +249,15 @@ export function buildBriefing(input: BriefingInput): Briefing {
     anticipation,
     objectives,
     concept,
+    actions,
   };
 }
 
 /** Le briefing en texte brut, rubrique par rubrique (copie, IA). */
-export function briefingText(b: Briefing, labels: { situation: string; anticipation: string; objectives: string; concept: string }): string {
+export function briefingText(
+  b: Briefing,
+  labels: { situation: string; anticipation: string; objectives: string; concept: string; actions: string },
+): string {
   const bloc = (title: string, lines: string[]) => `${title.toUpperCase()}\n${lines.map((l) => `- ${l}`).join("\n")}`;
   return [
     `BRIEFING — ${b.incidentId} « ${b.titre} »`,
@@ -232,6 +265,7 @@ export function briefingText(b: Briefing, labels: { situation: string; anticipat
     bloc(labels.anticipation, b.anticipation),
     bloc(labels.objectives, b.objectives),
     bloc(labels.concept, b.concept),
+    `${labels.actions.toUpperCase()}\n${b.actions.map((l, k) => `${k + 1}. ${l}`).join("\n")}`,
   ].join("\n\n");
 }
 

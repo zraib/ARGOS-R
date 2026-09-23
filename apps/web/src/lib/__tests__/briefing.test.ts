@@ -7,7 +7,7 @@ import type { Hospital, Incident, IncidentPost, SubIncidentCatalog, Unit } from 
 const root = {
   id: "INC-1", type: "earthquake", titre: "Séisme d'Al Haouz", region: "Marrakech-Safi", sev: "high", st: "prog", time: "06:40",
   x: 0, y: 0, ll: [-8.24, 31.22], declaredAt: "2026-09-23T06:40:00Z",
-  casualties: { dead: 3, injured: 12, missing: 4 },
+  casualties: { dead: 3, injured: 12, missing: 4, involved: 25 },
   responders: { units: ["U1", "U2"], hospitals: ["H4"], morgues: ["M2"] },
   subIncidents: [{ id: "INC-1-S1", type: "gas_leak", sev: "medium", time: "07:00", note: "Conduite rompue", casualties: { dead: 0, injured: 2, missing: 0 } }],
   assignments: [
@@ -54,6 +54,8 @@ describe("briefing opérationnel (ADR 0032)", () => {
     const b = brief();
     expect(b.scope).toEqual({ children: 1, subIncidents: 1 });
     expect(b.situation.join("\n")).toContain("4 décès, 14 blessé(s), 4 disparu(s)");
+    // Les impliqués (ADR 0034) : dits à part, jamais dans le bilan des victimes.
+    expect(b.situation.join("\n")).toContain("Personnes impliquées (ni blessées, ni disparues, ni décédées) : 25.");
     expect(b.situation.join("\n")).toContain("Glissement de terrain « Glissement de Talat N'Yaaqoub »");
     expect(b.situation.join("\n")).toContain("Fuite de gaz — Conduite rompue");
     expect(b.situation.join("\n")).toContain("2 unité(s), 160 personnel(s)");
@@ -77,6 +79,7 @@ describe("briefing opérationnel (ADR 0032)", () => {
     expect(b.objectives.join("\n")).toContain("sauvetage-déblaiement");
     expect(b.objectives.join("\n")).toContain("Évacuer et interdire la zone instable.");
     expect(b.objectives.join("\n")).toContain("défunts");
+    expect(b.objectives.join("\n")).toContain("Prendre en charge les 25 personne(s) impliquée(s)");
   });
 
   it("le concept d'opération dit le commandement, les corps, les affectations et la coordination", () => {
@@ -87,9 +90,33 @@ describe("briefing opérationnel (ADR 0032)", () => {
     expect(b.concept.at(-1)).toContain("« Séisme d'Al Haouz »");
   });
 
-  it("le texte suit les quatre rubriques ; un rattaché renvoie à son incident principal", () => {
-    const txt = briefingText(brief(), { situation: "Situation", anticipation: "Anticipation", objectives: "Objectifs", concept: "Concept d'opération" });
-    expect(txt.split("\n\n").map((b) => b.split("\n")[0])).toEqual(["BRIEFING — INC-1 « Séisme d'Al Haouz »", "SITUATION", "ANTICIPATION", "OBJECTIFS", "CONCEPT D'OPÉRATION"]);
+  it("les actions à entreprendre se déduisent de ce qui manque au dispositif, puis finissent par le journal (ADR 0034)", () => {
+    const a = brief().actions;
+    // Un PCT est posé et des unités sont engagées : ni « armer », ni « engager ».
+    expect(a.some((x) => x.startsWith("Armer un poste de commandement"))).toBe(false);
+    expect(a.some((x) => x.startsWith("Engager des unités"))).toBe(false);
+    expect(a).toContain("Déployer sur le terrain 1 unité(s) affectée(s) qui ne le sont pas encore.");
+    expect(a).toContain("Lancer la recherche des 4 disparu(s) ; recouper avec les hôpitaux et les abris.");
+    expect(a).toContain("Anticiper la saturation hospitalière : hôpital de campagne ou report vers d'autres établissements.");
+    expect(a.some((x) => x.startsWith("Affecter un site mortuaire"))).toBe(false);
+    expect(a).toContain("Recenser les 25 personne(s) impliquée(s), les mettre à l'abri et organiser leur soutien.");
+    expect(a).toContain("Surveiller les aléas possibles : Réplique.");
+    expect(a.at(-1)).toBe("Consigner chaque action entreprise au journal de l'incident et diffuser un point de situation.");
+    // Sans poste ni unité, sans morgue : les manques passent en tête.
+    const nu = buildBriefing({
+      root: { ...root, responders: { units: [], hospitals: [] }, assignments: [] } as unknown as Incident,
+      incidents: [], units, hospitals, fieldHosps: [], posts: [], subCatalog, typeLabel: (t) => t,
+    }).actions;
+    expect(nu[0]).toBe("Armer un poste de commandement (PCT ou PCO) sur la carte et en désigner le chef.");
+    expect(nu[1]).toBe("Engager des unités sur l'opération : aucune n'y est rattachée.");
+    expect(nu).toContain("Désigner les établissements d'évacuation des 14 blessé(s).");
+    expect(nu).toContain("Affecter un site mortuaire aux 3 décès et ouvrir les dossiers d'identification.");
+  });
+
+  it("le texte suit les cinq rubriques ; un rattaché renvoie à son incident principal", () => {
+    const txt = briefingText(brief(), { situation: "Situation", anticipation: "Anticipation", objectives: "Objectifs", concept: "Concept d'opération", actions: "Actions à entreprendre" });
+    expect(txt.split("\n\n").map((b) => b.split("\n")[0])).toEqual(["BRIEFING — INC-1 « Séisme d'Al Haouz »", "SITUATION", "ANTICIPATION", "OBJECTIFS", "CONCEPT D'OPÉRATION", "ACTIONS À ENTREPRENDRE"]);
+    expect(txt).toContain("\n1. ");
     expect(briefingRoot([root, child], "INC-2")?.id).toBe("INC-1");
     expect(briefingRoot([root, child], "INC-1")?.id).toBe("INC-1");
   });
