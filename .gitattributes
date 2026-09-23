@@ -3,6 +3,9 @@
 # configuration en CRLF, et les conteneurs Linux ne les liraient plus.
 * text=auto eol=lf
 *.ps1 text eol=crlf
+# Lanceurs Windows : cmd.exe lit mal les fins de ligne LF (étiquettes, appels).
+*.cmd text eol=crlf
+*.bat text eol=crlf
 *.png binary
 *.jpg binary
 *.ico binary

@@ -229,7 +229,7 @@ cd C:\iris\deploy
 | Symptôme | Cause | Remède |
 | --- | --- | --- |
 | `Docker ne répond pas` | Docker Desktop n'est pas lancé | Ouvrir Docker Desktop, attendre « Engine running », relancer |
-| PowerShell refuse le script — « n'est pas signé numériquement » | le paquet vient d'un zip **téléchargé** : Windows marque ses fichiers « vient d'Internet » et la politique `RemoteSigned` exige alors une signature | lancer par le `.cmd` (`.\upgrade.cmd …`, qui retire la marque et contourne la politique), ou `Unblock-File .\scripts\*.ps1` puis relancer, ou `Unblock-File` sur le zip avant de l'extraire |
+| PowerShell refuse le script — « n'est pas signé numériquement » | le paquet vient d'un zip **téléchargé** : Windows marque ses fichiers « vient d'Internet » et la politique `RemoteSigned` exige alors une signature d'un éditeur **approuvé** | les scripts sont signés (§ 17) : lancer `.\upgrade.cmd …` une fois (il approuve l'éditeur IRIS, puis contourne de toute façon la politique) ou `.\trust.cmd` ; à défaut `Unblock-File .\scripts\*.ps1` puis relancer |
 | Les empreintes du § 2 diffèrent | copie abîmée | recopier le zip depuis le poste de développement |
 | `Un .env DIFFÉRENT de l'actuel existe déjà` | un `.env` a été créé dans le nouveau dossier (par exemple par un `install.ps1` lancé trop tôt) | le supprimer, relancer `upgrade.ps1` : il reprend celui de l'installation actuelle |
 | Après la mise à jour, tout le monde est déconnecté | `AUTH_DEV_SECRET` a changé (nouveau `.env` généré au lieu d'être repris) | remettre le `.env` de l'ancienne installation, `docker compose up -d` |
@@ -442,3 +442,34 @@ commande reste :
 cd C:\iris-nouveau\deploy
 .\scripts\upgrade.ps1 -Current C:\iris\deploy -Backups D:\sauvegardes\iris
 ```
+
+## 17. Scripts signés : l'éditeur IRIS s'approuve une fois (paquets du 23 septembre 2026)
+
+Les scripts PowerShell du paquet sont désormais **signés** (ADR 0031). La
+première mise à jour avec un tel paquet se lance comme d'habitude, par le
+lanceur :
+
+```powershell
+cd C:\iris-nouveau\deploy
+.\upgrade.cmd -Current C:\iris\deploy -Backups D:\sauvegardes\iris
+```
+
+Avant la mise à jour, il affiche « Signature des scripts (éditeur IRIS) » :
+
+- il ajoute le certificat « IRIS Station - Signature des scripts » (empreinte
+  `C0CCDB5394262B52334FD7D2E89D0F9FAF9A0080`) aux racines de confiance et aux
+  éditeurs approuvés. Dans une console **administrateur**, c'est fait pour
+  toute la machine sans question ; sinon Windows ouvre un **avertissement de
+  sécurité** « Voulez-vous installer ce certificat ? » — vérifier l'empreinte,
+  répondre **Oui** ;
+- il vérifie chaque script : « 8 script(s) : signature valide, éditeur IRIS ».
+
+Ensuite, les `.ps1` de ce paquet et des suivants s'exécutent **aussi lancés
+directement** (`.\scripts\upgrade.ps1 …`), même extraits d'un zip
+téléchargé. Contrôle : `Get-AuthenticodeSignature .\scripts\upgrade.ps1`
+répond `Valid`. Si l'approbation a été refusée ou a échoué, rien n'est bloqué :
+les lanceurs `.cmd` exécutent les scripts comme avant ; `.\trust.cmd` la
+refait à la demande.
+
+À noter aussi : `expose.ps1` (accès public, § 15) ne s'analysait pas sous
+Windows PowerShell 5.1 (encodage) — corrigé dans ce paquet.

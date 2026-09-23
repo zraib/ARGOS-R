@@ -192,7 +192,7 @@ calcule sur les tuiles d'altitude de la station et reste disponible.
 | Mettre à jour depuis un nouveau paquet **en gardant les comptes** | [MISE-A-JOUR-STATION.md](MISE-A-JOUR-STATION.md) — `scripts\upgrade.ps1 -Current C:\iris\deploy` (sauvegarde, `.env` repris, volumes intacts, contrôle, retour en arrière) |
 | Changer le mode de la station (opérationnel, exercice, démonstration) | *Paramètres › Profil de données* (l'API redémarre seule) ou `.env` : `APP_MODE=…` puis `docker compose up -d api` (§ 6 bis, ADR 0016) |
 | Rendre la station accessible depuis Internet, sans toucher au routeur | `.\scripts\expose.ps1` (§ 10, ADR 0028) |
-| PowerShell refuse un script (« n'est pas signé numériquement ») | lancer le `.cmd` du même nom à la racine de `deploy\` (`install.cmd`, `upgrade.cmd`, `status.cmd`, `expose.cmd`, `backup.cmd`, `restore.cmd`) : il retire la marque « vient d'Internet » et contourne la politique d'exécution |
+| PowerShell refuse un script (« n'est pas signé numériquement ») | les scripts sont signés (ADR 0031) : approuver l'éditeur IRIS une fois — `.\trust.cmd` (install.cmd et upgrade.cmd le font déjà) ; à défaut, lancer le `.cmd` du même nom à la racine de `deploy\` (`install.cmd`, `upgrade.cmd`, `status.cmd`, `expose.cmd`, `backup.cmd`, `restore.cmd`) : il retire la marque « vient d'Internet » et contourne la politique d'exécution |
 | Joindre la station depuis le réseau ou Internet, en HTTPS | `.env` : `COMPOSE_FILE=…compose.https.yml` ou `…compose.letsencrypt.yml`, puis `docker compose up -d` (§ 11) |
 | Journaux | `docker compose logs -f api` (ou `web`, `tiles`, `routing`, `proxy`) |
 | Sauvegarder (base + instantané + pièces jointes) | `.\scripts\backup.ps1 -Dest D:\sauvegardes\iris` |
@@ -314,7 +314,7 @@ Sur la station : décompresser (par exemple dans `C:\iris`), puis
 
 ```powershell
 cd C:\iris\deploy
-.\scripts\install.ps1            # -HttpPort 8080 si le port 80 est pris ; -NoStart pour ne pas démarrer
+.\install.cmd                    # -HttpPort 8080 si le port 80 est pris ; -NoStart pour ne pas démarrer
 ```
 
 Le script charge les images (`deploy\images`), les étiquette `latest` (celle
@@ -322,6 +322,38 @@ que `docker-compose.yml` attend, variable `IRIS_TAG`), écrit `.env` depuis
 `.env.example` avec deux secrets générés s'il n'existe pas, démarre la pile et
 attend l'API. Relançable : un `.env` existant n'est jamais touché. Le fond de
 carte (§ 4) se prépare ensuite, comme après une construction locale.
+
+### Scripts signés (ADR 0031)
+
+Les scripts PowerShell du paquet sont **signés** (Authenticode, SHA-256) à la
+fabrication : `package.sh` appelle `deploy/scripts/sign.sh`, qui signe chaque
+`.ps1` avec `osslsigncode` (conteneur `iris-signer`) puis vérifie chaque
+signature. La clé privée reste sur le poste de fabrication, hors du dépôt :
+
+```bash
+deploy/scripts/sign.sh init     # une seule fois : ~/.iris-signing/iris-signing.{key,crt}
+deploy/scripts/sign.sh info     # sujet, validité, empreintes
+deploy/scripts/sign.sh verify deploy/dist/iris-station-<version>   # revérifier un paquet
+```
+
+Sauvegardez `~/.iris-signing` hors du poste : sans cette clé, les stations
+devront approuver un nouvel éditeur. Le paquet emporte le seul certificat
+public (`deploy\certs\iris-signature.cer`). Sur la station, `install.cmd` et
+`upgrade.cmd` l'ajoutent une fois aux *Autorités racines de confiance* et aux
+*Éditeurs approuvés* (en administrateur : pour toute la machine, sans
+question ; sinon Windows demande de confirmer — répondre **Oui**), puis
+vérifient chaque signature ; `.\trust.cmd` le refait à la demande. Ensuite un
+`.ps1` s'exécute aussi lancé directement. Contrôle à la main :
+
+```powershell
+Get-AuthenticodeSignature .\scripts\*.ps1 | Format-Table Status, Path   # Status : Valid
+```
+
+Empreinte de l'éditeur IRIS (SHA-1, affichée par Windows) :
+`C0CCDB5394262B52334FD7D2E89D0F9FAF9A0080`. Si `trust.ps1` signale un
+« autre certificat IRIS », le paquet a été signé par une autre clé : vérifier
+son origine avant tout (`.\trust.cmd -Replace` seulement pour un changement de
+clé voulu).
 
 ## 10. Rendre la station accessible depuis Internet — sans toucher au routeur
 
