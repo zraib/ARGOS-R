@@ -1,4 +1,4 @@
-import { DESTINATIONS, DRAWING_KINDS, POST_KINDS, UNIT_CORPS } from "@/modules/domain/domain.types";
+import { BRIEFING_SECTION_MAX, BRIEFING_TAKEN_MAX, DESTINATIONS, DRAWING_KINDS, POST_KINDS, UNIT_CORPS } from "@/modules/domain/domain.types";
 import { APP_MODES } from "@/common/app-mode";
 import { PERSON_CORPS, PERSON_STATUS, RESOURCE_OWNER_KINDS, SUPPLY_KINDS, VEHICLE_STATES } from "@/modules/domain/resources.types";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
@@ -202,6 +202,43 @@ export class CreateIncidentActionDto {
   @IsString()
   @MaxLength(2000)
   action!: string;
+}
+
+/**
+ * Le briefing corrigé à la main (ADR 0037) : les six rubriques, en texte
+ * libre — une ligne par point. Une rubrique vide reste vide : c'est l'officier
+ * qui tranche.
+ */
+export class SaveIncidentBriefingDto {
+  @ApiProperty({ description: "Situation", maxLength: BRIEFING_SECTION_MAX })
+  @IsString()
+  @MaxLength(BRIEFING_SECTION_MAX)
+  situation!: string;
+
+  @ApiProperty({ description: "Actions entreprises (journal de conduite)", maxLength: BRIEFING_TAKEN_MAX })
+  @IsString()
+  @MaxLength(BRIEFING_TAKEN_MAX)
+  taken!: string;
+
+  @ApiProperty({ description: "Anticipation", maxLength: BRIEFING_SECTION_MAX })
+  @IsString()
+  @MaxLength(BRIEFING_SECTION_MAX)
+  anticipation!: string;
+
+  @ApiProperty({ description: "Objectifs", maxLength: BRIEFING_SECTION_MAX })
+  @IsString()
+  @MaxLength(BRIEFING_SECTION_MAX)
+  objectives!: string;
+
+  @ApiProperty({ description: "Concept d'opération", maxLength: BRIEFING_SECTION_MAX })
+  @IsString()
+  @MaxLength(BRIEFING_SECTION_MAX)
+  concept!: string;
+
+  @ApiProperty({ description: "Actions à entreprendre (numérotées par priorité)", maxLength: BRIEFING_SECTION_MAX })
+  @IsString()
+  @MaxLength(BRIEFING_SECTION_MAX)
+  actions!: string;
 }
 
 /** Corriger une ligne du journal : date et heure, événement, action. */

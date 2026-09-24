@@ -11,22 +11,32 @@
 // Le briefing est CALCULÉ sur les données à l'ouverture (instantané) ; l'IA
 // peut ensuite le rédiger, au fil de l'eau et dans un délai court — sans
 // modèle joignable, le briefing calculé reste.
+//
+// Il se CORRIGE aussi à la main (ADR 0037) : ceux qui tiennent le journal de
+// conduite reprennent chaque rubrique — depuis le calcul, la rédaction de l'IA
+// ou la dernière version corrigée — et l'enregistrent sur l'incident
+// principal. Tous les postes lisent alors cette version, signée et datée, et
+// peuvent toujours voir le calcul à jour à côté ; « Revenir au briefing
+// calculé » la retire.
 // ============================================================================
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { useArgos, useDict, useModules } from "@/lib/store";
-import { api } from "@/lib/api";
+import { api, apiErrorMessage } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import { tpl } from "@/lib/i18n/format";
 import { typeLabel } from "@/lib/helpers";
-import { briefingText, buildBriefing, type Briefing } from "@/lib/briefing";
-import { refineBriefing, splitBriefingSections } from "@/lib/ai/llmBriefing";
+import { briefingHeader, briefingSections, briefingText, buildBriefing, sectionsText, type Briefing } from "@/lib/briefing";
+import { aiBriefingSections, refineBriefing, splitBriefingSections } from "@/lib/ai/llmBriefing";
 import { predictIncidentEvolution } from "@/lib/ai/risk/incidentEvolution";
-import type { Incident, WeatherForecast } from "@/lib/types";
+import { BRIEFING_SECTIONS, BRIEFING_SECTION_MAX, BRIEFING_TAKEN_MAX, type BriefingSection, type Incident, type WeatherForecast } from "@/lib/types";
 
 const POS_KEY = "argos_briefing_pos";
 const DEFAULT_W = 440;
+
+/** Longueur maximale d'une rubrique corrigée — la même que l'API. */
+const maxOf = (k: BriefingSection) => (k === "taken" ? BRIEFING_TAKEN_MAX : BRIEFING_SECTION_MAX);
 
 type Pos = { x: number; y: number };
 
@@ -69,6 +79,8 @@ export default function BriefingWindow() {
   const incidentTypes = useArgos((s) => s.incidentTypes);
   const dashStats = useArgos((s) => s.dashStats);
   const quakes = useArgos((s) => s.quakes);
+  const can = useArgos((s) => s.can);
+  const loadDomain = useArgos((s) => s.loadDomain);
 
   // La liste du compte, complétée de ce que la carte montre à tous (ADR 0020).
   const incidents = useMemo<Incident[]>(() => {
@@ -77,6 +89,11 @@ export default function BriefingWindow() {
   }, [scoped, mapIncidents]);
   const mains = useMemo(() => incidents.filter((i) => !i.parentId && !i.archived), [incidents]);
   const root = incidentId ? incidents.find((i) => i.id === incidentId) : undefined;
+  // La version corrigée à la main, portée par l'incident principal (ADR 0037).
+  const saved = root?.briefing;
+  // La corrigent ceux qui tiennent le journal de conduite, sur un incident de leur liste :
+  // l'écran masque ce que l'API refuserait.
+  const canEdit = !!root && can("actions_log:update") && scoped.some((i) => i.id === root.id);
 
   // --- position, déplacement ------------------------------------------------
   const [pos, setPos] = useState<Pos>(() => {
@@ -151,17 +168,35 @@ export default function BriefingWindow() {
 
   // --- rédaction par l'IA -----------------------------------------------------
   const [ai, setAi] = useState<{ state: "idle" | "busy" | "done" | "fail"; text: string }>({ state: "idle", text: "" });
+  // Version montrée quand une correction existe : elle, ou le calcul à jour.
+  const [view, setView] = useState<"manual" | "computed">("manual");
+  // Rubriques en cours de correction ; `null` hors édition.
+  const [edit, setEdit] = useState<Record<BriefingSection, string> | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const abort = useRef<AbortController | null>(null);
   const stopAi = () => {
     abort.current?.abort();
     abort.current = null;
   };
-  // Changer d'incident, actualiser ou fermer : on revient au briefing calculé.
+  // Changer d'incident, actualiser ou fermer : on revient au briefing de l'incident
+  // (sa version corrigée s'il en a une), édition abandonnée.
   useEffect(() => {
     stopAi();
     setAi({ state: "idle", text: "" });
+    setEdit(null);
+    setView("manual");
+    setConfirmReset(false);
   }, [root?.id, nonce, open]);
   useEffect(() => () => stopAi(), []);
+
+  // La version montrée : la correction enregistrée (tant qu'on ne regarde pas le
+  // calcul à jour), sinon le calcul. L'IA rédige et « Copier » copie celle-là.
+  const showingManual = !!saved && view === "manual";
+  const shownText = (): string => {
+    if (!briefing) return "";
+    return showingManual && saved ? sectionsText(briefingHeader(briefing), saved.sections, labels) : briefingText(briefing, labels);
+  };
 
   const runAi = async () => {
     if (!briefing) return;
@@ -175,7 +210,7 @@ export default function BriefingWindow() {
     // attendait derrière eux et dépassait son délai.
     setOperatorBusy(true);
     try {
-      const res = await refineBriefing(briefingText(briefing, labels), aiSettings, {
+      const res = await refineBriefing(shownText(), aiSettings, {
         signal: ctrl.signal,
         onToken: (acc) => setAi({ state: "busy", text: acc }),
       });
@@ -188,7 +223,7 @@ export default function BriefingWindow() {
 
   const copy = async () => {
     if (!briefing) return;
-    const text = ai.state === "done" ? ai.text : briefingText(briefing, labels);
+    const text = ai.state === "done" ? ai.text : shownText();
     try {
       await navigator.clipboard.writeText(text);
       showToast(t.bf_copied);
@@ -196,6 +231,58 @@ export default function BriefingWindow() {
       /* presse-papiers refusé : rien à faire */
     }
   };
+
+  // Corriger : on part de ce qui est lu — la rédaction de l'IA, la version
+  // corrigée, ou le calcul.
+  const startEdit = () => {
+    if (!briefing) return;
+    const fromAi = ai.state === "done" ? aiBriefingSections(ai.text) : null;
+    stopAi();
+    setConfirmReset(false);
+    setEdit(fromAi ?? (showingManual && saved ? { ...saved.sections } : briefingSections(briefing)));
+  };
+  const save = async () => {
+    if (!root || !edit) return;
+    const trop = BRIEFING_SECTIONS.find((k) => edit[k].length > maxOf(k));
+    if (trop) {
+      showToast(`${labels[trop]} — ${tpl(t.bf_too_long, { n: maxOf(trop) })}`);
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await api.saveIncidentBriefing(root.id, edit);
+      if (res.error) {
+        showToast(`${t.toast_fail} — ${apiErrorMessage(res.error)}`);
+        return;
+      }
+      await loadDomain({ ai: false });
+      setAi({ state: "idle", text: "" });
+      setEdit(null);
+      setView("manual");
+      showToast(t.bf_saved);
+    } finally {
+      setSaving(false);
+    }
+  };
+  // Deux temps : on ne retire pas une correction d'un seul clic.
+  const reset = async () => {
+    if (!root) return;
+    if (!confirmReset) return setConfirmReset(true);
+    setSaving(true);
+    try {
+      const res = await api.clearIncidentBriefing(root.id);
+      if (res.error) {
+        showToast(`${t.toast_fail} — ${apiErrorMessage(res.error)}`);
+        return;
+      }
+      await loadDomain({ ai: false });
+      showToast(t.bf_reset_done);
+    } finally {
+      setSaving(false);
+      setConfirmReset(false);
+    }
+  };
+  const quand = (iso: string) => new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
   if (!open) return null;
 
@@ -241,7 +328,12 @@ export default function BriefingWindow() {
       >
         <Icon path={UI_ICONS.sparkles} size={15} className="shrink-0 text-or-500 dark:text-or-400" />
         <h2 id="briefing-titre" className="min-w-0 flex-1 truncate text-[13px] font-bold uppercase tracking-wider text-rdia-600 dark:text-rdia-50">{t.bf_title}</h2>
-        <button className={iconBtn} title={t.bf_refresh} aria-label={t.bf_refresh} onClick={() => setNonce((n) => n + 1)} disabled={!briefing}>
+        {canEdit && (
+          <button className={iconBtn} title={t.bf_edit} aria-label={t.bf_edit} onClick={startEdit} disabled={!briefing || !!edit || ai.state === "busy"}>
+            <Icon path={UI_ICONS.edit} size={14} />
+          </button>
+        )}
+        <button className={iconBtn} title={t.bf_refresh} aria-label={t.bf_refresh} onClick={() => setNonce((n) => n + 1)} disabled={!briefing || !!edit}>
           <Icon path={UI_ICONS.refresh} size={14} />
         </button>
         <button className={iconBtn} title={t.bf_copy} aria-label={t.bf_copy} onClick={() => void copy()} disabled={!briefing}>
@@ -275,7 +367,7 @@ export default function BriefingWindow() {
             stopAi();
             setAi({ state: "idle", text: "" });
           }}
-          disabled={!briefing}
+          disabled={!briefing || !!edit}
         >
           <Icon path={UI_ICONS.sparkles} size={13} />
           {ai.state === "busy" ? t.bf_ai_busy : t.bf_ai}
@@ -291,14 +383,70 @@ export default function BriefingWindow() {
               <span className="font-semibold text-gray-800 dark:text-rdia-50">{briefing.incidentId} · {briefing.titre}</span>
               <span>{tpl(t.bf_scope, { c: briefing.scope.children, s: briefing.scope.subIncidents })}</span>
               <span>{tpl(t.bf_generated, { date: new Date(briefing.generatedAt).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) })}</span>
-              <span className={ai.state === "done" ? "text-or-600 dark:text-or-300" : ai.state === "fail" ? "text-danger-600 dark:text-danger-300" : ""}>
-                {ai.state === "done" ? t.bf_ai_done : ai.state === "fail" ? t.bf_ai_fail : t.bf_data}
-              </span>
-              {ai.state === "done" && (
-                <button className="underline decoration-dotted hover:text-or-600 dark:hover:text-or-300" onClick={() => setAi({ state: "idle", text: "" })}>{t.bf_back_data}</button>
+              {edit ? (
+                <span className="font-semibold text-or-600 dark:text-or-300">{t.bf_edit}</span>
+              ) : (
+                <span className={ai.state === "fail" ? "text-danger-600 dark:text-danger-300" : ai.state === "done" || (showingManual && ai.state !== "busy") ? "text-or-600 dark:text-or-300" : ""}>
+                  {ai.state === "done"
+                    ? t.bf_ai_done
+                    : ai.state === "fail"
+                      ? t.bf_ai_fail
+                      : showingManual && saved && ai.state !== "busy"
+                        ? tpl(t.bf_manual, { by: saved.by, date: quand(saved.at) })
+                        : t.bf_data}
+                </span>
+              )}
+              {ai.state === "done" && !edit && (
+                <button className="underline decoration-dotted hover:text-or-600 dark:hover:text-or-300" onClick={() => setAi({ state: "idle", text: "" })}>{showingManual ? t.bf_show_manual : t.bf_back_data}</button>
+              )}
+              {/* Une correction existe : on peut toujours regarder le calcul à jour à côté. */}
+              {saved && !edit && ai.state !== "busy" && ai.state !== "done" && (
+                <button className="underline decoration-dotted hover:text-or-600 dark:hover:text-or-300" onClick={() => setView(showingManual ? "computed" : "manual")}>
+                  {showingManual ? t.bf_show_computed : t.bf_show_manual}
+                </button>
+              )}
+              {saved && showingManual && canEdit && !edit && ai.state !== "busy" && ai.state !== "done" && (
+                <button
+                  className={`underline decoration-dotted ${confirmReset ? "font-semibold text-danger-600 dark:text-danger-300" : "hover:text-danger-600 dark:hover:text-danger-300"}`}
+                  onClick={() => void reset()}
+                  onBlur={() => setConfirmReset(false)}
+                  disabled={saving}
+                >
+                  {confirmReset ? t.bf_reset_confirm : t.bf_reset}
+                </button>
               )}
             </div>
-            {ai.text && (ai.state === "busy" || ai.state === "done") ? (
+            {edit ? (
+              // Échap ne quitte pas le plein écran de la carte depuis une rubrique en cours de frappe.
+              <form
+                className="flex flex-col gap-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void save();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") e.stopPropagation();
+                }}
+              >
+                <p className="text-[11px] text-gray-500 dark:text-rdia-300">{t.bf_edit_hint}</p>
+                {BRIEFING_SECTIONS.map((k) => (
+                  <label key={k} className="flex flex-col gap-1">
+                    <span className={rubrique}>{labels[k]}</span>
+                    <textarea
+                      className="input-champ resize-y py-1.5 text-[12.5px] leading-relaxed"
+                      rows={Math.min(10, Math.max(3, edit[k].split("\n").length + 1))}
+                      maxLength={maxOf(k)}
+                      value={edit[k]}
+                      onChange={(e) => setEdit({ ...edit, [k]: e.target.value })}
+                    />
+                  </label>
+                ))}
+                <div className="sticky bottom-0 -mx-3 flex justify-end gap-2 border-t border-gray-200 bg-white/95 px-3 py-2 dark:border-rdia-600 dark:bg-rdia-700/95">
+                  <button type="button" className="btn-secondaire text-sm" onClick={() => setEdit(null)} disabled={saving}>{t.cancel}</button>
+                  <button type="submit" className="btn-primaire text-sm" disabled={saving}>{saving ? t.bf_saving : t.bf_save}</button>
+                </div>
+              </form>
+            ) : ai.text && (ai.state === "busy" || ai.state === "done") ? (
               aiSections ? (
                 aiSections.map((s) => (
                   <section key={s.title} className="mb-3">
@@ -309,6 +457,14 @@ export default function BriefingWindow() {
               ) : (
                 <p className={`whitespace-pre-wrap ${texte}`}>{ai.text}</p>
               )
+            ) : showingManual && saved ? (
+              // La version corrigée à la main : le texte tel qu'enregistré, rubrique par rubrique.
+              BRIEFING_SECTIONS.map((k) => (
+                <section key={k} className="mb-3">
+                  <h3 className={rubrique}>{labels[k]}</h3>
+                  <p className={`whitespace-pre-wrap ${texte}`}>{saved.sections[k] || "—"}</p>
+                </section>
+              ))
             ) : (
               sections.map((s) => (
                 <section key={s.title} className="mb-3">

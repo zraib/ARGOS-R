@@ -10,6 +10,7 @@
 
 import { AI_ENABLED, resolveProvider, type AiSettings } from "@/lib/ai/config";
 import { chatStream, type LlmResult } from "@/lib/ai/provider";
+import type { BriefingSection } from "@/lib/types";
 
 /** Délai total accordé au modèle : au-delà, on garde le briefing calculé. */
 export const BRIEFING_AI_TIMEOUT_MS = 45_000;
@@ -63,4 +64,31 @@ export function splitBriefingSections(text: string): { title: string; body: stri
   }
   if (out.length < TITLES.length) return null;
   return out.map((s) => ({ title: s.title, body: s.body.join("\n").trim() }));
+}
+
+/** Le titre de chaque rubrique dans la rédaction de l'IA, vers sa clé (ADR 0037). */
+const TITRE_RUBRIQUE: Record<string, BriefingSection> = {
+  SITUATION: "situation",
+  "ACTIONS ENTREPRISES": "taken",
+  ANTICIPATION: "anticipation",
+  OBJECTIFS: "objectives",
+  "CONCEPT D'OPÉRATION": "concept",
+  "ACTIONS À ENTREPRENDRE": "actions",
+};
+
+/**
+ * La rédaction de l'IA rangée par rubrique — le point de départ d'une
+ * correction à la main quand l'officier part du texte rédigé (ADR 0037).
+ * Chaque rubrique est retrouvée par son TITRE, pas par sa place : un ordre
+ * bousculé ne décale rien. `null` si la forme n'est pas tenue.
+ */
+export function aiBriefingSections(text: string): Record<BriefingSection, string> | null {
+  const rubriques = splitBriefingSections(text);
+  if (!rubriques) return null;
+  const out: Record<BriefingSection, string> = { situation: "", taken: "", anticipation: "", objectives: "", concept: "", actions: "" };
+  for (const r of rubriques) {
+    const k = TITRE_RUBRIQUE[r.title];
+    if (k) out[k] = r.body;
+  }
+  return out;
 }

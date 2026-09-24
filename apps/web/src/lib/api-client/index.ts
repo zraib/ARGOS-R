@@ -28,6 +28,7 @@ export type UpdateIncidentBody = Json<NonNullable<paths["/api/incidents/{id}"]["
 export type CreateSubIncidentBody = Json<NonNullable<paths["/api/incidents/{id}/sub-incidents"]["post"]["requestBody"]>>;
 export type CreateIncidentActionBody = Json<NonNullable<paths["/api/incidents/{id}/actions"]["post"]["requestBody"]>>;
 export type UpdateIncidentActionBody = Json<NonNullable<paths["/api/incidents/{id}/actions/{aid}"]["patch"]["requestBody"]>>;
+export type SaveIncidentBriefingBody = Json<NonNullable<paths["/api/incidents/{id}/briefing"]["put"]["requestBody"]>>;
 export type RegisterIncidentTypeBody = Json<NonNullable<paths["/api/incident-types"]["post"]["requestBody"]>>;
 export type CreateUnitBody = Json<NonNullable<paths["/api/units"]["post"]["requestBody"]>>;
 export type CreateShelterBody = Json<NonNullable<paths["/api/shelters"]["post"]["requestBody"]>>;
@@ -179,6 +180,11 @@ export function createArgosClient(opts: ArgosClientOptions) {
       client.PATCH("/api/incidents/{id}/actions/{aid}", { params: { path: { id, aid } }, body }),
     deleteIncidentAction: (id: string, aid: string) =>
       client.DELETE("/api/incidents/{id}/actions/{aid}", { params: { path: { id, aid } } }),
+    // Briefing corrigé à la main, enregistré sur l'incident principal (ADR 0037).
+    saveIncidentBriefing: (id: string, body: SaveIncidentBriefingBody) =>
+      client.PUT("/api/incidents/{id}/briefing", { params: { path: { id } }, body }),
+    clearIncidentBriefing: (id: string) =>
+      client.DELETE("/api/incidents/{id}/briefing", { params: { path: { id } } }),
     getDashboardStats: () => client.GET("/api/dashboard/stats"),
     /** Prédictions risques calculées côté serveur (moteur déterministe, F-04). */
     getDashboardRisk: () => client.GET("/api/dashboard/risk"),

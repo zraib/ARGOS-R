@@ -69,6 +69,8 @@ export interface Incident {
   subIncidents?: SubIncident[];
   /** Actions entreprises : le journal de conduite de l'incident, en ordre chronologique (ADR 0032). */
   actionsLog?: IncidentActionEntry[];
+  /** Briefing corrigé à la main, enregistré sur l'incident principal (ADR 0037) ; absent : le briefing est calculé. */
+  briefing?: IncidentBriefing;
   /** Volet NRBC (famille, substance, ampleur) — incidents de type `nrbc`. */
   nrbc?: NrbcDetails;
   /** Incident archivé (masqué de la liste active). */
@@ -103,6 +105,30 @@ export interface IncidentActionEntry {
   /** Dernière correction : qui, quand. */
   updatedBy?: string;
   updatedAt?: string;
+}
+
+/** Les six rubriques du briefing, dans l'ordre de lecture (ADR 0032, 0034). */
+export const BRIEFING_SECTIONS = ["situation", "taken", "anticipation", "objectives", "concept", "actions"] as const;
+export type BriefingSection = (typeof BRIEFING_SECTIONS)[number];
+/**
+ * Longueur maximale d'une rubrique, en caractères. Les actions entreprises
+ * reprennent tout le journal de conduite : elles ont droit au double. Les six
+ * ensemble restent sous la limite de 100 Ko d'un corps JSON, même en arabe.
+ */
+export const BRIEFING_SECTION_MAX = 6000;
+export const BRIEFING_TAKEN_MAX = 12000;
+
+/**
+ * Le briefing corrigé à la main (ADR 0037) : le texte de chaque rubrique tel
+ * qu'enregistré — l'officier part du calcul ou de la rédaction IA et le
+ * reprend librement. Qui l'a enregistré, et quand : une version corrigée
+ * n'est jamais anonyme, et son heure dit depuis quand elle n'a plus suivi
+ * les données.
+ */
+export interface IncidentBriefing {
+  sections: Record<BriefingSection, string>;
+  by: string;
+  at: string;
 }
 
 export interface SubIncident {
