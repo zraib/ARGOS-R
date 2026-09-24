@@ -1,0 +1,4 @@
+tag=station-rif-20260924
+status=failure
+commit=59bd0f63429127797a614303d3bb891a1c5c8bc4
+run=https://github.com/zraib/ARGOS-R/actions/runs/35939635527
