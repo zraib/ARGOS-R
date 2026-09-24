@@ -1,0 +1,11 @@
+tag=station-rif-20260924-5
+status=success
+commit=1114dd13141dee8c101a4e27b9fdcd4c2fa9d186
+run=https://github.com/zraib/ARGOS-R/actions/runs/35971785372
+etapes=disque=success paquet=success publier=success
+zip=iris-station-20260924-1114dd1-souv.zip
+size=1975251893
+sha256=bbcac678375c9bcf4f9daf07482dc7fadee6303b73a9a10e08edd9e32f4dc4df
+release=https://github.com/zraib/ARGOS-R/releases/tag/station-rif-20260924-5
+download=https://github.com/zraib/ARGOS-R/releases/download/station-rif-20260924-5/iris-station-20260924-1114dd1-souv.zip.sha256
+download=https://github.com/zraib/ARGOS-R/releases/download/station-rif-20260924-5/iris-station-20260924-1114dd1-souv.zip
