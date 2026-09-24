@@ -38,6 +38,18 @@ paquet hors ligne, signé, soit **fabriqué dans le cloud** et téléchargé par
    GitHub (navigateur). Un lien véritablement public exposerait l'application à quiconque le
    trouve : ce choix reste à l'utilisateur, et demanderait un hébergement dédié.
 
+## Révision du 24 septembre — premiers essais dans le cloud
+
+6. Premier essai : échec sans journal lisible → l'état de fabrication nomme l'étape en échec et
+   porte la fin des journaux de fabrication et de publication.
+7. Deuxième essai : le paquet hors ligne s'arrêtait au manifeste. Sans `--with-tiles`,
+   `deploy/tiles-data` n'existe pas et `find` sur un dossier absent sort en erreur sous `set -e`
+   (défaut propre à `fusion-RIF`). Le manifeste ne liste plus que les dossiers présents.
+8. Le zip n'est découpé qu'à partir de 2 Gio, la limite d'une pièce jointe de Release ;
+   l'état de fabrication donne les liens directs des fichiers à télécharger.
+9. Le lot pré-signé est archivé sans attributs étendus ni métadonnées macOS : le tar GNU du
+   serveur ne les signale plus à l'extraction.
+
 ## Conséquences
 
 - Fabriquer un paquet depuis le poste : `sign.sh presign <commit>` si un script a changé (et
