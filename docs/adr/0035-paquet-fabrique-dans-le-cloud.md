@@ -36,7 +36,8 @@ paquet hors ligne, signé, soit **fabriqué dans le cloud** et téléchargé par
    déposé dans la branche `ci-status` : le poste le lit par `git fetch`, sans accès à l'API.
 5. **Le dépôt est privé : la Release aussi.** On la télécharge sur la station connecté au compte
    GitHub (navigateur). Un lien véritablement public exposerait l'application à quiconque le
-   trouve : ce choix reste à l'utilisateur, et demanderait un hébergement dédié.
+   trouve : ce choix reste à l'utilisateur, et demanderait un hébergement dédié. *(Voir 10 : le
+   dépôt a été rendu public.)*
 
 ## Révision du 24 septembre — premiers essais dans le cloud
 
@@ -49,6 +50,15 @@ paquet hors ligne, signé, soit **fabriqué dans le cloud** et téléchargé par
    l'état de fabrication donne les liens directs des fichiers à télécharger.
 9. Le lot pré-signé est archivé sans attributs étendus ni métadonnées macOS : le tar GNU du
    serveur ne les signale plus à l'extraction.
+10. **Dépôt rendu public par l'utilisateur** (24 septembre, après la troisième fabrication, réussie
+    en 10 min) : la Release se télécharge sans compte — lien direct, ou `curl.exe -L -o …` sur la
+    station ; les notes de chaque Release donnent désormais les commandes complètes
+    (téléchargement, recollage éventuel, contrôle d'empreinte, mise à jour). Tout le code et
+    tout l'historique sont lisibles par tous. Vérifié à ce moment : aucune clé privée, aucun jeton,
+    aucun `.env` dans les branches, les étiquettes et l'historique publiés ; la clé de signature
+    reste hors dépôt ; sur une station, `AUTH_DEV_SECRET` est généré par `install.ps1` et exigé
+    par `docker-compose.yml` — la valeur par défaut du code ne sert qu'au développement. Le code
+    temporaire du compte fondateur, documenté, se change à la première connexion.
 
 ## Conséquences
 

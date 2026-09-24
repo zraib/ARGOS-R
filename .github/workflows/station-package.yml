@@ -91,11 +91,18 @@ jobs:
             echo
             echo "Scripts PowerShell signés (éditeur « IRIS Station - Signature des scripts »)."
             echo
-            echo "Sur la station : télécharger ce fichier (connecté au compte GitHub), puis dans PowerShell :"
+            echo "Sur la station, dans PowerShell (dépôt public : aucun compte ; dépôt privé : télécharger depuis cette page, connecté au compte GitHub) :"
             echo
             echo '```'
+            echo "mkdir C:\\iris-nouveau -Force; cd C:\\iris-nouveau"
+            for f in "${FILES[@]}"; do
+              case "$f" in
+                *.sha256) ;;
+                *) echo "curl.exe -L -o $f https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/$f" ;;
+              esac
+            done
             [ -n "$JOIN" ] && echo "cmd /c \"$JOIN\""
-            echo "(Get-FileHash .\\$ZIP -Algorithm SHA256).Hash   # doit valoir $SHA"
+            echo "(Get-FileHash .\\$ZIP -Algorithm SHA256).Hash -eq '$SHA'   # doit afficher True"
             echo "Expand-Archive .\\$ZIP -DestinationPath C:\\iris-nouveau"
             echo "cd C:\\iris-nouveau\\${ZIP%.zip}\\deploy"
             echo ".\\upgrade.cmd -Current C:\\iris\\deploy -Backups D:\\sauvegardes\\iris"
