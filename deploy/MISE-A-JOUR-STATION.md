@@ -475,10 +475,16 @@ Aucun geste nouveau : la commande reste `.\upgrade.cmd -Current C:\iris\deploy
 Quand la connexion du poste de développement est faible, le paquet est fabriqué
 sur un serveur GitHub (ADR 0035) et la station le télécharge elle-même :
 
-1. sur la station, ouvrir la page de la Release indiquée (dépôt `zraib/ARGOS-R`,
-   onglet *Releases*), **connecté au compte GitHub** — le dépôt est privé ;
-2. télécharger le `.zip` (et, s'il est en plusieurs morceaux, tous les
-   `.part..` puis les recoller : la commande est dans les notes de la Release) ;
+1. ouvrir la page de la Release indiquée (dépôt `zraib/ARGOS-R`, onglet
+   *Releases*) : ses notes donnent toutes les commandes PowerShell ci-dessous,
+   noms de fichiers et empreinte compris. Le dépôt est public : aucun compte
+   n'est requis (s'il redevient privé, télécharger depuis cette page, connecté
+   au compte GitHub) ;
+2. télécharger le `.zip` directement sur la station :
+   `curl.exe -L -o <fichier>.zip <lien direct>` — un téléchargement interrompu
+   reprend avec la même commande suivie de `-C -`. S'il est en plusieurs
+   morceaux, télécharger tous les `.part..` puis les recoller (`copy /b`, dans
+   les notes) ;
 3. contrôler l'empreinte : `(Get-FileHash .\<fichier>.zip -Algorithm SHA256).Hash`
    doit valoir celle affichée ;
 4. décompresser dans un dossier à part, puis `.\upgrade.cmd -Current
