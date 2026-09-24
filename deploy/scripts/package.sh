@@ -279,7 +279,11 @@ say "Manifeste"
   done
   echo
   echo "Fichiers :"
-  (cd "$OUT" && find deploy/images deploy/tools deploy/tiles-data -type f ! -name '*.sha256' ! -name '*.txt' -exec shasum -a 256 {} \; 2>/dev/null)
+  # Sans --with-tiles, deploy/tiles-data n'existe pas : `find` sur un dossier absent
+  # sort en erreur et `set -e` arrêterait la fabrication — on ne liste que ce qui existe.
+  (cd "$OUT" && for d in deploy/images deploy/tools deploy/tiles-data; do
+    if [ -d "$d" ]; then find "$d" -type f ! -name '*.sha256' ! -name '*.txt' -exec shasum -a 256 {} \; ; fi
+  done)
   echo
   if [ "$DO_SIGN" = 1 ]; then
     echo "Scripts PowerShell signés (Authenticode, ADR 0031) :"
