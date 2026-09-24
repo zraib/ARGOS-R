@@ -17,6 +17,9 @@
 #   deploy/scripts/sign.sh verify <dossier>  vérifie les signatures d'un paquet
 #   deploy/scripts/sign.sh info              certificat, empreintes, validité
 #   deploy/scripts/sign.sh check             clé présente, outil prêt (préalable de package.sh)
+#   deploy/scripts/sign.sh presign [commit]  signe ICI les scripts d'un commit → deploy/signed/ (ADR 0035)
+#   deploy/scripts/sign.sh fingerprint [commit]   empreinte des scripts d'un commit
+#   deploy/scripts/sign.sh verify-with <dossier> <certificat.pem>   vérifie sans clé privée
 #
 # Clé privée et certificat : $IRIS_SIGNING_DIR (défaut ~/.iris-signing), HORS du
 # dépôt — la clé ne doit être ni commitée ni copiée dans un paquet ; la perdre
@@ -32,6 +35,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPLOY="$(cd "$HERE/.." && pwd)"
+ROOT="$(cd "$DEPLOY/.." && pwd)"
 SIGNING_DIR="${IRIS_SIGNING_DIR:-$HOME/.iris-signing}"
 KEY="${IRIS_SIGNING_KEY:-$SIGNING_DIR/iris-signing.key}"
 CERT="${IRIS_SIGNING_CERT:-$SIGNING_DIR/iris-signing.crt}"
@@ -185,12 +189,59 @@ cmd_check() {
     openssl x509 -in /keys/cert.pem -noout -checkend 2592000 >/dev/null || echo "    ! le certificat expire dans moins de 30 jours"'
 }
 
+# --- paquet fabriqué ailleurs, scripts signés ici (ADR 0035) ----------------
+#
+# La clé ne quitte pas ce poste. Pour un paquet fabriqué dans le cloud, on
+# signe ICI les scripts PowerShell d'un commit — quelques dizaines de Ko — et
+# on dépose le lot dans deploy/signed/scripts-<empreinte>.tar.gz (committé) ;
+# package.sh --presigned l'intègre au paquet après avoir vérifié que chaque
+# script signé est, signature mise à part, EXACTEMENT celui du commit.
+
+# Empreinte des scripts d'un commit : les objets git des .ps1/.psm1/.psd1 de
+# deploy/scripts. Elle ne change que si un script change.
+scripts_fingerprint() {
+  git -C "$ROOT" ls-tree -r "${1:-HEAD}" -- deploy/scripts \
+    | awk '$4 ~ /\.(ps1|psm1|psd1)$/ {print $3, $4}' \
+    | shasum -a 256 | cut -c1-16
+}
+
+cmd_presign() {
+  local ref="${1:-HEAD}" fp tmp out
+  need_keys
+  git -C "$ROOT" rev-parse --verify --quiet "$ref^{commit}" >/dev/null || die "commit inconnu : $ref"
+  fp="$(scripts_fingerprint "$ref")"
+  tmp="$(mktemp -d)"
+  # Le même arbre que package.sh : `git archive` applique les fins de ligne CRLF de .gitattributes.
+  git -C "$ROOT" archive "$ref" -- deploy/scripts | tar -x -C "$tmp"
+  cmd_sign "$tmp"
+  cp "$CERT" "$tmp/deploy/certs/iris-signature.crt"
+  mkdir -p "$DEPLOY/signed"
+  out="$DEPLOY/signed/scripts-$fp.tar.gz"
+  (cd "$tmp" && tar -czf "$out" deploy/certs $(find deploy/scripts -type f \( -name '*.ps1' -o -name '*.psm1' -o -name '*.psd1' \) | sort))
+  rm -rf "$tmp"
+  echo "Lot pré-signé : ${out#"$ROOT"/} ($(wc -c < "$out" | tr -d ' ') octets) — scripts de $ref, empreinte $fp."
+  echo "À committer : il sert à tout commit dont les scripts ont cette empreinte."
+}
+
+# Vérifie les signatures d'un dossier avec le SEUL certificat public (pas de clé).
+cmd_verify_with() {
+  local dir cert
+  [ -n "${1:-}" ] && [ -d "$1" ] && [ -f "${2:-}" ] || die "usage : sign.sh verify-with <dossier> <certificat.pem>"
+  dir="$(cd "$1" && pwd)"
+  cert="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"
+  signer_image
+  docker run --rm -v "$dir:/work:ro" -v "$cert:/keys/cert.pem:ro" "$IMAGE" sh -c "$VERIFY_SH"
+}
+
 case "${1:-}" in
   init) cmd_init ;;
   check) cmd_check ;;
   info) cmd_info ;;
   sign) cmd_sign "${2:-}" ;;
   verify) cmd_verify "${2:-}" ;;
-  -h|--help|"") sed -n '2,30p' "$0" ;;
-  *) die "commande inconnue : $1 (init, sign, verify, info, check)" ;;
+  presign) cmd_presign "${2:-HEAD}" ;;
+  fingerprint) scripts_fingerprint "${2:-HEAD}" ;;
+  verify-with) cmd_verify_with "${2:-}" "${3:-}" ;;
+  -h|--help|"") sed -n '2,33p' "$0" ;;
+  *) die "commande inconnue : $1 (init, sign, verify, info, check, presign, fingerprint, verify-with)" ;;
 esac
