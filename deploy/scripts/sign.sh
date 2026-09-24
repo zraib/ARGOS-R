@@ -217,7 +217,11 @@ cmd_presign() {
   cp "$CERT" "$tmp/deploy/certs/iris-signature.crt"
   mkdir -p "$DEPLOY/signed"
   out="$DEPLOY/signed/scripts-$fp.tar.gz"
-  (cd "$tmp" && tar -czf "$out" deploy/certs $(find deploy/scripts -type f \( -name '*.ps1' -o -name '*.psm1' -o -name '*.psd1' \) | sort))
+  # Sur macOS (bsdtar), ni attributs étendus ni métadonnées Apple dans le lot : le tar
+  # GNU du serveur les signale à chaque extraction (« Ignoring unknown extended header »).
+  local tar_opts=()
+  tar --version 2>/dev/null | grep -q bsdtar && tar_opts=(--no-xattrs --no-mac-metadata)
+  (cd "$tmp" && COPYFILE_DISABLE=1 tar ${tar_opts[@]+"${tar_opts[@]}"} -czf "$out" deploy/certs $(find deploy/scripts -type f \( -name '*.ps1' -o -name '*.psm1' -o -name '*.psd1' \) | sort))
   rm -rf "$tmp"
   echo "Lot pré-signé : ${out#"$ROOT"/} ($(wc -c < "$out" | tr -d ' ') octets) — scripts de $ref, empreinte $fp."
   echo "À committer : il sert à tout commit dont les scripts ont cette empreinte."

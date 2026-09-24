@@ -74,9 +74,9 @@ jobs:
           SIZE="$(stat -c %s "$ZIP")"
           SHA="$(cut -d' ' -f1 "$ZIP.sha256")"
           FILES=("$ZIP.sha256")
-          # Une pièce jointe de Release ne dépasse pas 2 Gio : au-delà, le zip
-          # part en morceaux, recollés sur la station (copy /b).
-          if [ "$SIZE" -gt 2000000000 ]; then
+          # Une pièce jointe de Release fait moins de 2 Gio (2 147 483 648 octets) :
+          # au-delà, le zip part en morceaux, recollés sur la station (copy /b).
+          if [ "$SIZE" -ge 2147000000 ]; then
             split -b 1900m -d -a 2 "$ZIP" "$ZIP.part"
             FILES+=("$ZIP".part*)
             JOIN="copy /b $(ls "$ZIP".part* | tr '\n' '+' | sed 's/+$//') $ZIP"
@@ -107,6 +107,11 @@ jobs:
             echo "size=$SIZE"
             echo "sha256=$SHA"
             echo "release=https://github.com/$GITHUB_REPOSITORY/releases/tag/$GITHUB_REF_NAME"
+            # Liens directs des fichiers à télécharger (le zip, ou ses morceaux).
+            for f in "${FILES[@]}"; do
+              echo "download=https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/$f"
+            done
+            if [ -n "$JOIN" ]; then echo "join=$JOIN"; fi
           } > summary.txt
 
       - name: État de fabrication (lu par le poste)
