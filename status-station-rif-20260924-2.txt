@@ -1,0 +1,86 @@
+tag=station-rif-20260924-2
+status=failure
+commit=30f25f6f7569a0c6eb201879c33be28ee24e1452
+run=https://github.com/zraib/ARGOS-R/actions/runs/35940416116
+etapes=disque=success paquet=failure publier=skipped
+--- fin de package.log ---
+#34 68.79 ├ ƒ /incidents/[id]/dashboard
+#34 68.79 ├ ○ /inventaire
+#34 68.79 ├ ○ /ma-responsabilite
+#34 68.79 ├ ○ /ma-responsabilite/gestion
+#34 68.79 ├ ○ /map
+#34 68.79 ├ ○ /morgue
+#34 68.79 ├ ○ /opsnet
+#34 68.79 ├ ○ /orsec
+#34 68.79 ├ ○ /parametres
+#34 68.79 ├ ○ /personnel
+#34 68.79 ├ ○ /plans
+#34 68.79 ├ ○ /profil
+#34 68.79 ├ ○ /rapports
+#34 68.79 ├ ○ /repartition
+#34 68.79 ├ ○ /responsabilites
+#34 68.79 ├ ○ /ressources
+#34 68.79 ├ ○ /seismologie
+#34 68.79 ├ ○ /simulation
+#34 68.79 ├ ○ /substances
+#34 68.79 ├ ○ /traceurs
+#34 68.79 ├ ○ /triage
+#34 68.79 └ ○ /utilisateurs
+#34 68.79 
+#34 68.79 
+#34 68.79 ○  (Static)   prerendered as static content
+#34 68.79 ƒ  (Dynamic)  server-rendered on demand
+#34 68.79 
+#34 68.84 npm notice
+#34 68.84 npm notice New major version of npm available! 10.9.9 -> 12.1.0
+#34 68.84 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.1.0
+#34 68.84 npm notice To update run: npm install -g npm@12.1.0
+#34 68.84 npm notice
+#34 DONE 69.0s
+
+#44 [web runtime 4/6] COPY --from=build --chown=argos:argos /app/.next/standalone ./
+#44 DONE 0.5s
+
+#45 [web runtime 5/6] COPY --from=build --chown=argos:argos /app/.next/static ./.next/static
+#45 DONE 0.0s
+
+#46 [web runtime 6/6] COPY --from=build --chown=argos:argos /app/public ./public
+#46 DONE 0.0s
+
+#47 [web] exporting to image
+#47 exporting layers
+#47 exporting layers 0.9s done
+#47 writing image sha256:758f0575d4f3fc11200224713c4548800f23baaa0c152fbf90b1d0f4ffa4420d done
+#47 naming to docker.io/library/iris-web:20260924-30f25f6-souv done
+#47 DONE 0.9s
+
+#48 [web] resolving provenance for metadata file
+#48 DONE 0.0s
+ tiles-fetch  Built
+ web  Built
+ api  Built
+
+==> Images de base : traefik, base de données, tuiles, routage
+    tirage cloudflare/cloudflared:2026.9.1
+    tirage ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+    tirage maptiler/tileserver-gl:v5.6.0
+    tirage timescale/timescaledb-ha:pg16.15-ts2.30.0
+    tirage traefik:v3.7
+    tirage alpine:3.20
+    empreinte vérifiée : cloudflare/cloudflared:2026.9.1
+
+==> Arbre du dépôt (git archive 30f25f6)
+
+==> Scripts PowerShell pré-signés (Authenticode, ADR 0035)
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+    construction de l'outil de signature (iris-signer:1)
+    9 script(s) vérifié(s) : signature valide, empreinte conforme
+
+==> Export des images → iris-images-20260924-30f25f6-souv.tar.gz (plusieurs Go, quelques minutes)
+    1.9G  /home/runner/work/_temp/dist/iris-station-20260924-30f25f6-souv/deploy/images/iris-images-20260924-30f25f6-souv.tar.gz
+
+==> Client tunnel tunnelto 0.1.18 (Windows)
+    empreinte vérifiée
+
+==> Manifeste
