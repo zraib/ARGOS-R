@@ -45,21 +45,26 @@ jobs:
           fetch-depth: 0
 
       - name: Place sur le disque (images Docker, paquet, archive)
+        id: disque
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
           docker system prune -af >/dev/null
           df -h / | tail -1
 
       - name: Fabriquer le paquet (images linux/amd64, scripts pré-signés)
+        id: paquet
         run: |
+          set -o pipefail
           case "$GITHUB_REF_NAME" in
             station-rif-*) MAP=sovereign ;;
             *) MAP=external ;;
           esac
           echo "fond de carte : $MAP"
-          bash deploy/scripts/package.sh --map "$MAP" --presigned auto --out "$RUNNER_TEMP/dist"
+          # Le journal part aussi dans l'état de fabrication : le poste le lit sans accès à l'API.
+          bash deploy/scripts/package.sh --map "$MAP" --presigned auto --out "$RUNNER_TEMP/dist" 2>&1 | tee "$RUNNER_TEMP/package.log"
 
       - name: Publier (Release du dépôt)
+        id: publier
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -96,7 +101,7 @@ jobs:
             echo ".\\upgrade.cmd -Current C:\\iris\\deploy -Backups D:\\sauvegardes\\iris"
             echo '```'
           } > notes.md
-          gh release create "$GITHUB_REF_NAME" "${FILES[@]}" --repo "$GITHUB_REPOSITORY" --title "$ZIP" --notes-file notes.md
+          gh release create "$GITHUB_REF_NAME" "${FILES[@]}" --repo "$GITHUB_REPOSITORY" --title "$ZIP" --notes-file notes.md 2>&1 | tee "$RUNNER_TEMP/publish.log"
           {
             echo "zip=$ZIP"
             echo "size=$SIZE"
@@ -109,6 +114,7 @@ jobs:
         env:
           STATUS: ${{ job.status }}
           TOKEN: ${{ github.token }}
+          ETAPES: "disque=${{ steps.disque.outcome }} paquet=${{ steps.paquet.outcome }} publier=${{ steps.publier.outcome }}"
         run: |
           set -eu
           D="$RUNNER_TEMP/ci-status"
@@ -123,7 +129,15 @@ jobs:
             echo "status=$STATUS"
             echo "commit=$GITHUB_SHA"
             echo "run=https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "etapes=$ETAPES"
             cat "$RUNNER_TEMP/dist/summary.txt" 2>/dev/null || true
+            if [ "$STATUS" != "success" ]; then
+              for f in package.log publish.log; do
+                [ -f "$RUNNER_TEMP/$f" ] || continue
+                echo "--- fin de $f ---"
+                tail -n 80 "$RUNNER_TEMP/$f" | sed 's/\x1b\[[0-9;]*m//g'
+              done
+            fi
           } > "status-$GITHUB_REF_NAME.txt"
           git add -A
           git commit -q -m "ci: $GITHUB_REF_NAME $STATUS"
