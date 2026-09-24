@@ -37,6 +37,11 @@
 #   --skip-build         réutilise les images iris-*:<version> déjà construites
 #   --no-zip             laisse le dossier tel quel, sans l'archiver
 #   --no-sign            ne signe pas les scripts PowerShell (essai local seulement)
+#   --presigned <lot|auto>  scripts signés AILLEURS (ADR 0035) : le lot
+#                        deploy/signed/scripts-<empreinte>.tar.gz fabriqué par
+#                        `sign.sh presign` sur le poste qui détient la clé ;
+#                        `auto` le choisit d'après l'empreinte des scripts du
+#                        commit. Sert au paquet fabriqué dans le cloud.
 #   --out <dossier>      destination (défaut : deploy/dist)
 # ============================================================================
 set -euo pipefail
@@ -57,6 +62,7 @@ WITH_TILES_BUILD=0
 SKIP_BUILD=0
 DO_ZIP=1
 DO_SIGN=1
+PRESIGNED=""
 MAP_MODE="external"
 DIST="$DEPLOY/dist"
 while [ $# -gt 0 ]; do
@@ -67,8 +73,9 @@ while [ $# -gt 0 ]; do
     --skip-build) SKIP_BUILD=1 ;;
     --no-zip) DO_ZIP=0 ;;
     --no-sign) DO_SIGN=0 ;;
+    --presigned) shift; PRESIGNED="$1" ;;
     --out) shift; DIST="$(mkdir -p "$1" && cd "$1" && pwd)" ;;
-    -h|--help) sed -n '2,41p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,46p' "$0"; exit 0 ;;
     *) echo "option inconnue : $1 (voir --help)" >&2; exit 1 ;;
   esac
   shift
@@ -90,7 +97,15 @@ BUILDX_INFO="$(docker buildx inspect --bootstrap 2>/dev/null || true)"
 grep -q "linux/amd64" <<<"$BUILDX_INFO" || die "le constructeur buildx ne sait pas produire linux/amd64"
 git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "pas un dépôt git : $ROOT"
 # La clé de signature est vérifiée AVANT les longues constructions d'images.
-if [ "$DO_SIGN" = 1 ]; then
+if [ -n "$PRESIGNED" ]; then
+  # Scripts signés ailleurs (ADR 0035) : pas de clé ici, le lot doit exister.
+  [ "$DO_SIGN" = 1 ] || die "--presigned et --no-sign s'excluent"
+  if [ "$PRESIGNED" = auto ]; then
+    PRESIGNED="$DEPLOY/signed/scripts-$("$HERE/sign.sh" fingerprint HEAD).tar.gz"
+  fi
+  [ -f "$PRESIGNED" ] || die "lot pré-signé introuvable : $PRESIGNED — sur le poste qui détient la clé : deploy/scripts/sign.sh presign <commit>, puis committer deploy/signed/"
+  echo "    scripts pré-signés : ${PRESIGNED#"$ROOT"/}"
+elif [ "$DO_SIGN" = 1 ]; then
   echo "    certificat de signature des scripts :"
   "$HERE/sign.sh" check || die "signature des scripts impossible — créer la clé une fois (deploy/scripts/sign.sh init) ou passer --no-sign"
 else
@@ -174,7 +189,33 @@ printf '%s\n' "$VERSION" > "$OUT/deploy/VERSION"
 # --- 3 bis. signature des scripts PowerShell (ADR 0031) -----------------------
 # Après l'extraction (fins de ligne CRLF déjà appliquées par .gitattributes) et
 # avant l'archive : plus rien ne touche aux scripts une fois signés.
-if [ "$DO_SIGN" = 1 ]; then
+if [ -n "$PRESIGNED" ]; then
+  say "Scripts PowerShell pré-signés (Authenticode, ADR 0035)"
+  # Chaque script signé doit être, signature mise à part, EXACTEMENT celui du
+  # commit empaqueté : on garde les originaux, on dépose le lot, on compare.
+  ORIGINAUX="$(mktemp -d)"
+  cp -R "$OUT/deploy/scripts/." "$ORIGINAUX/"
+  tar -xzf "$PRESIGNED" -C "$OUT"
+  python3 - "$ORIGINAUX" "$OUT/deploy/scripts" <<'PY' || die "le lot pré-signé ne correspond pas aux scripts de ce commit — le refaire : sign.sh presign"
+import pathlib, sys
+orig, signed = (pathlib.Path(a) for a in sys.argv[1:3])
+bad = []
+for o in sorted(p for p in orig.iterdir() if p.suffix in (".ps1", ".psm1", ".psd1")):
+    s = signed / o.name
+    body = s.read_bytes().split(b"# SIG # Begin signature block")[0] if s.exists() else None
+    if body is None:
+        bad.append(f"{o.name} : absent du lot")
+    elif body.rstrip(b"\r\n") != o.read_bytes().rstrip(b"\r\n"):
+        bad.append(f"{o.name} : différent du commit")
+    elif b"# SIG # Begin signature block" not in s.read_bytes():
+        bad.append(f"{o.name} : non signé")
+for line in bad:
+    print("    ! " + line)
+sys.exit(1 if bad else 0)
+PY
+  rm -rf "$ORIGINAUX"
+  "$HERE/sign.sh" verify-with "$OUT" "$OUT/deploy/certs/iris-signature.crt"
+elif [ "$DO_SIGN" = 1 ]; then
   say "Signature des scripts PowerShell (Authenticode)"
   "$HERE/sign.sh" sign "$OUT"
 fi

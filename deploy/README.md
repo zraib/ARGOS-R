@@ -305,6 +305,23 @@ que `docker-compose.yml` attend, variable `IRIS_TAG`), écrit `.env` depuis
 attend l'API. Relançable : un `.env` existant n'est jamais touché. Le fond de
 carte (§ 4) se prépare ensuite, comme après une construction locale.
 
+### Fabriquer le paquet dans le cloud (ADR 0035)
+
+Quand la connexion du poste est trop faible pour téléverser un paquet, GitHub
+Actions le fabrique (`.github/workflows/station-package.yml`) et le publie dans
+une Release du dépôt, que la station télécharge :
+
+```bash
+deploy/scripts/sign.sh presign fusion-RIF        # si un script .ps1 a changé : lot signé ICI
+git add deploy/signed && git commit -m "…"       # (la clé ne quitte pas ce poste)
+git tag station-rif-$(date +%Y%m%d) fusion-RIF   # station-rif-* : hors ligne ; autre : en ligne
+git push origin station-rif-$(date +%Y%m%d)
+git fetch origin ci-status && git show origin/ci-status:status-station-rif-$(date +%Y%m%d).txt
+```
+
+Ce paquet n'embarque pas les tuiles : une station hors ligne déjà installée
+garde les siennes.
+
 ### Scripts signés (ADR 0031)
 
 Les scripts PowerShell du paquet sont **signés** (Authenticode, SHA-256) à la

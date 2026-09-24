@@ -470,3 +470,20 @@ le jeu de départ du code a changé. `upgrade.cmd` le **vérifie** désormais :
 Aucun geste nouveau : la commande reste `.\upgrade.cmd -Current C:\iris\deploy
 -Backups D:\sauvegardes\iris`.
 
+## 19. Télécharger le paquet directement sur la station (fabriqué dans le cloud)
+
+Quand la connexion du poste de développement est faible, le paquet est fabriqué
+sur un serveur GitHub (ADR 0035) et la station le télécharge elle-même :
+
+1. sur la station, ouvrir la page de la Release indiquée (dépôt `zraib/ARGOS-R`,
+   onglet *Releases*), **connecté au compte GitHub** — le dépôt est privé ;
+2. télécharger le `.zip` (et, s'il est en plusieurs morceaux, tous les
+   `.part..` puis les recoller : la commande est dans les notes de la Release) ;
+3. contrôler l'empreinte : `(Get-FileHash .\<fichier>.zip -Algorithm SHA256).Hash`
+   doit valoir celle affichée ;
+4. décompresser dans un dossier à part, puis `.\upgrade.cmd -Current
+   C:\iris\deploy -Backups D:\sauvegardes\iris` comme d'habitude.
+
+Ce paquet n'embarque pas les tuiles hors ligne : la station garde celles
+qu'elle a déjà. Les scripts sont signés comme les autres (ADR 0031).
+

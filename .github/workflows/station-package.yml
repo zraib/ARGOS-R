@@ -1,0 +1,130 @@
+# ============================================================================
+# ARGOS / IRIS — paquet de station fabriqué dans le cloud (ADR 0035)
+#
+# Le poste de développement a une connexion faible ; la station, une bonne.
+# On pousse donc une étiquette `station-*` sur le commit voulu : un serveur
+# GitHub (x86-64, comme la station) construit les images, assemble le paquet
+# et le publie en pièce jointe d'une Release du dépôt — la station le
+# télécharge à sa propre vitesse.
+#
+# Signature : la clé privée ne quitte JAMAIS le poste qui la détient. Les
+# scripts PowerShell y sont signés d'avance (`deploy/scripts/sign.sh presign`),
+# le lot est committé dans deploy/signed/ ; ici, package.sh --presigned auto
+# le dépose dans le paquet après avoir vérifié que chaque script signé est,
+# signature mise à part, exactement celui du commit.
+#
+# Fond de carte : `station-rif-*` → hors ligne (sovereign), sinon en ligne. Le
+# paquet hors ligne n'embarque PAS les 12 Go de tuiles : une station déjà
+# installée garde les siennes (install.ps1 n'importe que ce que le paquet
+# apporte).
+#
+# L'état de chaque fabrication (réussite ou échec, fichier, empreinte, lien)
+# est déposé dans la branche `ci-status` : le poste le lit par `git fetch`.
+# ============================================================================
+name: Paquet de station
+
+on:
+  push:
+    tags: ["station-*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: station-package-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  paquet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Code du commit étiqueté
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Place sur le disque (images Docker, paquet, archive)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          docker system prune -af >/dev/null
+          df -h / | tail -1
+
+      - name: Fabriquer le paquet (images linux/amd64, scripts pré-signés)
+        run: |
+          case "$GITHUB_REF_NAME" in
+            station-rif-*) MAP=sovereign ;;
+            *) MAP=external ;;
+          esac
+          echo "fond de carte : $MAP"
+          bash deploy/scripts/package.sh --map "$MAP" --presigned auto --out "$RUNNER_TEMP/dist"
+
+      - name: Publier (Release du dépôt)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/dist"
+          ZIP="$(ls iris-station-*.zip | head -1)"
+          SIZE="$(stat -c %s "$ZIP")"
+          SHA="$(cut -d' ' -f1 "$ZIP.sha256")"
+          FILES=("$ZIP.sha256")
+          # Une pièce jointe de Release ne dépasse pas 2 Gio : au-delà, le zip
+          # part en morceaux, recollés sur la station (copy /b).
+          if [ "$SIZE" -gt 2000000000 ]; then
+            split -b 1900m -d -a 2 "$ZIP" "$ZIP.part"
+            FILES+=("$ZIP".part*)
+            JOIN="copy /b $(ls "$ZIP".part* | tr '\n' '+' | sed 's/+$//') $ZIP"
+          else
+            FILES+=("$ZIP")
+            JOIN=""
+          fi
+          {
+            echo "Paquet **$ZIP** — $(numfmt --to=iec "$SIZE") — commit \`${GITHUB_SHA:0:7}\`."
+            echo
+            echo "SHA-256 : \`$SHA\`"
+            echo
+            echo "Scripts PowerShell signés (éditeur « IRIS Station - Signature des scripts »)."
+            echo
+            echo "Sur la station : télécharger ce fichier (connecté au compte GitHub), puis dans PowerShell :"
+            echo
+            echo '```'
+            [ -n "$JOIN" ] && echo "cmd /c \"$JOIN\""
+            echo "(Get-FileHash .\\$ZIP -Algorithm SHA256).Hash   # doit valoir $SHA"
+            echo "Expand-Archive .\\$ZIP -DestinationPath C:\\iris-nouveau"
+            echo "cd C:\\iris-nouveau\\${ZIP%.zip}\\deploy"
+            echo ".\\upgrade.cmd -Current C:\\iris\\deploy -Backups D:\\sauvegardes\\iris"
+            echo '```'
+          } > notes.md
+          gh release create "$GITHUB_REF_NAME" "${FILES[@]}" --repo "$GITHUB_REPOSITORY" --title "$ZIP" --notes-file notes.md
+          {
+            echo "zip=$ZIP"
+            echo "size=$SIZE"
+            echo "sha256=$SHA"
+            echo "release=https://github.com/$GITHUB_REPOSITORY/releases/tag/$GITHUB_REF_NAME"
+          } > summary.txt
+
+      - name: État de fabrication (lu par le poste)
+        if: always()
+        env:
+          STATUS: ${{ job.status }}
+          TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          D="$RUNNER_TEMP/ci-status"
+          rm -rf "$D" && mkdir -p "$D" && cd "$D"
+          git init -q
+          git config user.name "zraib"
+          git config user.email "zraib.med@gmail.com"
+          git remote add origin "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git fetch -q --depth 1 origin ci-status 2>/dev/null; then git checkout -q -B ci-status FETCH_HEAD; else git checkout -q --orphan ci-status; fi
+          {
+            echo "tag=$GITHUB_REF_NAME"
+            echo "status=$STATUS"
+            echo "commit=$GITHUB_SHA"
+            echo "run=https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            cat "$RUNNER_TEMP/dist/summary.txt" 2>/dev/null || true
+          } > "status-$GITHUB_REF_NAME.txt"
+          git add -A
+          git commit -q -m "ci: $GITHUB_REF_NAME $STATUS"
+          git push -q origin ci-status
