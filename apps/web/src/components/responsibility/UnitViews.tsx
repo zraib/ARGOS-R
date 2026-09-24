@@ -41,6 +41,7 @@ export function UnitDashboard({ uid }: { uid: string }) {
         title={unit.nom}
         subtitle={`${unit.ville} · ${unit.cmdt}`}
         badge={m.resp.unit_dispo[unit.dispo]}
+        mapTarget={{ kind: "unit", id: uid }}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -111,7 +112,7 @@ export function UnitManagement({ uid }: { uid: string }) {
 
   return (
     <section className="flex flex-col gap-4 animate-fade-in">
-      <RespHeader back icon={NAV_ICONS.units} title={m.resp.manage_unit} subtitle={`${unit.nom} — ${unit.ville}`} />
+      <RespHeader back icon={NAV_ICONS.units} title={m.resp.manage_unit} subtitle={`${unit.nom} — ${unit.ville}`} mapTarget={{ kind: "unit", id: uid }} />
 
       <div className="carte flex flex-col gap-4 p-5">
         <h3 className="text-sm font-bold text-rdia-600 dark:text-rdia-50">{m.resp.u_posture_block}</h3>

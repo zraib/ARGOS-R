@@ -16,6 +16,7 @@ import type {
 } from "@/lib/types";
 import type { PostPick } from "@/lib/posts";
 import { api } from "@/lib/api";
+import { layerOf } from "@/lib/map/positions";
 import {
   LayerState,
   } from "@/lib/store/shared";
@@ -66,6 +67,12 @@ export interface MapSlice {
   setMap3d: (v: boolean) => void;
   setMapSat: (v: boolean) => void;
   select: (kind: MarkerKind, id: string) => void;
+  /**
+   * « Afficher sur la carte » depuis une fiche (ADR 0036) : allume la couche de
+   * l'élément et le sélectionne — la carte s'y recentre et ouvre son détail.
+   * L'appelant navigue ensuite vers /map.
+   */
+  showOnMap: (kind: MarkerKind, id: string) => void;
   clearSelection: () => void;
   setSelUnit: (id: string | null) => void;
   setSelHosp: (id: string | null) => void;
@@ -137,6 +144,15 @@ export const createMapSlice: StateCreator<ArgosState, [], [], MapSlice> = (set, 
   setMap3d: (v) => set({ map3d: v }),
   setMapSat: (v) => set({ mapSat: v }),
   select: (kind, id) => set({ selMarker: { kind, id } }),
+  // Une couche éteinte ferait arriver sur une carte vide à l'endroit visé : on l'allume.
+  // La sélection est un NOUVEL objet : la carte se recentre même si l'élément l'était déjà.
+  showOnMap: (kind, id) => set((s) => {
+    const couche = layerOf(s, kind, id);
+    return {
+      layers: couche && !s.layers[couche] ? { ...s.layers, [couche]: true } : s.layers,
+      selMarker: { kind, id },
+    };
+  }),
   clearSelection: () => set({ selMarker: null }),
   setSelUnit: (id) => set({ selUnit: id }),
   setSelHosp: (id) => set({ selHosp: id }),

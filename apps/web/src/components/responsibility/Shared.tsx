@@ -10,6 +10,8 @@ import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import type { Tone } from "@/components/ui/Pill";
 import type { ResponsibilityKind } from "@/lib/roles";
+import type { MarkerKind } from "@/lib/types";
+import { ShowOnMapButton } from "@/components/map/ShowOnMapButton";
 
 /**
  * Mode SUPERVISION : le tableau de bord est consulté par un superviseur (le
@@ -56,10 +58,13 @@ export function Loading() {
   );
 }
 
-/** Bandeau commun aux écrans de responsabilité. */
+/**
+ * Bandeau commun aux écrans de responsabilité. `mapTarget` : l'entité tenue,
+ * que « Afficher sur la carte » montre sur la carte (ADR 0036).
+ */
 export function RespHeader({
-  icon, title, subtitle, badge, back = false,
-}: { icon: string; title: string; subtitle: string; badge?: string; back?: boolean }) {
+  icon, title, subtitle, badge, back = false, mapTarget,
+}: { icon: string; title: string; subtitle: string; badge?: string; back?: boolean; mapTarget?: { kind: MarkerKind; id: string } }) {
   const m = useModules();
   const supervised = useSupervision();
   return (
@@ -83,6 +88,7 @@ export function RespHeader({
         <p className="truncate text-xs text-gray-500 dark:text-rdia-300">{subtitle}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
+        {mapTarget && <ShowOnMapButton kind={mapTarget.kind} id={mapTarget.id} />}
         {badge && (
           <span className="rounded-md bg-or-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-or-500">
             {badge}

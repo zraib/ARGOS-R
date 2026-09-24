@@ -16,6 +16,7 @@ import { AircraftPanel } from "@/components/map/AircraftPanel";
 import { WindRose } from "@/components/map/WindRose";
 import { HOSPITAL_KINDS, hospKind, kindDef } from "@/lib/hospitals";
 import { HealthGlyph } from "@/components/health/HealthGlyph";
+import { EntityGlyph } from "@/components/map/EntityGlyph";
 import {
   GLASS,
   SelInfo,
@@ -38,6 +39,7 @@ import { FirePanel } from "@/app/map/_parts/FirePanel";
 import { FamilyNode } from "@/app/map/_parts/FamilyNode";
 import { trackerLabel } from "@/components/map/layers/trackers";
 import { contactAge, isStale } from "@/lib/tracking/tracker";
+import { findField, isFieldHospitalEntity, morgueLL, shelterLL } from "@/lib/map/positions";
 
 export default function MapPage() {
   const t = useDict();
@@ -123,6 +125,8 @@ export default function MapPage() {
   const floodArming = useArgos((s) => s.floodArming);
   const fireArming = useArgos((s) => s.fireArming);
   const morgues = useArgos((s) => s.morgues);
+  // Les communes : un abri sans coordonnées propres se lit à la sienne (ADR 0036).
+  const cities = useArgos((s) => s.cities);
   useEffect(() => {
     if (floodArming || fireArming) setSheet(null);
   }, [floodArming, fireArming]);
@@ -228,21 +232,29 @@ export default function MapPage() {
         {
           key: "hospitals",
           label: t.lg_hosp_mil,
-          leaves: hospitals.filter((h) => hospKind(h) === "mil").map((h) => ({ id: h.id, label: h.nom, kind: "hosp" })),
+          leaves: hospitals.filter((h) => !isFieldHospitalEntity(h) && hospKind(h) === "mil").map((h) => ({ id: h.id, label: h.nom, kind: "hosp" })),
         },
         {
           key: "hospitalsCiv",
           label: t.lg_hosp_civ,
           leaves: hospitals
-            .filter((h) => hospKind(h) !== "mil")
+            .filter((h) => !isFieldHospitalEntity(h) && hospKind(h) !== "mil")
             .map((h) => ({ id: h.id, label: `${h.nom} · ${h.ville}`, kind: "hosp" })),
         },
-        { key: "field", label: t.field, leaves: fieldHosps.map((f) => ({ id: f.nom, label: f.nom, kind: "field" })) },
-        // Les sites mortuaires et les morgues mobiles déployées (service morgue).
+        // Les détachements déployés, et les établissements dont le type est « campagne » (ADR 0036).
+        {
+          key: "field",
+          label: t.field,
+          leaves: [
+            ...fieldHosps.map((f) => ({ id: f.id, label: f.nom, kind: "field" as const })),
+            ...hospitals.filter(isFieldHospitalEntity).map((h) => ({ id: h.id, label: `${h.nom} · ${h.ville}`, kind: "hosp" as const })),
+          ],
+        },
+        // Les sites mortuaires et les morgues mobiles déployées (service morgue) — ceux qui ont une position.
         {
           key: "morgues",
           label: t.lg_morgues,
-          leaves: morgues.filter((s) => !(s.kind === "mobile" && !s.deployment)).map((s) => ({ id: s.id, label: `${s.nom} · ${s.ville}`, kind: "morgue" as const })),
+          leaves: morgues.filter((s) => morgueLL(s) !== null).map((s) => ({ id: s.id, label: `${s.nom} · ${s.ville}`, kind: "morgue" as const })),
         },
       ],
     },
@@ -253,7 +265,7 @@ export default function MapPage() {
         {
           key: "shelters",
           label: t.lg_shelters,
-          leaves: shelters.filter((s) => Array.isArray(s.ll)).map((s) => ({ id: s.id, label: `${s.nom} · ${s.ville}`, kind: "shelter" as const })),
+          leaves: shelters.filter((s) => shelterLL(s, cities) !== null).map((s) => ({ id: s.id, label: `${s.nom} · ${s.ville}`, kind: "shelter" as const })),
         },
       ],
     },
@@ -466,11 +478,19 @@ export default function MapPage() {
       const v = vehRoutes.find((x) => x.id === id);
       if (v) selInfo = { titre: v.label, sub: v.kind, badgeType: "active", badgeLabel: t.u_deployed, lines: [{ k: t.col_status, v: "—" }] };
     } else if (kind === "field") {
-      const f = fieldHosps.find((x) => x.nom === id);
+      const f = findField(fieldHosps, id);
       if (f) {
+        const parent = hospitals.find((h) => h.id === f.hid);
         selInfo = {
-          titre: f.nom, sub: t.field, badgeType: f.statut === "op" ? "active" : "on_hold", badgeLabel: f.statut === "op" ? t.op_ok : t.op_partial,
-          lines: [{ k: t.capacity, v: `${f.cap} ${t.beds.toLowerCase()}` }, { k: t.occupancy, v: `${Math.round((f.occ / f.cap) * 100)} %` }, { k: t.since, v: f.depuis }],
+          titre: f.nom, sub: parent ? `${t.field} · ${parent.nom}` : t.field, badgeType: f.statut === "op" ? "active" : "on_hold", badgeLabel: f.statut === "op" ? t.op_ok : t.op_partial,
+          lines: [
+            { k: t.capacity, v: `${f.cap} ${t.beds.toLowerCase()}` },
+            { k: t.occupancy, v: `${Math.round((f.occ / Math.max(1, f.cap)) * 100)} %` },
+            { k: t.since, v: f.depuis },
+            ...(f.incidentId ? [{ k: t.post_incident, v: f.incidentId }] : []),
+          ],
+          // « Détails » : l'établissement dont le détachement relève, dans HospiNet.
+          action: parent ? () => { setSelHosp(parent.id); clearSelection(); router.push("/hospinet"); } : undefined,
         };
       }
     }
@@ -478,16 +498,20 @@ export default function MapPage() {
 
   // Cibles de 44 px sous lg (§ tactile) ; densité d'origine à partir de lg.
   const seg = (on: boolean) => `min-h-11 px-4 py-2.5 text-[14px] font-bold transition-colors lg:min-h-0 ${on ? "bg-or-500 text-rdia-600" : "text-white/90 hover:text-or-400"}`;
+  // Une forme simple (incident, convoi, poste…) ou le glyphe même du marqueur :
+  // unités, abris et morgues se lisent dans la légende comme sur la carte (ADR 0036).
+  const forme = (shape: ReactNode) => <svg width={14} height={14} viewBox="-7 -7 14 14" aria-hidden="true">{shape}</svg>;
   const legend: [ReactNode, string][] = [
-    [<rect key="u" x={-4} y={-4} width={8} height={8} fill="#C9A84C" />, t.lg_units],
-    [<path key="i" d="M0,-6 L6,5 L-6,5 Z" fill="#EF4444" />, t.nav_inc],
-    ...(vehRoutes.length > 0 ? [[<path key="v" d="M0,-5 L5,0 L0,5 L-5,0 Z" fill="#3B82F6" />, t.lg_veh] as [ReactNode, string]] : []),
-    [<rect key="p" x={-7} y={-4} width={14} height={8} rx={2} fill={POST_FILL.opcom} stroke="#0f1f14" />, t.lg_posts],
-    [<rect key="pl" x={-7} y={-4} width={14} height={8} rx={4} fill={PLACED_FILL.teams} stroke="#0f1f14" />, t.lg_placed],
-    [<circle key="s" r={5} fill="#15803d" stroke="#fff" strokeWidth={1.5} />, t.lg_shelters],
-    [<circle key="m" r={5} fill="#64748b" stroke="#fff" strokeWidth={1.5} />, t.lg_morgues],
-    [<circle key="k" r={5} fill="#C9A84C" stroke="#fff" strokeWidth={1.5} />, t.lg_trackers],
-    [<path key="a" d="M-8,4 L-3,-2 L2,3 L8,-4" fill="none" stroke="#C9A84C" strokeWidth={2} strokeDasharray="3 2" />, t.lg_acft_trails],
+    [<EntityGlyph key="u" kind="unit" />, t.lg_units],
+    [forme(<path d="M0,-6 L6,5 L-6,5 Z" fill="#EF4444" />), t.nav_inc],
+    ...(vehRoutes.length > 0 ? [[forme(<path d="M0,-5 L5,0 L0,5 L-5,0 Z" fill="#3B82F6" />), t.lg_veh] as [ReactNode, string]] : []),
+    [forme(<rect x={-7} y={-4} width={14} height={8} rx={2} fill={POST_FILL.opcom} stroke="#0f1f14" />), t.lg_posts],
+    [forme(<rect x={-7} y={-4} width={14} height={8} rx={4} fill={PLACED_FILL.teams} stroke="#0f1f14" />), t.lg_placed],
+    [<EntityGlyph key="s" kind="shelter" />, t.lg_shelters],
+    [<EntityGlyph key="m" kind="morgue" />, t.lg_morgues],
+    [<EntityGlyph key="mm" kind="morgue_mobile" />, t.lg_morgues_mobile],
+    [forme(<circle r={5} fill="#C9A84C" stroke="#fff" strokeWidth={1.5} />), t.lg_trackers],
+    [forme(<path d="M-8,4 L-3,-2 L2,3 L8,-4" fill="none" stroke="#C9A84C" strokeWidth={2} strokeDasharray="3 2" />), t.lg_acft_trails],
   ];
 
   // ---- corps des panneaux ----
@@ -534,9 +558,9 @@ export default function MapPage() {
 
   const legendBody = (
     <div className="flex flex-col gap-2 overflow-x-hidden text-[14px] text-white/80 lg:max-h-[46vh] lg:overflow-y-auto">
-      {legend.map(([shape, label]) => (
+      {legend.map(([icon, label]) => (
         <div key={label} className="flex items-center gap-2">
-          <svg width={14} height={14} viewBox="-7 -7 14 14">{shape}</svg>
+          <span className="flex w-[17px] shrink-0 items-center justify-center">{icon}</span>
           <span>{label}</span>
         </div>
       ))}

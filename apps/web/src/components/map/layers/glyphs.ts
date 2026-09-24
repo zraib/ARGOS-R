@@ -20,6 +20,8 @@ export interface GlyphMarker {
   id: string;
   ll: [number, number];
   html: string;
+  /** Écart en pixels quand un autre marqueur occupe le même point (`mapMarkerOffsets`). */
+  offset?: [number, number];
 }
 
 const registres = new Map<string, maplibregl.Marker[]>();
@@ -31,7 +33,7 @@ export function applyGlyphMarkers(map: maplibregl.Map | null, key: string, kind:
   if (!map || !on) return;
   const poses: maplibregl.Marker[] = [];
   for (const it of items) {
-    poses.push(new maplibregl.Marker({ element: mkEl(it.html, kind, it.id) }).setLngLat(it.ll).addTo(map));
+    poses.push(new maplibregl.Marker({ element: mkEl(it.html, kind, it.id), offset: it.offset }).setLngLat(it.ll).addTo(map));
   }
   registres.set(key, poses);
 }

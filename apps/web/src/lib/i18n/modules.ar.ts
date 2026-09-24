@@ -90,7 +90,7 @@ export const AR_MODULES: ModulesDict = {
     col_ref: "المرجع", col_site: "الموقع", col_status: "الحالة", col_identity: "الهوية", col_origin: "المصدر", col_last: "آخر خطوة", col_actions: "إجراءات",
     origin_field: "الميدان", origin_hospital: "مستشفى", unknown: "مجهول",
     receive: "استلام", received: "تم تأكيد الاستلام.", transfer: "نقل", transferred: "أُعلن النقل — يُؤكَّد الاستلام في موقع الوجهة.", transfer_title: "نقل الجثمان", t_to: "موقع الوجهة", t_note: "السبب / ملاحظة", t_note_ph: "مثال: تقريب العائلات", t_free: "شاغرة",
-    detail: "سلسلة الحيازة", custody_none: "ملف سابق لسجل الحيازة — أُدخل في", by: "بواسطة", pending_badge: "استلام يُؤكَّد", map: "عرض على الخريطة", open_site: "إدارة موقعي",
+    detail: "سلسلة الحيازة", custody_none: "ملف سابق لسجل الحيازة — أُدخل في", by: "بواسطة", pending_badge: "استلام يُؤكَّد", open_site: "إدارة موقعي",
     h_death: "التصريح بوفاة", h_death_title: "وفاة في المؤسسة — نقل إلى موقع جنائزي", h_hint: "يُنقل الجثمان إلى الموقع المختار (الأقرب أولًا، مع أماكنه الشاغرة)؛ ويُؤكَّد استلامه هناك. كل خطوة مؤرخة وموقعة.", h_to: "موقع الوجهة", h_identity: "هوية المريض", h_identity_ph: "الاسم واللقب — إن عُرفا", h_incident: "الحادث المرتبط", h_note: "الظروف، القسم", h_declared: "صُرّح بالوفاة — أُعلن النقل إلى", h_pending: "في انتظار الاستلام من", h_none: "لا نقل معلقًا من هذه المؤسسة.",
     err_denied: "رُفض الإجراء: خارج نطاقك.", err_conflict: "رفضه السجل:",
     level_regional: "مشرحة جهوية", level_city: "مشرحة المدينة", level_mobile: "مشرحة متنقلة", filter_level_all: "كل المستويات", filter_region_all: "كل الجهات", region_none: "بدون جهة", no_site: "لا موقع مطابقًا.",
