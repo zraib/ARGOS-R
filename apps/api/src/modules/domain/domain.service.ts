@@ -32,6 +32,7 @@ import { APP_MODE } from "@/common/app-mode";
 // importateurs existants (contrôleurs, autres modules).
 export type { Incident, IncidentActionEntry, SubIncident, Unit, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviStatus, DviSample, MortuaryRecord, RecordChange, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind, Drawing, DrawingKind, SharedSimulation } from "@/modules/domain/domain.types";
 export { DVI_STATUSES, DVI_SAMPLES } from "@/modules/domain/domain.types";
+import { BRIEFING_SECTIONS, type BriefingSection, type IncidentBriefing } from "@/modules/domain/domain.types";
 import type { Incident, IncidentActionEntry, SubIncident, Unit, UnitAssignment, UnitCorps, Destination, Sitrep, Hospital, FieldHospital, HospitalWard, Shelter, MorgueSite, DviSample, MortuaryRecord, RecordChange, FeedItem, QueueItem, TransportMovement, IncidentPost, PostKind, IncidentVictim, VictimKind, PersonIdentity, MorgueType, Drawing, SharedSimulation } from "@/modules/domain/domain.types";
 import { checkPost, type PostLookup } from "@/modules/domain/post.rules";
 import type { ResponsibilityKind } from "@/shared/responsibilities";
@@ -839,6 +840,32 @@ export class DomainService implements OnApplicationBootstrap {
     const log = inc.actionsLog ?? [];
     if (!log.some((e) => e.id === aid)) return { missing: "action" };
     inc.actionsLog = log.filter((e) => e.id !== aid);
+    this.persist();
+    return { ok: true };
+  }
+
+  /**
+   * Enregistre le briefing corrigé à la main sur l'incident (ADR 0037) : il
+   * remplace, pour tous les postes, le briefing calculé — jusqu'à ce qu'on
+   * revienne au calcul. Le texte est gardé tel quel, fins de ligne comprises ;
+   * seuls les blancs en fin de rubrique sont retirés.
+   */
+  saveIncidentBriefing(id: string, sections: Record<BriefingSection, string>, actor: string): { briefing?: IncidentBriefing; missing?: true } {
+    const inc = this.incidents.find((i) => i.id === id);
+    if (!inc) return { missing: true };
+    const propres = Object.fromEntries(BRIEFING_SECTIONS.map((k) => [k, (sections[k] ?? "").replace(/\s+$/, "")])) as Record<BriefingSection, string>;
+    inc.briefing = { sections: propres, by: actor, at: new Date().toISOString() };
+    this.pushFeed(`${inc.id} — briefing corrigé par ${actor}`, "bg-rdia-500", inc.id);
+    this.persist();
+    return { briefing: inc.briefing };
+  }
+
+  /** Revient au briefing calculé : la version corrigée à la main est retirée (ADR 0037). */
+  clearIncidentBriefing(id: string): { ok?: true; missing?: "incident" | "briefing" } {
+    const inc = this.incidents.find((i) => i.id === id);
+    if (!inc) return { missing: "incident" };
+    if (!inc.briefing) return { missing: "briefing" };
+    delete inc.briefing;
     this.persist();
     return { ok: true };
   }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { briefingRoot, briefingText, buildBriefing } from "@/lib/briefing";
+import { briefingHeader, briefingRoot, briefingSections, briefingText, buildBriefing, sectionsText } from "@/lib/briefing";
+import { aiBriefingSections } from "@/lib/ai/llmBriefing";
 import type { Hospital, Incident, IncidentPost, SubIncidentCatalog, Unit } from "@/lib/types";
 
 // ADR 0032 — le briefing couvre l'incident principal, ses rattachés et leurs sous-incidents.
@@ -133,5 +134,42 @@ describe("briefing opérationnel (ADR 0032)", () => {
     expect(txt).toContain("\n1. ");
     expect(briefingRoot([root, child], "INC-2")?.id).toBe("INC-1");
     expect(briefingRoot([root, child], "INC-1")?.id).toBe("INC-1");
+  });
+});
+
+describe("briefing corrigé à la main (ADR 0037)", () => {
+  const labels = { situation: "Situation", taken: "Actions entreprises", anticipation: "Anticipation", objectives: "Objectifs", concept: "Concept d'opération", actions: "Actions à entreprendre" };
+
+  it("le calcul se reprend rubrique par rubrique : une puce par point, les actions à entreprendre numérotées", () => {
+    const b = brief();
+    const r = briefingSections(b);
+    expect(r.situation.split("\n")[0]).toBe(`- ${b.situation[0]}`);
+    expect(r.actions.split("\n")[1]).toBe(`2. ${b.actions[1]}`);
+    // Le texte d'une version corrigée a la même forme que celui du calcul : copier, rédiger par l'IA, tout suit.
+    expect(sectionsText(briefingHeader(b), r, labels)).toBe(briefingText(b, labels));
+  });
+
+  it("une version corrigée garde son texte tel quel sous les six titres", () => {
+    const corrige = { ...briefingSections(brief()), concept: "PCT au stade.\nRelève à 20 h." };
+    const txt = sectionsText("BRIEFING — INC-1 « Séisme d'Al Haouz »", corrige, labels);
+    expect(txt).toContain("CONCEPT D'OPÉRATION\nPCT au stade.\nRelève à 20 h.");
+    expect(txt.split("\n\n").map((bloc) => bloc.split("\n")[0]).slice(1)).toEqual(["SITUATION", "ACTIONS ENTREPRISES", "ANTICIPATION", "OBJECTIFS", "CONCEPT D'OPÉRATION", "ACTIONS À ENTREPRENDRE"]);
+  });
+
+  it("la rédaction de l'IA se range par TITRE, même dans le désordre ; une forme non tenue ne se range pas", () => {
+    const redige = [
+      "SITUATION", "Deux quartiers inondés.",
+      "ANTICIPATION", "Montée des eaux cette nuit.",
+      "ACTIONS ENTREPRISES", "14:05 — digue rompue, génie engagé.",
+      "OBJECTIFS", "Mettre à l'abri.",
+      "**Concept d’opération**", "PCT au stade.",
+      "ACTIONS À ENTREPRENDRE", "1. Évacuer le quartier nord.",
+    ].join("\n");
+    const r = aiBriefingSections(redige);
+    expect(r?.taken).toBe("14:05 — digue rompue, génie engagé.");
+    expect(r?.anticipation).toBe("Montée des eaux cette nuit.");
+    expect(r?.concept).toBe("PCT au stade.");
+    expect(r?.actions).toBe("1. Évacuer le quartier nord.");
+    expect(aiBriefingSections("SITUATION\nSeule rubrique.")).toBeNull();
   });
 });

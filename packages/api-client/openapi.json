@@ -1899,6 +1899,72 @@
         ]
       }
     },
+    "/api/incidents/{id}/briefing": {
+      "put": {
+        "operationId": "IncidentsController_saveBriefing",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveIncidentBriefingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "404": {
+            "description": "Incident inconnu ou hors du périmètre du compte."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Enregistrer le briefing corrigé à la main (six rubriques) sur l'incident principal (audité)",
+        "tags": [
+          "domain"
+        ]
+      },
+      "delete": {
+        "operationId": "IncidentsController_clearBriefing",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Incident inconnu, hors périmètre, ou sans briefing corrigé."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Revenir au briefing calculé : retire la version corrigée à la main (audité)",
+        "tags": [
+          "domain"
+        ]
+      }
+    },
     "/api/sub-incident-types": {
       "get": {
         "operationId": "IncidentsController_subIncidentTypesList",
@@ -8122,6 +8188,49 @@
             "description": "Action entreprise"
           }
         }
+      },
+      "SaveIncidentBriefingDto": {
+        "type": "object",
+        "properties": {
+          "situation": {
+            "type": "string",
+            "description": "Situation",
+            "maxLength": 6000
+          },
+          "taken": {
+            "type": "string",
+            "description": "Actions entreprises (journal de conduite)",
+            "maxLength": 12000
+          },
+          "anticipation": {
+            "type": "string",
+            "description": "Anticipation",
+            "maxLength": 6000
+          },
+          "objectives": {
+            "type": "string",
+            "description": "Objectifs",
+            "maxLength": 6000
+          },
+          "concept": {
+            "type": "string",
+            "description": "Concept d'opération",
+            "maxLength": 6000
+          },
+          "actions": {
+            "type": "string",
+            "description": "Actions à entreprendre (numérotées par priorité)",
+            "maxLength": 6000
+          }
+        },
+        "required": [
+          "situation",
+          "taken",
+          "anticipation",
+          "objectives",
+          "concept",
+          "actions"
+        ]
       },
       "CreateSubIncidentDto": {
         "type": "object",

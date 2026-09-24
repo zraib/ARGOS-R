@@ -10,7 +10,7 @@
 // la reformuler (llmBriefing), jamais y ajouter un chiffre.
 // ============================================================================
 
-import type { FieldHospital, Hospital, Incident, IncidentPost, SubIncidentCatalog, Unit, UnitCorps, WeatherForecast } from "@/lib/types";
+import { BRIEFING_SECTIONS, type BriefingSection, type FieldHospital, type Hospital, type Incident, type IncidentPost, type SubIncidentCatalog, type Unit, type UnitCorps, type WeatherForecast } from "@/lib/types";
 import type { IncidentEvolution } from "@/lib/ai/risk/incidentEvolution";
 
 export interface Briefing {
@@ -261,20 +261,38 @@ export function buildBriefing(input: BriefingInput): Briefing {
 }
 
 /** Le briefing en texte brut, rubrique par rubrique (copie, IA). */
-export function briefingText(
-  b: Briefing,
-  labels: { situation: string; taken: string; anticipation: string; objectives: string; concept: string; actions: string },
-): string {
-  const bloc = (title: string, lines: string[]) => `${title.toUpperCase()}\n${lines.map((l) => `- ${l}`).join("\n")}`;
-  return [
-    `BRIEFING — ${b.incidentId} « ${b.titre} »`,
-    bloc(labels.situation, b.situation),
-    bloc(labels.taken, b.taken),
-    bloc(labels.anticipation, b.anticipation),
-    bloc(labels.objectives, b.objectives),
-    bloc(labels.concept, b.concept),
-    `${labels.actions.toUpperCase()}\n${b.actions.map((l, k) => `${k + 1}. ${l}`).join("\n")}`,
-  ].join("\n\n");
+/** Les titres des six rubriques, dans la langue de l'écran. */
+export type BriefingLabels = Record<BriefingSection, string>;
+
+/**
+ * Les rubriques du briefing calculé, en texte : une ligne par point — puce
+ * « - », ou « 1. » pour les actions à entreprendre. C'est le point de départ
+ * d'une correction à la main (ADR 0037).
+ */
+export function briefingSections(b: Briefing): Record<BriefingSection, string> {
+  const puces = (lines: string[]) => lines.map((l) => `- ${l}`).join("\n");
+  return {
+    situation: puces(b.situation),
+    taken: puces(b.taken),
+    anticipation: puces(b.anticipation),
+    objectives: puces(b.objectives),
+    concept: puces(b.concept),
+    actions: b.actions.map((l, k) => `${k + 1}. ${l}`).join("\n"),
+  };
+}
+
+/** Le texte d'un briefing rubrique par rubrique — calculé, rédigé ou corrigé à la main, une seule forme. */
+export function sectionsText(header: string, sections: Record<BriefingSection, string>, labels: BriefingLabels): string {
+  return [header, ...BRIEFING_SECTIONS.map((k) => `${labels[k].toUpperCase()}\n${sections[k].trim()}`)].join("\n\n");
+}
+
+/** L'en-tête du texte d'un briefing : l'incident principal. */
+export function briefingHeader(b: Pick<Briefing, "incidentId" | "titre">): string {
+  return `BRIEFING — ${b.incidentId} « ${b.titre} »`;
+}
+
+export function briefingText(b: Briefing, labels: BriefingLabels): string {
+  return sectionsText(briefingHeader(b), briefingSections(b), labels);
 }
 
 /** La racine d'une famille : un incident rattaché renvoie à son principal. */

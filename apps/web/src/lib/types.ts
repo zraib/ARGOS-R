@@ -164,6 +164,8 @@ export interface Incident {
   assignments?: UnitAssignment[];
   /** Actions entreprises : le journal de conduite, en ordre chronologique (ADR 0032). */
   actionsLog?: IncidentActionEntry[];
+  /** Briefing corrigé à la main, enregistré sur l'incident principal (ADR 0037) ; absent : le briefing est calculé. */
+  briefing?: IncidentBriefing;
   /** Volet NRBC (incidents de type nrbc) */
   nrbc?: NrbcDetails;
   /** Incident archivé (masqué de la liste active) */
@@ -184,6 +186,20 @@ export interface IncidentActionEntry {
   createdAt: string;
   updatedBy?: string;
   updatedAt?: string;
+}
+
+/** Les six rubriques du briefing, dans l'ordre de lecture — miroir de l'API (ADR 0032, 0034, 0037). */
+export const BRIEFING_SECTIONS = ["situation", "taken", "anticipation", "objectives", "concept", "actions"] as const;
+export type BriefingSection = (typeof BRIEFING_SECTIONS)[number];
+/** Longueur maximale d'une rubrique ; les actions entreprises (tout le journal) ont droit au double — miroir de l'API. */
+export const BRIEFING_SECTION_MAX = 6000;
+export const BRIEFING_TAKEN_MAX = 12000;
+
+/** Le briefing corrigé à la main (ADR 0037) : le texte de chaque rubrique, qui l'a enregistré et quand. */
+export interface IncidentBriefing {
+  sections: Record<BriefingSection, string>;
+  by: string;
+  at: string;
 }
 
 export interface SubIncident {

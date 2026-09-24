@@ -154,6 +154,8 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `DELETE` | `/api/incidents/{id}/assignments/{unitId}` | `assign:update` | Retirer une unité de l'opération (OPCOM) — retirée du terrain si elle y était |
 | `POST` | `/api/incidents/{id}/assignments/{unitId}/deploy` | `deploy:update` | Déployer sur le terrain une unité affectée (TACOM, PCO, PCT, cellules) |
 | `POST` | `/api/incidents/{id}/assignments/{unitId}/withdraw` | `deploy:update` | Retirer du terrain une unité déployée — elle reste affectée au PC |
+| `DELETE` | `/api/incidents/{id}/briefing` | `actions_log:update` | Revenir au briefing calculé : retire la version corrigée à la main (audité) |
+| `PUT` | `/api/incidents/{id}/briefing` | `actions_log:update` | Enregistrer le briefing corrigé à la main (six rubriques) sur l'incident principal (audité) |
 | `GET` | `/api/incidents/{id}/deployments` | `incidents:view` | Postes déployés sur cette opération. |
 | `POST` | `/api/incidents/{id}/deployments` | `incidents:update` | Déployer un poste sur l'opération. |
 | `DELETE` | `/api/incidents/{id}/deployments/{matricule}` | `incidents:update` | Retirer un poste de l'opération. |
@@ -321,7 +323,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 ## Chiffres
 
-169 chemins · 217 opérations · 14 groupes.
+170 chemins · 219 opérations · 14 groupes.
 
 ## Modifier le contrat
 

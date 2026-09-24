@@ -900,6 +900,24 @@ export interface paths {
         patch: operations["IncidentsController_updateAction"];
         trace?: never;
     };
+    "/api/incidents/{id}/briefing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Enregistrer le briefing corrigé à la main (six rubriques) sur l'incident principal (audité) */
+        put: operations["IncidentsController_saveBriefing"];
+        post?: never;
+        /** Revenir au briefing calculé : retire la version corrigée à la main (audité) */
+        delete: operations["IncidentsController_clearBriefing"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sub-incident-types": {
         parameters: {
             query?: never;
@@ -3572,6 +3590,20 @@ export interface components {
             /** @description Action entreprise */
             action?: string;
         };
+        SaveIncidentBriefingDto: {
+            /** @description Situation */
+            situation: string;
+            /** @description Actions entreprises (journal de conduite) */
+            taken: string;
+            /** @description Anticipation */
+            anticipation: string;
+            /** @description Objectifs */
+            objectives: string;
+            /** @description Concept d'opération */
+            concept: string;
+            /** @description Actions à entreprendre (numérotées par priorité) */
+            actions: string;
+        };
         CreateSubIncidentDto: {
             /**
              * @description Identifiant d'un sous-type (catalogue /sub-incident-types)
@@ -5986,6 +6018,50 @@ export interface operations {
         };
         responses: {
             /** @description Incident ou ligne inconnus. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IncidentsController_saveBriefing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveIncidentBriefingDto"];
+            };
+        };
+        responses: {
+            /** @description Incident inconnu ou hors du périmètre du compte. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IncidentsController_clearBriefing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Incident inconnu, hors périmètre, ou sans briefing corrigé. */
             404: {
                 headers: {
                     [name: string]: unknown;

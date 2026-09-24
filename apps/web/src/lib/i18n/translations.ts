@@ -718,6 +718,9 @@ export interface Dict {
   trk_map_device: string; trk_map_app: string; trk_map_stale: string; trk_map_live: string; trk_map_panic: string; trk_speed: string; trk_heading: string;
   del_unit: string; del_shelter: string; del_morgue: string; del_hospital: string; del_field_hospital: string;
   al_title: string; al_col_at: string; al_col_event: string; al_col_action: string; al_add: string; al_empty: string; al_readonly: string; al_need_text: string; al_by: string; al_edited: string; al_edit: string; al_delete: string; al_delete_confirm: string; al_save: string; al_saved: string; al_removed: string; al_event_ph: string; al_action_ph: string; bf_button: string; bf_title: string; bf_situation: string; bf_anticipation: string; bf_objectives: string; bf_concept: string; bf_actions: string; bf_ai: string; bf_ai_busy: string; bf_ai_done: string; bf_ai_fail: string; bf_data: string; bf_back_data: string; bf_refresh: string; bf_copy: string; bf_copied: string; bf_pick: string; bf_none: string; bf_scope: string; bf_generated: string; bf_move: string; bf_close: string;
+  // Briefing corrigé à la main (ADR 0037)
+  bf_edit: string; bf_save: string; bf_saving: string; bf_edit_hint: string; bf_manual: string; bf_show_computed: string; bf_show_manual: string;
+  bf_reset: string; bf_reset_confirm: string; bf_saved: string; bf_reset_done: string; bf_too_long: string;
   del_confirm_title: string; del_confirm_body: string; del_confirm_force: string; del_blocked: string; del_entity_done: string; del_forbidden: string; del_code_help_entity: string; del_code_bad_entity: string;
   // Chaîne de commandement, modes, ressources (ADR 0016)
   nav_resources: string;

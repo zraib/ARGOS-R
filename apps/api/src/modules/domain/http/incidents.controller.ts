@@ -7,9 +7,9 @@
 // et `authz-coverage.spec.ts` en font foi.
 // ============================================================================
 
-import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query, UseInterceptors } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Put, Query, UseInterceptors } from "@nestjs/common";
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
-import { AlertLevelDto, AssignMorgueDto, AssignUnitDto, CreateIncidentActionDto, UpdateIncidentActionDto, CreateVictimDto, PublishSitrepDto, CreateIncidentDto, CreateSubIncidentDto, RegisterIncidentTypeDto, UpdateIncidentDto, UpdateVictimDto, DeployPostDto, UpdateIncidentTypeDto } from "@/modules/domain/dto";
+import { AlertLevelDto, AssignMorgueDto, AssignUnitDto, CreateIncidentActionDto, UpdateIncidentActionDto, SaveIncidentBriefingDto, CreateVictimDto, PublishSitrepDto, CreateIncidentDto, CreateSubIncidentDto, RegisterIncidentTypeDto, UpdateIncidentDto, UpdateVictimDto, DeployPostDto, UpdateIncidentTypeDto } from "@/modules/domain/dto";
 import { ForbiddenException } from "@nestjs/common";
 import { assignableCorps, canDeploy } from "@/modules/domain/assignment.rules";
 import { RequirePermission } from "@/common/decorators/require-permission.decorator";
@@ -345,6 +345,37 @@ export class IncidentsController {
     if (res.missing === "incident") throw new NotFoundException(`Incident inconnu : ${id}`);
     if (res.missing === "action") throw new NotFoundException(`Ligne inconnue : ${aid}`);
     return { deleted: aid };
+  }
+
+  // --- BRIEFING CORRIGÉ À LA MAIN (ADR 0037) --------------------------------
+  // Le briefing est calculé sur les données (ADR 0032) ; ceux qui tiennent le
+  // journal de conduite (`actions_log:update`) peuvent le reprendre à la main
+  // et l'enregistrer sur l'incident principal : tous les postes lisent alors
+  // cette version, jusqu'à ce qu'on revienne au calcul. On ne corrige que le
+  // briefing d'un incident qu'on voit — aujourd'hui tout incident déclaré
+  // (décision du 19 septembre) ; la garde tient si une station cantonne un jour.
+
+  @Put("incidents/:id/briefing")
+  @RequirePermission("actions_log:update")
+  @ApiOperation({ summary: "Enregistrer le briefing corrigé à la main (six rubriques) sur l'incident principal (audité)" })
+  @ApiResponse({ status: 404, description: "Incident inconnu ou hors du périmètre du compte." })
+  saveBriefing(@Param("id") id: string, @Body() dto: SaveIncidentBriefingDto, @CurrentUser() user: AuthUser) {
+    this.assertCanSee(id, user);
+    const res = this.domain.saveIncidentBriefing(id, dto, user.username);
+    if (res.missing) throw new NotFoundException(`Incident inconnu : ${id}`);
+    return res.briefing;
+  }
+
+  @Delete("incidents/:id/briefing")
+  @RequirePermission("actions_log:update")
+  @ApiOperation({ summary: "Revenir au briefing calculé : retire la version corrigée à la main (audité)" })
+  @ApiResponse({ status: 404, description: "Incident inconnu, hors périmètre, ou sans briefing corrigé." })
+  clearBriefing(@Param("id") id: string, @CurrentUser() user: AuthUser) {
+    this.assertCanSee(id, user);
+    const res = this.domain.clearIncidentBriefing(id);
+    if (res.missing === "incident") throw new NotFoundException(`Incident inconnu : ${id}`);
+    if (res.missing === "briefing") throw new NotFoundException(`Aucun briefing corrigé sur ${id}`);
+    return { cleared: id };
   }
 
   @Get("sub-incident-types")
