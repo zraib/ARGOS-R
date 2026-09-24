@@ -8,7 +8,8 @@ import { occBarClass } from "@/lib/helpers";
 import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
 import { corpsLabel } from "@/lib/corps";
 import { canEditShelter, canEditUnit } from "@/lib/mode";
-import { shelterPosition } from "@/lib/ai/opsnetAffecteur";
+import { shelterLL } from "@/lib/map/positions";
+import { ShowOnMapButton } from "@/components/map/ShowOnMapButton";
 import { EditUnitModal, EditShelterModal } from "@/components/org/EditEntityModals";
 import { DeleteEntityButton } from "@/components/org/DeleteEntityModal";
 import { ResponsibleCard } from "@/components/responsibility/ResponsibleCard";
@@ -69,6 +70,7 @@ export function UnitSheet({ unit, onBack }: { unit: Unit; onBack: () => void }) 
             </div>
           </div>
           <EtatUnite dispo={unit.dispo} />
+          <ShowOnMapButton kind="unit" id={unit.id} />
           {editable && (
             <button type="button" onClick={() => setEditing(true)} title={t.ops_edit_unit} aria-label={`${t.ops_edit_unit} — ${unit.nom}`} className={EDIT_CLS}>
               <Icon path={UI_ICONS.edit} size={14} />
@@ -116,8 +118,9 @@ export function ShelterSheet({ shelter, onBack }: { shelter: Shelter; onBack: ()
   const [editing, setEditing] = useState(false);
   const editable = canEditShelter(role, sessionUser?.assignments?.shelter === shelter.id, can);
   const pct = Math.round((100 * shelter.occupants) / Math.max(1, shelter.capacity));
-  // La position vient de la COMMUNE, pas de l'abri : le dire évite qu'un point sur une carte passe pour une adresse.
-  const ll = shelterPosition(shelter, cities);
+  // Sa position propre, sinon celle de sa COMMUNE — et alors on le dit : un point sur une carte ne doit pas passer pour une adresse.
+  // La même que la carte (`shelterLL`, ADR 0036).
+  const pos = shelterLL(shelter, cities);
   // L'abri posé sur une opération : son canal s'ouvre depuis la carte des titulaires.
   const incidentId = posts.find((p) => p.kind === "shelter" && p.entityId === shelter.id)?.incidentId;
 
@@ -140,6 +143,7 @@ export function ShelterSheet({ shelter, onBack }: { shelter: Shelter; onBack: ()
             </div>
           </div>
           <EtatAppro niveau={shelter.supplies} />
+          <ShowOnMapButton kind="shelter" id={shelter.id} />
           {editable && (
             <button type="button" onClick={() => setEditing(true)} title={t.ops_edit_shelter} aria-label={`${t.ops_edit_shelter} — ${shelter.nom}`} className={EDIT_CLS}>
               <Icon path={UI_ICONS.edit} size={14} />
@@ -163,7 +167,15 @@ export function ShelterSheet({ shelter, onBack }: { shelter: Shelter; onBack: ()
           {stat(t.ops_adults, String(shelter.adults))}
           {stat(t.ops_children, String(shelter.children))}
           {stat(t.ops_elderly, String(shelter.elderly))}
-          {stat(t.ops_position, ll ? `${t.ops_pos_from_city} ${ll[1].toFixed(3)}, ${ll[0].toFixed(3)}` : t.ops_pos_unresolved)}
+          {stat(
+            t.ops_position,
+            !pos
+              ? t.ops_pos_unresolved
+              : pos.fromCity
+                ? `${t.ops_pos_from_city} ${pos.ll[1].toFixed(3)}, ${pos.ll[0].toFixed(3)}`
+                : `${pos.ll[1].toFixed(4)}, ${pos.ll[0].toFixed(4)}`,
+            !!pos && !pos.fromCity,
+          )}
         </dl>
 
         <ResponsibleCard kind="shelter" entityId={shelter.id} incidentId={incidentId} />

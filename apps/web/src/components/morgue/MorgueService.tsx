@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useArgos, useModules } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
@@ -19,6 +19,7 @@ import { DeployMobileModal } from "@/components/morgue/DeployMobileModal";
 import { RecordDetailModal, quand } from "@/components/morgue/RecordDetailModal";
 import { TransferModal } from "@/components/morgue/TransferModal";
 import { IdentifyModal } from "@/components/morgue/IdentifyModal";
+import { ShowOnMapButton } from "@/components/map/ShowOnMapButton";
 import { SearchBox, type Suggestion } from "@/components/ui/SearchBox";
 import { personName } from "@/lib/victims";
 import { DVI_STATUSES, type DviStatus, type MorgueSite, type MortuaryRecord } from "@/lib/types";
@@ -45,7 +46,6 @@ const LEVEL_TONE: Record<SiteLevel, Tone> = { regional: "gold", city: "gray", mo
 
 export function MorgueService() {
   const m = useModules();
-  const router = useRouter();
   const role = useArgos((s) => s.role);
   // La permission servie par l'API (ADR 0022) vaut pour les deux profils de rôles.
   const can = useArgos((s) => s.can);
@@ -53,7 +53,6 @@ export function MorgueService() {
   const hospitals = useArgos((s) => s.hospitals);
   const incidents = useArgos((s) => s.incidents);
   const reloadMorgues = useArgos((s) => s.reloadMorgues);
-  const setMapCenter = useArgos((s) => s.setMapCenter);
   const showToast = useArgos((s) => s.showToast);
   const [records, setRecords] = useState<MortuaryRecord[]>([]);
   const [tab, setTab] = useState<"sites" | "bodies">("sites");
@@ -162,11 +161,6 @@ export function MorgueService() {
   const parStatut = (st: DviStatus) => records.filter((r) => r.status === st).length;
 
   const siteOf = (mid: string) => morgues.find((s) => s.id === mid);
-  const sur = (site: MorgueSite) => {
-    if (!site.ll) return;
-    setMapCenter(site.ll, 12, site.nom);
-    router.push("/map");
-  };
   const refuse = (res: { error?: unknown; response?: Response }) => {
     const code = res.response?.status;
     if (res.error || (code !== undefined && code >= 400)) {
@@ -326,11 +320,7 @@ export function MorgueService() {
                             <span className="truncate">{hosp ? `${m.morgue.attached} ${hosp.nom}` : m.morgue.not_attached}</span>
                           </div>
                         </button>
-                        {site.ll && (
-                          <button type="button" onClick={() => sur(site)} title={m.morgue.map} aria-label={`${m.morgue.map} — ${site.nom}`} className="cible-tactile flex shrink-0 items-center justify-center rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-or-500 dark:hover:bg-rdia-600">
-                            <Icon path={NAV_ICONS.map} size={15} />
-                          </button>
-                        )}
+                        <ShowOnMapButton kind="morgue" id={site.id} compact />
                       </div>
                       <div>
                         <div className="mb-1 flex items-center justify-between text-xs">

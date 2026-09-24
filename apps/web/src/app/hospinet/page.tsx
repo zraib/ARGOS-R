@@ -17,6 +17,7 @@ import { EditHospitalModal } from "@/components/org/EditEntityModals";
 import { ResponsibleCard } from "@/components/responsibility/ResponsibleCard";
 import { Modal } from "@/components/ui/Modal";
 import { HealthGlyph } from "@/components/health/HealthGlyph";
+import { ShowOnMapButton } from "@/components/map/ShowOnMapButton";
 import { HospinetIAPanel } from "@/components/health/HospinetIAPanel";
 import { HospinetAffecteurIA } from "@/components/health/HospinetAffecteurIA";
 import { HOSPITAL_KINDS, hospKind, kindDef } from "@/lib/hospitals";
@@ -334,13 +335,16 @@ export default function HospinetPage() {
             <Icon path={UI_ICONS.arrowLeft} size={16} strokeWidth={2} />
           </button>
           <HealthGlyph kind={hospKind(hosp)} size={26} />
-          <div className="min-w-0 flex-1">
+          {/* `basis-48` : le titre RÉCLAME sa place — sans elle (basis 0), les
+              onglets restaient sur sa ligne et le réduisaient à quelques lettres. */}
+          <div className="min-w-0 flex-1 basis-48">
             <h2 className="break-words text-base font-bold leading-tight text-rdia-600 dark:text-rdia-50">{hosp.nom}</h2>
             <div className="text-xs text-gray-500 dark:text-rdia-300">
               {hosp.type ?? kindDef(hospKind(hosp)).long} · {hosp.ville}
               {hosp.region ? ` · ${hosp.region}` : ""}
             </div>
           </div>
+          <ShowOnMapButton kind="hosp" id={hosp.id} />
           {canEditHospital(hosp.id) && (
             <button
               type="button"
@@ -548,13 +552,15 @@ export default function HospinetPage() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {fields.map((f) => (
                 <div key={f.id} className="carte flex flex-col gap-3 p-4 sm:p-5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex min-w-0 items-start gap-2">
+                  {/* Le nom garde sa place (`basis-40`) : statut et boutons passent dessous plutôt que de l'écraser. */}
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="flex min-w-0 flex-1 basis-40 items-start gap-2">
                       <HealthGlyph kind={f.kind} size={20} />
                       <h3 className="min-w-0 break-words text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{f.nom}</h3>
                     </div>
                     <span className="flex shrink-0 items-center gap-1.5">
                       <Badge type={f.badgeType} label={f.badgeLabel} />
+                      <ShowOnMapButton kind="field" id={f.id} compact />
                       {/* Qui déploie retire (ADR 0030) : rendu à qui détient `hospinet:delete`. */}
                       <DeleteEntityButton kind="field_hospital" id={f.id} name={f.nom} compact />
                     </span>

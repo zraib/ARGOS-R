@@ -11,26 +11,37 @@
 import type maplibregl from "maplibre-gl";
 import type { MorgueSite } from "@/lib/types";
 import { morgueMarkerHTML } from "@/lib/map/markers";
+import { markerKey, morgueLL } from "@/lib/map/positions";
 import { applyGlyphMarkers } from "./glyphs";
-import { hasLL } from "./points";
 
 /** Rien à préparer : les sites sont des marqueurs DOM (ADR 0029). */
 export function setupMorgueLayers(_map: maplibregl.Map): void {
   /* le glyphe vit dans le DOM, pas dans le style */
 }
 
-/** Les sites à montrer : ceux de la couche, mobiles repliées exclues. */
-export function applyMorgues(map: maplibregl.Map | null, morgues: readonly MorgueSite[], on: boolean, selected?: string | null): void {
+/**
+ * Les sites à montrer : ceux de la couche, mobiles repliées exclues — une
+ * morgue mobile se dessine là où elle est DÉPLOYÉE (`morgueLL`). `offsets` :
+ * les écarts des marqueurs qui partagent un point (calculés par MapCanvas).
+ */
+export function applyMorgues(
+  map: maplibregl.Map | null,
+  morgues: readonly MorgueSite[],
+  on: boolean,
+  selected?: string | null,
+  offsets?: ReadonlyMap<string, [number, number]>,
+): void {
   applyGlyphMarkers(
     map,
     "morgues",
     "morgue",
     morgues
-      .filter(hasLL)
-      .filter((m) => !(m.kind === "mobile" && !m.deployment))
-      .map((m) => ({
+      .map((m) => ({ m, ll: morgueLL(m) }))
+      .filter((x): x is { m: MorgueSite; ll: [number, number] } => x.ll !== null)
+      .map(({ m, ll }) => ({
         id: m.id,
-        ll: m.ll,
+        ll,
+        offset: offsets?.get(markerKey("morgue", m.id)),
         // Ambre : mobile déployée ; ardoise foncée : régionale ; ardoise claire : de ville ; rouge sombre : plein.
         html: morgueMarkerHTML(
           m.nom,

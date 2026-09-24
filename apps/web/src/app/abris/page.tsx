@@ -7,6 +7,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Pill, type Tone } from "@/components/ui/Pill";
 import { occBarClass } from "@/lib/helpers";
 import { NAV_ICONS, KPI_ICONS } from "@/lib/icons";
+import { ShowOnMapButton } from "@/components/map/ShowOnMapButton";
 
 const SUPPLY: Record<SupplyStatus, { tone: Tone; key: "sup_ok" | "sup_low" | "sup_critical" }> = {
   ok: { tone: "green", key: "sup_ok" },
@@ -41,7 +42,11 @@ export default function AbrisPage() {
                   <h3 className="break-words text-sm font-bold leading-snug text-rdia-600 dark:text-rdia-50">{s.nom}</h3>
                   <div className="mt-0.5 text-xs text-gray-500 dark:text-rdia-300">{s.ville}</div>
                 </div>
-                <span className="shrink-0"><Pill tone={sup.tone} label={m.shelters[sup.key]} /></span>
+                <span className="flex shrink-0 items-center gap-1.5">
+                  <Pill tone={sup.tone} label={m.shelters[sup.key]} />
+                  {/* L'abri sur la carte — à sa position, sinon à celle de sa commune (ADR 0036). */}
+                  <ShowOnMapButton kind="shelter" id={s.id} compact />
+                </span>
               </div>
               <div>
                 <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 text-xs text-gray-400 dark:text-rdia-400 md:text-[10px]">

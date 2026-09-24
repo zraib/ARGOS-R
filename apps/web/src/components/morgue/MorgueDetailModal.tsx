@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useArgos, useModules } from "@/lib/store";
 import { api } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
 import { Pill, type Tone } from "@/components/ui/Pill";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
+import { UI_ICONS } from "@/lib/icons";
 import { loadBarClass } from "@/lib/responsibility";
 import { levelOf, presentBodies, sortRegistry } from "@/lib/morgue";
 import { personName, whenShort } from "@/lib/victims";
@@ -17,6 +16,7 @@ import { IdentifyModal } from "@/components/morgue/IdentifyModal";
 import { RecordDetailModal } from "@/components/morgue/RecordDetailModal";
 import { TransferModal } from "@/components/morgue/TransferModal";
 import { ResponsibleCard } from "@/components/responsibility/ResponsibleCard";
+import { ShowOnMapButton } from "@/components/map/ShowOnMapButton";
 import type { MorgueSite, MorgueStatus, MortuaryRecord } from "@/lib/types";
 
 // ============================================================================
@@ -40,13 +40,11 @@ export function MorgueDetailModal({
   onChanged: () => void;
 }) {
   const m = useModules();
-  const router = useRouter();
   const role = useArgos((s) => s.role);
   // La permission servie par l'API (ADR 0022) vaut pour les deux profils de rôles.
   const can = useArgos((s) => s.can);
   const hospitals = useArgos((s) => s.hospitals);
   const morgues = useArgos((s) => s.morgues);
-  const setMapCenter = useArgos((s) => s.setMapCenter);
   const showToast = useArgos((s) => s.showToast);
   const [detail, setDetail] = useState<MortuaryRecord | null>(null);
   const [identifying, setIdentifying] = useState<MortuaryRecord | null>(null);
@@ -87,12 +85,8 @@ export function MorgueDetailModal({
           <Pill tone={MORGUE_STATUS_TONE[site.statut]} label={statutLabel} size="sm" />
           <Pill tone={echelon === "mobile" ? "amber" : echelon === "regional" ? "gold" : "gray"} label={echelon === "mobile" ? m.morgue.level_mobile : echelon === "regional" ? m.morgue.level_regional : m.morgue.level_city} size="sm" />
           <span className="font-mono text-[11px] text-gray-400 dark:text-rdia-400">{site.id}</span>
-          {site.ll && (
-            <button type="button" onClick={() => { setMapCenter(site.ll!, 12, site.nom); router.push("/map"); }} className="ms-auto cible-tactile flex items-center gap-1.5 rounded-lg border border-gray-200 px-2 py-1 text-[11px] font-semibold text-gray-600 hover:border-or-500 hover:text-or-500 dark:border-rdia-600 dark:text-rdia-200">
-              <Icon path={NAV_ICONS.map} size={12} />
-              {m.morgue.map}
-            </button>
-          )}
+          {/* Allume la couche, sélectionne le site, recentre la carte (ADR 0036) ; inactif pour une morgue mobile repliée. */}
+          <span className="ms-auto"><ShowOnMapButton kind="morgue" id={site.id} /></span>
         </div>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">
           {champ(m.morgue.f_type, typeLabel)}

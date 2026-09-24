@@ -103,7 +103,8 @@ dérivés de la matrice RBAC.
 formulaire d'ouverture pose un point sur une carte, comme un site mortuaire),
 couche des traceurs et positions partagées (relue toutes les 15 s tant qu'elle
 est visible), sur une couche de points générique dont les sites mortuaires sont
-désormais un habillage.
+désormais un habillage. *(Révisé par l'ADR 0036 : un abri sans point propre se
+dessine à la position de sa commune, et son infobulle le dit.)*
 
 ## Conséquences
 

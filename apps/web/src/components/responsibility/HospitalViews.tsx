@@ -14,6 +14,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Modal } from "@/components/ui/Modal";
 import { Pill } from "@/components/ui/Pill";
 import { Icon } from "@/components/ui/Icon";
+import { ShowOnMapButton } from "@/components/map/ShowOnMapButton";
 import { KPI_ICONS, NAV_ICONS, UI_ICONS } from "@/lib/icons";
 import { loadBarClass } from "@/lib/responsibility";
 import { useSupervision, WARD_STATUSES, WARD_TONES, type Ward } from "@/components/responsibility/Shared";
@@ -65,7 +66,7 @@ export function HospitalDashboard({ hid }: { hid: string }) {
 
   return (
     <section className="flex flex-col gap-4 animate-fade-in">
-      <Header hosp={{ nom: hosp.nom, ville: hosp.ville, type: hosp.type }} />
+      <Header hosp={{ id: hosp.id, nom: hosp.nom, ville: hosp.ville, type: hosp.type }} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile label={m.resp.beds_free} value={hosp.lits - hosp.occ} sub={`/ ${hosp.lits}`} icon={KPI_ICONS.beds} tint={occPct >= 90 ? "danger" : "green"} />
@@ -90,10 +91,14 @@ export function HospitalDashboard({ hid }: { hid: string }) {
           {myFields.map((f) => {
             const pct = f.cap > 0 ? Math.round((f.occ / f.cap) * 100) : 0;
             return (
-              <div key={f.nom}>
-                <div className="mb-1 flex items-center justify-between text-xs">
-                  <span className="font-medium text-gray-700 dark:text-rdia-100">{f.nom}</span>
-                  <span className="font-mono text-[10px] text-gray-400 dark:text-rdia-400">{f.occ} / {f.cap} · {f.depuis}</span>
+              <div key={f.id}>
+                <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                  <span className="min-w-0 break-words font-medium text-gray-700 dark:text-rdia-100">{f.nom}</span>
+                  <span className="flex shrink-0 items-center gap-2">
+                    <span className="font-mono text-[10px] text-gray-400 dark:text-rdia-400">{f.occ} / {f.cap} · {f.depuis}</span>
+                    {/* Le détachement sur la carte (ADR 0036). */}
+                    <ShowOnMapButton kind="field" id={f.id} compact />
+                  </span>
                 </div>
                 <ProgressBar value={pct} fill={loadBarClass(pct)} height="h-2" />
               </div>
@@ -148,7 +153,7 @@ export function HospitalDashboard({ hid }: { hid: string }) {
   );
 }
 
-function Header({ hosp }: { hosp: { nom: string; ville: string; type?: string } }) {
+function Header({ hosp }: { hosp: { id: string; nom: string; ville: string; type?: string } }) {
   const m = useModules();
   const supervised = useSupervision();
   return (
@@ -165,6 +170,8 @@ function Header({ hosp }: { hosp: { nom: string; ville: string; type?: string } 
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
+        {/* L'établissement sur la carte (ADR 0036). */}
+        <ShowOnMapButton kind="hosp" id={hosp.id} />
         <span className="rounded-md bg-or-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-or-500">
           {m.resp.my_responsibility}
         </span>
@@ -246,6 +253,7 @@ export function HospitalManagement({ hid }: { hid: string }) {
           <h2 className="truncate text-sm font-bold text-rdia-600 dark:text-rdia-50">{m.resp.manage_title}</h2>
           <p className="truncate text-xs text-gray-500 dark:text-rdia-300">{hosp.nom} — {hosp.ville}</p>
         </div>
+        <ShowOnMapButton kind="hosp" id={hid} />
       </div>
 
       <CapacityForm hid={hid} onSaved={() => { showToast(m.resp.saved); void loadDomain(); }} />

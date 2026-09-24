@@ -13,6 +13,7 @@ import { hospKind } from "@/lib/hospitals";
 import { fieldLL, fieldMarkerHTML, hospMarkerHTML, incMarkerHTML, placedMarkerHTML, postMarkerHTML, unitMarkerHTML, vehMarkerHTML, vehPos } from "@/lib/map/markers";
 import { POST_FILL, postCaption, postCode } from "@/lib/posts";
 import { PLACED_FILL, placeableResourceKinds } from "@/lib/edit";
+import { isFieldHospitalEntity, mapMarkerOffsets, markerKey } from "@/lib/map/positions";
 import type { MarkerKind } from "@/lib/types";
 
 export interface VehMarker {
@@ -42,36 +43,52 @@ export function mkEl(html: string, kind: MarkerKind, id: string) {
   return el;
 }
 
-export function syncMarkers(rt: MarkersRuntime, map: maplibregl.Map | null) {
+/**
+ * Écarts des marqueurs posés au même point (voir `mapMarkerOffsets`) : passés
+ * par MapCanvas, qui les calcule une fois pour ces marqueurs ET pour ceux des
+ * sites mortuaires et des abris — un abri et un hôpital de campagne au même
+ * point s'écartent même s'ils vivent dans deux registres.
+ */
+export type MarkerOffsets = ReadonlyMap<string, [number, number]>;
+
+export function syncMarkers(rt: MarkersRuntime, map: maplibregl.Map | null, offsets?: MarkerOffsets) {
   if (!map) return;
   const state = useArgos.getState();
   const L = state.layers;
   const sm = state.selMarker;
   const isSel = (kind: MarkerKind, id: string) => !!sm && sm.kind === kind && sm.id === id;
+  const ecarts = offsets ?? mapMarkerOffsets(state);
 
   rt.markers.forEach((m) => m.remove());
   rt.markers = [];
   rt.veh.forEach((v) => v.mk.remove());
   rt.veh = [];
 
-  const add = (ll: [number, number], el: HTMLElement) => {
-    const mk = new maplibregl.Marker({ element: el }).setLngLat(ll).addTo(map);
+  const add = (ll: [number, number], el: HTMLElement, kind: MarkerKind, id: string) => {
+    const mk = new maplibregl.Marker({ element: el, offset: ecarts.get(markerKey(kind, id)) }).setLngLat(ll).addTo(map);
     rt.markers.push(mk);
   };
 
-  if (L.units) useArgos.getState().units.forEach((u) => add(u.ll, mkEl(unitMarkerHTML(u, isSel("unit", u.id)), "unit", u.id)));
+  if (L.units) state.units.forEach((u) => add(u.ll, mkEl(unitMarkerHTML(u, isSel("unit", u.id)), "unit", u.id), "unit", u.id));
   // Santé : deux couches distinctes (militaire / civil) — le réseau civil
   // compte plus de cent établissements et se masque d'un seul interrupteur.
   // Le civil est posé d'abord pour que les hôpitaux militaires, réseau de
   // commandement, restent au-dessus dans les villes où les deux coexistent.
-  const hosps = useArgos.getState().hospitals;
-  const addHosp = (h: (typeof hosps)[number]) => add(h.ll, mkEl(hospMarkerHTML(h, isSel("hosp", h.id)), "hosp", h.id));
-  if (L.hospitalsCiv) hosps.filter((h) => hospKind(h) !== "mil").forEach(addHosp);
-  if (L.hospitals) hosps.filter((h) => hospKind(h) === "mil").forEach(addHosp);
-  if (L.field) state.fieldHosps.forEach((f) => add(fieldLL(f), mkEl(fieldMarkerHTML(f, isSel("field", f.nom)), "field", f.nom)));
+  // Un établissement dont le type est « campagne » se dessine avec les
+  // hôpitaux de campagne : rangé dans le réseau civil, il restait invisible
+  // tant que cette couche, masquée par défaut, n'était pas rallumée.
+  const hosps = state.hospitals;
+  const addHosp = (h: (typeof hosps)[number]) => add(h.ll, mkEl(hospMarkerHTML(h, isSel("hosp", h.id)), "hosp", h.id), "hosp", h.id);
+  if (L.hospitalsCiv) hosps.filter((h) => !isFieldHospitalEntity(h) && hospKind(h) !== "mil").forEach(addHosp);
+  if (L.hospitals) hosps.filter((h) => !isFieldHospitalEntity(h) && hospKind(h) === "mil").forEach(addHosp);
+  if (L.field) {
+    hosps.filter(isFieldHospitalEntity).forEach(addHosp);
+    // Clé : l'identifiant du détachement (`HDC-01`…) — deux détachements ne se confondent plus par leur nom.
+    state.fieldHosps.forEach((f) => add(fieldLL(f), mkEl(fieldMarkerHTML(f, isSel("field", f.id)), "field", f.id), "field", f.id));
+  }
   // Tout le monde voit l'incident sur la carte (ADR 0020) : la couche dessine
   // `mapIncidents`, pas la liste cantonnée du compte.
-  if (L.incidents) state.mapIncidents.forEach((i) => add(i.ll, mkEl(incMarkerHTML(i, isSel("inc", i.id)), "inc", i.id)));
+  if (L.incidents) state.mapIncidents.forEach((i) => add(i.ll, mkEl(incMarkerHTML(i, isSel("inc", i.id)), "inc", i.id), "inc", i.id));
 
   // Postes d'opération (lot #12). En mode édition, le marqueur se saisit et se
   // déplace ; lâché, il écrit sa nouvelle position. Hors mode, il se lit.
@@ -81,7 +98,8 @@ export function syncMarkers(rt: MarkersRuntime, map: maplibregl.Map | null) {
     state.posts.forEach((p) => {
       const el = mkEl(postMarkerHTML(postCode(p.kind, state.dict), POST_FILL[p.kind], isSel("post", p.id), postCaption(p, ctx)), "post", p.id);
       el.style.cursor = edit ? "grab" : "pointer";
-      const mk = new maplibregl.Marker({ element: el, draggable: edit }).setLngLat(p.ll).addTo(map);
+      // Un marqueur qu'on saisit reste à sa place exacte : lâché, il écrit sa position.
+      const mk = new maplibregl.Marker({ element: el, draggable: edit, offset: edit ? undefined : ecarts.get(markerKey("post", p.id)) }).setLngLat(p.ll).addTo(map);
       if (edit) {
         mk.on("dragend", () => {
           const { lng, lat } = mk.getLngLat();
@@ -105,7 +123,7 @@ export function syncMarkers(rt: MarkersRuntime, map: maplibregl.Map | null) {
       // Une équipe posée écrit son chef à côté de son nom — comme l'unité son commandant.
       const el = mkEl(placedMarkerHTML(code(p.kind), PLACED_FILL[p.kind], isSel("placed", key), p.leader ? `${p.label} · ${p.leader}` : p.label), "placed", key);
       el.style.cursor = draggable ? "grab" : "pointer";
-      const mk = new maplibregl.Marker({ element: el, draggable }).setLngLat(p.position.ll).addTo(map);
+      const mk = new maplibregl.Marker({ element: el, draggable, offset: draggable ? undefined : ecarts.get(markerKey("placed", key)) }).setLngLat(p.position.ll).addTo(map);
       if (draggable) {
         mk.on("dragend", () => {
           const { lng, lat } = mk.getLngLat();

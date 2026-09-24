@@ -69,6 +69,7 @@ export function ShelterDashboard({ sid }: { sid: string }) {
         title={shelter.nom}
         subtitle={shelter.ville}
         badge={m.resp.supply[shelter.supplies]}
+        mapTarget={{ kind: "shelter", id: sid }}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -171,7 +172,7 @@ export function ShelterManagement({ sid }: { sid: string }) {
 
   return (
     <section className="flex flex-col gap-4 animate-fade-in">
-      <RespHeader back icon={NAV_ICONS.shelters} title={m.resp.manage_shelter} subtitle={`${shelter.nom} — ${shelter.ville}`} />
+      <RespHeader back icon={NAV_ICONS.shelters} title={m.resp.manage_shelter} subtitle={`${shelter.nom} — ${shelter.ville}`} mapTarget={{ kind: "shelter", id: sid }} />
 
       <div className="carte flex flex-col gap-4 p-5">
         <h3 className="text-sm font-bold text-rdia-600 dark:text-rdia-50">{m.resp.s_capacity_block}</h3>

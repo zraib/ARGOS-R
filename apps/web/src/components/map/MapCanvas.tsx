@@ -50,6 +50,7 @@ import { FireRuntime, applyFireSeed, applyFireSim, fitFireExtent, focusFireStart
 import { applyMorgues, setupMorgueLayers } from "@/components/map/layers/morgues";
 import { applyShelters, setupShelterLayers } from "@/components/map/layers/shelters";
 import { applyTrackers, setupTrackerLayers } from "@/components/map/layers/trackers";
+import { entityLL, mapMarkerOffsets } from "@/lib/map/positions";
 import {
   WeatherRuntime,
   applyWeatherVisibility,
@@ -71,6 +72,23 @@ import {
  * impératives qui reçoivent la carte et leur objet d'état — testables et
  * lisibles une par une. Les calculs purs sont dans `lib/map/canvas/`.
  */
+/**
+ * Tous les marqueurs d'entités — unités, établissements, hôpitaux de campagne,
+ * incidents, postes, ressources posées, sites mortuaires, abris — redessinés
+ * ENSEMBLE (ADR 0036) : leurs écarts (`mapMarkerOffsets`) se calculent sur le
+ * même état, un abri et un hôpital de campagne posés au même point
+ * s'écartent l'un de l'autre au lieu de se cacher.
+ */
+function drawEntityMarkers(rt: MarkersRuntime, map: maplibregl.Map | null): void {
+  if (!map) return;
+  const st = useArgos.getState();
+  const offsets = mapMarkerOffsets(st);
+  const sel = st.selMarker;
+  syncMarkers(rt, map, offsets);
+  applyMorgues(map, st.morgues, st.layers.morgues, sel?.kind === "morgue" ? sel.id : null, offsets);
+  applyShelters(map, st.shelters, st.cities, st.layers.shelters, sel?.kind === "shelter" ? sel.id : null, offsets, st.dict.map_pos_city);
+}
+
 /**
  * Pose une ressource sur le terrain à ce point (ADR 0018) : rattachée à
  * l'opération active la plus proche s'il y en a une, désarmée aussitôt — un
@@ -142,6 +160,10 @@ export function MapCanvas() {
   const posts = useArgos((s) => s.posts);
   const placed = useArgos((s) => s.placed);
   const mapIncidents = useArgos((s) => s.mapIncidents);
+  // Unités, établissements et communes (position d'un abri sans coordonnées propres) : les marqueurs se redessinent quand ils changent.
+  const units = useArgos((s) => s.units);
+  const hospitals = useArgos((s) => s.hospitals);
+  const cities = useArgos((s) => s.cities);
   const armedResource = useArgos((s) => s.armedResource);
   const mapEdit = useArgos((s) => s.mapEdit);
   const armedPost = useArgos((s) => s.armedPost);
@@ -423,7 +445,7 @@ export function MapCanvas() {
     // la fin de mouvement de caméra plutôt que chaque frame.
     map.on("pitchend", () => applyPlume(plumeRt.current, map));
     readyRef.current = true;
-    syncMarkers(markersRt.current, map);
+    drawEntityMarkers(markersRt.current, map);
 
     // Boucle d'animation : convois, pulsation sismique, étiquettes de villes,
     // défilement météo. Une seule rAF pour toute la carte.
@@ -488,9 +510,8 @@ export function MapCanvas() {
       setupAircraftTrailLayer(map);
       const st = useArgos.getState();
       applyAircraftTrails(map, st.aircraft, st.layers.aircraft);
-      applyMorgues(map, st.morgues, st.layers.morgues, st.selMarker?.kind === "morgue" ? st.selMarker.id : null);
+      drawEntityMarkers(markersRt.current, map);
       applyDrawings(map, st.drawings, st.drawSelected, (d) => st.drawTool !== null && canEditDrawing(d, st.role, st.sessionUser?.matricule));
-      applyShelters(map, st.shelters, st.layers.shelters, st.selMarker?.kind === "shelter" ? st.selMarker.id : null);
       applyTrackers(map, st.trackers, st.layers.trackers);
       applyFireSeed(map, st.fireSeed);
       applyFireSim(fireRt.current, map, st.fireSim, st.fireProgress, st.firePlaying);
@@ -619,9 +640,11 @@ export function MapCanvas() {
   }, [drawTool]);
 
   // --- re-synchro des marqueurs si données / sélection / couche changent ---
+  // Unités et établissements en font partie : une unité créée ou déplacée, un
+  // hôpital modifié se redessinent sans attendre un autre changement.
   useEffect(() => {
-    if (readyRef.current) syncMarkers(markersRt.current, mapRef.current);
-  }, [layers, selMarker, incidents, mapIncidents, fieldHosps, posts, placed, mapEdit]);
+    if (readyRef.current) drawEntityMarkers(markersRt.current, mapRef.current);
+  }, [layers, selMarker, incidents, mapIncidents, units, hospitals, fieldHosps, posts, placed, mapEdit, morgues, shelters, cities, lang]);
 
   // Chip armé, ou point de départ d'une inondation attendu : le curseur le dit avant le clic.
   useEffect(() => {
@@ -661,19 +684,13 @@ export function MapCanvas() {
     };
   }, [layers.aircraft]);
 
-  // --- recentrage/zoom sur l'élément sélectionné (ex. « voir sur la carte ») ---
+  // --- recentrage/zoom sur l'élément sélectionné (ex. « Afficher sur la carte ») ---
+  // La position est celle où le marqueur est dessiné (`entityLL`) : hôpital de
+  // campagne, abri posé à sa commune, morgue mobile déployée compris.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !selMarker) return;
-    const st = useArgos.getState();
-    const ll =
-      selMarker.kind === "inc" ? st.mapIncidents.find((i) => i.id === selMarker.id)?.ll
-      : selMarker.kind === "unit" ? st.units.find((u) => u.id === selMarker.id)?.ll
-      : selMarker.kind === "hosp" ? st.hospitals.find((h) => h.id === selMarker.id)?.ll
-      : selMarker.kind === "morgue" ? st.morgues.find((x) => x.id === selMarker.id)?.ll
-      : selMarker.kind === "shelter" ? st.shelters.find((x) => x.id === selMarker.id)?.ll
-      : selMarker.kind === "trk" ? st.trackers.find((x) => x.id === selMarker.id)?.last?.ll
-      : undefined;
+    const ll = entityLL(useArgos.getState(), selMarker.kind, selMarker.id);
     if (ll) map.flyTo({ center: ll, zoom: Math.max(map.getZoom(), 10.5), duration: 1200 });
   }, [selMarker]);
 
@@ -741,21 +758,11 @@ export function MapCanvas() {
     if (readyRef.current && floodDone) fitFloodExtent(mapRef.current, floodSim);
   }, [floodDone, floodSim]);
 
-  // --- sites mortuaires : une couche, un interrupteur ---
-  useEffect(() => {
-    if (readyRef.current) applyMorgues(mapRef.current, morgues, layers.morgues, selMarker?.kind === "morgue" ? selMarker.id : null);
-  }, [morgues, layers.morgues, selMarker]);
-
   // --- trajectoires des aéronefs (ADR 0016) : redessinées à chaque relevé ---
   const aircraftStates = useArgos((s) => s.aircraft);
   useEffect(() => {
     if (readyRef.current) applyAircraftTrails(mapRef.current, aircraftStates, layers.aircraft);
   }, [aircraftStates, layers.aircraft]);
-
-  // --- abris d'hébergement : même mécanique (ADR 0015) ---
-  useEffect(() => {
-    if (readyRef.current) applyShelters(mapRef.current, shelters, layers.shelters, selMarker?.kind === "shelter" ? selMarker.id : null);
-  }, [shelters, layers.shelters, selMarker]);
 
   // --- traceurs et positions partagées : relus tant que la couche est visible ---
   useEffect(() => {
