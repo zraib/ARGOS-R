@@ -841,7 +841,9 @@ export default function MapPage() {
             le panneau choisi s'ouvre à côté avec l'animation « bulle », un seul
             à la fois. Sous lg, ces contenus restent dans la feuille du bas. */}
         <div className="absolute top-3 hidden items-start gap-2 lg:flex" style={{ insetInlineStart: 12 }}>
-          <div className="pointer-events-auto flex flex-col overflow-hidden rounded-xl bg-white shadow-md">
+          {/* Sans `overflow-hidden` : la bulle du nom de l'outil sort de la barre. Les
+              coins arrondis passent aux boutons extrêmes. */}
+          <div className="pointer-events-auto relative z-10 flex flex-col rounded-xl bg-white shadow-md">
             {(
               [
                 { key: "layers" as const, icon: UI_ICONS.layers, label: t.layers },
@@ -878,12 +880,15 @@ export default function MapPage() {
                 }}
                 aria-label={b.label}
                 aria-expanded={openPanel === b.key}
-                title={b.label}
-                className={`flex h-11 w-11 items-center justify-center border-b border-gray-200 transition-colors last:border-0 ${
-                  openPanel === b.key ? "bg-or-500/15 text-or-600" : "text-gray-700 hover:bg-gray-100"
+                className={`group relative flex h-11 w-11 items-center justify-center border-b border-gray-200 transition-colors first:rounded-t-xl last:rounded-b-xl last:border-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-or-500 ${
+                  openPanel === b.key ? "bg-or-500/15 text-or-600" : "text-gray-700 hover:bg-or-500/10 hover:text-or-600"
                 }`}
               >
-                <Icon path={b.icon} size={22} strokeWidth={2} />
+                <Icon path={b.icon} size={22} strokeWidth={2} className="transition-transform duration-150 ease-out group-hover:scale-110 group-active:scale-95" />
+                {/* Le nom de l'outil, en bulle, au survol comme au clavier (le lecteur d'écran lit `aria-label`). */}
+                <span className="barre-bulle" aria-hidden="true">
+                  <span>{b.label}</span>
+                </span>
               </button>
             ))}
           </div>
