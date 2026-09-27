@@ -181,16 +181,6 @@ export function profileOfRoles(roles: readonly Role[]): ProfileId | null {
 
 /** Échelon d'un rôle — sert à grouper le sélecteur (DIREX, PC FAR, PCF, PCT, PCO, entités). */
 export type Echelon = "admin" | "direx" | "pcfar" | "pcf" | "pct" | "pco" | "entity" | "classique";
-export function echelonOf(role: Role): Echelon {
-  if (role === "superadmin" || role === "admin") return "admin";
-  if (role.startsWith("direx_")) return "direx";
-  if (role.startsWith("pcfar_")) return "pcfar";
-  if (role.startsWith("pcf_")) return "pcf";
-  if (role.startsWith("pct_")) return "pct";
-  if (role.startsWith("pco_")) return "pco";
-  if (role.startsWith("resp_")) return "entity";
-  return "classique";
-}
 
 /** Icône (tracé SVG) associée à chaque rôle — sert au sélecteur en tuiles. */
 export const ROLE_ICONS: Record<Role, string> = {

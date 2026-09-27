@@ -44,6 +44,8 @@ export class WeatherRuntime {
     natT: null, natU: null, natV: null, natP: null, wldT: null, wldU: null, wldV: null, wldP: null,
   };
   cities: { mk: maplibregl.Marker; el: HTMLDivElement; lon: number; lat: number; minZoom: number }[] = [];
+  /** Dernier état appliqué aux étiquettes (couche, zoom, nombre) : inchangé, on n'écrit rien dans le DOM. */
+  citiesVisKey = "";
   anim: { playing: boolean; idx: number; lastInt: number } = { playing: true, idx: 0, lastInt: -2 };
 }
 
@@ -267,6 +269,11 @@ export function buildCityLabels(rt: WeatherRuntime, map: maplibregl.Map | null) 
 export function syncCityVisibility(rt: WeatherRuntime, map: maplibregl.Map | null) {
   const on = useArgos.getState().wxLayers.temp;
   const z = map?.getZoom() ?? 2;
+  // Appelée ~15 fois par seconde : si ni la couche, ni le zoom, ni les villes n'ont
+  // changé, il n'y a rien à écrire dans le DOM (ADR 0038).
+  const cle = on ? `${rt.cities.length}:${z}` : `${rt.cities.length}:off`;
+  if (cle === rt.citiesVisKey) return;
+  rt.citiesVisKey = cle;
   for (const c of rt.cities) {
     c.mk.getElement().style.display = on && z >= c.minZoom ? "" : "none";
   }
@@ -354,13 +361,29 @@ export function setupWeatherLayers(rt: WeatherRuntime, map: maplibregl.Map): voi
       // Visibilité initiale + étiquettes de villes + premier rendu si les
       // grilles étaient déjà chargées (le style peut arriver APRÈS les données).
       const wl = useArgos.getState().wxLayers;
-      for (const [id, on] of [["wx-temp", wl.temp], ["wx-precip", wl.precip]] as const) {
+      for (const [id, src, on] of [["wx-temp", "wxu-temp-src", wl.temp], ["wx-precip", "wxu-precip-src", wl.precip]] as const) {
         map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+        jouerCanvas(map, src, on);
       }
       if (rt.wxsCv) rt.wxsCv.style.display = wl.wind ? "" : "none";
       buildCityLabels(rt, map);
       rt.wxuLastRaster = 0; // force un premier redessin des rasters
     }
+}
+
+/**
+ * Une source « canvas » animée fait redessiner la carte ENTIÈRE à chaque
+ * rafraîchissement de l'écran tant qu'elle joue — couche masquée comprise.
+ * Mesuré le 27 septembre : météo éteinte, la carte dessinait 600 images en 10 s
+ * au repos (120 par seconde sur un écran à 120 Hz), sur chaque poste qui
+ * l'affichait (ADR 0038). La source ne joue donc que couche visible ; à
+ * l'arrêt, MapLibre garde la dernière image du canvas.
+ */
+function jouerCanvas(map: maplibregl.Map, id: string, on: boolean): void {
+  const src = map.getSource(id) as maplibregl.CanvasSource | undefined;
+  if (!src) return;
+  if (on) src.play();
+  else src.pause();
 }
 
 /** Grille NATIONALE dense chargée : séries par pas + villes + rendu. */
@@ -406,9 +429,10 @@ export function loadWorldSeries(rt: WeatherRuntime, map: maplibregl.Map | null, 
 
 /** Visibilité des couches météo (raster, flèches, précip, étiquettes). */
 export function applyWeatherVisibility(rt: WeatherRuntime, map: maplibregl.Map, wxLayers: { temp: boolean; wind: boolean; precip: boolean }): void {
-  ([["wx-temp", wxLayers.temp], ["wx-precip", wxLayers.precip]] as const)
-    .forEach(([id, on]) => {
+  ([["wx-temp", "wxu-temp-src", wxLayers.temp], ["wx-precip", "wxu-precip-src", wxLayers.precip]] as const)
+    .forEach(([id, src, on]) => {
       if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+      jouerCanvas(map, src, on);
     });
   const wcv = rt.wxsCv;
   if (wcv) {

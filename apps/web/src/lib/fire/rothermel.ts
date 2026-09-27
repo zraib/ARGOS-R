@@ -19,8 +19,6 @@
 // contre le tableau d'Anderson (1982).
 // ============================================================================
 
-export type FuelClass = "d1h" | "d10h" | "d100h" | "herb" | "woody";
-
 /** Un modèle de combustible : charges (t/ac), rapport surface/volume du 1 h (1/ft), épaisseur (ft), humidité d'extinction. */
 export interface FuelModel {
   /** Numéro Anderson (1–13). */

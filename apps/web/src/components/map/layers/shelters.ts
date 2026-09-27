@@ -48,5 +48,5 @@ export function applyShelters(
     const ville = pos.fromCity && cityNote ? `${s.ville} (${cityNote})` : s.ville;
     return [{ id: s.id, ll: pos.ll, offset: offsets?.get(markerKey("shelter", s.id)), html: shelterMarkerHTML(s.nom, ville, shelterColor(s), selected === s.id) }];
   });
-  applyGlyphMarkers(map, "shelters", "shelter", items, on);
+  applyGlyphMarkers(map, "shelters", "shelter", items, on, 10); // au-dessus des sites mortuaires (ADR 0038)
 }

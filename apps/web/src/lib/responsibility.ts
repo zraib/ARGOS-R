@@ -13,7 +13,6 @@
 
 import { useArgos } from "@/lib/store";
 import { RESPONSIBILITY_OF_ROLE, type ResponsibilityKind, type Role } from "@/lib/roles";
-import type { Hospital } from "@/lib/types";
 
 /** Responsabilité résolue de la session courante. */
 export interface SessionResponsibility {
@@ -29,14 +28,6 @@ export function useResponsibility(): SessionResponsibility {
   const sessionUser = useArgos((s) => s.sessionUser);
   const kind = RESPONSIBILITY_OF_ROLE[role] ?? null;
   return { kind, entityId: kind ? (sessionUser?.assignments?.[kind] ?? null) : null };
-}
-
-/** L'hôpital dont la session a la responsabilité, ou `null`. */
-export function useMyHospital(): Hospital | null {
-  const { kind, entityId } = useResponsibility();
-  const hospitals = useArgos((s) => s.hospitals);
-  if (kind !== "hospital" || !entityId) return null;
-  return hospitals.find((h) => h.id === entityId) ?? null;
 }
 
 /** Le rôle est-il rattaché à une entité (et donc concerné par « Ma responsabilité ») ? */

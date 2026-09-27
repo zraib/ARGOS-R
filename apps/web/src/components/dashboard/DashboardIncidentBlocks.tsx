@@ -16,7 +16,7 @@ import { DonutChart } from "@/components/charts/DonutChart";
 import { sevBadge, stBadge, typeLabel } from "@/lib/helpers";
 import { UI_ICONS } from "@/lib/icons";
 import { Icon } from "@/components/ui/Icon";
-import { compareIncidentDate, formatIncidentHour, incidentColor, INCIDENT_TYPE_COLORS } from "@/lib/derive";
+import { compareIncidentDate, formatIncidentHour, incidentColor } from "@/lib/derive";
 
 function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -37,10 +37,6 @@ const FALLBACK_CLASS = { fill: "bg-rdia-500", text: "text-rdia-700 dark:text-rdi
 export function typeClass(type: string) {
   const cls = TYPE_CLASS[type] ?? FALLBACK_CLASS;
   return { ...cls, hex: incidentColor(type) };
-}
-
-export function typeHex(type: string): string {
-  return INCIDENT_TYPE_COLORS[type] ?? incidentColor(type);
 }
 
 // Barre horizontale unique (toute la largeur du parent)

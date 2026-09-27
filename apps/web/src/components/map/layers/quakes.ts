@@ -13,21 +13,43 @@ import type { ArgosState } from "@/lib/store";
 
 type Quake = ArgosState["quakes"][number];
 
+/**
+ * Phase de la pulsation (0 → 1), portée par l'ÉTAT de chaque séisme et non par
+ * le style (ADR 0038). Le rayon de l'anneau dépend de la magnitude : réécrire
+ * cette expression 15 fois par seconde obligeait MapLibre à redécouper toute la
+ * source sismique à chaque pas, et le fondu des tuiles redessinait la carte à
+ * CHAQUE image (60/s mesurés). Un changement d'état ne recalcule que les
+ * attributs des points : une image par pas, rien d'autre.
+ */
+const PHASE: maplibregl.ExpressionSpecification = ["coalesce", ["feature-state", "t"], 0];
+/** Nombre de séismes posés dans la source de chaque carte — les identifiants générés vont de 0 à n − 1. */
+const poses = new WeakMap<maplibregl.Map, number>();
+
+function versSource(map: maplibregl.Map, quakes: readonly Quake[]): void {
+  (map.getSource("quakes") as maplibregl.GeoJSONSource).setData({
+    type: "FeatureCollection",
+    features: quakes.map((q) => ({ type: "Feature" as const, properties: { mag: q.mag, id: q.id }, geometry: { type: "Point" as const, coordinates: q.ll } })),
+  });
+  poses.set(map, quakes.length);
+}
+
 /** Pose la couche (appelée par setupStyle ; idempotente). `bound` évite de doubler les gestionnaires de survol. */
 export function setupQuakeLayers(map: maplibregl.Map, isMeasuring: () => boolean, bound: { current: boolean }): void {
     // Couche sismique (EMSC) : marqueur distinct — anneau pulsé (ping sonar)
     // + point plein bordé, couleur/rayon pilotés par la magnitude.
     if (!map.getSource("quakes")) {
-      map.addSource("quakes", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      // Anneau de pulsation (rayon/opacité animés dans la boucle rAF).
+      // `generateId` : chaque point reçoit un identifiant (son rang), clé de son état.
+      map.addSource("quakes", { type: "geojson", data: { type: "FeatureCollection", features: [] }, generateId: true });
+      // Anneau de pulsation : rayon et opacité suivent la phase de chaque point,
+      // avancée dans la boucle rAF.
       map.addLayer({
         id: "quakes-pulse",
         type: "circle",
         source: "quakes",
         paint: {
-          "circle-radius": QUAKE_HALO_R,
+          "circle-radius": ["*", ["+", 1, ["*", 1.6, PHASE]], QUAKE_HALO_R] as maplibregl.ExpressionSpecification,
           "circle-color": QUAKE_COLOR,
-          "circle-opacity": 0.3,
+          "circle-opacity": ["*", 0.4, ["-", 1, PHASE]],
         },
       });
       // Point plein bordé de blanc (plus gros qu'avant).
@@ -45,10 +67,7 @@ export function setupQuakeLayers(map: maplibregl.Map, isMeasuring: () => boolean
       });
       // Alimentation initiale (les séismes peuvent déjà être chargés).
       const qs = useArgos.getState();
-      (map.getSource("quakes") as maplibregl.GeoJSONSource).setData({
-        type: "FeatureCollection",
-        features: qs.quakes.map((q) => ({ type: "Feature" as const, properties: { mag: q.mag, id: q.id }, geometry: { type: "Point" as const, coordinates: q.ll } })),
-      });
+      versSource(map, qs.quakes);
       const qvis = qs.quakesOn ? "visible" : "none";
       map.setLayoutProperty("quakes-pulse", "visibility", qvis);
       map.setLayoutProperty("quakes-circle", "visibility", qvis);
@@ -65,21 +84,18 @@ export function setupQuakeLayers(map: maplibregl.Map, isMeasuring: () => boolean
 export function syncQuakes(map: maplibregl.Map, quakes: Quake[], quakesOn: boolean): void {
   const src = map.getSource("quakes") as maplibregl.GeoJSONSource | undefined;
   if (!src) return; // source posée par setupStyle (populée à ce moment-là)
-  src.setData({
-    type: "FeatureCollection",
-    features: quakes.map((q) => ({ type: "Feature" as const, properties: { mag: q.mag, id: q.id }, geometry: { type: "Point" as const, coordinates: q.ll } })),
-  });
+  versSource(map, quakes);
   const vis = quakesOn ? "visible" : "none";
   if (map.getLayer("quakes-circle")) map.setLayoutProperty("quakes-circle", "visibility", vis);
   if (map.getLayer("quakes-pulse")) map.setLayoutProperty("quakes-pulse", "visibility", vis);
 }
 
-/** Pulsation « ping sonar » (throttle ~15 im/s dans la boucle rAF). */
+/** Pulsation « ping sonar » (throttle ~15 im/s dans la boucle rAF) : la phase de chaque séisme avance. */
 export function pulseQuakes(map: maplibregl.Map, now: number): void {
   if (!map.getLayer("quakes-pulse")) return;
-  const tt = (now % 1800) / 1800; // 0 → 1
-  map.setPaintProperty("quakes-pulse", "circle-radius", ["*", 1 + tt * 1.6, QUAKE_HALO_R]);
-  map.setPaintProperty("quakes-pulse", "circle-opacity", 0.4 * (1 - tt));
+  const t = (now % 1800) / 1800; // 0 → 1
+  const n = poses.get(map) ?? 0;
+  for (let id = 0; id < n; id++) map.setFeatureState({ source: "quakes", id }, { t });
 }
 
 /** Bandeau de détail COLLÉ au séisme (popup ancrée au point). L'appelant le retire. */

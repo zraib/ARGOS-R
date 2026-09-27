@@ -125,6 +125,10 @@ const nextConfig = {
   // Sortie autonome : `.next/standalone/server.js` + le strict nécessaire de
   // node_modules — ce que l'image Docker copie (apps/web/Dockerfile).
   output: "standalone",
+  // Cartes des sources du navigateur SUR DEMANDE seulement (ARGOS_SOURCEMAPS=1) :
+  // elles attribuent chaque octet du code initial à son module lors d'une
+  // campagne de performance (docs/07-performance.md) — jamais livrées.
+  productionBrowserSourceMaps: process.env.ARGOS_SOURCEMAPS === "1",
   transpilePackages: ["maplibre-gl"],
   // Autorise l'accès aux ressources de dev (HMR) depuis l'aperçu navigateur
   // servi sur 127.0.0.1 en plus de localhost (Next 16 bloque par défaut).

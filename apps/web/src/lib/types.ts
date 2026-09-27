@@ -289,16 +289,6 @@ export interface HospitalStoredService {
 
 export type WardStatus = "open" | "saturated" | "closed";
 
-export interface HospitalWard {
-  id: string;
-  key: HospitalServiceKey;
-  name: string;
-  lits: number;
-  occ: number;
-  statut: WardStatus;
-  chef?: string | null;
-}
-
 /**
  * Référentiel ARGOS des types de services hospitaliers (~20 familles).
  * L'opérateur choisit depuis ce dropdown ; le type peut aussi être libre.
@@ -679,14 +669,6 @@ export interface SeismicEvent {
   sourceId: string;
 }
 
-/** Ville sélectionnable pour la météo (API /weather/cities). */
-export interface WeatherCity {
-  id: string;
-  nom: string;
-  lat: number;
-  lon: number;
-}
-
 /** Conditions actuelles (API /weather/forecast). */
 export interface WeatherNow {
   temp: number;
@@ -955,7 +937,6 @@ export type DviSample = (typeof DVI_SAMPLES)[number];
 export type Sex = "m" | "f" | "unknown";
 /** Mode d'identification retenu à la morgue. */
 export type IdMethod = "dna" | "fingerprint" | "dental" | "body_mark";
-export const ID_METHODS: readonly IdMethod[] = ["dna", "fingerprint", "dental", "body_mark"];
 
 /** Identité d'une personne telle qu'on la connaît — chaque champ absent tant qu'il est inconnu. */
 export interface PersonIdentity {
@@ -968,7 +949,6 @@ export interface PersonIdentity {
 
 /** `involved` : une personne impliquée, nommée — pas une victime (ADR 0034). */
 export type VictimKind = "dead" | "injured" | "missing" | "involved";
-export const VICTIM_KINDS: readonly VictimKind[] = ["dead", "injured", "missing", "involved"];
 
 /** Une victime nommée d'un incident — le bilan affiné par les intervenants ; un décédé porte sa morgue d'affectation. */
 export interface IncidentVictim extends PersonIdentity {

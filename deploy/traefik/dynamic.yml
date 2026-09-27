@@ -19,6 +19,7 @@ http:
       rule: "PathPrefix(`/api`)"
       entryPoints: [web, websecure]
       service: api
+      middlewares: [compress-api]
       priority: 50
     tiles-sat:
       rule: "PathRegexp(`^/tiles/sat/[0-9]+/[0-9]+/[0-9]+$`)"
@@ -70,6 +71,14 @@ http:
       priority: 10
 
   middlewares:
+    # Réponses de l'API compressées (ADR 0038). Mesuré le 27 septembre : le
+    # chargement du domaine pèse 270 Ko de JSON, 58 Ko une fois compressé — sur
+    # chaque poste, à chaque ouverture. Le flux temps réel (SSE) n'est JAMAIS
+    # compressé : mis en tampon, il n'arriverait plus au fil de l'eau. Les pages
+    # et le code du web sont déjà compressés par Next.
+    compress-api:
+      compress:
+        excludedContentTypes: [text/event-stream]
     tiles-sat:
       replacePathRegex:
         regex: "^/tiles/sat/([0-9]+)/([0-9]+)/([0-9]+)$"

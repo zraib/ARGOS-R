@@ -22,7 +22,6 @@ export type RoleFeatureBody = Json<NonNullable<paths["/api/iam/role-features/{ro
 export type ModuleFeature = RoleFeatureBody["feature"];
 /** Fonctionnalité de l'API commutable par rôle (ADR 0022, lot 2). */
 export type RoleGrantBody = Json<NonNullable<paths["/api/iam/role-grants/{role}"]["patch"]["requestBody"]>>;
-export type ApiFeature = RoleGrantBody["feature"];
 export type CreateIncidentBody = Json<NonNullable<paths["/api/incidents"]["post"]["requestBody"]>>;
 export type UpdateIncidentBody = Json<NonNullable<paths["/api/incidents/{id}"]["patch"]["requestBody"]>>;
 export type CreateSubIncidentBody = Json<NonNullable<paths["/api/incidents/{id}/sub-incidents"]["post"]["requestBody"]>>;
@@ -519,5 +518,4 @@ export function createArgosClient(opts: ArgosClientOptions) {
   };
 }
 
-export type ArgosClient = ReturnType<typeof createArgosClient>;
 export type { paths } from "./openapi";

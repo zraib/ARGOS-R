@@ -292,10 +292,6 @@ export const ROLE_TRAITS: Record<Role, RoleTraits> = {
   pco_rens_com: cell("pco", "rens_com", "Rens & Com / PCO", "security"),
 };
 
-export function traitsOf(role: Role): RoleTraits {
-  return ROLE_TRAITS[role];
-}
-
 /** Le rôle est-il utilisable dans ce mode ? Les rôles techniques et communs le sont dans les deux. */
 export function roleInProfile(role: Role, profile: ProfileId): boolean {
   const p = ROLE_TRAITS[role].profile;

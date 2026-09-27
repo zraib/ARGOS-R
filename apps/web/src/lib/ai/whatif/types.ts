@@ -1,13 +1,3 @@
-export type DeltaKind =
-  | "aggravationPct"
-  | "addUnits"
-  | "addHospitalBeds"
-  | "windMult"
-  | "rainAddMm"
-  | "seismicAddMag"
-  | "addCasualties"
-  | "addAffected";
-
 export interface WhatIfDeltas {
   /** -50..+50 — aggrave (négatif = empiré / positif = amélioration rapide) */
   aggravationPct: number;

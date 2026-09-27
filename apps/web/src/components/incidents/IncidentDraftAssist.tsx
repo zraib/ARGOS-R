@@ -16,14 +16,8 @@
  */
 
 import { Proposal } from "@/lib/ai/draft/types";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Icon } from "@/components/ui/Icon";
-import { UI_ICONS } from "@/lib/icons";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pickDesc, pickTitle, type DescriptionProposalInput } from "@/lib/ai/draft";
-
-function cn(...parts: Array<string | false | null | undefined>) {
-  return parts.filter(Boolean).join(" ");
-}
 
 /* =========================== TYPES =========================== */
 
@@ -100,43 +94,6 @@ export function useDraftProposal(
     proposal, regenFreshT, regenFreshD, applyTitle, applyDesc,
     regenFresh: regenFreshT, titleUsed, descUsed,
   };
-}
-
-/* ====================== COMPOSANTS BOUTONS INTÉGRÉS DANS LES CHAMPS ====================== */
-const BTN_BASE = "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-colors";
-
-function AssistButtons(props: {
-  label: string; onApply: () => void; onRegen: () => void; applied: boolean; disabled?: boolean;
-}): ReactNode {
-  const { label, onApply, onRegen, applied, disabled } = props;
-  return (
-    <div className="flex shrink-0 items-center gap-1" aria-label={`Assistant IA · ${label}`}>
-      <button
-        type="button" onClick={onApply} disabled={disabled || applied}
-        title={applied ? `Proposition ${label} déjà appliquée` : `Appliquer la proposition IA · ${label}`}
-        className={cn(BTN_BASE, applied
-          ? "border-green-500/20 bg-green-500/10 text-green-700 dark:text-green-400"
-          : "border-or-500/25 bg-or-500/8 text-or-700 hover:bg-or-500/16 dark:text-or-300",
-          disabled ? "cursor-not-allowed opacity-40" : "")}
-      >
-        <Icon path={applied ? UI_ICONS.check : UI_ICONS.sparkles} className="h-3.5 w-3.5" />
-      </button>
-      <button
-        type="button" onClick={onRegen} disabled={disabled}
-        title={`Régénérer la proposition IA · ${label} — uniquement ${label.toLowerCase()}`}
-        className={cn(BTN_BASE, "border-gray-300/80 bg-white/90 text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:bg-white/[0.06] dark:text-rdia-200 dark:hover:bg-white/[0.12]", disabled ? "cursor-not-allowed opacity-40" : "")}
-      >
-        <Icon path={UI_ICONS.refresh} className="h-3 w-3" />
-      </button>
-    </div>
-  );
-}
-
-export function TitleAssistButtons(props: { onApply: () => void; onRegen: () => void; applied: boolean; disabled?: boolean; }): ReactNode {
-  return <AssistButtons label="Titre" {...props} />;
-}
-export function DescAssistButtons(props: { onApply: () => void; onRegen: () => void; applied: boolean; disabled?: boolean; }): ReactNode {
-  return <AssistButtons label="Description" {...props} />;
 }
 
 /* ====================== RETRO-COMPAT (ancien composant → affiche RIEN) ====================== */

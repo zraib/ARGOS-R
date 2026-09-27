@@ -52,6 +52,19 @@ export function Sidebar() {
 
   const groupChildActive = (g: NavGroup) => g.children.some((c) => isActive(c.href));
 
+  // Préchargement À L'INTENTION, pas à l'affichage. Mesuré le 27 septembre sur le
+  // build de production : à chaque chargement, la trentaine de liens du menu
+  // préchargeait sa route — 96 requêtes et 1,5 Mo de JavaScript de plus que la
+  // page elle-même, sur chaque poste (ADR 0038). Le survol, le focus clavier ou
+  // le toucher précèdent le clic de quelques centaines de millisecondes : la
+  // navigation reste aussi rapide (~240 ms mesurés dans les deux cas).
+  const surIntention = (href: string) => ({
+    prefetch: false as const,
+    onMouseEnter: () => router.prefetch(href),
+    onFocus: () => router.prefetch(href),
+    onTouchStart: () => router.prefetch(href),
+  });
+
   const renderItem = (it: NavItem, child = false) => {
     const active = isActive(it.href);
     if (collapsed) {
@@ -59,6 +72,7 @@ export function Sidebar() {
         <Link
           key={it.key}
           href={it.href}
+          {...surIntention(it.href)}
           title={navLabel(it.key, t, role)}
           className={`flex w-full items-center justify-center rounded-lg py-2.5 transition-colors ${active ? activeCls : inactiveCls}`}
         >
@@ -71,6 +85,7 @@ export function Sidebar() {
         <Link
           key={it.key}
           href={it.href}
+          {...surIntention(it.href)}
           className={`flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
             active ? "text-or-500 dark:text-or-400" : "text-gray-500 hover:text-or-500 dark:text-rdia-200 dark:hover:text-or-300"
           }`}
@@ -84,6 +99,7 @@ export function Sidebar() {
       <Link
         key={it.key}
         href={it.href}
+        {...surIntention(it.href)}
         className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${active ? activeCls : inactiveCls}`}
       >
         <Icon path={it.icon} size={17} className="shrink-0" />

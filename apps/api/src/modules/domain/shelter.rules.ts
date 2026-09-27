@@ -34,7 +34,6 @@ export type ShelterBuilding = (typeof SHELTER_BUILDINGS)[number];
  * tuile de l'abri, à côté de sa commune, comme le corps d'une unité.
  */
 export const SHELTER_ORGANS = ["dgpc", "far", "fa", "commune", "croissant_rouge", "entraide", "education", "sante", "autre"] as const;
-export type ShelterOrgan = (typeof SHELTER_ORGANS)[number];
 
 /** Personnes par tente proposées par défaut (Sphère : 3,5 m² couverts par personne, tente familiale 16–23 m²). */
 export const DEFAULT_PER_TENT = 6;

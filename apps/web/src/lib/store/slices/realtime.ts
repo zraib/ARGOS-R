@@ -30,6 +30,34 @@ const TYPING_THROTTLE_MS = 2_000;
 const typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const typingSent = new Map<string, number>();
 
+/**
+ * Rechargement du domaine sur événement, REGROUPÉ (ADR 0038). Une déclaration
+ * d'incident, une affectation, un déploiement poussent plusieurs événements
+ * d'affilée : chacun lançait vingt lectures, en parallèle des précédentes.
+ * Désormais un seul rechargement court à la fois, et au plus un autre le suit
+ * pour prendre ce qui est arrivé pendant qu'il courait.
+ */
+let rechargeEnCours: Promise<void> | null = null;
+let rechargeAPrevoir = false;
+function rechargerDomaine(get: () => ArgosState): void {
+  if (rechargeEnCours) {
+    rechargeAPrevoir = true;
+    return;
+  }
+  rechargeEnCours = get()
+    .loadDomain({ ai: false })
+    .catch(() => {
+      /* lecture manquée : le prochain événement relira */
+    })
+    .finally(() => {
+      rechargeEnCours = null;
+      if (rechargeAPrevoir) {
+        rechargeAPrevoir = false;
+        rechargerDomaine(get);
+      }
+    });
+}
+
 export interface TypingSignal {
   matricule: string;
   nom: string;
@@ -153,7 +181,7 @@ export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice
           set({ rtNotices: mergeNotice(s.rtNotices, n) });
           if (n.kind === "incident_declared") {
             s.showToast(`${s.dict.notif_incident_declared} — ${n.titre}`);
-            void get().loadDomain({ ai: false });
+            rechargerDomaine(get);
           } else {
             s.showToast(`${s.dict.notif_reset_requested} — ${n.nom} (${n.matricule})`);
           }
@@ -174,7 +202,7 @@ export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice
         if (e.kind === "domain") {
           // Une unité engagée ou relevée, un hôpital de campagne posé : le
           // domaine et les boucles se relisent — sans les modèles IA.
-          void get().loadDomain({ ai: false });
+          rechargerDomaine(get);
           if ((e.data as { what?: string }).what === "units") void get().loadMissions();
           return;
         }
@@ -202,7 +230,7 @@ export const createRealtimeSlice: StateCreator<ArgosState, [], [], RealtimeSlice
           // la rejouer à la main, une reconstitution partielle valant pire
           // qu'un aller-retour. Sans les modèles : un canal renommé ne change
           // rien au risque ni à la situation.
-          void get().loadDomain({ ai: false });
+          rechargerDomaine(get);
         }
       },
       (rtStatus) => set({ rtStatus }),

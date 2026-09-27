@@ -563,11 +563,3 @@ export function computeRiskPredictions(ctx: RiskContext): RiskPrediction[] {
 // importe de là, si bien que ce fichier — le moteur lourd — ne part plus dans
 // le graphe initial d'aucune route. Ré-exportées ici par compatibilité.
 export { levelTint, levelLabel, probabilityToPercent } from "./types";
-// --- Type guards pour intégration ----------------------------------------
-export function isDashStatsLike(
-  o: unknown,
-): boolean {
-  if (!o || typeof o !== "object") return false;
-  const obj = o as Record<string, unknown>;
-  return "evolution" in obj && "severity" in obj && "status" in obj;
-}

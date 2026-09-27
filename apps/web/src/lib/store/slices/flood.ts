@@ -16,11 +16,9 @@ import type { StateCreator } from "zustand";
 import type { ArgosState } from "@/lib/store";
 import type { FloodFeedStatus, FloodForecast, FloodGauge, FloodInundationMap, FloodPolygon } from "@/lib/types";
 import { api } from "@/lib/api";
-import { loadDemGrid } from "@/lib/flood/dem";
-import { cellSizeMeters, gridPixel } from "@/lib/flood/grid";
-import { HYDRO_DEFAULTS, manningOf, scenarioOf, type FloodScenarioParams, type FloodSource } from "@/lib/flood/hydro";
-import { FloodRun, driveFloodRun, type FloodPoi } from "@/lib/flood/run";
-import { shelterPosition } from "@/lib/ai/opsnetAffecteur";
+import type { FloodScenarioParams, FloodSource } from "@/lib/flood/hydro";
+import type { FloodPoi, FloodRun } from "@/lib/flood/run";
+import { shelterLL } from "@/lib/map/positions";
 
 export type { FloodSource };
 export type FloodSimParams = FloodScenarioParams;
@@ -179,7 +177,17 @@ export const createFloodSlice: StateCreator<ArgosState, [], [], FloodSlice> = (s
     const params = s0.floodParams;
     const z = FLOOD_ZOOM[params.extentKm];
     let run: FloodRun;
+    // Les moteurs — relief, grille, hydrologie, propagation — ne se chargent
+    // qu'ici, au lancement d'une simulation : ils partaient avec chaque page (ADR 0038).
+    let moteur: typeof import("@/lib/flood/run");
     try {
+      const [{ loadDemGrid }, { cellSizeMeters, gridPixel }, { HYDRO_DEFAULTS, manningOf, scenarioOf }, moteurCrue] = await Promise.all([
+        import("@/lib/flood/dem"),
+        import("@/lib/flood/grid"),
+        import("@/lib/flood/hydro"),
+        import("@/lib/flood/run"),
+      ]);
+      moteur = moteurCrue;
       const grid = await loadDemGrid(seed, z, 1);
       if (!grid) {
         set({ floodSimError: "dem", floodSimBusy: false });
@@ -203,14 +211,14 @@ export const createFloodSlice: StateCreator<ArgosState, [], [], FloodSlice> = (s
         ...avecPosition(st.hospitals).map((h): FloodPoi => ({ id: `h:${h.nom}`, kind: "hospital", nom: h.nom, ll: h.ll })),
         ...avecPosition(st.units).map((u): FloodPoi => ({ id: `u:${u.nom}`, kind: "unit", nom: u.nom, ll: u.ll })),
         ...st.shelters
-          .map((a) => ({ nom: a.nom, ll: shelterPosition(a, st.cities) }))
+          .map((a) => ({ nom: a.nom, ll: shelterLL(a, st.cities)?.ll ?? null }))
           .filter((a): a is { nom: string; ll: [number, number] } => a.ll !== null)
           .map((a): FloodPoi => ({ id: `a:${a.nom}`, kind: "shelter", nom: a.nom, ll: a.ll })),
         ...st.cities.map((c): FloodPoi => ({ id: `c:${c.v}`, kind: "city", nom: c.v, ll: c.ll })),
       ];
       const scenario = scenarioOf(params);
       const horizonS = params.horizonH * 3600;
-      run = new FloodRun({
+      run = new moteur.FloodRun({
         grid,
         cellMeters: cellSizeMeters(z, seed[1]),
         seedPx: p.px,
@@ -229,7 +237,7 @@ export const createFloodSlice: StateCreator<ArgosState, [], [], FloodSlice> = (s
     }
     // Le calcul court ; ses images arrivent au fil de l'eau et la lecture les suit.
     // Une course remplacée ou effacée entre-temps ne touche plus au magasin.
-    void driveFloodRun(run, (r) => {
+    void moteur.driveFloodRun(run, (r) => {
       if (get().floodSim === r) set({ floodFrames: r.frames.length, floodDone: r.done });
     }).finally(() => {
       if (get().floodSim === run) set({ floodSimBusy: false });

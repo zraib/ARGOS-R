@@ -9,7 +9,6 @@ import { useModules } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
 import type { Tone } from "@/components/ui/Pill";
-import type { ResponsibilityKind } from "@/lib/roles";
 import type { MarkerKind } from "@/lib/types";
 import { ShowOnMapButton } from "@/components/map/ShowOnMapButton";
 
@@ -144,18 +143,6 @@ export function NoResponsibility({ unassigned = false }: { unassigned?: boolean 
       icon={UI_ICONS.shield}
       title={unassigned ? m.resp.unassigned_title : m.resp.none_title}
       text={unassigned ? m.resp.unassigned_text : m.resp.none_text}
-    />
-  );
-}
-
-/** Nature de responsabilité dont le module n'est pas encore livré. */
-export function PendingModule({ kind, entityId }: { kind: ResponsibilityKind; entityId: string }) {
-  const m = useModules();
-  return (
-    <Notice
-      icon={UI_ICONS.shield}
-      title={m.users.responsibility[kind]}
-      text={`${m.resp.pending_text} (${entityId})`}
     />
   );
 }

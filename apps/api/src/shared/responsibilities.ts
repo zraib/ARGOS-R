@@ -177,11 +177,6 @@ export function responsibilityOfRole(role: Role): ResponsibilityKind | undefined
   return ROLE_RESPONSIBILITY[role];
 }
 
-/** Le rôle exige-t-il qu'une entité lui soit affectée ? */
-export function roleRequiresAssignment(role: Role): boolean {
-  return ROLE_RESPONSIBILITY[role] !== undefined;
-}
-
 /** Natures d'entité à affecter pour cet ensemble de rôles (sans doublon). */
 export function requiredAssignments(roles: readonly Role[]): ResponsibilityKind[] {
   const kinds = new Set<ResponsibilityKind>();

@@ -121,7 +121,13 @@ export function createDrawingLabelsRuntime(): DrawingLabelsRuntime {
 function styleLabel(el: HTMLDivElement, d: Drawing, selected: boolean, draggable: boolean): void {
   const color = d.color ?? DEFAULT_DRAWING_COLOR;
   el.textContent = d.label || "—";
-  el.className = `croquis-etiquette${d.kind === "point" ? " croquis-etiquette-point" : ""}${selected ? " croquis-etiquette-active" : ""}`;
+  // Classes ajoutées ou retirées une à une, jamais réécrites : l'élément porte aussi
+  // celles que MapLibre lui pose (`maplibregl-marker`, ancrage). Les écraser, à la
+  // première mise à jour — sélection d'un croquis, retour sur la carte —, sortait
+  // l'étiquette de la carte : elle disparaissait (ADR 0038).
+  el.classList.add("croquis-etiquette");
+  el.classList.toggle("croquis-etiquette-point", d.kind === "point");
+  el.classList.toggle("croquis-etiquette-active", selected);
   el.style.borderColor = color;
   el.style.cursor = draggable ? "move" : "pointer";
   el.title = d.note ? `${d.label}\n${d.note}` : d.label;
