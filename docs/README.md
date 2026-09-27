@@ -18,6 +18,7 @@ Index de la documentation technique. Point d'entrée du dépôt :
 | 9 | [Carte du code](09-carte-du-code.md) | où se trouve quoi, règles de dépendance, où mettre une nouveauté |
 | 10 | [Qualité, gate et registre d'audit](10-qualite-et-audit.md) | **pour l'auditeur** : la gate, ce qui a été nettoyé et refondu, le registre des risques |
 | 11 | [Simulateurs de feu et d'inondation](11-simulateurs-feu-et-inondation.md) | **ce que calculent les simulateurs de la carte** : Rothermel sur les modèles d'Anderson, onde inertielle, SCS et Froehlich sur les barrages du Royaume — réglages, vérifications, limites, où est le code |
+| 12 | [Itinéraire sûr](12-itineraire-sur.md) | **ce que calcule l'outil d'itinéraire** : obstacles et zones NRBC contournés, sortie de zone la plus rapide, point d'approche sûr, dérive du panache sur la durée du trajet — algorithme, limites, où est le code |
 
 ## Décisions d'architecture
 

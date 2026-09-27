@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useArgos, useDict, useModules } from "@/lib/store";
 import { TILES_AVAILABLE } from "@/lib/map/tiles";
@@ -27,6 +27,7 @@ import { MapCanvas } from "@/app/map/_parts/MapCanvas";
 import { Switch } from "@/app/map/_parts/Switch";
 import { PostToolbox, postKindLabel } from "@/components/map/PostToolbox";
 import { DrawToolbox } from "@/components/map/DrawToolbox";
+import { RouteToolbox } from "@/components/map/RoutePanel";
 import { PlacePostModal } from "@/components/map/PlacePostModal";
 import { canEditMap } from "@/lib/roles";
 import { PLACED_FILL, placeablePostKinds, placeableResourceKinds } from "@/lib/edit";
@@ -116,7 +117,13 @@ export default function MapPage() {
    * style des contrôles natifs MapLibre (blanc, 44 px, rayon 12). Le bouton
    * « nrbc » ne rejoint la pile que lorsqu'un panache est actif.
    */
-  const [openPanel, setOpenPanel] = useState<"layers" | "air" | "legend" | "nrbc" | "edit" | "draw" | "flood" | "fire" | null>(null);
+  const [openPanel, setOpenPanel] = useState<"layers" | "air" | "legend" | "route" | "nrbc" | "edit" | "draw" | "flood" | "fire" | null>(null);
+  // Outil d'itinéraire (ADR 0039) : son panneau ouvert ⟺ l'outil armé (un clic sur
+  // la carte pose une étape). Armé d'ailleurs — bouton du bas, « itinéraire depuis
+  // ici » —, le panneau s'ouvre ; le panneau refermé (ou un autre ouvert), l'outil
+  // se désarme — le trajet reste affiché.
+  const routeOn = useArgos((s) => s.routeOn);
+  const setRouteOn = useArgos((s) => s.setRouteOn);
   // Mode dessin (croquis) : ouvert à tout le monde — qui voit la carte dessine ; un croquis ne se modifie que par son auteur ou le Super Administrateur.
   const drawOpen = true;
   const setDrawTool = useArgos((s) => s.setDrawTool);
@@ -775,6 +782,7 @@ export default function MapPage() {
     { key: "layers", label: t.layers, body: layersBody },
     { key: "aircraft", label: t.acft_panel, body: <AircraftPanel /> },
     { key: "legend", label: t.legend, body: legendBody },
+    { key: "route", label: t.rt_tool, body: <RouteToolbox /> },
   ];
   if (editOpen) sheetTabs.push({ key: "edit", label: t.map_edit_mode, body: <PostToolbox /> });
   if (drawOpen) sheetTabs.push({ key: "draw", label: t.dr_panel, body: <DrawToolbox /> });
@@ -787,6 +795,28 @@ export default function MapPage() {
     if (sheet === "draw") setDrawTool("select");
     else if (sheet !== null) setDrawTool(null);
   }, [sheet, setDrawTool]);
+  // Itinéraire : l'outil armé ouvre son panneau (barre de gauche, ou onglet de la
+  // feuille sous lg) ; désarmé, il le referme.
+  useEffect(() => {
+    const large = window.matchMedia("(min-width: 1024px)").matches;
+    if (routeOn) {
+      if (large) setOpenPanel("route");
+      else setSheet("route");
+    } else {
+      setOpenPanel((o) => (o === "route" ? null : o));
+      setSheet((x) => (x === "route" ? null : x));
+    }
+  }, [routeOn]);
+  // …et son panneau ouvert l'arme ; refermé (ou un autre ouvert), le désarme. On ne
+  // réagit qu'aux CHANGEMENTS d'ouverture : au montage, un outil resté armé ouvre
+  // son panneau au lieu d'être désarmé par un panneau encore fermé.
+  const routePanelOpen = useRef(false);
+  useEffect(() => {
+    const ouvert = openPanel === "route" || sheet === "route";
+    if (ouvert === routePanelOpen.current) return;
+    routePanelOpen.current = ouvert;
+    setRouteOn(ouvert);
+  }, [openPanel, sheet, setRouteOn]);
 
   // Les marges négatives annulent exactement le rembourrage de <main>
   // (`p-3 sm:p-4 lg:p-6`) : figées à `-m-6`, elles débordaient de 24 px à
@@ -817,6 +847,8 @@ export default function MapPage() {
                 { key: "layers" as const, icon: UI_ICONS.layers, label: t.layers },
                 { key: "air" as const, icon: UI_ICONS.plane, label: t.acft_panel },
                 { key: "legend" as const, icon: UI_ICONS.legend, label: t.legend },
+                // Itinéraire sûr : obstacles et zones NRBC contournés (ADR 0039) — pour tous.
+                { key: "route" as const, icon: UI_ICONS.route, label: t.rt_tool },
                 // Crues : prévisions Flood Hub et simulateur d'inondation (ADR 0010) —
                 // réservé à la conduite par la matrice (ADR 0018).
                 ...(capOpen("simFlood") ? [{ key: "flood" as const, icon: TYPE_ICONS.flood, label: t.flood_panel }] : []),
@@ -837,14 +869,13 @@ export default function MapPage() {
             ).map((b) => (
               <button
                 key={b.key}
-                onClick={() =>
-                  setOpenPanel((o) => {
-                    const next = o === b.key ? null : b.key;
-                    // Ouvrir le dessin arme la sélection ; le fermer range les outils.
-                    setDrawTool(next === "draw" ? "select" : null);
-                    return next;
-                  })
-                }
+                onClick={() => {
+                  const next = openPanel === b.key ? null : b.key;
+                  // Ouvrir le dessin arme la sélection ; le fermer range les outils.
+                  // Hors de la mise à jour d'état : le magasin ne s'écrit pas pendant un rendu.
+                  setDrawTool(next === "draw" ? "select" : null);
+                  setOpenPanel(next);
+                }}
                 aria-label={b.label}
                 aria-expanded={openPanel === b.key}
                 title={b.label}
@@ -862,12 +893,12 @@ export default function MapPage() {
             <div key={openPanel} className="anim-bulle panneau-sombre pointer-events-auto w-[300px] overflow-hidden rounded-xl shadow-lg" style={GLASS}>
               <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
                 <Icon
-                  path={openPanel === "layers" ? UI_ICONS.layers : openPanel === "air" ? UI_ICONS.plane : openPanel === "nrbc" ? UI_ICONS.nrbc : openPanel === "edit" ? UI_ICONS.edit : openPanel === "draw" ? UI_ICONS.drawPolygon : openPanel === "flood" ? TYPE_ICONS.flood : openPanel === "fire" ? TYPE_ICONS.wildfire : UI_ICONS.legend}
+                  path={openPanel === "layers" ? UI_ICONS.layers : openPanel === "air" ? UI_ICONS.plane : openPanel === "route" ? UI_ICONS.route : openPanel === "nrbc" ? UI_ICONS.nrbc : openPanel === "edit" ? UI_ICONS.edit : openPanel === "draw" ? UI_ICONS.drawPolygon : openPanel === "flood" ? TYPE_ICONS.flood : openPanel === "fire" ? TYPE_ICONS.wildfire : UI_ICONS.legend}
                   size={14}
                   className="shrink-0 text-or-400"
                 />
                 <span className="min-w-0 flex-1 truncate text-[13px] font-bold uppercase tracking-wider text-white/85">
-                  {openPanel === "layers" ? t.layers : openPanel === "air" ? t.acft_panel : openPanel === "nrbc" ? t.nrbc_panel : openPanel === "edit" ? t.map_edit_mode : openPanel === "draw" ? t.dr_panel : openPanel === "flood" ? t.flood_panel : openPanel === "fire" ? t.fire_panel : t.legend}
+                  {openPanel === "layers" ? t.layers : openPanel === "air" ? t.acft_panel : openPanel === "route" ? t.rt_tool : openPanel === "nrbc" ? t.nrbc_panel : openPanel === "edit" ? t.map_edit_mode : openPanel === "draw" ? t.dr_panel : openPanel === "flood" ? t.flood_panel : openPanel === "fire" ? t.fire_panel : t.legend}
                 </span>
                 <button
                   onClick={() => {
@@ -881,7 +912,7 @@ export default function MapPage() {
                 </button>
               </div>
               <div className="max-h-[62vh] overflow-y-auto px-3 pb-3 pt-2">
-                {openPanel === "layers" ? layersBody : openPanel === "air" ? <AircraftPanel /> : openPanel === "nrbc" ? nrbcBody : openPanel === "edit" ? <PostToolbox /> : openPanel === "draw" ? <DrawToolbox /> : openPanel === "flood" ? <FloodPanel /> : openPanel === "fire" ? <FirePanel /> : legendBody}
+                {openPanel === "layers" ? layersBody : openPanel === "air" ? <AircraftPanel /> : openPanel === "route" ? <RouteToolbox /> : openPanel === "nrbc" ? nrbcBody : openPanel === "edit" ? <PostToolbox /> : openPanel === "draw" ? <DrawToolbox /> : openPanel === "flood" ? <FloodPanel /> : openPanel === "fire" ? <FirePanel /> : legendBody}
               </div>
             </div>
           )}

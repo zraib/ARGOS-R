@@ -6779,6 +6779,47 @@
           "incident-dashboard"
         ]
       }
+    },
+    "/api/routing/plan": {
+      "post": {
+        "description": "Départ dans une zone NRBC : la sortie la plus rapide précède le trajet. Étape ou arrivée dans une zone : remplacée par le point d'approche sûr le plus proche. Les zones évitées couvrent toute la durée du trajet. Moteur injoignable : ligne droite (`road: false`) ; aucun chemin sûr : le plus court, `safe: false`.",
+        "operationId": "RoutingController_plan",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanRouteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoutePlanDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Étapes invalides (1 à 10 points [longitude, latitude])."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Itinéraire routier sûr : contourne les obstacles posés sur la carte et les zones des panaches NRBC en cours.",
+        "tags": [
+          "routing"
+        ]
+      }
     }
   },
   "info": {
@@ -7532,6 +7573,17 @@
           "incidentId": {
             "type": "string",
             "description": "Opération concernée."
+          },
+          "obstacle": {
+            "type": "string",
+            "enum": [
+              "impasse",
+              "obstacle",
+              "bridge",
+              "flooded",
+              "forbidden"
+            ],
+            "description": "Obstacle contourné par les itinéraires (ADR 0039) : impasse, obstacle, pont détruit, zone inondée, zone interdite. Absent : simple croquis."
           }
         },
         "required": [
@@ -7575,6 +7627,18 @@
           },
           "incidentId": {
             "type": "string"
+          },
+          "obstacle": {
+            "type": "string",
+            "enum": [
+              "impasse",
+              "obstacle",
+              "bridge",
+              "flooded",
+              "forbidden"
+            ],
+            "nullable": true,
+            "description": "Nature d'obstacle ; null : redevient un simple croquis."
           }
         }
       },
@@ -10815,6 +10879,315 @@
         },
         "required": [
           "key"
+        ]
+      },
+      "PlanRouteDto": {
+        "type": "object",
+        "properties": {
+          "points": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "minItems": 1,
+            "maxItems": 10,
+            "description": "Étapes [longitude, latitude] dans l'ordre : départ, étapes, arrivée. Un seul point = sortir au plus vite de la zone NRBC où il se trouve."
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "pedestrian"
+            ],
+            "default": "auto",
+            "description": "En véhicule (`auto`) ou à pied (`pedestrian`)."
+          },
+          "avoidObstacles": {
+            "type": "boolean",
+            "default": true,
+            "description": "Contourner les obstacles posés sur la carte."
+          },
+          "avoidNrbc": {
+            "type": "boolean",
+            "default": true,
+            "description": "Contourner les zones des panaches NRBC en cours (danger et protection)."
+          },
+          "nrbcVigilance": {
+            "type": "boolean",
+            "default": false,
+            "description": "Contourner aussi les zones de vigilance NRBC."
+          }
+        },
+        "required": [
+          "points"
+        ]
+      },
+      "RouteLegDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "exit",
+              "route"
+            ],
+            "description": "`exit` : sortie d'une zone NRBC (la traverse) ; `route` : trajet qui contourne."
+          },
+          "coords": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "km": {
+            "type": "number"
+          },
+          "min": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "coords",
+          "km",
+          "min"
+        ]
+      },
+      "RouteReferenceDto": {
+        "type": "object",
+        "properties": {
+          "coords": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "km": {
+            "type": "number"
+          },
+          "min": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "coords",
+          "km",
+          "min"
+        ]
+      },
+      "RouteExitDto": {
+        "type": "object",
+        "properties": {
+          "point": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "Point de sortie atteint, hors zone."
+          },
+          "insideKm": {
+            "type": "number",
+            "description": "Kilomètres parcourus dans la zone avant d'en sortir."
+          },
+          "insideMin": {
+            "type": "number",
+            "description": "Minutes passées dans la zone avant d'en sortir."
+          },
+          "incidentIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "point",
+          "insideKm",
+          "insideMin",
+          "incidentIds"
+        ]
+      },
+      "RouteApproachDto": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "number",
+            "description": "Index de l'étape remplacée dans la demande."
+          },
+          "from": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "L'étape demandée, dans une zone."
+          },
+          "point": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "Le point d'approche sûr retenu à sa place."
+          },
+          "incidentIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "index",
+          "from",
+          "point",
+          "incidentIds"
+        ]
+      },
+      "RouteAvoidedDto": {
+        "type": "object",
+        "properties": {
+          "obstacles": {
+            "type": "number",
+            "description": "Obstacles contournés (points et surfaces)."
+          },
+          "zones": {
+            "type": "number",
+            "description": "Zones NRBC de l'heure en cours prises en compte."
+          },
+          "incidentIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hours": {
+            "description": "Échéances du panache évitées (H+n).",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "obstacles",
+          "zones",
+          "incidentIds",
+          "hours"
+        ]
+      },
+      "RoutePlanDto": {
+        "type": "object",
+        "properties": {
+          "engine": {
+            "type": "string",
+            "description": "Moteur utilisé (`valhalla`), ou `direct` quand il est injoignable."
+          },
+          "road": {
+            "type": "boolean",
+            "description": "Par le réseau routier (sinon : à vol d'oiseau)."
+          },
+          "safe": {
+            "type": "boolean",
+            "description": "Faux : le tracé traverse un obstacle ou une zone — aucun itinéraire ne contourne tout."
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "pedestrian"
+            ]
+          },
+          "legs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RouteLegDto"
+            }
+          },
+          "km": {
+            "type": "number"
+          },
+          "min": {
+            "type": "number",
+            "nullable": true,
+            "description": "Minutes ; null à vol d'oiseau."
+          },
+          "reference": {
+            "nullable": true,
+            "description": "Le plus court sans rien contourner, quand il diffère.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RouteReferenceDto"
+              }
+            ]
+          },
+          "exit": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RouteExitDto"
+              }
+            ]
+          },
+          "approaches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RouteApproachDto"
+            }
+          },
+          "avoided": {
+            "$ref": "#/components/schemas/RouteAvoidedDto"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "engine_unavailable",
+                "no_safe_route",
+                "origin_in_zone",
+                "exit_not_found",
+                "point_in_zone",
+                "point_in_obstacle",
+                "wind_unknown",
+                "engine_limit",
+                "not_in_zone"
+              ]
+            }
+          }
+        },
+        "required": [
+          "engine",
+          "road",
+          "safe",
+          "mode",
+          "legs",
+          "km",
+          "min",
+          "reference",
+          "exit",
+          "approaches",
+          "avoided",
+          "warnings"
         ]
       }
     }

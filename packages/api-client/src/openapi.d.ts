@@ -3138,6 +3138,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/routing/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Itinéraire routier sûr : contourne les obstacles posés sur la carte et les zones des panaches NRBC en cours.
+         * @description Départ dans une zone NRBC : la sortie la plus rapide précède le trajet. Étape ou arrivée dans une zone : remplacée par le point d'approche sûr le plus proche. Les zones évitées couvrent toute la durée du trajet. Moteur injoignable : ligne droite (`road: false`) ; aucun chemin sûr : le plus court, `safe: false`.
+         */
+        post: operations["RoutingController_plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3345,6 +3365,11 @@ export interface components {
             note?: string;
             /** @description Opération concernée. */
             incidentId?: string;
+            /**
+             * @description Obstacle contourné par les itinéraires (ADR 0039) : impasse, obstacle, pont détruit, zone inondée, zone interdite. Absent : simple croquis.
+             * @enum {string}
+             */
+            obstacle?: "impasse" | "obstacle" | "bridge" | "flooded" | "forbidden";
         };
         UpdateDrawingDto: {
             label?: string;
@@ -3354,6 +3379,11 @@ export interface components {
             color?: string;
             note?: string;
             incidentId?: string;
+            /**
+             * @description Nature d'obstacle ; null : redevient un simple croquis.
+             * @enum {string|null}
+             */
+            obstacle?: "impasse" | "obstacle" | "bridge" | "flooded" | "forbidden" | null;
         };
         PublishSimulationDto: {
             /**
@@ -4646,6 +4676,93 @@ export interface components {
         MilestoneDto: {
             /** @enum {string} */
             key: "en_route" | "on_site" | "handover";
+        };
+        PlanRouteDto: {
+            /** @description Étapes [longitude, latitude] dans l'ordre : départ, étapes, arrivée. Un seul point = sortir au plus vite de la zone NRBC où il se trouve. */
+            points: number[][];
+            /**
+             * @description En véhicule (`auto`) ou à pied (`pedestrian`).
+             * @default auto
+             * @enum {string}
+             */
+            mode: "auto" | "pedestrian";
+            /**
+             * @description Contourner les obstacles posés sur la carte.
+             * @default true
+             */
+            avoidObstacles: boolean;
+            /**
+             * @description Contourner les zones des panaches NRBC en cours (danger et protection).
+             * @default true
+             */
+            avoidNrbc: boolean;
+            /**
+             * @description Contourner aussi les zones de vigilance NRBC.
+             * @default false
+             */
+            nrbcVigilance: boolean;
+        };
+        RouteLegDto: {
+            /**
+             * @description `exit` : sortie d'une zone NRBC (la traverse) ; `route` : trajet qui contourne.
+             * @enum {string}
+             */
+            kind: "exit" | "route";
+            coords: number[][];
+            km: number;
+            min: number;
+        };
+        RouteReferenceDto: {
+            coords: number[][];
+            km: number;
+            min: number;
+        };
+        RouteExitDto: {
+            /** @description Point de sortie atteint, hors zone. */
+            point: number[];
+            /** @description Kilomètres parcourus dans la zone avant d'en sortir. */
+            insideKm: number;
+            /** @description Minutes passées dans la zone avant d'en sortir. */
+            insideMin: number;
+            incidentIds: string[];
+        };
+        RouteApproachDto: {
+            /** @description Index de l'étape remplacée dans la demande. */
+            index: number;
+            /** @description L'étape demandée, dans une zone. */
+            from: number[];
+            /** @description Le point d'approche sûr retenu à sa place. */
+            point: number[];
+            incidentIds: string[];
+        };
+        RouteAvoidedDto: {
+            /** @description Obstacles contournés (points et surfaces). */
+            obstacles: number;
+            /** @description Zones NRBC de l'heure en cours prises en compte. */
+            zones: number;
+            incidentIds: string[];
+            /** @description Échéances du panache évitées (H+n). */
+            hours: number[];
+        };
+        RoutePlanDto: {
+            /** @description Moteur utilisé (`valhalla`), ou `direct` quand il est injoignable. */
+            engine: string;
+            /** @description Par le réseau routier (sinon : à vol d'oiseau). */
+            road: boolean;
+            /** @description Faux : le tracé traverse un obstacle ou une zone — aucun itinéraire ne contourne tout. */
+            safe: boolean;
+            /** @enum {string} */
+            mode: "auto" | "pedestrian";
+            legs: components["schemas"]["RouteLegDto"][];
+            km: number;
+            /** @description Minutes ; null à vol d'oiseau. */
+            min: number | null;
+            /** @description Le plus court sans rien contourner, quand il diffère. */
+            reference: components["schemas"]["RouteReferenceDto"] | null;
+            exit: components["schemas"]["RouteExitDto"] | null;
+            approaches: components["schemas"]["RouteApproachDto"][];
+            avoided: components["schemas"]["RouteAvoidedDto"];
+            warnings: ("engine_unavailable" | "no_safe_route" | "origin_in_zone" | "exit_not_found" | "point_in_zone" | "point_in_obstacle" | "wind_unknown" | "engine_limit" | "not_in_zone")[];
         };
     };
     responses: never;
@@ -9330,6 +9447,36 @@ export interface operations {
         responses: {
             /** @description Incident inconnu — ou hors de la portée du compte. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RoutingController_plan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanRouteDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoutePlanDto"];
+                };
+            };
+            /** @description Étapes invalides (1 à 10 points [longitude, latitude]). */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

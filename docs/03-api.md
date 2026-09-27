@@ -310,6 +310,12 @@ documentation interactive (Swagger) : `http://localhost:3005/api/docs`.
 | `DELETE` | `/api/resources/vehicles/{id}` | `resources:archive` | Retirer un véhicule du registre |
 | `PATCH` | `/api/resources/vehicles/{id}` | `resources:update` | Mettre à jour un véhicule |
 
+## routing
+
+| Méthode | Route | Accès | Rôle |
+| --- | --- | --- | --- |
+| `POST` | `/api/routing/plan` | `map:view` | Itinéraire routier sûr : contourne les obstacles posés sur la carte et les zones des panaches NRBC en cours. |
+
 ## Exemple de bout en bout
 
 ```bash
@@ -323,7 +329,7 @@ curl -s http://localhost:3005/api/orders/summary -H "Authorization: Bearer $TOK"
 
 ## Chiffres
 
-170 chemins · 219 opérations · 14 groupes.
+171 chemins · 220 opérations · 15 groupes.
 
 ## Modifier le contrat
 

@@ -370,6 +370,8 @@ export interface Dict {
   map_route: string;
   map_direct: string;
   map_points: string;
+  // --- itinéraire sûr et obstacles (ADR 0039) ---
+  rt_tool: string; rt_hint: string; rt_mode_auto: string; rt_mode_walk: string; rt_avoid_obstacles: string; rt_avoid_nrbc: string; rt_vigilance: string; rt_start: string; rt_stop: string; rt_end: string; rt_safe: string; rt_unsafe: string; rt_computing: string; rt_exit: string; rt_exit_detail: string; rt_approach: string; rt_reference: string; rt_detour: string; rt_obstacles_avoided: string; rt_hours: string; rt_from_here: string; rt_to_here: string; rt_w_engine_unavailable: string; rt_w_no_safe_route: string; rt_w_origin_in_zone: string; rt_w_exit_not_found: string; rt_w_point_in_zone: string; rt_w_point_in_obstacle: string; rt_w_wind_unknown: string; rt_w_engine_limit: string; rt_w_not_in_zone: string; ob_nature: string; ob_sketch: string; ob_obstacle: string; ob_hint: string; ob_impasse: string; ob_obstacle_kind: string; ob_bridge: string; ob_flooded: string; ob_forbidden: string;
   map_eta: string;
   wz_geo_btn: string;
   wz_geo_err: string;

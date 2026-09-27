@@ -10,7 +10,7 @@
 import type { StateCreator } from "zustand";
 import type { ArgosState } from "@/lib/store";
 import { api } from "@/lib/api";
-import type { Drawing, DrawingKind } from "@/lib/types";
+import type { Drawing, DrawingKind, ObstacleKind } from "@/lib/types";
 import type { CreateDrawingBody, UpdateDrawingBody } from "@/lib/api-client";
 
 export type DrawTool = DrawingKind | "select";
@@ -20,6 +20,9 @@ export interface DrawingsSlice {
   /** L'outil armé ; `null` : le mode dessin est fermé. */
   drawTool: DrawTool | null;
   drawSelected: string | null;
+  /** Nature des prochains croquis : `null` = simple croquis ; sinon l'obstacle que les itinéraires contournent (ADR 0039). */
+  drawObstacle: ObstacleKind | null;
+  setDrawObstacle: (kind: ObstacleKind | null) => void;
   loadDrawings: () => Promise<void>;
   setDrawTool: (tool: DrawTool | null) => void;
   selectDrawing: (id: string | null) => void;
@@ -37,6 +40,8 @@ export const createDrawingsSlice: StateCreator<ArgosState, [], [], DrawingsSlice
   drawings: [],
   drawTool: null,
   drawSelected: null,
+  drawObstacle: null,
+  setDrawObstacle: (kind) => set({ drawObstacle: kind }),
   loadDrawings: async () => {
     const res = (await api.getDrawings()) as { data?: unknown };
     if (Array.isArray(res.data)) set({ drawings: res.data as Drawing[] });

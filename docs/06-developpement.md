@@ -127,8 +127,7 @@ Toutes les variables lues par le code, avec leur défaut. Gabarits :
 | `NEXT_PUBLIC_API_URL` | `http://127.0.0.1:3005` | base de l'API |
 | `NEXT_PUBLIC_MAP_TILES` | `external` | `external` = fond de carte tiers **(développement seulement, non souverain ; aucun bandeau à l'écran depuis le 4 septembre 2026)** · `sovereign` = tuiles auto-hébergées (martin) ; toute autre valeur ferme ; en production le mode souverain est imposé |
 | `NEXT_PUBLIC_TILES_URL` | — | base du serveur de tuiles auto-hébergé (martin : `/{source}/{z}/{x}/{y}`, sources `sat`, `plan`, `lbl`, `dem` — voir `infra/geo/README.md`) ; sans elle en mode souverain, la carte est sans fond |
-| `NEXT_PUBLIC_ROUTING_ENGINE` | `valhalla` | moteur de routage (ADR 0001) |
-| `NEXT_PUBLIC_ROUTING_URL` | `http://localhost:8002` | URL du moteur de routage |
+| `ROUTING_URL` (API) | `http://localhost:8002` | moteur d'itinéraire Valhalla, joint par l'API seule (ADR 0001, ADR 0039) |
 
 **Aucun secret ne doit être commité.** Les fichiers `.env*` sont ignorés par
 git ; seuls les `.env.example` sont versionnés.

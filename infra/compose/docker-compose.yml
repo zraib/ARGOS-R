@@ -89,10 +89,21 @@ services:
   # Au premier démarrage, l'image télécharge l'extrait OSM du Maroc et construit
   # les tuiles de routage dans le volume : compter plusieurs minutes. Ensuite le
   # démarrage est immédiat (force_rebuild=False).
-  # Le frontend l'utilise via NEXT_PUBLIC_ROUTING_ENGINE=valhalla et
-  # NEXT_PUBLIC_ROUTING_URL=http://localhost:8002.
+  # L'API l'utilise via ROUTING_URL=http://localhost:8002 (ADR 0039) ; le
+  # navigateur ne le joint pas. Démarrage enveloppé, comme sur la station
+  # (deploy/docker-compose.yml) : limites d'exclusion relevées pour contourner
+  # les panaches NRBC et les obstacles.
   valhalla:
     image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -e
+        serve_tiles=False /valhalla/scripts/run.sh build_tiles
+        conf=/custom_files/valhalla.json
+        jq '.service_limits.max_exclude_polygons_length = 2000000 | .service_limits.max_exclude_locations = 500' "$$conf" > /tmp/valhalla.json
+        sudo cp /tmp/valhalla.json "$$conf"
+        exec /valhalla/scripts/run.sh build_tiles
     environment:
       tile_urls: https://download.geofabrik.de/africa/morocco-latest.osm.pbf
       server_threads: 2

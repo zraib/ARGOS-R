@@ -35,7 +35,11 @@ export function setupDrawingLayers(map: maplibregl.Map): void {
     type: "fill",
     source: DRAW_SRC,
     filter: ["==", "$type", "Polygon"],
-    paint: { "fill-color": ["get", "color"], "fill-opacity": ["case", ["==", ["get", "selected"], 1], 0.32, 0.18] },
+    // Un obstacle (ADR 0039) se remplit plus franchement qu'un croquis.
+    paint: {
+      "fill-color": ["get", "color"],
+      "fill-opacity": ["case", ["==", ["get", "obstacle"], 1], ["case", ["==", ["get", "selected"], 1], 0.5, 0.4], ["case", ["==", ["get", "selected"], 1], 0.32, 0.18]],
+    },
   });
   map.addLayer({
     id: DRAW_LINE,
@@ -44,16 +48,24 @@ export function setupDrawingLayers(map: maplibregl.Map): void {
     filter: ["==", "$type", "Polygon"],
     paint: { "line-color": ["get", "color"], "line-width": ["case", ["==", ["get", "selected"], 1], 3.5, 2.5] },
   });
+  // Le bord d'un obstacle porte en plus un tireté blanc : « infranchissable ».
+  map.addLayer({
+    id: "drawings-obstacle-line",
+    type: "line",
+    source: DRAW_SRC,
+    filter: ["all", ["==", ["geometry-type"], "Polygon"], ["==", ["get", "obstacle"], 1]],
+    paint: { "line-color": "#ffffff", "line-width": 1.5, "line-dasharray": [2, 2], "line-opacity": 0.9 },
+  });
   map.addLayer({
     id: DRAW_POINT,
     type: "circle",
     source: DRAW_SRC,
     filter: ["==", "$type", "Point"],
     paint: {
-      "circle-radius": ["case", ["==", ["get", "selected"], 1], 9, 7],
+      "circle-radius": ["case", ["==", ["get", "obstacle"], 1], ["case", ["==", ["get", "selected"], 1], 11, 9], ["case", ["==", ["get", "selected"], 1], 9, 7]],
       "circle-color": ["get", "color"],
-      "circle-stroke-color": "#0f1f14",
-      "circle-stroke-width": 2.5,
+      "circle-stroke-color": ["case", ["==", ["get", "obstacle"], 1], "#ffffff", "#0f1f14"],
+      "circle-stroke-width": ["case", ["==", ["get", "obstacle"], 1], 3, 2.5],
     },
   });
   // Brouillon : la ligne en cours, la fermeture du polygone, le cercle qui s'étire, les sommets posés.
@@ -128,6 +140,7 @@ function styleLabel(el: HTMLDivElement, d: Drawing, selected: boolean, draggable
   el.classList.add("croquis-etiquette");
   el.classList.toggle("croquis-etiquette-point", d.kind === "point");
   el.classList.toggle("croquis-etiquette-active", selected);
+  el.classList.toggle("croquis-etiquette-obstacle", !!d.obstacle);
   el.style.borderColor = color;
   el.style.cursor = draggable ? "move" : "pointer";
   el.title = d.note ? `${d.label}\n${d.note}` : d.label;

@@ -50,6 +50,8 @@ export type CreateDrawingBody = Json<NonNullable<paths["/api/drawings"]["post"][
 export type UpdateIncidentTypeBody = Json<NonNullable<paths["/api/incident-types/{id}"]["patch"]["requestBody"]>>;
 export type PublishSimulationBody = Json<NonNullable<paths["/api/simulations"]["post"]["requestBody"]>>;
 export type UpdateDrawingBody = Json<NonNullable<paths["/api/drawings/{id}"]["patch"]["requestBody"]>>;
+/** Demande d'itinéraire sûr (ADR 0039). */
+export type PlanRouteBody = Json<NonNullable<paths["/api/routing/plan"]["post"]["requestBody"]>>;
 export type AppMode = Json<NonNullable<paths["/api/domain/mode"]["patch"]["requestBody"]>>["mode"];
 /** Postes d'opération sur la carte (lot #12). */
 export type CreatePostBody = Json<NonNullable<paths["/api/incidents/{id}/posts"]["post"]["requestBody"]>>;
@@ -501,6 +503,9 @@ export function createArgosClient(opts: ArgosClientOptions) {
       client.GET("/api/nrbc/plume/{incidentId}", {
         params: { path: { incidentId }, query: { models, hour: String(hour) } },
       }),
+    // --- routage sûr : obstacles et zones NRBC contournés (ADR 0039) ---
+    /** Itinéraire routier qui contourne les obstacles de la carte et les zones des panaches NRBC en cours. */
+    planRoute: (body: PlanRouteBody) => client.POST("/api/routing/plan", { body }),
     getWeatherCities: () => client.GET("/api/weather/cities"),
     getWeatherGrid: () => client.GET("/api/weather/grid"),
     // --- crues : Google Flood Hub par le courtier de l'API (ADR 0010) ---

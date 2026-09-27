@@ -10,7 +10,6 @@ import { FLUX } from "@/lib/i18n/flux";
 import { MAP_CENTER, MAP_STYLE, MAP_ZOOM } from "@/lib/map/style";
 import { installPlanStyle, loadPlanStyle, planStyleUrl, sovereignBase } from "@/lib/map/plan";
 import { registerSatFallback } from "@/lib/map/satFallback";
-import { routeThrough, type RouteResult } from "@/lib/map/routing";
 import { OVERLAY_STYLE } from "@/lib/map/overlay";
 import { Icon } from "@/components/ui/Icon";
 import { NAV_ICONS, UI_ICONS } from "@/lib/icons";
@@ -27,12 +26,13 @@ import { MarkersRuntime, animateVehicles, setupRoutesLayer, syncMarkers } from "
 import { applyAircraftTrails, dropAircraft, renderAircraft, setupAircraftTrailLayer, type AircraftRegistry } from "@/components/map/layers/aircraft";
 import { pulseQuakes, quakePopup, setupQuakeLayers, syncQuakes } from "@/components/map/layers/quakes";
 import { applyMissions, setupMissionLayers } from "@/components/map/layers/missions";
-import { drawMeasure, setupMeasureLayer } from "@/components/map/layers/measure";
+import { drawMeasure, raiseMeasureLayers, setupMeasureLayer } from "@/components/map/layers/measure";
+import { RouteBar } from "@/components/map/RoutePanel";
 import {
   DRAW_FILL, DRAW_HANDLE, DRAW_LINE, DRAW_POINT,
   applyDraft, applyDrawings, clearDrawingLabels, createDrawingLabelsRuntime, setupDrawingLayers, syncDrawingLabels,
 } from "@/components/map/layers/drawings";
-import { canEditDrawing, distanceM } from "@/lib/map/drawings";
+import { canEditDrawing, distanceM, newDrawingFields } from "@/lib/map/drawings";
 import type { Drawing } from "@/lib/types";
 import { PlumeRuntime, applyPlume, playPlume, setupPlumeLayers } from "@/components/map/layers/plume";
 import {
@@ -143,12 +143,12 @@ export function MapCanvas() {
   const draftRef = useRef<[number, number][]>([]);
   // Une poignée en cours de glissement : quel croquis, quel rôle, quel sommet ; la copie qui suit la souris.
   const dragRef = useRef<{ id: string; role: string; index: number; draft: Drawing } | null>(null);
-  // Outil de mesure : points saisis, itinéraire calculé, curseur en croix.
-  const [measureOn, setMeasureOn] = useState(false);
-  const [pts, setPts] = useState<[number, number][]>([]);
-  const [route, setRoute] = useState<RouteResult | null>(null);
-  const measureOnRef = useRef(false);
-  measureOnRef.current = measureOn;
+  // Outil d'itinéraire (ADR 0039) : les étapes et le plan vivent dans le magasin ;
+  // le panneau (RoutePanel) les règle, la carte pose les étapes et dessine le plan.
+  const routeOn = useArgos((s) => s.routeOn);
+  const routePts = useArgos((s) => s.routePts);
+  const routePlan = useArgos((s) => s.routePlan);
+  const routeCount = routePts.length;
 
   // abonnements qui doivent déclencher une re-synchro des marqueurs
   const layers = useArgos((s) => s.layers);
@@ -290,7 +290,7 @@ export function MapCanvas() {
       draftRef.current = [];
       applyDraft(map, null, [], null);
       if (coords.length < 3) return;
-      void st.createDrawing({ kind: "polygon", label: st.dict.dr_new_polygon, coords }).then((d) => d && st.showToast(st.dict.dr_created));
+      void st.createDrawing({ kind: "polygon", coords, ...newDrawingFields("polygon", st.drawObstacle, st.dict) }).then((d) => d && st.showToast(st.dict.dr_created));
       st.setDrawTool("select");
     };
     map.on("dblclick", (e) => {
@@ -370,7 +370,7 @@ export function MapCanvas() {
           return;
         }
         if (tool === "point") {
-          void st.createDrawing({ kind: "point", label: st.dict.dr_new_point, coords: [ll] }).then((d) => d && st.showToast(st.dict.dr_created));
+          void st.createDrawing({ kind: "point", coords: [ll], ...newDrawingFields("point", st.drawObstacle, st.dict) }).then((d) => d && st.showToast(st.dict.dr_created));
           st.setDrawTool("select");
           return;
         }
@@ -384,7 +384,7 @@ export function MapCanvas() {
           const r = Math.max(1, distanceM(center, ll));
           draftRef.current = [];
           applyDraft(map, null, [], null);
-          void st.createDrawing({ kind: "circle", label: st.dict.dr_new_circle, coords: [center], radiusM: Math.round(r) }).then((d) => d && st.showToast(st.dict.dr_created));
+          void st.createDrawing({ kind: "circle", coords: [center], radiusM: Math.round(r), ...newDrawingFields("circle", st.drawObstacle, st.dict) }).then((d) => d && st.showToast(st.dict.dr_created));
           st.setDrawTool("select");
           return;
         }
@@ -430,8 +430,8 @@ export function MapCanvas() {
           return;
         }
       }
-      if (measureOnRef.current) {
-        setPts((prev) => [...prev, [e.lngLat.lng, e.lngLat.lat]]);
+      if (useArgos.getState().routeOn) {
+        useArgos.getState().addRoutePt([e.lngLat.lng, e.lngLat.lat]);
         return;
       }
       if (!map.getLayer("quakes-circle")) return;
@@ -511,9 +511,11 @@ export function MapCanvas() {
       setupRoutesLayer(map);
       setupMissionLayers(map);
       setupMeasureLayer(map);
+      // L'itinéraire en cours survit au retour sur la carte : on le redessine.
+      drawMeasure(map, useArgos.getState().routePts, useArgos.getState().routePlan);
       setupDrawingLayers(map);
       setupWeatherLayers(wx, map);
-      setupQuakeLayers(map, () => measureOnRef.current, quakeBound);
+      setupQuakeLayers(map, () => useArgos.getState().routeOn, quakeBound);
       setupPlumeLayers(plumeRt.current, map);
       setupFloodLayers(map);
       setupFireLayers(map);
@@ -535,6 +537,7 @@ export function MapCanvas() {
       map.setLayoutProperty("routes-line", "visibility", st.layers.vehicles ? "visible" : "none");
       applyBase(map, st.mapSat);
       apply3d(map, st.map3d);
+      raiseMeasureLayers(map);
       // Tout est posé : plus de re-tentative, plus d'écoute de `styledata`.
       styleInstalle = true;
       map.off("styledata", trySetup);
@@ -868,34 +871,18 @@ export function MapCanvas() {
     return () => { popup.remove(); };
   }, [quakeSelected, lang]);
 
-  // --- mesure : itinéraire routier à chaque changement de points, puis tracé ---
-  useEffect(() => {
-    if (pts.length < 2) { setRoute(null); return; }
-    let cancelled = false;
-    void routeThrough(pts).then((r) => { if (!cancelled) setRoute(r); });
-    return () => { cancelled = true; };
-  }, [pts]);
+  // --- itinéraire : le plan (ou, en attendant, la ligne droite) et les étapes ---
   useEffect(() => {
     const map = mapRef.current;
-    if (map) drawMeasure(map, pts, route);
-  }, [pts, route]);
-  // Curseur en croix tant que la mesure est active.
+    if (map) drawMeasure(map, routePts, routePlan);
+  }, [routePts, routePlan]);
+  // Curseur en croix tant que l'outil d'itinéraire est armé.
   useEffect(() => {
     const map = mapRef.current;
-    if (map) map.getCanvas().style.cursor = measureOn ? "crosshair" : "";
-  }, [measureOn]);
+    if (map) map.getCanvas().style.cursor = routeOn ? "crosshair" : "";
+  }, [routeOn]);
 
   const panel = "rounded-lg px-2.5 py-1.5 text-[11px] shadow-lg";
-  const movePt = (i: number, d: number) =>
-    setPts((p) => {
-      const j = i + d;
-      if (j < 0 || j >= p.length) return p;
-      const n = [...p];
-      [n[i], n[j]] = [n[j], n[i]];
-      return n;
-    });
-  const removePt = (i: number) => setPts((p) => p.filter((_, k) => k !== i));
-  const stepBtn = "rounded p-0.5 text-white/60 transition-colors hover:text-or-400 disabled:opacity-25";
 
   return (
     <div
@@ -1054,6 +1041,30 @@ export function MapCanvas() {
                 {t.report}
               </button>
             )}
+            {/* Itinéraire (ADR 0039) : partir d'ici — dans une zone NRBC, la sortie la plus rapide —, ou y aller. */}
+            <button
+              type="button"
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-start text-[14px] font-semibold text-white/90 transition-colors hover:bg-white/10"
+              onClick={() => { useArgos.getState().setRoutePts([ctxMenu.ll]); setCtxMenu(null); }}
+            >
+              <Icon path={UI_ICONS.route} size={16} className="shrink-0 text-or-400" />
+              {t.rt_from_here}
+            </button>
+            {routeCount > 0 && (
+              <button
+                type="button"
+                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-start text-[14px] font-semibold text-white/90 transition-colors hover:bg-white/10"
+                onClick={() => {
+                  const st = useArgos.getState();
+                  st.setRouteOn(true);
+                  st.addRoutePt(ctxMenu.ll);
+                  setCtxMenu(null);
+                }}
+              >
+                <Icon path={UI_ICONS.target} size={16} className="shrink-0 text-or-400" />
+                {t.rt_to_here}
+              </button>
+            )}
             <button
               type="button"
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-start text-[14px] font-semibold text-white/90 transition-colors hover:bg-white/10"
@@ -1077,53 +1088,8 @@ export function MapCanvas() {
       {/* Pop-up de prévisions météo du point sélectionné */}
       {wxPopup && <WeatherPopup ll={wxPopup.ll} place={wxPopup.place} onClose={() => setWxPopup(null)} />}
 
-      {/* Points de mesure : réordonner (↑/↓) et supprimer (✕) */}
-      {pts.length > 0 && (
-        <div className="absolute z-10 flex w-[220px] flex-col gap-1 rounded-lg p-2 shadow-lg" style={{ ...OVERLAY_STYLE, bottom: 84, insetInlineStart: 8 }}>
-          <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-white/60">{t.map_points}</div>
-          {pts.map((p, i) => (
-            <div key={`${p[0]},${p[1]},${i}`} className="flex items-center gap-1 text-[10px] text-white/90">
-              <span className="w-3 shrink-0 font-bold text-or-400">{i + 1}</span>
-              <span className="min-w-0 flex-1 truncate font-mono">{p[1].toFixed(4)}, {p[0].toFixed(4)}</span>
-              <button onClick={() => movePt(i, -1)} disabled={i === 0} className={stepBtn} aria-label={t.map_points}>
-                <Icon path={UI_ICONS.caretDown} size={11} strokeWidth={2.5} className="rotate-180" />
-              </button>
-              <button onClick={() => movePt(i, 1)} disabled={i === pts.length - 1} className={stepBtn} aria-label={t.map_points}>
-                <Icon path={UI_ICONS.caretDown} size={11} strokeWidth={2.5} />
-              </button>
-              <button onClick={() => removePt(i)} className="rounded p-0.5 text-danger-400 transition-colors hover:text-danger-300" aria-label={t.flt_clear}>
-                <Icon path={UI_ICONS.close} size={11} strokeWidth={2.5} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Outil de mesure (multi-points, itinéraire routier) */}
-      <div className="absolute z-10 flex items-center gap-1.5" style={{ bottom: 46, insetInlineStart: 8 }}>
-        <button
-          onClick={() => setMeasureOn((o) => !o)}
-          className={`${panel} font-bold transition-colors ${measureOn ? "bg-or-500 text-rdia-600" : "text-white/90 hover:text-or-400"}`}
-          style={measureOn ? undefined : OVERLAY_STYLE}
-        >
-          {t.map_measure}
-        </button>
-        {route && (
-          <span className={`${panel} font-mono text-white/90`} style={OVERLAY_STYLE}>
-            {route.km.toFixed(1)} km
-            {route.min != null ? ` · ${route.min} min` : ""}
-            <span className={route.road ? "text-or-400" : "text-white/50"}> · {route.road ? t.map_route : t.map_direct}</span>
-          </span>
-        )}
-        {pts.length > 0 && (
-          <button onClick={() => { setPts([]); setRoute(null); }} className={`${panel} font-semibold text-danger-400 hover:text-danger-300`} style={OVERLAY_STYLE}>
-            {t.flt_clear}
-          </button>
-        )}
-        {measureOn && pts.length === 0 && (
-          <span className={`${panel} text-white/70`} style={OVERLAY_STYLE}>{t.map_measure_hint}</span>
-        )}
-      </div>
+      {/* Outil d'itinéraire : bouton, résumé, effacer — le panneau vit dans la barre de gauche (ADR 0039) */}
+      <RouteBar />
 
       {/* Position du curseur : latitude / longitude / altitude */}
       <div
