@@ -1,4 +1,4 @@
-import { BRIEFING_SECTION_MAX, BRIEFING_TAKEN_MAX, DESTINATIONS, DRAWING_KINDS, POST_KINDS, UNIT_CORPS } from "@/modules/domain/domain.types";
+import { BRIEFING_SECTION_MAX, BRIEFING_TAKEN_MAX, DESTINATIONS, DRAWING_KINDS, OBSTACLE_KINDS, POST_KINDS, UNIT_CORPS } from "@/modules/domain/domain.types";
 import { APP_MODES } from "@/common/app-mode";
 import { PERSON_CORPS, PERSON_STATUS, RESOURCE_OWNER_KINDS, SUPPLY_KINDS, VEHICLE_STATES } from "@/modules/domain/resources.types";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
@@ -1359,6 +1359,10 @@ export class CreateDrawingDto {
   @ApiPropertyOptional({ description: "Opération concernée." })
   @IsOptional() @IsString() @MaxLength(40)
   incidentId?: string;
+
+  @ApiPropertyOptional({ enum: OBSTACLE_KINDS, description: "Obstacle contourné par les itinéraires (ADR 0039) : impasse, obstacle, pont détruit, zone inondée, zone interdite. Absent : simple croquis." })
+  @IsOptional() @IsIn(OBSTACLE_KINDS as unknown as string[])
+  obstacle?: (typeof OBSTACLE_KINDS)[number];
 }
 
 export class UpdateDrawingDto {
@@ -1371,6 +1375,9 @@ export class UpdateDrawingDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @Matches(/^#[0-9a-fA-F]{6}$/) color?: string;
   @ApiPropertyOptional({ maxLength: 500 }) @IsOptional() @IsString() @MaxLength(500) note?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(40) incidentId?: string;
+  @ApiPropertyOptional({ enum: OBSTACLE_KINDS, nullable: true, description: "Nature d'obstacle ; null : redevient un simple croquis." })
+  @IsOptional() @IsIn(OBSTACLE_KINDS as unknown as string[])
+  obstacle?: (typeof OBSTACLE_KINDS)[number] | null;
 }
 
 export class PlaceResourceDto {

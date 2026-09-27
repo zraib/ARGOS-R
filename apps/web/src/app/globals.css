@@ -499,3 +499,8 @@ input[type="search"]::-webkit-search-decoration {
   outline: 2px solid #fff;
   outline-offset: 1px;
 }
+/* Obstacle contourné par les itinéraires (ADR 0039) : fond rouge, texte blanc. */
+.croquis-etiquette-obstacle {
+  background: rgb(220 38 38 / 0.92); /* danger-600 */
+  border-color: #fff;
+}

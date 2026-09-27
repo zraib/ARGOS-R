@@ -4,7 +4,7 @@
 #
 # Les variables NEXT_PUBLIC_* sont FIGÉES À LA CONSTRUCTION (Next les inline
 # dans le bundle envoyé au navigateur). Le déploiement les règle en valeurs
-# RELATIVES (`same-origin`, `/tiles`, `/routing`, `/llm`) : tout passe par le
+# RELATIVES (`same-origin`, `/tiles`, `/llm`) : tout passe par le
 # reverse proxy de la station, et l'image reste valable quelle que soit
 # l'adresse IP ou le nom d'hôte sous lequel on la sert.
 #
@@ -34,14 +34,10 @@ COPY . .
 ARG NEXT_PUBLIC_API_URL=same-origin
 ARG NEXT_PUBLIC_MAP_TILES=sovereign
 ARG NEXT_PUBLIC_TILES_URL=/tiles
-ARG NEXT_PUBLIC_ROUTING_ENGINE=valhalla
-ARG NEXT_PUBLIC_ROUTING_URL=/routing
 ARG NEXT_PUBLIC_LLM_URL=/llm
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL} \
     NEXT_PUBLIC_MAP_TILES=${NEXT_PUBLIC_MAP_TILES} \
     NEXT_PUBLIC_TILES_URL=${NEXT_PUBLIC_TILES_URL} \
-    NEXT_PUBLIC_ROUTING_ENGINE=${NEXT_PUBLIC_ROUTING_ENGINE} \
-    NEXT_PUBLIC_ROUTING_URL=${NEXT_PUBLIC_ROUTING_URL} \
     NEXT_PUBLIC_LLM_URL=${NEXT_PUBLIC_LLM_URL} \
     NEXT_TELEMETRY_DISABLED=1 \
     NODE_ENV=production

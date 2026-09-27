@@ -701,13 +701,19 @@ export class DomainService implements OnApplicationBootstrap {
   }
 
   /** Modifie un croquis (nom, géométrie, étiquette, couleur…). `undefined` s'il est inconnu. */
-  updateDrawing(id: string, patch: Partial<Omit<Drawing, "id" | "kind" | "createdBy" | "createdAt" | "updatedBy" | "updatedAt">>, actor: string): Drawing | undefined {
+  updateDrawing(
+    id: string,
+    patch: Partial<Omit<Drawing, "id" | "kind" | "obstacle" | "createdBy" | "createdAt" | "updatedBy" | "updatedAt">> & { obstacle?: Drawing["obstacle"] | null },
+    actor: string,
+  ): Drawing | undefined {
     const d = this.drawings.find((x) => x.id === id);
     if (!d) return undefined;
     if (patch.coords || patch.radiusM !== undefined) this.assertDrawingShape(d.kind, patch.coords ?? d.coords, patch.radiusM ?? d.radiusM);
     for (const [k, v] of Object.entries(patch)) {
       if (v !== undefined) (d as unknown as Record<string, unknown>)[k] = k === "label" && typeof v === "string" ? v.trim() : v;
     }
+    // `obstacle: null` : le croquis n'est plus un obstacle (ADR 0039).
+    if (d.obstacle === null) delete d.obstacle;
     d.updatedBy = actor;
     d.updatedAt = new Date().toISOString();
     this.persist();

@@ -151,7 +151,8 @@ partagent que `lib/store/shared.ts` et le type `ArgosState`.
 | `aviation` | aéronefs inscrits et positions |
 | `chat` | conversations flottantes (têtes et fenêtres) |
 | `tracking` | traceurs GPS et positions partagées |
-| `drawings` | croquis de la carte (points, cercles, polygones — ADR 0024), outil en cours, sélection |
+| `drawings` | croquis de la carte (points, cercles, polygones — ADR 0024), outil en cours, sélection, nature des prochains croquis (simple croquis ou obstacle — ADR 0039) |
+| `routing` | outil d'itinéraire (ADR 0039) : étapes, options (véhicule ou à pied, obstacles, zones NRBC), dernier plan rendu par l'API |
 | `fire` | simulateur de feu de forêt : point d'allumage, réglages, météo du point, course et lecture (ADR 0011, 0025) |
 | `flood` | prévisions de crue (jauges GloFAS / Flood Hub) et simulateur d'inondation : point, scénario, course et lecture (ADR 0010, 0025) |
 | `simulations` | simulations PARTAGÉES (ADR 0029) : le scénario publié par un poste, rejoué par les autres ; adoption, retrait |
@@ -207,7 +208,15 @@ Trois règles tenues par les tests et le typecheck :
   [11-simulateurs-feu-et-inondation.md](11-simulateurs-feu-et-inondation.md).
 - **Dessin** : points, cercles et polygones nommés, dessinés à la souris,
   partagés en temps réel, modifiables par leur auteur ou le Super
-  Administrateur (ADR 0024).
+  Administrateur (ADR 0024). Un croquis peut être un **obstacle** (impasse,
+  obstacle sur la voie, pont détruit, zone inondée, zone interdite) : tous les
+  itinéraires le contournent (ADR 0039).
+- **Itinéraire sûr** (ADR 0039) : panneau « Itinéraire » de la barre de gauche,
+  bouton du bas, ou `Maj + clic droit` → « Itinéraire depuis ici ». L'API
+  planifie le trajet par la route en contournant obstacles et zones des
+  panaches NRBC ; un départ dans une zone commence par la sortie la plus
+  rapide, une arrivée dans une zone devient le point d'approche sûr le plus
+  proche. Tout est dans [12-itineraire-sur.md](12-itineraire-sur.md).
 - **Glyphes** (ADR 0029) : chaque famille porte son symbole — bouclier de
   l'unité (teinté par son corps), tente de l'abri, plaque du site mortuaire,
   plaque sur roues de la morgue mobile déployée ; marqueurs DOM, aucun serveur

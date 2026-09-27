@@ -599,6 +599,15 @@ export const DRAWING_KINDS = ["point", "circle", "polygon"] as const;
 export type DrawingKind = (typeof DRAWING_KINDS)[number];
 
 /**
+ * Un croquis marqué OBSTACLE est contourné par les itinéraires (ADR 0039) :
+ * point d'impasse (route coupée), obstacle sur la voie, pont détruit, zone
+ * inondée, zone interdite. Un point retire la route sur laquelle il tombe ; un
+ * cercle ou un polygone, toute route qui le traverse.
+ */
+export const OBSTACLE_KINDS = ["impasse", "obstacle", "bridge", "flooded", "forbidden"] as const;
+export type ObstacleKind = (typeof OBSTACLE_KINDS)[number];
+
+/**
  * Un croquis dessiné sur la carte : un point, un cercle ou un polygone, avec
  * son nom. Le nom d'un point s'affiche à côté du point ; celui d'un cercle ou
  * d'un polygone à l'intérieur de la forme, à un emplacement que l'opérateur
@@ -646,6 +655,8 @@ export interface Drawing {
   note?: string;
   /** Opération concernée, quand le croquis en sert une. */
   incidentId?: string;
+  /** Obstacle à contourner par les itinéraires ; absent : simple croquis. */
+  obstacle?: ObstacleKind;
   createdBy: string;
   createdAt: string;
   updatedBy: string;

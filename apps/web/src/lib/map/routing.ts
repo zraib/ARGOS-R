@@ -1,48 +1,25 @@
 // ============================================================================
-// ARGOS — calcul d'itinéraire (réseau routier)
+// ARGOS — itinéraires routiers, planifiés par l'API (ADR 0039)
 //
-// Ce flux est de CLASSE B au sens de l'ADR 0006 : il transporte la position
-// réelle d'un incident. Il ne doit JAMAIS sortir du système — un serveur de
-// routage public apprendrait, requête après requête, où se déroulent les
-// opérations.
+// Le navigateur ne parle plus au moteur d'itinéraire : il demande un PLAN à
+// l'API (`POST /api/routing/plan`), qui y contourne les obstacles posés sur la
+// carte et les zones des panaches NRBC en cours — de TOUS les incidents
+// chimiques actifs, affichés ou non : la sécurité d'un trajet ne dépend pas de
+// l'écran. Le moteur (Valhalla) reste auto-hébergé, joint par l'API sur le
+// réseau interne de la station (ADR 0001) ; une requête d'itinéraire transporte
+// la position réelle des opérations, elle ne sort jamais du système.
 //
-// Deux moteurs, sélectionnés par NEXT_PUBLIC_ROUTING_ENGINE :
-//   • "valhalla" — moteur AUTO-HÉBERGÉ (MASTER_PLAN §4.2, infra/compose).
-//                  DÉFAUT, et seul mode autorisé en production.
-//   • "osrm"     — service compatible OSRM. À réserver au développement, et
-//                  uniquement contre une instance locale.
-//
-// La production IMPOSE valhalla : aucune variable d'environnement ne permet de
-// pointer un routeur public depuis un déploiement (voir `resolveEngine`).
-// En cas d'échec (hors ligne, air-gap, moteur non démarré) on retombe sur la
-// distance orthodromique : l'outil de mesure reste utilisable.
+// API injoignable : la ligne droite, marquée comme telle — l'outil reste
+// utilisable pour mesurer, sans rien prétendre contourner.
 // ============================================================================
 
-type Engine = "valhalla" | "osrm";
+import { api } from "@/lib/api";
+import type { RoutePlan, TravelMode } from "@/lib/types";
 
-const IS_PROD = process.env.NODE_ENV === "production";
-
-/**
- * Moteur effectif. En production, `valhalla` est imposé quoi qu'annonce
- * l'environnement : la souveraineté du calcul d'itinéraire n'est pas
- * configurable depuis un déploiement.
- */
-function resolveEngine(): Engine {
-  if (IS_PROD) return "valhalla";
-  return (process.env.NEXT_PUBLIC_ROUTING_ENGINE as Engine) ?? "valhalla";
-}
-
-const ENGINE: Engine = resolveEngine();
-
-/**
- * URL du moteur. Le défaut est TOUJOURS local — plus aucun repli implicite
- * vers un service public. Un routeur injoignable dégrade proprement sur la
- * distance orthodromique ; un routeur public, lui, fuiterait en silence.
- */
-const ROUTER_URL = process.env.NEXT_PUBLIC_ROUTING_URL ?? (ENGINE === "valhalla" ? "http://localhost:8002" : "http://localhost:5000");
+type LL = [number, number];
 
 /** Distance géodésique (haversine) en km entre deux points [lng, lat]. */
-export function haversineKm(a: [number, number], b: [number, number]): number {
+export function haversineKm(a: LL, b: LL): number {
   const R = 6371;
   const dLat = ((b[1] - a[1]) * Math.PI) / 180;
   const dLng = ((b[0] - a[0]) * Math.PI) / 180;
@@ -53,96 +30,59 @@ export function haversineKm(a: [number, number], b: [number, number]): number {
 }
 
 /** Longueur cumulée d'une polyligne (km). */
-export function pathKm(p: [number, number][]): number {
+export function pathKm(p: LL[]): number {
   let d = 0;
   for (let i = 1; i < p.length; i++) d += haversineKm(p[i - 1], p[i]);
   return d;
 }
 
-/** Décodage d'une polyligne encodée (Valhalla utilise la précision 6). */
-function decodePolyline(str: string, precision = 6): [number, number][] {
-  let index = 0;
-  let lat = 0;
-  let lng = 0;
-  const out: [number, number][] = [];
-  const factor = 10 ** precision;
-  while (index < str.length) {
-    let result = 0;
-    let shift = 0;
-    let b: number;
-    do {
-      b = str.charCodeAt(index++) - 63;
-      result |= (b & 0x1f) << shift;
-      shift += 5;
-    } while (b >= 0x20);
-    lat += result & 1 ? ~(result >> 1) : result >> 1;
-    result = 0;
-    shift = 0;
-    do {
-      b = str.charCodeAt(index++) - 63;
-      result |= (b & 0x1f) << shift;
-      shift += 5;
-    } while (b >= 0x20);
-    lng += result & 1 ? ~(result >> 1) : result >> 1;
-    out.push([lng / factor, lat / factor]);
-  }
-  return out;
+/** Ce que l'itinéraire contourne, et comment on se déplace. */
+export interface PlanOptions {
+  mode: TravelMode;
+  avoidObstacles: boolean;
+  avoidNrbc: boolean;
+  nrbcVigilance: boolean;
 }
 
-export interface RouteResult {
-  /** Tracé à dessiner : géométrie routière si disponible, sinon les points. */
-  coords: [number, number][];
-  km: number;
-  /** Durée estimée en minutes (uniquement en mode routier). */
-  min: number | null;
-  /** true = itinéraire par le réseau routier ; false = à vol d'oiseau. */
-  road: boolean;
-}
+export const DEFAULT_PLAN_OPTIONS: PlanOptions = { mode: "auto", avoidObstacles: true, avoidNrbc: true, nrbcVigilance: false };
 
-async function viaOsrm(pts: [number, number][]): Promise<RouteResult | null> {
-  const coords = pts.map((p) => `${p[0]},${p[1]}`).join(";");
-  const res = await fetch(`${ROUTER_URL}/route/v1/driving/${coords}?overview=full&geometries=geojson`);
-  if (!res.ok) return null;
-  const json = (await res.json()) as {
-    code?: string;
-    routes?: { distance: number; duration: number; geometry: { coordinates: [number, number][] } }[];
+/** La ligne droite, quand l'API ne répond pas : rien n'est contourné, et c'est dit. */
+export function straightPlan(pts: LL[], mode: TravelMode): RoutePlan {
+  const km = Math.round(pathKm(pts) * 10) / 10;
+  return {
+    engine: "direct",
+    road: false,
+    safe: false,
+    mode,
+    legs: pts.length > 1 ? [{ kind: "route", coords: pts, km, min: 0 }] : [],
+    km,
+    min: null,
+    reference: null,
+    exit: null,
+    approaches: [],
+    avoided: { obstacles: 0, zones: 0, incidentIds: [], hours: [] },
+    warnings: ["engine_unavailable"],
   };
-  const route = json.routes?.[0];
-  if (json.code !== "Ok" || !route) return null;
-  return { coords: route.geometry.coordinates, km: route.distance / 1000, min: Math.round(route.duration / 60), road: true };
 }
 
-async function viaValhalla(pts: [number, number][]): Promise<RouteResult | null> {
-  const res = await fetch(`${ROUTER_URL}/route`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      locations: pts.map((p) => ({ lon: p[0], lat: p[1] })),
-      costing: "auto",
-      directions_options: { units: "kilometers" },
-    }),
-  });
-  if (!res.ok) return null;
-  const json = (await res.json()) as {
-    trip?: { legs?: { shape: string }[]; summary?: { length: number; time: number } };
-  };
-  const trip = json.trip;
-  if (!trip?.summary || !trip.legs?.length) return null;
-  const coords = trip.legs.flatMap((l) => decodePolyline(l.shape));
-  return { coords, km: trip.summary.length, min: Math.round(trip.summary.time / 60), road: true };
+/** Une réponse de l'API qui a bien la forme d'un plan. */
+function isPlan(v: unknown): v is RoutePlan {
+  const p = v as Partial<RoutePlan> | null;
+  return !!p && Array.isArray(p.legs) && Array.isArray(p.warnings) && typeof p.km === "number";
 }
 
 /**
- * Itinéraire passant par tous les points, dans l'ordre fourni.
- * Retombe sur la distance orthodromique si le moteur n'est pas joignable.
+ * Itinéraire par les étapes données, dans l'ordre. Un seul point : la sortie la
+ * plus rapide de la zone NRBC où il se trouve (rien s'il n'est dans aucune).
  */
-export async function routeThrough(pts: [number, number][]): Promise<RouteResult> {
-  const direct: RouteResult = { coords: pts, km: pathKm(pts), min: null, road: false };
-  if (pts.length < 2) return direct;
+export async function planRoute(pts: LL[], opts: PlanOptions): Promise<RoutePlan> {
+  if (pts.length === 0) return straightPlan([], opts.mode);
   try {
-    const r = ENGINE === "valhalla" ? await viaValhalla(pts) : await viaOsrm(pts);
-    return r ?? direct;
+    const res = await api.planRoute({ points: pts, ...opts });
+    const data: unknown = res.data;
+    if (isPlan(data)) return data;
   } catch {
-    return direct;
+    // réseau : la ligne droite ci-dessous
   }
+  return straightPlan(pts, opts.mode);
 }

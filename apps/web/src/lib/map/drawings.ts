@@ -3,7 +3,8 @@
 // polygone, centre d'une forme, distance, GeoJSON pour les couches MapLibre.
 // ============================================================================
 
-import type { Drawing } from "@/lib/types";
+import type { Dict } from "@/lib/i18n/translations";
+import type { Drawing, DrawingKind, ObstacleKind } from "@/lib/types";
 
 /** Qui modifie ou retire un croquis : son auteur, ou le Super Administrateur — ce que l'API applique. */
 export function canEditDrawing(d: Pick<Drawing, "createdBy">, role: string, matricule: string | undefined): boolean {
@@ -13,6 +14,33 @@ export function canEditDrawing(d: Pick<Drawing, "createdBy">, role: string, matr
 /** Couleurs proposées pour un croquis — les tons de la charte (or, danger, bleu, vert, orange, blanc). */
 export const DRAWING_COLORS = ["#C9A84C", "#EF4444", "#3B82F6", "#22C55E", "#F97316", "#F8FAFC"] as const;
 export const DEFAULT_DRAWING_COLOR = DRAWING_COLORS[0];
+/** Un obstacle naît rouge (ton danger de la charte) : il se distingue d'un croquis d'un coup d'œil. */
+export const OBSTACLE_COLOR = DRAWING_COLORS[1];
+
+/** Libellé d'une nature d'obstacle (ADR 0039). */
+export function obstacleLabel(kind: ObstacleKind, t: Dict): string {
+  switch (kind) {
+    case "impasse":
+      return t.ob_impasse;
+    case "obstacle":
+      return t.ob_obstacle_kind;
+    case "bridge":
+      return t.ob_bridge;
+    case "flooded":
+      return t.ob_flooded;
+    case "forbidden":
+      return t.ob_forbidden;
+  }
+}
+
+/**
+ * Nom, couleur et nature d'un croquis qu'on vient de tracer : un obstacle porte
+ * le nom de sa nature et le rouge ; un simple croquis, le nom de sa forme.
+ */
+export function newDrawingFields(kind: DrawingKind, obstacle: ObstacleKind | null, t: Dict): { label: string; obstacle?: ObstacleKind; color?: string } {
+  if (obstacle) return { label: obstacleLabel(obstacle, t), obstacle, color: OBSTACLE_COLOR };
+  return { label: kind === "point" ? t.dr_new_point : kind === "circle" ? t.dr_new_circle : t.dr_new_polygon };
+}
 
 const R = 6_371_000;
 const rad = (d: number) => (d * Math.PI) / 180;
@@ -68,13 +96,19 @@ export function formatDistance(m: number): string {
   return m >= 1000 ? `${(m / 1000).toFixed(m >= 10_000 ? 0 : 1)} km` : `${Math.round(m)} m`;
 }
 
-export type DrawingFeature = GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.Point, { id: string; kind: Drawing["kind"]; color: string; selected: 0 | 1 }>;
+export type DrawingFeature = GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.Point, { id: string; kind: Drawing["kind"]; color: string; selected: 0 | 1; obstacle: 0 | 1 }>;
 
 /** Les croquis en GeoJSON : polygones (cercles compris) et points, avec leur couleur et leur sélection. */
 export function drawingsToGeoJSON(drawings: readonly Drawing[], selectedId: string | null): GeoJSON.FeatureCollection {
   const features: DrawingFeature[] = [];
   for (const d of drawings) {
-    const props = { id: d.id, kind: d.kind, color: d.color ?? DEFAULT_DRAWING_COLOR, selected: d.id === selectedId ? (1 as const) : (0 as const) };
+    const props = {
+      id: d.id,
+      kind: d.kind,
+      color: d.color ?? DEFAULT_DRAWING_COLOR,
+      selected: d.id === selectedId ? (1 as const) : (0 as const),
+      obstacle: d.obstacle ? (1 as const) : (0 as const),
+    };
     if (d.kind === "point") {
       if (d.coords[0]) features.push({ type: "Feature", properties: props, geometry: { type: "Point", coordinates: d.coords[0] } });
     } else if (d.kind === "circle") {

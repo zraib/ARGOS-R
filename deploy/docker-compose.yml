@@ -2,8 +2,9 @@
 # ARGOS / IRIS — pile de DÉPLOIEMENT sur une station (Docker Desktop, Windows)
 #
 # Une seule origine HTTP pour tout : le reverse proxy (Traefik) sert le poste
-# de commandement web à la racine, l'API sous /api, les tuiles sous /tiles, le
-# routage sous /routing et le moteur de langage local sous /llm. Le navigateur
+# de commandement web à la racine, l'API sous /api, les tuiles sous /tiles et
+# le moteur de langage local sous /llm (le routage, lui, n'est joint que par
+# l'API, sur le réseau interne — ADR 0039). Le navigateur
 # n'a donc qu'un hôte à connaître — celui de la station — et les images ne
 # contiennent aucune adresse : la CSP de production reste fermée (`'self'`,
 # plus les trois fournisseurs de fond de carte si MAP_TILES=external).
@@ -71,8 +72,6 @@ services:
         # station (service `tiles`, profil `sovereign`, README § 4).
         NEXT_PUBLIC_MAP_TILES: ${MAP_TILES:-sovereign}
         NEXT_PUBLIC_TILES_URL: /tiles
-        NEXT_PUBLIC_ROUTING_ENGINE: valhalla
-        NEXT_PUBLIC_ROUTING_URL: /routing
         NEXT_PUBLIC_LLM_URL: /llm
     image: iris-web:${IRIS_TAG:-latest}
     expose: ["3004"]
@@ -129,6 +128,9 @@ services:
       # Crues : clé Google Flood Hub, jamais servie au navigateur (vide = flux indisponible).
       FLOOD_API_KEY: ${FLOOD_API_KEY:-}
       AVIATION_FEED_TTL_MS: "5000"
+      # Moteur d'itinéraire (Valhalla, service `routing` ci-dessous) : l'API y
+      # calcule les itinéraires qui contournent obstacles et zones NRBC (ADR 0039).
+      ROUTING_URL: http://routing:8002
     volumes:
       - api_data:/data
     expose: ["3005"]
@@ -186,8 +188,24 @@ services:
   # Au PREMIER démarrage l'image lit l'extrait OSM du Maroc dans le volume
   # (déposé par le profil `tiles-build`, ou téléchargé si la station a Internet)
   # et construit ses tuiles de routage : plusieurs minutes. Ensuite : immédiat.
+  #
+  # Démarrage enveloppé (ADR 0039) : l'image prépare sa configuration et ses
+  # tuiles comme d'habitude, puis deux limites de service sont relevées avant
+  # de lancer le moteur. Contourner un panache NRBC exclut des zones de
+  # dizaines de kilomètres de périmètre (10 km au plus par défaut, pour toutes
+  # les zones d'une requête), et les obstacles posés sur la carte dépassent
+  # vite les 50 points exclus admis par défaut.
   routing:
     image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -e
+        serve_tiles=False /valhalla/scripts/run.sh build_tiles
+        conf=/custom_files/valhalla.json
+        jq '.service_limits.max_exclude_polygons_length = 2000000 | .service_limits.max_exclude_locations = 500' "$$conf" > /tmp/valhalla.json
+        sudo cp /tmp/valhalla.json "$$conf"
+        exec /valhalla/scripts/run.sh build_tiles
     environment:
       tile_urls: ${VALHALLA_TILE_URLS:-https://download.geofabrik.de/africa/morocco-latest.osm.pbf}
       server_threads: ${VALHALLA_THREADS:-2}

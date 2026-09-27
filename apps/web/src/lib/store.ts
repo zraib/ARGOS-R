@@ -17,6 +17,7 @@ import { createChatSlice, type ChatSlice } from "@/lib/store/slices/chat";
 import { createFloodSlice, type FloodSlice } from "@/lib/store/slices/flood";
 import { createFireSlice, type FireSlice } from "@/lib/store/slices/fire";
 import { createTrackingSlice, type TrackingSlice } from "@/lib/store/slices/tracking";
+import { createRoutingSlice, type RoutingSlice } from "@/lib/store/slices/routing";
 import type { Dict } from "@/lib/i18n/translations";
 import type { ModulesDict } from "@/lib/i18n/modules";
 
@@ -30,7 +31,7 @@ export type { Role } from "@/lib/store/shared";
  * lib/store/slices/ ; aucune n'importe une autre — elles ne partagent que ce
  * type et lib/store/shared.ts.
  */
-export interface ArgosState extends SessionSlice, UiSlice, DomainSlice, SeismicSlice, MapSlice, MissionsSlice, NrbcSlice, RealtimeSlice, AiSlice, AviationSlice, ChatSlice, FloodSlice, FireSlice, TrackingSlice, DrawingsSlice, SimulationsSlice {}
+export interface ArgosState extends SessionSlice, UiSlice, DomainSlice, SeismicSlice, MapSlice, MissionsSlice, NrbcSlice, RealtimeSlice, AiSlice, AviationSlice, ChatSlice, FloodSlice, FireSlice, TrackingSlice, DrawingsSlice, SimulationsSlice, RoutingSlice {}
 
 export const useArgos = create<ArgosState>()((...a) => ({
   ...createSessionSlice(...a),
@@ -49,6 +50,7 @@ export const useArgos = create<ArgosState>()((...a) => ({
   ...createFloodSlice(...a),
   ...createFireSlice(...a),
   ...createTrackingSlice(...a),
+  ...createRoutingSlice(...a),
 }));
 
 /** Hook pratique : dictionnaire courant pour la langue active. */

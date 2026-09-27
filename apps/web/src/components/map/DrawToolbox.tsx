@@ -4,15 +4,17 @@ import { useState } from "react";
 import { useArgos, useDict } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { UI_ICONS } from "@/lib/icons";
-import { DRAWING_COLORS, DEFAULT_DRAWING_COLOR, canEditDrawing, formatDistance } from "@/lib/map/drawings";
+import { DRAWING_COLORS, DEFAULT_DRAWING_COLOR, OBSTACLE_COLOR, canEditDrawing, formatDistance, obstacleLabel } from "@/lib/map/drawings";
 import type { DrawTool } from "@/lib/store/slices/drawings";
-import type { Drawing } from "@/lib/types";
+import { OBSTACLE_KINDS, type Drawing, type ObstacleKind } from "@/lib/types";
 
 // ============================================================================
 // Le panneau « Dessin » de la carte : les outils (sélection, point, cercle,
-// polygone), la liste des croquis, et la fiche du croquis sélectionné (nom,
-// couleur, note, rayon, suppression). La géométrie se dessine et s'édite sur la
-// carte elle-même (MapCanvas) ; ici on nomme, on colore, on retire.
+// polygone), la NATURE des croquis tracés — simple croquis, ou obstacle que les
+// itinéraires contournent (ADR 0039) —, la liste des croquis, et la fiche du
+// croquis sélectionné (nom, nature, couleur, note, rayon, suppression). La
+// géométrie se dessine et s'édite sur la carte elle-même (MapCanvas) ; ici on
+// nomme, on qualifie, on colore, on retire.
 // ============================================================================
 
 const TOOLS: { tool: DrawTool; icon: string }[] = [
@@ -32,6 +34,8 @@ export function DrawToolbox() {
   const updateDrawing = useArgos((s) => s.updateDrawing);
   const deleteDrawing = useArgos((s) => s.deleteDrawing);
   const showToast = useArgos((s) => s.showToast);
+  const drawObstacle = useArgos((s) => s.drawObstacle);
+  const setDrawObstacle = useArgos((s) => s.setDrawObstacle);
   const role = useArgos((s) => s.role);
   const sessionUser = useArgos((s) => s.sessionUser);
   const [confirm, setConfirm] = useState<string | null>(null);
@@ -40,6 +44,18 @@ export function DrawToolbox() {
   const kindLabel = (k: Drawing["kind"]) => (k === "point" ? t.dr_kind_point : k === "circle" ? t.dr_kind_circle : t.dr_kind_polygon);
   // Modifier et retirer : l'auteur, ou le Super Administrateur — ce que l'API applique ; les autres lisent.
   const canEdit = (d: Drawing) => canEditDrawing(d, role, sessionUser?.matricule);
+
+  // Un croquis qui devient obstacle prend le rouge s'il portait encore la couleur par défaut.
+  const setNature = (d: Drawing, k: ObstacleKind | null) =>
+    void updateDrawing(d.id, { obstacle: k, ...(k && (d.color ?? DEFAULT_DRAWING_COLOR) === DEFAULT_DRAWING_COLOR ? { color: OBSTACLE_COLOR } : {}) });
+  const chip = (actif: boolean, obstacle: boolean) =>
+    `cible-tactile rounded-lg border px-2 py-1 text-[11px] font-semibold transition-colors ${
+      actif
+        ? obstacle
+          ? "border-danger-400 bg-danger-500/25 text-white"
+          : "border-or-400 bg-or-500/20 text-or-300"
+        : "border-white/15 text-white/70 hover:border-white/40 hover:text-white"
+    }`;
 
   const remove = async (d: Drawing) => {
     if (await deleteDrawing(d.id)) showToast(t.dr_deleted);
@@ -68,6 +84,23 @@ export function DrawToolbox() {
       </div>
       {tool && tool !== "select" && <p className="text-[11px] font-semibold text-or-300">{t.dr_drawing_hint}</p>}
 
+      {/* Nature des prochains croquis : simple croquis, ou obstacle contourné par les itinéraires. */}
+      <div className="flex flex-col gap-1.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-white/50">{t.ob_nature}</span>
+        <div className="flex flex-wrap gap-1">
+          <button type="button" aria-pressed={!drawObstacle} className={chip(!drawObstacle, false)} onClick={() => setDrawObstacle(null)}>
+            {t.ob_sketch}
+          </button>
+          {OBSTACLE_KINDS.map((k) => (
+            <button key={k} type="button" aria-pressed={drawObstacle === k} className={chip(drawObstacle === k, true)} onClick={() => setDrawObstacle(k)}>
+              <Icon path={k === "bridge" ? UI_ICONS.bridge : UI_ICONS.obstacle} size={12} strokeWidth={2.2} className="-mt-0.5 me-1 inline" />
+              {obstacleLabel(k, t)}
+            </button>
+          ))}
+        </div>
+        {drawObstacle && <p className="text-[11px] leading-snug text-white/55">{t.ob_hint}</p>}
+      </div>
+
       {selected && (
         <div className="flex flex-col gap-2 rounded-lg border border-or-400/40 bg-white/5 p-2.5">
           <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-white/50">
@@ -93,6 +126,22 @@ export function DrawToolbox() {
               disabled={!canEdit(selected)}
               onChange={(e) => void updateDrawing(selected.id, { note: e.target.value })}
             />
+          </label>
+          <label className="text-[11px] font-semibold text-white/60">
+            {t.ob_nature}
+            <select
+              className="mt-1 w-full rounded-lg border border-white/15 bg-rdia-800 px-2.5 py-1.5 text-[13px] text-white focus:border-or-400 focus:outline-none disabled:opacity-60"
+              value={selected.obstacle ?? ""}
+              disabled={!canEdit(selected)}
+              onChange={(e) => setNature(selected, (e.target.value || null) as ObstacleKind | null)}
+            >
+              <option value="">{t.ob_sketch}</option>
+              {OBSTACLE_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {t.ob_obstacle} — {obstacleLabel(k, t)}
+                </option>
+              ))}
+            </select>
           </label>
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-semibold text-white/60">{t.dr_color}</span>
@@ -160,7 +209,11 @@ export function DrawToolbox() {
             >
               <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-black/40" style={{ background: d.color ?? DEFAULT_DRAWING_COLOR }} aria-hidden="true" />
               <span className="min-w-0 flex-1 truncate">{d.label || "—"}</span>
-              <span className="shrink-0 text-[10px] uppercase text-white/45">{kindLabel(d.kind)}</span>
+              {d.obstacle ? (
+                <span className="shrink-0 rounded bg-danger-500/25 px-1.5 text-[10px] font-bold uppercase text-danger-400">{t.ob_obstacle}</span>
+              ) : (
+                <span className="shrink-0 text-[10px] uppercase text-white/45">{kindLabel(d.kind)}</span>
+              )}
             </button>
           ))}
         </div>

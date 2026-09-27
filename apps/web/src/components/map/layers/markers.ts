@@ -18,7 +18,7 @@ import { hospKind } from "@/lib/hospitals";
 import { fieldMarkerHTML, hospMarkerHTML, incMarkerHTML, placedMarkerHTML, postMarkerHTML, unitMarkerHTML, vehMarkerHTML, vehPos } from "@/lib/map/markers";
 import { POST_FILL, postCaption, postCode } from "@/lib/posts";
 import { PLACED_FILL, placeableResourceKinds } from "@/lib/edit";
-import { fieldLL, isFieldHospitalEntity, mapMarkerOffsets, markerKey } from "@/lib/map/positions";
+import { entityLL, fieldLL, isFieldHospitalEntity, mapMarkerOffsets, markerKey } from "@/lib/map/positions";
 import type { MarkerKind } from "@/lib/types";
 
 export interface VehMarker {
@@ -65,7 +65,17 @@ export function mkEl(html: string, kind: MarkerKind, id: string) {
   agrandir(el);
   el.addEventListener("click", (e) => {
     e.stopPropagation();
-    useArgos.getState().select(kind, id);
+    const st = useArgos.getState();
+    // Outil d'itinéraire armé : le marqueur devient une étape, à sa position —
+    // un itinéraire vers un hôpital se trace en cliquant l'hôpital (ADR 0039).
+    if (st.routeOn) {
+      const ll = entityLL(st, kind, id);
+      if (ll) {
+        st.addRoutePt(ll);
+        return;
+      }
+    }
+    st.select(kind, id);
   });
   return el;
 }

@@ -22,6 +22,7 @@ import { TrackingModule } from "@/modules/tracking/tracking.module";
 import { RealtimeModule } from "@/modules/realtime/realtime.module";
 import { MissionsModule } from "@/modules/missions/missions.module";
 import { IncidentDashboardModule } from "@/modules/incident-dashboard/incident-dashboard.module";
+import { RoutingModule } from "@/modules/routing/routing.module";
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { IncidentDashboardModule } from "@/modules/incident-dashboard/incident-d
     RealtimeModule,
     MissionsModule,
     IncidentDashboardModule,
+    RoutingModule,
   ],
   providers: [
     // Ordre : authentification (JWT), autorisation par rôle (RBAC), puis

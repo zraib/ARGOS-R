@@ -10,8 +10,8 @@ navigateur ──http://<station>──▶ proxy (Traefik, :80)
                                    ├─ /          → web      (Next.js)
                                    ├─ /api       → api      (NestJS)  ──▶ db (PostgreSQL + PostGIS)
                                    │                                    ──▶ volume /data (instantané JSON, pièces jointes)
+                                   │                                    ──▶ routing (Valhalla, réseau interne — ADR 0039)
                                    ├─ /tiles     → tiles    (tileserver-gl : sat, plan, lbl, dem)
-                                   ├─ /routing   → routing  (Valhalla)
                                    └─ /llm       → Ollama sur la station (hors Docker, GPU)
 ```
 

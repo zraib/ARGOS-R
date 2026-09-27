@@ -1,6 +1,8 @@
 # ADR 0001 — Moteur de calcul d'itinéraire de la carte opérationnelle
 
-- **Statut :** accepté
+- **Statut :** accepté — **révisé par l'ADR 0039** (2026-09-27) : le navigateur ne joint plus le
+  moteur ; l'API calcule les itinéraires (obstacles et zones NRBC contournés) et joint Valhalla sur le
+  réseau interne (`ROUTING_URL`). Les variables `NEXT_PUBLIC_ROUTING_*` ci-dessous n'existent plus.
 - **Date :** 2026-07-22
 - **Portée :** `apps/web/src/lib/map/routing.ts`, `infra/compose/docker-compose.yml`
 

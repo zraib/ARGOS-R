@@ -548,6 +548,14 @@ export interface PlaceableResource {
 export const DRAWING_KINDS = ["point", "circle", "polygon"] as const;
 export type DrawingKind = (typeof DRAWING_KINDS)[number];
 
+/**
+ * Un croquis marqué OBSTACLE est contourné par les itinéraires (ADR 0039) : un
+ * point retire la route sur laquelle il tombe, un cercle ou un polygone toute
+ * route qui le traverse.
+ */
+export const OBSTACLE_KINDS = ["impasse", "obstacle", "bridge", "flooded", "forbidden"] as const;
+export type ObstacleKind = (typeof OBSTACLE_KINDS)[number];
+
 /** Un croquis dessiné sur la carte : point, cercle ou polygone nommé (miroir de l'API). */
 export interface Drawing {
   id: string;
@@ -561,10 +569,53 @@ export interface Drawing {
   color?: string;
   note?: string;
   incidentId?: string;
+  /** Obstacle contourné par les itinéraires ; absent : simple croquis. */
+  obstacle?: ObstacleKind;
   createdBy: string;
   createdAt: string;
   updatedBy: string;
   updatedAt: string;
+}
+
+// --- routage sûr (ADR 0039) : ce que rend POST /api/routing/plan ---------------
+
+export type TravelMode = "auto" | "pedestrian";
+
+export type RouteWarning =
+  | "engine_unavailable"
+  | "no_safe_route"
+  | "origin_in_zone"
+  | "exit_not_found"
+  | "point_in_zone"
+  | "point_in_obstacle"
+  | "wind_unknown"
+  | "engine_limit"
+  | "not_in_zone";
+
+/** Un tronçon : la sortie d'une zone NRBC (`exit`, qui la traverse) ou le trajet qui contourne (`route`). */
+export interface RouteLeg {
+  kind: "exit" | "route";
+  coords: [number, number][];
+  km: number;
+  min: number;
+}
+
+export interface RoutePlan {
+  /** `valhalla`, ou `direct` quand le moteur (ou l'API) est injoignable. */
+  engine: string;
+  road: boolean;
+  /** Faux : le tracé traverse un obstacle ou une zone — aucun itinéraire ne contourne tout. */
+  safe: boolean;
+  mode: TravelMode;
+  legs: RouteLeg[];
+  km: number;
+  min: number | null;
+  /** Le plus court sans rien contourner, quand il diffère : il mesure le détour. */
+  reference: { coords: [number, number][]; km: number; min: number } | null;
+  exit: { point: [number, number]; insideKm: number; insideMin: number; incidentIds: string[] } | null;
+  approaches: { index: number; from: [number, number]; point: [number, number]; incidentIds: string[] }[];
+  avoided: { obstacles: number; zones: number; incidentIds: string[]; hours: number[] };
+  warnings: RouteWarning[];
 }
 
 export interface IncidentPost {

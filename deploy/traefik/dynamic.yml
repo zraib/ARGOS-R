@@ -52,12 +52,6 @@ http:
       service: tiles
       middlewares: [strip-tiles]
       priority: 50
-    routing:
-      rule: "PathPrefix(`/routing`)"
-      entryPoints: [web, websecure]
-      service: routing
-      middlewares: [strip-routing]
-      priority: 50
     llm:
       rule: "PathPrefix(`/llm`)"
       entryPoints: [web, websecure]
@@ -98,9 +92,6 @@ http:
     strip-tiles:
       stripPrefix:
         prefixes: ["/tiles"]
-    strip-routing:
-      stripPrefix:
-        prefixes: ["/routing"]
     strip-llm:
       stripPrefix:
         prefixes: ["/llm"]
@@ -124,9 +115,6 @@ http:
     tiles:
       loadBalancer:
         servers: [{ url: "http://tiles:8080" }]
-    routing:
-      loadBalancer:
-        servers: [{ url: "http://routing:8002" }]
     llm:
       loadBalancer:
         servers: [{ url: "http://host.docker.internal:11434" }]
