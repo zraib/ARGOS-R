@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, lazy, useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { warmModel } from "@/lib/ai/provider";
 import { AI_ENABLED, resolveProvider, aiSystemPrompt } from "@/lib/ai/config";
 import { usePathname } from "next/navigation";
@@ -19,11 +19,16 @@ import { Toast } from "@/components/shell/Toast";
 import { Copilot } from "@/components/shell/Copilot";
 import { ChatDock } from "@/components/shell/chat/ChatDock";
 import { primeAudio } from "@/lib/sound";
-import { IncidentWizard } from "@/components/incidents/IncidentWizard";
 import { QuakeAlert } from "@/components/flux/QuakeAlert";
+import { differe, useDiffere } from "@/lib/differe";
 
-// La fenêtre du briefing n'est chargée qu'à sa première ouverture (ADR 0032).
-const BriefingWindow = lazy(() => import("@/components/briefing/BriefingWindow"));
+// Deux fenêtres dont le code vit à part et se télécharge au repos (lib/differe) :
+// le briefing (ADR 0032) et l'assistant de déclaration (ADR 0038) — ~115 Ko
+// (étapes, saisie du lieu sur carte, brouillon par l'IA) qui partaient avec
+// CHAQUE page, pour un composant abonné à une douzaine de collections, re-rendu
+// à chaque rechargement du domaine alors qu'il était fermé.
+const BRIEFING = differe(() => import("@/components/briefing/BriefingWindow").then((m) => m.default));
+const ASSISTANT = differe(() => import("@/components/incidents/IncidentWizard").then((m) => m.IncidentWizard));
 
 /** Écran de blocage quand un module est désactivé par un feature flag. */
 function DisabledNotice() {
@@ -66,11 +71,18 @@ export function AppFrame({ children }: { children: ReactNode }) {
   const navOpen = useArgos((s) => s.navOpen);
   const closeNav = useArgos((s) => s.closeNav);
   const myModules = useArgos((s) => s.myModules);
+  const wizOpen = useArgos((s) => s.wizOpen);
+  // L'assistant se monte à sa première ouverture (dans le rendu même de
+  // l'ouverture), puis reste monté : il se referme comme avant.
+  const [wizMonte, setWizMonte] = useState(false);
+  if (wizOpen && !wizMonte) setWizMonte(true);
   const aiVisible = moduleOpen("assistant", flags, roleFeatures[role], myModules);
   // Le dock des conversations suit le module de communication : coupé
   // globalement, pour le rôle ou pour le compte, il disparaît avec lui.
   const commsVisible = moduleOpen("comms", flags, roleFeatures[role], myModules);
   const ready = authed && !mustChangePassword && !mustChooseRole;
+  const IncidentWizard = useDiffere(ASSISTANT, ready, wizMonte);
+  const BriefingWindow = useDiffere(BRIEFING, ready, briefingOpen);
   const pathname = usePathname();
   const moduleKey = keyForPath(pathname);
   // Module verrouillé si coupé globalement (flag) ou non autorisé pour le rôle actif.
@@ -228,7 +240,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
           {moduleDisabled ? <DisabledNotice /> : children}
         </main>
       </div>
-      <IncidentWizard />
+      {wizMonte && IncidentWizard && <IncidentWizard />}
       {!mapFull && <Toast />}
       {/* Couches flottantes : centre de communication, copilote, briefing, avis.
           Quand la carte occupe tout l'écran (z-9999), elles passent AU-DESSUS
@@ -239,11 +251,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
         <QuakeAlert />
         {commsVisible && <ChatDock besideCopilot={aiVisible} />}
         {aiVisible && <Copilot />}
-        {briefingOpen && (
-          <Suspense fallback={null}>
-            <BriefingWindow />
-          </Suspense>
-        )}
+        {briefingOpen && BriefingWindow && <BriefingWindow />}
         {mapFull && <Toast />}
       </div>
     </div>

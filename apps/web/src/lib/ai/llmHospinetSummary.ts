@@ -13,7 +13,7 @@
 import type { FieldHospital, Hospital, Lang } from "@/lib/types";
 import { hospKind, kindDef } from "@/lib/hospitals";
 import { resolveHospitalServices, SVC_ORDER } from "@/lib/derive";
-import { AI_DEFAULT_SETTINGS, AI_ENABLED, AI_TIMEOUT_MS, resolveProvider } from "@/lib/ai/config";
+import { AI_DEFAULT_SETTINGS, AI_ENABLED, resolveProvider } from "@/lib/ai/config";
 import { chatComplete } from "@/lib/ai/provider";
 import { tpl } from "@/lib/i18n/format";
 import type { HospinetIALabels } from "./llmHospinetAffecteur";
@@ -526,5 +526,3 @@ export async function generateHospinetSummary(
     };
   }
 }
-
-export const HOSPINET_SUMMARY_TIMEOUT = AI_TIMEOUT_MS;

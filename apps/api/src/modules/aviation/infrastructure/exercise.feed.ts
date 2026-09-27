@@ -68,6 +68,3 @@ export class ExerciseFeed implements FlightFeed {
     }).filter((p) => p.lat >= box.minLat && p.lat <= box.maxLat && p.lon >= box.minLon && p.lon <= box.maxLon);
   }
 }
-
-/** Codes disponibles en exercice, affichés à l'opérateur comme aide de saisie. */
-export const EXERCISE_CODES: readonly string[] = EXERCISE_FLEET.map((a) => a.callsign);

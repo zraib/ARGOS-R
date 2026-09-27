@@ -14,12 +14,10 @@ import type { StateCreator } from "zustand";
 import type { ArgosState } from "@/lib/store";
 import type { WeatherForecast } from "@/lib/types";
 import { api } from "@/lib/api";
-import { loadDemGrid } from "@/lib/flood/dem";
-import { cellSizeMeters, gridPixel } from "@/lib/flood/grid";
 import type { FireParams } from "@/lib/fire/spread";
-import { FireRun, driveFireRun } from "@/lib/fire/run";
+import type { FireRun } from "@/lib/fire/run";
 import type { SpreadPoi } from "@/lib/sim/spread";
-import { shelterPosition } from "@/lib/ai/opsnetAffecteur";
+import { shelterLL } from "@/lib/map/positions";
 
 export type FireSimError = "seed" | "dem" | "elevation";
 
@@ -137,7 +135,16 @@ export const createFireSlice: StateCreator<ArgosState, [], [], FireSlice> = (set
     const params = s0.fireParams;
     const z = FIRE_ZOOM[params.extentKm];
     let run: FireRun;
+    // Les moteurs — relief, grille, propagation — ne se chargent qu'ici, au
+    // lancement d'une simulation : ils partaient avec chaque page (ADR 0038).
+    let moteur: typeof import("@/lib/fire/run");
     try {
+      const [{ loadDemGrid }, { cellSizeMeters, gridPixel }, moteurFeu] = await Promise.all([
+        import("@/lib/flood/dem"),
+        import("@/lib/flood/grid"),
+        import("@/lib/fire/run"),
+      ]);
+      moteur = moteurFeu;
       const grid = await loadDemGrid(seed, z, 1);
       if (!grid) {
         set({ fireSimError: "dem", fireSimBusy: false });
@@ -161,19 +168,19 @@ export const createFireSlice: StateCreator<ArgosState, [], [], FireSlice> = (set
         ...avecPosition(st.hospitals).map((h): SpreadPoi => ({ id: `h:${h.nom}`, kind: "hospital", nom: h.nom, ll: h.ll })),
         ...avecPosition(st.units).map((u): SpreadPoi => ({ id: `u:${u.nom}`, kind: "unit", nom: u.nom, ll: u.ll })),
         ...st.shelters
-          .map((a) => ({ nom: a.nom, ll: shelterPosition(a, st.cities) }))
+          .map((a) => ({ nom: a.nom, ll: shelterLL(a, st.cities)?.ll ?? null }))
           .filter((a): a is { nom: string; ll: [number, number] } => a.ll !== null)
           .map((a): SpreadPoi => ({ id: `a:${a.nom}`, kind: "shelter", nom: a.nom, ll: a.ll })),
         ...st.cities.map((c): SpreadPoi => ({ id: `c:${c.v}`, kind: "city", nom: c.v, ll: c.ll })),
       ];
       const horizonS = params.horizonH * 3600;
-      run = new FireRun({ grid, cellMeters: cellSizeMeters(z, seed[1]), seedPx: p.px, seedPy: p.py, params, horizonS, frameEveryS: horizonS / FIRE_FRAMES, pois });
+      run = new moteur.FireRun({ grid, cellMeters: cellSizeMeters(z, seed[1]), seedPx: p.px, seedPy: p.py, params, horizonS, frameEveryS: horizonS / FIRE_FRAMES, pois });
       set({ fireSim: run, fireFrames: 1, fireDone: false, firePartial: inconnues, fireProgress: 0, firePlaying: true });
     } catch {
       set({ fireSimError: "dem", fireSimBusy: false });
       return;
     }
-    void driveFireRun(run, (r) => {
+    void moteur.driveFireRun(run, (r) => {
       if (get().fireSim === r) set({ fireFrames: r.frames.length, fireDone: r.done, firePartial: get().firePartial || r.truncated });
     }).finally(() => {
       if (get().fireSim === run) set({ fireSimBusy: false });

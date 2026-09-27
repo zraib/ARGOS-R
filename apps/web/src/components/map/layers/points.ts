@@ -88,8 +88,3 @@ export function applyPoints(map: maplibregl.Map | null, id: string, points: read
       : [],
   });
 }
-
-/** Vrai si l'entité porte une position exploitable. */
-export function hasLL<T extends { ll?: [number, number] | null }>(x: T): x is T & { ll: [number, number] } {
-  return Array.isArray(x.ll) && x.ll.length === 2 && Number.isFinite(x.ll[0]) && Number.isFinite(x.ll[1]);
-}

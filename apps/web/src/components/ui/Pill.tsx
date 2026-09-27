@@ -26,13 +26,3 @@ export function Pill({ tone, label, size = "md" }: { tone: Tone; label: string; 
     </span>
   );
 }
-
-/** Petite pastille + libellé, utilisée dans les légendes et tableaux de flux. */
-export function Dot({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 text-xs">
-      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
-      {label}
-    </span>
-  );
-}

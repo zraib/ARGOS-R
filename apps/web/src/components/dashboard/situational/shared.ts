@@ -111,26 +111,11 @@ export const NIV_KEY: Record<"faible" | "modere" | "eleve" | "critique", keyof M
   faible: "niv_faible", modere: "niv_modere", eleve: "niv_eleve", critique: "niv_critique",
 };
 
-export const NIV_TXT_CLS: Record<"faible" | "modere" | "eleve" | "critique", string> = {
-  faible: "bg-green-500/10 text-green-700 dark:text-green-400",
-  modere: "bg-rdia-500/10 text-rdia-700 dark:text-rdia-300",
-  eleve: "bg-or-500/10 text-or-700 dark:text-or-300",
-  critique: "bg-danger-500/10 text-danger-700 dark:text-danger-300",
-};
-
 export const IMPACT_FILL: Record<"haut" | "moyen" | "faible", string> = {
   haut: TOKEN.danger500, moyen: TOKEN.or500, faible: TOKEN.green500,
 };
 
-export const IMPACT_CLS: Record<"haut" | "moyen" | "faible", string> = {
-  haut: "bg-danger-500/12 text-danger-700 dark:text-danger-300",
-  moyen: "bg-or-500/12 text-or-700 dark:text-or-300",
-  faible: "bg-green-500/12 text-green-700 dark:text-green-400",
-};
-
 // ---------- Panel (Section encadrée PREMIUM Editorial Executive) ----------
-export type PanelId = "A" | "B" | "C" | "D" | "E" | "F" | "G";
-
 export type Props = { className?: string; bare?: boolean };
 
 // ---------- helpers ----------
@@ -150,12 +135,6 @@ export function fmtTimeHhMm(tsMs: number): string {
 
 // ---------- Anticipations ForeBars redesign · cartes 4 rows ----------------
 export type ToneFill = "rdia" | "or" | "danger" | "green" | "gray";
-
-// Le ton `rdia` peignait du GRIS : il porte désormais la couleur du token dont
-// il porte le nom, et l'état neutre a son propre ton.
-export const TONE_HEX: Record<ToneFill, string> = {
-  rdia: TOKEN.rdia600, or: TOKEN.or500, danger: TOKEN.danger500, green: TOKEN.green500, gray: TOKEN.gray500,
-};
 
 /**
  * Habillage d'un ton, EN CLASSES — la façon dont le reste de l'application

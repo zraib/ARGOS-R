@@ -150,9 +150,6 @@ export const NAV: NavEntry[] = [
   { kind: "item", key: "settings", href: HREF.settings, icon: NAV_ICONS.settings, roles: ["superadmin"] },
 ];
 
-/** Écrans encore rendus en « module en préparation » (aucun restant). */
-export const STUB_KEYS: NavKey[] = [];
-
 // ---------------------------------------------------------------------------
 // Modules : ce que l'administrateur BASCULE (ADR 0015).
 //

@@ -86,12 +86,6 @@ export function llToSvg(ll: [number, number]): { x: number; y: number } {
   return { x: Math.round(((ll[0] + 17) * 430) / 16), y: Math.round(40 + ((36 - ll[1]) * 650) / 15) };
 }
 
-export function svgLatLon(x: number, y: number): string {
-  const lat = 36 - ((y - 40) / 650) * 15;
-  const lon = -17 + (x / 430) * 16;
-  return `${lat.toFixed(3)}° N · ${Math.abs(lon).toFixed(3)}° W`;
-}
-
 /** Statut de service déterministe du personnel (comme `persStatut` du prototype). */
 export function persStatut(j: number): { label: string; type: BadgeType } {
   const table: [string, BadgeType][] = [

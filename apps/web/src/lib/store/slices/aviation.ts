@@ -54,11 +54,14 @@ export const createAviationSlice: StateCreator<ArgosState, [], [], AviationSlice
     // « le fournisseur nous a refusés ». Deux situations opposées pour un
     // état-major — on remonte donc l'indisponibilité au lieu de la taire.
     const sante = data.feedHealth;
-    set({
-      aircraft: data.aircraft ?? [],
+    const liste = data.aircraft ?? [];
+    set((s) => ({
+      // Aucun appareil, comme au relevé précédent : la liste garde son objet —
+      // la carte ne réécrit pas ses traces toutes les 6 s pour rien (ADR 0038).
+      aircraft: liste.length === 0 && s.aircraft.length === 0 ? s.aircraft : liste,
       aircraftFeed: data.feed ?? "",
       aircraftError: sante && !sante.available ? (sante.reason ?? "indisponible") : null,
-    });
+    }));
   },
   /** Inscrit un aéronef. Retourne `false` et publie le motif si l'API refuse. */
   addAircraft: async (input) => {

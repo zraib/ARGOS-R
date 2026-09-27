@@ -3,7 +3,7 @@
 // ============================================================================
 
 import type { Dict } from "@/lib/i18n/translations";
-import { CIVIL_CORPS, type UnitCorps } from "@/lib/types";
+import type { UnitCorps } from "@/lib/types";
 
 /** Libellé traduit d'un corps d'unité ou de personne (`civil` pour le personnel civil). */
 export function corpsLabel(corps: UnitCorps | "civil" | undefined, t: Dict): string {
@@ -28,10 +28,6 @@ export function corpsShort(corps: UnitCorps | undefined): string {
     case "fa": return "FA";
     default: return "FAR";
   }
-}
-
-export function isCivilCorps(corps: UnitCorps | undefined): boolean {
-  return corps !== undefined && CIVIL_CORPS.includes(corps);
 }
 
 /** Les corps en uniforme portent un grade ; le personnel civil, une fonction. */

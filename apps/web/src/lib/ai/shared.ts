@@ -24,18 +24,6 @@ export function levelOf(score: number): RiskLevel {
   return "faible";
 }
 
-// ---------------- Tendance ----------------
-// Même formule que predictIncidentEvolution et buildHorizons
-//  (prob amélioration − prob dégradation) ≥ 8% → amélioration
-export function trendOf(score: number, probaAmelioration?: number): Trend {
-  const pDeg = Math.max(0, (score - 30) / 110);
-  const pAm = probaAmelioration ?? Math.max(0, Math.min(1, (72 - score) / 80));
-  const diff = (pAm - pDeg) * 100;
-  if (diff >= 8) return "amelioration";
-  if (diff <= -8) return "aggravation";
-  return "stabilite";
-}
-
 // ---------------- Probabilité (sigmoïde centrée en 45, largeur 22) ----------------
 export function probabilityPctOf(score: number): number {
   return Math.round(50 + 50 * Math.tanh((score - 45) / 22));
@@ -49,15 +37,6 @@ export function horizonMinutes(score: number): number {
   if (score >= 30) return 360;
   // <30 : long (formule existante)
   return Math.max(120, Math.round(720 - score * 6));
-}
-
-export function formatHorizon(mins: number): string {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  if (h === 0) return `${m}min`;
-  if (m === 0) return `${h}h`;
-  const mStr = m < 10 ? `0${m}` : `${m}`;
-  return `${h}h${mStr}`;
 }
 
 // ---------------- Durée safe parse (J-n / HH:MM / ISO / nullish) ----------------
@@ -137,23 +116,6 @@ export function sumCasualties(
 
 // ---------------- Saturation hôpital (MAX occ/lits < 60km) ----------------
 export type HospitalLite = { ville?: string | null; lits: number; occ: number; ll?: [number, number] | null };
-export function maxHospitalSat(hospitals: HospitalLite[], incidentLL: [number, number] | null | undefined, radiusKm = 60) {
-  if (!hospitals?.length) return { occPct: 0, count: 0, worst: null as HospitalLite | null };
-  let count = 0;
-  let worst: HospitalLite | null = null;
-  let worstPct = -1;
-  for (const h of hospitals) {
-    if (!h.lits) continue;
-    // Si on a coords incident -> rayon < radiusKm
-    const include = !incidentLL || !h.ll || haversineKm(incidentLL, h.ll) <= radiusKm;
-    if (!include) continue;
-    count++;
-    const p = Math.max(0, Math.min(1, h.occ / Math.max(1, h.lits)));
-    const pct = Math.round(p * 100);
-    if (pct > worstPct) { worstPct = pct; worst = h; }
-  }
-  return { occPct: Math.max(0, worstPct), count, worst };
-}
 
 // ---------------- Distance haversine km ----------------
 export function haversineKm(a: [number, number], b: [number, number] | null | undefined): number {
@@ -176,25 +138,11 @@ export function classifyDelta(delta: number): DeltaDirection {
   return "stable";
 }
 
-export function deltaLabel(d: DeltaDirection): { icon: string; word: string; color: string } {
-  switch (d) {
-    case "empire": return { icon: "⬆", word: "empiré", color: "text-danger-600 dark:text-danger-400" };
-    case "ameliore": return { icon: "⬇", word: "amélioré", color: "text-green-700 dark:text-green-400" };
-    default: return { icon: "±", word: "stable", color: "text-gray-600 dark:text-rdia-300" };
-  }
-}
-
 // ---------------- Palette Impact (facteurs) ----------------
 export const IMPACT_FILL: Record<Impact, string> = {
   haut: "bg-danger-400",
   moyen: "bg-or-400",
   faible: "bg-rdia-400",
-};
-
-export const IMPACT_TEXT: Record<Impact, string> = {
-  haut: "bg-danger-500/[0.07] text-danger-700 dark:text-danger-400",
-  moyen: "bg-or-500/[0.07] text-or-700 dark:text-or-400",
-  faible: "bg-rdia-500/[0.08] text-rdia-600 dark:text-rdia-300",
 };
 
 // ---------------- Level Metadata (UI style) ----------------
@@ -248,11 +196,4 @@ export const NIV_COLORS: Record<RiskLevel, string> = {
   eleve: "bg-or-400",
   modere: "bg-rdia-400",
   faible: "bg-green-400",
-};
-
-export const NIV_TXT: Record<RiskLevel, string> = {
-  critique: "CRITIQUE",
-  eleve: "ÉLEVÉ",
-  modere: "MODÉRÉ",
-  faible: "FAIBLE",
 };

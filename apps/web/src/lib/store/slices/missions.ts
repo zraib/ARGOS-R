@@ -61,6 +61,13 @@ export interface MissionsSlice {
   ) => Promise<boolean>;
 }
 
+/**
+ * Les corbeilles sont relues toutes les 15 s : mêmes ETag qu'à la dernière
+ * lecture et listes toujours en place → rien n'a changé, on ne touche pas au
+ * magasin et aucun écran ne se redessine (ADR 0038).
+ */
+let derniereLectureMissions: { sig: string; temoin: unknown } | null = null;
+
 export const createMissionsSlice: StateCreator<ArgosState, [], [], MissionsSlice> = (set, get) => ({
   missionInbox: [],
   missionOutbox: [],
@@ -85,9 +92,14 @@ export const createMissionsSlice: StateCreator<ArgosState, [], [], MissionsSlice
       const d = r.value.data as { missions?: Mission[] } | undefined;
       return d?.missions ?? [];
     };
+    const etags = [inbox, outbox, open].map((r) => (r.status === "fulfilled" ? (r.value as { response?: Response }).response?.headers.get("etag") ?? null : null));
+    const sig = etags.every(Boolean) ? etags.join("|") : null;
+    if (sig && derniereLectureMissions?.sig === sig && derniereLectureMissions.temoin === get().missionInbox) return;
     const ouvertes = pick(open);
+    const missionInbox = pick(inbox);
+    derniereLectureMissions = sig ? { sig, temoin: missionInbox } : null;
     set({
-      missionInbox: pick(inbox),
+      missionInbox,
       missionOutbox: pick(outbox),
       resourceRequests: ouvertes.filter((m) => m.kind === "resource_request"),
       // Les ENGAGEMENTS du répartiteur sont les ordres ouverts adressés à une
@@ -115,7 +127,8 @@ export const createMissionsSlice: StateCreator<ArgosState, [], [], MissionsSlice
     }
     if (missing.status === "fulfilled") {
       const d = missing.value.data as { missing?: never[]; cadenceMin?: number } | undefined;
-      if (d?.missing) patch.sitrepMissing = d.missing;
+      // Une liste identique garde son objet : relue toutes les 15 s, elle ne redessine rien.
+      if (d?.missing && JSON.stringify(d.missing) !== JSON.stringify(get().sitrepMissing)) patch.sitrepMissing = d.missing;
       if (d?.cadenceMin) patch.sitrepCadenceMin = d.cadenceMin;
     }
     set(patch);

@@ -28,17 +28,6 @@ export type CriticalFactor = {
   linkedHospitalIds?: string[];
 };
 
-export type ResourceCapacity = {
-  personnel: number;
-  ambulances: number;
-  helicos: number;
-  vehicules: number;
-  litsDispos: number;
-  litsOccupesPct: number; // 0..1
-  reaDispos: number;
-  reaOccupesPct: number; // 0..1
-};
-
 export type NextRisk = {
   horizon: "2h" | "6h" | "24h";
   type: string; // "Saturation hospitalière / Inondation / Aggravation séisme..."

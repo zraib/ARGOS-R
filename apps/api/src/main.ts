@@ -44,6 +44,9 @@ async function bootstrap() {
       return cb(null, false);
     },
     credentials: true,
+    // L'ETag lisible par le client même hors de la même origine (ADR 0038) : une
+    // collection dont l'empreinte n'a pas changé n'est pas remplacée dans l'écran.
+    exposedHeaders: ["ETag"],
   });
 
   // OpenAPI (contract-first) : documentation interactive + JSON pour générer le

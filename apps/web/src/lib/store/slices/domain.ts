@@ -24,7 +24,6 @@ import type {
   IncidentPost,
   IncidentTypeDef,
   Mission,
-  Notice,
   PlaceableKind,
   PlaceableResource,
   PlacedResource,
@@ -202,6 +201,30 @@ function fusionnerMessages(
   return sortie;
 }
 
+/**
+ * Dernière lecture de chaque collection du domaine : son ETag et l'objet mis
+ * dans le magasin (le « témoin »). Même ETag et témoin toujours en place : la
+ * collection n'a pas changé — on garde l'objet, et aucun écran abonné ne se
+ * redessine (ADR 0038). Un rechargement temps réel ne remplace ainsi que ce qui
+ * a vraiment bougé ; avant, chaque événement renouvelait les vingt collections
+ * et redessinait toute l'application. Le témoin protège d'une collection vidée
+ * entre-temps (déconnexion) : elle est alors rechargée quoi que dise l'ETag.
+ */
+type Lecture = PromiseSettledResult<{ data?: unknown; response?: Response }>;
+const dernieresLectures = new Map<string, { etag: string; temoin: unknown }>();
+const etagDe = (r: Lecture): string | null => (r.status === "fulfilled" ? r.value.response?.headers.get("etag") ?? null : null);
+/** La lecture `cle` rapporte-t-elle la même chose que celle qui a produit `temoin` ? */
+function memeLecture(r: Lecture, cle: string, temoin: unknown): boolean {
+  const etag = etagDe(r);
+  const avant = dernieresLectures.get(cle);
+  return !!etag && !!avant && avant.etag === etag && avant.temoin === temoin;
+}
+function noterLecture(r: Lecture, cle: string, temoin: unknown): void {
+  const etag = etagDe(r);
+  if (etag) dernieresLectures.set(cle, { etag, temoin });
+  else dernieresLectures.delete(cle);
+}
+
 export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = (set, get) => ({
   incidents: [],
   mapIncidents: [],
@@ -273,34 +296,51 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
         : undefined;
     const comms = data<{ categories: CommCategory[]; messages: Record<string, CommMessage[]>; members: CommMembers }>(8);
     const reference = data<{ provinces: Province[]; cities: City[]; vehRoutes: VehRoute[]; dataProfile?: "demo" | "empty" }>(9);
-    set((s) => ({
-      incidents: data<Incident[]>(0) ?? s.incidents,
-      units: data<Unit[]>(1) ?? s.units,
-      hospitals: data<Hospital[]>(2) ?? s.hospitals,
-      fieldHosps: data<FieldHospital[]>(3) ?? s.fieldHosps,
-      feed: data<FeedItem[]>(4) ?? s.feed,
-      queue: data<QueueItem[]>(5) ?? s.queue,
-      movements: data<TransportMovement[]>(6) ?? s.movements,
-      catalog: data<Catalog>(7) ?? s.catalog,
-      incidentTypes: data<IncidentTypeDef[]>(10) ?? s.incidentTypes,
-      dashStats: data<DashStats>(11) ?? s.dashStats,
-      subCatalog: data<SubIncidentCatalog>(12) ?? s.subCatalog,
-      responsables: data<Responsible[]>(13) ?? s.responsables,
-      rtNotices: data<Notice[]>(14) ?? s.rtNotices,
-      posts: data<IncidentPost[]>(15) ?? s.posts,
-      shelters: data<Shelter[]>(16) ?? s.shelters,
-      morgues: data<MorgueSite[]>(17) ?? s.morgues,
-      placed: data<PlacedResource[]>(18) ?? s.placed,
-      mapIncidents: data<Incident[]>(19) ?? s.mapIncidents,
-      comCats: comms?.categories ?? s.comCats,
-      comMsgs: comms?.messages ? fusionnerMessages(s.comMsgs, marquerMiens(comms.messages, s.sessionUser?.matricule)) : s.comMsgs,
-      comMembers: comms?.members ?? s.comMembers,
-      provinces: reference?.provinces ?? s.provinces,
-      cities: reference?.cities ?? s.cities,
-      vehRoutes: reference?.vehRoutes ?? s.vehRoutes,
-      dataProfile: reference?.dataProfile ?? s.dataProfile,
-      domainLoaded: true,
-    }));
+    set((s) => {
+      // Une collection lue : gardée telle quelle si rien n'a changé, sinon remplacée.
+      const lire = <T,>(i: number, cle: string, actuel: T): T => {
+        const r = results[i] as Lecture;
+        const neuf = data<T>(i);
+        if (neuf === undefined || memeLecture(r, cle, actuel)) return actuel;
+        noterLecture(r, cle, neuf);
+        return neuf;
+      };
+      // Les conversations et le référentiel remplissent plusieurs champs : un témoin chacun.
+      const commsInchangees = memeLecture(results[8] as Lecture, "comms", s.comCats);
+      const refInchangee = memeLecture(results[9] as Lecture, "reference", s.cities);
+      const comCats = commsInchangees ? s.comCats : comms?.categories ?? s.comCats;
+      const cities = refInchangee ? s.cities : reference?.cities ?? s.cities;
+      if (!commsInchangees && comms) noterLecture(results[8] as Lecture, "comms", comCats);
+      if (!refInchangee && reference) noterLecture(results[9] as Lecture, "reference", cities);
+      return {
+        incidents: lire(0, "incidents", s.incidents),
+        units: lire(1, "units", s.units),
+        hospitals: lire(2, "hospitals", s.hospitals),
+        fieldHosps: lire(3, "fieldHosps", s.fieldHosps),
+        feed: lire(4, "feed", s.feed),
+        queue: lire(5, "queue", s.queue),
+        movements: lire(6, "movements", s.movements),
+        catalog: lire(7, "catalog", s.catalog),
+        incidentTypes: lire(10, "incidentTypes", s.incidentTypes),
+        dashStats: lire(11, "dashStats", s.dashStats),
+        subCatalog: lire(12, "subCatalog", s.subCatalog),
+        responsables: lire(13, "responsables", s.responsables),
+        rtNotices: lire(14, "rtNotices", s.rtNotices),
+        posts: lire(15, "posts", s.posts),
+        shelters: lire(16, "shelters", s.shelters),
+        morgues: lire(17, "morgues", s.morgues),
+        placed: lire(18, "placed", s.placed),
+        mapIncidents: lire(19, "mapIncidents", s.mapIncidents),
+        comCats,
+        comMsgs: commsInchangees || !comms?.messages ? s.comMsgs : fusionnerMessages(s.comMsgs, marquerMiens(comms.messages, s.sessionUser?.matricule)),
+        comMembers: commsInchangees ? s.comMembers : comms?.members ?? s.comMembers,
+        provinces: refInchangee ? s.provinces : reference?.provinces ?? s.provinces,
+        cities,
+        vehRoutes: refInchangee ? s.vehRoutes : reference?.vehRoutes ?? s.vehRoutes,
+        dataProfile: refInchangee ? s.dataProfile : reference?.dataProfile ?? s.dataProfile,
+        domainLoaded: true,
+      };
+    });
     // Re-calcul IA prédictions risques (100% données ARGOS réel chargées · IA Ollama
     // en local si dispo, sinon repli AUTOMATIQUE sur le moteur déterministe).
     if (opts?.ai !== false) {
@@ -583,11 +623,15 @@ export const createDomainSlice: StateCreator<ArgosState, [], [], DomainSlice> = 
         const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
         feed = [{ time, c: item.c, txt: item.txt }, ...s.feed].slice(0, 8);
       }
-      // Fait progresser les mouvements de transport vers leur destination.
-      const movements = s.movements.map((mv) =>
-        mv.progress >= 100 ? mv : { ...mv, progress: Math.min(100, mv.progress + 1), etaMin: Math.max(0, mv.etaMin - 1) },
-      );
-      return { tick: s.tick + 1, feed, movements };
+      // Fait progresser les mouvements de transport vers leur destination. Tous
+      // arrivés, la liste garde son objet : rien à redessiner toutes les 2,5 s.
+      let bouge = false;
+      const movements = s.movements.map((mv) => {
+        if (mv.progress >= 100) return mv;
+        bouge = true;
+        return { ...mv, progress: Math.min(100, mv.progress + 1), etaMin: Math.max(0, mv.etaMin - 1) };
+      });
+      return { tick: s.tick + 1, feed, movements: bouge ? movements : s.movements };
     }),
 });
 

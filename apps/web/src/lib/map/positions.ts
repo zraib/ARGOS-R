@@ -20,7 +20,6 @@ import type { LayerState } from "@/lib/store/shared";
 import type { City, FieldHospital, Hospital, Incident, IncidentPost, MarkerKind, MorgueSite, PlacedResource, Unit } from "@/lib/types";
 import type { Tracker } from "@/lib/tracking/tracker";
 import { hospKind, kindDef } from "@/lib/hospitals";
-import { fieldLL } from "@/lib/map/markers";
 
 type LL = [number, number];
 
@@ -36,6 +35,24 @@ export interface PositionSource {
   trackers: readonly Tracker[];
   posts: readonly IncidentPost[];
   placed: readonly PlacedResource[];
+}
+
+/**
+ * Détachements de démonstration d'avant le déploiement par l'API (ADR 0030),
+ * qui ne portaient pas de position : leur commune. Ce module n'importe rien de
+ * l'affichage des marqueurs — le magasin le lit, et il part avec chaque page.
+ */
+const FIELD_LL_FALLBACK: Record<string, LL> = {
+  "HMC Amizmiz": [-8.25, 31.22],
+  "HMC Talat N'Yaaqoub": [-8.26, 30.98],
+  "HMC Taroudant": [-8.88, 30.47],
+  "HCC Asni": [-7.98, 31.25],
+  "HCC Ouirgane": [-8.09, 31.17],
+};
+
+/** Position d'un hôpital de campagne : la sienne, sinon celle de sa commune de démonstration. */
+export function fieldLL(f: Pick<FieldHospital, "ll" | "nom">): LL {
+  return f.ll ?? FIELD_LL_FALLBACK[f.nom] ?? [-8.3, 31.1];
 }
 
 /** Des coordonnées [lng, lat] utilisables. */

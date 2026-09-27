@@ -321,15 +321,3 @@ export function vehPos(route: [number, number][], p: number): [number, number] {
   const r = f - i;
   return [route[i][0] + (route[i + 1][0] - route[i][0]) * r, route[i][1] + (route[i + 1][1] - route[i][1]) * r];
 }
-
-const FIELD_LL_FALLBACK: Record<string, [number, number]> = {
-  "HMC Amizmiz": [-8.25, 31.22],
-  "HMC Talat N'Yaaqoub": [-8.26, 30.98],
-  "HMC Taroudant": [-8.88, 30.47],
-  "HCC Asni": [-7.98, 31.25],
-  "HCC Ouirgane": [-8.09, 31.17],
-};
-
-export function fieldLL(f: FieldHospital): [number, number] {
-  return f.ll ?? FIELD_LL_FALLBACK[f.nom] ?? [-8.3, 31.1];
-}

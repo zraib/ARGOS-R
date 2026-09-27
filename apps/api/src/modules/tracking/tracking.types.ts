@@ -117,11 +117,3 @@ export interface SharedPosition {
   headingDeg?: number;
   altitudeM?: number;
 }
-
-/** Compte rendu d'une session TCP, pour le journal et l'écran d'état. */
-export interface TrackerIngest {
-  imei: string;
-  accepted: number;
-  rejected: number;
-  reason?: string;
-}

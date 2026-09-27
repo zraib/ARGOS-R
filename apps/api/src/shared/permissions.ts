@@ -96,54 +96,6 @@ export const LEGACY_FEATURES = [
 export const FEATURES = [...MATRIX_FEATURES, ...LEGACY_FEATURES] as const;
 export type Feature = (typeof FEATURES)[number];
 
-/** Libellés français des fonctionnalités (interface d'administration). */
-export const FEATURE_LABELS: Record<Feature, string> = {
-  dashboard: "Tableau de bord général",
-  dash_incident: "Tableau de bord Incident",
-  dash_hospital: "Tableau de bord Hôpital",
-  dash_shelter: "Tableau de bord Abri",
-  dash_morgue: "Tableau de bord Morgue",
-  dash_unit: "Tableau de bord Unité",
-  map: "Carte",
-  incidents: "Incident",
-  subincidents: "Sous-incidents",
-  victims: "Bilan des victimes",
-  actions_log: "Actions entreprises",
-  hospinet: "Hospinet",
-  shelters: "Abri",
-  morgue: "Morgue",
-  units: "Unité",
-  equipment: "Gestion Équipement",
-  teams: "Unités / Équipes",
-  comms: "Centre de communication",
-  reports: "Rapports d'incidents",
-  analytics: "Analytique",
-  assistant: "Assistant IA",
-  users: "Gestion des utilisateurs",
-  settings: "Paramètres",
-  assign: "Affectation des unités",
-  deploy: "Déploiement terrain",
-  resources: "Ressources (personnes, équipes, véhicules, logistique)",
-  weather: "Météo",
-  plume: "Simulation NRBC (panache)",
-  dispatch: "Répartiteur",
-  triage: "Triage de masse",
-  ics: "Formulaires ICS",
-  damage: "Évaluation des dommages",
-  orsec: "Tableau ORSEC",
-  plans: "Plans",
-  personnel: "Personnel",
-  workorders: "Bons de travail",
-  seismic: "Sismologie & météo",
-  audit: "Journal d'audit",
-  aviation: "Suivi aérien",
-  nrbc: "NRBC",
-  missions: "Missions (boucles opérationnelles)",
-  tracking: "Traceurs GPS (FMC920)",
-  comms_admin: "Administration des canaux",
-  map_edit: "Édition de la carte (postes d'opération)",
-};
-
 export type Permission = `${Feature}:${Action}`;
 
 export function isFeatureKey(v: unknown): v is Feature {
@@ -719,7 +671,6 @@ export function isModuleKey(v: unknown): v is ModuleKey {
 
 /** Ce que la matrice rôle → modules bascule : les modules. (Nom historique conservé.) */
 export const MODULE_FEATURES = MODULE_KEYS;
-export type ModuleFeature = ModuleKey;
 
 /** Rôles rattachés à une entité (miroir local de `ROLE_RESPONSIBILITY`, qui importe ce fichier). */
 const RESPONSIBLE_ROLES: readonly Role[] = ROLES.filter((r) => ROLE_TRAITS[r].responsibility !== undefined);

@@ -243,6 +243,13 @@ export function MapCanvas() {
       zoom: MAP_ZOOM,
       pitch: 0,
       attributionControl: { compact: true },
+      // Fondu des étiquettes court (300 ms par défaut) : toute image dessinée moins
+      // de 300 ms après le dernier placement des étiquettes en relançait une
+      // autre, puis une autre… La pulsation sismique (une image toutes les 66 ms)
+      // tenait ainsi la carte en rendu CONTINU — 56 images/s mesurées au lieu de
+      // 15 (ADR 0038). À 50 ms, la carte ne dessine qu'au rythme de la pulsation ;
+      // les étiquettes apparaissent sans fondu perceptible.
+      fadeDuration: 50,
     });
     mapRef.current = map;
     const wx = wxRt.current;
@@ -460,7 +467,13 @@ export function MapCanvas() {
         lastPulse = now;
         const m = mapRef.current;
         if (m) {
-          pulseQuakes(m, now);
+          // Seulement s'il y a un séisme à faire battre (ADR 0038) : chaque pas
+          // change la peinture de la carte, qui se redessine alors EN ENTIER.
+          // Couche masquée ou vide — le cas d'une station hors ligne sans flux
+          // sismique —, la carte se redessinait 15 fois par seconde pour rien,
+          // en continu, sur chaque poste qui l'affichait.
+          const sq = useArgos.getState();
+          if (sq.quakesOn && sq.quakes.length > 0) pulseQuakes(m, now);
           syncCityVisibility(wx, m);
         }
       }
@@ -587,7 +600,8 @@ export function MapCanvas() {
       const w = window as unknown as { __map?: maplibregl.Map };
       if (w.__map === map) delete w.__map;
       mapRef.current = null;
-      markersRt.current.markers = [];
+      // Les marqueurs sont partis avec la carte : le registre repart à vide.
+      markersRt.current.poses.clear();
       markersRt.current.veh = [];
       clearDrawingLabels(drawRt.current);
     };

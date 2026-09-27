@@ -14,7 +14,7 @@
 
 import type { Role } from "@/shared/permissions";
 import { ROLE_TRAITS } from "@/shared/profiles";
-import { CIVIL_CORPS, type Destination, type UnitCorps } from "@/modules/domain/domain.types";
+import type { Destination, UnitCorps } from "@/modules/domain/domain.types";
 
 /**
  * Corps qu'un rôle peut affecter ; `"*"` : tous (chef de l'OPCOM, administration).
@@ -55,7 +55,3 @@ export const CORPS_LABELS: Record<UnitCorps, string> = {
   dgpc: "Protection Civile",
   fa: "Forces Auxiliaires",
 };
-
-export function isCivilCorps(corps: UnitCorps): boolean {
-  return CIVIL_CORPS.includes(corps);
-}

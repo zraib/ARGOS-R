@@ -8,7 +8,7 @@
 // sans qu'une bibliothèque n'importe plus un composant.
 // ============================================================================
 
-import type { DescPair, DescriptionProposalInput } from "./types";
+import type { DescriptionProposalInput } from "./types";
 
 export function labelOf(
   input: Pick<DescriptionProposalInput, "type" | "lang" | "incidentTypes">,
@@ -158,10 +158,6 @@ export function inject(s: string, label: string, lieu: string): string {
     .replaceAll("{lieuDet}", lieuDet)
     .replaceAll("{labelCamel}", labelCamel)
     .replaceAll("{label}", label);
-}
-
-export function buildDesc(p: DescPair, label: string, lieu: string): string {
-  return `${inject(p.l1, label, lieu)}\n${inject(p.l2, label, lieu)}`;
 }
 
 export function rngSeed(seed: number, N: number): number {
