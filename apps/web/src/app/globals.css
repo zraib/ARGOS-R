@@ -380,6 +380,78 @@ body:has(.nav-drawer.est-ouvert) {
 }
 
 /* --------------------------------------------------------------------------
+   Barre d'outils de la carte : le nom de l'outil en bulle, au survol et au
+   focus clavier. La bulle jaillit du bouton (même rebond que l'ouverture d'un
+   panneau, en plus vif) et disparaît aussitôt qu'on le quitte. Aucune bulle
+   pour l'outil ouvert : son panneau porte déjà son nom.
+   -------------------------------------------------------------------------- */
+@keyframes bulle-nom {
+  0% { opacity: 0; transform: translateX(-6px) scale(0.8); }
+  70% { opacity: 1; transform: translateX(0) scale(1.05); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes bulle-nom-rtl {
+  0% { opacity: 0; transform: translateX(6px) scale(0.8); }
+  70% { opacity: 1; transform: translateX(0) scale(1.05); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+.barre-bulle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  inset-inline-start: calc(100% + 10px);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+.barre-bulle > span {
+  position: relative;
+  white-space: nowrap;
+  padding: 5px 10px;
+  border-radius: 8px;
+  /* Le ton des surcouches de la carte (OVERLAY_STYLE), opaque : la pointe ne
+     double pas la teinte là où elle chevauche la bulle. */
+  background: rgb(11 15 20);
+  border: 1px solid rgb(255 255 255 / 0.14);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.35);
+  opacity: 0;
+  transform-origin: left center;
+}
+/* La pointe, tournée vers le bouton. */
+.barre-bulle > span::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  inset-inline-start: -4px;
+  width: 8px;
+  height: 8px;
+  background: rgb(11 15 20);
+  transform: translateY(-50%) rotate(45deg);
+}
+.group:hover > .barre-bulle > span,
+.group:focus-visible > .barre-bulle > span {
+  animation: bulle-nom 0.16s cubic-bezier(0.3, 1.4, 0.6, 1) both;
+}
+[dir="rtl"] .barre-bulle > span { transform-origin: right center; }
+[dir="rtl"] .group:hover > .barre-bulle > span,
+[dir="rtl"] .group:focus-visible > .barre-bulle > span {
+  animation-name: bulle-nom-rtl;
+}
+.group[aria-expanded="true"] > .barre-bulle { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .group:hover > .barre-bulle > span,
+  .group:focus-visible > .barre-bulle > span {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* --------------------------------------------------------------------------
    Conversations flottantes (têtes et fenêtres, façon messagerie instantanée)
    Transform + opacité seulement : les têtes se déroulent depuis le bouton
    (vers le bord de départ ; inversé en RTL), les fenêtres montent depuis la
