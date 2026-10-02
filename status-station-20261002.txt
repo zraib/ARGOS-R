@@ -1,0 +1,11 @@
+tag=station-20261002
+status=success
+commit=7c15856b077001009a6689e365702b8cee37a3e3
+run=https://github.com/zraib/ARGOS-R/actions/runs/36990800353
+etapes=disque=success paquet=success publier=success
+zip=iris-station-20261002-7c15856.zip
+size=1954630113
+sha256=24acac239ccb6b29d6e899672d6e62ae99c6e45bfdca97bc40b70cc605c9efc3
+release=https://github.com/zraib/ARGOS-R/releases/tag/station-20261002
+download=https://github.com/zraib/ARGOS-R/releases/download/station-20261002/iris-station-20261002-7c15856.zip.sha256
+download=https://github.com/zraib/ARGOS-R/releases/download/station-20261002/iris-station-20261002-7c15856.zip
